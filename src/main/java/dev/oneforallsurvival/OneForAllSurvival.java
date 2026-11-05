@@ -1,0 +1,24 @@
+package dev.oneforallsurvival;
+
+import com.mojang.logging.LogUtils;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import org.slf4j.Logger;
+
+@Mod(OneForAllSurvival.MODID)
+public final class OneForAllSurvival {
+    public static final String MODID = "oneforallsurvival";
+
+    private static final Logger LOGGER = LogUtils.getLogger();
+
+    public OneForAllSurvival(FMLJavaModLoadingContext context) {
+        IEventBus modEventBus = context.getModEventBus();
+        modEventBus.addListener(this::commonSetup);
+    }
+
+    private void commonSetup(FMLCommonSetupEvent event) {
+        LOGGER.info("One For All Survival loaded");
+    }
+}
