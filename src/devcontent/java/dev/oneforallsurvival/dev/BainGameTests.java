@@ -243,6 +243,22 @@ public final class BainGameTests {
         });
     }
 
+    /** Un bain cassé puis reposé au même endroit n'est plus le bain du menu ouvert : le menu se ferme. */
+    @GameTest(template = "test/plancher", batch = "bain")
+    public static void unMenuOuvertSurUnBainRemplaceNEstPlusValide(GameTestHelper helper) {
+        GalvanicBathBlockEntity be = poser(helper);
+        Player joueur = helper.makeMockPlayer();
+        var pres = helper.absoluteVec(net.minecraft.world.phys.Vec3.atCenterOf(POS.south(2)));
+        joueur.moveTo(pres.x, pres.y, pres.z);
+        GalvanicBathMenu menu = new GalvanicBathMenu(1, joueur.getInventory(), be, helper.absolutePos(POS));
+        helper.assertTrue(menu.stillValid(joueur), "le menu devait être valide devant le bain en place");
+        helper.getLevel().destroyBlock(helper.absolutePos(POS), false);
+        helper.setBlock(POS, RepairRegistry.GALVANIC_BATH.get());
+        helper.assertTrue(helper.getBlockEntity(POS) != be, "le bain reposé devait être une autre instance");
+        helper.assertTrue(!menu.stillValid(joueur), "le menu ouvert sur l'ancien bain devait cesser d'être valide");
+        helper.succeed();
+    }
+
     /** Le clic majuscule marque le bain modifié, et ce qu'il a déplacé survit à une sauvegarde. */
     @GameTest(template = "test/plancher", batch = "bain")
     public static void leClicMajusculeSeSauvegarde(GameTestHelper helper) {

@@ -1,5 +1,6 @@
 package dev.oneforallsurvival.repair;
 
+import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.entity.player.Inventory;
@@ -28,21 +29,25 @@ public final class GalvanicBathMenu extends AbstractContainerMenu {
     private final BlockPos pos;
     private final IItemHandler bath;
     private final ContainerData data;
+    /** Le vrai bain côté serveur, {@code null} côté client : sert à voir si le bain a été retiré du monde. */
+    @Nullable
+    private final GalvanicBathBlockEntity entity;
 
     /** Côté serveur : les cases et les nombres du vrai bain. */
     public GalvanicBathMenu(int containerId, Inventory inventory, GalvanicBathBlockEntity be, BlockPos pos) {
-        this(containerId, inventory, be.inventory(), be.data(), pos, be::setChanged);
+        this(containerId, inventory, be.inventory(), be.data(), pos, be::setChanged, be);
     }
 
     /** Côté client : des cases vides que le serveur remplit, et des nombres qu'il tient à jour. */
     public static GalvanicBathMenu fromNetwork(int containerId, Inventory inventory, FriendlyByteBuf buf) {
         return new GalvanicBathMenu(containerId, inventory, new ItemStackHandler(BATH_SLOTS),
-                new SimpleContainerData(GalvanicBathBlockEntity.DATA_COUNT), buf.readBlockPos(), () -> {});
+                new SimpleContainerData(GalvanicBathBlockEntity.DATA_COUNT), buf.readBlockPos(), () -> {}, null);
     }
 
     private GalvanicBathMenu(int containerId, Inventory inventory, IItemHandler bath, ContainerData data, BlockPos pos,
-            Runnable onChanged) {
+            Runnable onChanged, @Nullable GalvanicBathBlockEntity entity) {
         super(RepairRegistry.GALVANIC_BATH_MENU.get(), containerId);
+        this.entity = entity;
         this.pos = pos.immutable();
         this.bath = bath;
         this.data = data;
@@ -148,6 +153,10 @@ public final class GalvanicBathMenu extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
+        // Un bain cassé puis reposé au même endroit passe le contrôle du bloc : seul l'instance trahit le remplacement.
+        if (entity != null && entity.isRemoved()) {
+            return false;
+        }
         return player.level().getBlockState(pos).is(RepairRegistry.GALVANIC_BATH.get())
                 && player.distanceToSqr(Vec3.atCenterOf(pos)) <= MAX_DISTANCE_SQR;
     }
