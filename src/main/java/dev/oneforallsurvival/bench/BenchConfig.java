@@ -24,6 +24,9 @@ public final class BenchConfig {
     private static final ForgeConfigSpec.IntValue BASE_SECONDS;
     private static final ForgeConfigSpec.IntValue SECONDS_PER_INGREDIENT;
     private static final ForgeConfigSpec.IntValue MAX_SECONDS;
+    private static final ForgeConfigSpec.DoubleValue MANUAL_SPEED;
+    private static final ForgeConfigSpec.DoubleValue POWERED_SPEED;
+    private static final ForgeConfigSpec.IntValue MAX_QUEUE;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -45,6 +48,15 @@ public final class BenchConfig {
         MAX_SECONDS = builder
                 .comment("Plafond de la durée calculée, en secondes. Une surcharge de données peut le dépasser.")
                 .defineInRange("maxSeconds", 600, 1, 86400);
+        MANUAL_SPEED = builder
+                .comment("Vitesse de fabrication d'un établi actionné à la main (1.0 = temps normal).")
+                .defineInRange("manualSpeed", 1.0, 0.01, 100.0);
+        POWERED_SPEED = builder
+                .comment("Vitesse de fabrication d'un établi alimenté en électricité.")
+                .defineInRange("poweredSpeed", 4.0, 0.01, 100.0);
+        MAX_QUEUE = builder
+                .comment("Nombre maximal de fabrications dans la file d'un joueur.")
+                .defineInRange("maxQueue", 64, 1, 10000);
         SPEC = builder.build();
     }
 
@@ -67,6 +79,30 @@ public final class BenchConfig {
             return new BenchTimes.Params(BASE_SECONDS.get(), SECONDS_PER_INGREDIENT.get(), MAX_SECONDS.get());
         } catch (IllegalStateException e) {
             return new BenchTimes.Params(4, 1, 600);
+        }
+    }
+
+    public static double manualSpeed() {
+        try {
+            return MANUAL_SPEED.get();
+        } catch (IllegalStateException e) {
+            return 1.0;
+        }
+    }
+
+    public static double poweredSpeed() {
+        try {
+            return POWERED_SPEED.get();
+        } catch (IllegalStateException e) {
+            return 4.0;
+        }
+    }
+
+    public static int maxQueue() {
+        try {
+            return MAX_QUEUE.get();
+        } catch (IllegalStateException e) {
+            return 64;
         }
     }
 
