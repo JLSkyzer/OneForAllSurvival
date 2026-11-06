@@ -119,6 +119,26 @@ public abstract class ElectricMachineBlockEntity extends BlockEntity {
         return isProtected;
     }
 
+    /** Sortie d'usine : état plein, aucune panne, non traitée. Seule une telle machine laisse un objet nu. */
+    public boolean isFactoryFresh() {
+        return condition >= MachineWear.FULL && fault == null && !isProtected;
+    }
+
+    /**
+     * L'usure que l'objet lâché emporte, au format de {@link #saveAdditional} : état, panne, prochaine
+     * panne, protection. Ni l'énergie ni le reste, qui repartent à zéro à la pose.
+     */
+    public CompoundTag wearTag() {
+        CompoundTag tag = new CompoundTag();
+        tag.putDouble(TAG_CONDITION, condition);
+        if (fault != null) {
+            tag.putString(TAG_FAULT_TYPE, fault.name());
+        }
+        tag.putString(TAG_NEXT_FAULT, nextFault.name());
+        tag.putBoolean(TAG_PROTECTED, isProtected);
+        return tag;
+    }
+
     /** Part du travail réellement fournie à cet état (1.0 au plein rendement). */
     public double efficiency() {
         return MachineWear.efficiency(condition, MachineConfig.reducedEfficiency());
