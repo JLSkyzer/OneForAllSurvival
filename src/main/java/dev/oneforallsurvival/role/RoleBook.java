@@ -1,18 +1,19 @@
 package dev.oneforallsurvival.role;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
+import com.mojang.logging.LogUtils;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
+import org.slf4j.Logger;
 
 /** Registre des rôles et des attributions joueur → rôle. Logique pure, sans dépendance au monde. */
 public final class RoleBook {
@@ -20,6 +21,9 @@ public final class RoleBook {
     public static final String DEFAULT_ROLE_ID = "citoyen";
     public static final String ENGINEER_ROLE_ID = "ingenieur";
 
+    private static final Logger LOGGER = LogUtils.getLogger();
+    private static final Set<String> BUILTIN_IDS =
+            Set.of("medecin", ENGINEER_ROLE_ID, "policier", "agriculteur", DEFAULT_ROLE_ID);
     private static final Pattern ID_PATTERN = Pattern.compile("[a-z0-9_]{1,32}");
 
     private final Map<String, Role> roles = new LinkedHashMap<>();
@@ -123,22 +127,36 @@ public final class RoleBook {
         return tag;
     }
 
-    /** Relit une sauvegarde ; les rôles codés en dur absents sont recréés. */
+    /**
+     * Relit une sauvegarde ; les rôles codés en dur absents sont recréés et gardent toujours leur
+     * drapeau. Une entrée corrompue est ignorée avec un avertissement : elle ne doit pas empêcher
+     * le serveur de démarrer.
+     */
     public static RoleBook load(CompoundTag tag) {
         RoleBook book = new RoleBook();
-        List<Role> loaded = new ArrayList<>();
         for (Tag raw : tag.getList("roles", Tag.TAG_COMPOUND)) {
             CompoundTag t = (CompoundTag) raw;
+            String id = t.getString("id");
+            if (!ID_PATTERN.matcher(id).matches()) {
+                LOGGER.warn("Rôle ignoré, identifiant invalide : '{}'", id);
+                continue;
+            }
             ChatFormatting color = ChatFormatting.getByName(t.getString("color"));
-            loaded.add(new Role(t.getString("id"), t.getString("label"),
-                    color != null ? color : ChatFormatting.WHITE, t.getBoolean("builtin")));
-        }
-        for (Role role : loaded) {
-            book.roles.put(role.id(), role);
+            if (color == null) {
+                LOGGER.warn("Rôle '{}' : couleur inconnue '{}', blanc utilisé", id, t.getString("color"));
+                color = ChatFormatting.WHITE;
+            }
+            // Un rôle codé en dur ne se supprime jamais, quoi que la sauvegarde en dise.
+            boolean builtin = t.getBoolean("builtin") || BUILTIN_IDS.contains(id);
+            book.roles.put(id, new Role(id, t.getString("label"), color, builtin));
         }
         book.addMissingBuiltins();
         for (Tag raw : tag.getList("assignments", Tag.TAG_COMPOUND)) {
             CompoundTag t = (CompoundTag) raw;
+            if (!t.hasUUID("player")) {
+                LOGGER.warn("Attribution ignorée, identifiant de joueur absent ou invalide");
+                continue;
+            }
             String roleId = t.getString("role");
             if (book.roles.containsKey(roleId)) {
                 book.assignments.put(t.getUUID("player"), roleId);

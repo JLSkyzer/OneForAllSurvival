@@ -6,7 +6,7 @@ Chaque lot reçoit son plan détaillé au moment de démarrer : ce qu'un lot pro
 
 ## Feuille de route
 
-- [ ] **Lot 0 : socle et rôles.** [Plan détaillé](../docs/superpowers/plans/2026-11-06-lot-0-socle-roles.md). Machine de base, bloc en ligne, preuve sur les trois réseaux, système de rôles.
+- [x] **Lot 0 : socle et rôles.** [Plan détaillé](../docs/superpowers/plans/2026-11-06-lot-0-socle-roles.md). Machine de base, bloc en ligne, preuve sur les trois réseaux, système de rôles. Réseaux prouvés depuis une source créative seulement : voir [la vérification](../docs/verifications/lot-0.md).
 - [ ] **Lot 1 : établi d'ingénieur.** Retrait des recettes, interface, file d'attente, annulation, stock. Dépend des rôles et de la machine de base.
 - [ ] **Lot 2 : métier de réparation.** Features 1, 2, 4, 3 : usure et pannes, trousse de diagnostic, débris d'avion, corrosion et bain galvanique. Ajoute aussi la détection de l'eau salée et ses zones. Le plus gros risque de corvée : à équilibrer en jeu.
 - [ ] **Lot 3 : électricité vitale.** Features 9, 10, 11 : dessalinisateur, aliments périssables et armoire, séchoir. Le plus gros risque technique : la péremption touche tous les inventaires.

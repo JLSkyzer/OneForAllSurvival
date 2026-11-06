@@ -187,4 +187,25 @@ public final class RoleGameTests {
         helper.assertTrue(!RoleGate.isEngineer(book, med), "un médecin est reconnu ingénieur");
         helper.succeed();
     }
+
+    /** Le plus long identifiant permis (32 caractères) donne un nom d'équipe que vanilla accepte. */
+    @GameTest(template = "test/plancher", batch = "roles_id_long")
+    public static void unIdentifiantDe32CaracteresDonneUneEquipeUtilisable(GameTestHelper helper) {
+        Scoreboard scoreboard = helper.getLevel().getServer().getScoreboard();
+        String id = "a".repeat(32);
+        RoleBook book = RoleBook.withBuiltins();
+        try {
+            book.createRole(id, "Long", net.minecraft.ChatFormatting.AQUA);
+            RoleTeams.syncTeams(scoreboard, book);
+            PlayerTeam team = scoreboard.getPlayerTeam(RoleTeams.teamName(id));
+            helper.assertTrue(team != null, "l'équipe de l'identifiant long n'a pas été créée");
+            RoleTeams.applyPlayer(scoreboard, "Dev", book.role(id).orElseThrow());
+            PlayerTeam membre = scoreboard.getPlayersTeam("Dev");
+            helper.assertTrue(membre == team, "Dev n'est pas dans l'équipe de l'identifiant long");
+            helper.succeed();
+        } finally {
+            scoreboard.removePlayerFromTeam("Dev");
+            nettoyer(scoreboard);
+        }
+    }
 }

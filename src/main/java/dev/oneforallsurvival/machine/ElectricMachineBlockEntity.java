@@ -57,6 +57,11 @@ public abstract class ElectricMachineBlockEntity extends BlockEntity {
     /** Un tick de travail, appelé seulement quand l'énergie a été payée. */
     protected abstract void workTick();
 
+    /**
+     * État de la machine tel que le serveur l'a calculé. Il fait autorité côté serveur seulement :
+     * il peut retarder sur {@link #setFault} jusqu'au prochain tick, et il n'est pas mis à jour côté
+     * client. Le code client lit {@code getBlockState().getValue(ElectricMachineBlock.STATE)}.
+     */
     public MachineState state() {
         return state;
     }
@@ -75,12 +80,13 @@ public abstract class ElectricMachineBlockEntity extends BlockEntity {
     /** Appelé par le bloc, côté serveur seulement. */
     void serverTick(Level level, BlockPos pos, BlockState blockState) {
         MachineState next;
+        int cost = energyPerTick(); // lu une seule fois par tick
         if (fault) {
             next = MachineState.FAULT;
         } else if (!wantsToWork()) {
             next = MachineState.STOPPED;
-        } else if (storage.getEnergyStored() >= energyPerTick()) {
-            storage.consume(energyPerTick());
+        } else if (storage.getEnergyStored() >= cost) {
+            storage.consume(cost);
             setChanged();
             workTick();
             next = MachineState.RUNNING;
