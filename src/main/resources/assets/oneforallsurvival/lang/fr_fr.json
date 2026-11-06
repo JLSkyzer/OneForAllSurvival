@@ -63,8 +63,8 @@
   "gui.oneforallsurvival.bench.stock.tooltip": "Le stock reçoit les objets fabriqués.",
   "gui.oneforallsurvival.bench.stock.count": "%s objet(s) à retirer.",
   "bench.oneforallsurvival.mod.create": "Create",
-  "bench.oneforallsurvival.mod.createaddition": "Crafts & Additions",
+  "bench.oneforallsurvival.mod.createaddition": "Additions",
   "bench.oneforallsurvival.mod.create_new_age": "New Age",
-  "bench.oneforallsurvival.mod.light_bulb_addon_create_crafts_and__addions": "Adv. Electricity",
+  "bench.oneforallsurvival.mod.light_bulb_addon_create_crafts_and__addions": "Courant",
   "bench.oneforallsurvival.mod.oneforallsurvival": "One For All"
 }

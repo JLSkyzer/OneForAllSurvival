@@ -65,9 +65,9 @@ public final class DemoEtabli {
     private static final String MONDE = "demo_etabli";
     /** Échelle GUI demandée (3 par défaut ; Minecraft la plafonne à 3 en 1280 x 720). */
     private static final int ECHELLE = Integer.getInteger("oneforallsurvival.demo.etabli.echelle", 3);
-    /** Sous-dossier des images quand la fenêtre n'a pas la taille par défaut (ex. 960 x 540 : 320 x 180 d'interface). */
     /** Impose l'échelle même au-delà du plafond de Minecraft (qui garde 320 x 240 au moins) : pour tester le plus serré. */
     private static final boolean FORCER = System.getProperty("oneforallsurvival.demo.etabli.forcer") != null;
+    /** Sous-dossier des images quand la fenêtre n'a pas la taille par défaut (ex. 960 x 540 : 320 x 180 d'interface). */
     private static final String SOUS = System.getProperty("oneforallsurvival.demo.etabli.sous", "");
 
     private enum Phase { TITRE, CREATION, ATTENTE_MONDE, PREPARATION, SCENARIO, FIN }

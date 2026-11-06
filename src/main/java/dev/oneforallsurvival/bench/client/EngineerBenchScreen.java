@@ -42,6 +42,10 @@ public final class EngineerBenchScreen extends AbstractContainerScreen<EngineerB
     private static final int FRAME = 5;
     private static final int TITLE_H = 14;
     private static final int GAP = 3;
+    /** Plafond de la largeur des onglets (px GUI) : les libellés longs sont tronqués, le nom complet reste en infobulle. */
+    private static final int TABS_MAX_W = 84;
+    /** Plafond de la largeur du détail (px GUI) : le reste revient à la liste des recettes. */
+    private static final int DETAIL_MAX_W = 140;
     private static final int SEARCH_H = 14;
 
     private final CategoryPane categories = new CategoryPane(this, font());
@@ -127,8 +131,9 @@ public final class EngineerBenchScreen extends AbstractContainerScreen<EngineerB
         int queueY = topPos + imageHeight - FRAME - queueH;
         int bodyH = queueY - GAP - bodyY;
 
-        int detailW = Math.max(118, Math.min(156, innerW * 36 / 100));
-        int tabsW = Math.max(54, Math.min(categories.preferredWidth(), innerW * 31 / 100));
+        // La liste prime : onglets et détail sont plafonnés, tout le reste va aux recettes.
+        int detailW = Math.max(104, Math.min(DETAIL_MAX_W, innerW * 33 / 100));
+        int tabsW = Math.max(54, Math.min(Math.min(categories.preferredWidth(), TABS_MAX_W), innerW * 22 / 100));
         int listW = innerW - tabsW - detailW - GAP * 2;
         categories.place(innerX, bodyY, tabsW, bodyH);
         int listX = innerX + tabsW + GAP;
