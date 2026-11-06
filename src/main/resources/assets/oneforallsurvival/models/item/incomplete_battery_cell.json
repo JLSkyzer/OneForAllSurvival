@@ -1,6 +1,6 @@
 {
-  "parent": "minecraft:item/generated",
+  "parent": "item/generated",
   "textures": {
-    "layer0": "minecraft:item/redstone"
+    "layer0": "oneforallsurvival:item/incomplete_battery_cell"
   }
 }

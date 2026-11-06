@@ -138,5 +138,6 @@
   "gui.oneforallsurvival.galvanic.state.fault": "En panne",
   "gui.oneforallsurvival.galvanic.energy": "%s / %s FE",
   "gui.oneforallsurvival.galvanic.jei.time": "Durée : %s",
-  "gui.oneforallsurvival.galvanic.jei.energy": "%s FE par tick"
+  "gui.oneforallsurvival.galvanic.jei.energy": "%s FE par tick",
+  "tag.item.oneforallsurvival.wire": "Fil électrique"
 }

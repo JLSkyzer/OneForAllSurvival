@@ -32,7 +32,7 @@ public final class SalvageRegistry {
     public static final RegistryObject<Item> AVIATION_WIRE = item("aviation_wire");
     public static final RegistryObject<Item> INSTRUMENT_CORE = item("instrument_core");
     public static final RegistryObject<Item> BATTERY_CELL = item("battery_cell");
-    // Versions à terminer : leurs recettes arrivent avec les visuels finaux.
+    // Versions à terminer : les objets de transition des assemblages séquencés.
     public static final RegistryObject<Item> INCOMPLETE_INSTRUMENT_CORE = item("incomplete_instrument_core");
     public static final RegistryObject<Item> INCOMPLETE_BATTERY_CELL = item("incomplete_battery_cell");
 

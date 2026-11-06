@@ -1,7 +1,9 @@
 package dev.oneforallsurvival.repair;
 
 import dev.oneforallsurvival.OneForAllSurvival;
+import dev.oneforallsurvival.machine.ElectricMachineBlock;
 import dev.oneforallsurvival.machine.FaultType;
+import dev.oneforallsurvival.machine.MachineState;
 import java.util.List;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.BlockItem;
@@ -52,7 +54,9 @@ public final class RepairRegistry {
 
     public static final RegistryObject<Block> GALVANIC_BATH = BLOCKS.register("galvanic_bath",
             () -> new GalvanicBathBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL)
-                    .strength(3.0F).sound(SoundType.METAL).requiresCorrectToolForDrops()));
+                    .strength(3.0F).sound(SoundType.METAL).requiresCorrectToolForDrops().noOcclusion()
+                    // Comme l'établi : seule la lampe allumée éclaire.
+                    .lightLevel(state -> state.getValue(ElectricMachineBlock.STATE) == MachineState.RUNNING ? 10 : 0)));
     public static final RegistryObject<Item> GALVANIC_BATH_ITEM = ITEMS.register("galvanic_bath",
             () -> new BlockItem(GALVANIC_BATH.get(), new Item.Properties()));
     public static final RegistryObject<BlockEntityType<GalvanicBathBlockEntity>> GALVANIC_BATH_BE =

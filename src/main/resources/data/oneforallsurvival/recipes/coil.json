@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "tag": "oneforallsurvival:wire"
+    },
+    {
+      "tag": "oneforallsurvival:wire"
+    },
+    {
+      "tag": "oneforallsurvival:wire"
+    },
+    {
+      "tag": "oneforallsurvival:wire"
+    },
+    {
+      "item": "minecraft:iron_ingot"
+    }
+  ],
+  "result": {
+    "item": "oneforallsurvival:coil"
+  }
+}

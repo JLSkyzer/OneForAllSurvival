@@ -143,6 +143,16 @@ minecraft {
             args '--width', '960', '--height', '540'
         }
 
+        // Capture de contrôle des visuels du lot 2 (dev seulement) : le bain dans ses quatre états, les débris, tous
+        // les objets, l'écran du bain et sa catégorie JEI, dans run-demo/visuels-captures. Voir DemoVisuels.
+        demoVisuels {
+            parent minecraft.runs.client
+            workingDirectory project.file('run-demo')
+            property 'oneforallsurvival.demo.visuels', 'true'
+            jvmArgs '-Xmx3G'
+            args '--width', '1280', '--height', '720'
+        }
+
         // Preuve de bout en bout (dev seulement) : un client qui se connecte seul à `runServer` sur localhost,
         // joue un craft complet et arrête le serveur par /stop. Voir E2eClient (devcontent).
         e2eClient {
@@ -307,6 +317,13 @@ tasks.matching { it.name == 'runDemoEtabli' }.configureEach {
     doFirst {
         delete project.file('run-demo/saves/demo_etabli')
         delete project.fileTree("run-demo/etabli-captures").matching { include "*.png" }
+    }
+}
+
+tasks.matching { it.name == 'runDemoVisuels' }.configureEach {
+    doFirst {
+        delete project.file('run-demo/saves/demo_visuels')
+        delete project.file('run-demo/visuels-captures')
     }
 }
 

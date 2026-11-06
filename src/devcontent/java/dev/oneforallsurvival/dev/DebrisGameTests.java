@@ -6,6 +6,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -102,6 +103,18 @@ public final class DebrisGameTests {
         helper.getLevel().explode(null, centre.x, centre.y, centre.z, 4.0F, Level.ExplosionInteraction.TNT);
         helper.assertTrue(helper.getBlockState(POS).is(SalvageRegistry.DEBRIS_FUSELAGE.get()),
                 "le débris devait survivre à l'explosion");
+        helper.succeed();
+    }
+
+    /** Ni le wither ni le dragon n'emportent une épave qu'une explosion ne déloge pas. */
+    @GameTest(template = "test/plancher", batch = "debris_boss")
+    public static void leWitherEtLeDragonNeCassentPasLesDebris(GameTestHelper helper) {
+        for (RegistryObject<Block> debris : List.of(SalvageRegistry.DEBRIS_FUSELAGE, SalvageRegistry.DEBRIS_WIRING,
+                SalvageRegistry.DEBRIS_INSTRUMENTS, SalvageRegistry.DEBRIS_BATTERY, SalvageRegistry.DEBRIS_CABIN)) {
+            var etat = debris.get().defaultBlockState();
+            helper.assertTrue(etat.is(BlockTags.WITHER_IMMUNE), debris.getId() + " doit résister au wither");
+            helper.assertTrue(etat.is(BlockTags.DRAGON_IMMUNE), debris.getId() + " doit résister au dragon");
+        }
         helper.succeed();
     }
 }

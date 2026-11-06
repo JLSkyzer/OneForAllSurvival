@@ -1,5 +1,6 @@
 package dev.oneforallsurvival.dev;
 
+import dev.oneforallsurvival.machine.ElectricMachineBlock;
 import dev.oneforallsurvival.machine.FaultType;
 import dev.oneforallsurvival.machine.MachineState;
 import dev.oneforallsurvival.repair.GalvanicBathBlockEntity;
@@ -20,6 +21,7 @@ import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Block;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
@@ -274,6 +276,30 @@ public final class BainGameTests {
             helper.assertTrue(copie.energy().getEnergyStored() == be.energy().getEnergyStored(), "énergie perdue");
             helper.succeed();
         });
+    }
+
+    /**
+     * Le bain est un bac sur tréteaux : il ne cache pas ses voisins, sa forme suit le modèle au lieu d'un cube,
+     * et il n'éclaire qu'en marche, comme l'établi.
+     */
+    @GameTest(template = "test/plancher", batch = "bain_forme")
+    public static void leBainEstUnBacQuiNeCachePasSesVoisins(GameTestHelper helper) {
+        Block bloc = RepairRegistry.GALVANIC_BATH.get();
+        for (MachineState etat : MachineState.values()) {
+            var state = bloc.defaultBlockState().setValue(ElectricMachineBlock.STATE, etat);
+            helper.assertTrue(!state.canOcclude(), "le bain ne doit pas cacher ses voisins");
+            helper.assertTrue(state.getLightEmission() == (etat == MachineState.RUNNING ? 10 : 0),
+                    "lumière inattendue en " + etat + " : " + state.getLightEmission());
+            var forme = state.getShape(helper.getLevel(), POS);
+            helper.assertTrue(!Block.isShapeFullBlock(forme), "la forme du bain ne doit pas être un cube plein");
+            helper.assertTrue(!state.getCollisionShape(helper.getLevel(), POS).isEmpty(), "le bain doit avoir une collision");
+            // Le creux du bac : rien au-dessus du liquide, sinon on marcherait sur une dalle invisible.
+            helper.assertTrue(forme.toAabbs().stream().noneMatch(b -> b.contains(0.35, 0.85, 0.35)),
+                    "le bac doit rester creux au-dessus du liquide");
+            helper.assertTrue(forme.toAabbs().stream().anyMatch(b -> b.contains(0.35, 0.6, 0.35)),
+                    "le fond du bac doit être plein");
+        }
+        helper.succeed();
     }
 
     private static IItemHandler handler(GalvanicBathBlockEntity be, Direction side) {

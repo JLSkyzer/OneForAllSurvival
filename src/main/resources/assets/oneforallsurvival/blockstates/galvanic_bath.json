@@ -1,16 +1,16 @@
 {
   "variants": {
     "state=stopped": {
-      "model": "oneforallsurvival:block/galvanic_bath"
+      "model": "oneforallsurvival:block/galvanic_bath_stopped"
     },
     "state=running": {
-      "model": "oneforallsurvival:block/galvanic_bath"
+      "model": "oneforallsurvival:block/galvanic_bath_running"
     },
     "state=no_power": {
-      "model": "oneforallsurvival:block/galvanic_bath"
+      "model": "oneforallsurvival:block/galvanic_bath_no_power"
     },
     "state=fault": {
-      "model": "oneforallsurvival:block/galvanic_bath"
+      "model": "oneforallsurvival:block/galvanic_bath_fault"
     }
   }
 }

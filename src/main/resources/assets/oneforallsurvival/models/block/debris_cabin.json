@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:block/cube_all",
   "textures": {
-    "all": "minecraft:block/light_gray_wool"
+    "all": "oneforallsurvival:block/debris_cabin"
   }
 }

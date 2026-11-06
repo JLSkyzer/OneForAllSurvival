@@ -138,5 +138,6 @@
   "gui.oneforallsurvival.galvanic.state.fault": "Broken down",
   "gui.oneforallsurvival.galvanic.energy": "%s / %s FE",
   "gui.oneforallsurvival.galvanic.jei.time": "Duration: %s",
-  "gui.oneforallsurvival.galvanic.jei.energy": "%s FE per tick"
+  "gui.oneforallsurvival.galvanic.jei.energy": "%s FE per tick",
+  "tag.item.oneforallsurvival.wire": "Electrical wire"
 }
