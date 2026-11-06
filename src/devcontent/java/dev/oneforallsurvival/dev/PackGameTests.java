@@ -6,6 +6,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import net.minecraftforge.fml.ModList;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
@@ -26,6 +27,14 @@ public final class PackGameTests {
      */
     @GameTest(template = "test/plancher", batch = "pack_esl")
     public static void leMixinEslSAppliqueSansPlanter(GameTestHelper helper) {
+        ModList mods = ModList.get();
+        // Sans le pack (pas de New Age, donc pas d'ESL), il n'y a rien à prouver : on passe.
+        if (!mods.isLoaded("createaddition")) {
+            helper.succeed();
+            return;
+        }
+        // Avec le pack, ESL doit être chargé : sinon un coffre sans plantage ne prouverait rien.
+        helper.assertTrue(mods.isLoaded("esl"), "le pack est chargé mais pas ESL : le mixin n'est pas testé");
         BlockPos pos = new BlockPos(1, 1, 1);
         helper.setBlock(pos, Blocks.CHEST);
         BlockEntity be = helper.getBlockEntity(pos);
