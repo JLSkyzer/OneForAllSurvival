@@ -36,8 +36,10 @@ import org.apache.logging.log4j.Logger;
  * Preuve de bout en bout contre un serveur dédié (développement seulement, jamais empaqueté). Un vrai
  * client se connecte à {@code -Doneforallsurvival.e2e=<hôte>}, se fait Ingénieur par la vraie commande
  * {@code /role}, pose un établi, l'ouvre par un vrai clic droit, commande un craft court, attend le stock,
- * le retire, puis arrête le serveur par {@code /stop}. Chaque contrôle écrit une ligne {@code PASS} ou
- * {@code FAIL} dans le journal ; le client quitte à la fin.
+ * le retire, joue le métier de réparation ({@link E2eReparation}), puis arrête le serveur par {@code /stop}.
+ * Avec {@code -Doneforallsurvival.e2e.relance}, après une vraie relance du serveur, il relit ce que la première
+ * phase a laissé. Chaque contrôle écrit une ligne {@code PASS} ou {@code FAIL} dans le journal ; le client
+ * quitte à la fin.
  */
 @Mod.EventBusSubscriber(modid = "oneforallsurvival", bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
 public final class E2eClient {
@@ -45,10 +47,13 @@ public final class E2eClient {
     private static final Logger LOG = LogManager.getLogger("oneforallsurvival-e2e");
     private static final String HOTE = System.getProperty("oneforallsurvival.e2e");
     private static final boolean ACTIF = HOTE != null && !HOTE.isEmpty();
+    private static final boolean RELANCE = System.getProperty("oneforallsurvival.e2e.relance") != null;
     private static final int COPIES = 2;
+    /** Une connexion réussie prend de 10 à 16 s avec le pack ; au-delà, on relève l'état du canal. */
+    private static final double DIAGNOSTIC_CONNEXION_S = 17;
 
     private enum Phase { TITRE, CONNEXION, CATALOGUE, PROVISIONS, POSER, OUVRIR, COMMANDER, STOCK, OUVRIR_STOCK, PRENDRE,
-        ARRET, FIN }
+        REPARATION, ARRET, FIN }
 
     private static Phase phase = Phase.TITRE;
     private static long debutPhase = System.nanoTime();
@@ -66,13 +71,14 @@ public final class E2eClient {
 
     private static FilmCapture film;
     private static String derniereLigne = "";
+    private static boolean diagnosticFait;
 
     private E2eClient() {}
 
     private static String legende() {
         return switch (phase) {
             case TITRE -> "Client réel : menu principal";
-            case CONNEXION -> "Connexion au serveur dédié (localhost, pas de serveur intégré)";
+            case CONNEXION -> "Connexion au serveur dédié (127.0.0.1, pas de serveur intégré)";
             case CATALOGUE -> "Le catalogue de l'établi arrive par le réseau, dès la connexion";
             case PROVISIONS -> "Commandes réelles : /role set, /clear, /give";
             case POSER -> "Pose de l'établi par un clic droit";
@@ -81,6 +87,7 @@ public final class E2eClient {
             case STOCK -> "Le serveur fabrique : la file avance, le stock grandit";
             case OUVRIR_STOCK -> "Ouverture du stock";
             case PRENDRE -> "Récupération de la pile fabriquée";
+            case REPARATION -> E2eReparation.legende();
             case ARRET -> "Arrêt du serveur par /stop";
             default -> "Fin";
         };
@@ -111,11 +118,11 @@ public final class E2eClient {
         return (System.nanoTime() - debutPhase) / 1e9;
     }
 
-    private static void pass(String texte) {
+    static void pass(String texte) {
         LOG.info("[e2e] PASS {}", texte);
     }
 
-    private static void fail(String texte) {
+    static void fail(String texte) {
         echecs++;
         LOG.error("[e2e] FAIL {}", texte);
         passer(Phase.ARRET);
@@ -127,6 +134,7 @@ public final class E2eClient {
             LOG.info("[e2e] chat : {}", event.getMessage().getString());
             String m = event.getMessage().getString();
             derniereLigne = m.length() > 70 ? m.substring(0, 70) : m;
+            E2eReparation.recevoir(event.getMessage());
         }
     }
 
@@ -178,7 +186,8 @@ public final class E2eClient {
             LOG.error("[e2e] exception en phase {}", phase, e);
             fail("exception en phase " + phase + " : " + e);
         }
-        if (phase != Phase.TITRE && phase != Phase.FIN && phase != Phase.ARRET && secondes() > 180) {
+        // La réparation a ses propres délais, pas par pas.
+        if (phase != Phase.TITRE && phase != Phase.FIN && phase != Phase.ARRET && phase != Phase.REPARATION && secondes() > 180) {
             fail("delai depasse en phase " + phase);
         }
     }
@@ -197,10 +206,13 @@ public final class E2eClient {
                     mc.options.tutorialStep = net.minecraft.client.tutorial.TutorialSteps.NONE;
                     LOG.info("[e2e] connexion a {}", HOTE);
                     try {
-                        film = new FilmCapture(mc.gameDirectory.toPath().resolve("frames-e2e"),
+                        film = new FilmCapture(mc.gameDirectory.toPath().resolve(RELANCE ? "frames-e2e-relance" : "frames-e2e"),
                                 "One For All Survival | serveur dédié");
                     } catch (java.io.IOException e) {
                         throw new IllegalStateException(e);
+                    }
+                    if (RELANCE) {
+                        LOG.info("[e2e] phase de relance : relecture de ce que la premiere phase a laisse");
                     }
                     ConnectScreen.startConnecting(mc.screen, mc, ServerAddress.parseString(HOTE),
                             new ServerData("e2e", HOTE, false), false);
@@ -216,14 +228,28 @@ public final class E2eClient {
                         return;
                     }
                     passer(Phase.CATALOGUE);
+                } else if (!diagnosticFait && secondes() > DIAGNOSTIC_CONNEXION_S) {
+                    diagnosticFait = true;
+                    diagnostiquerLaConnexion(mc);
                 }
             }
             case CATALOGUE -> {
+                // Le monde d'essai a des monstres : un essai précédent peut s'être terminé joueur mort.
+                if (mc.player.isDeadOrDying()) {
+                    LOG.info("[e2e] joueur mort a la connexion : reapparition");
+                    mc.player.respawn();
+                    return;
+                }
                 // Le catalogue doit arriver a la connexion, sans qu'aucun etabli n'ait ete ouvert.
                 if (!BenchClientState.catalog().isEmpty()) {
                     pass("catalogue recu par le reseau a la connexion : " + BenchClientState.catalog().size()
                             + " recettes, generation " + BenchClientState.generation() + ", apres " + String.format("%.1f", secondes()) + " s");
-                    passer(Phase.PROVISIONS);
+                    if (RELANCE) {
+                        E2eReparation.relance();
+                        passer(Phase.REPARATION);
+                    } else {
+                        passer(Phase.PROVISIONS);
+                    }
                 } else if (secondes() > 40) {
                     fail("aucun catalogue recu 40 s apres la connexion");
                 }
@@ -238,6 +264,14 @@ public final class E2eClient {
                     }
                     LOG.info("[e2e] recette choisie : {} ({} s), resultat {}", recette.id(), recette.seconds(),
                             recette.result());
+                    // Le joueur est en survie : pas de monstres pendant l'essai.
+                    mc.player.connection.sendCommand("difficulty peaceful");
+                    // Une aire plate autour du joueur : il a pu réapparaître n'importe où, les essais précédents laissent des blocs.
+                    BlockPos ici = mc.player.blockPosition();
+                    mc.player.connection.sendCommand("fill " + (ici.getX() - 6) + " " + ici.getY() + " " + (ici.getZ() - 6) + " "
+                            + (ici.getX() + 6) + " " + (ici.getY() + 4) + " " + (ici.getZ() + 6) + " air");
+                    mc.player.connection.sendCommand("fill " + (ici.getX() - 6) + " " + (ici.getY() - 1) + " " + (ici.getZ() - 6) + " "
+                            + (ici.getX() + 6) + " " + (ici.getY() - 1) + " " + (ici.getZ() + 6) + " stone");
                     mc.player.connection.sendCommand("role set " + nom + " ingenieur");
                     mc.player.connection.sendCommand("clear " + nom);
                     mc.player.connection.sendCommand("give " + nom + " oneforallsurvival:engineer_bench");
@@ -438,14 +472,21 @@ public final class E2eClient {
                 int gagne = compter(mc, recette.result().getItem()) - avantInventaire;
                 if (gagne >= attendusRetrait && gagne >= recette.result().getCount() * COPIES) {
                     pass("stock retire : +" + gagne + " " + recette.result().getItem() + " dans l'inventaire");
-                    passer(Phase.ARRET);
+                    E2eReparation.premierePhase();
+                    passer(Phase.REPARATION);
                 } else if (secondes() > 15) {
                     fail("retrait : +" + gagne + " au lieu de " + attendusRetrait);
+                }
+            }
+            case REPARATION -> {
+                if (E2eReparation.avancer(mc) && phase == Phase.REPARATION) {
+                    passer(Phase.ARRET);
                 }
             }
             case ARRET -> {
                 if (!actionFaite) {
                     LOG.info("[e2e] bilan : {}", echecs == 0 ? "TOUT PASSE" : echecs + " ECHEC(S)");
+                    mc.options.keyShift.setDown(false);
                     if (mc.player != null) {
                         mc.setScreen(null);
                         mc.player.connection.sendCommand("stop");
@@ -466,6 +507,49 @@ public final class E2eClient {
             }
             default -> {
             }
+        }
+    }
+
+    /**
+     * Le client cale-t-il à la connexion ? Relevé du canal, la question restée ouverte au lot 1 : lecture
+     * coupée, inscription au sélecteur, lecture en attente. Tout par réflexion : rien de cela n'est une API.
+     */
+    private static void diagnostiquerLaConnexion(Minecraft mc) {
+        try {
+            if (!(mc.screen instanceof ConnectScreen)) {
+                LOG.info("[e2e-diag] {} s apres le debut : ecran {}", DIAGNOSTIC_CONNEXION_S, mc.screen);
+                return;
+            }
+            java.lang.reflect.Field champ = ConnectScreen.class.getDeclaredField("connection");
+            champ.setAccessible(true);
+            net.minecraft.network.Connection connexion = (net.minecraft.network.Connection) champ.get(mc.screen);
+            if (connexion == null) {
+                LOG.info("[e2e-diag] pas encore de connexion");
+                return;
+            }
+            java.lang.reflect.Field canal = net.minecraft.network.Connection.class.getDeclaredField("channel");
+            canal.setAccessible(true);
+            io.netty.channel.Channel c = (io.netty.channel.Channel) canal.get(connexion);
+            StringBuilder sb = new StringBuilder("canal ").append(c == null ? "null" : c.getClass().getSimpleName());
+            if (c != null) {
+                sb.append(" open=").append(c.isOpen()).append(" active=").append(c.isActive())
+                        .append(" autoRead=").append(c.config().isAutoRead());
+                java.lang.reflect.Method cle = io.netty.channel.nio.AbstractNioChannel.class.getDeclaredMethod("selectionKey");
+                cle.setAccessible(true);
+                java.nio.channels.SelectionKey k = (java.nio.channels.SelectionKey) cle.invoke(c);
+                sb.append(" interestOps=").append(k.interestOps()).append(" readyOps=").append(k.readyOps());
+                java.lang.reflect.Field attente = io.netty.channel.nio.AbstractNioChannel.class.getDeclaredField("readPending");
+                attente.setAccessible(true);
+                sb.append(" readPending=").append(attente.getBoolean(c));
+            }
+            LOG.info("[e2e-diag] {} s, ecran de connexion toujours ouvert : {}", DIAGNOSTIC_CONNEXION_S, sb);
+            // Expérience (-Doneforallsurvival.e2e.relire) : si la lecture a été retirée, un simple read() la remet-il ?
+            if (c != null && Boolean.getBoolean("oneforallsurvival.e2e.relire")) {
+                LOG.info("[e2e-diag] channel.read() demande par l'experience");
+                c.read();
+            }
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            LOG.warn("[e2e-diag] releve impossible", e);
         }
     }
 }

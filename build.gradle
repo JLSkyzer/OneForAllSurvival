@@ -164,6 +164,27 @@ minecraft {
             args '--username', 'Dev', '--width', '1280', '--height', '656'
         }
 
+        // Seconde phase de la preuve (dev seulement) : après un arrêt et une relance de `runServer`, le même client relit
+        // sur le disque du serveur l'usure, la panne, la protection et la zone. Voir E2eReparation (devcontent).
+        e2eRelance {
+            parent minecraft.runs.client
+            workingDirectory project.file('run-e2e')
+            property 'oneforallsurvival.e2e', '127.0.0.1'
+            property 'oneforallsurvival.e2e.relance', 'true'
+            jvmArgs '-Xmx3G'
+            args '--username', 'Dev', '--width', '1280', '--height', '656'
+        }
+
+        // Film du métier de réparation (dev seulement) : un client qui se pilote seul et enregistre ses images dans
+        // run-demo/frames-reparation, un bandeau de légende en dessous. Voir FilmReparation (devcontent).
+        demoReparationFilm {
+            parent minecraft.runs.client
+            workingDirectory project.file('run-demo')
+            property 'oneforallsurvival.demo.reparation', 'true'
+            jvmArgs '-Xmx3G'
+            args '--width', '1280', '--height', '656'
+        }
+
         // Film de démonstration de l'établi (dev seulement) : un client qui se pilote seul et enregistre ses
         // images dans run-demo/frames-etabli, un bandeau de légende en dessous. Voir FilmEtabli (devcontent).
         demoEtabliFilm {
@@ -303,6 +324,19 @@ tasks.matching { it.name == 'runDemo' }.configureEach {
 tasks.matching { it.name == 'runE2eClient' }.configureEach {
     doFirst {
         delete project.file('run-e2e/frames-e2e')
+    }
+}
+
+tasks.matching { it.name == 'runE2eRelance' }.configureEach {
+    doFirst {
+        delete project.file('run-e2e/frames-e2e-relance')
+    }
+}
+
+tasks.matching { it.name == 'runDemoReparationFilm' }.configureEach {
+    doFirst {
+        delete project.file('run-demo/saves/film_reparation')
+        delete project.file('run-demo/frames-reparation')
     }
 }
 
