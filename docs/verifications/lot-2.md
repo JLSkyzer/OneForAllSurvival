@@ -157,6 +157,41 @@ Indices, au-delà de la lecture du bytecode (ils sont compatibles avec ce mécan
 
 Le code du mod n'est pas sur ce chemin : il ne touche ni à `Connection` ni à `setAutoRead` (recherche dans `src/main`), et il n'a aucun mixin. Reste non prouvé : l'ordre exact des tâches dans le vrai client (les lignes `Disabled auto read` sont absentes de `debug.log`) ; le taux chez de vrais joueurs (ce soir 11 sur 24, puis 1 sur 3 lancements pendant la revue finale ; au lot 1, 5 blocages puis 14 lancements sans blocage ; on ignore ce qui le fait varier) ; si un client de production, sans `userdev`, est touché. Aucun correctif n'est appliqué : c'est une décision à prendre, et un simple `channel.read()` côté client semble suffire.
 
+## Blocage à la connexion : un vrai client est touché aussi
+
+Mesure du 6 novembre, de 22:39 à minuit, en alternant vrai client et client de dev contre le même serveur (`runServer -PwithPack`, 127.0.0.1). Vrai client : Forge 47.4.20 et bibliothèques de l'instance Prism, noms SRG, `BootstrapLauncher` lancé à la main, sans Gradle ni classes de dev, compte hors ligne, avec le jar du mod et Farmer's Delight.
+
+| Client | Lancements valides | Blocages |
+|---|---|---|
+| Vrai client | 10 | 3 |
+| Vrai client, essai de mise au point en plus | 1 | 1 |
+| Client de dev (`runE2eClient -PwithPack`) | 10 | 6 |
+
+Règle : sain si le journal montre `Recieved login wrapper packet` ; blocage sinon, avec `ReadTimeoutException` environ 30 s après `Connecting`. Écartés : un lancement dev tombé sur la `ConcurrentModificationException` de Create au démarrage, un vrai client interrompu avant la connexion, et des essais ratés du script. Avec si peu de lancements, l'écart entre 3 sur 10 et 6 sur 10 ne permet pas de dire que les taux diffèrent. Ni le rang du lancement, ni l'âge du serveur, ni la charge, ni la durée de démarrage ne séparent blocages et succès.
+
+L'ordre des bascules se lit sans toucher au code avec `-Dforge.logging.mojang.level=debug`. Blocage du vrai client n° 14 :
+
+```
+23:43:16.765 [Server Connector #1] Disabled auto read
+23:43:16.765 [Netty Client IO #0]  Enabled auto read
+23:43:16.766 [Server Connector #1] Disabled auto read
+23:43:16.906 [Netty Client IO #0]  Enabled auto read
+23:43:16.909 [Netty Client IO #0]  Enabled auto read
+```
+
+Connexion saine du vrai client n° 16 :
+
+```
+23:46:25.277 [Netty Client IO #0]  Enabled auto read
+23:46:25.277 [Server Connector #1] Disabled auto read
+23:46:25.376 [Netty Client IO #0]  Enabled auto read
+23:46:25.443 [Netty Client IO #0]  Recieved login wrapper packet
+```
+
+La suite Disabled, Enabled, Disabled, Enabled, Enabled revient dans 9 blocages sur 10 lus, dont les 4 du vrai client. C'est compatible avec le mécanisme proposé plus haut. Ce n'est pas une preuve : la suite courte Disabled, Enabled, Enabled existe à la fois en blocage (n° 11) et en connexion saine (n° 8 et 20), et le moment de `clearReadPending` n'est pas journalisé.
+
+Non établi : le comportement contre un serveur distant (tout a été mesuré en local), un client sans le mod, et le taux sur la machine d'un joueur. Relevés : `run-demo/blocages-prod/` (`rapport.md`, `summary.tsv`, journaux), ignoré par git, local.
+
 ## Film
 
 `./gradlew runDemoReparationFilm -PwithPack`, monde intégré plat, sans serveur dédié. Encodé par `MfEncoder.exe` : `run-demo/lot-2-reparation.mp4`, 96,7 s (967 images à 10 i/s), H.264 1280 x 720, 30163507 octets, non versionné (`run-demo` est ignoré). J'ai relu 30 images extraites des PNG et 10 extraites du mp4.
