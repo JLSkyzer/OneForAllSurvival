@@ -74,7 +74,7 @@ public final class BenchClientState {
     private static volatile Describer describer = BY_ID;
 
     /** Appelés (sur le thread qui reçoit le paquet) chaque fois qu'un catalogue complet est installé. */
-    private static final List<Runnable> CATALOG_LISTENERS = new CopyOnWriteArrayList<>();
+    private static final CopyOnWriteArrayList<Runnable> CATALOG_LISTENERS = new CopyOnWriteArrayList<>();
 
     private BenchClientState() {}
 
@@ -86,7 +86,7 @@ public final class BenchClientState {
 
     /** Abonne {@code listener} aux nouveaux catalogues (JEI s'en sert pour rafraîchir ses recettes). */
     public static void addCatalogListener(Runnable listener) {
-        CATALOG_LISTENERS.add(listener);
+        CATALOG_LISTENERS.addIfAbsent(listener);
     }
 
     public static void removeCatalogListener(Runnable listener) {

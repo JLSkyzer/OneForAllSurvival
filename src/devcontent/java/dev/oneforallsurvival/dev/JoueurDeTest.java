@@ -143,6 +143,14 @@ public final class JoueurDeTest {
         menus.clear();
     }
 
+    /** Les paquets de menu (contenu, case, donnée) reçus depuis le dernier appel, retirés. */
+    public List<Packet<?>> menusRecus() {
+        lire();
+        List<Packet<?>> out = new ArrayList<>(menus);
+        menus.clear();
+        return out;
+    }
+
     /** Envoie au serveur un paquet du mod, comme le ferait le client. */
     public void envoyer(Object message) {
         canal.writeInbound(BenchNetwork.CHANNEL.toVanillaPacket(message, NetworkDirection.PLAY_TO_SERVER));

@@ -70,10 +70,10 @@ public final class EngineerBenchMenu extends AbstractContainerMenu {
         super.broadcastChanges();
         if (player instanceof ServerPlayer serverPlayer) {
             syncInventory(serverPlayer);
-        }
-        if (player instanceof ServerPlayer serverPlayer && ++ticksSinceSync >= QUEUE_SYNC_TICKS) {
-            ticksSinceSync = 0;
-            BenchNetwork.sendQueue(serverPlayer);
+            if (++ticksSinceSync >= QUEUE_SYNC_TICKS) {
+                ticksSinceSync = 0;
+                BenchNetwork.sendQueue(serverPlayer);
+            }
         }
     }
 
@@ -82,7 +82,9 @@ public final class EngineerBenchMenu extends AbstractContainerMenu {
      * le client n'accepte, d'un menu ouvert, que les mises à jour de la barre d'action. Sans cet envoi, les
      * ingrédients prélevés par une commande (ou rendus par une annulation) resteraient affichés à leur
      * ancien nombre dans le reste de l'inventaire jusqu'à la fermeture. Le paquet « -2 » écrit directement
-     * dans l'inventaire du client, case par case, sans passer par un menu.
+     * dans l'inventaire du client, case par case, sans passer par un menu. Le mécanisme vanille
+     * ({@code inventoryMenu.broadcastChanges()}) ne suffit pas : le client n'applique un paquet d'identifiant 0
+     * qu'aux cases de la barre d'action tant qu'un autre menu est ouvert (lu dans {@code handleContainerSetSlot}).
      */
     private void syncInventory(ServerPlayer serverPlayer) {
         var items = serverPlayer.getInventory().items;

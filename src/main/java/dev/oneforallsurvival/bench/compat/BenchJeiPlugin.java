@@ -65,6 +65,8 @@ public final class BenchJeiPlugin implements IModPlugin {
     /** Ce que JEI montre actuellement dans la catégorie ; remplacé quand un autre catalogue arrive. */
     private static volatile List<BenchRecipe> shown = List.of();
     private static volatile IJeiRuntime runtime;
+    /** Recettes déjà signalées comme tronquées : un seul avertissement chacune. */
+    private static final java.util.Set<ResourceLocation> TRUNCATED = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private final Runnable listener = this::onCatalogChanged;
 
     @Override
@@ -131,20 +133,42 @@ public final class BenchJeiPlugin implements IModPlugin {
         });
     }
 
-    /** Dev : pour le premier objet géré, combien de recettes de table et d'établi JEI montre-t-il ? */
+    /**
+     * Dev : pour chaque objet fabriqué par une recette de l'établi, combien de recettes de table et d'établi
+     * JEI montre-t-il ? Une violation est un objet géré pour lequel JEI montre encore une recette de table.
+     */
     private static void check(String moment) {
         IJeiRuntime jei = runtime;
         if (!CHECK || jei == null || shown.isEmpty()) {
             return;
         }
-        ItemStack result = shown.get(0).result();
-        IFocus<ItemStack> focus = jei.getJeiHelpers().getFocusFactory()
-                .createFocus(RecipeIngredientRole.OUTPUT, VanillaTypes.ITEM_STACK, result);
-        long table = jei.getRecipeManager().createRecipeLookup(RecipeTypes.CRAFTING).limitFocus(List.of(focus))
-                .get().count();
-        long bench = jei.getRecipeManager().createRecipeLookup(TYPE).limitFocus(List.of(focus)).get().count();
-        LOGGER.info("JEI-CHECK ({}) {} : {} recette(s) de table, {} recette(s) d'etabli, {} recettes d'etabli au total",
-                moment, result.getItem(), table, bench, shown.size());
+        java.util.Set<Item> seen = new java.util.LinkedHashSet<>();
+        int violations = 0;
+        int missing = 0;
+        List<String> examples = new ArrayList<>();
+        for (BenchRecipe recipe : shown) {
+            ItemStack result = recipe.result();
+            if (!seen.add(result.getItem())) {
+                continue;
+            }
+            IFocus<ItemStack> focus = jei.getJeiHelpers().getFocusFactory()
+                    .createFocus(RecipeIngredientRole.OUTPUT, VanillaTypes.ITEM_STACK, result);
+            long table = jei.getRecipeManager().createRecipeLookup(RecipeTypes.CRAFTING).limitFocus(List.of(focus))
+                    .get().count();
+            long bench = jei.getRecipeManager().createRecipeLookup(TYPE).limitFocus(List.of(focus)).get().count();
+            if (table > 0) {
+                violations++;
+                if (examples.size() < 5) {
+                    examples.add(result.getItem() + " (" + table + " table)");
+                }
+            }
+            if (bench == 0) {
+                missing++;
+            }
+        }
+        LOGGER.info("JEI-CHECK ({}) {} objets distincts sur {} recettes d'etabli : {} avec une recette de table"
+                + " (violations), {} sans recette d'etabli {}", moment, seen.size(), shown.size(), violations, missing,
+                examples);
     }
 
     /** Les ingrédients d'une recette regroupés par ensemble d'objets acceptés, avec leur nombre. */
@@ -208,7 +232,12 @@ public final class BenchJeiPlugin implements IModPlugin {
         @Override
         public void setRecipe(IRecipeLayoutBuilder builder, BenchRecipe recipe, IFocusGroup focuses) {
             int i = 0;
-            for (List<ItemStack> choices : grouped(recipe).values()) {
+            Map<List<Item>, List<ItemStack>> groups = grouped(recipe);
+            if (groups.size() > COLUMNS * ROWS && TRUNCATED.add(recipe.id())) {
+                LOGGER.warn("JEI: la recette {} a {} groupes d'ingredients, seuls {} sont montres", recipe.id(),
+                        groups.size(), COLUMNS * ROWS);
+            }
+            for (List<ItemStack> choices : groups.values()) {
                 if (i >= COLUMNS * ROWS) {
                     break;
                 }

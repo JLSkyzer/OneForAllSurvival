@@ -186,7 +186,6 @@ public final class E2eClient {
     private static void avancer(Minecraft mc) {
         switch (phase) {
             case TITRE -> {
-                debutPhase = phase == Phase.TITRE ? debutPhase : System.nanoTime();
                 // Premier lancement d'un dossier neuf : l'écran d'accessibilité précède le menu.
                 if (mc.getOverlay() == null && mc.screen instanceof net.minecraft.client.gui.screens.AccessibilityOnboardingScreen) {
                     mc.setScreen(new TitleScreen());

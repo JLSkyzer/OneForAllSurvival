@@ -148,7 +148,7 @@ minecraft {
         e2eClient {
             parent minecraft.runs.client
             workingDirectory project.file('run-e2e')
-            property 'oneforallsurvival.e2e', 'localhost'
+            property 'oneforallsurvival.e2e', '127.0.0.1'
             property 'oneforallsurvival.jeicheck', 'true'
             jvmArgs '-Xmx3G'
             args '--username', 'Dev', '--width', '1280', '--height', '656'

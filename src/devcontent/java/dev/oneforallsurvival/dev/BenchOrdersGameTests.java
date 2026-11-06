@@ -821,6 +821,62 @@ public final class BenchOrdersGameTests {
         return j.listesRecues();
     }
 
+    /**
+     * Le client vanille n'applique un paquet de case d'identifiant 0 qu'aux cases de la barre d'action tant qu'un
+     * autre menu est ouvert ; le menu de l'établi n'a aucune case. Une commande payée avec des objets rangés hors de
+     * la barre d'action doit donc produire un paquet que le client applique (identifiant -2, ou celui du menu),
+     * sinon son inventaire affiché garde l'ancien contenu. Le client est modélisé par les règles de
+     * {@code ClientPacketListener.handleContainerSetSlot}.
+     */
+    @GameTest(template = "test/plancher", batch = "etabli_sync_inventaire")
+    public static void unAchatPendantLEcranMetLInventaireDuClientAJour(GameTestHelper helper) {
+        BenchCatalog avant = installer();
+        JoueurDeTest j = null;
+        PlayerWorkshop atelier = null;
+        try {
+            poserBanc(helper);
+            BlockPos banc = helper.absolutePos(POS);
+            j = joueur(helper, "IngenieurSync", true);
+            atelier = atelier(helper, j.uuid());
+            garnir(j.joueur(), 20, new ItemStack(Items.IRON_INGOT, 5));
+            garnir(j.joueur(), 21, new ItemStack(Items.COPPER_INGOT, 1));
+            helper.getLevel().getBlockState(banc).use(helper.getLevel(), j.joueur(), InteractionHand.MAIN_HAND, toucher(banc));
+            helper.assertTrue(j.joueur().containerMenu instanceof EngineerBenchMenu, "le menu devait s'ouvrir");
+            j.joueur().containerMenu.broadcastChanges();
+            ItemStack[] client = new ItemStack[36];
+            java.util.function.Consumer<java.util.List<net.minecraft.network.protocol.Packet<?>>> appliquer = paquets -> {
+                for (var p : paquets) {
+                    if (p instanceof net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket s) {
+                        if (s.getContainerId() == -2) {
+                            client[s.getSlot()] = s.getItem().copy();
+                        } else if (s.getContainerId() == 0 && s.getSlot() >= 36 && s.getSlot() <= 44) {
+                            client[s.getSlot() - 36] = s.getItem().copy();
+                        }
+                        // Autre identifiant : la case appartiendrait au menu ouvert, qui n'en a pas.
+                    }
+                }
+            };
+            // L'état du client à l'ouverture : ce que le serveur lui a envoyé jusque-là.
+            for (int i = 0; i < 36; i++) {
+                client[i] = j.joueur().getInventory().items.get(i).copy();
+            }
+            j.menusRecus();
+            OrderResult r = BenchOrders.order(j.joueur(), R_FER, 1, banc);
+            helper.assertTrue(r == OrderResult.OK, "résultat attendu OK, vu " + r);
+            j.joueur().containerMenu.broadcastChanges();
+            appliquer.accept(j.menusRecus());
+            for (int i = 0; i < 36; i++) {
+                ItemStack serveur = j.joueur().getInventory().items.get(i);
+                helper.assertTrue(ItemStack.matches(serveur, client[i]), "case " + i + " : le serveur a " + serveur
+                        + ", le client verrait " + client[i]);
+            }
+            helper.succeed();
+        } finally {
+            quitter(j, atelier);
+            BenchCatalog.install(avant);
+        }
+    }
+
     @GameTest(template = "test/plancher", batch = "etabli_menu_valide")
     public static void leMenuSeFermeSansRoleSansBlocOuTropLoin(GameTestHelper helper) {
         JoueurDeTest j = null;

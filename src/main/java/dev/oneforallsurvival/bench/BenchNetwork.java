@@ -1,8 +1,8 @@
 package dev.oneforallsurvival.bench;
 
+import com.mojang.logging.LogUtils;
 import dev.oneforallsurvival.OneForAllSurvival;
 import dev.oneforallsurvival.bench.client.BenchClientState;
-import com.mojang.logging.LogUtils;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
@@ -19,6 +19,7 @@ import net.minecraftforge.network.NetworkEvent;
 import net.minecraftforge.network.NetworkRegistry;
 import net.minecraftforge.network.PacketDistributor;
 import net.minecraftforge.network.simple.SimpleChannel;
+import org.slf4j.Logger;
 
 /**
  * Le canal réseau de l'établi, protocole « 1 » : client et serveur doivent concorder. Chaque paquet du
@@ -47,7 +48,7 @@ public final class BenchNetwork {
     /** Dernière génération du catalogue envoyée à chaque joueur connecté. */
     private static final Map<UUID, Integer> CATALOG_SENT = new ConcurrentHashMap<>();
 
-    private static final org.slf4j.Logger LOGGER = LogUtils.getLogger();
+    private static final Logger LOGGER = LogUtils.getLogger();
 
     private BenchNetwork() {}
 
