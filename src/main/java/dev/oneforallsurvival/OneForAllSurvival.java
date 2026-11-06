@@ -1,6 +1,9 @@
 package dev.oneforallsurvival;
 
 import com.mojang.logging.LogUtils;
+import dev.oneforallsurvival.role.RoleCommands;
+import dev.oneforallsurvival.role.RoleEvents;
+import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
@@ -16,6 +19,8 @@ public final class OneForAllSurvival {
     public OneForAllSurvival(FMLJavaModLoadingContext context) {
         IEventBus modEventBus = context.getModEventBus();
         modEventBus.addListener(this::commonSetup);
+        MinecraftForge.EVENT_BUS.register(new RoleEvents());
+        MinecraftForge.EVENT_BUS.register(new RoleCommands());
     }
 
     private void commonSetup(FMLCommonSetupEvent event) {

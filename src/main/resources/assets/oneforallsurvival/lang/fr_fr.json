@@ -1,0 +1,16 @@
+{
+  "message.oneforallsurvival.engineer_only": "Seul un Ingénieur peut faire cela.",
+  "command.oneforallsurvival.role.list.header": "Rôles disponibles :",
+  "command.oneforallsurvival.role.get.self": "Votre rôle : %s",
+  "command.oneforallsurvival.role.get.other": "Rôle de %s : %s",
+  "command.oneforallsurvival.role.set": "%s est désormais %s",
+  "command.oneforallsurvival.role.created": "Rôle %s créé",
+  "command.oneforallsurvival.role.edited": "Rôle %s modifié",
+  "command.oneforallsurvival.role.deleted": "Rôle %s supprimé",
+  "command.oneforallsurvival.role.unknown": "Rôle inconnu : %s",
+  "command.oneforallsurvival.role.builtin": "Le rôle %s est codé en dur : il ne peut pas être supprimé",
+  "command.oneforallsurvival.role.create_failed": "Impossible de créer le rôle %s : identifiant invalide (a-z, 0-9, _ ; 32 caractères maximum) ou déjà utilisé",
+  "command.oneforallsurvival.role.bad_color": "Choisissez une vraie couleur (pas reset)",
+  "command.oneforallsurvival.role.empty_label": "Le libellé ne peut pas être vide",
+  "command.oneforallsurvival.role.one_player_only": "Un seul joueur doit être désigné"
+}

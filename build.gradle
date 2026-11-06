@@ -15,6 +15,16 @@ base {
 // Mojang ships Java 17 to end users in 1.18+, so your mod should target Java 17.
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
+// Contenu d'essai : gabarits de GameTest chargés par les lancements de développement,
+// jamais empaquetés dans le mod livré.
+sourceSets {
+    devcontent
+}
+
+configurations {
+    devcontentImplementation.extendsFrom implementation
+}
+
 println "Java: ${System.getProperty 'java.version'}, JVM: ${System.getProperty 'java.vm.version'} (${System.getProperty 'java.vendor'}), Arch: ${System.getProperty 'os.arch'}"
 minecraft {
     // The mappings can be changed at any time and must be in the following format.
@@ -74,9 +84,16 @@ minecraft {
             // Please read: https://stackoverflow.com/questions/2031163/when-to-use-the-different-log-levels
             property 'forge.logging.console.level', 'debug'
 
+            // Les mixins des mods du pack, remappés par fg.deobf, retrouvent leurs cibles
+            // sous les noms de développement.
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
+
             mods {
                 "${mod_id}" {
                     source sourceSets.main
+                    // Le contenu d'essai, en développement seulement.
+                    source sourceSets.devcontent
                 }
             }
         }
@@ -86,7 +103,27 @@ minecraft {
             property 'forge.enabledGameTestNamespaces', mod_id
         }
 
+        // Second joueur pour essayer le multijoueur et les rôles : se connecte au client
+        // (ouvrir le monde au LAN) ou à `runServer`, dans son propre dossier.
+        client2 {
+            parent minecraft.runs.client
+            workingDirectory project.file('run-client2')
+            args '--username', 'Dev2'
+        }
+
+        // Démonstration filmée (dev seulement) : un client qui se pilote seul, monte les scènes des
+        // réseaux et enregistre ses images dans run-demo/frames. Voir DemoReseaux (devcontent).
+        demo {
+            parent minecraft.runs.client
+            workingDirectory project.file('run-demo')
+            property 'oneforallsurvival.demo', 'true'
+            jvmArgs '-Xmx3G'
+            args '--width', '1280', '--height', '720'
+        }
+
         server {
+            // Un dossier à part : un client lancé en même temps tourne dans `run`.
+            workingDirectory project.file('run-server')
             property 'forge.enabledGameTestNamespaces', mod_id
             args '--nogui'
         }
@@ -95,6 +132,8 @@ minecraft {
         // By default, the server will crash when no gametests are provided.
         // The gametest system is also enabled by default for other run configs under the /test command.
         gameTestServer {
+            // Un dossier à part, dont le monde est effacé avant chaque passage (voir plus bas).
+            workingDirectory project.file('run-gametest')
             property 'forge.enabledGameTestNamespaces', mod_id
         }
 
@@ -112,14 +151,33 @@ minecraft {
 sourceSets.main.resources { srcDir 'src/generated/resources' }
 
 repositories {
-    // Put repositories for dependencies here
-    // ForgeGradle automatically adds the Forge maven and Maven Central for you
+    // Pas d'exclusiveContent : les versions remappées par fg.deobf, du même groupe, viennent du
+    // dépôt local de ForgeGradle.
+    maven {
+        name = 'Modrinth'
+        url = 'https://api.modrinth.com/maven'
+        content { includeGroup 'maven.modrinth' }
+    }
+    maven {
+        name = 'CurseMaven'
+        url = 'https://cursemaven.com'
+        content { includeGroup 'curse.maven' }
+    }
+    maven {
+        name = 'BlameJared'
+        url = 'https://maven.blamejared.com'
+        // org.openzen.zencode : dépendances transitives de CraftTweaker.
+        content {
+            includeGroup 'com.blamejared.crafttweaker'
+            includeGroup 'org.openzen.zencode'
+        }
+    }
 
-    // If you have mod jar dependencies in ./libs, you can declare them as a repository like so.
-    // See https://docs.gradle.org/current/userguide/declaring_repositories.html#sub:flat_dir_resolver
-    // flatDir {
-    //     dir 'libs'
-    // }
+    // ESL (bibliothèque d'énergie), embarquée dans New Age : voir le bloc du pack plus bas.
+    flatDir {
+        dir 'libs'
+        content { includeGroup 'local' }
+    }
 }
 
 dependencies {
@@ -141,9 +199,56 @@ dependencies {
     // The group id is ignored when searching -- in this case, it is "blank"
     // implementation fg.deobf("blank:coolmod-${mc_version}:${coolmod_version}")
 
-    // For more info:
-    // http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
-    // http://www.gradle.org/docs/current/userguide/dependency_management.html
+    // Les GameTests compilent contre le mod et Minecraft.
+    devcontentImplementation sourceSets.main.output
+
+    // Dépendance obligatoire du mod.
+    implementation fg.deobf("maven.modrinth:farmers-delight:${farmersdelight_version}")
+
+    // Tests unitaires
+    testImplementation "org.junit.jupiter:junit-jupiter:${junit_version}"
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// Le pack de développement : les mods d'ingénierie et de santé que le mod sert.
+// Écarté quand une tâche demandée contient `GameTest`, pour garder les GameTests rapides, sauf
+// avec `-PwithPack` : ce passage prouve alors que le pack complet se charge et fonctionne.
+if (project.hasProperty('withPack') || !gradle.startParameter.taskNames.any { it.contains('GameTest') }) {
+    dependencies {
+        runtimeOnly fg.deobf("maven.modrinth:create:${create_version}")
+        runtimeOnly fg.deobf("maven.modrinth:createaddition:${createaddition_version}")
+        runtimeOnly fg.deobf("maven.modrinth:create-new-age:${createnewage_version}")
+        // ESL est imbriqué (jarjar) dans New Age, et fg.deobf ne remappe pas les jars imbriqués :
+        // il resterait en noms SRG, et son mixin planterait en développement (NoSuchMethodError
+        // sur BlockEntity.m_58903_). On le sort de libs/ pour le remapper nous-mêmes.
+        runtimeOnly fg.deobf("local:esl-forge-1.20.1:${esl_version}")
+        runtimeOnly fg.deobf("curse.maven:create-advanced-electricity-addon-1743391:${advancedelectricity_file}")
+        runtimeOnly fg.deobf("maven.modrinth:hospitals:${hospitals_version}")
+        runtimeOnly fg.deobf("curse.maven:medical-remedies-1185929:${medicalremedies_file}")
+        runtimeOnly fg.deobf("curse.maven:first-aid-276837:${firstaid_file}")
+        runtimeOnly fg.deobf("com.blamejared.crafttweaker:CraftTweaker-forge-1.20.1:${crafttweaker_version}")
+    }
+}
+
+tasks.named('test', Test).configure {
+    useJUnitPlatform()
+}
+
+// ForgeGradle crée ses tâches run après l'évaluation du script : `tasks.named` échouerait ici,
+// `tasks.matching {}.configureEach` configure la tâche dès qu'elle apparaît.
+// La démonstration repart d'un monde et d'images neufs.
+tasks.matching { it.name == 'runDemo' }.configureEach {
+    doFirst {
+        delete project.file('run-demo/saves')
+        delete project.file('run-demo/frames')
+    }
+}
+
+tasks.matching { it.name == 'runGameTestServer' }.configureEach {
+    doFirst {
+        // Les GameTests partent d'un monde neuf.
+        delete project.file('run-gametest/world')
+    }
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.
