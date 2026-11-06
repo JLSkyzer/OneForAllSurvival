@@ -9,6 +9,7 @@ import java.util.Map;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraftforge.fml.ModList;
 
@@ -18,13 +19,14 @@ final class CategoryPane extends BenchPane {
     private static final int ROW = 14;
 
     /** Un onglet : {@code mod} vide pour « Tout ». */
-    record Tab(String mod, String label, int count) {}
+    record Tab(String mod, String label, String fullName, int count) {}
 
     private final EngineerBenchScreen screen;
     private final Font font;
     private final BenchScrollBar scroll = new BenchScrollBar();
     private List<Tab> tabs = List.of();
     private List<BenchRecipe> builtFor;
+    private int preferred = 60;
 
     CategoryPane(EngineerBenchScreen screen, Font font) {
         this.screen = screen;
@@ -43,14 +45,37 @@ final class CategoryPane extends BenchPane {
         }
         List<Tab> mods = new ArrayList<>();
         for (Map.Entry<String, Integer> e : counts.entrySet()) {
-            mods.add(new Tab(e.getKey(), modName(e.getKey()), e.getValue()));
+            mods.add(new Tab(e.getKey(), shortLabel(e.getKey()), modName(e.getKey()), e.getValue()));
         }
         mods.sort(Comparator.comparingInt(Tab::count).reversed().thenComparing(Tab::label));
         List<Tab> all = new ArrayList<>();
-        all.add(new Tab("", Component.translatable("gui.oneforallsurvival.bench.all").getString(), catalog.size()));
+        String allLabel = Component.translatable("gui.oneforallsurvival.bench.all").getString();
+        all.add(new Tab("", allLabel, allLabel, catalog.size()));
         all.addAll(mods);
         tabs = all;
+        // Largeur voulue : le plus long libellé et le plus grand compteur, avec les marges.
+        int widest = 0;
+        int widestCount = 0;
+        for (Tab tab : tabs) {
+            widest = Math.max(widest, font.width(tab.label()));
+            widestCount = Math.max(widestCount, font.width(Integer.toString(tab.count())));
+        }
+        preferred = widest + widestCount + 7 + 6 + 4 + 2;
         scroll.model.setSize(tabs.size(), scroll.model.visible());
+    }
+
+    /** Largeur qui laisse lire tous les libellés avec leur compteur. */
+    int preferredWidth() {
+        return preferred;
+    }
+
+    /**
+     * Libellé court d'un mod : la clé {@code bench.oneforallsurvival.mod.<modid>} s'il existe (les noms des
+     * mods du pack sont trop longs pour un onglet), sinon le nom du mod.
+     */
+    private static String shortLabel(String modId) {
+        String key = "bench.oneforallsurvival.mod." + modId;
+        return I18n.exists(key) ? I18n.get(key) : modName(modId);
     }
 
     private static String modName(String modId) {
@@ -142,7 +167,7 @@ final class CategoryPane extends BenchPane {
         }
         Tab tab = tabs.get(index);
         List<Component> lines = new ArrayList<>();
-        lines.add(Component.literal(tab.label()));
+        lines.add(Component.literal(tab.fullName()));
         lines.add(Component.translatable("gui.oneforallsurvival.bench.tab.count", tab.count())
                 .withStyle(ChatFormatting.GRAY));
         g.renderComponentTooltip(font, lines, mx, my);

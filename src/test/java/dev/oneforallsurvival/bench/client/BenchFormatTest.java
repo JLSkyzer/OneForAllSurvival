@@ -1,8 +1,6 @@
 package dev.oneforallsurvival.bench.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Locale;
 import org.junit.jupiter.api.Test;
@@ -36,36 +34,5 @@ class BenchFormatTest {
         assertEquals("2,5", BenchFormat.speed(2.5, Locale.FRANCE));
         assertEquals("2.5", BenchFormat.speed(2.5, Locale.US));
         assertEquals("0.25", BenchFormat.speed(0.25, Locale.US));
-    }
-
-    @Test
-    void defilementBorneLesLignes() {
-        ScrollModel m = new ScrollModel();
-        m.setSize(100, 7);
-        assertEquals(0, m.first());
-        m.scrollBy(-5);
-        assertEquals(0, m.first());
-        m.scrollBy(500);
-        assertEquals(93, m.first());
-        m.reveal(3);
-        assertEquals(3, m.first());
-        m.reveal(20);
-        assertEquals(14, m.first());
-        m.setSize(5, 7);
-        assertEquals(0, m.first());
-        assertFalse(m.scrollable());
-    }
-
-    @Test
-    void poigneeProportionnelleEtGlissante() {
-        ScrollModel m = new ScrollModel();
-        m.setSize(100, 10);
-        assertEquals(12, m.thumbHeight(120));
-        assertEquals(0, m.thumbTop(120));
-        m.dragThumbTo(1000, 120);
-        assertEquals(90, m.first());
-        assertEquals(120 - 12, m.thumbTop(120));
-        m.setSize(100000, 10);
-        assertTrue(m.thumbHeight(120) >= 8);
     }
 }

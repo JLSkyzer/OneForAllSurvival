@@ -52,6 +52,11 @@ final class RecipeListPane extends BenchPane {
         return -1;
     }
 
+    /** Centre de la ligne visible {@code row}, en pixels d'interface. */
+    int[] rowCenter(int row) {
+        return new int[] {x + w / 2, y + 2 + row * ROW + ROW / 2};
+    }
+
     List<BenchRecipe> items() {
         return items;
     }
@@ -115,6 +120,7 @@ final class RecipeListPane extends BenchPane {
                 g.fill(x + 2, ry, x + 2 + rowW, ry + ROW, BenchTheme.ROW_HOVER);
             }
             g.renderItem(recipe.result(), x + 5, ry);
+            g.renderItemDecorations(font, recipe.result(), x + 5, ry); // la quantité produite
             boolean affordable = screen.affordable(recipe);
             int dot = affordable ? 9 : 0;
             String name = BenchTheme.ellipsize(font, BenchClientState.displayName(recipe), rowW - 24 - dot - 2);
@@ -170,6 +176,17 @@ final class RecipeListPane extends BenchPane {
         List<Component> lines = new ArrayList<>(Screen.getTooltipFromItem(Minecraft.getInstance(), recipe.result()));
         lines.add(Component.translatable("gui.oneforallsurvival.bench.time", BenchFormat.duration(recipe.seconds()))
                 .withStyle(net.minecraft.ChatFormatting.GOLD));
+        // De quoi distinguer deux recettes du même objet : leur coût, puis leur identifiant.
+        int shownLines = 0;
+        for (BenchCost.Line line : BenchCost.lines(recipe, List.of())) {
+            if (shownLines++ == 5) {
+                lines.add(Component.literal("...").withStyle(net.minecraft.ChatFormatting.GRAY));
+                break;
+            }
+            lines.add(Component.literal(line.perUnit() + " x " + BenchClientState.nameOf(line.choices().get(0))
+                    + (line.choices().size() > 1 ? " (+)" : "")).withStyle(net.minecraft.ChatFormatting.GRAY));
+        }
+        lines.add(Component.literal(recipe.id().toString()).withStyle(net.minecraft.ChatFormatting.DARK_GRAY));
         g.renderComponentTooltip(font, lines, mx, my);
         return true;
     }

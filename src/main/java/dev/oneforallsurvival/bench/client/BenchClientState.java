@@ -23,6 +23,10 @@ public final class BenchClientState {
     private static volatile int generation;
     private static volatile List<QueuePacket.Row> queue = List.of();
     private static volatile int stockItems;
+    /** Réglages du serveur reçus avec la file ; 0 tant qu'aucun paquet n'est arrivé (inconnu). */
+    private static volatile double manualSpeed;
+    private static volatile double poweredSpeed;
+    private static volatile int maxQueue;
 
     /** Le catalogue en cours de réception. */
     private static List<BenchRecipe> pending;
@@ -115,11 +119,26 @@ public final class BenchClientState {
         synchronized (SEARCH_TEXT) {
             String known = NAME_OF.get(recipe);
             if (known == null) {
-                known = describer.name(recipe);
+                known = cleanName(describer.name(recipe));
                 NAME_OF.put(recipe, known);
             }
             return known;
         }
+    }
+
+    /** Nom affiché d'une pile, sans marqueur de traduction manquante. */
+    public static String nameOf(net.minecraft.world.item.ItemStack stack) {
+        return cleanName(stack.getHoverName().getString());
+    }
+
+    private static final Pattern PLACEHOLDER = Pattern.compile("^\\s*\\[NEEDS_TRANSLATION\\]\\s*");
+
+    /**
+     * Retire le marqueur « [NEEDS_TRANSLATION] » que certains mods laissent devant un nom non traduit : il
+     * ferait trier ces objets en tête de liste et mange la place du vrai nom.
+     */
+    public static String cleanName(String name) {
+        return name == null ? "" : PLACEHOLDER.matcher(name).replaceFirst("");
     }
 
     /** Oublie les noms et textes calculés : à la réouverture de l'écran, la langue a pu changer. */
@@ -201,6 +220,21 @@ public final class BenchClientState {
         return queue;
     }
 
+    /** Vitesse à la main du serveur, ou 0 si inconnue. */
+    public static double manualSpeed() {
+        return manualSpeed;
+    }
+
+    /** Vitesse alimentée du serveur, ou 0 si inconnue. */
+    public static double poweredSpeed() {
+        return poweredSpeed;
+    }
+
+    /** Taille maximale de la file selon le serveur, ou 0 si inconnue : le client ne s'oppose alors à rien. */
+    public static int maxQueue() {
+        return maxQueue;
+    }
+
     public static int stockItems() {
         return stockItems;
     }
@@ -232,6 +266,9 @@ public final class BenchClientState {
     public static void acceptQueue(QueuePacket packet) {
         queue = List.copyOf(packet.rows());
         stockItems = packet.stockItems();
+        manualSpeed = packet.manualSpeed();
+        poweredSpeed = packet.poweredSpeed();
+        maxQueue = packet.maxQueue();
         queueReceivedNs = System.nanoTime();
     }
 
@@ -241,6 +278,9 @@ public final class BenchClientState {
         generation = 0;
         queue = List.of();
         stockItems = 0;
+        manualSpeed = 0;
+        poweredSpeed = 0;
+        maxQueue = 0;
         pending = null;
         nextPart = 0;
         lastRefusal = "";

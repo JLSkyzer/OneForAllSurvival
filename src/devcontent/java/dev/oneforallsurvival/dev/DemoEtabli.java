@@ -63,6 +63,12 @@ public final class DemoEtabli {
     private static final Logger LOG = LogManager.getLogger("oneforallsurvival-demo-etabli");
     private static final boolean ACTIF = System.getProperty("oneforallsurvival.demo.etabli") != null;
     private static final String MONDE = "demo_etabli";
+    /** Échelle GUI demandée (3 par défaut ; Minecraft la plafonne à 3 en 1280 x 720). */
+    private static final int ECHELLE = Integer.getInteger("oneforallsurvival.demo.etabli.echelle", 3);
+    /** Sous-dossier des images quand la fenêtre n'a pas la taille par défaut (ex. 960 x 540 : 320 x 180 d'interface). */
+    /** Impose l'échelle même au-delà du plafond de Minecraft (qui garde 320 x 240 au moins) : pour tester le plus serré. */
+    private static final boolean FORCER = System.getProperty("oneforallsurvival.demo.etabli.forcer") != null;
+    private static final String SOUS = System.getProperty("oneforallsurvival.demo.etabli.sous", "");
 
     private enum Phase { TITRE, CREATION, ATTENTE_MONDE, PREPARATION, SCENARIO, FIN }
 
@@ -168,6 +174,9 @@ public final class DemoEtabli {
                 if (preparationFaite) {
                     construireScenario(mc);
                     dossier = mc.gameDirectory.toPath().resolve("etabli-captures");
+                    if (!SOUS.isEmpty()) {
+                        dossier = dossier.resolve(SOUS);
+                    }
                     Files.createDirectories(dossier);
                     phase = Phase.SCENARIO;
                     LOG.info("[demo] scénario prêt : {} étapes", ETAPES.size());
@@ -185,7 +194,7 @@ public final class DemoEtabli {
         o.tutorialStep = net.minecraft.client.tutorial.TutorialSteps.NONE;
         o.renderDistance().set(6);
         o.simulationDistance().set(6);
-        o.guiScale().set(3);
+        o.guiScale().set(ECHELLE);
         o.enableVsync().set(false);
         o.framerateLimit().set(60);
         o.particles().set(net.minecraft.client.ParticleStatus.MINIMAL);
@@ -411,13 +420,15 @@ public final class DemoEtabli {
             ecran(mc).setCategory("");
             ecran(mc).selectById(payable.id());
             EngineerBenchScreen s = ecran(mc);
-            souris(mc, s.getGuiLeft() + 88 + 50, s.getGuiTop() + 39 + 2 + 17 * 2 + 8);
+            int[] p = s.hoverPoint("liste");
+            souris(mc, p[0], p[1]);
         }, () -> true, 800, "08_infobulle_liste.png");
         etape("survol crafter grise", () -> {
             EngineerBenchScreen s = ecran(mc);
             s.selectById(manque.id());
             s.setQuantity(1);
-            souris(mc, s.getGuiLeft() + s.getXSize() - 5 - 88, s.getGuiTop() + s.getYSize() - 5 - 66 - 3 - 5 - 8);
+            int[] p = s.hoverPoint("crafter");
+            souris(mc, p[0], p[1]);
         }, () -> true, 800, "09_infobulle_crafter.png");
 
         // Refus du serveur : on force la commande impayable, que le bouton grisé interdirait.
@@ -473,7 +484,16 @@ public final class DemoEtabli {
             indexEtape = 0;
             actionFaite = false;
         }
+        if (FORCER && mc.getWindow().getGuiScale() != ECHELLE) {
+            mc.getWindow().setGuiScale(ECHELLE);
+            if (mc.screen != null) {
+                mc.screen.resize(mc, mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
+            }
+        }
         Etape e = ETAPES.get(indexEtape);
+        if (!e.nom().startsWith("survol") && !e.nom().equals("refus")) {
+            souris(mc, 1, 1); // l'ouverture de l'écran recentre le curseur réel
+        }
         if (!actionFaite) {
             if (!e.nom().equals("ouvrir") && ecran(mc) == null) {
                 return; // attend que l'écran soit rouvert

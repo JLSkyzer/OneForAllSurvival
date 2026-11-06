@@ -131,6 +131,18 @@ minecraft {
             args '--width', '1280', '--height', '720'
         }
 
+        // Même capture dans une fenêtre de 960 x 540 : 320 x 180 pixels d'interface à l'échelle 3, soit la
+        // mise en page la plus serrée (Minecraft plafonne l'échelle pour garder au moins 320 x 240 en 720p).
+        demoEtabliPetit {
+            parent minecraft.runs.client
+            workingDirectory project.file('run-demo')
+            property 'oneforallsurvival.demo.etabli', 'true'
+            property 'oneforallsurvival.demo.etabli.sous', 'gui320x180'
+            property 'oneforallsurvival.demo.etabli.forcer', 'true'
+            jvmArgs '-Xmx3G'
+            args '--width', '960', '--height', '540'
+        }
+
         server {
             // Un dossier à part : un client lancé en même temps tourne dans `run`.
             workingDirectory project.file('run-server')
@@ -257,7 +269,14 @@ tasks.matching { it.name == 'runDemo' }.configureEach {
 tasks.matching { it.name == 'runDemoEtabli' }.configureEach {
     doFirst {
         delete project.file('run-demo/saves/demo_etabli')
-        delete project.file('run-demo/etabli-captures')
+        delete project.fileTree("run-demo/etabli-captures").matching { include "*.png" }
+    }
+}
+
+tasks.matching { it.name == 'runDemoEtabliPetit' }.configureEach {
+    doFirst {
+        delete project.file('run-demo/saves/demo_etabli')
+        delete project.file('run-demo/etabli-captures/gui320x180')
     }
 }
 

@@ -102,4 +102,12 @@ class BenchClientStateTest {
     void normaliserRetireAccentsCasseEtEspacesEnTrop() {
         assertEquals("etabli d'ingenieur", BenchClientState.normalize("  ÉTABLI   d'Ingénieur "));
     }
+
+    @Test
+    void lePlaceholderDeTraductionNEstPasAffiche() {
+        assertEquals("Câble", BenchClientState.cleanName("[NEEDS_TRANSLATION] Câble"));
+        assertEquals("Câble", BenchClientState.cleanName("[NEEDS_TRANSLATION]Câble"));
+        assertEquals("Câble", BenchClientState.cleanName("Câble"));
+        assertEquals("", BenchClientState.cleanName(null));
+    }
 }

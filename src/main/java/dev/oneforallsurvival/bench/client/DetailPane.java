@@ -23,9 +23,10 @@ final class DetailPane extends BenchPane {
 
     private static final int PAD = 5;
     private static final int ING_ROW = 12;
-    private static final int ING_ROWS = 4;
+    private static final int MAX_ING_ROWS = 4;
     private static final int BTN_H = 14;
-    private static final int CRAFT_H = 16;
+    private static final int CRAFT_H_FULL = 16;
+    private static final int CRAFT_H_COMPACT = 14;
     /** Une seconde et demie par objet : assez lent pour être lu, assez vif pour qu'on voie qu'ils défilent. */
     private static final long CYCLE_MS = 1200;
 
@@ -45,12 +46,18 @@ final class DetailPane extends BenchPane {
     private int maxW;
     private int qtyX;
     private int qtyW;
+    private int ingRows = MAX_ING_ROWS;
     private int ctlY;
     private int craftY;
 
     DetailPane(EngineerBenchScreen screen, Font font) {
         this.screen = screen;
         this.font = font;
+    }
+
+    /** Centre du bouton Crafter, en pixels d'interface (pour la démonstration de développement). */
+    int[] craftCenter() {
+        return new int[] {x + w / 2, craftY + craftH() / 2};
     }
 
     int maxUnits() {
@@ -63,6 +70,9 @@ final class DetailPane extends BenchPane {
         if (recipe == cachedRecipe && signature == cachedSignature) {
             return;
         }
+        if (recipe != cachedRecipe) {
+            scroll.model.scrollTo(0);
+        }
         cachedRecipe = recipe;
         cachedSignature = signature;
         if (recipe == null) {
@@ -72,19 +82,26 @@ final class DetailPane extends BenchPane {
         }
         lines = BenchCost.lines(recipe, inventory);
         maxUnits = BenchCost.maxUnits(recipe, inventory, BenchOrders.MAX_COUNT);
-        scroll.model.setSize(lines.size(), ING_ROWS);
+        scroll.model.setSize(lines.size(), ingRows);
     }
 
     @Override
     protected void onPlaced() {
-        scroll.model.setSize(lines.size(), ING_ROWS);
-        scroll.place(x + w - PAD - BenchScrollBar.WIDTH, y + ingY(), ING_ROWS * ING_ROW);
-        ctlY = y + h - PAD - CRAFT_H - 3 - BTN_H;
-        craftY = y + h - PAD - CRAFT_H;
+        // Le nombre de lignes d'ingrédients suit la hauteur : au moins une, au plus quatre.
+        int below = BTN_H + 3 + craftH() + PAD + 2;
+        ingRows = Math.max(1, Math.min(MAX_ING_ROWS, (h - ingY() - below) / ING_ROW));
+        scroll.model.setSize(lines.size(), ingRows);
+        scroll.place(x + w - PAD - BenchScrollBar.WIDTH, y + ingY(), ingRows * ING_ROW);
+        ctlY = y + h - PAD - craftH() - 3 - BTN_H;
+        craftY = y + h - PAD - craftH();
     }
 
     private int ingY() {
-        return 53;
+        return screen.compact() ? 41 : 53;
+    }
+
+    private int craftH() {
+        return screen.compact() ? CRAFT_H_COMPACT : CRAFT_H_FULL;
     }
 
     private boolean craftable() {
@@ -122,7 +139,7 @@ final class DetailPane extends BenchPane {
         String timeText = Component.translatable("gui.oneforallsurvival.bench.time", base).getString();
         g.drawString(font, timeText, x + PAD, y + 29, BenchTheme.TEXT, false);
         double powered = screen.poweredSpeed();
-        if (Math.abs(powered - screen.manualSpeed()) > 1e-9) {
+        if (powered > 0 && Math.abs(powered - screen.manualSpeed()) > 1e-9) {
             long seconds = Math.max(1, Math.round(recipe.seconds() * screen.manualSpeed() / powered));
             String fast = Component.translatable("gui.oneforallsurvival.bench.time_powered",
                     BenchFormat.speed(powered, Locale.getDefault()), BenchFormat.duration(seconds)).getString();
@@ -132,9 +149,13 @@ final class DetailPane extends BenchPane {
         }
 
         // Les ingrédients.
-        g.drawString(font, Component.translatable("gui.oneforallsurvival.bench.ingredients").getString(), x + PAD,
-                y + 39, BenchTheme.BRASS, false);
-        BenchTheme.rule(g, x + PAD, y + 50, w - PAD * 2);
+        if (screen.compact()) {
+            BenchTheme.rule(g, x + PAD, y + 38, w - PAD * 2);
+        } else {
+            g.drawString(font, Component.translatable("gui.oneforallsurvival.bench.ingredients").getString(), x + PAD,
+                    y + 39, BenchTheme.BRASS, false);
+            BenchTheme.rule(g, x + PAD, y + 50, w - PAD * 2);
+        }
         renderIngredients(g, mx, my, quantity, tick);
 
         // Quantité et bouton.
@@ -165,7 +186,7 @@ final class DetailPane extends BenchPane {
         int first = scroll.model.first();
         int bar = scroll.model.scrollable() ? BenchScrollBar.WIDTH + 3 : 0;
         int right = x + w - PAD - bar;
-        for (int i = 0; i < ING_ROWS && first + i < lines.size(); i++) {
+        for (int i = 0; i < ingRows && first + i < lines.size(); i++) {
             BenchCost.Line line = lines.get(first + i);
             int ry = y + ingY() + i * ING_ROW;
             ItemStack shown = line.shown(tick);
@@ -178,7 +199,7 @@ final class DetailPane extends BenchPane {
             int countW = font.width(count);
             g.drawString(font, count, right - countW - 1, ry + 2, missing ? BenchTheme.TEXT_BAD : BenchTheme.TEXT_OK,
                     false);
-            String name = BenchTheme.ellipsize(font, shown.getHoverName().getString(), ingredientNameWidth(countW));
+            String name = BenchTheme.ellipsize(font, BenchClientState.nameOf(shown), ingredientNameWidth(countW));
             g.drawString(font, name, x + PAD + 15, ry + 2, missing ? BenchTheme.TEXT : BenchTheme.TEXT, false);
         }
         if (scroll.model.scrollable()) {
@@ -188,12 +209,17 @@ final class DetailPane extends BenchPane {
 
     private void renderControls(GuiGraphics g, int mx, int my, int quantity) {
         // « Quantité », moins, valeur, plus, puis Max.
-        String label = Component.translatable("gui.oneforallsurvival.bench.quantity").getString();
-        int labelW = Math.min(font.width(label), 44);
-        g.drawString(font, BenchTheme.ellipsize(font, label, 44), x + PAD, ctlY + 4, BenchTheme.TEXT_DIM, false);
-        minusX = x + PAD + labelW + 4;
+        // Étroit, le mot « Quantité » cède sa place aux boutons ; l'infobulle le dit.
+        boolean showLabel = w >= 150;
+        int labelW = 0;
+        if (showLabel) {
+            String label = Component.translatable("gui.oneforallsurvival.bench.quantity").getString();
+            labelW = Math.min(font.width(label), 44);
+            g.drawString(font, BenchTheme.ellipsize(font, label, 44), x + PAD, ctlY + 4, BenchTheme.TEXT_DIM, false);
+        }
+        minusX = x + PAD + (showLabel ? labelW + 4 : 0);
         qtyX = minusX + BTN_H - 1;
-        qtyW = 26;
+        qtyW = showLabel ? 26 : 22;
         plusX = qtyX + qtyW - 1;
         maxX = plusX + BTN_H + 3;
         maxW = x + w - PAD - maxX;
@@ -215,8 +241,8 @@ final class DetailPane extends BenchPane {
         }
         int craftX = x + PAD;
         int craftW = w - PAD * 2;
-        BenchTheme.button(g, font, craftX, craftY, craftW, CRAFT_H, craft,
-                enabled && hovering(mx, my, craftX, craftY, craftW, CRAFT_H), enabled, true);
+        BenchTheme.button(g, font, craftX, craftY, craftW, craftH(), craft,
+                enabled && hovering(mx, my, craftX, craftY, craftW, craftH()), enabled, true);
     }
 
     private static boolean hovering(int mx, int my, int bx, int by, int bw, int bh) {
@@ -242,7 +268,7 @@ final class DetailPane extends BenchPane {
             screen.setQuantity(screen.quantity() + (Screen.hasShiftDown() ? 8 : 1));
         } else if (hovering((int) mx, (int) my, maxX, ctlY, maxW, BTN_H)) {
             screen.setQuantity(Math.max(1, Math.min(maxUnits, screen.queueFree())));
-        } else if (hovering((int) mx, (int) my, x + PAD, craftY, w - PAD * 2, CRAFT_H) && craftable()) {
+        } else if (hovering((int) mx, (int) my, x + PAD, craftY, w - PAD * 2, craftH()) && craftable()) {
             screen.order();
         }
         return true;
@@ -285,13 +311,13 @@ final class DetailPane extends BenchPane {
             return true;
         }
         int quantity = screen.quantity();
-        if (hovering(mx, my, x + PAD, craftY, w - PAD * 2, CRAFT_H)) {
+        if (hovering(mx, my, x + PAD, craftY, w - PAD * 2, craftH())) {
             g.renderComponentTooltip(font, craftTooltip(recipe, quantity), mx, my);
             return true;
         }
         if (hovering(mx, my, maxX, ctlY, maxW, BTN_H)) {
             g.renderTooltip(font, Component.translatable("gui.oneforallsurvival.bench.max.tooltip", maxUnits,
-                    screen.queueFree()), mx, my);
+                    Math.min(screen.queueFree(), BenchOrders.MAX_COUNT)), mx, my);
             return true;
         }
         if (hovering(mx, my, minusX, ctlY, plusX + BTN_H - minusX, BTN_H)) {
@@ -300,7 +326,7 @@ final class DetailPane extends BenchPane {
         }
         int first = scroll.model.first();
         int bar = scroll.model.scrollable() ? BenchScrollBar.WIDTH + 3 : 0;
-        for (int i = 0; i < ING_ROWS && first + i < lines.size(); i++) {
+        for (int i = 0; i < ingRows && first + i < lines.size(); i++) {
             int ry = y + ingY() + i * ING_ROW;
             if (hovering(mx, my, x + PAD, ry, w - PAD * 2 - bar, ING_ROW)) {
                 BenchCost.Line line = lines.get(first + i);
@@ -333,7 +359,7 @@ final class DetailPane extends BenchPane {
                 if (line.missing(quantity)) {
                     any = true;
                     tip.add(Component.literal(" - " + (line.needed(quantity) - line.have()) + " x "
-                            + line.shown(System.currentTimeMillis() / CYCLE_MS).getHoverName().getString())
+                            + BenchClientState.nameOf(line.shown(System.currentTimeMillis() / CYCLE_MS)))
                             .withStyle(ChatFormatting.GRAY));
                 }
             }

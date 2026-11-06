@@ -1,6 +1,5 @@
 package dev.oneforallsurvival.bench.client;
 
-import dev.oneforallsurvival.bench.BenchConfig;
 import dev.oneforallsurvival.bench.BenchNetwork;
 import dev.oneforallsurvival.bench.BenchOrders;
 import dev.oneforallsurvival.bench.BenchRecipe;
@@ -40,16 +39,10 @@ public final class EngineerBenchScreen extends AbstractContainerScreen<EngineerB
     // Dimensions de référence, en pixels d'interface : conçues pour 426 x 240 (1280 x 720 à l'échelle 3).
     private static final int MAX_W = 440;
     private static final int MAX_H = 270;
-    private static final int MIN_W = 380;
-    private static final int MIN_H = 232;
     private static final int FRAME = 5;
     private static final int TITLE_H = 14;
-    private static final int QUEUE_H = 66;
-    private static final int TABS_W = 72;
-    private static final int DETAIL_W = 168;
     private static final int GAP = 3;
     private static final int SEARCH_H = 14;
-    private static final int STOCK_W = 78;
 
     private final CategoryPane categories = new CategoryPane(this, font());
     private final RecipeListPane list = new RecipeListPane(this, font());
@@ -74,6 +67,9 @@ public final class EngineerBenchScreen extends AbstractContainerScreen<EngineerB
     private int stockY;
     private int speedX;
     private int speedW;
+    private int stockW = 78;
+    /** Vrai quand l'écran est trop bas pour la mise en page ample (échelle GUI élevée) : tout se resserre. */
+    private boolean compact;
 
     public EngineerBenchScreen(EngineerBenchMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -90,25 +86,13 @@ public final class EngineerBenchScreen extends AbstractContainerScreen<EngineerB
 
     @Override
     protected void init() {
-        imageWidth = Math.max(MIN_W, Math.min(MAX_W, width - 8));
-        imageHeight = Math.max(MIN_H, Math.min(MAX_H, height - 4));
+        // Aucun plancher : la mise en page se resserre jusqu'à 320 x 180 pixels d'interface.
+        imageWidth = Math.min(MAX_W, width - 4);
+        imageHeight = Math.min(MAX_H, height - 4);
         super.init();
 
-        int innerX = leftPos + FRAME;
-        int innerW = imageWidth - FRAME * 2;
-        int bodyY = topPos + FRAME + TITLE_H + 3;
-        int queueY = topPos + imageHeight - FRAME - QUEUE_H;
-        int bodyH = queueY - GAP - bodyY;
-        int listW = innerW - TABS_W - DETAIL_W - GAP * 2;
-
-        categories.place(innerX, bodyY, TABS_W, bodyH);
-        int listX = innerX + TABS_W + GAP;
-        list.place(listX, bodyY + SEARCH_H + GAP, listW, bodyH - SEARCH_H - GAP);
-        detail.place(listX + listW + GAP, bodyY, DETAIL_W, bodyH);
-        queue.place(innerX, queueY, innerW, QUEUE_H);
-
         String keep = search == null ? "" : search.getValue();
-        search = new EditBox(font(), listX + 4, bodyY + 3, listW - 8 - 26, 10, Component.empty());
+        search = new EditBox(font(), 0, 0, 10, 10, Component.empty());
         search.setBordered(false);
         search.setMaxLength(48);
         search.setValue(keep);
@@ -117,10 +101,48 @@ public final class EngineerBenchScreen extends AbstractContainerScreen<EngineerB
         setInitialFocus(search);
         search.setFocused(true);
 
-        stockX = leftPos + imageWidth - FRAME - STOCK_W;
-        stockY = topPos + FRAME;
         catalogSeen = null; // force la reconstruction avec les nouvelles tailles
         syncCatalog();
+        layout();
+    }
+
+    boolean compact() {
+        return compact;
+    }
+
+    /** Place les panneaux selon la taille disponible ; rappelée quand les onglets changent de largeur. */
+    private void layout() {
+        int innerX = leftPos + FRAME;
+        int innerW = imageWidth - FRAME * 2;
+        compact = imageHeight < 224;
+        int bodyY = topPos + FRAME + TITLE_H + 3;
+        int avail = imageHeight - (FRAME + TITLE_H + 3) - FRAME - GAP;
+        int minBody = compact ? 90 : 120;
+        int rows = QueuePane.MAX_ROWS;
+        while (rows > QueuePane.MIN_ROWS && avail - QueuePane.heightFor(rows) < minBody) {
+            rows--;
+        }
+        queue.setRows(rows);
+        int queueH = QueuePane.heightFor(rows);
+        int queueY = topPos + imageHeight - FRAME - queueH;
+        int bodyH = queueY - GAP - bodyY;
+
+        int detailW = Math.max(118, Math.min(156, innerW * 36 / 100));
+        int tabsW = Math.max(54, Math.min(categories.preferredWidth(), innerW * 31 / 100));
+        int listW = innerW - tabsW - detailW - GAP * 2;
+        categories.place(innerX, bodyY, tabsW, bodyH);
+        int listX = innerX + tabsW + GAP;
+        list.place(listX, bodyY + SEARCH_H + GAP, listW, bodyH - SEARCH_H - GAP);
+        detail.place(listX + listW + GAP, bodyY, detailW, bodyH);
+        queue.place(innerX, queueY, innerW, queueH);
+
+        search.setX(listX + 4);
+        search.setY(bodyY + 3);
+        search.setWidth(listW - 8 - 26);
+
+        stockW = compact ? 64 : 78;
+        stockX = leftPos + imageWidth - FRAME - stockW;
+        stockY = topPos + FRAME;
     }
 
     // ================================================================================================
@@ -170,6 +192,14 @@ public final class EngineerBenchScreen extends AbstractContainerScreen<EngineerB
         return false;
     }
 
+    /**
+     * Pour la démonstration de développement : où poser le curseur pour survoler {@code zone} (« liste » :
+     * la troisième ligne ; « crafter » : le bouton), en pixels d'interface.
+     */
+    public int[] hoverPoint(String zone) {
+        return zone.equals("crafter") ? detail.craftCenter() : list.rowCenter(2);
+    }
+
     /** Les recettes que la liste montre en ce moment, dans son ordre. */
     public List<BenchRecipe> shownRecipes() {
         return shown;
@@ -179,12 +209,14 @@ public final class EngineerBenchScreen extends AbstractContainerScreen<EngineerB
         return BenchClientState.queue().size();
     }
 
+    /** Taille maximale de la file selon le serveur ; 0 tant qu'il ne l'a pas dite. */
     int queueMax() {
-        return BenchConfig.maxQueue();
+        return BenchClientState.maxQueue();
     }
 
+    /** Places libres ; sans réglage connu, le client ne s'oppose à rien et le serveur tranche. */
     int queueFree() {
-        return Math.max(0, queueMax() - queueSize());
+        return queueMax() <= 0 ? Integer.MAX_VALUE : Math.max(0, queueMax() - queueSize());
     }
 
     boolean affordable(BenchRecipe recipe) {
@@ -195,12 +227,14 @@ public final class EngineerBenchScreen extends AbstractContainerScreen<EngineerB
         return minecraft.player.getInventory().items;
     }
 
+    /** Vitesse à la main selon le serveur ; 1 (temps normal) tant qu'il ne l'a pas dite. */
     double manualSpeed() {
-        return BenchConfig.manualSpeed();
+        return BenchClientState.manualSpeed() > 0 ? BenchClientState.manualSpeed() : 1.0;
     }
 
+    /** Vitesse alimentée selon le serveur ; 0 si inconnue. */
     double poweredSpeed() {
-        return BenchConfig.poweredSpeed();
+        return BenchClientState.poweredSpeed();
     }
 
     /** L'état de la machine, lu sur le bloc tel que le client le connaît. */
@@ -215,7 +249,7 @@ public final class EngineerBenchScreen extends AbstractContainerScreen<EngineerB
 
     /** Vitesse de la tête de file maintenant : alimentée seulement si l'établi tourne. */
     double currentSpeed() {
-        return machineState() == MachineState.RUNNING ? poweredSpeed() : manualSpeed();
+        return machineState() == MachineState.RUNNING && poweredSpeed() > 0 ? poweredSpeed() : manualSpeed();
     }
 
     // ================================================================================================
@@ -252,6 +286,7 @@ public final class EngineerBenchScreen extends AbstractContainerScreen<EngineerB
                     BenchClientState.displayName(r))).thenComparing(r -> r.id().toString()));
             sorted = byName;
             categories.rebuild(catalog);
+            layout();
             if (selected != null) {
                 BenchRecipe same = null;
                 for (BenchRecipe r : catalog) {
@@ -322,7 +357,7 @@ public final class EngineerBenchScreen extends AbstractContainerScreen<EngineerB
 
     private void renderTitleBar(GuiGraphics g, int mx, int my) {
         int ty = topPos + FRAME;
-        String name = BenchTheme.ellipsize(font, title.getString(), 150);
+        String name = BenchTheme.ellipsize(font, title.getString(), Math.min(150, (stockX - leftPos - FRAME) * 45 / 100));
         g.drawString(font, name, leftPos + FRAME + 3, ty + 3, BenchTheme.BRASS_LIGHT, false);
 
         // La vitesse du moment, avec une lampe : verte quand l'établi est alimenté.
@@ -333,14 +368,14 @@ public final class EngineerBenchScreen extends AbstractContainerScreen<EngineerB
             case FAULT -> "gui.oneforallsurvival.bench.speed.fault";
             default -> "gui.oneforallsurvival.bench.speed.manual";
         };
-        double speed = state == MachineState.RUNNING ? poweredSpeed() : manualSpeed();
+        double speed = currentSpeed();
         String text = Component.translatable(key, BenchFormat.speed(speed, Locale.getDefault())).getString();
         int lampColor = switch (state) {
             case RUNNING -> BenchTheme.TEXT_OK;
             case NO_POWER, FAULT -> BenchTheme.TEXT_BAD;
             default -> BenchTheme.TEXT_DIM;
         };
-        int room = stockX - 6 - (leftPos + FRAME + 3 + 150 + 8) - 9;
+        int room = stockX - 6 - (leftPos + FRAME + 3 + font.width(name) + 8) - 9;
         String shownText = BenchTheme.ellipsize(font, text, room);
         speedW = font.width(shownText) + 9;
         speedX = stockX - 8 - speedW;
@@ -350,12 +385,12 @@ public final class EngineerBenchScreen extends AbstractContainerScreen<EngineerB
 
         int stock = BenchClientState.stockItems();
         String label = Component.translatable("gui.oneforallsurvival.bench.stock", stock).getString();
-        BenchTheme.button(g, font, stockX, stockY, STOCK_W, TITLE_H - 1, label,
-                BenchTheme.inside(mx, my, stockX, stockY, STOCK_W, TITLE_H - 1), true, stock > 0);
+        BenchTheme.button(g, font, stockX, stockY, stockW, TITLE_H - 1, label,
+                BenchTheme.inside(mx, my, stockX, stockY, stockW, TITLE_H - 1), true, stock > 0);
     }
 
     private boolean tooltipTitleBar(GuiGraphics g, int mx, int my) {
-        if (BenchTheme.inside(mx, my, stockX, stockY, STOCK_W, TITLE_H - 1)) {
+        if (BenchTheme.inside(mx, my, stockX, stockY, stockW, TITLE_H - 1)) {
             List<Component> tip = new ArrayList<>();
             tip.add(Component.translatable("gui.oneforallsurvival.bench.stock.tooltip"));
             tip.add(Component.translatable("gui.oneforallsurvival.bench.stock.count", BenchClientState.stockItems())
@@ -367,8 +402,10 @@ public final class EngineerBenchScreen extends AbstractContainerScreen<EngineerB
             List<Component> tip = new ArrayList<>();
             tip.add(Component.translatable("gui.oneforallsurvival.bench.speed.tooltip.manual",
                     BenchFormat.speed(manualSpeed(), Locale.getDefault())));
-            tip.add(Component.translatable("gui.oneforallsurvival.bench.speed.tooltip.powered",
-                    BenchFormat.speed(poweredSpeed(), Locale.getDefault())).withStyle(ChatFormatting.GRAY));
+            if (poweredSpeed() > 0) {
+                tip.add(Component.translatable("gui.oneforallsurvival.bench.speed.tooltip.powered",
+                        BenchFormat.speed(poweredSpeed(), Locale.getDefault())).withStyle(ChatFormatting.GRAY));
+            }
             g.renderComponentTooltip(font, tip, mx, my);
             return true;
         }
@@ -402,7 +439,7 @@ public final class EngineerBenchScreen extends AbstractContainerScreen<EngineerB
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
-        if (button == 0 && BenchTheme.inside(mx, my, stockX, stockY, STOCK_W, TITLE_H - 1)) {
+        if (button == 0 && BenchTheme.inside(mx, my, stockX, stockY, stockW, TITLE_H - 1)) {
             openStock();
             return true;
         }
