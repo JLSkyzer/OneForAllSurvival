@@ -102,19 +102,62 @@ Demandé par Killian. Il sert tout le serveur, pas seulement l'ingénieur.
 - **Un seul rôle par joueur**, attribué par commande réservée à l'équipe du serveur.
 - **Préfixe du rôle** (texte et couleur) visible à trois endroits : dans le **chat**, dans le **pseudo
   au-dessus de la tête** et dans le **menu TAB**. Il se met à jour immédiatement pour tous les joueurs.
-- **Actions réservées à l'Ingénieur** : fabriquer et poser les machines et outils de ce mod, réparer,
-  relever un compteur, poser ou retirer un scellé. Les autres joueurs reçoivent un message clair.
-  L'équipe du serveur garde un contournement.
-- **Établi d'ingénieur** : les machines et outils du mod se fabriquent uniquement sur ce bloc, utilisable
-  par le seul rôle Ingénieur. Ainsi, ni une table de craft ni un assembleur automatique de Create ne
-  contournent la règle. Le blocage de la pose s'applique même à un joueur qui a reçu l'objet.
-- Utiliser une machine en état de marche reste ouvert à tous, tout comme casser un bloc. Les denrées,
-  l'eau, le sel et les rations restent aussi accessibles à tous.
-- Ces règles ne concernent que le contenu de ce mod : les machines de Create et de ses addons restent
-  gérées par ces mods.
+- **Actions réservées à l'Ingénieur** : utiliser l'établi d'ingénieur (voir ci-dessous), réparer, relever
+  un compteur, poser ou retirer un scellé. Les autres joueurs reçoivent un message clair. L'équipe du
+  serveur garde un contournement.
+- **Ouvert à tous** : poser n'importe quel bloc reçu ou acheté, utiliser une machine en état de marche
+  (celles de Create comprises), cuire au four, casser un bloc. Un commerce de matériel entre l'ingénieur
+  et les autres joueurs est donc possible.
 
 Les rôles Médecin, Policier et Agriculteur existent pour l'affichage et pour les besoins futurs : ce
 lot ne leur réserve aucune action.
+
+### Établi d'ingénieur
+Demandé par Killian. C'est le seul endroit où fabriquer le matériel du métier.
+
+**Recettes concernées**
+- Toutes les recettes de **table de craft** dont le résultat vient de Create, Crafts & Additions, New Age,
+  Advanced Electricity ou de ce mod sont **retirées de la table de craft, pour tout le monde**, y compris
+  pour les assembleurs mécaniques de Create qui les réutilisent. La liste des mods est configurable.
+- Le retrait s'applique aussi au tailleur de pierre et à la table de forgeron pour ces mêmes résultats.
+- **Restent hors de cette règle**, sur décision de Killian : les fours et cuissons, et les machines de
+  Create (presse, mélangeur, assemblage séquencé).
+- L'établi lui-même se fabrique sur une table de craft normale, avec des matériaux vanilla, pour que le
+  premier ingénieur puisse démarrer.
+
+**Interface** (soignée et structurée, sur plusieurs écrans si besoin)
+- Des **catégories par mod**, une **liste défilante** de tous les objets, une **barre de recherche**.
+- Chaque objet affiche son coût, son temps de fabrication et ce qui manque au joueur.
+- Le coût reprend la recette de table de craft retirée, ou des ingrédients de ce mod si une recette
+  surchargée existe. Les surcharges sont des données, modifiables sans recompiler.
+- Le bouton **Crafter** prélève aussitôt les ingrédients dans l'inventaire du joueur et ajoute le craft à
+  sa file. Une quantité peut être choisie.
+- La **file d'attente** montre le craft en cours et ceux en attente. L'ingénieur peut y ajouter plusieurs
+  crafts pour ne pas attendre devant.
+- **Annuler** un craft, en cours ou en attente, rend tous les objets prélevés.
+- Le bouton **Stock** ouvre une interface à cases, à liste défilante et sans limite de taille, où attendent
+  les objets finis. L'ingénieur les récupère à la main. Rien n'est livré d'office dans l'inventaire.
+
+**Temps de fabrication**
+- En secondes, calculé d'après la complexité de la recette, le coût et la rareté des ingrédients. Un craft
+  peut être long. La formule est réglable et une recette surchargée peut fixer son temps.
+
+**Fonctionnement**
+- File et stock sont **liés au joueur** : privés, accessibles depuis n'importe quel établi, et conservés si
+  un établi est cassé.
+- Les crafts **avancent tant que le serveur tourne**, même si l'ingénieur s'éloigne ou se déconnecte. Ils
+  se figent à l'arrêt du serveur et reprennent ensuite.
+- **Sans courant, l'établi fonctionne lentement à la main ; alimenté, il va beaucoup plus vite.** La vitesse
+  dépend de l'établi où le craft est lancé. Si cet établi est déchargé, son dernier état connu s'applique ;
+  s'il est cassé, la vitesse lente s'applique.
+- Un craft à la fois par ingénieur. Plusieurs ingénieurs avancent indépendamment.
+- Les objets rendus par une recette (seau vide, par exemple) reviennent à la fin du craft dans le stock.
+
+**Vérifier tôt**
+- Le retrait des recettes doit aussi fonctionner avec les recettes ajoutées par CraftTweaker, et avec celles
+  qui ne sont pas de simples recettes à motif ou sans forme. Ces dernières doivent être recensées et traitées
+  une à une pendant le lot 1.
+- JEI ne doit plus proposer ces recettes sur la table, et doit afficher celles de l'établi.
 
 ### Détection de l'eau salée
 L'île est une carte construite à la main : **les biomes ne sont pas fiables et ne sont pas utilisés**.
@@ -293,12 +336,13 @@ Chaque lot produit quelque chose de jouable et peut être livré seul, **visuels
 | Lot | Contenu | Ce qu'il prouve |
 |---|---|---|
 | 0 | Socle, machine de test et bloc en ligne branchés sur les trois réseaux ; système de rôles | Le courant arrive dans nos machines et traverse nos blocs en ligne (compteur, délestage) ; les préfixes s'affichent et les actions se réservent |
-| 1 | Établi d'ingénieur, 1, 2, 4, 3 | Le métier d'ingénieur existe |
-| 2 | 9, 10, 11 | L'électricité devient vitale |
-| 3 | 7, 8, 5, 6 | La gestion du réseau et ses arbitrages |
-| 4 | 12, 13, 16 | Vivres et protection |
-| 5 | 25, 26, 17 | La vie de la ville |
-| 6 | 21, 22, 23, 24 | L'exploration et les outils de l'équipe du serveur |
+| 1 | Établi d'ingénieur, retrait des recettes | Seul l'Ingénieur fabrique le matériel, par une interface complète |
+| 2 | 1, 2, 4, 3 | Le métier de réparation existe |
+| 3 | 9, 10, 11 | L'électricité devient vitale |
+| 4 | 7, 8, 5, 6 | La gestion du réseau et ses arbitrages |
+| 5 | 12, 13, 16 | Vivres et protection |
+| 6 | 25, 26, 17 | La vie de la ville |
+| 7 | 21, 22, 23, 24 | L'exploration et les outils de l'équipe du serveur |
 
 ## 7. Vérification
 
@@ -307,19 +351,23 @@ Chaque lot produit quelque chose de jouable et peut être livré seul, **visuels
   protection du parafoudre.
 - **Test de pack en fin de lot 0, puis à chaque lot** : tous les mods de la section 3 chargés sur un
   serveur dédié, avec un client connecté.
-- **Scénario d'acceptation du lot 2** : couper le courant de l'armoire et constater que les aliments
+- **Scénario d'acceptation de l'établi** : vérifier qu'un non-ingénieur ne peut fabriquer aucun objet des
+  mods listés, ni sur une table ni dans l'établi ; lancer plusieurs crafts, se déconnecter, revenir et les
+  retrouver dans le stock ; annuler un craft en cours et récupérer tous les ingrédients ; arrêter et
+  relancer le serveur en pleine file sans rien perdre.
+- **Scénario d'acceptation du lot 3** : couper le courant de l'armoire et constater que les aliments
   repartent à la vitesse normale, sans aucune perte immédiate.
 - **Scénario d'acceptation des rôles** : attribuer un rôle à un joueur et constater le préfixe dans le
   chat, au-dessus de sa tête et dans le TAB, vus par un second client ; ajouter un rôle en jeu, relancer
-  le serveur et le retrouver ; constater qu'un rôle autre qu'Ingénieur ne peut ni fabriquer, ni poser,
-  ni réparer.
+  le serveur et le retrouver ; constater qu'un rôle autre qu'Ingénieur ne peut ni utiliser l'établi, ni
+  réparer.
 
 ## 8. Décisions de Killian (2026-11-06)
 
-1. **Métiers.** Le mod contient son propre système de rôles (section 4), qui réserve à l'Ingénieur le
-   craft et la pose des machines, la réparation, les relevés et les scellés. Casser un compteur ou un
-   disjoncteur scellé reste possible, avec une trace. Médecin, Policier et Agriculteur n'ont pas encore
-   d'action réservée.
+1. **Métiers.** Le mod contient son propre système de rôles (section 4), qui réserve à l'Ingénieur la
+   fabrication du matériel de tous les mods d'ingénierie, la réparation, les relevés et les scellés. La
+   pose reste libre partout. Casser un compteur ou un disjoncteur scellé reste possible, avec une trace.
+   Médecin, Policier et Agriculteur n'ont pas encore d'action réservée.
 2. **Soif.** Pas de soif sur le serveur.
 3. **Serveur.** Il tourne seulement pendant les sessions RP.
 4. **Île.** Carte construite à la main.
@@ -330,8 +378,10 @@ Chaque lot produit quelque chose de jouable et peut être livré seul, **visuels
 ## 9. Choix faits par l'auteur du document
 
 Ces choix n'ont pas été validés par Killian et peuvent être contestés :
-- l'établi d'ingénieur comme moyen de réserver le craft ;
-- la réserve au rôle Ingénieur ne concerne que le contenu de ce mod, pas Create ni ses addons ;
+- le tailleur de pierre et la table de forgeron suivent la même règle que la table de craft ;
+- le retrait des recettes s'applique à tout le monde, ingénieurs compris : l'établi est leur seul accès ;
+- un craft à la fois par ingénieur, et ingrédients pris dans son inventaire uniquement ;
+- le matériel se paie à la commande, et les objets finis attendent dans le stock ;
 - le chauffe-eau exige de l'eau potable, ce qui donne un débouché au dessalinisateur ;
 - l'usure ne touche que les machines de ce mod en première version ;
 - pas de jauge de moral, mais un effet Bien-être sans soin ;
@@ -344,10 +394,11 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
   adaptateur et retirer le mod ;
 - la liste des machines sans usure (section 4) ;
 - une zone déchargée n'est pas une coupure ;
-- une version `0.x` tant que le lot 6 n'est pas livré.
+- une version `0.x` tant que le lot 7 n'est pas livré.
 
 ## 10. Hors du mod, à faire côté pack
 
-Retirer du serveur les contenus contraires à l'immersion, via CraftTweaker ou un datapack : les PC, CPU
-et cartes graphiques d'Advanced Electricity, les réacteurs nucléaires de New Age. Dresser la liste
-exacte des recettes au moment de constituer le pack.
+Retirer du serveur les contenus contraires à l'immersion : les PC, CPU et cartes graphiques d'Advanced
+Electricity, les réacteurs nucléaires de New Age. L'établi doit permettre d'exclure ces objets par une
+liste de configuration, mais leurs recettes hors table de craft relèvent d'un datapack ou de CraftTweaker.
+Dresser la liste exacte au moment de constituer le pack.
