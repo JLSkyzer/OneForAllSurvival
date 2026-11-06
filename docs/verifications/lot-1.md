@@ -166,7 +166,7 @@ connexion a `127.0.0.1` (le serveur ecoute desormais sur `server-ip=127.0.0.1` :
 
 Journal serveur : `Done (6.361s)`, connexion de `Dev`, `/stop` de l'op client (« Stopping the server »),
 « All dimensions are saved », aucune ligne ERROR ni FATAL, et aucun processus Java restant. Film du client
-reel : `run-demo/lot-1-e2e-serveur.mp4` (12,7 s, 3,7 Mo, refait apres le correctif). Port 25565 ferme et aucun Java restant a la fin.
+reel : `run-demo/lot-1-e2e-serveur.mp4` (remplacee depuis par le film de la relance de la revue finale, voir plus bas). Port 25565 ferme et aucun Java restant a la fin.
 
 Defaut trouve et corrige par cet essai : le menu de l'etabli n'a aucune case, donc le serveur ne
 synchronisait pas l'inventaire du joueur a travers lui, et le client n'accepte d'un menu ouvert que la
@@ -216,7 +216,9 @@ Cette relance a ete precedee de plusieurs echecs, tous expliques :
   code du mod : les lancements voisins, avec les memes binaires, se sont connectes en 10 a 16 s. Hypothese non
   prouvee : une course d'initialisation entre `Server Connector #1` et `Netty Client IO #0` (le meme mixin de
   Create se charge sur l'un ou l'autre selon l'essai). Frequence observee : 3 blocages sur 6 lancements du
-  client ce jour.
+  client ce jour. Le premier blocage (13:58) a eu lieu avec les correctifs de la revue deja en place, alors que
+  les essais de 12:53 et 13:21 passaient sans eux ; des lancements avec ces correctifs passent aussi (13:53,
+  14:24, 14:41). Rien ne dit donc si ces correctifs jouent sur la frequence, ni si de vrais joueurs sont touches.
 - Ces blocages ont ete signales comme une possible intervention exterieure ; rien ne le confirme.
 
 Essai final, passe : toutes les lignes `[e2e] PASS`, « bilan : TOUT PASSE », arret par `/stop`, 0 ERROR ni
