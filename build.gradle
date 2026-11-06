@@ -163,11 +163,11 @@ repositories {
         }
     }
 
-    // If you have mod jar dependencies in ./libs, you can declare them as a repository like so.
-    // See https://docs.gradle.org/current/userguide/declaring_repositories.html#sub:flat_dir_resolver
-    // flatDir {
-    //     dir 'libs'
-    // }
+    // ESL (bibliothèque d'énergie), embarquée dans New Age : voir le bloc du pack plus bas.
+    flatDir {
+        dir 'libs'
+        content { includeGroup 'local' }
+    }
 }
 
 dependencies {
@@ -201,12 +201,17 @@ dependencies {
 }
 
 // Le pack de développement : les mods d'ingénierie et de santé que le mod sert.
-// Écarté quand une tâche demandée contient `GameTest`, pour garder les GameTests rapides.
-if (!gradle.startParameter.taskNames.any { it.contains('GameTest') }) {
+// Écarté quand une tâche demandée contient `GameTest`, pour garder les GameTests rapides, sauf
+// avec `-PwithPack` : ce passage prouve alors que le pack complet se charge et fonctionne.
+if (project.hasProperty('withPack') || !gradle.startParameter.taskNames.any { it.contains('GameTest') }) {
     dependencies {
         runtimeOnly fg.deobf("maven.modrinth:create:${create_version}")
         runtimeOnly fg.deobf("maven.modrinth:createaddition:${createaddition_version}")
         runtimeOnly fg.deobf("maven.modrinth:create-new-age:${createnewage_version}")
+        // ESL est imbriqué (jarjar) dans New Age, et fg.deobf ne remappe pas les jars imbriqués :
+        // il resterait en noms SRG, et son mixin planterait en développement (NoSuchMethodError
+        // sur BlockEntity.m_58903_). On le sort de libs/ pour le remapper nous-mêmes.
+        runtimeOnly fg.deobf("local:esl-forge-1.20.1:${esl_version}")
         runtimeOnly fg.deobf("curse.maven:create-advanced-electricity-addon-1743391:${advancedelectricity_file}")
         runtimeOnly fg.deobf("maven.modrinth:hospitals:${hospitals_version}")
         runtimeOnly fg.deobf("curse.maven:medical-remedies-1185929:${medicalremedies_file}")
