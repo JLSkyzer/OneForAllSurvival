@@ -287,14 +287,20 @@ public final class E2eClient {
                 joueur.getInventory().selected = fente;
                 BlockPos pieds = joueur.blockPosition();
                 BlockPos cible = null;
-                outer:
-                for (int d = 2; d <= 6; d++) {
-                    for (Direction dir : Direction.Plane.HORIZONTAL) {
-                        BlockPos p = pieds.relative(dir, d);
+                // Forge refuse un clic au-delà de 4,5 + 1,5 blocs de l'oeil : rester à 4 blocs au plus des pieds,
+                // dans toutes les directions (les établis des essais précédents occupent les premières places).
+                double meilleure = Double.MAX_VALUE;
+                for (int dx = -4; dx <= 4; dx++) {
+                    for (int dz = -4; dz <= 4; dz++) {
+                        double dist = dx * dx + dz * dz;
+                        if (dist < 4 || dist > 16 || dist >= meilleure) {
+                            continue;
+                        }
+                        BlockPos p = pieds.offset(dx, 0, dz);
                         if (mc.level.getBlockState(p.below()).isSolidRender(mc.level, p.below())
                                 && mc.level.getBlockState(p).isAir() && mc.level.getBlockState(p.above()).isAir()) {
                             cible = p;
-                            break outer;
+                            meilleure = dist;
                         }
                     }
                 }
