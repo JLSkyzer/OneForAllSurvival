@@ -1,0 +1,9 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    { "item": "oneforallsurvival:test_machine" },
+    { "item": "minecraft:golden_apple" }
+  ],
+  "result": { "item": "oneforallsurvival:test_chain" }
+}

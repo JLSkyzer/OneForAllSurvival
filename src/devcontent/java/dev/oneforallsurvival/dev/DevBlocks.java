@@ -70,6 +70,9 @@ public final class DevBlocks {
         event.register(Registries.ITEM, helper -> {
             helper.register(TEST_MACHINE_ID, new BlockItem(testMachine, new Item.Properties()));
             helper.register(TEST_INLINE_ID, new BlockItem(testInline, new Item.Properties()));
+            // Résultats d'essai des recettes de l'établi (surcharges, exclusions, chaîne de fabrication).
+            helper.register(new ResourceLocation("oneforallsurvival", "test_hidden"), new Item(new Item.Properties()));
+            helper.register(new ResourceLocation("oneforallsurvival", "test_chain"), new Item(new Item.Properties()));
         });
     }
 

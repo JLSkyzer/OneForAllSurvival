@@ -1,12 +1,16 @@
 package dev.oneforallsurvival.dev;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import dev.oneforallsurvival.bench.BenchCatalog;
 import dev.oneforallsurvival.bench.BenchConfig;
 import dev.oneforallsurvival.bench.BenchRecipe;
+import dev.oneforallsurvival.bench.BenchTimes;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -21,6 +25,7 @@ import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraft.world.item.crafting.RecipeType;
+import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.minecraft.world.item.crafting.ShapelessRecipe;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.gametest.GameTestHolder;
@@ -42,6 +47,10 @@ public final class BenchCatalogGameTests {
     private static final ResourceLocation RECETTE_ESSAI = new ResourceLocation("oneforallsurvival", "test_bench_shaped");
     private static final ResourceLocation TABLE = new ResourceLocation("minecraft", "crafting_table");
     private static final ResourceLocation MACHINE_ESSAI = new ResourceLocation("oneforallsurvival", "test_machine");
+    private static final ResourceLocation RECETTE_ALT = new ResourceLocation("oneforallsurvival", "test_bench_alt");
+    private static final ResourceLocation RECETTE_INLINE = new ResourceLocation("oneforallsurvival", "test_bench_inline");
+    private static final ResourceLocation RECETTE_CACHEE = new ResourceLocation("oneforallsurvival", "test_bench_hidden");
+    private static final ResourceLocation RECETTE_CHAINE = new ResourceLocation("oneforallsurvival", "test_bench_chain");
     private static final ResourceLocation ETABLI = new ResourceLocation("oneforallsurvival", "engineer_bench");
 
     private BenchCatalogGameTests() {}
@@ -74,7 +83,7 @@ public final class BenchCatalogGameTests {
         long cuivre = r.ingredients().stream().filter(i -> i.test(new ItemStack(Items.COPPER_INGOT))).count();
         helper.assertTrue(fer == 8 && cuivre == 1, "fer " + fer + ", cuivre " + cuivre);
         helper.assertTrue("crafting".equals(r.category()), "catégorie : " + r.category());
-        helper.assertTrue(r.seconds() == 10, "durée provisoire : " + r.seconds());
+        helper.assertTrue(r.seconds() == 120, "durée imposée par la surcharge : " + r.seconds());
         helper.succeed();
     }
 
@@ -110,6 +119,111 @@ public final class BenchCatalogGameTests {
         helper.assertTrue(teinture != null, "armor_dye a quitté le manager");
         helper.assertTrue(!gere(teinture, helper.getLevel().registryAccess()), "armor_dye ne doit pas être gérée");
         helper.assertTrue(BenchCatalog.current().byId(id).isEmpty(), "armor_dye est au catalogue");
+        helper.succeed();
+    }
+
+    // --- Temps et surcharges ----------------------------------------------------------------
+
+    @GameTest(template = "test/plancher", batch = "etabli_catalogue")
+    public static void uneSurchargeFixeLaDuree(GameTestHelper helper) {
+        BenchRecipe r = BenchCatalog.current().byId(RECETTE_ESSAI).orElseThrow();
+        helper.assertTrue(r.seconds() == 120, "durée : " + r.seconds());
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = "etabli_catalogue")
+    public static void uneSurchargeVautPourToutesLesRecettesDuResultat(GameTestHelper helper) {
+        BenchRecipe alt = BenchCatalog.current().byId(RECETTE_ALT).orElse(null);
+        helper.assertTrue(alt != null, "la deuxième recette du même résultat manque");
+        helper.assertTrue(alt.seconds() == 120, "durée de la deuxième recette : " + alt.seconds());
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = "etabli_catalogue")
+    public static void uneSurchargeCacheLaRecetteMaisLaRetireDeLaTable(GameTestHelper helper) {
+        helper.assertTrue(helper.getLevel().getServer().getRecipeManager().byKey(RECETTE_CACHEE).isEmpty(),
+                "la recette cachée est restée sur la table");
+        helper.assertTrue(BenchCatalog.current().byId(RECETTE_CACHEE).isEmpty(), "la recette cachée est visible");
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = "etabli_catalogue")
+    public static void uneSurchargeRemplaceLesIngredients(GameTestHelper helper) {
+        BenchRecipe r = BenchCatalog.current().byId(RECETTE_INLINE).orElseThrow();
+        helper.assertTrue(r.ingredients().size() == 1 && r.ingredients().get(0).test(new ItemStack(Items.GOLD_INGOT)),
+                "ingrédients : " + r.ingredients().size());
+        // 4 de base + 1 pour un lingot d'or, objet commun sans recette au catalogue.
+        helper.assertTrue(r.seconds() == 5, "durée : " + r.seconds());
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = "etabli_catalogue")
+    public static void laComplexiteEtLaRareteSeTransmettent(GameTestHelper helper) {
+        BenchRecipe r = BenchCatalog.current().byId(RECETTE_CHAINE).orElseThrow();
+        // 4 + (1 + moitié de 120) + (1 + 5 pour la pomme d'or, rare) ; la surcharge à l'objet inconnu est ignorée.
+        helper.assertTrue(r.ingredients().size() == 2, "ingrédients : " + r.ingredients().size());
+        helper.assertTrue(r.seconds() == 71, "durée : " + r.seconds());
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = "etabli_catalogue")
+    public static void unFichierInvalideOuUneSurchargeInconnueNArreteRien(GameTestHelper helper) {
+        // Trois fichiers fautifs sont livrés (sans résultat, objet inconnu, résultat inconnu) : le
+        // catalogue s'est construit quand même, et les autres surcharges ont joué.
+        helper.assertTrue(BenchCatalog.current().byId(RECETTE_ESSAI).isPresent(), "catalogue vide");
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = "etabli_catalogue")
+    public static void leCatalogueEstEnLectureSeule(GameTestHelper helper) {
+        boolean refuse = false;
+        try {
+            BenchCatalog.current().recipes().clear();
+        } catch (UnsupportedOperationException e) {
+            refuse = true;
+        }
+        helper.assertTrue(refuse, "recipes() est modifiable");
+        helper.assertTrue(BenchCatalog.current().byId(RECETTE_ESSAI).isPresent(), "le catalogue a été vidé");
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = "etabli_catalogue")
+    public static void unObjetExcluQuitteLaTableSansEntrerAuCatalogue(GameTestHelper helper) {
+        RegistryAccess acces = helper.getLevel().registryAccess();
+        ItemStack resultat = new ItemStack(BuiltInRegistries.ITEM.get(MACHINE_ESSAI));
+        ResourceLocation id = new ResourceLocation("oneforallsurvival", "exclusion_essai");
+        Set<String> mods = Set.of("oneforallsurvival");
+        BenchTimes.Params params = new BenchTimes.Params(4, 1, 600);
+        for (boolean exclu : new boolean[] {true, false}) {
+            RecipeManager manager = new RecipeManager();
+            manager.replaceRecipes(List.of(new ShapelessRecipe(id, "", CraftingBookCategory.MISC, resultat,
+                    NonNullList.of(Ingredient.EMPTY, Ingredient.of(Items.IRON_INGOT), Ingredient.of(Items.COPPER_INGOT)))));
+            BenchCatalog catalogue = BenchCatalog.extract(manager, acces, mods, Set.of(),
+                    exclu ? Set.of(MACHINE_ESSAI) : Set.of(), Map.of(), params);
+            helper.assertTrue(manager.byKey(id).isEmpty(), "la recette est restée sur la table (exclu=" + exclu + ")");
+            helper.assertTrue(catalogue.byId(id).isPresent() == !exclu,
+                    "visibilité au catalogue (exclu=" + exclu + ")");
+            helper.assertTrue(exclu || catalogue.byId(id).get().seconds() == 6, "durée sans exclusion");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = "etabli_catalogue")
+    public static void uneRecetteSpecialeAuResultatGereReste(GameTestHelper helper) {
+        // Sous-classe de ShapedRecipe : classe non standard, résultat d'un mod géré. Elle reste sur la
+        // table, est relevée comme spéciale, et extract la journalise en WARN (visible dans le journal).
+        ResourceLocation id = new ResourceLocation("oneforallsurvival", "speciale_essai");
+        ItemStack resultat = new ItemStack(BuiltInRegistries.ITEM.get(MACHINE_ESSAI));
+        Recipe<?> speciale = new ShapedRecipe(id, "", CraftingBookCategory.MISC, 1, 1,
+                NonNullList.of(Ingredient.EMPTY, Ingredient.of(Items.IRON_INGOT)), resultat) {};
+        RecipeManager manager = new RecipeManager();
+        manager.replaceRecipes(List.of(speciale));
+        BenchCatalog catalogue = BenchCatalog.extract(manager, helper.getLevel().registryAccess(),
+                Set.of("oneforallsurvival"), Set.of(), Set.of(), Map.of(), new BenchTimes.Params(4, 1, 600));
+        helper.assertTrue(manager.byKey(id).isPresent(), "la recette spéciale a quitté la table");
+        helper.assertTrue(catalogue.byId(id).isEmpty(), "la recette spéciale est au catalogue");
+        helper.assertTrue(catalogue.specials().size() == 1 && catalogue.specials().get(0).id().equals(id),
+                "recettes spéciales : " + catalogue.specials());
         helper.succeed();
     }
 
@@ -192,6 +306,26 @@ public final class BenchCatalogGameTests {
             helper.assertTrue(catalogue.byId(s.id()).isEmpty(), "la recette spéciale " + s.id() + " est au catalogue");
         }
         helper.assertTrue(keyCopy, "key_copy n'est pas dans les recettes spéciales");
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = "etabli_pack")
+    public static void avecLePack_repartitionDesTemps(GameTestHelper helper) {
+        if (packAbsent(helper, "repartitionDesTemps")) {
+            return;
+        }
+        List<BenchRecipe> toutes = new ArrayList<>(BenchCatalog.current().recipes());
+        int[] temps = toutes.stream().mapToInt(BenchRecipe::seconds).sorted().toArray();
+        int n = temps.length;
+        long plafond = Arrays.stream(temps).filter(t -> t >= 600).count();
+        LOG.info("[etabli] TEMPS n={} min={} mediane={} max={} auPlafond={}", n, temps[0], temps[n / 2],
+                temps[n - 1], plafond);
+        toutes.stream()
+                .sorted(Comparator.comparingInt(BenchRecipe::seconds).reversed().thenComparing(r -> r.id().toString()))
+                .limit(5)
+                .forEach(r -> LOG.info("[etabli] TEMPS-TOP {} s | {} | {}", r.seconds(), r.id(),
+                        BuiltInRegistries.ITEM.getKey(r.result().getItem())));
+        helper.assertTrue(n > 1000 && temps[0] >= 1, "temps incohérents : " + n + " recettes, min " + temps[0]);
         helper.succeed();
     }
 }

@@ -21,6 +21,9 @@ public final class BenchConfig {
     private static final ForgeConfigSpec.ConfigValue<List<? extends String>> MANAGED_MODS;
     private static final ForgeConfigSpec.ConfigValue<List<? extends String>> EXCLUDED_ITEMS;
     private static final ForgeConfigSpec.ConfigValue<List<? extends String>> TABLE_ALLOWED_ITEMS;
+    private static final ForgeConfigSpec.IntValue BASE_SECONDS;
+    private static final ForgeConfigSpec.IntValue SECONDS_PER_INGREDIENT;
+    private static final ForgeConfigSpec.IntValue MAX_SECONDS;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -33,6 +36,15 @@ public final class BenchConfig {
         TABLE_ALLOWED_ITEMS = builder
                 .comment("Objets (modid:objet) dont la recette reste sur la table, malgré leur mod.")
                 .defineListAllowEmpty("tableAllowedItems", DEFAULT_TABLE_ALLOWED, o -> o instanceof String);
+        BASE_SECONDS = builder
+                .comment("Durée de base d'une fabrication à l'établi, en secondes.")
+                .defineInRange("baseSeconds", 4, 0, 3600);
+        SECONDS_PER_INGREDIENT = builder
+                .comment("Secondes ajoutées par ingrédient (la rareté et la complexité s'y ajoutent).")
+                .defineInRange("secondsPerIngredient", 1, 0, 600);
+        MAX_SECONDS = builder
+                .comment("Plafond de la durée calculée, en secondes. Une surcharge de données peut le dépasser.")
+                .defineInRange("maxSeconds", 600, 1, 86400);
         SPEC = builder.build();
     }
 
@@ -48,6 +60,14 @@ public final class BenchConfig {
 
     public static Set<ResourceLocation> tableAllowedItems() {
         return ids(read(TABLE_ALLOWED_ITEMS, DEFAULT_TABLE_ALLOWED));
+    }
+
+    public static BenchTimes.Params timeParams() {
+        try {
+            return new BenchTimes.Params(BASE_SECONDS.get(), SECONDS_PER_INGREDIENT.get(), MAX_SECONDS.get());
+        } catch (IllegalStateException e) {
+            return new BenchTimes.Params(4, 1, 600);
+        }
     }
 
     /** Lit une valeur ; repli sur le défaut tant que le fichier n'est pas chargé. */

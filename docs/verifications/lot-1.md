@@ -58,3 +58,35 @@ Aucune des trois ne fabrique de machine sans ingenieur. Les trois exigent d'avoi
 Seuls `CRAFTING`, `STONECUTTING` et `SMITHING` sont deplaces. Les recettes d'autres types dont le
 resultat est un objet de mod gere (`create:mechanical_crafting`, assemblages sequences, remplissages)
 restent a leurs machines : non denombrees ici.
+
+## Tache 2 : temps de fabrication et surcharges (2026-11-06)
+
+Formule (`BenchTimes`, logique pure testee en JUnit) : temps = base 4 + par ingredient (1 + poids de
+rarete + moitie du temps de la recette qui fabrique l'ingredient), plafonne a 600. Poids : COMMON 0,
+UNCOMMON 2, RARE 5, EPIC 10. Un cycle est coupe (la recette en cours compte 0). Reglages en config
+COMMON : `baseSeconds`, `secondsPerIngredient`, `maxSeconds`.
+
+Surcharges : `data/<espace>/bench_overrides/*.json`, lues par `BenchOverrides` (reload listener, donc
+avant le `TagsUpdatedEvent` qui construit le catalogue ; confirme par le GameTest `/reload`, qui relit
+les surcharges avant de reconstruire). Fichier invalide : WARN avec son nom, ignore. Surcharge sur un
+resultat sans recette : WARN. `excludedItems` agit comme `hidden`.
+
+Preuve : `./gradlew test runGameTestServer` puis `./gradlew runGameTestServer -PwithPack`, a chaque fois
+« All 53 required tests passed » lu dans `run-gametest/logs/latest.log`. Avant l'ajout des fichiers de
+surcharge, les 6 essais de surcharge echouaient (« 6 required tests failed »).
+
+### Repartition des temps avec le pack (1129 recettes au catalogue, mesure du GameTest)
+
+min 5 s, mediane 10 s, max 148 s, 0 recette au plafond de 600 s.
+
+| Les cinq plus longues | Temps |
+|---|---|
+| create:crafting/materials/brass_block_from_compacting | 148 s |
+| create:crafting/materials/zinc_block_from_compacting | 148 s |
+| create:crafting/kinetics/flywheel | 140 s |
+| oneforallsurvival:test_bench_alt (surcharge d'essai) | 120 s |
+| oneforallsurvival:test_bench_shaped (surcharge d'essai) | 120 s |
+
+Les deux recettes d'essai a 120 s sont des surcharges imposees, pas du calcul. Les recettes calculees les
+plus longues sont les blocs compactes (9 lingots dont chacun hérite de la chaine des pepites) et le volant.
+A juger par Killian : la mediane de 10 s et un maximum de 148 s laissent le plafond de 600 s inutilise.

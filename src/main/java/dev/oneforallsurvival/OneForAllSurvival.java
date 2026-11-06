@@ -3,6 +3,7 @@ package dev.oneforallsurvival;
 import com.mojang.logging.LogUtils;
 import dev.oneforallsurvival.bench.BenchCatalog;
 import dev.oneforallsurvival.bench.BenchConfig;
+import dev.oneforallsurvival.bench.BenchOverrides;
 import dev.oneforallsurvival.role.RoleCommands;
 import dev.oneforallsurvival.role.RoleEvents;
 import net.minecraftforge.common.MinecraftForge;
@@ -28,6 +29,7 @@ public final class OneForAllSurvival {
         MinecraftForge.EVENT_BUS.register(new RoleCommands());
         context.registerConfig(ModConfig.Type.COMMON, BenchConfig.SPEC);
         MinecraftForge.EVENT_BUS.addListener(BenchCatalog::onAddReloadListener);
+        MinecraftForge.EVENT_BUS.addListener(BenchOverrides::onAddReloadListener);
         MinecraftForge.EVENT_BUS.addListener(BenchCatalog::onTagsUpdated);
     }
 

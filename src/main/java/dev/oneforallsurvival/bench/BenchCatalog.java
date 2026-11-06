@@ -2,7 +2,10 @@ package dev.oneforallsurvival.bench;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,7 +18,9 @@ import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Rarity;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeManager;
@@ -65,7 +70,7 @@ public final class BenchCatalog {
     }
 
     public Collection<BenchRecipe> recipes() {
-        return byId.values();
+        return Collections.unmodifiableCollection(byId.values());
     }
 
     public Optional<BenchRecipe> byId(ResourceLocation id) {
@@ -93,8 +98,9 @@ public final class BenchCatalog {
         }
         processed = manager;
         current = extract(manager, event.getRegistryAccess(), BenchConfig.managedMods(),
-                BenchConfig.tableAllowedItems());
-        LOGGER.info("Etabli : {} recettes sorties du RecipeManager, {} recettes speciales laissees sur la table",
+                BenchConfig.tableAllowedItems(), BenchConfig.excludedItems(), BenchOverrides.current(),
+                BenchConfig.timeParams());
+        LOGGER.info("Etabli : {} recettes visibles au catalogue, {} recettes speciales laissees sur la table",
                 current.byId.size(), current.specials.size());
         Map<String, Integer> parMod = new TreeMap<>();
         for (BenchRecipe r : current.byId.values()) {
@@ -183,9 +189,16 @@ public final class BenchCatalog {
 
     // --- Construction -----------------------------------------------------------------------
 
-    /** Sort du manager les recettes gérées et renvoie le catalogue correspondant. */
-    static BenchCatalog extract(RecipeManager manager, RegistryAccess access, Set<String> mods,
-            Set<ResourceLocation> tableAllowed) {
+    /**
+     * Sort du manager les recettes gérées et renvoie le catalogue correspondant.
+     *
+     * @param excluded  objets que l'établi refuse de fabriquer : leur recette quitte la table, sans
+     *                  entrer au catalogue visible (comme {@code hidden} d'une surcharge)
+     * @param overrides surcharges de données, par résultat
+     */
+    public static BenchCatalog extract(RecipeManager manager, RegistryAccess access, Set<String> mods,
+            Set<ResourceLocation> tableAllowed, Set<ResourceLocation> excluded,
+            Map<ResourceLocation, List<BenchOverrides.Surcharge>> overrides, BenchTimes.Params params) {
         List<Recipe<?>> keep = new ArrayList<>();
         List<BenchRecipe> moved = new ArrayList<>();
         List<Special> specials = new ArrayList<>();
@@ -195,19 +208,146 @@ public final class BenchCatalog {
                 continue;
             }
             keep.add(recipe);
-            specialOf(recipe, access, mods).ifPresent(specials::add);
+            Optional<Special> special = specialOf(recipe, access, mods);
+            special.ifPresent(specials::add);
+            // Une recette de mod géré laissée sur la table doit se voir : un futur mod peut en ajouter.
+            if (special.isPresent() && hasManagedResult(recipe, access, mods, tableAllowed)) {
+                LOGGER.warn("Etabli : recette speciale laissee sur la table, {} (classe {}) : {}",
+                        recipe.getId(), recipe.getClass().getName(), special.get().reason());
+            }
         }
         manager.replaceRecipes(keep);
         moved.sort(Comparator.comparing(r -> r.id().toString()));
         specials.sort(Comparator.comparing(s -> s.id().toString()));
-        return new BenchCatalog(moved, specials);
+        return new BenchCatalog(finish(moved, excluded, overrides, params), specials);
     }
 
-    /** Durée fixe à 10 s pour l'instant : la formule de temps vient avec la tâche suivante. */
+    private static boolean hasManagedResult(Recipe<?> recipe, RegistryAccess access, Set<String> mods,
+            Set<ResourceLocation> tableAllowed) {
+        ItemStack result = resultOf(recipe, access);
+        if (result.isEmpty()) {
+            return false;
+        }
+        ResourceLocation key = BuiltInRegistries.ITEM.getKey(result.getItem());
+        return !tableAllowed.contains(key) && mods.contains(key.getNamespace());
+    }
+
+    private static ResourceLocation resultKey(BenchRecipe recipe) {
+        return BuiltInRegistries.ITEM.getKey(recipe.result().getItem());
+    }
+
+    /** Applique surcharges et exclusions, calcule les durées, ne garde que les recettes visibles. */
+    private static List<BenchRecipe> finish(List<BenchRecipe> moved, Set<ResourceLocation> excluded,
+            Map<ResourceLocation, List<BenchOverrides.Surcharge>> overrides, BenchTimes.Params params) {
+        Map<String, Integer> fixed = new HashMap<>();
+        Set<ResourceLocation> hidden = new HashSet<>();
+        Set<ResourceLocation> seenResults = new HashSet<>();
+        List<BenchRecipe> recipes = new ArrayList<>(moved.size());
+        for (BenchRecipe recipe : moved) {
+            ResourceLocation result = resultKey(recipe);
+            seenResults.add(result);
+            if (excluded.contains(result)) {
+                hidden.add(recipe.id());
+            }
+            for (BenchOverrides.Surcharge o : overrides.getOrDefault(result, List.of())) {
+                if (o.ingredients() != null) {
+                    recipe = new BenchRecipe(recipe.id(), recipe.result(), o.ingredients(), recipe.category(), 0);
+                }
+                if (o.seconds() != null) {
+                    fixed.put(recipe.id().toString(), o.seconds());
+                }
+                if (o.hidden() != null) {
+                    if (o.hidden()) {
+                        hidden.add(recipe.id());
+                    } else {
+                        hidden.remove(recipe.id());
+                    }
+                }
+            }
+            recipes.add(recipe);
+        }
+        for (Map.Entry<ResourceLocation, List<BenchOverrides.Surcharge>> entry : overrides.entrySet()) {
+            if (!seenResults.contains(entry.getKey())) {
+                for (BenchOverrides.Surcharge o : entry.getValue()) {
+                    LOGGER.warn("Etabli : surcharge {} ignoree, aucune recette de l'etabli ne fabrique {}",
+                            o.file(), entry.getKey());
+                }
+            }
+        }
+        Map<String, Integer> times = BenchTimes.compute(slotsOf(recipes), params, fixed);
+        List<BenchRecipe> visible = new ArrayList<>();
+        for (BenchRecipe recipe : recipes) {
+            if (!hidden.contains(recipe.id())) {
+                visible.add(new BenchRecipe(recipe.id(), recipe.result(), recipe.ingredients(), recipe.category(),
+                        times.get(recipe.id().toString())));
+            }
+        }
+        if (!hidden.isEmpty()) {
+            LOGGER.info("Etabli : {} recettes cachees (exclusions et surcharges)", hidden.size());
+        }
+        return visible;
+    }
+
+    /** Poids de rareté : COMMON 0, UNCOMMON 2, RARE 5, EPIC 10. */
+    static int rarityWeight(Rarity rarity) {
+        return switch (rarity) {
+            case COMMON -> 0;
+            case UNCOMMON -> 2;
+            case RARE -> 5;
+            case EPIC -> 10;
+        };
+    }
+
+    /**
+     * Les ingrédients de chaque recette, vus par le calcul de durée. Pour un ingrédient : la rareté du
+     * premier objet qui convient, et la recette du catalogue qui le fabrique : la première dans l'ordre
+     * des identifiants pour un objet, la plus simple (moins d'ingrédients, puis identifiant) parmi les
+     * candidats d'une étiquette, pour que le résultat ne dépende que des données.
+     */
+    private static Map<String, List<BenchTimes.Slot>> slotsOf(List<BenchRecipe> recipes) {
+        Map<Item, BenchRecipe> makers = new HashMap<>();
+        for (BenchRecipe recipe : recipes) {
+            makers.putIfAbsent(recipe.result().getItem(), recipe);
+        }
+        Map<String, List<BenchTimes.Slot>> slots = new LinkedHashMap<>();
+        for (BenchRecipe recipe : recipes) {
+            List<BenchTimes.Slot> list = new ArrayList<>(recipe.ingredients().size());
+            for (Ingredient ingredient : recipe.ingredients()) {
+                list.add(slotOf(ingredient, makers));
+            }
+            slots.put(recipe.id().toString(), list);
+        }
+        return slots;
+    }
+
+    private static BenchTimes.Slot slotOf(Ingredient ingredient, Map<Item, BenchRecipe> makers) {
+        int weight = 0;
+        BenchRecipe maker = null;
+        boolean first = true;
+        for (ItemStack stack : ingredient.getItems()) {
+            Item item = stack.getItem();
+            if (first) {
+                weight = rarityWeight(item.getRarity(new ItemStack(item)));
+                first = false;
+            }
+            BenchRecipe candidate = makers.get(item);
+            if (candidate != null && (maker == null || simpler(candidate, maker))) {
+                maker = candidate;
+            }
+        }
+        return new BenchTimes.Slot(weight, maker == null ? null : maker.id().toString());
+    }
+
+    private static boolean simpler(BenchRecipe a, BenchRecipe b) {
+        int bySize = Integer.compare(a.ingredients().size(), b.ingredients().size());
+        return bySize != 0 ? bySize < 0 : a.id().toString().compareTo(b.id().toString()) < 0;
+    }
+
+    /** Recette brute : la durée est calculée ensuite, une fois toutes les recettes connues. */
     private static BenchRecipe toBench(Recipe<?> recipe, RegistryAccess access) {
         ItemStack result = resultOf(recipe, access).copy();
         if (recipe instanceof SmithingTransformRecipe smithing) {
-            return new BenchRecipe(recipe.getId(), result, smithingIngredients(smithing), "smithing", 10);
+            return new BenchRecipe(recipe.getId(), result, smithingIngredients(smithing), "smithing", 0);
         }
         List<Ingredient> ingredients = new ArrayList<>();
         for (Ingredient ingredient : recipe.getIngredients()) {
@@ -216,7 +356,7 @@ public final class BenchCatalog {
             }
         }
         String category = recipe.getType() == RecipeType.STONECUTTING ? "stonecutting" : "crafting";
-        return new BenchRecipe(recipe.getId(), result, ingredients, category, 10);
+        return new BenchRecipe(recipe.getId(), result, ingredients, category, 0);
     }
 
     /**
