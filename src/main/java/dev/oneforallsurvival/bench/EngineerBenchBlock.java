@@ -27,6 +27,16 @@ public final class EngineerBenchBlock extends ElectricMachineBlock {
         return new EngineerBenchBlockEntity(pos, state);
     }
 
+    /** Ouvre le menu de l'établi {@code pos} au joueur, avec le catalogue et la file ; le rôle est déjà vérifié. */
+    static void open(ServerPlayer player, BlockPos pos) {
+        BenchNetwork.sendCatalogIfNeeded(player);
+        NetworkHooks.openScreen(player,
+                new SimpleMenuProvider((id, inventory, p) -> new EngineerBenchMenu(id, inventory, pos),
+                        Component.translatable(BenchRegistry.ENGINEER_BENCH.get().getDescriptionId())),
+                buf -> buf.writeBlockPos(pos));
+        BenchNetwork.sendQueue(player);
+    }
+
     @Override
     public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand,
             BlockHitResult hit) {
@@ -35,12 +45,7 @@ public final class EngineerBenchBlock extends ElectricMachineBlock {
         }
         // Réservé à l'ingénieur : le refus est annoncé par RoleGate.
         if (player instanceof ServerPlayer serverPlayer && RoleGate.requireEngineer(serverPlayer)) {
-            BenchNetwork.sendCatalogIfNeeded(serverPlayer);
-            NetworkHooks.openScreen(serverPlayer,
-                    new SimpleMenuProvider((id, inventory, p) -> new EngineerBenchMenu(id, inventory, pos),
-                            Component.translatable(getDescriptionId())),
-                    buf -> buf.writeBlockPos(pos));
-            BenchNetwork.sendQueue(serverPlayer);
+            open(serverPlayer, pos);
         }
         return InteractionResult.CONSUME;
     }

@@ -16,9 +16,13 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.BundlePacket;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.network.protocol.game.ClientboundContainerSetContentPacket;
+import net.minecraft.network.protocol.game.ClientboundContainerSetDataPacket;
+import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
 import net.minecraft.network.protocol.game.ClientboundCustomPayloadPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.network.NetworkDirection;
 
@@ -36,6 +40,8 @@ public final class JoueurDeTest {
     private final ServerPlayer joueur;
     private final List<RecipeListPacket> listes = new ArrayList<>();
     private final List<QueuePacket> files = new ArrayList<>();
+    /** Les paquets de synchronisation de menu (contenu, case, donnée), dans l'ordre d'envoi. */
+    private final List<Packet<?>> menus = new ArrayList<>();
 
     private JoueurDeTest(EmbeddedChannel canal, ServerPlayer joueur) {
         this.canal = canal;
@@ -56,6 +62,7 @@ public final class JoueurDeTest {
         // L'entrée en jeu a envoyé son lot de paquets : on ne garde que ce qui suit.
         simule.listes.clear();
         simule.files.clear();
+        simule.menus.clear();
         return simule;
     }
 
@@ -80,6 +87,10 @@ public final class JoueurDeTest {
             for (Packet<?> paquet : groupe.subPackets()) {
                 lire(paquet);
             }
+        } else if (message instanceof ClientboundContainerSetContentPacket
+                || message instanceof ClientboundContainerSetSlotPacket
+                || message instanceof ClientboundContainerSetDataPacket) {
+            menus.add((Packet<?>) message);
         } else if (message instanceof ClientboundCustomPayloadPacket charge
                 && BenchNetwork.CHANNEL_ID.equals(charge.getIdentifier())) {
             FriendlyByteBuf donnees = charge.getData();
@@ -110,6 +121,26 @@ public final class JoueurDeTest {
         List<QueuePacket> out = new ArrayList<>(files);
         files.clear();
         return out;
+    }
+
+    /**
+     * Rejoue sur {@code client} (un menu du même type, d'un autre inventaire) ce que le serveur a envoyé pour
+     * lui depuis le dernier appel : c'est ce que fait le client vanille à la réception.
+     */
+    public void synchroniser(AbstractContainerMenu client) {
+        lire();
+        for (Packet<?> paquet : menus) {
+            if (paquet instanceof ClientboundContainerSetContentPacket p && p.getContainerId() == client.containerId) {
+                client.initializeContents(p.getStateId(), p.getItems(), p.getCarriedItem());
+            } else if (paquet instanceof ClientboundContainerSetSlotPacket p
+                    && p.getContainerId() == client.containerId) {
+                client.setItem(p.getSlot(), p.getStateId(), p.getItem());
+            } else if (paquet instanceof ClientboundContainerSetDataPacket p
+                    && p.getContainerId() == client.containerId) {
+                client.setData(p.getId(), p.getValue());
+            }
+        }
+        menus.clear();
     }
 
     /** Envoie au serveur un paquet du mod, comme le ferait le client. */

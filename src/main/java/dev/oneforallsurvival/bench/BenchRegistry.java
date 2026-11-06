@@ -47,6 +47,9 @@ public final class BenchRegistry {
     public static final RegistryObject<MenuType<EngineerBenchMenu>> ENGINEER_BENCH_MENU =
             MENUS.register("engineer_bench", () -> IForgeMenuType.create(EngineerBenchMenu::fromNetwork));
 
+    public static final RegistryObject<MenuType<BenchStockMenu>> BENCH_STOCK_MENU =
+            MENUS.register("bench_stock", () -> IForgeMenuType.create(BenchStockMenu::fromNetwork));
+
     public static final RegistryObject<CreativeModeTab> TAB = TABS.register("main",
             () -> CreativeModeTab.builder()
                     .title(Component.translatable("itemGroup." + OneForAllSurvival.MODID))

@@ -44,6 +44,14 @@ public final class EngineerBenchMenu extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
+        return usable(player, pos);
+    }
+
+    /**
+     * Le joueur peut-il se servir de cet établi : le bloc est là, à portée, et il a le rôle. Les menus de
+     * l'établi (commande, stock) posent tous la même condition.
+     */
+    static boolean usable(Player player, BlockPos pos) {
         if (!player.level().getBlockState(pos).is(BenchRegistry.ENGINEER_BENCH.get())) {
             return false;
         }

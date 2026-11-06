@@ -5,6 +5,10 @@ import dev.oneforallsurvival.bench.BenchCatalog;
 import dev.oneforallsurvival.bench.BenchRecipe;
 import dev.oneforallsurvival.bench.BenchRegistry;
 import dev.oneforallsurvival.bench.EngineerBenchBlockEntity;
+import dev.oneforallsurvival.bench.PlayerWorkshop;
+import dev.oneforallsurvival.bench.WorkshopEntry;
+import dev.oneforallsurvival.bench.WorkshopSavedData;
+import dev.oneforallsurvival.bench.client.BenchStockScreen;
 import dev.oneforallsurvival.bench.client.BenchClientState;
 import dev.oneforallsurvival.bench.client.EngineerBenchScreen;
 import dev.oneforallsurvival.role.RoleBook;
@@ -329,6 +333,10 @@ public final class DemoEtabli {
         return mc.screen instanceof EngineerBenchScreen s ? s : null;
     }
 
+    private static BenchStockScreen stock(Minecraft mc) {
+        return mc.screen instanceof BenchStockScreen s ? s : null;
+    }
+
     private static void ouvrirLeBanc(Minecraft mc) {
         MinecraftServer serveur = mc.getSingleplayerServer();
         serveur.execute(() -> {
@@ -453,6 +461,60 @@ public final class DemoEtabli {
         etape("bilan", () -> LOG.info("[demo] file après annulation : {} entrées ; {} : {} avant, {} après",
                 BenchClientState.queue().size(), temoinAnnulation[0], avantAnnulation[0],
                 compter(mc, temoinAnnulation[0])), () -> true, 100, null);
+
+        // Le stock : plus de cent piles, qu'on survole, fait défiler, vide en partie, puis qu'on quitte par le retour.
+        etape("garnir stock", () -> {
+            MinecraftServer serveur = mc.getSingleplayerServer();
+            alimenter = false;
+            serveur.execute(() -> {
+                ServerPlayer joueur = serveur.getPlayerList().getPlayers().get(0);
+                PlayerWorkshop atelier = WorkshopSavedData.get(serveur).of(joueur.getUUID());
+                // La file n'a plus à finir : un craft qui rendrait une pile pendant la prise fausserait le décompte.
+                for (WorkshopEntry entree : new ArrayList<>(atelier.queue())) {
+                    atelier.cancel(entree.id());
+                }
+                int n = 0;
+                for (Item item : net.minecraft.core.registries.BuiltInRegistries.ITEM) {
+                    ItemStack pile = new ItemStack(item);
+                    if (n >= 130 || pile.isEmpty() || pile.getMaxStackSize() < 2) {
+                        continue;
+                    }
+                    pile.setCount(1 + (n * 11) % pile.getMaxStackSize());
+                    atelier.addToStock(pile);
+                    n++;
+                }
+                LOG.info("[demo] stock garni : {} piles ajoutées, {} au total", n, atelier.stock().size());
+            });
+        }, () -> BenchClientState.stockItems() >= 1000, 300, null);
+        etape("stock ouvrir", () -> {
+            int[] p = ecran(mc).hoverPoint("stock");
+            mc.screen.mouseClicked(p[0], p[1], 0);
+        }, () -> stock(mc) != null && stock(mc).getMenu().totalStacks() >= 100, 1500, "12_stock.png");
+        etape("survol stock", () -> {
+            int[] p = stock(mc).slotCenter(3);
+            souris(mc, p[0], p[1]);
+        }, () -> true, 800, "13_stock_infobulle.png");
+        int[] pilesAvant = new int[1];
+        etape("stock defile", () -> {
+            pilesAvant[0] = stock(mc).getMenu().totalStacks();
+            LOG.info("[demo] stock : {} piles, {} lignes", pilesAvant[0], stock(mc).getMenu().totalLines());
+            for (int i = 0; i < 8; i++) {
+                stock(mc).mouseScrolled(10, 10, -1);
+            }
+        }, () -> stock(mc).firstLine() == 8, 1500, "14_stock_defile.png");
+        etape("stock prise", () -> {
+            pilesAvant[0] = stock(mc).getMenu().totalStacks();
+            LOG.info("[demo] avant la prise : {} piles, premiere case {}", pilesAvant[0],
+                    stock(mc).getMenu().slots.get(0).getItem());
+            mc.gameMode.handleInventoryMouseClick(stock(mc).getMenu().containerId, 0, 0,
+                    net.minecraft.world.inventory.ClickType.QUICK_MOVE, mc.player);
+        }, () -> stock(mc).getMenu().totalStacks() == pilesAvant[0] - 1, 1500, "15_stock_prise.png");
+        etape("stock retour", () -> {
+            LOG.info("[demo] après la prise : {} piles, premiere case {}", stock(mc).getMenu().totalStacks(),
+                    stock(mc).getMenu().slots.get(0).getItem());
+            int[] p = stock(mc).backPoint();
+            mc.screen.mouseClicked(p[0], p[1], 0);
+        }, () -> ecran(mc) != null, 1500, "16_retour.png");
     }
 
     private static BenchRecipe clientDe(BenchRecipe serveur) {
@@ -495,7 +557,7 @@ public final class DemoEtabli {
             souris(mc, 1, 1); // l'ouverture de l'écran recentre le curseur réel
         }
         if (!actionFaite) {
-            if (!e.nom().equals("ouvrir") && ecran(mc) == null) {
+            if (!e.nom().equals("ouvrir") && ecran(mc) == null && stock(mc) == null) {
                 return; // attend que l'écran soit rouvert
             }
             LOG.info("[demo] étape : {}", e.nom());

@@ -26,6 +26,7 @@ public final class BenchClientEvents {
             event.enqueueWork(() -> {
                 BenchClientState.useDescriber(new BenchDescriber());
                 MenuScreens.register(BenchRegistry.ENGINEER_BENCH_MENU.get(), EngineerBenchScreen::new);
+                MenuScreens.register(BenchRegistry.BENCH_STOCK_MENU.get(), BenchStockScreen::new);
             });
         }
     }

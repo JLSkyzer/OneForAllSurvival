@@ -59,6 +59,16 @@ final class BenchTheme {
         g.fill(x + w, y, x + w + 1, y + h + 1, WELL_LIP);
     }
 
+    /**
+     * Une case d'objet : cuvette de 18 x 18 pixels dont {@code x}, {@code y} est le coin. L'objet, de 16 x 16,
+     * occupe le centre ; le haut et la gauche sont dans l'ombre, le bas et la droite accrochent la lumière.
+     */
+    static void slot(GuiGraphics g, int x, int y) {
+        g.fill(x, y, x + 18, y + 18, WELL_LIP);
+        g.fill(x, y, x + 17, y + 17, WELL_EDGE);
+        g.fill(x + 1, y + 1, x + 17, y + 17, WELL);
+    }
+
     /** Un rivet : deux pixels de relief. */
     static void rivet(GuiGraphics g, int x, int y) {
         g.fill(x, y, x + 2, y + 2, RIVET);

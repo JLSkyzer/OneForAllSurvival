@@ -202,6 +202,9 @@ public final class EngineerBenchScreen extends AbstractContainerScreen<EngineerB
      * la troisième ligne ; « crafter » : le bouton), en pixels d'interface.
      */
     public int[] hoverPoint(String zone) {
+        if (zone.equals("stock")) {
+            return new int[] {stockX + stockW / 2, stockY + 6};
+        }
         return zone.equals("crafter") ? detail.craftCenter() : list.rowCenter(2);
     }
 

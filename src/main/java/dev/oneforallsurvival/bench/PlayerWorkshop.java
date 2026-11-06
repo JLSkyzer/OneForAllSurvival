@@ -94,6 +94,21 @@ public final class PlayerWorkshop {
         owner.setDirty();
     }
 
+    /**
+     * Retire jusqu'à {@code count} objets de la pile {@code index} et les rend, détachés du stock. La pile
+     * entière est retirée de la liste : la suite remonte, sans trou. Hors limites ou quantité nulle : vide,
+     * sans rien marquer. Seule voie de retrait pour les menus, car {@link #stock()} expose des piles vivantes.
+     */
+    public ItemStack takeFromStock(int index, int count) {
+        if (index < 0 || index >= stock.size() || count <= 0) {
+            return ItemStack.EMPTY;
+        }
+        ItemStack live = stock.get(index);
+        ItemStack taken = count >= live.getCount() ? stock.remove(index) : live.split(count);
+        owner.setDirty();
+        return taken;
+    }
+
     /** Chargement uniquement : ajoute sans notifier. */
     void restoreEntry(WorkshopEntry entry) {
         queue.add(entry);

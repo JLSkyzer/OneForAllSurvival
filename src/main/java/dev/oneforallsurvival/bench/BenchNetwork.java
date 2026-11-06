@@ -38,6 +38,7 @@ public final class BenchNetwork {
     public static final int ID_OPEN_STOCK = 2;
     public static final int ID_RECIPE_LIST = 3;
     public static final int ID_QUEUE = 4;
+    public static final int ID_OPEN_BENCH = 5;
 
     /** Clé de traduction d'un refus : {@code message.oneforallsurvival.bench.refused.<résultat>}. */
     public static final String REFUSED_KEY = "message.oneforallsurvival.bench.refused.";
@@ -57,6 +58,9 @@ public final class BenchNetwork {
         CHANNEL.messageBuilder(OpenStockPacket.class, ID_OPEN_STOCK, NetworkDirection.PLAY_TO_SERVER)
                 .encoder(OpenStockPacket::encode).decoder(OpenStockPacket::decode)
                 .consumerMainThread(BenchNetwork::onOpenStock).add();
+        CHANNEL.messageBuilder(OpenBenchPacket.class, ID_OPEN_BENCH, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(OpenBenchPacket::encode).decoder(OpenBenchPacket::decode)
+                .consumerMainThread(BenchNetwork::onOpenBench).add();
         CHANNEL.messageBuilder(RecipeListPacket.class, ID_RECIPE_LIST, NetworkDirection.PLAY_TO_CLIENT)
                 .encoder(RecipeListPacket::encode).decoder(RecipeListPacket::decode)
                 .consumerMainThread(BenchNetwork::onRecipeList).add();
@@ -131,7 +135,17 @@ public final class BenchNetwork {
         if (menu == null || !menu.pos().equals(packet.bench())) {
             return;
         }
-        // Le menu de stock arrive avec la Task 6 ; la demande est déjà revalidée.
+        BenchStockMenu.open(sender, menu.pos());
+    }
+
+    /** Retour du stock à l'établi : seulement depuis un stock ouvert, valide, ouvert depuis cet établi. */
+    private static void onOpenBench(OpenBenchPacket packet, Supplier<NetworkEvent.Context> context) {
+        ServerPlayer sender = context.get().getSender();
+        if (sender == null || !(sender.containerMenu instanceof BenchStockMenu menu) || !menu.stillValid(sender)
+                || !menu.pos().equals(packet.bench())) {
+            return;
+        }
+        EngineerBenchBlock.open(sender, menu.pos());
     }
 
     // --- Serveur vers client : réception, côté client seulement ------------------------------
