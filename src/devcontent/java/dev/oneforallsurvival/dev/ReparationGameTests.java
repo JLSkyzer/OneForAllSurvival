@@ -255,6 +255,41 @@ public final class ReparationGameTests {
         }
     }
 
+    @GameTest(template = "test/plancher", batch = "reparation_recharge_externe")
+    public static void lePosteSeRechargeSurUnBlocEnergieAutreMod(GameTestHelper helper) {
+        helper.setBlock(POS, DevBlocks.testSource());
+        TestSourceBlockEntity source = (TestSourceBlockEntity) helper.getBlockEntity(POS);
+        helper.assertTrue(source != null && source.stocke() == 3000, "la source devait avoir 3000 FE");
+        JoueurDeTest j = null;
+        try {
+            j = joueur(helper, "Mecano", true);
+            ServerPlayer p = j.joueur();
+            ItemStack poste = poste(0);
+            p.setItemInHand(InteractionHand.MAIN_HAND, poste);
+            BlockPos abs = helper.absolutePos(POS);
+            UseOnContext ctx = new UseOnContext(helper.getLevel(), p, InteractionHand.MAIN_HAND, poste,
+                    new BlockHitResult(Vec3.atCenterOf(abs), Direction.UP, abs, false));
+            p.setShiftKeyDown(false);
+            helper.assertTrue(poste.getItem().onItemUseFirst(poste, ctx) == InteractionResult.PASS,
+                    "debout, un bloc d'un autre mod ne concerne pas le poste");
+            helper.assertTrue(WelderEnergy.stored(poste) == 0, "debout rien ne devait être tiré");
+            p.setShiftKeyDown(true);
+            InteractionResult r = poste.getItem().onItemUseFirst(poste, ctx);
+            helper.assertTrue(r.consumesAction(), "accroupi le poste devait agir, vu " + r);
+            helper.assertTrue(WelderEnergy.stored(poste) == MachineConfig.welderCapacity(),
+                    "poste plein attendu, vu " + WelderEnergy.stored(poste));
+            helper.assertTrue(source.stocke() == 3000 - MachineConfig.welderCapacity(),
+                    "la source devait avoir perdu la capacité du poste, reste " + source.stocke());
+            // Un bloc sans énergie laisse passer l'action.
+            helper.setBlock(POS, net.minecraft.world.level.block.Blocks.STONE);
+            helper.assertTrue(poste.getItem().onItemUseFirst(poste, ctx) == InteractionResult.PASS,
+                    "un bloc sans énergie devait rendre PASS");
+            helper.succeed();
+        } finally {
+            quitter(j);
+        }
+    }
+
     @GameTest(template = "test/plancher", batch = "reparation_recharge")
     public static void lePosteSeRechargeSurUneMachine(GameTestHelper helper) {
         TestMachineBlockEntity be = poser(helper);

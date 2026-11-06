@@ -14,6 +14,7 @@ import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.capabilities.ICapabilityProvider;
 import org.jetbrains.annotations.Nullable;
 
@@ -34,19 +35,29 @@ public class WelderItem extends Item {
     public InteractionResult onItemUseFirst(ItemStack stack, UseOnContext context) {
         Level level = context.getLevel();
         BlockEntity target = level.getBlockEntity(context.getClickedPos());
-        if (!(target instanceof ElectricMachineBlockEntity machine)) {
+        if (target == null || context.getPlayer() == null) {
+            return InteractionResult.PASS;
+        }
+        boolean isMachine = target instanceof ElectricMachineBlockEntity;
+        boolean sneaking = context.getPlayer().isSecondaryUseActive();
+        if (sneaking) {
+            // Recharge : sur une machine du mod, ou sur tout bloc d'un autre mod qui expose de l'énergie.
+            if (!isMachine && !target.getCapability(ForgeCapabilities.ENERGY, context.getClickedFace()).isPresent()) {
+                return InteractionResult.PASS;
+            }
+        } else if (!isMachine) {
             return InteractionResult.PASS;
         }
         if (!level.isClientSide && context.getPlayer() instanceof ServerPlayer player) {
-            if (player.isSecondaryUseActive()) {
-                int received = RepairActions.charge(stack, machine, context.getClickedFace());
+            if (sneaking) {
+                int received = RepairActions.charge(stack, target, context.getClickedFace());
                 player.displayClientMessage(Component.translatable(received > 0
                         ? "message.oneforallsurvival.welder.charged" : "message.oneforallsurvival.welder.not_charged",
                         received), true);
             } else {
                 InteractionHand other = context.getHand() == InteractionHand.MAIN_HAND
                         ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND;
-                RepairActions.repair(player, machine, stack, player.getItemInHand(other));
+                RepairActions.repair(player, (ElectricMachineBlockEntity) target, stack, player.getItemInHand(other));
             }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);

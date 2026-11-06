@@ -27,13 +27,16 @@ import net.minecraftforge.registries.RegisterEvent;
 public final class DevBlocks {
 
     private static final ResourceLocation TEST_MACHINE_ID = new ResourceLocation("oneforallsurvival", "test_machine");
-    private static final ResourceLocation TEST_INLINE_ID = new ResourceLocation("oneforallsurvival", "test_inline");
+    private static final ResourceLocation TEST_SOURCE_ID = new ResourceLocation("oneforallsurvival", "test_source");
+    private static final ResourceLocation TEST_INLINE_ID =new ResourceLocation("oneforallsurvival", "test_inline");
 
     // Créés pendant l'événement d'enregistrement : un Block ne se construit plus une fois les registres gelés.
     private static Block testMachine;
     private static BlockEntityType<TestMachineBlockEntity> testMachineType;
     private static Block testInline;
     private static BlockEntityType<TestInlineBlockEntity> testInlineType;
+    private static Block testSource;
+    private static BlockEntityType<TestSourceBlockEntity> testSourceType;
 
     private DevBlocks() {}
 
@@ -53,6 +56,14 @@ public final class DevBlocks {
         return testInlineType;
     }
 
+    public static Block testSource() {
+        return testSource;
+    }
+
+    public static BlockEntityType<TestSourceBlockEntity> testSourceType() {
+        return testSourceType;
+    }
+
     @SubscribeEvent
     public static void onRegister(RegisterEvent event) {
         event.register(Registries.BLOCK, helper -> {
@@ -60,16 +71,21 @@ public final class DevBlocks {
             helper.register(TEST_MACHINE_ID, testMachine);
             testInline = new TestInlineBlock(BlockBehaviour.Properties.of().strength(1.0F));
             helper.register(TEST_INLINE_ID, testInline);
+            testSource = new TestSourceBlock(BlockBehaviour.Properties.of().strength(1.0F));
+            helper.register(TEST_SOURCE_ID, testSource);
         });
         event.register(Registries.BLOCK_ENTITY_TYPE, helper -> {
             testMachineType = BlockEntityType.Builder.of(TestMachineBlockEntity::new, testMachine).build(null);
             helper.register(TEST_MACHINE_ID, testMachineType);
             testInlineType = BlockEntityType.Builder.of(TestInlineBlockEntity::new, testInline).build(null);
             helper.register(TEST_INLINE_ID, testInlineType);
+            testSourceType = BlockEntityType.Builder.of(TestSourceBlockEntity::new, testSource).build(null);
+            helper.register(TEST_SOURCE_ID, testSourceType);
         });
         event.register(Registries.ITEM, helper -> {
             helper.register(TEST_MACHINE_ID, new BlockItem(testMachine, new Item.Properties()));
             helper.register(TEST_INLINE_ID, new BlockItem(testInline, new Item.Properties()));
+            helper.register(TEST_SOURCE_ID, new BlockItem(testSource, new Item.Properties()));
             // Résultats d'essai des recettes de l'établi (surcharges, exclusions, chaîne de fabrication).
             helper.register(new ResourceLocation("oneforallsurvival", "test_hidden"), new Item(new Item.Properties()));
             helper.register(new ResourceLocation("oneforallsurvival", "test_chain"), new Item(new Item.Properties()));
@@ -97,6 +113,24 @@ public final class DevBlocks {
                         + ", progression " + be.progress()));
             }
             return InteractionResult.sidedSuccess(level.isClientSide);
+        }
+    }
+
+    /** Le bloc source d'essai : un accumulateur d'un autre mod, dont on peut tirer du courant. */
+    private static final class TestSourceBlock extends net.minecraft.world.level.block.BaseEntityBlock {
+
+        TestSourceBlock(Properties properties) {
+            super(properties);
+        }
+
+        @Override
+        public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
+            return new TestSourceBlockEntity(pos, state);
+        }
+
+        @Override
+        public net.minecraft.world.level.block.RenderShape getRenderShape(BlockState state) {
+            return net.minecraft.world.level.block.RenderShape.MODEL;
         }
     }
 
