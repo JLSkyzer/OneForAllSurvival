@@ -11,6 +11,9 @@ import dev.oneforallsurvival.bench.WorkshopSavedData;
 import dev.oneforallsurvival.bench.client.BenchStockScreen;
 import dev.oneforallsurvival.bench.client.BenchClientState;
 import dev.oneforallsurvival.bench.client.EngineerBenchScreen;
+import dev.oneforallsurvival.machine.MachineState;
+import dev.oneforallsurvival.machine.ElectricMachineBlock;
+import dev.oneforallsurvival.bench.EngineerBenchBlock;
 import dev.oneforallsurvival.role.RoleBook;
 import dev.oneforallsurvival.role.RoleSavedData;
 import java.awt.image.BufferedImage;
@@ -23,6 +26,8 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
+import net.minecraft.world.item.Items;
 import java.util.function.BooleanSupplier;
 import javax.imageio.ImageIO;
 import net.minecraft.client.Minecraft;
@@ -88,6 +93,10 @@ public final class DemoEtabli {
     private static long debutRepos;
     private static Path dossier;
     private static BlockPos banc;
+    /** Les quatre établis d'exposition, un par état de machine, dans l'ordre de {@link #ETATS}. */
+    private static final BlockPos[] vitrines = new BlockPos[4];
+    private static final MachineState[] ETATS = {MachineState.STOPPED, MachineState.RUNNING, MachineState.NO_POWER,
+        MachineState.FAULT};
     private static volatile boolean preparationFaite;
     private static volatile boolean alimenter;
     private static boolean rouvrir;
@@ -140,10 +149,17 @@ public final class DemoEtabli {
     /** Côté serveur : l'établi reçoit du courant tant que la démonstration le demande. */
     @SubscribeEvent
     public static void onServerTick(TickEvent.ServerTickEvent event) {
-        if (!ACTIF || event.phase != TickEvent.Phase.END || !alimenter || banc == null) {
+        if (!ACTIF || event.phase != TickEvent.Phase.END || banc == null) {
             return;
         }
         ServerLevel monde = event.getServer().overworld();
+        // L'établi d'exposition « en marche » est alimenté pour de bon ; celui « sans courant » ne l'est pas.
+        if (vitrines[1] != null && monde.getBlockEntity(vitrines[1]) instanceof EngineerBenchBlockEntity be) {
+            be.energy().receiveEnergy(100, false);
+        }
+        if (!alimenter) {
+            return;
+        }
         if (monde.getBlockEntity(banc) instanceof EngineerBenchBlockEntity be) {
             be.energy().receiveEnergy(100, false);
         }
@@ -182,6 +198,7 @@ public final class DemoEtabli {
                         dossier = dossier.resolve(SOUS);
                     }
                     Files.createDirectories(dossier);
+                    Files.createDirectories(dossier.resolve("visuels"));
                     phase = Phase.SCENARIO;
                     LOG.info("[demo] scénario prêt : {} étapes", ETAPES.size());
                 }
@@ -262,6 +279,29 @@ public final class DemoEtabli {
                 ici.getZ());
         banc = new BlockPos(ici.getX() + 2, y, ici.getZ());
         monde.setBlock(banc, BenchRegistry.ENGINEER_BENCH.get().defaultBlockState(), 3);
+        // Les établis d'exposition : un par état, tournés vers le sud, sans block entity pour que l'état reste figé.
+        for (int i = 0; i < vitrines.length; i++) {
+            BlockPos p = new BlockPos(banc.getX() + 6 * i - 6, y, banc.getZ() + 8);
+            vitrines[i] = p;
+            monde.setBlock(p, BenchRegistry.ENGINEER_BENCH.get().defaultBlockState()
+                    .setValue(EngineerBenchBlock.FACING, Direction.SOUTH), 3);
+            if (i == 1 || i == 2) {
+                // Une file en cours à cet établi : alimenté il tourne, sans courant il attend (états réels).
+                PlayerWorkshop atelier = WorkshopSavedData.get(serveur).of(UUID.nameUUIDFromBytes(("vitrine" + i).getBytes()));
+                atelier.add(new WorkshopEntry(UUID.randomUUID(), new net.minecraft.resources.ResourceLocation(
+                        "oneforallsurvival", "test_bench_shaped"), new ItemStack(Items.STICK), List.of(), List.of(),
+                        1_000_000, 0.0, monde.dimension(), p, false));
+            } else if (i == 3) {
+                try {
+                    var m = dev.oneforallsurvival.machine.ElectricMachineBlockEntity.class.getDeclaredMethod("setFault",
+                            boolean.class);
+                    m.setAccessible(true);
+                    m.invoke(monde.getBlockEntity(p), true);
+                } catch (ReflectiveOperationException e) {
+                    throw new IllegalStateException(e);
+                }
+            }
+        }
 
         List<BenchRecipe> toutes = new ArrayList<>(BenchCatalog.current().recipes());
         toutes.sort(Comparator.comparing(r -> r.id().toString()));
@@ -376,7 +416,84 @@ public final class DemoEtabli {
         return n;
     }
 
+    /** Pose le joueur (créatif, en vol) à {@code d} de l'établi {@code i} et le tourne vers lui. */
+    private static void regarder(Minecraft mc, int i, Vec3 d, boolean nuit) {
+        MinecraftServer serveur = mc.getSingleplayerServer();
+        BlockPos b = vitrines[i];
+        Vec3 cible = new Vec3(b.getX() + 0.5, b.getY() + 0.45, b.getZ() + 0.5);
+        Vec3 oeil = cible.add(d);
+        double dx = cible.x - oeil.x;
+        double dy = cible.y - oeil.y;
+        double dz = cible.z - oeil.z;
+        float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+        float pitch = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+        mc.options.hideGui = true;
+        mc.gameRenderer.setRenderHand(false);
+        serveur.execute(() -> {
+            ServerLevel monde = serveur.overworld();
+            ServerPlayer joueur = serveur.getPlayerList().getPlayers().get(0);
+            monde.setDayTime(nuit ? 18000 : 6000);
+            joueur.setGameMode(GameType.CREATIVE);
+            joueur.setNoGravity(true);
+            joueur.teleportTo(monde, oeil.x, oeil.y - 1.62, oeil.z, yaw, pitch);
+        });
+    }
+
+    private static void vue(Minecraft mc, String fichier, int i, Vec3 d, boolean nuit) {
+        etape("vue " + fichier, () -> regarder(mc, i, d, nuit), () -> true, 1800, "visuels/" + fichier);
+    }
+
+    /** Les prises du bloc dans le monde, puis de l'objet, avant les écrans. */
+    private static void construireVues(Minecraft mc) {
+        // Les établis regardent le sud : la caméra est au sud, côté ouest (à droite de l'établi vu de face) ou est.
+        Vec3 droite = new Vec3(-0.95, 0.75, 1.3);
+        Vec3 gauche = new Vec3(0.95, 0.75, 1.3);
+        String[] noms = {"arret", "marche", "sans_courant", "panne"};
+        etape("vue calage", () -> regarder(mc, 0, droite, false), () -> true, 3000, null);
+        for (int i = 0; i < 4; i++) {
+            vue(mc, "bloc_" + noms[i] + "_jour.png", i, droite, false);
+        }
+        for (int i = 0; i < 4; i++) {
+            vue(mc, "bloc_" + noms[i] + "_nuit.png", i, droite, true);
+        }
+        vue(mc, "bloc_arret_jour_gauche.png", 0, gauche, false);
+        vue(mc, "bloc_marche_jour_face.png", 1, new Vec3(0.0, 0.6, 1.5), false);
+        vue(mc, "bloc_arret_jour_dessus.png", 0, new Vec3(-0.2, 1.5, 0.7), false);
+        vue(mc, "bloc_arret_jour_loin.png", 0, new Vec3(-2.2, 1.2, 2.9), false);
+        vue(mc, "bloc_marche_nuit_loin.png", 1, new Vec3(-2.2, 1.2, 2.9), true);
+        etape("vue objet en main", () -> {
+            MinecraftServer serveur = mc.getSingleplayerServer();
+            mc.options.hideGui = false;
+            mc.gameRenderer.setRenderHand(true);
+            serveur.execute(() -> {
+                ServerLevel monde = serveur.overworld();
+                ServerPlayer joueur = serveur.getPlayerList().getPlayers().get(0);
+                monde.setDayTime(6000);
+                joueur.getInventory().setItem(joueur.getInventory().selected,
+                        new ItemStack(BenchRegistry.ENGINEER_BENCH_ITEM.get()));
+                joueur.teleportTo(monde, banc.getX() - 3.5, banc.getY() + 0.0, banc.getZ() + 0.5, -90F, 25F);
+            });
+        }, () -> true, 1500, "visuels/objet_main.png");
+        etape("vue inventaire", () -> mc.setScreen(new net.minecraft.client.gui.screens.inventory.InventoryScreen(
+                mc.player)), () -> true, 800, "visuels/objet_inventaire.png");
+        etape("vue retour", () -> {
+            mc.setScreen(null);
+            mc.options.hideGui = false;
+            mc.gameRenderer.setRenderHand(true);
+            MinecraftServer serveur = mc.getSingleplayerServer();
+            serveur.execute(() -> {
+                ServerPlayer joueur = serveur.getPlayerList().getPlayers().get(0);
+                joueur.setNoGravity(false);
+                joueur.setGameMode(GameType.SURVIVAL);
+                joueur.teleportTo(serveur.overworld(), banc.getX() - 1.5, banc.getY(), banc.getZ() + 0.5, -90F, 0F);
+            });
+        }, () -> true, 600, null);
+    }
+
     private static void construireScenario(Minecraft mc) {
+        if (SOUS.isEmpty()) {
+            construireVues(mc);
+        }
         // Mots de recherche tirés des noms réels, pour que la recherche donne des résultats quelle que soit la langue.
         etape("ouvrir", () -> ouvrirLeBanc(mc),
                 () -> ecran(mc) != null && !BenchClientState.catalog().isEmpty(), 3000, "01_liste.png");
@@ -532,10 +649,17 @@ public final class DemoEtabli {
 
     private static long debutAction;
 
+    /** Vrai pendant les étapes « vue » : le bloc est regardé dans le monde, sans écran. */
+    private static boolean enMonde() {
+        return indexEtape >= 0 && indexEtape < ETAPES.size() && ETAPES.get(indexEtape).nom().startsWith("vue");
+    }
+
     private static void jouer(Minecraft mc) throws IOException {
         if (rouvrir && mc.screen == null) {
             rouvrir = false;
-            ouvrirLeBanc(mc);
+            if (!enMonde()) {
+                ouvrirLeBanc(mc);
+            }
             return;
         }
         if (indexEtape >= ETAPES.size()) {
@@ -557,7 +681,7 @@ public final class DemoEtabli {
             souris(mc, 1, 1); // l'ouverture de l'écran recentre le curseur réel
         }
         if (!actionFaite) {
-            if (!e.nom().equals("ouvrir") && ecran(mc) == null && stock(mc) == null) {
+            if (!e.nom().equals("ouvrir") && !enMonde() && ecran(mc) == null && stock(mc) == null) {
                 return; // attend que l'écran soit rouvert
             }
             LOG.info("[demo] étape : {}", e.nom());

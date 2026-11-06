@@ -1,6 +1,8 @@
 package dev.oneforallsurvival.bench;
 
 import dev.oneforallsurvival.OneForAllSurvival;
+import dev.oneforallsurvival.machine.ElectricMachineBlock;
+import dev.oneforallsurvival.machine.MachineState;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.MenuType;
@@ -35,7 +37,9 @@ public final class BenchRegistry {
 
     public static final RegistryObject<Block> ENGINEER_BENCH = BLOCKS.register("engineer_bench",
             () -> new EngineerBenchBlock(BlockBehaviour.Properties.of().mapColor(MapColor.WOOD)
-                    .strength(2.5F).sound(SoundType.WOOD)));
+                    .strength(2.5F).sound(SoundType.WOOD).noOcclusion()
+                    // Seule la lampe allumée éclaire : une machine au travail se voit de nuit.
+                    .lightLevel(state -> state.getValue(ElectricMachineBlock.STATE) == MachineState.RUNNING ? 10 : 0)));
 
     public static final RegistryObject<Item> ENGINEER_BENCH_ITEM = ITEMS.register("engineer_bench",
             () -> new BlockItem(ENGINEER_BENCH.get(), new Item.Properties()));

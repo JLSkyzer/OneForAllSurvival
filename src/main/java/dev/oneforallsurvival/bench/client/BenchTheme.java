@@ -1,12 +1,17 @@
 package dev.oneforallsurvival.bench.client;
 
+import com.mojang.blaze3d.systems.RenderSystem;
+import dev.oneforallsurvival.OneForAllSurvival;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.resources.ResourceLocation;
 
 /**
  * Le décor de l'établi : tôle sombre récupérée d'un avion, laiton chaud. Tout le dessin des panneaux et
- * toutes les couleurs passent par ici ; la Task 7 remplacera ces aplats par des textures en ne touchant
- * que cette classe. Les panneaux ne connaissent que ses méthodes.
+ * toutes les couleurs passent par ici, les panneaux ne connaissent que ses méthodes. Les surfaces sont des
+ * textures de {@code textures/gui} : des tuiles de 16 x 16 répétées (le mode de répétition du GPU fait le
+ * pavage en un seul appel), un cadre à coins de 5 pixels dont les arêtes se répètent, des boutons étirés.
+ * Les couleurs restent celles de l'ancien décor pour garder le contraste du texte.
  */
 final class BenchTheme {
 
@@ -39,22 +44,61 @@ final class BenchTheme {
     static final int ROW_HOVER = 0xFF2E2A25;
     static final int ROW_SELECTED = 0xFF4A3716;
 
+    private static ResourceLocation gui(String name) {
+        return new ResourceLocation(OneForAllSurvival.MODID, "textures/gui/" + name + ".png");
+    }
+
+    private static final ResourceLocation TILE_METAL = gui("bench_metal");
+    private static final ResourceLocation TILE_WELL = gui("bench_well");
+    private static final ResourceLocation TILE_BRASS = gui("bench_brass");
+    private static final ResourceLocation FRAME = gui("bench_frame");
+    private static final ResourceLocation RIVET_SPRITE = gui("bench_rivet");
+    private static final ResourceLocation SLOT_SPRITE = gui("bench_slot");
+    private static final ResourceLocation BUTTON_SPRITE = gui("bench_button");
+    /** Côté du cadre : coins de 5 pixels, arêtes de 6 répétées. */
+    private static final int CORNER = 5;
+    private static final int EDGE = 16 - 2 * CORNER;
+
     private BenchTheme() {}
+
+    /** Pave le rectangle d'une tuile de 16 x 16 : la texture est lue au-delà de son bord et se répète. */
+    private static void tile(GuiGraphics g, ResourceLocation tile, int x, int y, int w, int h) {
+        if (w > 0 && h > 0) {
+            g.blit(tile, x, y, 0, 0F, 0F, w, h, 16, 16);
+        }
+    }
+
+    /** Un morceau {@code w} x {@code h} du cadre, pris à ({@code u}, {@code v}). */
+    private static void frameBit(GuiGraphics g, int x, int y, int u, int v, int w, int h) {
+        g.blit(FRAME, x, y, 0, u, v, w, h, 16, 16);
+    }
 
     /** Tôle biseautée avec filet sombre : le cadre d'un grand panneau. */
     static void plate(GuiGraphics g, int x, int y, int w, int h) {
-        g.fill(x, y, x + w, y + h, METAL_DARK);
-        g.fill(x + 1, y + 1, x + w - 1, y + h - 1, METAL);
-        g.fill(x + 1, y + 1, x + w - 1, y + 2, METAL_LIGHT);
-        g.fill(x + 1, y + 1, x + 2, y + h - 1, METAL_LIGHT);
-        g.fill(x + 1, y + h - 2, x + w - 1, y + h - 1, METAL_SHADOW);
-        g.fill(x + w - 2, y + 1, x + w - 1, y + h - 1, METAL_SHADOW);
+        RenderSystem.enableBlend();
+        tile(g, TILE_METAL, x, y, w, h);
+        int right = x + w - CORNER;
+        int bottom = y + h - CORNER;
+        for (int px = x + CORNER; px < right; px += EDGE) {
+            int len = Math.min(EDGE, right - px);
+            frameBit(g, px, y, CORNER, 0, len, CORNER);
+            frameBit(g, px, bottom, CORNER, 16 - CORNER, len, CORNER);
+        }
+        for (int py = y + CORNER; py < bottom; py += EDGE) {
+            int len = Math.min(EDGE, bottom - py);
+            frameBit(g, x, py, 0, CORNER, CORNER, len);
+            frameBit(g, right, py, 16 - CORNER, CORNER, CORNER, len);
+        }
+        frameBit(g, x, y, 0, 0, CORNER, CORNER);
+        frameBit(g, right, y, 16 - CORNER, 0, CORNER, CORNER);
+        frameBit(g, x, bottom, 0, 16 - CORNER, CORNER, CORNER);
+        frameBit(g, right, bottom, 16 - CORNER, 16 - CORNER, CORNER, CORNER);
     }
 
     /** Cuvette enfoncée : le fond des listes et des champs. */
     static void well(GuiGraphics g, int x, int y, int w, int h) {
         g.fill(x, y, x + w, y + h, WELL_EDGE);
-        g.fill(x + 1, y + 1, x + w - 1, y + h - 1, WELL);
+        tile(g, TILE_WELL, x + 1, y + 1, w - 2, h - 2);
         g.fill(x, y + h, x + w, y + h + 1, WELL_LIP);
         g.fill(x + w, y, x + w + 1, y + h + 1, WELL_LIP);
     }
@@ -64,15 +108,13 @@ final class BenchTheme {
      * occupe le centre ; le haut et la gauche sont dans l'ombre, le bas et la droite accrochent la lumière.
      */
     static void slot(GuiGraphics g, int x, int y) {
-        g.fill(x, y, x + 18, y + 18, WELL_LIP);
-        g.fill(x, y, x + 17, y + 17, WELL_EDGE);
-        g.fill(x + 1, y + 1, x + 17, y + 17, WELL);
+        g.blit(SLOT_SPRITE, x, y, 0, 0F, 0F, 18, 18, 18, 18);
     }
 
-    /** Un rivet : deux pixels de relief. */
+    /** Un rivet : une tête ronde de 4 pixels, posée sur le point ({@code x}, {@code y}). */
     static void rivet(GuiGraphics g, int x, int y) {
-        g.fill(x, y, x + 2, y + 2, RIVET);
-        g.fill(x + 1, y + 1, x + 2, y + 2, RIVET_SHADE);
+        RenderSystem.enableBlend();
+        g.blit(RIVET_SPRITE, x - 1, y - 1, 0, 0F, 0F, 4, 4, 4, 4);
     }
 
     /** Les quatre rivets d'angle d'un panneau. */
@@ -92,36 +134,39 @@ final class BenchTheme {
     /** Un bouton biseauté. {@code primary} : laiton plein, pour l'action principale. */
     static void button(GuiGraphics g, Font font, int x, int y, int w, int h, String label, boolean hover,
             boolean enabled, boolean primary) {
-        int face;
-        int light;
-        int shade;
+        int kind;
         int text;
         if (!enabled) {
-            face = 0xFF2F2C27;
-            light = 0xFF3D3933;
-            shade = 0xFF24211D;
+            kind = 0;
             text = TEXT_DISABLED;
         } else if (primary) {
-            face = hover ? 0xFFD9A649 : BRASS;
-            light = BRASS_LIGHT;
-            shade = BRASS_DARK;
+            kind = hover ? 4 : 3;
             text = TEXT_ON_BRASS;
         } else {
-            face = hover ? 0xFF5C554A : 0xFF48433B;
-            light = METAL_LIGHT;
-            shade = METAL_SHADOW;
+            kind = hover ? 2 : 1;
             text = hover ? BRASS_LIGHT : TEXT;
         }
-        g.fill(x, y, x + w, y + h, METAL_DARK);
-        g.fill(x + 1, y + 1, x + w - 1, y + h - 1, face);
-        g.fill(x + 1, y + 1, x + w - 1, y + 2, light);
-        g.fill(x + 1, y + 1, x + 2, y + h - 1, light);
-        g.fill(x + 1, y + h - 2, x + w - 1, y + h - 1, shade);
-        g.fill(x + w - 2, y + 1, x + w - 1, y + h - 1, shade);
+        nineButton(g, x, y, w, h, kind * 12);
         String shown = ellipsize(font, label, w - 4);
         int tx = x + (w - font.width(shown)) / 2;
         int ty = y + (h - 8) / 2 + 1;
         g.drawString(font, shown, tx, ty, text, false);
+    }
+
+    /** Le bouton de la feuille à la hauteur {@code v} : coins de 3 pixels intacts, arêtes et centre étirés. */
+    private static void nineButton(GuiGraphics g, int x, int y, int w, int h, int v) {
+        final int c = 3;
+        int mw = w - 2 * c;
+        int mh = h - 2 * c;
+        g.blit(BUTTON_SPRITE, x + c, y + c, mw, mh, c, v + c, 6, 6, 12, 60);
+        g.blit(BUTTON_SPRITE, x + c, y, mw, c, c, v, 6, c, 12, 60);
+        g.blit(BUTTON_SPRITE, x + c, y + h - c, mw, c, c, v + 9, 6, c, 12, 60);
+        g.blit(BUTTON_SPRITE, x, y + c, c, mh, 0, v + c, c, 6, 12, 60);
+        g.blit(BUTTON_SPRITE, x + w - c, y + c, c, mh, 9, v + c, c, 6, 12, 60);
+        g.blit(BUTTON_SPRITE, x, y, 0, 0F, v, c, c, 12, 60);
+        g.blit(BUTTON_SPRITE, x + w - c, y, 0, 9F, v, c, c, 12, 60);
+        g.blit(BUTTON_SPRITE, x, y + h - c, 0, 0F, v + 9, c, c, 12, 60);
+        g.blit(BUTTON_SPRITE, x + w - c, y + h - c, 0, 9F, v + 9, c, c, 12, 60);
     }
 
     /** Barre de progression en laiton, creuse. {@code fraction} entre 0 et 1. */
@@ -130,7 +175,7 @@ final class BenchTheme {
         int inner = w - 4;
         int filled = (int) Math.round(inner * Math.max(0, Math.min(1, fraction)));
         if (filled > 0) {
-            g.fill(x + 2, y + 2, x + 2 + filled, y + h - 2, BRASS);
+            tile(g, TILE_BRASS, x + 2, y + 2, filled, h - 4);
             g.fill(x + 2, y + 2, x + 2 + filled, y + 3, BRASS_LIGHT);
             g.fill(x + 2, y + h - 3, x + 2 + filled, y + h - 2, BRASS_DARK);
         }
@@ -145,7 +190,10 @@ final class BenchTheme {
         }
         int top = y + model.thumbTop(h);
         int height = model.thumbHeight(h);
-        g.fill(x, top, x + w, top + height, hover ? BRASS_LIGHT : BRASS);
+        tile(g, TILE_BRASS, x, top, w, height);
+        if (hover) {
+            g.fill(x, top, x + w, top + height, 0x40FFE9B0);
+        }
         g.fill(x, top, x + w, top + 1, BRASS_LIGHT);
         g.fill(x, top + height - 1, x + w, top + height, BRASS_DARK);
     }
