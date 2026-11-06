@@ -1,0 +1,16 @@
+{
+  "message.oneforallsurvival.engineer_only": "Only an Engineer can do this.",
+  "command.oneforallsurvival.role.list.header": "Available roles:",
+  "command.oneforallsurvival.role.get.self": "Your role: %s",
+  "command.oneforallsurvival.role.get.other": "Role of %s: %s",
+  "command.oneforallsurvival.role.set": "%s is now %s",
+  "command.oneforallsurvival.role.created": "Role %s created",
+  "command.oneforallsurvival.role.edited": "Role %s edited",
+  "command.oneforallsurvival.role.deleted": "Role %s deleted",
+  "command.oneforallsurvival.role.unknown": "Unknown role: %s",
+  "command.oneforallsurvival.role.builtin": "Role %s is built in and cannot be deleted",
+  "command.oneforallsurvival.role.create_failed": "Cannot create role %s: invalid id (a-z, 0-9, _; 32 characters max) or already used",
+  "command.oneforallsurvival.role.bad_color": "Pick an actual color (not reset)",
+  "command.oneforallsurvival.role.empty_label": "The label cannot be empty",
+  "command.oneforallsurvival.role.one_player_only": "Exactly one player must be targeted"
+}

@@ -1,8 +1,12 @@
 package dev.oneforallsurvival.dev;
 
 import dev.oneforallsurvival.role.RoleBook;
+import dev.oneforallsurvival.role.RoleGate;
+import dev.oneforallsurvival.role.RoleSavedData;
 import dev.oneforallsurvival.role.RoleTeams;
 import java.util.ArrayList;
+import java.util.UUID;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.scores.PlayerTeam;
@@ -98,5 +102,89 @@ public final class RoleGameTests {
             scoreboard.removePlayerFromTeam("Dev");
             nettoyer(scoreboard);
         }
+    }
+
+    private static void commande(MinecraftServer server, String texte) {
+        server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), texte);
+    }
+
+    /** Retire un rôle créé par un test, qu'il ait été supprimé ou non, et resynchronise les équipes. */
+    private static void retirerRole(MinecraftServer server, String id) {
+        RoleSavedData data = RoleSavedData.get(server);
+        if (data.book().role(id).isPresent() && !data.book().role(id).get().builtin()) {
+            data.book().deleteRole(id);
+            data.setDirty();
+        }
+        RoleTeams.syncTeams(server.getScoreboard(), data.book());
+    }
+
+    @GameTest(template = "test/plancher", batch = "roles_commande_cycle")
+    public static void createPuisDeleteMetAJourLeLivreEtLesEquipes(GameTestHelper helper) {
+        MinecraftServer server = helper.getLevel().getServer();
+        Scoreboard scoreboard = server.getScoreboard();
+        try {
+            commande(server, "role create pecheur blue Pêcheur");
+            RoleBook book = RoleSavedData.get(server).book();
+            helper.assertTrue(book.role("pecheur").isPresent(), "le rôle pecheur n'a pas été créé");
+            PlayerTeam team = scoreboard.getPlayerTeam("ofas_pecheur");
+            helper.assertTrue(team != null, "l'équipe ofas_pecheur n'existe pas");
+            helper.assertTrue("[Pêcheur] ".equals(team.getPlayerPrefix().getString()),
+                    "préfixe inattendu : " + team.getPlayerPrefix().getString());
+
+            commande(server, "role delete pecheur");
+            helper.assertTrue(book.role("pecheur").isEmpty(), "le rôle pecheur existe encore");
+            helper.assertTrue(scoreboard.getPlayerTeam("ofas_pecheur") == null,
+                    "l'équipe ofas_pecheur existe encore");
+            helper.succeed();
+        } finally {
+            retirerRole(server, "pecheur");
+            nettoyer(scoreboard);
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = "roles_commande_builtin")
+    public static void deleteDUnRoleCodeEnDurEchoueSansLever(GameTestHelper helper) {
+        MinecraftServer server = helper.getLevel().getServer();
+        try {
+            commande(server, "role delete ingenieur");
+            helper.assertTrue(RoleSavedData.get(server).book().role("ingenieur").isPresent(),
+                    "le rôle ingenieur a été supprimé");
+            helper.succeed();
+        } finally {
+            nettoyer(server.getScoreboard());
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = "roles_commande_horsligne")
+    public static void laCibleHorsLigneRedevientCitoyen(GameTestHelper helper) {
+        MinecraftServer server = helper.getLevel().getServer();
+        UUID absent = UUID.fromString("00000000-0000-0000-0000-00000000a0a0");
+        try {
+            commande(server, "role create temporaire red Temporaire");
+            RoleBook book = RoleSavedData.get(server).book();
+            book.assign(absent, "temporaire");
+            helper.assertTrue("temporaire".equals(book.roleOf(absent).id()), "l'attribution n'a pas pris");
+            commande(server, "role delete temporaire");
+            helper.assertTrue("citoyen".equals(book.roleOf(absent).id()),
+                    "rôle après suppression : " + book.roleOf(absent).id());
+            helper.succeed();
+        } finally {
+            retirerRole(server, "temporaire");
+            nettoyer(server.getScoreboard());
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = "roles_gate")
+    public static void isEngineerNeRepondOuiQuePourIngenieur(GameTestHelper helper) {
+        RoleBook book = RoleBook.withBuiltins();
+        UUID ing = UUID.randomUUID();
+        UUID cit = UUID.randomUUID();
+        UUID med = UUID.randomUUID();
+        book.assign(ing, "ingenieur");
+        book.assign(med, "medecin");
+        helper.assertTrue(RoleGate.isEngineer(book, ing), "l'ingénieur n'est pas reconnu");
+        helper.assertTrue(!RoleGate.isEngineer(book, cit), "un citoyen est reconnu ingénieur");
+        helper.assertTrue(!RoleGate.isEngineer(book, med), "un médecin est reconnu ingénieur");
+        helper.succeed();
     }
 }
