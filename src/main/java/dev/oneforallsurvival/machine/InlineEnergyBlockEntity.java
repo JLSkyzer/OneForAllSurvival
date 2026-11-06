@@ -57,7 +57,12 @@ public abstract class InlineEnergyBlockEntity extends BlockEntity {
             return null;
         }
         Direction out = outputSide();
-        BlockEntity target = level.getBlockEntity(worldPosition.relative(out));
+        BlockPos neighborPos = worldPosition.relative(out);
+        // Un voisin en chunk non chargé ne doit pas être chargé (ni généré) par un simple appel de capability.
+        if (!level.isLoaded(neighborPos)) {
+            return null;
+        }
+        BlockEntity target = level.getBlockEntity(neighborPos);
         if (target == null) {
             return null;
         }
