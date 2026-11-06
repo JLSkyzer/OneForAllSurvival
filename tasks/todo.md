@@ -17,6 +17,10 @@ Chaque lot reçoit son plan détaillé au moment de démarrer : ce qu'un lot pro
 
 Les visuels finaux font partie de chaque lot qui ajoute un bloc ou un objet livré.
 
+## Idées pour plus tard
+
+- **Config des recettes de l'établi par mod** (demande de Killian, 2026-11-06) : un fichier de config, par exemple JSON, associant un mod id à une liste de types de recettes séparés par des virgules. Au chargement, les recettes de ces types partent à l'établi. À cadrer : seuls les types à ingrédients simples et résultat unique peuvent se payer d'avance ; les fluides et les résultats aléatoires (`create:mixing`, `create:milling`) ne le peuvent pas tels quels.
+
 ## Hors du mod, côté pack
 
 - [ ] Retirer les PC, CPU et cartes graphiques d'Advanced Electricity, et les réacteurs nucléaires de New Age.
