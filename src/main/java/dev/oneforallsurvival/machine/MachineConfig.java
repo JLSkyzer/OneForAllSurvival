@@ -13,6 +13,8 @@ public final class MachineConfig {
     private static final ForgeConfigSpec.BooleanValue FLAMES_ENABLED;
     private static final ForgeConfigSpec.DoubleValue FLAME_CHANCE;
     private static final ForgeConfigSpec.IntValue FLAME_TICKS;
+    private static final ForgeConfigSpec.IntValue WELDER_CAPACITY;
+    private static final ForgeConfigSpec.IntValue REPAIR_ENERGY;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -34,6 +36,12 @@ public final class MachineConfig {
         FLAME_TICKS = builder
                 .comment("Durée des flammes, en ticks.")
                 .defineInRange("flameTicks", 200, 1, 72000);
+        WELDER_CAPACITY = builder
+                .comment("Capacité de la batterie du poste à souder, en FE.")
+                .defineInRange("welderCapacity", 2000, 1, 1000000);
+        REPAIR_ENERGY = builder
+                .comment("Énergie que coûte une réparation au poste à souder, en FE.")
+                .defineInRange("repairEnergy", 400, 1, 1000000);
         SPEC = builder.build();
     }
 
@@ -85,6 +93,22 @@ public final class MachineConfig {
             return FLAME_TICKS.get();
         } catch (IllegalStateException e) {
             return 200;
+        }
+    }
+
+    public static int welderCapacity() {
+        try {
+            return WELDER_CAPACITY.get();
+        } catch (IllegalStateException e) {
+            return 2000;
+        }
+    }
+
+    public static int repairEnergy() {
+        try {
+            return REPAIR_ENERGY.get();
+        } catch (IllegalStateException e) {
+            return 400;
         }
     }
 }

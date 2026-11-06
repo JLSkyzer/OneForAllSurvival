@@ -131,23 +131,52 @@ public abstract class ElectricMachineBlockEntity extends BlockEntity {
     }
 
     /**
-     * Répare avec cette pièce. {@code treated} : la pièce posée est traitée, ce qui protège la machine.
-     * La pièce doit être celle qui a lâché, ou à défaut celle qui lâchera ; sinon rien ne change.
+     * Ce que donnerait {@link #repair} avec cette pièce, sans rien changer. La pièce doit être celle
+     * qui a lâché, ou à défaut celle qui lâchera.
      */
-    public RepairOutcome repair(FaultType part, boolean treated) {
-        FaultType expected = fault != null ? fault : nextFault;
-        if (part != expected) {
+    public RepairOutcome previewRepair(FaultType part, boolean treated) {
+        if (part != expectedPart()) {
             return RepairOutcome.WRONG_PART;
         }
         if (fault == null && condition >= MachineWear.FULL && (!treated || isProtected)) {
             return RepairOutcome.NOTHING_TO_DO;
         }
+        return RepairOutcome.REPAIRED;
+    }
+
+    /** La pièce qu'il faut à cette machine : celle qui a lâché, ou à défaut celle qui lâchera. */
+    public FaultType expectedPart() {
+        return fault != null ? fault : nextFault;
+    }
+
+    /**
+     * Répare avec cette pièce. {@code treated} : la pièce posée est traitée, ce qui protège la machine.
+     * Si la pièce ne convient pas ou qu'il n'y a rien à faire, rien ne change.
+     */
+    public RepairOutcome repair(FaultType part, boolean treated) {
+        RepairOutcome outcome = previewRepair(part, treated);
+        if (outcome != RepairOutcome.REPAIRED) {
+            return outcome;
+        }
         condition = MachineWear.FULL;
         fault = null;
         isProtected = treated;
         nextFault = drawFault();
+        flameTicksLeft = 0;
         setChanged();
         return RepairOutcome.REPAIRED;
+    }
+
+    /**
+     * Prélève jusqu'à {@code amount} FE de la réserve, pour recharger un outil, et renvoie ce qui a
+     * réellement été retiré. La capability, elle, ne laisse rien sortir.
+     */
+    public int drainEnergy(int amount) {
+        int taken = storage.consume(amount);
+        if (taken > 0) {
+            setChanged();
+        }
+        return taken;
     }
 
     protected void setCondition(double value) {
@@ -279,7 +308,8 @@ public abstract class ElectricMachineBlockEntity extends BlockEntity {
     public void load(CompoundTag tag) {
         super.load(tag);
         storage.setStored(tag.getInt(TAG_ENERGY));
-        condition = tag.contains(TAG_CONDITION) ? tag.getDouble(TAG_CONDITION) : MachineWear.FULL;
+        condition = tag.contains(TAG_CONDITION)
+                ? Math.max(0, Math.min(MachineWear.FULL, tag.getDouble(TAG_CONDITION))) : MachineWear.FULL;
         fault = FaultType.byName(tag.getString(TAG_FAULT_TYPE));
         FaultType saved = FaultType.byName(tag.getString(TAG_NEXT_FAULT));
         if (saved != null) {

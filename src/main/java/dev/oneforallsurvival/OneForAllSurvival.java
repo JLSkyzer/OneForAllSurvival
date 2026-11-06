@@ -8,6 +8,7 @@ import dev.oneforallsurvival.bench.BenchOverrides;
 import dev.oneforallsurvival.bench.BenchRegistry;
 import dev.oneforallsurvival.bench.WorkshopTicker;
 import dev.oneforallsurvival.machine.MachineConfig;
+import dev.oneforallsurvival.repair.RepairRegistry;
 import dev.oneforallsurvival.role.RoleCommands;
 import dev.oneforallsurvival.role.RoleEvents;
 import net.minecraftforge.common.MinecraftForge;
@@ -30,6 +31,7 @@ public final class OneForAllSurvival {
         IEventBus modEventBus = context.getModEventBus();
         modEventBus.addListener(this::commonSetup);
         BenchRegistry.register(modEventBus);
+        RepairRegistry.register(modEventBus);
         BenchNetwork.register();
         MinecraftForge.EVENT_BUS.register(new RoleEvents());
         MinecraftForge.EVENT_BUS.register(new RoleCommands());
