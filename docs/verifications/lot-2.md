@@ -129,7 +129,7 @@ Première phase : 1 lancement du client, 0 blocage. Relance (serveur relancé, r
 | 20:39 à 20:50, expérience `channel.read()` | 6 | 0 tombé, 1 débloqué |
 | 20:53 à 20:57, relance finale | 3 | 2 |
 
-Relevés pris pendant chaque blocage, avant toute fermeture (trois `jstack` de chaque JVM à 5 s d'écart, `netstat`, `debug.log` des deux côtés), dans `.superpowers/sdd/2026-11-06-lot-2-metier-reparation/blocage-*` (dossier ignoré par git, local) :
+Relevés pris pendant chaque blocage, avant toute fermeture (trois `jstack` de chaque JVM à 5 s d'écart, `netstat`, `debug.log` des deux côtés), dans `run-demo/blocages-lot-2/blocage-*` (dossier ignoré par git, local) :
 
 ```
 [e2e-diag] 17.0 s, ecran de connexion toujours ouvert : canal NioSocketChannel open=true active=true autoRead=true interestOps=0 readyOps=8 readPending=false
