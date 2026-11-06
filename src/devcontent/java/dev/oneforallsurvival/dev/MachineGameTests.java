@@ -15,6 +15,11 @@ import net.minecraftforge.gametest.PrefixGameTestTemplate;
  * 100 FE reçus au plus par appel). Les rappels de {@code runAfterDelay} d'un même tick s'exécutent
  * dans un ordre arbitraire : chaque contrôle a son propre tick, et l'égalité exacte n'est exigée
  * que là où elle est déterminée.
+ *
+ * <p>Les tests qui exigent de la progression quelques ticks après la pose attendent 20 ticks de mise en
+ * place ({@code setupTicks}) : juste après le début du lot, un block entity peut ne pas encore tiquer (la
+ * piste du filtre de {@code LevelChunk.isTicking} est une hypothèse, non observée), et
+ * {@code laProgressionEtLaReserveSurviventAuRechargement} a déjà trouvé une progression nulle à 5 ticks.
  */
 @GameTestHolder("oneforallsurvival")
 @PrefixGameTestTemplate(false)
@@ -35,7 +40,7 @@ public final class MachineGameTests {
         helper.assertTrue(condition, message);
     }
 
-    @GameTest(template = "test/plancher", batch = "machine_pause")
+    @GameTest(template = "test/plancher", batch = "machine_pause", setupTicks = 20)
     public static void sansCourantLaMachineEstEnPauseSansPerdreSaProgression(GameTestHelper helper) {
         TestMachineBlockEntity be = poser(helper);
         be.energy().receiveEnergy(100, false);
@@ -56,7 +61,7 @@ public final class MachineGameTests {
         });
     }
 
-    @GameTest(template = "test/plancher", batch = "machine_reprise")
+    @GameTest(template = "test/plancher", batch = "machine_reprise", setupTicks = 20)
     public static void leCourantLaFaitRepartir(GameTestHelper helper) {
         TestMachineBlockEntity be = poser(helper);
         be.energy().receiveEnergy(100, false);
@@ -72,7 +77,7 @@ public final class MachineGameTests {
         });
     }
 
-    @GameTest(template = "test/plancher", batch = "machine_sauvegarde")
+    @GameTest(template = "test/plancher", batch = "machine_sauvegarde", setupTicks = 20)
     public static void laProgressionEtLaReserveSurviventAuRechargement(GameTestHelper helper) {
         TestMachineBlockEntity be = poser(helper);
         be.energy().receiveEnergy(100, false);
@@ -108,7 +113,7 @@ public final class MachineGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "test/plancher", batch = "machine_panne")
+    @GameTest(template = "test/plancher", batch = "machine_panne", setupTicks = 20)
     public static void enPanneLaMachineNeConsommeRien(GameTestHelper helper) {
         TestMachineBlockEntity be = poser(helper);
         be.energy().receiveEnergy(100, false);
