@@ -9,6 +9,7 @@ import net.minecraft.world.Containers;
 import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.common.capabilities.Capability;
@@ -27,8 +28,8 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>La pièce et le zinc ne se prélèvent qu'à la fin du bain : tant qu'il dure, retirer la pièce ne coûte
  * rien. La progression est gardée sans courant et en panne, et remise à zéro si la pièce change.
- * La recette en cours est mise en cache ; le cache tombe quand la case de la pièce change et quand les
- * données sont rechargées ({@link GalvanicRecipe#generation()}).
+ * La recette en cours est mise en cache ; le cache tombe quand la case de la pièce change et quand
+ * le gestionnaire de recettes n'est plus le même (rechargement des données).
  *
  * <p>Les faces ne donnent accès qu'à leur case : le dessous extrait la sortie, le dessus insère la pièce,
  * les côtés insèrent le zinc. Le contenu est jeté quand le bloc disparaît.
@@ -56,8 +57,8 @@ public final class GalvanicBathBlockEntity extends ElectricMachineBlockEntity {
         @Override
         public boolean isItemValid(int slot, @NotNull ItemStack stack) {
             return switch (slot) {
-                case SLOT_PIECE -> anyRecipe(r -> r.ingredient().test(stack));
-                case SLOT_ZINC -> anyRecipe(r -> r.zinc().test(stack));
+                case SLOT_PIECE -> anyRecipe(r -> r.acceptsPiece(stack));
+                case SLOT_ZINC -> anyRecipe(r -> r.acceptsZinc(stack));
                 default -> false;
             };
         }
@@ -66,7 +67,9 @@ public final class GalvanicBathBlockEntity extends ElectricMachineBlockEntity {
         protected void onContentsChanged(int slot) {
             setChanged();
             if (slot == SLOT_PIECE) {
-                pieceChanged();
+                // Le cache tombe, mais la progression, non : un clic de souris vide la case un instant
+                // (SlotItemHandler.getMaxStackSize) sans que la pièce ait vraiment changé.
+                cacheValid = false;
             }
         }
     };
@@ -110,7 +113,8 @@ public final class GalvanicBathBlockEntity extends ElectricMachineBlockEntity {
     @Nullable
     private GalvanicRecipe cachedRecipe;
     private boolean cacheValid;
-    private int cacheGeneration;
+    @Nullable
+    private RecipeManager cachedManager;
 
     public GalvanicBathBlockEntity(BlockPos pos, BlockState state) {
         super(RepairRegistry.GALVANIC_BATH_BE.get(), pos, state, CAPACITY, MAX_RECEIVE);
@@ -145,26 +149,27 @@ public final class GalvanicBathBlockEntity extends ElectricMachineBlockEntity {
         return false;
     }
 
-    /** La pièce a bougé : le cache tombe, et la progression repart de zéro si l'objet n'est plus le même. */
-    private void pieceChanged() {
-        cacheValid = false;
-        ItemStack stack = items.getStackInSlot(SLOT_PIECE);
-        Item now = stack.isEmpty() ? null : stack.getItem();
-        if (now != trackedPiece) {
-            trackedPiece = now;
-            progress = 0;
-        }
-    }
-
-    /** La recette de la pièce posée, lue dans le cache tant que ni la pièce ni les données n'ont changé. */
+    /**
+     * La recette de la pièce posée. Le cache vaut tant que la pièce et le gestionnaire de recettes sont les
+     * mêmes : un rechargement des données installe un autre gestionnaire. C'est aussi ici, une fois par tick
+     * (via {@link #energyPerTick()}), que la progression repart de zéro si l'objet de la case a changé.
+     */
     @Nullable
     private GalvanicRecipe currentRecipe() {
         if (level == null) {
             return null;
         }
-        if (!cacheValid || cacheGeneration != GalvanicRecipe.generation()) {
-            cachedRecipe = lookup(items.getStackInSlot(SLOT_PIECE));
-            cacheGeneration = GalvanicRecipe.generation();
+        ItemStack piece = items.getStackInSlot(SLOT_PIECE);
+        Item now = piece.isEmpty() ? null : piece.getItem();
+        if (now != trackedPiece) {
+            trackedPiece = now;
+            progress = 0;
+            cacheValid = false;
+        }
+        RecipeManager manager = level.getRecipeManager();
+        if (!cacheValid || manager != cachedManager) {
+            cachedRecipe = lookup(piece);
+            cachedManager = manager;
             cacheValid = true;
         }
         return cachedRecipe;
@@ -176,7 +181,7 @@ public final class GalvanicBathBlockEntity extends ElectricMachineBlockEntity {
             return null;
         }
         for (GalvanicRecipe recipe : level.getRecipeManager().getAllRecipesFor(RepairRegistry.GALVANIC_TYPE.get())) {
-            if (recipe.ingredient().test(piece)) {
+            if (recipe.acceptsPiece(piece)) {
                 return recipe;
             }
         }
@@ -200,7 +205,7 @@ public final class GalvanicBathBlockEntity extends ElectricMachineBlockEntity {
             return false;
         }
         ItemStack zinc = items.getStackInSlot(SLOT_ZINC);
-        return recipe.zinc().test(zinc) && zinc.getCount() >= recipe.zincCount() && outputFits(recipe.result());
+        return recipe.acceptsZinc(zinc) && zinc.getCount() >= recipe.zincCount() && outputFits(recipe.result());
     }
 
     @Override

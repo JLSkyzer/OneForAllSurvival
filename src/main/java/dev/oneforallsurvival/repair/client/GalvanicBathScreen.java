@@ -23,8 +23,10 @@ public final class GalvanicBathScreen extends AbstractContainerScreen<GalvanicBa
     private static final int ARROW_H = 10;
     private static final int ENERGY_X = 36;
     private static final int ENERGY_Y = 72;
-    private static final int ENERGY_W = 70;
+    private static final int ENERGY_W = 50;
     private static final int ENERGY_H = 9;
+    /** Bord droit du texte : la marge de 8 pixels du cadre. */
+    private static final int RIGHT = WIDTH - 8;
 
     public GalvanicBathScreen(GalvanicBathMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -70,10 +72,10 @@ public final class GalvanicBathScreen extends AbstractContainerScreen<GalvanicBa
     @Override
     protected void renderLabels(GuiGraphics g, int mx, int my) {
         g.drawString(font, title, titleLabelX, titleLabelY, BenchTheme.TEXT, false);
-        g.drawString(font, Component.translatable("gui.oneforallsurvival.galvanic.zinc"),
-                GalvanicBathMenu.ZINC_X + 22, GalvanicBathMenu.ZINC_Y + 4, BenchTheme.TEXT_DIM, false);
-        g.drawString(font, Component.translatable("gui.oneforallsurvival.galvanic.piece"),
-                GalvanicBathMenu.PIECE_X + 22, GalvanicBathMenu.PIECE_Y + 4, BenchTheme.TEXT_DIM, false);
+        label(g, Component.translatable("gui.oneforallsurvival.galvanic.zinc"),
+                GalvanicBathMenu.ZINC_X + 22, GalvanicBathMenu.ZINC_Y + 4, BenchTheme.TEXT_DIM);
+        label(g, Component.translatable("gui.oneforallsurvival.galvanic.piece"),
+                GalvanicBathMenu.PIECE_X + 22, GalvanicBathMenu.PIECE_Y + 4, BenchTheme.TEXT_DIM);
         MachineState[] states = MachineState.values();
         MachineState state = states[Math.floorMod(menu.stateOrdinal(), states.length)];
         int color = switch (state) {
@@ -81,11 +83,20 @@ public final class GalvanicBathScreen extends AbstractContainerScreen<GalvanicBa
             case FAULT -> BenchTheme.TEXT_BAD;
             default -> BenchTheme.TEXT;
         };
-        Component stateText = Component.translatable("gui.oneforallsurvival.galvanic.state",
-                Component.translatable("gui.oneforallsurvival.galvanic.state." + state.getSerializedName()));
-        g.drawString(font, stateText, ARROW_X, ARROW_Y + 24, color, false);
-        g.drawString(font, Component.translatable("gui.oneforallsurvival.galvanic.energy", menu.energy(),
-                menu.capacity()), ENERGY_X + ENERGY_W + 6, ENERGY_Y + 1, BenchTheme.TEXT_DIM, false);
+        label(g, Component.translatable("gui.oneforallsurvival.galvanic.state",
+                Component.translatable("gui.oneforallsurvival.galvanic.state." + state.getSerializedName())),
+                ARROW_X, ARROW_Y + 24, color);
+        // Le texte d'énergie s'aligne à droite, dans la marge, et se coupe avant la barre plutôt que de déborder.
+        String energy = Component.translatable("gui.oneforallsurvival.galvanic.energy", menu.energy(),
+                menu.capacity()).getString();
+        int minX = ENERGY_X + ENERGY_W + 4;
+        int x = Math.max(minX, RIGHT - font.width(energy));
+        g.drawString(font, BenchTheme.ellipsize(font, energy, RIGHT - x), x, ENERGY_Y + 1, BenchTheme.TEXT_DIM, false);
         g.drawString(font, playerInventoryTitle, 8, 86, BenchTheme.TEXT_DIM, false);
+    }
+
+    /** Un texte posé en ({@code x}, {@code y}), coupé avant la marge de droite. */
+    private void label(GuiGraphics g, Component text, int x, int y, int color) {
+        g.drawString(font, BenchTheme.ellipsize(font, text.getString(), RIGHT - x), x, y, color, false);
     }
 }

@@ -5,6 +5,7 @@ import dev.oneforallsurvival.bench.BenchRecipe;
 import dev.oneforallsurvival.bench.BenchRegistry;
 import dev.oneforallsurvival.bench.client.BenchClientState;
 import dev.oneforallsurvival.bench.client.BenchFormat;
+import dev.oneforallsurvival.bench.client.BenchTheme;
 import dev.oneforallsurvival.repair.GalvanicRecipe;
 import dev.oneforallsurvival.repair.RepairRegistry;
 import java.util.ArrayList;
@@ -273,7 +274,7 @@ public final class BenchJeiPlugin implements IModPlugin {
 
     /** La catégorie du bain : la pièce et le zinc à gauche, la pièce traitée à droite, durée et courant dessous. */
     private static final class GalvanicCategory implements IRecipeCategory<GalvanicRecipe> {
-        private static final int G_WIDTH = 110;
+        private static final int G_WIDTH = 130;
         private static final int G_HEIGHT = 46;
         private final IDrawable icon;
 
@@ -308,23 +309,27 @@ public final class BenchJeiPlugin implements IModPlugin {
 
         @Override
         public void setRecipe(IRecipeLayoutBuilder builder, GalvanicRecipe recipe, IFocusGroup focuses) {
-            builder.addSlot(RecipeIngredientRole.INPUT, 1, 1).addIngredients(recipe.ingredient());
+            builder.addSlot(RecipeIngredientRole.INPUT, 1, 1).addItemStacks(GalvanicRecipe.realStacks(recipe.ingredient()));
             List<ItemStack> zinc = new ArrayList<>();
-            for (ItemStack stack : recipe.zinc().getItems()) {
+            // Étiquette vide : Forge met une barrière, qu'on ne montre pas.
+            for (ItemStack stack : GalvanicRecipe.realStacks(recipe.zinc())) {
                 zinc.add(stack.copyWithCount(recipe.zincCount()));
             }
             builder.addSlot(RecipeIngredientRole.INPUT, 1, 19).addItemStacks(zinc);
-            builder.addSlot(RecipeIngredientRole.OUTPUT, 80, 10).addItemStack(recipe.result());
+            builder.addSlot(RecipeIngredientRole.OUTPUT, G_WIDTH - 19, 10).addItemStack(recipe.result());
         }
 
         @Override
         public void draw(GalvanicRecipe recipe, IRecipeSlotsView slots, GuiGraphics graphics, double mouseX,
                 double mouseY) {
             var font = Minecraft.getInstance().font;
-            graphics.drawString(font, Component.translatable("gui.oneforallsurvival.galvanic.jei.time",
-                    BenchFormat.duration(Math.max(1, recipe.ticks() / 20))), 1, G_HEIGHT - 9, 0xFF555555, false);
-            graphics.drawString(font, Component.translatable("gui.oneforallsurvival.galvanic.jei.energy",
-                    recipe.energyPerTick()), 26, 14, 0xFF555555, false);
+            // Les textes restent dans les marges : le temps sous les cases, le courant entre les cases et le résultat.
+            graphics.drawString(font, BenchTheme.ellipsize(font, Component.translatable(
+                    "gui.oneforallsurvival.galvanic.jei.time", BenchFormat.duration(Math.max(1, recipe.ticks() / 20)))
+                    .getString(), G_WIDTH - 2), 1, G_HEIGHT - 9, 0xFF555555, false);
+            graphics.drawString(font, BenchTheme.ellipsize(font, Component.translatable(
+                    "gui.oneforallsurvival.galvanic.jei.energy", recipe.energyPerTick()).getString(),
+                    G_WIDTH - 19 - 4 - 24), 24, 14, 0xFF555555, false);
         }
     }
 }

@@ -3,6 +3,7 @@ package dev.oneforallsurvival.dev;
 import dev.oneforallsurvival.machine.FaultType;
 import dev.oneforallsurvival.machine.MachineState;
 import dev.oneforallsurvival.repair.GalvanicBathBlockEntity;
+import dev.oneforallsurvival.repair.GalvanicBathMenu;
 import dev.oneforallsurvival.repair.RepairRegistry;
 import java.util.List;
 import net.minecraft.core.BlockPos;
@@ -12,6 +13,10 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -210,6 +215,65 @@ public final class BainGameTests {
         helper.assertTrue(be.inventory().getStackInSlot(0).getCount() == 2
                 && be.inventory().getStackInSlot(1).getCount() == 2, "pièce et zinc entrés par leurs faces");
         helper.succeed();
+    }
+
+    /** Poser d'autres pièces à la souris dans la case ne coûte pas la progression du bain en cours. */
+    @GameTest(template = "test/plancher", batch = "bain")
+    public static void ajouterDesPiecesALaSourisGardeLaProgression(GameTestHelper helper) {
+        GalvanicBathBlockEntity be = poser(helper);
+        charger(be, 1, 2);
+        remplir(be);
+        Player joueur = helper.makeMockPlayer();
+        GalvanicBathMenu menu = new GalvanicBathMenu(1, joueur.getInventory(), be, helper.absolutePos(POS));
+        int[] avant = new int[1];
+        helper.runAfterDelay(8, () -> {
+            avant[0] = be.progress();
+            helper.assertTrue(avant[0] > 0, "le bain devait avoir avancé, vu " + avant[0]);
+            menu.setCarried(new ItemStack(objet("test_part"), 1));
+            menu.clicked(GalvanicBathBlockEntity.SLOT_PIECE, 0, ClickType.PICKUP, joueur);
+            helper.assertTrue(be.inventory().getStackInSlot(0).getCount() == 2,
+                    "la pièce devait être posée dans la case, vu " + be.inventory().getStackInSlot(0));
+        });
+        helper.runAfterDelay(11, () -> {
+            helper.assertTrue(be.progress() > avant[0],
+                    "la progression devait continuer (avant " + avant[0] + "), vue " + be.progress());
+            helper.succeed();
+        });
+    }
+
+    /** Le clic majuscule marque le bain modifié, et ce qu'il a déplacé survit à une sauvegarde. */
+    @GameTest(template = "test/plancher", batch = "bain")
+    public static void leClicMajusculeSeSauvegarde(GameTestHelper helper) {
+        GalvanicBathBlockEntity be = poser(helper);
+        be.inventory().setStackInSlot(0, new ItemStack(objet("test_part"), 1));
+        // Du zinc déjà présent : le clic majuscule grossit la pile en place, sans passer par le gestionnaire.
+        be.inventory().setStackInSlot(1, new ItemStack(Items.IRON_INGOT, 2));
+        remplir(be);
+        Player joueur = helper.makeMockPlayer();
+        GalvanicBathMenu menu = new GalvanicBathMenu(1, joueur.getInventory(), be, helper.absolutePos(POS));
+        joueur.getInventory().setItem(0, new ItemStack(Items.IRON_INGOT, 4)); // case de menu 30 : barre d'action
+        LevelChunk chunk = helper.getLevel().getChunkAt(helper.absolutePos(POS));
+        helper.runAfterDelay(6, () -> {
+            chunk.setUnsaved(false);
+            ItemStack bougee = menu.quickMoveStack(joueur, 30);
+            helper.assertTrue(!bougee.isEmpty(), "le zinc devait passer dans le bain");
+            helper.assertTrue(be.inventory().getStackInSlot(1).getCount() == 6, "6 lingots attendus dans la case zinc");
+            helper.assertTrue(chunk.isUnsaved(), "le clic majuscule devait marquer le bain modifié");
+        });
+        helper.runAfterDelay(9, () -> {
+            helper.assertTrue(be.progress() > 0, "le bain devait avoir avancé, vu " + be.progress());
+            CompoundTag tag = be.saveWithoutMetadata();
+            GalvanicBathBlockEntity copie = new GalvanicBathBlockEntity(be.getBlockPos(), be.getBlockState());
+            copie.load(tag);
+            for (int i = 0; i < 3; i++) {
+                helper.assertTrue(ItemStack.matches(be.inventory().getStackInSlot(i), copie.inventory().getStackInSlot(i)),
+                        "case " + i + " différente après rechargement : " + be.inventory().getStackInSlot(i)
+                                + " contre " + copie.inventory().getStackInSlot(i));
+            }
+            helper.assertTrue(copie.progress() == be.progress(), "progression perdue : " + copie.progress());
+            helper.assertTrue(copie.energy().getEnergyStored() == be.energy().getEnergyStored(), "énergie perdue");
+            helper.succeed();
+        });
     }
 
     private static IItemHandler handler(GalvanicBathBlockEntity be, Direction side) {

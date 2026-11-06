@@ -5,17 +5,16 @@ import com.google.gson.JsonSyntaxException;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
 import net.minecraft.util.GsonHelper;
 import net.minecraft.world.Container;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.minecraft.world.level.Level;
-import net.minecraftforge.event.AddReloadListenerEvent;
 
 /**
  * Une recette du bain galvanique : une pièce brute plongée dans le bain, payée en zinc, ressort traitée.
@@ -29,9 +28,6 @@ public final class GalvanicRecipe implements Recipe<Container> {
 
     public static final int DEFAULT_TICKS = 200;
     public static final int DEFAULT_ENERGY_PER_TICK = 20;
-
-    /** Compte les rechargements des données : les bains y invalident leur recette en cache. */
-    private static volatile int generation;
 
     private final ResourceLocation id;
     private final Ingredient ingredient;
@@ -53,15 +49,30 @@ public final class GalvanicRecipe implements Recipe<Container> {
     }
 
     /**
-     * Numéro du chargement des recettes en cours. Le rechargeur est ajouté en dernier : il s'applique après
-     * le gestionnaire de recettes, donc un bain qui voit ce numéro changer relit déjà les nouvelles recettes.
+     * Forge donne une barrière pour un ingrédient dont l'étiquette est vide : ce n'est pas un vrai objet
+     * accepté (sans Create, l'étiquette du zinc est vide).
      */
-    public static int generation() {
-        return generation;
+    private static boolean accepts(Ingredient ingredient, ItemStack stack) {
+        return !stack.isEmpty() && !stack.is(Items.BARRIER) && ingredient.test(stack);
     }
 
-    public static void onAddReloadListener(AddReloadListenerEvent event) {
-        event.addListener((ResourceManagerReloadListener) manager -> generation++);
+    public boolean acceptsPiece(ItemStack stack) {
+        return accepts(ingredient, stack);
+    }
+
+    public boolean acceptsZinc(ItemStack stack) {
+        return accepts(zinc, stack);
+    }
+
+    /** Les objets d'un ingrédient, sans la barrière que Forge met pour une étiquette vide. */
+    public static java.util.List<ItemStack> realStacks(Ingredient ingredient) {
+        java.util.List<ItemStack> out = new java.util.ArrayList<>();
+        for (ItemStack stack : ingredient.getItems()) {
+            if (!stack.is(Items.BARRIER)) {
+                out.add(stack);
+            }
+        }
+        return out;
     }
 
     public Ingredient ingredient() {
@@ -90,7 +101,7 @@ public final class GalvanicRecipe implements Recipe<Container> {
 
     @Override
     public boolean matches(Container container, Level level) {
-        return ingredient.test(container.getItem(0));
+        return acceptsPiece(container.getItem(0));
     }
 
     @Override

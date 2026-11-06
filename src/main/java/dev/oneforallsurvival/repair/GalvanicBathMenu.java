@@ -31,29 +31,25 @@ public final class GalvanicBathMenu extends AbstractContainerMenu {
 
     /** Côté serveur : les cases et les nombres du vrai bain. */
     public GalvanicBathMenu(int containerId, Inventory inventory, GalvanicBathBlockEntity be, BlockPos pos) {
-        this(containerId, inventory, be.inventory(), be.data(), pos);
+        this(containerId, inventory, be.inventory(), be.data(), pos, be::setChanged);
     }
 
     /** Côté client : des cases vides que le serveur remplit, et des nombres qu'il tient à jour. */
     public static GalvanicBathMenu fromNetwork(int containerId, Inventory inventory, FriendlyByteBuf buf) {
         return new GalvanicBathMenu(containerId, inventory, new ItemStackHandler(BATH_SLOTS),
-                new SimpleContainerData(GalvanicBathBlockEntity.DATA_COUNT), buf.readBlockPos());
+                new SimpleContainerData(GalvanicBathBlockEntity.DATA_COUNT), buf.readBlockPos(), () -> {});
     }
 
-    private GalvanicBathMenu(int containerId, Inventory inventory, IItemHandler bath, ContainerData data, BlockPos pos) {
+    private GalvanicBathMenu(int containerId, Inventory inventory, IItemHandler bath, ContainerData data, BlockPos pos,
+            Runnable onChanged) {
         super(RepairRegistry.GALVANIC_BATH_MENU.get(), containerId);
         this.pos = pos.immutable();
         this.bath = bath;
         this.data = data;
-        addSlot(new SlotItemHandler(bath, GalvanicBathBlockEntity.SLOT_PIECE, PIECE_X, PIECE_Y));
-        addSlot(new SlotItemHandler(bath, GalvanicBathBlockEntity.SLOT_ZINC, ZINC_X, ZINC_Y));
+        addSlot(new BathSlot(bath, GalvanicBathBlockEntity.SLOT_PIECE, PIECE_X, PIECE_Y, true, onChanged));
+        addSlot(new BathSlot(bath, GalvanicBathBlockEntity.SLOT_ZINC, ZINC_X, ZINC_Y, true, onChanged));
         // La sortie ne reçoit rien du joueur, côté client comme côté serveur.
-        addSlot(new SlotItemHandler(bath, GalvanicBathBlockEntity.SLOT_OUTPUT, OUTPUT_X, OUTPUT_Y) {
-            @Override
-            public boolean mayPlace(ItemStack stack) {
-                return false;
-            }
-        });
+        addSlot(new BathSlot(bath, GalvanicBathBlockEntity.SLOT_OUTPUT, OUTPUT_X, OUTPUT_Y, false, onChanged));
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
                 addSlot(new Slot(inventory, 9 + row * 9 + col, 8 + col * 18, 98 + row * 18));
@@ -63,6 +59,32 @@ public final class GalvanicBathMenu extends AbstractContainerMenu {
             addSlot(new Slot(inventory, col, 8 + col * 18, 156));
         }
         addDataSlots(data);
+    }
+
+    /**
+     * Une case du bain. {@code moveItemStackTo} (clic majuscule) modifie la pile en place puis appelle
+     * {@link #setChanged()} : sans ce rappel, le block entity ne saurait pas qu'il doit se sauvegarder.
+     */
+    private static final class BathSlot extends SlotItemHandler {
+        private final boolean acceptsFromPlayer;
+        private final Runnable onChanged;
+
+        BathSlot(IItemHandler handler, int index, int x, int y, boolean acceptsFromPlayer, Runnable onChanged) {
+            super(handler, index, x, y);
+            this.acceptsFromPlayer = acceptsFromPlayer;
+            this.onChanged = onChanged;
+        }
+
+        @Override
+        public boolean mayPlace(ItemStack stack) {
+            return acceptsFromPlayer && super.mayPlace(stack);
+        }
+
+        @Override
+        public void setChanged() {
+            super.setChanged();
+            onChanged.run();
+        }
     }
 
     // Positions des cases (pixels du menu), partagées avec l'écran.

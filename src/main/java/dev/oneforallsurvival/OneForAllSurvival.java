@@ -9,7 +9,6 @@ import dev.oneforallsurvival.bench.BenchRegistry;
 import dev.oneforallsurvival.bench.WorkshopTicker;
 import dev.oneforallsurvival.coast.CoastCommands;
 import dev.oneforallsurvival.machine.MachineConfig;
-import dev.oneforallsurvival.repair.GalvanicRecipe;
 import dev.oneforallsurvival.repair.RepairRegistry;
 import dev.oneforallsurvival.role.RoleCommands;
 import dev.oneforallsurvival.role.RoleEvents;
@@ -44,7 +43,6 @@ public final class OneForAllSurvival {
         context.registerConfig(ModConfig.Type.COMMON, BenchConfig.SPEC);
         context.registerConfig(ModConfig.Type.COMMON, MachineConfig.SPEC, "oneforallsurvival-machines.toml");
         MinecraftForge.EVENT_BUS.addListener(BenchCatalog::onAddReloadListener);
-        MinecraftForge.EVENT_BUS.addListener(GalvanicRecipe::onAddReloadListener);
         MinecraftForge.EVENT_BUS.addListener(BenchOverrides::onAddReloadListener);
         MinecraftForge.EVENT_BUS.addListener(BenchCatalog::onTagsUpdated);
         MinecraftForge.EVENT_BUS.addListener(BenchNetwork::onDatapackSync);

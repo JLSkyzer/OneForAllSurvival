@@ -137,6 +137,6 @@
   "gui.oneforallsurvival.galvanic.state.no_power": "No power",
   "gui.oneforallsurvival.galvanic.state.fault": "Broken down",
   "gui.oneforallsurvival.galvanic.energy": "%s / %s FE",
-  "gui.oneforallsurvival.galvanic.jei.time": "Duration: %s at full efficiency",
+  "gui.oneforallsurvival.galvanic.jei.time": "Duration: %s",
   "gui.oneforallsurvival.galvanic.jei.energy": "%s FE per tick"
 }

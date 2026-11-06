@@ -65,10 +65,13 @@ public final class PackGameTests {
             helper.assertTrue(ForgeRegistries.ITEMS.getKey(bain.result().getItem())
                     .equals(new ResourceLocation("oneforallsurvival", "treated_" + nom)),
                     id + " devait donner treated_" + nom + ", vu " + bain.result());
-            helper.assertTrue(bain.ingredient().test(new ItemStack(ForgeRegistries.ITEMS.getValue(
+            helper.assertTrue(bain.acceptsPiece(new ItemStack(ForgeRegistries.ITEMS.getValue(
                     new ResourceLocation("oneforallsurvival", nom)))), id + " devait accepter la pièce " + nom);
-            helper.assertTrue(!create || bain.zinc().getItems().length > 0,
+            // Forge renvoie une barrière pour une étiquette vide : un vrai zinc n'en est pas une.
+            helper.assertTrue(!create || !GalvanicRecipe.realStacks(bain.zinc()).isEmpty(),
                     "Create est chargé mais l'étiquette du zinc est vide : " + id);
+            helper.assertTrue(!create || bain.acceptsZinc(new ItemStack(ForgeRegistries.ITEMS.getValue(
+                    new ResourceLocation("create", "zinc_ingot")))), "le lingot de zinc de Create devait convenir : " + id);
         }
         helper.succeed();
     }
