@@ -117,10 +117,13 @@ Preuve (client reel, JEI charge, `-Doneforallsurvival.jeicheck`) :
 
 ```
 JEI: catalogue de l'etabli rafraichi, 1129 recettes (generation 2)
-JEI-CHECK (nouveau catalogue) acacia_window : 0 recette(s) de table, 1 recette(s) d'etabli, 1129 recettes d'etabli au total
+JEI-CHECK (nouveau catalogue) 777 objets distincts sur 1129 recettes d'etabli : 0 avec une recette de table (violations), 0 sans recette d'etabli []
 ```
 
-JEI ne montre aucune recette de table pour un objet gere et montre celle de l'etabli : la purge du
+Mesure : pour CHAQUE objet distinct fabrique par une recette de l'etabli (777), recherche JEI des recettes
+`RecipeTypes.CRAFTING` et de la categorie de l'etabli ayant cet objet pour sortie. 0 objet avec une recette
+de table, 0 objet sans recette d'etabli. (Premiere version du controle : un seul objet, `acacia_window`.)
+Ne mesure pas les recettes de table qui produiraient l'objet par un autre type que `CRAFTING`. JEI montre aucune recette de table pour un objet gere et montre celle de l'etabli : la purge du
 `RecipeManager` precede bien l'envoi aux clients (question laissee ouverte a la tache 1). Les recettes de
 `create:mechanical_crafting` et autres types de machines restent dans JEI : ce sont des machines.
 
@@ -144,31 +147,30 @@ un defaut (choix de depannage documente), mais le film doit l'eviter.
 ### Serveur dedie et vrai client
 
 `./gradlew runServer -PwithPack` puis `./gradlew runE2eClient -PwithPack` (client `Dev`, op du serveur,
-connexion a `localhost`, helper `E2eClient` de `devcontent`). Lignes du journal client :
+connexion a `127.0.0.1` (le serveur ecoute desormais sur `server-ip=127.0.0.1` : `localhost` peut se resoudre en `::1`, refuse), helper `E2eClient` de `devcontent`). Lignes du journal client :
 
 ```
-[e2e] PASS connecte a un serveur distant (aucun serveur integre) : localhost
-[e2e] PASS catalogue recu par le reseau a la connexion : 1129 recettes, generation 2, apres 6,0 s
+[e2e] PASS connecte a un serveur distant (aucun serveur integre) : 127.0.0.1
+[e2e] PASS catalogue recu par le reseau a la connexion : 1129 recettes, generation 2, apres 0,1 s
 [e2e] PASS commandes /role et /give executees par le serveur, provisions recues
-[e2e] PASS etabli pose par un clic droit reel en BlockPos{x=-34, y=80, z=228}
+[e2e] PASS etabli pose par un clic droit reel en BlockPos{x=-34, y=80, z=238}
 [e2e] PASS ecran de l'etabli ouvert par clic droit reel (role Ingenieur accepte par le serveur)
 [e2e] PASS commande acceptee : ingredients preleves (2 -> 0), file de 2 fabrication(s), vitesses serveur main x1.0 / alimente x4.0
-[e2e] PASS craft termine cote serveur : stock 0 -> 8 objet(s) apres 15,1 s
+[e2e] PASS craft termine cote serveur : stock 0 -> 8 objet(s) apres 10,4 s
 [e2e] PASS ecran de stock ouvert : 1 pile(s)
 [e2e] PASS stock retire : +8 brass_bars dans l'inventaire
 [e2e] bilan : TOUT PASSE
 ```
 
-Journal serveur : `Done (6.007s)`, connexion de `Dev`, `/stop` de l'op client (« Stopping the server »),
+Journal serveur : `Done (6.361s)`, connexion de `Dev`, `/stop` de l'op client (« Stopping the server »),
 « All dimensions are saved », aucune ligne ERROR ni FATAL, et aucun processus Java restant. Film du client
-reel : `run-demo/lot-1-e2e-serveur.mp4` (23,5 s, 6,2 Mo).
+reel : `run-demo/lot-1-e2e-serveur.mp4` (12,7 s, 3,7 Mo, refait apres le correctif). Port 25565 ferme et aucun Java restant a la fin.
 
 Defaut trouve et corrige par cet essai : le menu de l'etabli n'a aucune case, donc le serveur ne
 synchronisait pas l'inventaire du joueur a travers lui, et le client n'accepte d'un menu ouvert que la
 barre d'action. Resultat : apres une commande, le serveur avait 2 lingots, l'ecran en montrait 4 (compteurs
-« possede » de l'ecran faux jusqu'a la fermeture). Correctif : `EngineerBenchMenu` renvoie chaque tick les
-cases modifiees par `ClientboundContainerSetSlotPacket(-2, ...)`. L'essai passe de « 2 -> 2 » a « 2 -> 0 ».
-Pas de GameTest propre a ce correctif : c'est l'essai de bout en bout qui le couvre.
+« possede » de l'ecran faux jusqu'a la fermeture). Correctif : `EngineerBenchMenu` renvoie chaque tick les cases modifiees par `ClientboundContainerSetSlotPacket(-2, ...)`. L'essai passe de « 2 -> 2 » a « 2 -> 0 ».
+Le mecanisme vanille (`inventoryMenu.broadcastChanges()`) ne convient pas : `BenchOrders.order` l'appelait deja, et le client restait faux ; le bytecode de `ClientPacketListener.handleContainerSetSlot` montre que l'identifiant 0 n'est applique qu'aux cases de la barre d'action (`isHotbarSlot`) quand un autre menu est ouvert. GameTest `unAchatPendantLEcranMetLInventaireDuClientAJour` : modele le client avec ces regles ; vu en echec sans le correctif (« case 20 : le serveur a 3 iron_ingot, le client verrait 5 iron_ingot »), puis passe avec.
 
 Deux GameTests ont du changer avec l'envoi a la connexion (`ouvrirExigeLeRoleEtEnvoieLeCatalogue`,
 `leCatalogueEstEnvoyeUneFoisParGeneration`) : le joueur de test n'emet pas l'evenement de connexion, ils le
@@ -176,7 +178,7 @@ rejouent (`connecter`).
 
 ### Tout relance
 
-`./gradlew test build runGameTestServer -PwithPack` : build reussi, « All 118 required tests passed ». Jar
+`./gradlew test build runGameTestServer -PwithPack` : build reussi, « All 119 required tests passed » (journal du passage, 13:13). Jar
 (`build/libs/oneforallsurvival-0.1.0.jar`, 207581 octets) : aucune classe de `devcontent`, de film ou
 d'essai ; `BenchJeiPlugin` et `BenchJeiPlugin$Category` y sont, JEI n'est ni embarque ni requis.
 La course de demarrage de Create (`ConcurrentModificationException` a la creation du mod `create`) est
@@ -217,4 +219,6 @@ plusieurs joueurs a la fois ; une partie longue. Le serveur d'essai tourne avec 
 port 25565 : un scanneur externe a tente de s'y connecter pendant l'essai (rejete : client non Forge) ;
 ne pas le laisser tourner hors essai.
 
-Sans le pack (`./gradlew runGameTestServer`, JEI absent, 0 mention de JEI au journal) : « All 118 required tests passed », le mod se charge normalement. Observation sur le pack : 118 tests passent avec comme sans le pack, car les essais « avecLePack_ » s'ecartent d'eux-memes quand il manque ; le compte ne distingue donc pas les deux, il faut lire les lignes `[etabli]` pour savoir si le pack etait la.
+Sans le pack (`./gradlew runGameTestServer`, JEI absent, 0 mention de JEI au journal) : « All 118 required tests passed » (avant l'ajout du 119e test), le mod se charge normalement. Observation sur le pack : 118 tests passent avec comme sans le pack, car les essais « avecLePack_ » s'ecartent d'eux-memes quand il manque ; le compte ne distingue donc pas les deux, il faut lire les lignes `[etabli]` pour savoir si le pack etait la.
+
+Compromis de la connexion : le catalogue (1129 recettes, fragments d'au plus 256 Kio) part maintenant a chaque connexion de chaque joueur, ingenieur ou non, meme sans jamais ouvrir d'etabli ; sa taille totale n'a pas ete mesuree.
