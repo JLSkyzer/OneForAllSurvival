@@ -72,5 +72,9 @@
   "bench.oneforallsurvival.mod.createaddition": "Additions",
   "bench.oneforallsurvival.mod.create_new_age": "New Age",
   "bench.oneforallsurvival.mod.light_bulb_addon_create_crafts_and__addions": "Electric",
-  "bench.oneforallsurvival.mod.oneforallsurvival": "One For All"
+  "bench.oneforallsurvival.mod.oneforallsurvival": "One For All",
+  "fault.oneforallsurvival.fuse": "Fuse",
+  "fault.oneforallsurvival.winding": "Winding",
+  "fault.oneforallsurvival.bearing": "Bearing",
+  "fault.oneforallsurvival.fouling": "Fouling"
 }

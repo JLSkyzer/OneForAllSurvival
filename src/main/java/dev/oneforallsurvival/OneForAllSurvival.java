@@ -7,6 +7,7 @@ import dev.oneforallsurvival.bench.BenchNetwork;
 import dev.oneforallsurvival.bench.BenchOverrides;
 import dev.oneforallsurvival.bench.BenchRegistry;
 import dev.oneforallsurvival.bench.WorkshopTicker;
+import dev.oneforallsurvival.machine.MachineConfig;
 import dev.oneforallsurvival.role.RoleCommands;
 import dev.oneforallsurvival.role.RoleEvents;
 import net.minecraftforge.common.MinecraftForge;
@@ -34,6 +35,7 @@ public final class OneForAllSurvival {
         MinecraftForge.EVENT_BUS.register(new RoleCommands());
         MinecraftForge.EVENT_BUS.register(new WorkshopTicker());
         context.registerConfig(ModConfig.Type.COMMON, BenchConfig.SPEC);
+        context.registerConfig(ModConfig.Type.COMMON, MachineConfig.SPEC, "oneforallsurvival-machines.toml");
         MinecraftForge.EVENT_BUS.addListener(BenchCatalog::onAddReloadListener);
         MinecraftForge.EVENT_BUS.addListener(BenchOverrides::onAddReloadListener);
         MinecraftForge.EVENT_BUS.addListener(BenchCatalog::onTagsUpdated);

@@ -1,6 +1,7 @@
 package dev.oneforallsurvival.dev;
 
 import dev.oneforallsurvival.machine.ElectricMachineBlockEntity;
+import dev.oneforallsurvival.machine.FaultType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.block.state.BlockState;
@@ -33,9 +34,28 @@ public class TestMachineBlockEntity extends ElectricMachineBlockEntity {
         return progress;
     }
 
-    /** Expose {@code setFault} aux GameTests, qui vivent dans un autre paquet. */
+    /** Met en panne (fusible) ou répare, pour les GameTests, qui vivent dans un autre paquet. */
     public void panne(boolean fault) {
-        setFault(fault);
+        if (fault) {
+            breakDown(FaultType.FUSE);
+        } else {
+            clearFault();
+        }
+    }
+
+    /** Fixe l'état d'usure, pour les GameTests. */
+    public void etat(double valeur) {
+        setCondition(valeur);
+    }
+
+    /** Ticks de flammes restants, pour les GameTests. */
+    public int flammes() {
+        return flameTicksLeft();
+    }
+
+    /** Allume les flammes sans tirage au sort, pour les GameTests. */
+    public void allumer() {
+        igniteFlames();
     }
 
     @Override
