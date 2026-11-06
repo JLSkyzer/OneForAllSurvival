@@ -121,6 +121,16 @@ minecraft {
             args '--width', '1280', '--height', '720'
         }
 
+        // Capture de contrôle de l'écran de l'établi (dev seulement) : ouvre le vrai écran dans un monde
+        // intégré avec le pack complet et écrit des images dans run-demo/etabli-captures. Voir DemoEtabli.
+        demoEtabli {
+            parent minecraft.runs.client
+            workingDirectory project.file('run-demo')
+            property 'oneforallsurvival.demo.etabli', 'true'
+            jvmArgs '-Xmx3G'
+            args '--width', '1280', '--height', '720'
+        }
+
         server {
             // Un dossier à part : un client lancé en même temps tourne dans `run`.
             workingDirectory project.file('run-server')
@@ -241,6 +251,13 @@ tasks.matching { it.name == 'runDemo' }.configureEach {
     doFirst {
         delete project.file('run-demo/saves')
         delete project.file('run-demo/frames')
+    }
+}
+
+tasks.matching { it.name == 'runDemoEtabli' }.configureEach {
+    doFirst {
+        delete project.file('run-demo/saves/demo_etabli')
+        delete project.file('run-demo/etabli-captures')
     }
 }
 

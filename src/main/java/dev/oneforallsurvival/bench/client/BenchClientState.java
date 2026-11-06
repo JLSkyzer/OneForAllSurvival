@@ -3,8 +3,13 @@ package dev.oneforallsurvival.bench.client;
 import dev.oneforallsurvival.bench.BenchRecipe;
 import dev.oneforallsurvival.bench.QueuePacket;
 import dev.oneforallsurvival.bench.RecipeListPacket;
+import java.text.Normalizer;
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * Ce que le client sait de l'établi : sa propre copie du catalogue, reçue par paquets, et la dernière file
@@ -24,7 +29,164 @@ public final class BenchClientState {
     private static int pendingGeneration;
     private static int nextPart;
 
+    /** Dernier refus de commande reçu du serveur, avec l'instant de sa réception (nanosecondes). */
+    private static volatile String lastRefusal = "";
+    private static volatile long lastRefusalNs;
+    /** Instant (nanosecondes) où la dernière file est arrivée : l'écran en tire une progression fluide. */
+    private static volatile long queueReceivedNs;
+
+    /** Texte de recherche déjà calculé par recette (par identité) ; vidé quand le catalogue change. */
+    private static final Map<BenchRecipe, String> SEARCH_TEXT = new IdentityHashMap<>();
+    private static final Map<BenchRecipe, String> MOD_OF = new IdentityHashMap<>();
+    private static final Map<BenchRecipe, String> NAME_OF = new IdentityHashMap<>();
+    private static final Pattern MARKS = Pattern.compile("\\p{M}+");
+    private static final Pattern BLANKS = Pattern.compile("\\s+");
+
+    /**
+     * Ce que la recherche et les onglets lisent d'une recette : nom affiché et mod. Le client réel en
+     * installe un qui traduit les noms ; sans lui, l'identifiant en tient lieu, ce qui suffit aux essais.
+     */
+    public interface Describer {
+        /** Nom affiché de la recette (celui de son résultat). */
+        String name(BenchRecipe recipe);
+
+        /** Identifiant du mod auquel la recette est rangée. */
+        String mod(BenchRecipe recipe);
+    }
+
+    private static final Describer BY_ID = new Describer() {
+        @Override
+        public String name(BenchRecipe recipe) {
+            return recipe.id().getPath();
+        }
+
+        @Override
+        public String mod(BenchRecipe recipe) {
+            return recipe.id().getNamespace();
+        }
+    };
+
+    private static volatile Describer describer = BY_ID;
+
     private BenchClientState() {}
+
+    /** Installe le descripteur ; {@code null} revient à celui par identifiant. Vide les textes calculés. */
+    public static void useDescriber(Describer newDescriber) {
+        describer = newDescriber == null ? BY_ID : newDescriber;
+        clearSearchCache();
+    }
+
+    public static Describer describer() {
+        return describer;
+    }
+
+    private static void clearSearchCache() {
+        synchronized (SEARCH_TEXT) {
+            SEARCH_TEXT.clear();
+            MOD_OF.clear();
+            NAME_OF.clear();
+        }
+    }
+
+    /** Minuscules, sans accents, espaces réduits : la forme sous laquelle on compare. */
+    public static String normalize(String text) {
+        if (text == null) {
+            return "";
+        }
+        String decomposed = Normalizer.normalize(text, Normalizer.Form.NFD);
+        String bare = MARKS.matcher(decomposed).replaceAll("");
+        return BLANKS.matcher(bare.toLowerCase(Locale.ROOT)).replaceAll(" ").trim();
+    }
+
+    /** Nom affiché et identifiant, normalisés ; calculé une fois par recette et par catalogue. */
+    private static String searchText(BenchRecipe recipe) {
+        synchronized (SEARCH_TEXT) {
+            String known = SEARCH_TEXT.get(recipe);
+            if (known == null) {
+                known = normalize(displayName(recipe) + " " + recipe.id());
+                SEARCH_TEXT.put(recipe, known);
+            }
+            return known;
+        }
+    }
+
+    /** Nom affiché de la recette, demandé une seule fois au descripteur par catalogue. */
+    public static String displayName(BenchRecipe recipe) {
+        synchronized (SEARCH_TEXT) {
+            String known = NAME_OF.get(recipe);
+            if (known == null) {
+                known = describer.name(recipe);
+                NAME_OF.put(recipe, known);
+            }
+            return known;
+        }
+    }
+
+    /** Oublie les noms et textes calculés : à la réouverture de l'écran, la langue a pu changer. */
+    public static void invalidateNames() {
+        clearSearchCache();
+    }
+
+    /** Mod de la recette, mémorisé comme son texte de recherche. */
+    public static String modOf(BenchRecipe recipe) {
+        synchronized (SEARCH_TEXT) {
+            String known = MOD_OF.get(recipe);
+            if (known == null) {
+                known = describer.mod(recipe);
+                MOD_OF.put(recipe, known);
+            }
+            return known;
+        }
+    }
+
+    /**
+     * Les recettes de {@code all} qui sont du mod {@code category} (vide ou null : tous) et dont le nom
+     * affiché ou l'identifiant contient tous les mots de {@code query}, sans égard à la casse ni aux
+     * accents. L'ordre de {@code all} est conservé. Pure : ne lit que le descripteur installé.
+     */
+    public static List<BenchRecipe> filter(List<BenchRecipe> all, String category, String query) {
+        String mod = category == null ? "" : category.trim();
+        String[] words = normalize(query).isEmpty() ? new String[0] : normalize(query).split(" ");
+        if (mod.isEmpty() && words.length == 0) {
+            return all;
+        }
+        List<BenchRecipe> out = new ArrayList<>();
+        for (BenchRecipe recipe : all) {
+            if (!mod.isEmpty() && !mod.equals(modOf(recipe))) {
+                continue;
+            }
+            String text = words.length == 0 ? "" : searchText(recipe);
+            boolean matches = true;
+            for (String word : words) {
+                if (!text.contains(word)) {
+                    matches = false;
+                    break;
+                }
+            }
+            if (matches) {
+                out.add(recipe);
+            }
+        }
+        return out;
+    }
+
+    public static String lastRefusal() {
+        return lastRefusal;
+    }
+
+    public static long lastRefusalNs() {
+        return lastRefusalNs;
+    }
+
+    /** Mémorise le texte d'un refus du serveur, que l'écran affiche un moment. */
+    public static void acceptRefusal(String text) {
+        lastRefusal = text;
+        lastRefusalNs = System.nanoTime();
+    }
+
+    public static long queueReceivedNs() {
+        return queueReceivedNs;
+    }
 
     public static List<BenchRecipe> catalog() {
         return catalog;
@@ -61,6 +223,7 @@ public final class BenchClientState {
         nextPart++;
         if (nextPart >= fragment.parts()) {
             catalog = List.copyOf(pending);
+            clearSearchCache();
             generation = pendingGeneration;
             pending = null;
         }
@@ -69,6 +232,7 @@ public final class BenchClientState {
     public static void acceptQueue(QueuePacket packet) {
         queue = List.copyOf(packet.rows());
         stockItems = packet.stockItems();
+        queueReceivedNs = System.nanoTime();
     }
 
     /** Oublie tout : à la déconnexion, ou entre deux essais. */
@@ -79,5 +243,7 @@ public final class BenchClientState {
         stockItems = 0;
         pending = null;
         nextPart = 0;
+        lastRefusal = "";
+        clearSearchCache();
     }
 }

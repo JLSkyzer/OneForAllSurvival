@@ -40,7 +40,7 @@ public final class BenchNetwork {
     public static final int ID_QUEUE = 4;
 
     /** Clé de traduction d'un refus : {@code message.oneforallsurvival.bench.refused.<résultat>}. */
-    private static final String REFUSED_KEY = "message.oneforallsurvival.bench.refused.";
+    public static final String REFUSED_KEY = "message.oneforallsurvival.bench.refused.";
 
     /** Dernière génération du catalogue envoyée à chaque joueur connecté. */
     private static final Map<UUID, Integer> CATALOG_SENT = new ConcurrentHashMap<>();
