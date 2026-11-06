@@ -49,7 +49,10 @@ public final class E2eClient {
     private static final boolean ACTIF = HOTE != null && !HOTE.isEmpty();
     private static final boolean RELANCE = System.getProperty("oneforallsurvival.e2e.relance") != null;
     private static final int COPIES = 2;
-    /** Une connexion réussie prend de 10 à 16 s avec le pack ; au-delà, on relève l'état du canal. */
+    /**
+     * Une connexion réussie prend environ 8 s avec le pack (7,5 à 10,5 s sur 11 relevés du 2026-11-06, de la
+     * ligne « connexion » au premier PASS) ; au-delà, on relève l'état du canal.
+     */
     private static final double DIAGNOSTIC_CONNEXION_S = 17;
 
     private enum Phase { TITRE, CONNEXION, CATALOGUE, PROVISIONS, POSER, OUVRIR, COMMANDER, STOCK, OUVRIR_STOCK, PRENDRE,

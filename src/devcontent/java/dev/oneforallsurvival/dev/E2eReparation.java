@@ -198,6 +198,18 @@ final class E2eReparation {
         mc.player.getInventory().selected = fente;
     }
 
+    /** Le rang de l'établi qui porte un état d'usure (tag du block entity) dans l'inventaire, ou -1. */
+    private static int slotEtabliUse() {
+        var inv = mc.player.getInventory();
+        for (int i = 0; i < inv.getContainerSize(); i++) {
+            ItemStack s = inv.getItem(i);
+            if (s.is(BenchRegistry.ENGINEER_BENCH_ITEM.get()) && s.getTagElement("BlockEntityTag") != null) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
     private static MachineState etat(BlockPos pos) {
         var s = mc.level.getBlockState(pos);
         return s.hasProperty(ElectricMachineBlock.STATE) ? s.getValue(ElectricMachineBlock.STATE) : null;
@@ -361,6 +373,27 @@ final class E2eReparation {
         pas("La panne arrive au client par l'état du bloc", () -> {}, () -> etat(m1) == MachineState.FAULT,
                 () -> "etat du bloc : " + etat(m1), () -> "etat du bloc lu par le client : FAULT");
         rapport("machine en panne", () -> m1, "0", "fault", "fault.oneforallsurvival.fuse", "item.oneforallsurvival.fuse", false);
+
+        // Casser puis reposer ne répare pas : le serveur lâche l'objet usé (/setblock destroy suit la vraie loot table),
+        // le joueur le ramasse et le repose par un vrai clic droit, et le testeur relit la même panne.
+        pas("Casse de la machine en panne par le serveur", () -> {
+            commande("setblock " + xyz(m1) + " minecraft:air destroy");
+        }, () -> mc.level.getBlockState(m1).isAir(), () -> "bloc en " + m1 + " : " + mc.level.getBlockState(m1), null);
+        pas("L'objet lâché porte l'état et rejoint l'inventaire", () -> commande("tp @e[type=minecraft:item,distance=..10] @s"),
+                () -> slotEtabliUse() >= 0, () -> "inventaire sans etabli portant son etat", () -> "etabli use ramasse, "
+                        + mc.player.getInventory().getItem(slotEtabliUse()).getTag());
+        pas("Repose de l'objet usé par un clic droit", () -> {
+            int slot = slotEtabliUse();
+            if (slot >= 0 && slot < 9) {
+                tenir(slot);
+            }
+            BlockPos sol = m1.below();
+            mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND,
+                    new BlockHitResult(Vec3.atCenterOf(sol).add(0, 0.5, 0), Direction.UP, sol, false));
+        }, () -> mc.level.getBlockState(m1).is(BenchRegistry.ENGINEER_BENCH.get()) && etat(m1) == MachineState.FAULT,
+                () -> "bloc en " + m1 + " : " + mc.level.getBlockState(m1), () -> "etabli repose en panne, etat du bloc " + etat(m1));
+        rapport("machine reposee apres casse : toujours en panne", () -> m1, "0", "fault", "fault.oneforallsurvival.fuse",
+                "item.oneforallsurvival.fuse", false);
 
         mainSecondaire("Une mauvaise pièce en main secondaire", "oneforallsurvival:coil");
         souder("Mauvaise pièce : refusée", () -> m1, P_REPARE + "wrong_part");
