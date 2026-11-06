@@ -24,3 +24,6 @@ build
 # minecraft
 run
 run-data
+run-server
+run-gametest
+run-client2
