@@ -25,7 +25,7 @@ public final class WorkshopTicker {
     /**
      * Vitesse de la tête de file, selon l'établi où elle a été commandée.
      * <ul>
-     *   <li>établi chargé, bloc présent : vitesse alimentée s'il tourne, à la main sinon ; l'état est mémorisé ;</li>
+     *   <li>établi chargé, bloc présent : vitesse alimentée (au rendement de la machine) s'il tourne, à la main sinon ; l'état est mémorisé ;</li>
      *   <li>établi chargé, bloc absent (cassé) : à la main ;</li>
      *   <li>établi non chargé : le dernier état connu. Jamais de chargement de chunk pour le savoir.</li>
      * </ul>
@@ -33,13 +33,27 @@ public final class WorkshopTicker {
     static double speedOf(MinecraftServer server, WorkshopEntry head) {
         ServerLevel level = server.getLevel(head.benchLevel());
         boolean powered;
+        double efficiency = 1.0;
         if (level == null || !level.hasChunkAt(head.benchPos())) {
             powered = head.lastKnownPowered();
         } else {
-            powered = level.getBlockEntity(head.benchPos()) instanceof EngineerBenchBlockEntity bench
-                    && bench.state() == MachineState.RUNNING;
+            EngineerBenchBlockEntity bench = level.getBlockEntity(head.benchPos()) instanceof EngineerBenchBlockEntity b
+                    ? b : null;
+            powered = bench != null && bench.state() == MachineState.RUNNING;
+            if (powered) {
+                efficiency = bench.efficiency();
+            }
             head.setLastKnownPowered(powered);
         }
-        return powered ? BenchConfig.poweredSpeed() : BenchConfig.manualSpeed();
+        return powered ? combinedSpeed(BenchConfig.manualSpeed(), BenchConfig.poweredSpeed(), efficiency)
+                : BenchConfig.manualSpeed();
+    }
+
+    /**
+     * Vitesse d'un établi qui tourne : l'électricité, au rendement de la machine, ne ralentit jamais
+     * sous la main.
+     */
+    public static double combinedSpeed(double manual, double powered, double efficiency) {
+        return Math.max(manual, powered * efficiency);
     }
 }

@@ -1,0 +1,10 @@
+{
+  "replace": false,
+  "values": [
+    "oneforallsurvival:fuse",
+    {
+      "id": "light_bulb_addon_create_crafts_and__addions:fuse_16a",
+      "required": false
+    }
+  ]
+}

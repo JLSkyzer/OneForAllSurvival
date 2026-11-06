@@ -1,0 +1,37 @@
+{
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "create"
+    },
+    {
+      "type": "forge:mod_loaded",
+      "modid": "createaddition"
+    }
+  ],
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "minecraft:cauldron"
+    },
+    {
+      "item": "create:brass_casing"
+    },
+    {
+      "tag": "oneforallsurvival:wire"
+    },
+    {
+      "tag": "oneforallsurvival:wire"
+    },
+    {
+      "tag": "forge:plates/zinc"
+    },
+    {
+      "tag": "forge:plates/zinc"
+    }
+  ],
+  "result": {
+    "item": "oneforallsurvival:galvanic_bath"
+  }
+}

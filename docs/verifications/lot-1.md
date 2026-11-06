@@ -219,7 +219,7 @@ Cette relance a ete precedee de plusieurs echecs, tous expliques :
 
 ### Blocage a la connexion du client d'essai : enquete (2026-11-06)
 
-**Cause non trouvee.** 5 blocages entre 13:58 et 15:13 (dont 2 reproduits par une boucle serveur + client), puis
+**Cause non trouvee a ce stade ; mecanisme releve depuis, voir [le lot 2](lot-2.md).** 5 blocages entre 13:58 et 15:13 (dont 2 reproduits par une boucle serveur + client), puis
 14 lancements de suite sans blocage (15:16 a 16:22), sans changement du code du mod. Non reproductible a ce jour.
 
 Ecarte, par un releve pendant le blocage :

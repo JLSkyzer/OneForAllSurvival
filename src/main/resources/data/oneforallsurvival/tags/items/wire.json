@@ -1,0 +1,10 @@
+{
+  "replace": false,
+  "values": [
+    "oneforallsurvival:aviation_wire",
+    {
+      "id": "createaddition:copper_wire",
+      "required": false
+    }
+  ]
+}

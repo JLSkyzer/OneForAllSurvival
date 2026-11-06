@@ -143,6 +143,16 @@ minecraft {
             args '--width', '960', '--height', '540'
         }
 
+        // Capture de contrôle des visuels du lot 2 (dev seulement) : le bain dans ses quatre états, les débris, tous
+        // les objets, l'écran du bain et sa catégorie JEI, dans run-demo/visuels-captures. Voir DemoVisuels.
+        demoVisuels {
+            parent minecraft.runs.client
+            workingDirectory project.file('run-demo')
+            property 'oneforallsurvival.demo.visuels', 'true'
+            jvmArgs '-Xmx3G'
+            args '--width', '1280', '--height', '720'
+        }
+
         // Preuve de bout en bout (dev seulement) : un client qui se connecte seul à `runServer` sur localhost,
         // joue un craft complet et arrête le serveur par /stop. Voir E2eClient (devcontent).
         e2eClient {
@@ -152,6 +162,27 @@ minecraft {
             property 'oneforallsurvival.jeicheck', 'true'
             jvmArgs '-Xmx3G'
             args '--username', 'Dev', '--width', '1280', '--height', '656'
+        }
+
+        // Seconde phase de la preuve (dev seulement) : après un arrêt et une relance de `runServer`, le même client relit
+        // sur le disque du serveur l'usure, la panne, la protection et la zone. Voir E2eReparation (devcontent).
+        e2eRelance {
+            parent minecraft.runs.client
+            workingDirectory project.file('run-e2e')
+            property 'oneforallsurvival.e2e', '127.0.0.1'
+            property 'oneforallsurvival.e2e.relance', 'true'
+            jvmArgs '-Xmx3G'
+            args '--username', 'Dev', '--width', '1280', '--height', '656'
+        }
+
+        // Film du métier de réparation (dev seulement) : un client qui se pilote seul et enregistre ses images dans
+        // run-demo/frames-reparation, un bandeau de légende en dessous. Voir FilmReparation (devcontent).
+        demoReparationFilm {
+            parent minecraft.runs.client
+            workingDirectory project.file('run-demo')
+            property 'oneforallsurvival.demo.reparation', 'true'
+            jvmArgs '-Xmx3G'
+            args '--width', '1280', '--height', '656'
         }
 
         // Film de démonstration de l'établi (dev seulement) : un client qui se pilote seul et enregistre ses
@@ -296,6 +327,19 @@ tasks.matching { it.name == 'runE2eClient' }.configureEach {
     }
 }
 
+tasks.matching { it.name == 'runE2eRelance' }.configureEach {
+    doFirst {
+        delete project.file('run-e2e/frames-e2e-relance')
+    }
+}
+
+tasks.matching { it.name == 'runDemoReparationFilm' }.configureEach {
+    doFirst {
+        delete project.file('run-demo/saves/film_reparation')
+        delete project.file('run-demo/frames-reparation')
+    }
+}
+
 tasks.matching { it.name == 'runDemoEtabliFilm' }.configureEach {
     doFirst {
         delete project.file('run-demo/saves/film_etabli')
@@ -307,6 +351,13 @@ tasks.matching { it.name == 'runDemoEtabli' }.configureEach {
     doFirst {
         delete project.file('run-demo/saves/demo_etabli')
         delete project.fileTree("run-demo/etabli-captures").matching { include "*.png" }
+    }
+}
+
+tasks.matching { it.name == 'runDemoVisuels' }.configureEach {
+    doFirst {
+        delete project.file('run-demo/saves/demo_visuels')
+        delete project.file('run-demo/visuels-captures')
     }
 }
 

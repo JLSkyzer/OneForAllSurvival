@@ -3,6 +3,8 @@ package dev.oneforallsurvival.bench;
 import dev.oneforallsurvival.OneForAllSurvival;
 import dev.oneforallsurvival.machine.ElectricMachineBlock;
 import dev.oneforallsurvival.machine.MachineState;
+import dev.oneforallsurvival.repair.RepairRegistry;
+import dev.oneforallsurvival.salvage.SalvageRegistry;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.MenuType;
@@ -58,7 +60,11 @@ public final class BenchRegistry {
             () -> CreativeModeTab.builder()
                     .title(Component.translatable("itemGroup." + OneForAllSurvival.MODID))
                     .icon(() -> new ItemStack(ENGINEER_BENCH_ITEM.get()))
-                    .displayItems((parameters, output) -> output.accept(ENGINEER_BENCH_ITEM.get()))
+                    .displayItems((parameters, output) -> {
+                        output.accept(ENGINEER_BENCH_ITEM.get());
+                        RepairRegistry.tabItems().forEach(item -> output.accept(item.get()));
+                        SalvageRegistry.tabItems().forEach(item -> output.accept(item.get()));
+                    })
                     .build());
 
     private BenchRegistry() {}

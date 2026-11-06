@@ -1,0 +1,30 @@
+{
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "create"
+    }
+  ],
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "oneforallsurvival:battery_cell"
+    },
+    {
+      "tag": "forge:plates/brass"
+    },
+    {
+      "tag": "forge:plates/brass"
+    },
+    {
+      "tag": "oneforallsurvival:wire"
+    },
+    {
+      "item": "minecraft:blaze_powder"
+    }
+  ],
+  "result": {
+    "item": "oneforallsurvival:welder"
+  }
+}

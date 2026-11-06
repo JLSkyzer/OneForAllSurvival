@@ -5,6 +5,9 @@ import dev.oneforallsurvival.bench.BenchRecipe;
 import dev.oneforallsurvival.bench.BenchRegistry;
 import dev.oneforallsurvival.bench.client.BenchClientState;
 import dev.oneforallsurvival.bench.client.BenchFormat;
+import dev.oneforallsurvival.bench.client.BenchTheme;
+import dev.oneforallsurvival.repair.GalvanicRecipe;
+import dev.oneforallsurvival.repair.RepairRegistry;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -38,7 +41,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * JEI : une catégorie « Établi d'ingénieur » bâtie sur le catalogue que le client a reçu, l'établi comme
- * catalyseur. Les recettes d'un objet géré ont quitté la table : JEI n'y montre donc plus de recette de
+ * catalyseur, et une catégorie « Bain galvanique » bâtie sur les recettes du bain (le bain comme catalyseur). Les recettes d'un objet géré ont quitté la table : JEI n'y montre donc plus de recette de
  * table pour lui, seulement celle de l'établi.
  *
  * <p>Toute référence à JEI reste dans cette classe : le mod se charge sans JEI, qui seul instancie le
@@ -50,6 +53,9 @@ public final class BenchJeiPlugin implements IModPlugin {
 
     public static final RecipeType<BenchRecipe> TYPE =
             RecipeType.create(OneForAllSurvival.MODID, "engineer_bench", BenchRecipe.class);
+
+    public static final RecipeType<GalvanicRecipe> GALVANIC_TYPE =
+            RecipeType.create(OneForAllSurvival.MODID, "galvanic_bath", GalvanicRecipe.class);
 
     private static final Logger LOGGER = LoggerFactory.getLogger("oneforallsurvival-jei");
     private static final ResourceLocation UID = new ResourceLocation(OneForAllSurvival.MODID, "jei");
@@ -76,7 +82,8 @@ public final class BenchJeiPlugin implements IModPlugin {
 
     @Override
     public void registerCategories(IRecipeCategoryRegistration registration) {
-        registration.addRecipeCategories(new Category(registration.getJeiHelpers().getGuiHelper()));
+        registration.addRecipeCategories(new Category(registration.getJeiHelpers().getGuiHelper()),
+                new GalvanicCategory(registration.getJeiHelpers().getGuiHelper()));
     }
 
     @Override
@@ -84,11 +91,18 @@ public final class BenchJeiPlugin implements IModPlugin {
         List<BenchRecipe> catalog = BenchClientState.catalog();
         shown = catalog;
         registration.addRecipes(TYPE, catalog);
+        // Les recettes du bain sont des données ordinaires, déjà synchronisées avec le client.
+        var level = Minecraft.getInstance().level;
+        if (level != null) {
+            registration.addRecipes(GALVANIC_TYPE,
+                    level.getRecipeManager().getAllRecipesFor(RepairRegistry.GALVANIC_TYPE.get()));
+        }
     }
 
     @Override
     public void registerRecipeCatalysts(IRecipeCatalystRegistration registration) {
         registration.addRecipeCatalyst(new ItemStack(BenchRegistry.ENGINEER_BENCH_ITEM.get()), TYPE);
+        registration.addRecipeCatalyst(new ItemStack(RepairRegistry.GALVANIC_BATH_ITEM.get()), GALVANIC_TYPE);
     }
 
     @Override
@@ -255,6 +269,67 @@ public final class BenchJeiPlugin implements IModPlugin {
             var font = Minecraft.getInstance().font;
             graphics.drawString(font, Component.translatable("gui.oneforallsurvival.bench.time",
                     BenchFormat.duration(recipe.seconds())), 1, ROWS * SLOT + 3, 0xFF555555, false);
+        }
+    }
+
+    /** La catégorie du bain : la pièce et le zinc à gauche, la pièce traitée à droite, durée et courant dessous. */
+    private static final class GalvanicCategory implements IRecipeCategory<GalvanicRecipe> {
+        private static final int G_WIDTH = 130;
+        private static final int G_HEIGHT = 46;
+        private final IDrawable icon;
+
+        GalvanicCategory(IGuiHelper gui) {
+            this.icon = gui.createDrawableItemStack(new ItemStack(RepairRegistry.GALVANIC_BATH_ITEM.get()));
+        }
+
+        @Override
+        public RecipeType<GalvanicRecipe> getRecipeType() {
+            return GALVANIC_TYPE;
+        }
+
+        @Override
+        public Component getTitle() {
+            return Component.translatable(RepairRegistry.GALVANIC_BATH.get().getDescriptionId());
+        }
+
+        @Override
+        public int getWidth() {
+            return G_WIDTH;
+        }
+
+        @Override
+        public int getHeight() {
+            return G_HEIGHT;
+        }
+
+        @Override
+        public IDrawable getIcon() {
+            return icon;
+        }
+
+        @Override
+        public void setRecipe(IRecipeLayoutBuilder builder, GalvanicRecipe recipe, IFocusGroup focuses) {
+            builder.addSlot(RecipeIngredientRole.INPUT, 1, 1).addItemStacks(GalvanicRecipe.realStacks(recipe.ingredient()));
+            List<ItemStack> zinc = new ArrayList<>();
+            // Étiquette vide : Forge met une barrière, qu'on ne montre pas.
+            for (ItemStack stack : GalvanicRecipe.realStacks(recipe.zinc())) {
+                zinc.add(stack.copyWithCount(recipe.zincCount()));
+            }
+            builder.addSlot(RecipeIngredientRole.INPUT, 1, 19).addItemStacks(zinc);
+            builder.addSlot(RecipeIngredientRole.OUTPUT, G_WIDTH - 19, 10).addItemStack(recipe.result());
+        }
+
+        @Override
+        public void draw(GalvanicRecipe recipe, IRecipeSlotsView slots, GuiGraphics graphics, double mouseX,
+                double mouseY) {
+            var font = Minecraft.getInstance().font;
+            // Les textes restent dans les marges : le temps sous les cases, le courant entre les cases et le résultat.
+            graphics.drawString(font, BenchTheme.ellipsize(font, Component.translatable(
+                    "gui.oneforallsurvival.galvanic.jei.time", BenchFormat.duration(Math.max(1, recipe.ticks() / 20)))
+                    .getString(), G_WIDTH - 2), 1, G_HEIGHT - 9, 0xFF555555, false);
+            graphics.drawString(font, BenchTheme.ellipsize(font, Component.translatable(
+                    "gui.oneforallsurvival.galvanic.jei.energy", recipe.energyPerTick()).getString(),
+                    G_WIDTH - 19 - 4 - 24), 24, 14, 0xFF555555, false);
         }
     }
 }

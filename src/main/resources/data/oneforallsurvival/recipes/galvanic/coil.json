@@ -1,0 +1,15 @@
+{
+  "type": "oneforallsurvival:galvanic_bath",
+  "ingredient": {
+    "tag": "oneforallsurvival:parts/coil"
+  },
+  "zinc": {
+    "tag": "forge:ingots/zinc"
+  },
+  "zinc_count": 1,
+  "result": {
+    "item": "oneforallsurvival:treated_coil"
+  },
+  "ticks": 200,
+  "energy_per_tick": 20
+}

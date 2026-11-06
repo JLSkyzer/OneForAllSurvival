@@ -13,36 +13,36 @@ import net.minecraft.resources.ResourceLocation;
  * pavage en un seul appel), un cadre à coins de 5 pixels dont les arêtes se répètent, des boutons étirés.
  * Les couleurs restent celles de l'ancien décor pour garder le contraste du texte.
  */
-final class BenchTheme {
+public final class BenchTheme {
 
     // --- Tôle ---
-    static final int METAL_DARK = 0xFF14110E;
-    static final int METAL_SHADOW = 0xFF2A2622;
-    static final int METAL = 0xFF3A362F;
-    static final int METAL_LIGHT = 0xFF58524A;
-    static final int WELL = 0xFF1B1916;
-    static final int WELL_EDGE = 0xFF0C0B09;
-    static final int WELL_LIP = 0xFF4A453D;
-    static final int RIVET = 0xFF7A7367;
-    static final int RIVET_SHADE = 0xFF1E1B17;
+    public static final int METAL_DARK = 0xFF14110E;
+    public static final int METAL_SHADOW = 0xFF2A2622;
+    public static final int METAL = 0xFF3A362F;
+    public static final int METAL_LIGHT = 0xFF58524A;
+    public static final int WELL = 0xFF1B1916;
+    public static final int WELL_EDGE = 0xFF0C0B09;
+    public static final int WELL_LIP = 0xFF4A453D;
+    public static final int RIVET = 0xFF7A7367;
+    public static final int RIVET_SHADE = 0xFF1E1B17;
 
     // --- Laiton ---
-    static final int BRASS = 0xFFC8963C;
-    static final int BRASS_LIGHT = 0xFFE9C06E;
-    static final int BRASS_DARK = 0xFF7A5519;
-    static final int BRASS_DEEP = 0xFF3F2E12;
+    public static final int BRASS = 0xFFC8963C;
+    public static final int BRASS_LIGHT = 0xFFE9C06E;
+    public static final int BRASS_DARK = 0xFF7A5519;
+    public static final int BRASS_DEEP = 0xFF3F2E12;
 
     // --- Textes ---
-    static final int TEXT = 0xFFEAE3D6;
-    static final int TEXT_DIM = 0xFF9C9588;
-    static final int TEXT_OK = 0xFF8AD070;
-    static final int TEXT_BAD = 0xFFF0614F;
-    static final int TEXT_ON_BRASS = 0xFF1C140A;
-    static final int TEXT_DISABLED = 0xFF7C766C;
+    public static final int TEXT = 0xFFEAE3D6;
+    public static final int TEXT_DIM = 0xFF9C9588;
+    public static final int TEXT_OK = 0xFF8AD070;
+    public static final int TEXT_BAD = 0xFFF0614F;
+    public static final int TEXT_ON_BRASS = 0xFF1C140A;
+    public static final int TEXT_DISABLED = 0xFF7C766C;
 
     // --- Lignes de liste ---
-    static final int ROW_HOVER = 0xFF2E2A25;
-    static final int ROW_SELECTED = 0xFF4A3716;
+    public static final int ROW_HOVER = 0xFF2E2A25;
+    public static final int ROW_SELECTED = 0xFF4A3716;
 
     private static ResourceLocation gui(String name) {
         return new ResourceLocation(OneForAllSurvival.MODID, "textures/gui/" + name + ".png");
@@ -74,7 +74,7 @@ final class BenchTheme {
     }
 
     /** Tôle biseautée avec filet sombre : le cadre d'un grand panneau. */
-    static void plate(GuiGraphics g, int x, int y, int w, int h) {
+    public static void plate(GuiGraphics g, int x, int y, int w, int h) {
         RenderSystem.enableBlend();
         tile(g, TILE_METAL, x, y, w, h);
         int right = x + w - CORNER;
@@ -96,7 +96,7 @@ final class BenchTheme {
     }
 
     /** Cuvette enfoncée : le fond des listes et des champs. */
-    static void well(GuiGraphics g, int x, int y, int w, int h) {
+    public static void well(GuiGraphics g, int x, int y, int w, int h) {
         g.fill(x, y, x + w, y + h, WELL_EDGE);
         tile(g, TILE_WELL, x + 1, y + 1, w - 2, h - 2);
         g.fill(x, y + h, x + w, y + h + 1, WELL_LIP);
@@ -107,18 +107,18 @@ final class BenchTheme {
      * Une case d'objet : cuvette de 18 x 18 pixels dont {@code x}, {@code y} est le coin. L'objet, de 16 x 16,
      * occupe le centre ; le haut et la gauche sont dans l'ombre, le bas et la droite accrochent la lumière.
      */
-    static void slot(GuiGraphics g, int x, int y) {
+    public static void slot(GuiGraphics g, int x, int y) {
         g.blit(SLOT_SPRITE, x, y, 0, 0F, 0F, 18, 18, 18, 18);
     }
 
     /** Un rivet : une tête ronde de 4 pixels, posée sur le point ({@code x}, {@code y}). */
-    static void rivet(GuiGraphics g, int x, int y) {
+    public static void rivet(GuiGraphics g, int x, int y) {
         RenderSystem.enableBlend();
         g.blit(RIVET_SPRITE, x - 1, y - 1, 0, 0F, 0F, 4, 4, 4, 4);
     }
 
     /** Les quatre rivets d'angle d'un panneau. */
-    static void rivets(GuiGraphics g, int x, int y, int w, int h) {
+    public static void rivets(GuiGraphics g, int x, int y, int w, int h) {
         rivet(g, x + 3, y + 3);
         rivet(g, x + w - 5, y + 3);
         rivet(g, x + 3, y + h - 5);
@@ -126,13 +126,13 @@ final class BenchTheme {
     }
 
     /** Filet de séparation en laiton sombre. */
-    static void rule(GuiGraphics g, int x, int y, int w) {
+    public static void rule(GuiGraphics g, int x, int y, int w) {
         g.fill(x, y, x + w, y + 1, BRASS_DARK);
         g.fill(x, y + 1, x + w, y + 2, METAL_DARK);
     }
 
     /** Un bouton biseauté. {@code primary} : laiton plein, pour l'action principale. */
-    static void button(GuiGraphics g, Font font, int x, int y, int w, int h, String label, boolean hover,
+    public static void button(GuiGraphics g, Font font, int x, int y, int w, int h, String label, boolean hover,
             boolean enabled, boolean primary) {
         int kind;
         int text;
@@ -170,7 +170,7 @@ final class BenchTheme {
     }
 
     /** Barre de progression en laiton, creuse. {@code fraction} entre 0 et 1. */
-    static void progress(GuiGraphics g, int x, int y, int w, int h, double fraction) {
+    public static void progress(GuiGraphics g, int x, int y, int w, int h, double fraction) {
         well(g, x, y, w, h);
         int inner = w - 4;
         int filled = (int) Math.round(inner * Math.max(0, Math.min(1, fraction)));
@@ -182,7 +182,7 @@ final class BenchTheme {
     }
 
     /** Barre de défilement : piste creuse et poignée de laiton. */
-    static void scrollBar(GuiGraphics g, int x, int y, int w, int h, ScrollModel model, boolean hover) {
+    public static void scrollBar(GuiGraphics g, int x, int y, int w, int h, ScrollModel model, boolean hover) {
         g.fill(x, y, x + w, y + h, WELL_EDGE);
         g.fill(x + 1, y, x + w - 1, y + h, WELL);
         if (!model.scrollable()) {
@@ -199,7 +199,7 @@ final class BenchTheme {
     }
 
     /** Le texte coupé par « ... » s'il dépasse {@code width} pixels. */
-    static String ellipsize(Font font, String text, int width) {
+    public static String ellipsize(Font font, String text, int width) {
         if (width <= 0) {
             return "";
         }
@@ -213,12 +213,12 @@ final class BenchTheme {
         return font.plainSubstrByWidth(text, width - dots) + "...";
     }
 
-    static boolean inside(double mx, double my, int x, int y, int w, int h) {
+    public static boolean inside(double mx, double my, int x, int y, int w, int h) {
         return mx >= x && mx < x + w && my >= y && my < y + h;
     }
 
     /** Dessine un objet réduit au {@code scale} donné (0,75 : 12 pixels), pour les lignes serrées. */
-    static void item(GuiGraphics g, Font font, net.minecraft.world.item.ItemStack stack, int x, int y, float scale,
+    public static void item(GuiGraphics g, Font font, net.minecraft.world.item.ItemStack stack, int x, int y, float scale,
             boolean decorations) {
         g.pose().pushPose();
         g.pose().translate(x, y, 0);

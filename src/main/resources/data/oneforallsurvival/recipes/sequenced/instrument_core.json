@@ -1,0 +1,68 @@
+{
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "create"
+    }
+  ],
+  "type": "create:sequenced_assembly",
+  "ingredient": {
+    "tag": "forge:plates/brass"
+  },
+  "loops": 3,
+  "results": [
+    {
+      "item": "oneforallsurvival:instrument_core"
+    }
+  ],
+  "sequence": [
+    {
+      "type": "create:deploying",
+      "ingredients": [
+        {
+          "item": "oneforallsurvival:incomplete_instrument_core"
+        },
+        {
+          "item": "create:electron_tube"
+        }
+      ],
+      "results": [
+        {
+          "item": "oneforallsurvival:incomplete_instrument_core"
+        }
+      ]
+    },
+    {
+      "type": "create:deploying",
+      "ingredients": [
+        {
+          "item": "oneforallsurvival:incomplete_instrument_core"
+        },
+        {
+          "tag": "oneforallsurvival:wire"
+        }
+      ],
+      "results": [
+        {
+          "item": "oneforallsurvival:incomplete_instrument_core"
+        }
+      ]
+    },
+    {
+      "type": "create:pressing",
+      "ingredients": [
+        {
+          "item": "oneforallsurvival:incomplete_instrument_core"
+        }
+      ],
+      "results": [
+        {
+          "item": "oneforallsurvival:incomplete_instrument_core"
+        }
+      ]
+    }
+  ],
+  "transitionalItem": {
+    "item": "oneforallsurvival:incomplete_instrument_core"
+  }
+}

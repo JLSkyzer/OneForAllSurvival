@@ -292,14 +292,8 @@ public final class DemoEtabli {
                         "oneforallsurvival", "test_bench_shaped"), new ItemStack(Items.STICK), List.of(), List.of(),
                         1_000_000, 0.0, monde.dimension(), p, false));
             } else if (i == 3) {
-                try {
-                    var m = dev.oneforallsurvival.machine.ElectricMachineBlockEntity.class.getDeclaredMethod("setFault",
-                            boolean.class);
-                    m.setAccessible(true);
-                    m.invoke(monde.getBlockEntity(p), true);
-                } catch (ReflectiveOperationException e) {
-                    throw new IllegalStateException(e);
-                }
+                ((dev.oneforallsurvival.machine.ElectricMachineBlockEntity) monde.getBlockEntity(p))
+                        .breakDown(dev.oneforallsurvival.machine.FaultType.FUSE);
             }
         }
 

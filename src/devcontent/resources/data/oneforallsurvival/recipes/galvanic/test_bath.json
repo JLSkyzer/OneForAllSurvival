@@ -1,0 +1,9 @@
+{
+  "type": "oneforallsurvival:galvanic_bath",
+  "ingredient": { "item": "oneforallsurvival:test_part" },
+  "zinc": { "item": "minecraft:iron_ingot" },
+  "zinc_count": 1,
+  "result": { "item": "oneforallsurvival:test_part_done" },
+  "ticks": 20,
+  "energy_per_tick": 20
+}

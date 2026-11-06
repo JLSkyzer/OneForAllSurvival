@@ -1,0 +1,72 @@
+{
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "create"
+    },
+    {
+      "type": "forge:mod_loaded",
+      "modid": "createaddition"
+    }
+  ],
+  "type": "create:sequenced_assembly",
+  "ingredient": {
+    "tag": "forge:plates/zinc"
+  },
+  "loops": 3,
+  "results": [
+    {
+      "item": "oneforallsurvival:battery_cell"
+    }
+  ],
+  "sequence": [
+    {
+      "type": "create:deploying",
+      "ingredients": [
+        {
+          "item": "oneforallsurvival:incomplete_battery_cell"
+        },
+        {
+          "tag": "forge:plates/copper"
+        }
+      ],
+      "results": [
+        {
+          "item": "oneforallsurvival:incomplete_battery_cell"
+        }
+      ]
+    },
+    {
+      "type": "create:deploying",
+      "ingredients": [
+        {
+          "item": "oneforallsurvival:incomplete_battery_cell"
+        },
+        {
+          "item": "minecraft:redstone"
+        }
+      ],
+      "results": [
+        {
+          "item": "oneforallsurvival:incomplete_battery_cell"
+        }
+      ]
+    },
+    {
+      "type": "create:pressing",
+      "ingredients": [
+        {
+          "item": "oneforallsurvival:incomplete_battery_cell"
+        }
+      ],
+      "results": [
+        {
+          "item": "oneforallsurvival:incomplete_battery_cell"
+        }
+      ]
+    }
+  ],
+  "transitionalItem": {
+    "item": "oneforallsurvival:incomplete_battery_cell"
+  }
+}
