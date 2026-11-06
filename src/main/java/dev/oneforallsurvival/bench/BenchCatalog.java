@@ -7,6 +7,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -45,6 +46,9 @@ import org.slf4j.Logger;
 public final class BenchCatalog {
 
     private static final Logger LOGGER = LogUtils.getLogger();
+
+    /** Plafond dur d'une durée imposée : une durée en ticks (x20) reste dans un int. */
+    private static final int MAX_OVERRIDE_SECONDS = 86400;
 
     /** Une recette qu'on ne peut pas payer d'avance, restée sur la table. */
     public record Special(ResourceLocation id, String recipeClass, String reason) {}
@@ -254,7 +258,7 @@ public final class BenchCatalog {
                     recipe = new BenchRecipe(recipe.id(), recipe.result(), o.ingredients(), recipe.category(), 0);
                 }
                 if (o.seconds() != null) {
-                    fixed.put(recipe.id().toString(), o.seconds());
+                    fixed.put(recipe.id().toString(), Math.min(o.seconds(), MAX_OVERRIDE_SECONDS));
                 }
                 if (o.hidden() != null) {
                     if (o.hidden()) {
@@ -299,15 +303,14 @@ public final class BenchCatalog {
     }
 
     /**
-     * Les ingrédients de chaque recette, vus par le calcul de durée. Pour un ingrédient : la rareté du
-     * premier objet qui convient, et la recette du catalogue qui le fabrique : la première dans l'ordre
-     * des identifiants pour un objet, la plus simple (moins d'ingrédients, puis identifiant) parmi les
-     * candidats d'une étiquette, pour que le résultat ne dépende que des données.
+     * Les ingrédients de chaque recette, vus par le calcul de durée. Pour un ingrédient : la rareté la
+     * plus basse parmi ses objets, et toutes les recettes du catalogue qui fabriquent l'un d'eux. Aucun
+     * choix d'ordre : le calcul prend le moins cher, le résultat ne dépend donc que des données.
      */
     private static Map<String, List<BenchTimes.Slot>> slotsOf(List<BenchRecipe> recipes) {
-        Map<Item, BenchRecipe> makers = new HashMap<>();
+        Map<Item, List<String>> makers = new HashMap<>();
         for (BenchRecipe recipe : recipes) {
-            makers.putIfAbsent(recipe.result().getItem(), recipe);
+            makers.computeIfAbsent(recipe.result().getItem(), k -> new ArrayList<>()).add(recipe.id().toString());
         }
         Map<String, List<BenchTimes.Slot>> slots = new LinkedHashMap<>();
         for (BenchRecipe recipe : recipes) {
@@ -320,27 +323,15 @@ public final class BenchCatalog {
         return slots;
     }
 
-    private static BenchTimes.Slot slotOf(Ingredient ingredient, Map<Item, BenchRecipe> makers) {
-        int weight = 0;
-        BenchRecipe maker = null;
-        boolean first = true;
+    private static BenchTimes.Slot slotOf(Ingredient ingredient, Map<Item, List<String>> makers) {
+        int weight = Integer.MAX_VALUE;
+        Set<String> ids = new LinkedHashSet<>();
         for (ItemStack stack : ingredient.getItems()) {
             Item item = stack.getItem();
-            if (first) {
-                weight = rarityWeight(item.getRarity(new ItemStack(item)));
-                first = false;
-            }
-            BenchRecipe candidate = makers.get(item);
-            if (candidate != null && (maker == null || simpler(candidate, maker))) {
-                maker = candidate;
-            }
+            weight = Math.min(weight, rarityWeight(item.getRarity(new ItemStack(item))));
+            ids.addAll(makers.getOrDefault(item, List.of()));
         }
-        return new BenchTimes.Slot(weight, maker == null ? null : maker.id().toString());
-    }
-
-    private static boolean simpler(BenchRecipe a, BenchRecipe b) {
-        int bySize = Integer.compare(a.ingredients().size(), b.ingredients().size());
-        return bySize != 0 ? bySize < 0 : a.id().toString().compareTo(b.id().toString()) < 0;
+        return new BenchTimes.Slot(weight == Integer.MAX_VALUE ? 0 : weight, List.copyOf(ids));
     }
 
     /** Recette brute : la durée est calculée ensuite, une fois toutes les recettes connues. */

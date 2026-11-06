@@ -314,7 +314,9 @@ public final class BenchCatalogGameTests {
         if (packAbsent(helper, "repartitionDesTemps")) {
             return;
         }
+        // Les recettes d'essai du mod (durées imposées) fausseraient la répartition.
         List<BenchRecipe> toutes = new ArrayList<>(BenchCatalog.current().recipes());
+        toutes.removeIf(r -> r.id().getNamespace().equals("oneforallsurvival"));
         int[] temps = toutes.stream().mapToInt(BenchRecipe::seconds).sorted().toArray();
         int n = temps.length;
         long plafond = Arrays.stream(temps).filter(t -> t >= 600).count();

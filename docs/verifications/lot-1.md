@@ -75,18 +75,24 @@ Preuve : `./gradlew test runGameTestServer` puis `./gradlew runGameTestServer -P
 « All 53 required tests passed » lu dans `run-gametest/logs/latest.log`. Avant l'ajout des fichiers de
 surcharge, les 6 essais de surcharge echouaient (« 6 required tests failed »).
 
-### Repartition des temps avec le pack (1129 recettes au catalogue, mesure du GameTest)
+### Repartition des temps avec le pack (1125 recettes au catalogue, hors recettes d'essai du mod)
 
-min 5 s, mediane 10 s, max 148 s, 0 recette au plafond de 600 s.
+Algorithme (corrige apres relecture) : plus petit point fixe, independant de l'ordre. Chaque ingredient
+liste tous les fabricants possibles du catalogue (pour un tag, ceux de tous ses objets) ; on retient le
+moins cher, et la rarete la plus basse. Une boucle sans entree (lingot, bloc, pepite) compte ses
+fabricants comme matiere premiere. Duree calculee d'au moins 1 s ; une duree imposee est plafonnee a
+86400 s.
+
+min 5 s, mediane 8 s, max 86 s, 0 recette au plafond de 600 s.
 
 | Les cinq plus longues | Temps |
 |---|---|
-| create:crafting/materials/brass_block_from_compacting | 148 s |
-| create:crafting/materials/zinc_block_from_compacting | 148 s |
-| create:crafting/kinetics/flywheel | 140 s |
-| oneforallsurvival:test_bench_alt (surcharge d'essai) | 120 s |
-| oneforallsurvival:test_bench_shaped (surcharge d'essai) | 120 s |
+| light_bulb_addon_create_crafts_and__addions:wind_turbine_large | 86 s |
+| light_bulb_addon_create_crafts_and__addions:asphalt_line_white | 61 s |
+| light_bulb_addon_create_crafts_and__addions:asphalt_line_yellow | 61 s |
+| light_bulb_addon_create_crafts_and__addions:andesite_catwalk_stairs | 52 s |
+| light_bulb_addon_create_crafts_and__addions:wind_turbine_medium | 51 s |
 
-Les deux recettes d'essai a 120 s sont des surcharges imposees, pas du calcul. Les recettes calculees les
-plus longues sont les blocs compactes (9 lingots dont chacun hérite de la chaine des pepites) et le volant.
-A juger par Killian : la mediane de 10 s et un maximum de 148 s laissent le plafond de 600 s inutilise.
+La premiere mesure (mediane 10 s, max 148 s, blocs de laiton et de zinc en tete) etait un artefact de
+l'ancien algorithme : le bloc heritait d'une chaine de boucle choisie selon l'ordre des identifiants.
+A juger par Killian : le plafond de 600 s reste inutilise.
