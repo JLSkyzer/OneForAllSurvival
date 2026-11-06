@@ -143,6 +143,27 @@ minecraft {
             args '--width', '960', '--height', '540'
         }
 
+        // Preuve de bout en bout (dev seulement) : un client qui se connecte seul à `runServer` sur localhost,
+        // joue un craft complet et arrête le serveur par /stop. Voir E2eClient (devcontent).
+        e2eClient {
+            parent minecraft.runs.client
+            workingDirectory project.file('run-e2e')
+            property 'oneforallsurvival.e2e', 'localhost'
+            property 'oneforallsurvival.jeicheck', 'true'
+            jvmArgs '-Xmx3G'
+            args '--username', 'Dev', '--width', '1280', '--height', '656'
+        }
+
+        // Film de démonstration de l'établi (dev seulement) : un client qui se pilote seul et enregistre ses
+        // images dans run-demo/frames-etabli, un bandeau de légende en dessous. Voir FilmEtabli (devcontent).
+        demoEtabliFilm {
+            parent minecraft.runs.client
+            workingDirectory project.file('run-demo')
+            property 'oneforallsurvival.demo.film', 'true'
+            jvmArgs '-Xmx3G'
+            args '--width', '1280', '--height', '656'
+        }
+
         server {
             // Un dossier à part : un client lancé en même temps tourne dans `run`.
             workingDirectory project.file('run-server')
@@ -192,6 +213,10 @@ repositories {
         content {
             includeGroup 'com.blamejared.crafttweaker'
             includeGroup 'org.openzen.zencode'
+            // JEI : le dépôt de BlameJared le publie pour Forge et pour Fabric, sous des artefacts distincts.
+            includeGroup 'mezz.jei'
+            // Bibliothèque de configuration dont dépend JEI.
+            includeGroup 'net.mezzdev.config'
         }
     }
 
@@ -210,11 +235,9 @@ dependencies {
     // then special handling is done to allow a setup of a vanilla dependency without the use of an external repository.
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
 
-    // Example mod dependency with JEI - using fg.deobf() ensures the dependency is remapped to your development mappings
-    // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime
-    // compileOnly fg.deobf("mezz.jei:jei-${mc_version}-common-api:${jei_version}")
-    // compileOnly fg.deobf("mezz.jei:jei-${mc_version}-forge-api:${jei_version}")
-    // runtimeOnly fg.deobf("mezz.jei:jei-${mc_version}-forge:${jei_version}")
+    // JEI : l'API seule à la compilation (le mod reste chargeable sans JEI), le JEI complet dans le pack plus bas.
+    compileOnly fg.deobf("mezz.jei:jei-${minecraft_version}-common-api:${jei_version}")
+    compileOnly fg.deobf("mezz.jei:jei-${minecraft_version}-forge-api:${jei_version}")
 
     // Example mod dependency using a mod jar from ./libs with a flat dir repository
     // This maps to ./libs/coolmod-${mc_version}-${coolmod_version}.jar
@@ -249,6 +272,7 @@ if (project.hasProperty('withPack') || !gradle.startParameter.taskNames.any { it
         runtimeOnly fg.deobf("curse.maven:medical-remedies-1185929:${medicalremedies_file}")
         runtimeOnly fg.deobf("curse.maven:first-aid-276837:${firstaid_file}")
         runtimeOnly fg.deobf("com.blamejared.crafttweaker:CraftTweaker-forge-1.20.1:${crafttweaker_version}")
+        runtimeOnly fg.deobf("mezz.jei:jei-${minecraft_version}-forge:${jei_version}")
     }
 }
 
@@ -263,6 +287,19 @@ tasks.matching { it.name == 'runDemo' }.configureEach {
     doFirst {
         delete project.file('run-demo/saves')
         delete project.file('run-demo/frames')
+    }
+}
+
+tasks.matching { it.name == 'runE2eClient' }.configureEach {
+    doFirst {
+        delete project.file('run-e2e/frames-e2e')
+    }
+}
+
+tasks.matching { it.name == 'runDemoEtabliFilm' }.configureEach {
+    doFirst {
+        delete project.file('run-demo/saves/film_etabli')
+        delete project.file('run-demo/frames-etabli')
     }
 }
 

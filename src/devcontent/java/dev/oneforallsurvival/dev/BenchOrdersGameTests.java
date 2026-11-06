@@ -780,16 +780,20 @@ public final class BenchOrdersGameTests {
             BlockPos banc = helper.absolutePos(POS);
             BlockState etat = helper.getLevel().getBlockState(banc);
             citoyen = joueur(helper, "CitoyenOuvre", false);
+            // Le catalogue part à la connexion, à tout joueur (JEI en a besoin sans établi ouvert).
+            helper.assertTrue(!connecter(citoyen).isEmpty(), "le catalogue devait partir à la connexion");
             etat.use(helper.getLevel(), citoyen.joueur(), InteractionHand.MAIN_HAND, toucher(banc));
             helper.assertTrue(citoyen.joueur().containerMenu == citoyen.joueur().inventoryMenu,
                     "un citoyen ne devait pas ouvrir l'établi");
-            helper.assertTrue(citoyen.listesRecues().isEmpty(), "rien ne devait être envoyé à un citoyen");
+            helper.assertTrue(citoyen.listesRecues().isEmpty() && citoyen.filesRecues().isEmpty(),
+                    "rien de plus ne devait être envoyé à un citoyen refusé");
 
             ingenieur = joueur(helper, "IngenieurOuvre", true);
+            helper.assertTrue(!connecter(ingenieur).isEmpty(), "le catalogue devait partir à la connexion");
             etat.use(helper.getLevel(), ingenieur.joueur(), InteractionHand.MAIN_HAND, toucher(banc));
             helper.assertTrue(ingenieur.joueur().containerMenu instanceof EngineerBenchMenu m && m.pos().equals(banc),
                     "le menu de l'établi devait s'ouvrir");
-            helper.assertTrue(!ingenieur.listesRecues().isEmpty(), "le catalogue devait être envoyé à l'ouverture");
+            helper.assertTrue(ingenieur.listesRecues().isEmpty(), "le catalogue ne devait pas être renvoyé à l'ouverture");
             helper.assertTrue(!ingenieur.filesRecues().isEmpty(), "la file devait être envoyée à l'ouverture");
             // Deuxième ouverture : même génération, pas de nouveau catalogue.
             ingenieur.joueur().closeContainer();
@@ -801,6 +805,20 @@ public final class BenchOrdersGameTests {
             quitter(ingenieur, atelier(helper, ingenieur == null ? UUID.randomUUID() : ingenieur.uuid()));
             BenchCatalog.install(avant);
         }
+    }
+
+    /**
+     * Rejoue la connexion du joueur : le gestionnaire de connexion du mod envoie le catalogue. Le joueur de
+     * test entre sans passer par l'événement ; on oublie donc ce qu'il a reçu, on publie l'événement, et on
+     * rend les fragments reçus.
+     */
+    private static java.util.List<dev.oneforallsurvival.bench.RecipeListPacket> connecter(JoueurDeTest j) {
+        j.listesRecues();
+        dev.oneforallsurvival.bench.BenchNetwork.onLogout(
+                new net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent(j.joueur()));
+        dev.oneforallsurvival.bench.BenchNetwork.onLogin(
+                new net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent(j.joueur()));
+        return j.listesRecues();
     }
 
     @GameTest(template = "test/plancher", batch = "etabli_menu_valide")
@@ -906,9 +924,9 @@ public final class BenchOrdersGameTests {
         try {
             j = joueur(helper, "IngenieurCatalogue", true);
             dev.oneforallsurvival.bench.client.BenchClientState.reset();
-            dev.oneforallsurvival.bench.BenchNetwork.sendCatalogIfNeeded(j.joueur());
-            var fragments = j.listesRecues();
-            helper.assertTrue(!fragments.isEmpty(), "le catalogue devait être envoyé");
+            // Le catalogue part à la connexion (PlayerLoggedInEvent).
+            var fragments = connecter(j);
+            helper.assertTrue(!fragments.isEmpty(), "le catalogue devait être envoyé à la connexion");
             for (var f : fragments) {
                 helper.assertTrue(f.generation() == BenchCatalog.generation(), "génération du paquet inattendue");
                 dev.oneforallsurvival.bench.client.BenchClientState.acceptFragment(f);

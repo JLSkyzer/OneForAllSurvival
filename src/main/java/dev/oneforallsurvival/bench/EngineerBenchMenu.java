@@ -2,6 +2,7 @@ package dev.oneforallsurvival.bench;
 
 import dev.oneforallsurvival.role.RoleGate;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
@@ -22,6 +23,8 @@ public final class EngineerBenchMenu extends AbstractContainerMenu {
     private final BlockPos pos;
     private final Player player;
     private int ticksSinceSync;
+    /** Ce que le client connaît de l'inventaire du joueur (côté serveur seulement) ; null : rien d'envoyé. */
+    private final ItemStack[] sentInventory = new ItemStack[36];
 
     public EngineerBenchMenu(int containerId, Inventory inventory, BlockPos pos) {
         super(BenchRegistry.ENGINEER_BENCH_MENU.get(), containerId);
@@ -65,9 +68,30 @@ public final class EngineerBenchMenu extends AbstractContainerMenu {
     @Override
     public void broadcastChanges() {
         super.broadcastChanges();
+        if (player instanceof ServerPlayer serverPlayer) {
+            syncInventory(serverPlayer);
+        }
         if (player instanceof ServerPlayer serverPlayer && ++ticksSinceSync >= QUEUE_SYNC_TICKS) {
             ticksSinceSync = 0;
             BenchNetwork.sendQueue(serverPlayer);
+        }
+    }
+
+    /**
+     * Ce menu n'a aucune case : le serveur ne synchronise donc pas l'inventaire du joueur à travers lui, et
+     * le client n'accepte, d'un menu ouvert, que les mises à jour de la barre d'action. Sans cet envoi, les
+     * ingrédients prélevés par une commande (ou rendus par une annulation) resteraient affichés à leur
+     * ancien nombre dans le reste de l'inventaire jusqu'à la fermeture. Le paquet « -2 » écrit directement
+     * dans l'inventaire du client, case par case, sans passer par un menu.
+     */
+    private void syncInventory(ServerPlayer serverPlayer) {
+        var items = serverPlayer.getInventory().items;
+        for (int i = 0; i < sentInventory.length && i < items.size(); i++) {
+            ItemStack current = items.get(i);
+            if (sentInventory[i] == null || !ItemStack.matches(sentInventory[i], current)) {
+                serverPlayer.connection.send(new ClientboundContainerSetSlotPacket(-2, 0, i, current));
+                sentInventory[i] = current.copy();
+            }
         }
     }
 }

@@ -37,6 +37,7 @@ public final class OneForAllSurvival {
         MinecraftForge.EVENT_BUS.addListener(BenchCatalog::onAddReloadListener);
         MinecraftForge.EVENT_BUS.addListener(BenchOverrides::onAddReloadListener);
         MinecraftForge.EVENT_BUS.addListener(BenchCatalog::onTagsUpdated);
+        MinecraftForge.EVENT_BUS.addListener(BenchNetwork::onLogin);
         MinecraftForge.EVENT_BUS.addListener(BenchNetwork::onLogout);
     }
 

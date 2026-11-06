@@ -9,6 +9,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.regex.Pattern;
 
 /**
@@ -72,12 +73,24 @@ public final class BenchClientState {
 
     private static volatile Describer describer = BY_ID;
 
+    /** Appelés (sur le thread qui reçoit le paquet) chaque fois qu'un catalogue complet est installé. */
+    private static final List<Runnable> CATALOG_LISTENERS = new CopyOnWriteArrayList<>();
+
     private BenchClientState() {}
 
     /** Installe le descripteur ; {@code null} revient à celui par identifiant. Vide les textes calculés. */
     public static void useDescriber(Describer newDescriber) {
         describer = newDescriber == null ? BY_ID : newDescriber;
         clearSearchCache();
+    }
+
+    /** Abonne {@code listener} aux nouveaux catalogues (JEI s'en sert pour rafraîchir ses recettes). */
+    public static void addCatalogListener(Runnable listener) {
+        CATALOG_LISTENERS.add(listener);
+    }
+
+    public static void removeCatalogListener(Runnable listener) {
+        CATALOG_LISTENERS.remove(listener);
     }
 
     public static Describer describer() {
@@ -260,6 +273,9 @@ public final class BenchClientState {
             clearSearchCache();
             generation = pendingGeneration;
             pending = null;
+            for (Runnable listener : CATALOG_LISTENERS) {
+                listener.run();
+            }
         }
     }
 

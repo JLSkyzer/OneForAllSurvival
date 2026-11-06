@@ -2,6 +2,7 @@ package dev.oneforallsurvival.bench;
 
 import dev.oneforallsurvival.OneForAllSurvival;
 import dev.oneforallsurvival.bench.client.BenchClientState;
+import com.mojang.logging.LogUtils;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
@@ -46,6 +47,8 @@ public final class BenchNetwork {
     /** Dernière génération du catalogue envoyée à chaque joueur connecté. */
     private static final Map<UUID, Integer> CATALOG_SENT = new ConcurrentHashMap<>();
 
+    private static final org.slf4j.Logger LOGGER = LogUtils.getLogger();
+
     private BenchNetwork() {}
 
     public static void register() {
@@ -89,7 +92,19 @@ public final class BenchNetwork {
 
     public static void sendQueue(ServerPlayer player) {
         PlayerWorkshop workshop = WorkshopSavedData.get(player.server).of(player.getUUID());
+        LOGGER.debug("File envoyee a {} : {} entree(s), {} objet(s) en stock", player.getGameProfile().getName(),
+                workshop.queue().size(), workshop.stock().size());
         CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), QueuePacket.of(workshop));
+    }
+
+    /**
+     * À la connexion : le catalogue part tout de suite, sans attendre la première ouverture d'un établi.
+     * Les compléments client (JEI) en ont besoin avant que le joueur n'approche d'un établi.
+     */
+    public static void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            sendCatalogIfNeeded(player);
+        }
     }
 
     public static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
@@ -105,14 +120,20 @@ public final class BenchNetwork {
 
     private static void onOrder(OrderPacket packet, Supplier<NetworkEvent.Context> context) {
         ServerPlayer sender = context.get().getSender();
+        LOGGER.debug("Commande recue de {} : {} x{} a {}", sender == null ? "?" : sender.getGameProfile().getName(),
+                packet.recipe(), packet.count(), packet.bench());
         if (sender == null) {
             return;
         }
         EngineerBenchMenu menu = openMenu(sender);
         if (menu == null || !menu.pos().equals(packet.bench())) {
+            LOGGER.debug("Commande de {} ignoree : menu ouvert {}, etabli demande {}", sender.getGameProfile().getName(),
+                    sender.containerMenu.getClass().getSimpleName(), packet.bench());
             return;
         }
         OrderResult result = BenchOrders.order(sender, packet.recipe(), packet.count(), packet.bench());
+        LOGGER.debug("Commande de {} : {} x{} -> {}", sender.getGameProfile().getName(), packet.recipe(), packet.count(),
+                result);
         if (result != OrderResult.OK) {
             sender.sendSystemMessage(Component.translatable(REFUSED_KEY + result.name().toLowerCase(Locale.ROOT)));
         }
@@ -155,6 +176,7 @@ public final class BenchNetwork {
     }
 
     private static void onQueue(QueuePacket packet, Supplier<NetworkEvent.Context> context) {
+        LOGGER.debug("File recue : {} entree(s)", packet.rows().size());
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> BenchClientState.acceptQueue(packet));
     }
 }

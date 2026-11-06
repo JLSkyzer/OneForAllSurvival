@@ -96,3 +96,125 @@ min 5 s, mediane 8 s, max 86 s, 0 recette au plafond de 600 s.
 La premiere mesure (mediane 10 s, max 148 s, blocs de laiton et de zinc en tete) etait un artefact de
 l'ancien algorithme : le bloc heritait d'une chaine de boucle choisie selon l'ordre des identifiants.
 A juger par Killian : le plafond de 600 s reste inutilise.
+
+## Tache 8 : JEI, film et preuve de bout en bout (2026-11-06)
+
+### JEI
+
+JEI 15.74.0.234 (derniere 15.x pour 1.20.1 au 2026-11-06, depot maven.blamejared.com) : API en
+`compileOnly` (`jei-1.20.1-common-api` et `-forge-api`), JEI complet (`jei-1.20.1-forge`) en
+`runtimeOnly` dans le pack seulement. Le depot est restreint par groupes : il faut y ajouter `mezz.jei` et
+`net.mezzdev.config` (dependance de JEI). `dependencies --configuration runtimeClasspath -PwithPack` montre
+`jei-1.20.1-forge` et ses `-common`, `-lib`, `-gui` : des artefacts Forge, pas Fabric.
+
+Plugin `bench/compat/BenchJeiPlugin` (seule classe qui nomme JEI) : categorie « Etabli d'ingenieur » batie
+sur le catalogue du client, l'etabli en catalyseur. Le catalogue arrive par paquets, parfois apres le
+demarrage de JEI : `BenchClientState` previent ses abonnes, le plugin retire les anciennes recettes
+(`hideRecipes`) et ajoute les nouvelles (`addRecipes`). Le serveur envoie desormais le catalogue des la
+connexion (`BenchNetwork.onLogin`), plus seulement a la premiere ouverture d'un etabli.
+
+Preuve (client reel, JEI charge, `-Doneforallsurvival.jeicheck`) :
+
+```
+JEI: catalogue de l'etabli rafraichi, 1129 recettes (generation 2)
+JEI-CHECK (nouveau catalogue) acacia_window : 0 recette(s) de table, 1 recette(s) d'etabli, 1129 recettes d'etabli au total
+```
+
+JEI ne montre aucune recette de table pour un objet gere et montre celle de l'etabli : la purge du
+`RecipeManager` precede bien l'envoi aux clients (question laissee ouverte a la tache 1). Les recettes de
+`create:mechanical_crafting` et autres types de machines restent dans JEI : ce sont des machines.
+
+### Film de demonstration
+
+`./gradlew runDemoEtabliFilm -PwithPack` (dev seulement) : un client qui se pilote seul dans un monde
+integre, fenetre 1280 x 656 + bandeau de 64 px (legende, valeurs lues en direct), 10 images par seconde,
+assemblees par Windows Media Foundation (rien de telecharge). `run-demo/lot-1-etabli.mp4` : 65,4 s,
+1280 x 720, H.264, 19,3 Mo. Scenes : le bloc dans le monde ; vraie commande `/role set Dev ingenieur` ;
+table de craft (temoin : 2 planches donnent 4 batons ; grille d'une recette geree : aucun resultat, journal :
+« 0 recette(s) de table fabriquent 1 cardboard_boots ») ; ecran de l'etabli (catalogue 1129 recettes) ;
+recherche ; plusieurs commandes ; annulation (Alliage d'andesite : 2 -> 3) ; vitesse a la main puis
+alimentee par un vrai bloc `createaddition:creative_energy` pose contre l'etabli, vitesses mesurees sur
+la tete de file ; stock et retrait ; retrait des triches du monde puis Citoyen : « Seul un Ingenieur peut
+faire cela. »
+
+Piege rencontre : le propre joueur d'un monde solo avec triches est operateur, et `RoleGate` laisse la
+main aux operateurs (niveau 2) : sans retirer les triches, un « Citoyen » ouvrait l'etabli. Ce n'est pas
+un defaut (choix de depannage documente), mais le film doit l'eviter.
+
+### Serveur dedie et vrai client
+
+`./gradlew runServer -PwithPack` puis `./gradlew runE2eClient -PwithPack` (client `Dev`, op du serveur,
+connexion a `localhost`, helper `E2eClient` de `devcontent`). Lignes du journal client :
+
+```
+[e2e] PASS connecte a un serveur distant (aucun serveur integre) : localhost
+[e2e] PASS catalogue recu par le reseau a la connexion : 1129 recettes, generation 2, apres 6,0 s
+[e2e] PASS commandes /role et /give executees par le serveur, provisions recues
+[e2e] PASS etabli pose par un clic droit reel en BlockPos{x=-34, y=80, z=228}
+[e2e] PASS ecran de l'etabli ouvert par clic droit reel (role Ingenieur accepte par le serveur)
+[e2e] PASS commande acceptee : ingredients preleves (2 -> 0), file de 2 fabrication(s), vitesses serveur main x1.0 / alimente x4.0
+[e2e] PASS craft termine cote serveur : stock 0 -> 8 objet(s) apres 15,1 s
+[e2e] PASS ecran de stock ouvert : 1 pile(s)
+[e2e] PASS stock retire : +8 brass_bars dans l'inventaire
+[e2e] bilan : TOUT PASSE
+```
+
+Journal serveur : `Done (6.007s)`, connexion de `Dev`, `/stop` de l'op client (« Stopping the server »),
+« All dimensions are saved », aucune ligne ERROR ni FATAL, et aucun processus Java restant. Film du client
+reel : `run-demo/lot-1-e2e-serveur.mp4` (23,5 s, 6,2 Mo).
+
+Defaut trouve et corrige par cet essai : le menu de l'etabli n'a aucune case, donc le serveur ne
+synchronisait pas l'inventaire du joueur a travers lui, et le client n'accepte d'un menu ouvert que la
+barre d'action. Resultat : apres une commande, le serveur avait 2 lingots, l'ecran en montrait 4 (compteurs
+« possede » de l'ecran faux jusqu'a la fermeture). Correctif : `EngineerBenchMenu` renvoie chaque tick les
+cases modifiees par `ClientboundContainerSetSlotPacket(-2, ...)`. L'essai passe de « 2 -> 2 » a « 2 -> 0 ».
+Pas de GameTest propre a ce correctif : c'est l'essai de bout en bout qui le couvre.
+
+Deux GameTests ont du changer avec l'envoi a la connexion (`ouvrirExigeLeRoleEtEnvoieLeCatalogue`,
+`leCatalogueEstEnvoyeUneFoisParGeneration`) : le joueur de test n'emet pas l'evenement de connexion, ils le
+rejouent (`connecter`).
+
+### Tout relance
+
+`./gradlew test build runGameTestServer -PwithPack` : build reussi, « All 118 required tests passed ». Jar
+(`build/libs/oneforallsurvival-0.1.0.jar`, 207581 octets) : aucune classe de `devcontent`, de film ou
+d'essai ; `BenchJeiPlugin` et `BenchJeiPlugin$Category` y sont, JEI n'est ni embarque ni requis.
+La course de demarrage de Create (`ConcurrentModificationException` a la creation du mod `create`) est
+apparue une fois sur trois lancements de `runGameTestServer -PwithPack` ce jour (Gradle rend alors un code
+0 malgre l'echec : lire le journal), relance sans autre changement. Serveur dedie et client : 0 sur les
+lancements finaux.
+
+### Temps de fabrication, recomptes par relance (journal `[etabli]` de `run-gametest/logs/latest.log`)
+
+```
+[etabli] catalogue : 1129 recettes
+[etabli] TEMPS n=1125 min=5 mediane=8 max=86 auPlafond=0
+[etabli] TEMPS-TOP 86 s | light_bulb_addon_create_crafts_and__addions:wind_turbine_large
+[etabli] TEMPS-TOP 61 s | light_bulb_addon_create_crafts_and__addions:asphalt_line_white
+[etabli] TEMPS-TOP 61 s | light_bulb_addon_create_crafts_and__addions:asphalt_line_yellow
+[etabli] TEMPS-TOP 52 s | light_bulb_addon_create_crafts_and__addions:andesite_catwalk_stairs
+[etabli] TEMPS-TOP 51 s | light_bulb_addon_create_crafts_and__addions:wind_turbine_medium
+[etabli] SPECIALE create:crafting/curiosities/item_copying | ...ItemCopyingRecipe | classe non standard
+[etabli] SPECIALE create:crafting/curiosities/toolbox_dyeing | ...ToolboxDyeingRecipe | classe non standard
+[etabli] SPECIALE light_bulb_addon_create_crafts_and__addions:key_copy | ...KeyCopyRecipe | classe non standard
+```
+
+Les chiffres de la tache 2 (mediane 8 s, max 86 s) sont confirmes. Les trois recettes speciales restent
+sur la table, comme releve a la tache 1.
+
+### Ce qui est prouve, ce qui ne l'est pas
+
+Prouve : catalogue envoye a la connexion par un vrai reseau ; pose, ouverture, commande, craft, stock et
+retrait par un vrai client contre un serveur dedie ; arret propre par `/stop` ; JEI sans recette de table
+pour un objet gere ; refus d'un Citoyen non operateur (film) ; vitesses main et alimentee mesurees.
+
+Non prouve : le rafraichissement de JEI apres un `/reload` en jeu (seul le cas « le catalogue arrive apres
+le demarrage de JEI » est observe) ; le serveur ne renvoie pas le catalogue aux joueurs deja connectes apres
+un `/reload`, il le fait a la prochaine ouverture d'un etabli ; le role Citoyen contre un serveur dedie (le
+client d'essai est operateur, et l'operateur passe `RoleGate` : l'essai ne separe pas role et operateur) ;
+le film montre une source C&A collee a l'etabli, pas un fil tire (les fils sont prouves au lot 0) ;
+plusieurs joueurs a la fois ; une partie longue. Le serveur d'essai tourne avec `online-mode=false` sur le
+port 25565 : un scanneur externe a tente de s'y connecter pendant l'essai (rejete : client non Forge) ;
+ne pas le laisser tourner hors essai.
+
+Sans le pack (`./gradlew runGameTestServer`, JEI absent, 0 mention de JEI au journal) : « All 118 required tests passed », le mod se charge normalement. Observation sur le pack : 118 tests passent avec comme sans le pack, car les essais « avecLePack_ » s'ecartent d'eux-memes quand il manque ; le compte ne distingue donc pas les deux, il faut lire les lignes `[etabli]` pour savoir si le pack etait la.
