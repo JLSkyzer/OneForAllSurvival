@@ -111,6 +111,16 @@ minecraft {
             args '--username', 'Dev2'
         }
 
+        // Démonstration filmée (dev seulement) : un client qui se pilote seul, monte les scènes des
+        // réseaux et enregistre ses images dans run-demo/frames. Voir DemoReseaux (devcontent).
+        demo {
+            parent minecraft.runs.client
+            workingDirectory project.file('run-demo')
+            property 'oneforallsurvival.demo', 'true'
+            jvmArgs '-Xmx3G'
+            args '--width', '1280', '--height', '720'
+        }
+
         server {
             // Un dossier à part : un client lancé en même temps tourne dans `run`.
             workingDirectory project.file('run-server')
@@ -226,6 +236,14 @@ tasks.named('test', Test).configure {
 
 // ForgeGradle crée ses tâches run après l'évaluation du script : `tasks.named` échouerait ici,
 // `tasks.matching {}.configureEach` configure la tâche dès qu'elle apparaît.
+// La démonstration repart d'un monde et d'images neufs.
+tasks.matching { it.name == 'runDemo' }.configureEach {
+    doFirst {
+        delete project.file('run-demo/saves')
+        delete project.file('run-demo/frames')
+    }
+}
+
 tasks.matching { it.name == 'runGameTestServer' }.configureEach {
     doFirst {
         // Les GameTests partent d'un monde neuf.
