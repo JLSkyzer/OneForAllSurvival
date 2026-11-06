@@ -1,11 +1,20 @@
 package dev.oneforallsurvival;
 
 import com.mojang.logging.LogUtils;
+import dev.oneforallsurvival.bench.BenchCatalog;
+import dev.oneforallsurvival.bench.BenchConfig;
+import dev.oneforallsurvival.bench.BenchNetwork;
+import dev.oneforallsurvival.bench.BenchOverrides;
+import dev.oneforallsurvival.bench.BenchRegistry;
+import dev.oneforallsurvival.bench.WorkshopTicker;
 import dev.oneforallsurvival.role.RoleCommands;
 import dev.oneforallsurvival.role.RoleEvents;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.event.AddReloadListenerEvent;
+import net.minecraftforge.event.TagsUpdatedEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.slf4j.Logger;
@@ -19,8 +28,17 @@ public final class OneForAllSurvival {
     public OneForAllSurvival(FMLJavaModLoadingContext context) {
         IEventBus modEventBus = context.getModEventBus();
         modEventBus.addListener(this::commonSetup);
+        BenchRegistry.register(modEventBus);
+        BenchNetwork.register();
         MinecraftForge.EVENT_BUS.register(new RoleEvents());
         MinecraftForge.EVENT_BUS.register(new RoleCommands());
+        MinecraftForge.EVENT_BUS.register(new WorkshopTicker());
+        context.registerConfig(ModConfig.Type.COMMON, BenchConfig.SPEC);
+        MinecraftForge.EVENT_BUS.addListener(BenchCatalog::onAddReloadListener);
+        MinecraftForge.EVENT_BUS.addListener(BenchOverrides::onAddReloadListener);
+        MinecraftForge.EVENT_BUS.addListener(BenchCatalog::onTagsUpdated);
+        MinecraftForge.EVENT_BUS.addListener(BenchNetwork::onDatapackSync);
+        MinecraftForge.EVENT_BUS.addListener(BenchNetwork::onLogout);
     }
 
     private void commonSetup(FMLCommonSetupEvent event) {
