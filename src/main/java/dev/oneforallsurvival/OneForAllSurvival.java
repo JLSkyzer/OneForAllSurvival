@@ -11,6 +11,7 @@ import dev.oneforallsurvival.machine.MachineConfig;
 import dev.oneforallsurvival.repair.RepairRegistry;
 import dev.oneforallsurvival.role.RoleCommands;
 import dev.oneforallsurvival.role.RoleEvents;
+import dev.oneforallsurvival.salvage.SalvageRegistry;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.event.AddReloadListenerEvent;
@@ -32,6 +33,7 @@ public final class OneForAllSurvival {
         modEventBus.addListener(this::commonSetup);
         BenchRegistry.register(modEventBus);
         RepairRegistry.register(modEventBus);
+        SalvageRegistry.register(modEventBus);
         BenchNetwork.register();
         MinecraftForge.EVENT_BUS.register(new RoleEvents());
         MinecraftForge.EVENT_BUS.register(new RoleCommands());

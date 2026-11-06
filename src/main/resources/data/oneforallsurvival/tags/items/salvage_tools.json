@@ -1,0 +1,10 @@
+{
+  "replace": false,
+  "values": [
+    "#minecraft:pickaxes",
+    {
+      "id": "create:wrench",
+      "required": false
+    }
+  ]
+}

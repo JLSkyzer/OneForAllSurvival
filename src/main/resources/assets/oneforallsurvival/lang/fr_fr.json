@@ -107,5 +107,16 @@
   "message.oneforallsurvival.report.fault": "Panne : %s",
   "message.oneforallsurvival.report.part": "Pièce à prévoir : %s",
   "message.oneforallsurvival.report.protected": "Protégée contre la corrosion.",
-  "message.oneforallsurvival.report.exposed": "Exposée à la corrosion."
+  "message.oneforallsurvival.report.exposed": "Exposée à la corrosion.",
+  "block.oneforallsurvival.debris_fuselage": "Débris de fuselage",
+  "block.oneforallsurvival.debris_wiring": "Débris de câblage",
+  "block.oneforallsurvival.debris_instruments": "Débris d'instruments",
+  "block.oneforallsurvival.debris_battery": "Débris de batterie",
+  "block.oneforallsurvival.debris_cabin": "Débris de cabine",
+  "item.oneforallsurvival.scrap_metal": "Ferraille",
+  "item.oneforallsurvival.aviation_wire": "Fil d'aviation",
+  "item.oneforallsurvival.instrument_core": "Noyau d'instrument",
+  "item.oneforallsurvival.battery_cell": "Cellule de batterie",
+  "item.oneforallsurvival.incomplete_instrument_core": "Noyau d'instrument inachevé",
+  "item.oneforallsurvival.incomplete_battery_cell": "Cellule de batterie inachevée"
 }

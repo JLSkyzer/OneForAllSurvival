@@ -107,5 +107,16 @@
   "message.oneforallsurvival.report.fault": "Fault: %s",
   "message.oneforallsurvival.report.part": "Part to plan for: %s",
   "message.oneforallsurvival.report.protected": "Protected against corrosion.",
-  "message.oneforallsurvival.report.exposed": "Exposed to corrosion."
+  "message.oneforallsurvival.report.exposed": "Exposed to corrosion.",
+  "block.oneforallsurvival.debris_fuselage": "Fuselage Debris",
+  "block.oneforallsurvival.debris_wiring": "Wiring Debris",
+  "block.oneforallsurvival.debris_instruments": "Instrument Debris",
+  "block.oneforallsurvival.debris_battery": "Battery Debris",
+  "block.oneforallsurvival.debris_cabin": "Cabin Debris",
+  "item.oneforallsurvival.scrap_metal": "Scrap Metal",
+  "item.oneforallsurvival.aviation_wire": "Aviation Wire",
+  "item.oneforallsurvival.instrument_core": "Instrument Core",
+  "item.oneforallsurvival.battery_cell": "Battery Cell",
+  "item.oneforallsurvival.incomplete_instrument_core": "Incomplete Instrument Core",
+  "item.oneforallsurvival.incomplete_battery_cell": "Incomplete Battery Cell"
 }
