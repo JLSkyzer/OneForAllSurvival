@@ -102,10 +102,16 @@ Demandé par Killian. Il sert tout le serveur, pas seulement l'ingénieur.
 - **Un seul rôle par joueur**, attribué par commande réservée à l'équipe du serveur.
 - **Préfixe du rôle** (texte et couleur) visible à trois endroits : dans le **chat**, dans le **pseudo
   au-dessus de la tête** et dans le **menu TAB**. Il se met à jour immédiatement pour tous les joueurs.
-- **Actions réservées à l'Ingénieur** : réparer, relever un compteur, poser ou retirer un scellé. Les
-  autres joueurs reçoivent un message clair. L'équipe du serveur garde un contournement.
-- Utiliser une machine en état de marche reste ouvert à tous : seule l'intervention technique est
-  réservée.
+- **Actions réservées à l'Ingénieur** : fabriquer et poser les machines et outils de ce mod, réparer,
+  relever un compteur, poser ou retirer un scellé. Les autres joueurs reçoivent un message clair.
+  L'équipe du serveur garde un contournement.
+- **Établi d'ingénieur** : les machines et outils du mod se fabriquent uniquement sur ce bloc, utilisable
+  par le seul rôle Ingénieur. Ainsi, ni une table de craft ni un assembleur automatique de Create ne
+  contournent la règle. Le blocage de la pose s'applique même à un joueur qui a reçu l'objet.
+- Utiliser une machine en état de marche reste ouvert à tous, tout comme casser un bloc. Les denrées,
+  l'eau, le sel et les rations restent aussi accessibles à tous.
+- Ces règles ne concernent que le contenu de ce mod : les machines de Create et de ses addons restent
+  gérées par ces mods.
 
 Les rôles Médecin, Policier et Agriculteur existent pour l'affichage et pour les besoins futurs : ce
 lot ne leur réserve aucune action.
@@ -287,7 +293,7 @@ Chaque lot produit quelque chose de jouable et peut être livré seul, **visuels
 | Lot | Contenu | Ce qu'il prouve |
 |---|---|---|
 | 0 | Socle, machine de test et bloc en ligne branchés sur les trois réseaux ; système de rôles | Le courant arrive dans nos machines et traverse nos blocs en ligne (compteur, délestage) ; les préfixes s'affichent et les actions se réservent |
-| 1 | 1, 2, 4, 3 | Le métier d'ingénieur existe |
+| 1 | Établi d'ingénieur, 1, 2, 4, 3 | Le métier d'ingénieur existe |
 | 2 | 9, 10, 11 | L'électricité devient vitale |
 | 3 | 7, 8, 5, 6 | La gestion du réseau et ses arbitrages |
 | 4 | 12, 13, 16 | Vivres et protection |
@@ -305,12 +311,15 @@ Chaque lot produit quelque chose de jouable et peut être livré seul, **visuels
   repartent à la vitesse normale, sans aucune perte immédiate.
 - **Scénario d'acceptation des rôles** : attribuer un rôle à un joueur et constater le préfixe dans le
   chat, au-dessus de sa tête et dans le TAB, vus par un second client ; ajouter un rôle en jeu, relancer
-  le serveur et le retrouver ; constater le refus de réparer pour un rôle autre qu'Ingénieur.
+  le serveur et le retrouver ; constater qu'un rôle autre qu'Ingénieur ne peut ni fabriquer, ni poser,
+  ni réparer.
 
 ## 8. Décisions de Killian (2026-11-06)
 
-1. **Métiers.** Le mod contient son propre système de rôles (section 4), qui réserve la réparation, les
-   relevés et les scellés à l'Ingénieur.
+1. **Métiers.** Le mod contient son propre système de rôles (section 4), qui réserve à l'Ingénieur le
+   craft et la pose des machines, la réparation, les relevés et les scellés. Casser un compteur ou un
+   disjoncteur scellé reste possible, avec une trace. Médecin, Policier et Agriculteur n'ont pas encore
+   d'action réservée.
 2. **Soif.** Pas de soif sur le serveur.
 3. **Serveur.** Il tourne seulement pendant les sessions RP.
 4. **Île.** Carte construite à la main.
@@ -321,8 +330,8 @@ Chaque lot produit quelque chose de jouable et peut être livré seul, **visuels
 ## 9. Choix faits par l'auteur du document
 
 Ces choix n'ont pas été validés par Killian et peuvent être contestés :
-- le craft et l'installation restent ouverts à tous : seules la réparation, les relevés et les scellés
-  sont réservés ;
+- l'établi d'ingénieur comme moyen de réserver le craft ;
+- la réserve au rôle Ingénieur ne concerne que le contenu de ce mod, pas Create ni ses addons ;
 - le chauffe-eau exige de l'eau potable, ce qui donne un débouché au dessalinisateur ;
 - l'usure ne touche que les machines de ce mod en première version ;
 - pas de jauge de moral, mais un effet Bien-être sans soin ;
