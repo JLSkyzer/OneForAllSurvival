@@ -50,6 +50,12 @@ public final class BenchCatalog {
     /** Plafond dur d'une durée imposée : une durée en ticks (x20) reste dans un int. */
     private static final int MAX_OVERRIDE_SECONDS = 86400;
 
+    /**
+     * L'établi lui-même reste toujours prenable à la main, quelle que soit la configuration : vider
+     * {@code tableAllowedItems} ne doit pas verrouiller sa propre recette.
+     */
+    public static final ResourceLocation ALWAYS_ON_TABLE = new ResourceLocation("oneforallsurvival", "engineer_bench");
+
     /** Une recette qu'on ne peut pas payer d'avance, restée sur la table. */
     public record Special(ResourceLocation id, String recipeClass, String reason) {}
 
@@ -197,7 +203,12 @@ public final class BenchCatalog {
             return false;
         }
         ResourceLocation key = BuiltInRegistries.ITEM.getKey(result.getItem());
-        return !tableAllowed.contains(key) && mods.contains(key.getNamespace());
+        return !stays(key, tableAllowed) && mods.contains(key.getNamespace());
+    }
+
+    /** Vrai si l'objet reste sur la table : la liste de la configuration, plus l'exemption de l'établi. */
+    private static boolean stays(ResourceLocation key, Set<ResourceLocation> tableAllowed) {
+        return key.equals(ALWAYS_ON_TABLE) || tableAllowed.contains(key);
     }
 
     /** Recette concernant un mod géré (par son identifiant ou son résultat) mais non déplaçable. */
@@ -261,7 +272,7 @@ public final class BenchCatalog {
             return false;
         }
         ResourceLocation key = BuiltInRegistries.ITEM.getKey(result.getItem());
-        return !tableAllowed.contains(key) && mods.contains(key.getNamespace());
+        return !stays(key, tableAllowed) && mods.contains(key.getNamespace());
     }
 
     private static ResourceLocation resultKey(BenchRecipe recipe) {

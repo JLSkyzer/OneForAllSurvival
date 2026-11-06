@@ -51,14 +51,15 @@ public final class EngineerBenchMenu extends AbstractContainerMenu {
     }
 
     /**
-     * Le joueur peut-il se servir de cet établi : le bloc est là, à portée, et il a le rôle. Les menus de
-     * l'établi (commande, stock) posent tous la même condition.
+     * Le joueur peut-il se servir de cet établi : à portée, le bloc est là, et il a le rôle. Les menus de
+     * l'établi (commande, stock) posent tous la même condition. La portée se vérifie d'abord : lire le bloc
+     * d'une position lointaine peut forcer le chargement de son chunk.
      */
     static boolean usable(Player player, BlockPos pos) {
-        if (!player.level().getBlockState(pos).is(BenchRegistry.ENGINEER_BENCH.get())) {
+        if (player.distanceToSqr(Vec3.atCenterOf(pos)) > BenchOrders.MAX_DISTANCE_SQR) {
             return false;
         }
-        if (player.distanceToSqr(Vec3.atCenterOf(pos)) > BenchOrders.MAX_DISTANCE_SQR) {
+        if (!player.level().getBlockState(pos).is(BenchRegistry.ENGINEER_BENCH.get())) {
             return false;
         }
         return !(player instanceof ServerPlayer serverPlayer) || RoleGate.canDoEngineerWork(serverPlayer);

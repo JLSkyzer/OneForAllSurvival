@@ -121,7 +121,7 @@ public final class WorkshopSavedData extends SavedData {
             ListTag queue = t.getList("queue", Tag.TAG_COMPOUND);
             for (int q = 0; q < queue.size(); q++) {
                 try {
-                    WorkshopEntry entry = WorkshopEntry.load(queue.getCompound(q));
+                    WorkshopEntry entry = WorkshopEntry.load(queue.getCompound(q), w::restoreStock);
                     if (entry != null) {
                         w.restoreEntry(entry);
                     }

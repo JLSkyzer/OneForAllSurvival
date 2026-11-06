@@ -112,6 +112,25 @@ public final class BenchCatalogGameTests {
     }
 
     @GameTest(template = "test/plancher", batch = "etabli_catalogue")
+    public static void lEtabliResteSurLaTableMemeSiLaConfigEstVide(GameTestHelper helper) {
+        // Vider tableAllowedItems ne doit pas verrouiller l'établi : sa recette est une exemption codée en dur.
+        Recipe<?> recetteDeLEtabli = new ShapelessRecipe(ETABLI, "", CraftingBookCategory.MISC,
+                new ItemStack(BuiltInRegistries.ITEM.get(ETABLI)),
+                NonNullList.of(Ingredient.EMPTY, Ingredient.of(Items.IRON_INGOT)));
+        RegistryAccess acces = helper.getLevel().registryAccess();
+        Set<String> mods = Set.of("oneforallsurvival");
+        helper.assertTrue(!BenchCatalog.isManaged(recetteDeLEtabli, acces, mods, Set.of()),
+                "la recette de l'établi ne doit jamais être gérée, même sans liste");
+        RecipeManager manager = new RecipeManager();
+        manager.replaceRecipes(List.of(recetteDeLEtabli));
+        BenchCatalog catalogue = BenchCatalog.extract(manager, acces, mods, Set.of(), Set.of(), Map.of(),
+                new BenchTimes.Params(4, 1, 600));
+        helper.assertTrue(manager.byKey(ETABLI).isPresent() && catalogue.byId(ETABLI).isEmpty(),
+                "la recette de l'établi a quitté la table");
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = "etabli_catalogue")
     public static void uneRecetteSpecialeResteSurLaTable(GameTestHelper helper) {
         // armor_dye est dynamique : son résultat est vide, elle ne peut pas se payer d'avance.
         ResourceLocation id = new ResourceLocation("minecraft", "armor_dye");

@@ -303,7 +303,10 @@ public final class EngineerBenchScreen extends AbstractContainerScreen<EngineerB
                         break;
                     }
                 }
-                selected = same;
+                selected = same; // null si la recette a disparu du nouveau catalogue (rechargement)
+            }
+            if (!category.isEmpty() && catalog.stream().noneMatch(r -> category.equals(BenchClientState.modOf(r)))) {
+                category = ""; // l'onglet du mod a disparu avec le rechargement : retour à « Tout »
             }
             affordable.clear();
             refilter(true);

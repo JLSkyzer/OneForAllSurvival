@@ -9,6 +9,7 @@ import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Abilities;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
@@ -132,14 +133,28 @@ public final class BenchOrders {
         return true;
     }
 
-    /** Inventaire d'abord, le reste au stock ; une erreur imprévue envoie tout au stock plutôt que de perdre. */
+    /**
+     * Inventaire d'abord, le reste au stock ; une erreur imprévue envoie au stock ce qui n'est pas entré plutôt
+     * que de le perdre. Un joueur mort n'a plus d'inventaire où ranger : tout va au stock.
+     */
     private static void deliver(ServerPlayer player, PlayerWorkshop workshop, ItemStack paid) {
+        if (!player.isAlive()) {
+            workshop.addToStock(paid.copy());
+            return;
+        }
         ItemStack left = paid.copy();
+        // Inventory.add d'un joueur créatif jette sans rien dire ce qui ne tient pas (lu dans le bytecode :
+        // « instabuild » vide la pile et répond vrai). Un rendu ne doit rien perdre : on l'ajoute comme en survie.
+        Abilities abilities = player.getAbilities();
+        boolean creative = abilities.instabuild;
+        abilities.instabuild = false;
         try {
             player.getInventory().add(left);
         } catch (RuntimeException e) {
-            LOGGER.error("Etabli : rendu d'une pile annulee impossible, elle va au stock", e);
-            left = paid.copy();
+            // « left » garde ce qui n'est pas entré : le recopier depuis « paid » doublerait ce qui l'est déjà.
+            LOGGER.error("Etabli : rendu d'une pile annulee interrompu, le reste va au stock", e);
+        } finally {
+            abilities.instabuild = creative;
         }
         if (!left.isEmpty()) {
             workshop.addToStock(left);

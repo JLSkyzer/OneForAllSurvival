@@ -12,6 +12,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.event.OnDatapackSyncEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.network.NetworkDirection;
@@ -99,11 +100,20 @@ public final class BenchNetwork {
     }
 
     /**
-     * À la connexion : le catalogue part tout de suite, sans attendre la première ouverture d'un établi.
-     * Les compléments client (JEI) en ont besoin avant que le joueur n'approche d'un établi.
+     * Synchronisation des données : le catalogue part tout de suite, sans attendre la première ouverture d'un
+     * établi (les compléments client, JEI en tête, en ont besoin avant que le joueur n'approche d'un établi).
+     * Forge publie cet événement à l'entrée d'un joueur ({@code getPlayer()} le désigne) et à chaque
+     * {@code /reload} ({@code getPlayer()} est nul : tous les joueurs connectés). Lu dans le bytecode : au
+     * rechargement, {@code updateRegistryTags} (qui installe le nouveau catalogue) précède
+     * {@code PlayerList.reloadResources}, qui publie l'événement avant d'envoyer recettes et étiquettes.
      */
-    public static void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
-        if (event.getEntity() instanceof ServerPlayer player) {
+    public static void onDatapackSync(OnDatapackSyncEvent event) {
+        ServerPlayer target = event.getPlayer();
+        if (target != null) {
+            sendCatalogIfNeeded(target);
+            return;
+        }
+        for (ServerPlayer player : event.getPlayerList().getPlayers()) {
             sendCatalogIfNeeded(player);
         }
     }

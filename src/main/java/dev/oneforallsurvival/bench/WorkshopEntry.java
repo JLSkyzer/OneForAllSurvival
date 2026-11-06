@@ -4,6 +4,7 @@ import com.mojang.logging.LogUtils;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Consumer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
@@ -97,10 +98,17 @@ public final class WorkshopEntry {
         return tag;
     }
 
-    /** Relit une entrée ; {@code null} (avec un avertissement) si elle est corrompue. */
-    public static WorkshopEntry load(CompoundTag tag) {
+    /**
+     * Relit une entrée ; {@code null} (avec un avertissement) si elle ne peut pas être relancée. Quand elle est
+     * abandonnée, les piles payées encore lisibles sont confiées à {@code salvage} (le stock du joueur) :
+     * ce que le joueur a payé ne disparaît pas avec un mod retiré. Une pile illisible est sautée et
+     * journalisée, sans perdre les autres.
+     */
+    public static WorkshopEntry load(CompoundTag tag, Consumer<ItemStack> salvage) {
+        String label = tag.hasUUID("id") ? tag.getUUID("id").toString() : "(sans identifiant)";
         if (!tag.hasUUID("id")) {
             LOGGER.warn("Fabrication ignorée, identifiant absent ou invalide");
+            salvagePaid(tag, label, salvage);
             return null;
         }
         UUID id = tag.getUUID("id");
@@ -110,15 +118,18 @@ public final class WorkshopEntry {
                 || !tag.contains("pos", Tag.TAG_COMPOUND)
                 || !tag.contains("total", Tag.TAG_INT)) {
             LOGGER.warn("Fabrication {} ignorée, champs absents ou invalides", id);
+            salvagePaid(tag, label, salvage);
             return null;
         }
         ItemStack result = ItemStack.of(tag.getCompound("result"));
-        List<ItemStack> paid = loadStacks(tag.getList("paid", Tag.TAG_COMPOUND));
-        List<ItemStack> remainders = loadStacks(tag.getList("remainders", Tag.TAG_COMPOUND));
-        if (result.isEmpty() || paid == null || remainders == null) {
-            LOGGER.warn("Fabrication {} ignorée, objet inconnu (mod retiré ?)", id);
+        if (result.isEmpty()) {
+            LOGGER.warn("Fabrication {} ignorée, résultat inconnu (mod retiré ?) : {}", id,
+                    tag.getCompound("result").getString("id"));
+            salvagePaid(tag, label, salvage);
             return null;
         }
+        List<ItemStack> paid = loadStacks(tag.getList("paid", Tag.TAG_COMPOUND), "payée", label);
+        List<ItemStack> remainders = loadStacks(tag.getList("remainders", Tag.TAG_COMPOUND), "de reste", label);
         return new WorkshopEntry(id, recipe, result, paid, remainders, tag.getInt("total"), tag.getDouble("done"),
                 ResourceKey.create(Registries.DIMENSION, level), NbtUtils.readBlockPos(tag.getCompound("pos")),
                 tag.getBoolean("powered"));
@@ -132,16 +143,31 @@ public final class WorkshopEntry {
         return list;
     }
 
-    /** {@code null} si une pile est illisible (objet disparu) ; l'appelant décide quoi en faire. */
-    private static List<ItemStack> loadStacks(ListTag list) {
+    /** Les piles lisibles de {@code list} ; une pile illisible (objet disparu) est sautée et journalisée. */
+    private static List<ItemStack> loadStacks(ListTag list, String kind, String entry) {
         List<ItemStack> out = new ArrayList<>(list.size());
         for (int i = 0; i < list.size(); i++) {
-            ItemStack s = ItemStack.of(list.getCompound(i));
+            CompoundTag raw = list.getCompound(i);
+            ItemStack s = ItemStack.of(raw);
             if (s.isEmpty()) {
-                return null;
+                LOGGER.warn("Fabrication {} : pile {} perdue, objet inconnu {} x{} (mod retiré ?)", entry, kind,
+                        raw.getString("id"), raw.getInt("Count"));
+            } else {
+                out.add(s);
             }
-            out.add(s);
         }
         return out;
+    }
+
+    /** Remet au stock les piles payées lisibles d'une entrée abandonnée, et journalise ce qui est perdu. */
+    private static void salvagePaid(CompoundTag tag, String entry, Consumer<ItemStack> salvage) {
+        List<ItemStack> paid = loadStacks(tag.getList("paid", Tag.TAG_COMPOUND), "payée", entry);
+        for (ItemStack s : paid) {
+            salvage.accept(s);
+        }
+        if (!paid.isEmpty()) {
+            LOGGER.warn("Fabrication {} abandonnée : {} pile(s) payée(s) remise(s) au stock du joueur", entry,
+                    paid.size());
+        }
     }
 }

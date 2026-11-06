@@ -42,6 +42,8 @@ public final class JoueurDeTest {
     private final List<QueuePacket> files = new ArrayList<>();
     /** Les paquets de synchronisation de menu (contenu, case, donnée), dans l'ordre d'envoi. */
     private final List<Packet<?>> menus = new ArrayList<>();
+    /** Les fragments du catalogue que l'entrée en jeu elle-même a envoyés, avant qu'on ne les oublie. */
+    private final List<RecipeListPacket> listesALaConnexion = new ArrayList<>();
 
     private JoueurDeTest(EmbeddedChannel canal, ServerPlayer joueur) {
         this.canal = canal;
@@ -60,10 +62,16 @@ public final class JoueurDeTest {
         JoueurDeTest simule = new JoueurDeTest(canal, joueur);
         simule.lire();
         // L'entrée en jeu a envoyé son lot de paquets : on ne garde que ce qui suit.
+        simule.listesALaConnexion.addAll(simule.listes);
         simule.listes.clear();
         simule.files.clear();
         simule.menus.clear();
         return simule;
+    }
+
+    /** Les fragments du catalogue reçus pendant l'entrée en jeu (la connexion réelle, pas un rejeu). */
+    public List<RecipeListPacket> listesALaConnexion() {
+        return List.copyOf(listesALaConnexion);
     }
 
     public ServerPlayer joueur() {

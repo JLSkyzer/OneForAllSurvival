@@ -592,6 +592,155 @@ public final class BenchOrdersGameTests {
         });
     }
 
+    // --- Remboursements particuliers, menu, rechargement --------------------------------------
+
+    @GameTest(template = "test/plancher", batch = "etabli_annul_mort")
+    public static void unJoueurMortRecoitSesPilesAuStock(GameTestHelper helper) {
+        BenchCatalog avant = installer();
+        JoueurDeTest j = null;
+        PlayerWorkshop atelier = null;
+        try {
+            j = joueur(helper, "IngenieurMort", true);
+            atelier = atelier(helper, j.uuid());
+            garnir(j.joueur(), 0, new ItemStack(Items.IRON_INGOT, 2));
+            garnir(j.joueur(), 1, new ItemStack(Items.COPPER_INGOT, 1));
+            helper.assertTrue(BenchOrders.order(j.joueur(), R_LONGUE, 1, helper.absolutePos(POS)) == OrderResult.OK,
+                    "la commande devait passer");
+            UUID id = atelier.queue().get(0).id();
+            j.joueur().setHealth(0.0f);
+            helper.assertTrue(!j.joueur().isAlive(), "le joueur devait être mort");
+            helper.assertTrue(BenchOrders.cancel(j.joueur(), id), "l'annulation devait réussir");
+            helper.assertTrue(compter(j.joueur(), Items.IRON_INGOT) == 0 && compter(j.joueur(), Items.COPPER_INGOT) == 0,
+                    "rien ne doit être rendu à l'inventaire d'un mort");
+            helper.assertTrue(compterStock(atelier, Items.IRON_INGOT) == 2 && compterStock(atelier, Items.COPPER_INGOT) == 1,
+                    "les piles payées devaient aller au stock : fer " + compterStock(atelier, Items.IRON_INGOT)
+                            + ", cuivre " + compterStock(atelier, Items.COPPER_INGOT));
+            helper.succeed();
+        } finally {
+            quitter(j, atelier);
+            BenchCatalog.install(avant);
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = "etabli_annul_creatif_plein")
+    public static void unCreatifAvecUnInventairePleinNePerdRien(GameTestHelper helper) {
+        BenchCatalog avant = installer();
+        JoueurDeTest j = null;
+        PlayerWorkshop atelier = null;
+        try {
+            j = joueur(helper, "IngenieurCreatifPlein", true);
+            atelier = atelier(helper, j.uuid());
+            garnir(j.joueur(), 0, new ItemStack(Items.IRON_INGOT, 5));
+            garnir(j.joueur(), 1, new ItemStack(Items.COPPER_INGOT, 1));
+            helper.assertTrue(BenchOrders.order(j.joueur(), R_FER, 1, helper.absolutePos(POS)) == OrderResult.OK,
+                    "la commande devait passer");
+            UUID id = atelier.queue().get(0).id();
+            j.joueur().setGameMode(net.minecraft.world.level.GameType.CREATIVE);
+            helper.assertTrue(j.joueur().getAbilities().instabuild, "le joueur devait être en créatif");
+            for (int i = 0; i < j.joueur().getInventory().items.size(); i++) {
+                garnir(j.joueur(), i, new ItemStack(Items.DIRT, 64));
+            }
+            helper.assertTrue(BenchOrders.cancel(j.joueur(), id), "l'annulation devait réussir");
+            // Inventory.add avale la pile d'un joueur créatif quand rien n'entre : elle doit aller au stock.
+            helper.assertTrue(compterStock(atelier, Items.IRON_INGOT) == 2 && compterStock(atelier, Items.COPPER_INGOT) == 1,
+                    "tout le surplus devait être au stock : fer " + compterStock(atelier, Items.IRON_INGOT)
+                            + ", cuivre " + compterStock(atelier, Items.COPPER_INGOT));
+            helper.succeed();
+        } finally {
+            quitter(j, atelier);
+            BenchCatalog.install(avant);
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = "etabli_annul_creatif_place")
+    public static void unCreatifAvecDeLaPlaceRecupereSesPiles(GameTestHelper helper) {
+        BenchCatalog avant = installer();
+        JoueurDeTest j = null;
+        PlayerWorkshop atelier = null;
+        try {
+            j = joueur(helper, "IngenieurCreatifPlace", true);
+            atelier = atelier(helper, j.uuid());
+            garnir(j.joueur(), 0, new ItemStack(Items.IRON_INGOT, 5));
+            garnir(j.joueur(), 1, new ItemStack(Items.COPPER_INGOT, 1));
+            helper.assertTrue(BenchOrders.order(j.joueur(), R_FER, 1, helper.absolutePos(POS)) == OrderResult.OK,
+                    "la commande devait passer");
+            UUID id = atelier.queue().get(0).id();
+            j.joueur().setGameMode(net.minecraft.world.level.GameType.CREATIVE);
+            helper.assertTrue(BenchOrders.cancel(j.joueur(), id), "l'annulation devait réussir");
+            helper.assertTrue(compter(j.joueur(), Items.IRON_INGOT) == 5 && compter(j.joueur(), Items.COPPER_INGOT) == 1,
+                    "avec de la place, le rendu doit rester dans l'inventaire");
+            helper.assertTrue(atelier.stock().isEmpty(), "le stock devait rester vide : " + atelier.stock());
+            helper.assertTrue(j.joueur().getAbilities().instabuild, "le mode créatif devait être rétabli");
+            helper.succeed();
+        } finally {
+            quitter(j, atelier);
+            BenchCatalog.install(avant);
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = "etabli_menu_loin")
+    public static void unMenuLointainNeChargePasDeChunk(GameTestHelper helper) {
+        JoueurDeTest j = null;
+        try {
+            j = joueur(helper, "IngenieurLoin", true);
+            BlockPos loin = new BlockPos(1_000_000, 64, 1_000_000);
+            net.minecraft.server.level.ServerLevel monde = helper.getLevel();
+            helper.assertTrue(!monde.hasChunk(loin.getX() >> 4, loin.getZ() >> 4), "le chunk lointain est déjà chargé");
+            EngineerBenchMenu menu = new EngineerBenchMenu(99, j.joueur().getInventory(), loin);
+            helper.assertTrue(!menu.stillValid(j.joueur()), "un établi à un million de blocs ne peut pas être valide");
+            helper.assertTrue(!monde.hasChunk(loin.getX() >> 4, loin.getZ() >> 4),
+                    "la vérification de portée a chargé un chunk lointain");
+            helper.succeed();
+        } finally {
+            quitter(j, null);
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = "etabli_connexion")
+    public static void lEntreeEnJeuEnvoieLeCatalogue(GameTestHelper helper) {
+        BenchCatalog avant = installer();
+        JoueurDeTest j = null;
+        try {
+            j = joueur(helper, "IngenieurConnexion", true);
+            var fragments = j.listesALaConnexion();
+            helper.assertTrue(!fragments.isEmpty(), "la vraie connexion devait envoyer le catalogue");
+            for (var f : fragments) {
+                helper.assertTrue(f.generation() == BenchCatalog.generation(), "génération du paquet inattendue");
+            }
+            helper.succeed();
+        } finally {
+            quitter(j, null);
+            BenchCatalog.install(avant);
+        }
+    }
+
+    /** Un vrai /reload : le joueur connecté reçoit de nouveau le catalogue, de la génération qui vient d'être installée. */
+    @GameTest(template = "test/plancher", batch = "etabli_reload_envoi", timeoutTicks = 400)
+    public static void apresUnReloadLeJoueurConnecteRecoitLeNouveauCatalogue(GameTestHelper helper) {
+        MinecraftServer server = serveur(helper);
+        JoueurDeTest j = joueur(helper, "IngenieurRechargeEnvoi", true);
+        dev.oneforallsurvival.bench.BenchNetwork.sendCatalogIfNeeded(j.joueur());
+        j.listesRecues();
+        int generationAvant = BenchCatalog.generation();
+        List<dev.oneforallsurvival.bench.RecipeListPacket> recus = new ArrayList<>();
+        server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), "reload");
+        helper.runAfterDelay(380, () -> quitter(j, null));
+        helper.succeedWhen(() -> {
+            recus.addAll(j.listesRecues());
+            helper.assertTrue(BenchCatalog.generation() > generationAvant, "le catalogue n'a pas été reconstruit");
+            helper.assertTrue(!recus.isEmpty(), "aucun catalogue reçu après le reload");
+            int taille = 0;
+            for (var f : recus) {
+                helper.assertTrue(f.generation() == BenchCatalog.generation(),
+                        "génération reçue " + f.generation() + ", courante " + BenchCatalog.generation());
+                taille += f.recipes().size();
+            }
+            helper.assertTrue(taille == BenchCatalog.current().recipes().size(),
+                    "le catalogue reçu est incomplet : " + taille + " sur " + BenchCatalog.current().recipes().size());
+            quitter(j, null);
+        });
+    }
+
     // --- Bloc, énergie, vitesse --------------------------------------------------------------
 
     private static EngineerBenchBlockEntity poserBanc(GameTestHelper helper) {
@@ -808,16 +957,16 @@ public final class BenchOrdersGameTests {
     }
 
     /**
-     * Rejoue la connexion du joueur : le gestionnaire de connexion du mod envoie le catalogue. Le joueur de
-     * test entre sans passer par l'événement ; on oublie donc ce qu'il a reçu, on publie l'événement, et on
-     * rend les fragments reçus.
+     * Rejoue la synchronisation des données du joueur, comme Forge la publie à sa connexion : le gestionnaire du
+     * mod envoie le catalogue. On oublie ce que le joueur a reçu et ce que le serveur sait lui avoir envoyé, on
+     * publie l'événement, et on rend les fragments reçus.
      */
     private static java.util.List<dev.oneforallsurvival.bench.RecipeListPacket> connecter(JoueurDeTest j) {
         j.listesRecues();
         dev.oneforallsurvival.bench.BenchNetwork.onLogout(
                 new net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent(j.joueur()));
-        dev.oneforallsurvival.bench.BenchNetwork.onLogin(
-                new net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent(j.joueur()));
+        dev.oneforallsurvival.bench.BenchNetwork.onDatapackSync(new net.minecraftforge.event.OnDatapackSyncEvent(
+                j.joueur().server.getPlayerList(), j.joueur()));
         return j.listesRecues();
     }
 
@@ -980,7 +1129,7 @@ public final class BenchOrdersGameTests {
         try {
             j = joueur(helper, "IngenieurCatalogue", true);
             dev.oneforallsurvival.bench.client.BenchClientState.reset();
-            // Le catalogue part à la connexion (PlayerLoggedInEvent).
+            // Le catalogue part à la synchronisation des données (OnDatapackSyncEvent).
             var fragments = connecter(j);
             helper.assertTrue(!fragments.isEmpty(), "le catalogue devait être envoyé à la connexion");
             for (var f : fragments) {

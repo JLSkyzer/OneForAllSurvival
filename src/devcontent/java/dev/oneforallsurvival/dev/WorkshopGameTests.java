@@ -264,7 +264,60 @@ public final class WorkshopGameTests {
         WorkshopSavedData relu = WorkshopSavedData.load(tag);
         PlayerWorkshop r = relu.of(joueur);
         helper.assertTrue(r.queue().size() == 1, "seule l'entrée saine devait rester, vu " + r.queue().size());
-        helper.assertTrue(r.stock().size() == 1 && r.stock().get(0).getCount() == 4, "le stock sain devait rester");
+        // L'entrée au résultat inconnu n'est pas relancée, mais son bois payé n'est pas détruit : il va au stock.
+        helper.assertTrue(r.stock().size() == 2 && compterStock(r, Items.STONE) == 4 && compterStock(r, Items.OAK_PLANKS) == 1,
+                "le stock sain devait rester, plus le bois payé de l'entrée inconnue : " + r.stock());
+        helper.succeed();
+    }
+
+    private static int compterStock(PlayerWorkshop atelier, net.minecraft.world.item.Item item) {
+        int n = 0;
+        for (ItemStack s : atelier.stock()) {
+            if (s.is(item)) {
+                n += s.getCount();
+            }
+        }
+        return n;
+    }
+
+    @GameTest(template = "test/plancher", batch = "etabli_file")
+    public static void unResultatInconnuRendLesPilesPayeesAuStock(GameTestHelper helper) {
+        WorkshopSavedData data = new WorkshopSavedData();
+        UUID joueur = UUID.randomUUID();
+        data.of(joueur).add(entree(UUID.randomUUID(), new ItemStack(Items.STICK, 2), 50,
+                List.of(new ItemStack(Items.IRON_INGOT, 2), new ItemStack(Items.COPPER_INGOT, 3),
+                        new ItemStack(Items.OAK_PLANKS)),
+                List.of(new ItemStack(Items.BUCKET))));
+        CompoundTag tag = data.save(new CompoundTag());
+        CompoundTag entree = tag.getList("workshops", 10).getCompound(0).getList("queue", 10).getCompound(0);
+        // Un mod retiré : le résultat n'existe plus, et une des piles payées non plus.
+        entree.getCompound("result").putString("id", "oneforallsurvival:n_existe_pas");
+        entree.getList("paid", 10).getCompound(1).putString("id", "oneforallsurvival:aussi_disparu");
+
+        PlayerWorkshop r = WorkshopSavedData.load(tag).of(joueur);
+        helper.assertTrue(r.queue().isEmpty(), "l'entrée au résultat inconnu ne devait pas être relancée");
+        helper.assertTrue(compterStock(r, Items.IRON_INGOT) == 2 && compterStock(r, Items.OAK_PLANKS) == 1,
+                "les piles payées lisibles devaient aller au stock : " + r.stock());
+        helper.assertTrue(compterStock(r, Items.COPPER_INGOT) == 0 && r.stock().size() == 2,
+                "la pile illisible ne devait pas apparaître : " + r.stock());
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = "etabli_file")
+    public static void uneSeulePilePayeeIllisibleNeFaitPasPerdreLEntree(GameTestHelper helper) {
+        WorkshopSavedData data = new WorkshopSavedData();
+        UUID joueur = UUID.randomUUID();
+        data.of(joueur).add(entree(UUID.randomUUID(), new ItemStack(Items.STICK, 2), 50,
+                List.of(new ItemStack(Items.IRON_INGOT, 2), new ItemStack(Items.COPPER_INGOT, 3)), List.of()));
+        CompoundTag tag = data.save(new CompoundTag());
+        CompoundTag entree = tag.getList("workshops", 10).getCompound(0).getList("queue", 10).getCompound(0);
+        entree.getList("paid", 10).getCompound(0).putString("id", "oneforallsurvival:aussi_disparu");
+
+        PlayerWorkshop r = WorkshopSavedData.load(tag).of(joueur);
+        helper.assertTrue(r.queue().size() == 1, "l'entrée au résultat connu devait rester, vu " + r.queue().size());
+        List<ItemStack> payees = r.queue().get(0).paid();
+        helper.assertTrue(payees.size() == 1 && payees.get(0).is(Items.COPPER_INGOT) && payees.get(0).getCount() == 3,
+                "la pile lisible devait rester payée : " + payees);
         helper.succeed();
     }
 
