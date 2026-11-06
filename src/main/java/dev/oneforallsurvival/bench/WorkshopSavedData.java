@@ -3,17 +3,22 @@ package dev.oneforallsurvival.bench;
 import com.mojang.logging.LogUtils;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.saveddata.SavedData;
 import org.slf4j.Logger;
 
@@ -27,6 +32,14 @@ public final class WorkshopSavedData extends SavedData {
     private final Map<UUID, PlayerWorkshop> workshops = new LinkedHashMap<>();
     /** Les ateliers dont la file n'est pas vide : seuls ceux-là sont visités à chaque tick. */
     private final Set<PlayerWorkshop> active = new LinkedHashSet<>();
+    /**
+     * Combien de têtes de file sont rattachées à chaque établi. Un établi demande ainsi en un accès s'il a
+     * du travail, sans parcourir les ateliers ; seule la tête de file compte, car seule elle avance.
+     */
+    private final Map<BenchSite, Integer> heads = new HashMap<>();
+
+    /** Un établi : sa dimension et sa position. */
+    record BenchSite(ResourceKey<Level> level, BlockPos pos) {}
 
     /** Instance autonome (essais) ; en jeu, passer par {@link #get(MinecraftServer)}. */
     public WorkshopSavedData() {}
@@ -45,11 +58,29 @@ public final class WorkshopSavedData extends SavedData {
         return active.isEmpty() ? List.of() : new ArrayList<>(active);
     }
 
+    /** Vrai si la tête de file d'un atelier est rattachée à cet établi. */
+    public boolean hasHeadAt(ResourceKey<Level> level, BlockPos pos) {
+        return heads.containsKey(new BenchSite(level, pos));
+    }
+
     void queueChanged(PlayerWorkshop workshop) {
+        BenchSite now = null;
         if (workshop.isActive()) {
             active.add(workshop);
+            WorkshopEntry head = workshop.queue().get(0);
+            now = new BenchSite(head.benchLevel(), head.benchPos());
         } else {
             active.remove(workshop);
+        }
+        BenchSite before = workshop.headSite();
+        if (!Objects.equals(before, now)) {
+            if (before != null) {
+                heads.computeIfPresent(before, (site, n) -> n > 1 ? n - 1 : null);
+            }
+            if (now != null) {
+                heads.merge(now, 1, Integer::sum);
+            }
+            workshop.setHeadSite(now);
         }
     }
 

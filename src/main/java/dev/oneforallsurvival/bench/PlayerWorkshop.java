@@ -17,6 +17,8 @@ public final class PlayerWorkshop {
     private final List<WorkshopEntry> queue = new ArrayList<>();
     private final List<ItemStack> stock = new ArrayList<>();
     private int ticksSinceDirty;
+    /** L'établi de la tête de file telle que {@link WorkshopSavedData} l'a comptée ; null si la file est vide. */
+    private WorkshopSavedData.BenchSite headSite;
 
     PlayerWorkshop(WorkshopSavedData owner) {
         this.owner = owner;
@@ -99,6 +101,14 @@ public final class PlayerWorkshop {
 
     void restoreStock(ItemStack stack) {
         stock.add(stack);
+    }
+
+    WorkshopSavedData.BenchSite headSite() {
+        return headSite;
+    }
+
+    void setHeadSite(WorkshopSavedData.BenchSite headSite) {
+        this.headSite = headSite;
     }
 
     boolean isActive() {

@@ -33,7 +33,7 @@ public final class WorkshopEntry {
     private double doneTicks;
     private final ResourceKey<Level> benchLevel;
     private final BlockPos benchPos;
-    private final boolean lastKnownPowered;
+    private boolean lastKnownPowered;
 
     public WorkshopEntry(UUID id, ResourceLocation recipeId, ItemStack result, List<ItemStack> paid,
             List<ItemStack> remainders, int totalTicks, double doneTicks, ResourceKey<Level> benchLevel,
@@ -63,6 +63,11 @@ public final class WorkshopEntry {
 
     void setDoneTicks(double doneTicks) {
         this.doneTicks = doneTicks;
+    }
+
+    /** Dernier état connu de l'établi ; écrit par le ticker, sauvegardé avec la progression. */
+    void setLastKnownPowered(boolean lastKnownPowered) {
+        this.lastKnownPowered = lastKnownPowered;
     }
 
     public boolean isDone() {

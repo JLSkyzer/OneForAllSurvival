@@ -12,5 +12,13 @@
   "command.oneforallsurvival.role.create_failed": "Impossible de créer le rôle %s : identifiant invalide (a-z, 0-9, _ ; 32 caractères maximum) ou déjà utilisé",
   "command.oneforallsurvival.role.bad_color": "Choisissez une vraie couleur (pas reset)",
   "command.oneforallsurvival.role.empty_label": "Le libellé ne peut pas être vide",
-  "command.oneforallsurvival.role.one_player_only": "Un seul joueur doit être désigné"
+  "command.oneforallsurvival.role.one_player_only": "Un seul joueur doit être désigné",
+  "block.oneforallsurvival.engineer_bench": "Établi d'ingénieur",
+  "itemGroup.oneforallsurvival": "One For All Survival",
+  "message.oneforallsurvival.bench.refused.not_engineer": "Seul un Ingénieur peut utiliser l'établi.",
+  "message.oneforallsurvival.bench.refused.unknown_recipe": "Cette recette n'existe pas à l'établi.",
+  "message.oneforallsurvival.bench.refused.missing_ingredients": "Il vous manque des ingrédients.",
+  "message.oneforallsurvival.bench.refused.queue_full": "La file de l'établi est pleine.",
+  "message.oneforallsurvival.bench.refused.too_far": "Vous êtes trop loin de l'établi.",
+  "message.oneforallsurvival.bench.refused.bad_count": "Quantité invalide (de 1 à 64)."
 }

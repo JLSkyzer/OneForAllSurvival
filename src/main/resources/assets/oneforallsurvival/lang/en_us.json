@@ -12,5 +12,13 @@
   "command.oneforallsurvival.role.create_failed": "Cannot create role %s: invalid id (a-z, 0-9, _; 32 characters max) or already used",
   "command.oneforallsurvival.role.bad_color": "Pick an actual color (not reset)",
   "command.oneforallsurvival.role.empty_label": "The label cannot be empty",
-  "command.oneforallsurvival.role.one_player_only": "Exactly one player must be targeted"
+  "command.oneforallsurvival.role.one_player_only": "Exactly one player must be targeted",
+  "block.oneforallsurvival.engineer_bench": "Engineer's Workbench",
+  "itemGroup.oneforallsurvival": "One For All Survival",
+  "message.oneforallsurvival.bench.refused.not_engineer": "Only an Engineer can use the workbench.",
+  "message.oneforallsurvival.bench.refused.unknown_recipe": "This recipe does not exist at the workbench.",
+  "message.oneforallsurvival.bench.refused.missing_ingredients": "You are missing ingredients.",
+  "message.oneforallsurvival.bench.refused.queue_full": "The workbench queue is full.",
+  "message.oneforallsurvival.bench.refused.too_far": "You are too far from the workbench.",
+  "message.oneforallsurvival.bench.refused.bad_count": "Invalid quantity (1 to 64)."
 }

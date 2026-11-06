@@ -55,6 +55,12 @@ public final class BenchCatalog {
 
     private static volatile BenchCatalog current = new BenchCatalog(List.of(), List.of());
 
+    /**
+     * Compteur de catalogues installés. Il monte à chaque installation (donc à chaque /reload) : un
+     * client qui a reçu le catalogue d'une autre génération doit le recevoir de nouveau.
+     */
+    private static volatile int generation = 1;
+
     /** Le RecipeManager du rechargement en cours, et le dernier déjà traité. */
     private static RecipeManager pending;
     private static RecipeManager processed;
@@ -71,6 +77,28 @@ public final class BenchCatalog {
 
     public static BenchCatalog current() {
         return current;
+    }
+
+    /** Génération du catalogue courant : change à chaque {@link #install}. */
+    public static int generation() {
+        return generation;
+    }
+
+    /** Un catalogue sans recette spéciale, sorti d'une liste de recettes (essais). */
+    public static BenchCatalog of(List<BenchRecipe> recipes) {
+        return new BenchCatalog(recipes, List.of());
+    }
+
+    /**
+     * Installe un catalogue et passe à une nouvelle génération.
+     *
+     * @return le catalogue remplacé
+     */
+    public static synchronized BenchCatalog install(BenchCatalog catalog) {
+        BenchCatalog previous = current;
+        current = catalog;
+        generation++;
+        return previous;
     }
 
     public Collection<BenchRecipe> recipes() {
@@ -101,9 +129,9 @@ public final class BenchCatalog {
             return;
         }
         processed = manager;
-        current = extract(manager, event.getRegistryAccess(), BenchConfig.managedMods(),
+        install(extract(manager, event.getRegistryAccess(), BenchConfig.managedMods(),
                 BenchConfig.tableAllowedItems(), BenchConfig.excludedItems(), BenchOverrides.current(),
-                BenchConfig.timeParams());
+                BenchConfig.timeParams()));
         LOGGER.info("Etabli : {} recettes visibles au catalogue, {} recettes speciales laissees sur la table",
                 current.byId.size(), current.specials.size());
         Map<String, Integer> parMod = new TreeMap<>();

@@ -1,6 +1,8 @@
 package dev.oneforallsurvival.bench;
 
+import dev.oneforallsurvival.machine.MachineState;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 
@@ -14,10 +16,30 @@ public final class WorkshopTicker {
         }
         MinecraftServer server = event.getServer();
         WorkshopSavedData data = WorkshopSavedData.get(server);
-        // La vitesse selon l'établi arrive avec le bloc (Task 4) ; ici, la vitesse manuelle.
-        double speed = BenchConfig.manualSpeed();
         for (PlayerWorkshop workshop : data.activeWorkshops()) {
-            workshop.advance(speed);
+            // Un atelier actif a une file non vide ; seule sa tête avance.
+            workshop.advance(speedOf(server, workshop.queue().get(0)));
         }
+    }
+
+    /**
+     * Vitesse de la tête de file, selon l'établi où elle a été commandée.
+     * <ul>
+     *   <li>établi chargé, bloc présent : vitesse alimentée s'il tourne, à la main sinon ; l'état est mémorisé ;</li>
+     *   <li>établi chargé, bloc absent (cassé) : à la main ;</li>
+     *   <li>établi non chargé : le dernier état connu. Jamais de chargement de chunk pour le savoir.</li>
+     * </ul>
+     */
+    static double speedOf(MinecraftServer server, WorkshopEntry head) {
+        ServerLevel level = server.getLevel(head.benchLevel());
+        boolean powered;
+        if (level == null || !level.hasChunkAt(head.benchPos())) {
+            powered = head.lastKnownPowered();
+        } else {
+            powered = level.getBlockEntity(head.benchPos()) instanceof EngineerBenchBlockEntity bench
+                    && bench.state() == MachineState.RUNNING;
+            head.setLastKnownPowered(powered);
+        }
+        return powered ? BenchConfig.poweredSpeed() : BenchConfig.manualSpeed();
     }
 }
