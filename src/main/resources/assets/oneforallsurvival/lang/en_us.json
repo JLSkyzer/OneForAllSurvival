@@ -127,5 +127,16 @@
   "item.oneforallsurvival.instrument_core": "Instrument Core",
   "item.oneforallsurvival.battery_cell": "Battery Cell",
   "item.oneforallsurvival.incomplete_instrument_core": "Incomplete Instrument Core",
-  "item.oneforallsurvival.incomplete_battery_cell": "Incomplete Battery Cell"
+  "item.oneforallsurvival.incomplete_battery_cell": "Incomplete Battery Cell",
+  "block.oneforallsurvival.galvanic_bath": "Galvanic Bath",
+  "gui.oneforallsurvival.galvanic.piece": "Part to treat",
+  "gui.oneforallsurvival.galvanic.zinc": "Zinc",
+  "gui.oneforallsurvival.galvanic.state": "State: %s",
+  "gui.oneforallsurvival.galvanic.state.stopped": "Idle",
+  "gui.oneforallsurvival.galvanic.state.running": "Running",
+  "gui.oneforallsurvival.galvanic.state.no_power": "No power",
+  "gui.oneforallsurvival.galvanic.state.fault": "Broken down",
+  "gui.oneforallsurvival.galvanic.energy": "%s / %s FE",
+  "gui.oneforallsurvival.galvanic.jei.time": "Duration: %s at full efficiency",
+  "gui.oneforallsurvival.galvanic.jei.energy": "%s FE per tick"
 }

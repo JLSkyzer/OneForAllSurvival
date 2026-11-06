@@ -127,5 +127,16 @@
   "item.oneforallsurvival.instrument_core": "Noyau d'instrument",
   "item.oneforallsurvival.battery_cell": "Cellule de batterie",
   "item.oneforallsurvival.incomplete_instrument_core": "Noyau d'instrument inachevé",
-  "item.oneforallsurvival.incomplete_battery_cell": "Cellule de batterie inachevée"
+  "item.oneforallsurvival.incomplete_battery_cell": "Cellule de batterie inachevée",
+  "block.oneforallsurvival.galvanic_bath": "Bain galvanique",
+  "gui.oneforallsurvival.galvanic.piece": "Pièce à traiter",
+  "gui.oneforallsurvival.galvanic.zinc": "Zinc",
+  "gui.oneforallsurvival.galvanic.state": "État : %s",
+  "gui.oneforallsurvival.galvanic.state.stopped": "À l'arrêt",
+  "gui.oneforallsurvival.galvanic.state.running": "En marche",
+  "gui.oneforallsurvival.galvanic.state.no_power": "Sans courant",
+  "gui.oneforallsurvival.galvanic.state.fault": "En panne",
+  "gui.oneforallsurvival.galvanic.energy": "%s / %s FE",
+  "gui.oneforallsurvival.galvanic.jei.time": "Durée : %s à plein rendement",
+  "gui.oneforallsurvival.galvanic.jei.energy": "%s FE par tick"
 }

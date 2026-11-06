@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "oneforallsurvival:block/engineer_bench_iron"
+  }
+}

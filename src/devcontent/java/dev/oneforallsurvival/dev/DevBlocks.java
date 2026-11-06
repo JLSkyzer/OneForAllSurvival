@@ -89,6 +89,9 @@ public final class DevBlocks {
             // Résultats d'essai des recettes de l'établi (surcharges, exclusions, chaîne de fabrication).
             helper.register(new ResourceLocation("oneforallsurvival", "test_hidden"), new Item(new Item.Properties()));
             helper.register(new ResourceLocation("oneforallsurvival", "test_chain"), new Item(new Item.Properties()));
+            // Pièce d'essai du bain galvanique et sa version traitée (recette de devcontent).
+            helper.register(new ResourceLocation("oneforallsurvival", "test_part"), new Item(new Item.Properties()));
+            helper.register(new ResourceLocation("oneforallsurvival", "test_part_done"), new Item(new Item.Properties()));
         });
     }
 

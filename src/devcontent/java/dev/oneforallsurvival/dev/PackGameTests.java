@@ -1,14 +1,18 @@
 package dev.oneforallsurvival.dev;
 
+import dev.oneforallsurvival.repair.GalvanicRecipe;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
+import net.minecraftforge.registries.ForgeRegistries;
 
 /**
  * Garde-fous du pack de développement. Ces essais ne prouvent quelque chose que lancés avec le
@@ -42,6 +46,30 @@ public final class PackGameTests {
         // Un coffre n'expose pas d'énergie : une réponse vide est la bonne issue, un plantage non.
         boolean present = be.getCapability(ForgeCapabilities.ENERGY, null).isPresent();
         helper.assertTrue(!present, "un coffre ne doit pas exposer d'énergie");
+        helper.succeed();
+    }
+
+    /**
+     * Les quatre recettes du bain galvanique livrées avec le mod se chargent, chacune vers sa pièce
+     * traitée. Avec Create, l'étiquette du zinc n'est pas vide : sans lui, le bain n'a rien à traiter
+     * (ce que le pack, lui, doit prouver).
+     */
+    @GameTest(template = "test/plancher", batch = "pack_bain")
+    public static void lesQuatreRecettesDuBainSontChargees(GameTestHelper helper) {
+        boolean create = ModList.get().isLoaded("create");
+        for (String nom : new String[] {"fuse", "coil", "bearing", "cleaning_kit"}) {
+            ResourceLocation id = new ResourceLocation("oneforallsurvival", "galvanic/" + nom);
+            var recette = helper.getLevel().getRecipeManager().byKey(id).orElse(null);
+            helper.assertTrue(recette instanceof GalvanicRecipe, "recette absente ou d'un autre type : " + id);
+            GalvanicRecipe bain = (GalvanicRecipe) recette;
+            helper.assertTrue(ForgeRegistries.ITEMS.getKey(bain.result().getItem())
+                    .equals(new ResourceLocation("oneforallsurvival", "treated_" + nom)),
+                    id + " devait donner treated_" + nom + ", vu " + bain.result());
+            helper.assertTrue(bain.ingredient().test(new ItemStack(ForgeRegistries.ITEMS.getValue(
+                    new ResourceLocation("oneforallsurvival", nom)))), id + " devait accepter la pièce " + nom);
+            helper.assertTrue(!create || bain.zinc().getItems().length > 0,
+                    "Create est chargé mais l'étiquette du zinc est vide : " + id);
+        }
         helper.succeed();
     }
 }
