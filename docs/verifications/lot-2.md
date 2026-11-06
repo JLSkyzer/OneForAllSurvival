@@ -6,13 +6,22 @@ Relevés du 2026-11-06, sur la branche `lot-2`. Ce document couvre la tâche 7 (
 
 | Commande | Résultat lu |
 |---|---|
-| `./gradlew test build runGameTestServer -PwithPack` | 61 tests JUnit, 0 échec (`build/test-results`) ; « All 168 required tests passed » (20:52:06) |
-| `./gradlew runGameTestServer` (sans pack), premier passage | **« 1 required tests failed »** : `laProgressionEtLaReserveSurviventAuRechargement`, « la progression est nulle, le test ne prouve rien » |
+| `./gradlew test build runGameTestServer -PwithPack` (avant la revue finale) | 61 tests JUnit, 0 échec (`build/test-results`) ; « All 168 required tests passed » (20:52:06) |
+| `./gradlew runGameTestServer` (sans pack), premier passage (avant la revue finale) | **« 1 required tests failed »** : `laProgressionEtLaReserveSurviventAuRechargement`, « la progression est nulle, le test ne prouve rien » |
 | Même commande, sans rien changer | « All 168 required tests passed » (21:00:19) |
+| **Après la revue finale** : `./gradlew test` | 61 tests JUnit, 0 échec, 0 ignoré (somme des `build/test-results/test/*.xml`) |
+| `./gradlew runGameTestServer` (sans pack), 5 passages de suite | « All 184 required tests passed » aux 5 passages, 0 échec |
+| `./gradlew runGameTestServer -PwithPack` | « All 184 required tests passed » (1 passage) |
 
-Ce test échoue donc par intermittence : 1 fois sur 3 passages ce soir. Il attend 5 ticks et exige une progression non nulle. La cause n'a pas été cherchée.
+Les 16 tests de plus (168 à 184) : 15 de casse et repose (`CasseReposeGameTests`) et 1 de validité du menu du bain (`BainGameTests`).
 
-Jar `build/libs/oneforallsurvival-0.1.0.jar` (334683 octets, 281 entrées) : aucune entrée sous `oneforallsurvival/dev`, aucune classe `Film` ni `E2e`, aucun `bench_overrides` d'essai (liste lue dans l'archive).
+### Le GameTest intermittent
+
+`laProgressionEtLaReserveSurviventAuRechargement` a échoué 1 fois sur 3 passages le premier soir : il attend 5 ticks après la pose et exige une progression non nulle. La lecture du code écarte l'usure (à 100 d'état et 100 FE, le premier `serverTick` fait un tick de travail) : une progression nulle veut dire que le block entity n'a pas tiqué dans ces 5 ticks. **Le mécanisme n'a pas été observé** ; l'hypothèse est la porte `LevelChunk.isTicking` juste après le début du lot, déduite et non vérifiée.
+
+Correctif : `setupTicks = 20` sur les quatre lots de `MachineGameTests` (`machine_pause`, `machine_reprise`, `machine_sauvegarde`, `machine_panne`), qui exigent tous une progression ou un état dans les 10 premiers ticks. Aucun seuil n'est relevé. Mesure : 5 passages sans pack et 1 avec, aucun échec. **Cela ne prouve pas que l'intermittence a disparu** : l'échec d'origine était à 1 sur 3, mais l'on ne sait pas ce qui la faisait varier, et 6 passages verts ne bornent pas un taux plus faible. Les autres fichiers de GameTests qui posent un bloc puis lisent 5 ou 10 ticks plus tard (par exemple `UsureGameTests`) ont la même forme et n'ont pas été changés.
+
+Jar `build/libs/oneforallsurvival-0.1.0.jar` : au lot 2, 334683 octets, 281 entrées ; après la revue finale (`./gradlew build`), 335626 octets, 281 entrées. Aucune entrée sous `oneforallsurvival/dev`, ni `test_machine`, ni classe `Film`, `E2e` ou `Casse` (recherche dans la liste de l'archive).
 
 ## Serveur dédié et vrai client
 
@@ -75,9 +84,41 @@ Aucun défaut du code livré n'a été trouvé par cet essai. Chaque échec vena
 - `/data merge` répond « Nothing changed » si la pièce annoncée, tirée au sort, a déjà la valeur demandée ;
 - `sendFailure` enveloppe le message traduisible dans un composant vide.
 
+## Casser puis reposer une machine : ce qui est prouvé
+
+Défaut relevé à la revue finale : les tables de butin lâchaient un objet nu, donc une machine usée ou en panne, cassée puis reposée, revenait à 100 % sans pièce ni ingénieur. Désormais `ElectricMachineBlock.getDrops` met sur l'objet lâché un `BlockEntityTag` (état, panne, prochaine panne, protection) si la machine n'est pas neuve ; la pose le relit par le chemin vanille de `BlockItem` (qui fusionne : l'énergie, la progression et le reste repartent à zéro). Une machine neuve (état 100, sans panne, non traitée) lâche un objet nu, qui s'empile avec un objet fabriqué.
+
+**GameTests** (`CasseReposeGameTests`, écrits avant le correctif et vus échouer : 11 échecs sur 15, les 4 autres étant les cas « neuve » qui passaient déjà, puis 15 sur 15 après). Vraie casse (`destroyBlock` et loot table, `ServerPlayerGameMode.destroyBlock` en survie, explosion de puissance 1), vraie pose (`ItemStack.useOn` avec un joueur d'essai), sur la machine d'essai, l'établi et le bain :
+
+- usée à 37,5 : état et prochaine panne gardés, énergie à 0 après la pose ;
+- en panne : toujours en panne de la même pièce, `previewRepair` refuse une autre pièce, le bloc passe en `FAULT` dans les 5 ticks, la bonne pièce répare ;
+- traitée à l'état plein : l'objet porte l'état et la protection survit ;
+- neuve : objet sans étiquette, `isSameItemSameTags` avec un objet neuf, pose neuve ;
+- l'étiquette ne contient ni `energy`, ni `progress`, ni `workCredit` ;
+- en créatif, `destroyBlock` ne lâche aucun objet (vérifié, mais ce test passait déjà avant le correctif : il n'exerce pas le correctif) ;
+- joueur en survie et explosion : même objet usé que sans joueur.
+
+**Client réel sur serveur dédié** (`E2eReparation`, relancé le 2026-11-06 après la revue) : la machine 1, en panne de fusible à 0 %, est cassée par `/setblock … air destroy` côté serveur (c'est `destroyBlock(pos, true)`, la vraie loot table), l'objet est ramassé (`/tp` des objets sur le joueur), posé par un vrai clic droit, puis lu au testeur. Valeurs lues dans le journal du client :
+
+```
+etabli use ramasse, {BlockEntityTag:{condition:0.0d,fault_type:"FUSE",id:"oneforallsurvival:engineer_bench",next_fault:"FUSE",protected:0b}}
+etabli repose en panne, etat du bloc FAULT
+testeur, machine reposee apres casse : toujours en panne : etat 0 %, aspect ...report.visible.fault, energie 0, panne fault.oneforallsurvival.fuse, piece item.oneforallsurvival.fuse, protegee false
+[e2e] bilan : TOUT PASSE
+```
+
+Première phase : 1 lancement du client, 0 blocage. Relance (serveur relancé, relecture du disque) : 2 lancements, 1 blocage à la connexion (« canal ... interestOps=0 readyOps=8 », client tué par son PID exact), puis « bilan : TOUT PASSE ». Les trois machines, dont celle cassée et reposée, ont été relues après la relance.
+
+**Non couvert** :
+
+- le foreur de Create et autres modes de casse : ils appellent tous `Block.getDrops` avec le block entity, comme l'explosion et le joueur, mais seuls ces deux derniers (et la casse sans joueur) sont exercés ;
+- la casse par un joueur tenant un outil, au vrai client : l'E2E casse par `/setblock … destroy` ;
+- l'infobulle d'un objet usé : il n'en a pas, rien n'indique à Killian qu'un établi ramassé est usé tant qu'on ne le repose pas et qu'on ne le teste pas ; un item dédié ou un `ItemTooltipEvent` dépasse deux lignes, laissé de côté ;
+- `Ctrl` + clic milieu en créatif (`BlockEntityTag` complet, énergie comprise) : comportement vanille, non touché.
+
 ## Blocage à la connexion : le relevé qui manquait
 
-**24 lancements du client E2E ; 10 blocages, plus 1 blocage débloqué par l'expérience ci-dessous.** Blocage : aucun message FML reçu, les deux côtés tombent après 30 s. Les connexions réussies ont pris de 1 à 4 s.
+**24 lancements du client E2E ; 10 blocages, plus 1 blocage débloqué par l'expérience ci-dessous.** Blocage : aucun message FML reçu, les deux côtés tombent après 30 s. Les connexions réussies ont pris de 7,5 à 10,5 s, de la ligne « connexion » du client au premier PASS (11 relevés dans les journaux archivés de `run-e2e/logs`, dont ceux de la revue finale ; le « 1 à 4 s » écrit d'abord n'a pas de source, et le « 10 à 16 s » du commentaire d'`E2eClient` était trop haut, corrigé).
 
 | Série | Lancements | Blocages |
 |---|---|---|
@@ -100,21 +141,21 @@ TCP 127.0.0.1:52106 127.0.0.1:25565 ESTABLISHED 42252
 
 **Mécanisme proposé, lu au bytecode** (`Connection` de Forge 47.4.28, Netty 4.1.82). Le fil Netty, dans `channelActive`, publie `channel` puis appelle `setProtocol(HANDSHAKING)`, qui diffère `setAutoRead(true)` par `eventLoop.execute`. Pendant ce temps, le fil `Server Connector` envoie son Hello : le protocole change, donc `setAutoRead(false)`, qui met en file `clearReadPending`. Si les tâches passent dans l'ordre `setAutoRead(true)`, `clearReadPending`, alors la lecture est retirée. Le `setAutoRead(true)` suivant, celui de `setProtocol(LOGIN)`, trouve `autoRead` déjà vrai et n'appelle pas `read()`. Plus rien ne remet la lecture.
 
-Preuves, au-delà de la lecture du bytecode :
+Indices, au-delà de la lecture du bytecode (ils sont compatibles avec ce mécanisme, ils ne le prouvent pas) :
 
-1. Reproduction hors Minecraft, avec Netty seul et ces appels dans cet ordre (`scratchpad/course/CourseAutoRead.java`, non versionné), 3 essais sur 3, et le témoin (second fil attendant la fin de `channelActive`) 2 sur 2 sain :
+1. Reproduction hors Minecraft, avec Netty seul et ces appels dans cet ordre (l'ordre est imposé par construction : elle montre que cet ordre produirait l'état, pas que le client le suit) (`scratchpad/course/CourseAutoRead.java`, non versionné), 3 essais sur 3, et le témoin (second fil attendant la fin de `channelActive`) 2 sur 2 sain :
    ```
    course : octets recus=0 autoRead=true interestOps=0 readyOps=8 readPending=false
    course : apres channel.read() : octets recus=4
    temoin : octets recus=4 autoRead=true interestOps=1 readyOps=1 readPending=true
    ```
-2. Expérience sur un vrai blocage (`-Doneforallsurvival.e2e.relire=true`, 20:49) : le même état à 17 s, un `channel.read()`, et la connexion aboutit à 18 s, puis `bilan : TOUT PASSE`.
+2. Expérience sur un vrai blocage, un seul cas, sans dossier de relevé (`-Doneforallsurvival.e2e.relire=true`, 20:49) : le même état à 17 s, un `channel.read()`, et la connexion aboutit à 18 s, puis `bilan : TOUT PASSE`.
    ```
    [e2e-diag] 17.0 s, ecran de connexion toujours ouvert : canal NioSocketChannel open=true active=true autoRead=true interestOps=0 readyOps=8 readPending=false
    [e2e-diag] channel.read() demande par l'experience
    ```
 
-Le code du mod n'est pas sur ce chemin : il ne touche ni à `Connection` ni à `setAutoRead` (recherche dans `src/main`), et il n'a aucun mixin. Reste non prouvé : l'ordre exact des tâches dans le vrai client (les lignes `Disabled auto read` sont absentes de `debug.log`) ; le taux chez de vrais joueurs (ce soir 11 sur 24 ; au lot 1, 5 blocages puis 14 lancements sans blocage ; on ignore ce qui le fait varier) ; si un client de production, sans `userdev`, est touché. Aucun correctif n'est appliqué : c'est une décision à prendre, et un simple `channel.read()` côté client semble suffire.
+Le code du mod n'est pas sur ce chemin : il ne touche ni à `Connection` ni à `setAutoRead` (recherche dans `src/main`), et il n'a aucun mixin. Reste non prouvé : l'ordre exact des tâches dans le vrai client (les lignes `Disabled auto read` sont absentes de `debug.log`) ; le taux chez de vrais joueurs (ce soir 11 sur 24, puis 1 sur 3 lancements pendant la revue finale ; au lot 1, 5 blocages puis 14 lancements sans blocage ; on ignore ce qui le fait varier) ; si un client de production, sans `userdev`, est touché. Aucun correctif n'est appliqué : c'est une décision à prendre, et un simple `channel.read()` côté client semble suffire.
 
 ## Film
 
