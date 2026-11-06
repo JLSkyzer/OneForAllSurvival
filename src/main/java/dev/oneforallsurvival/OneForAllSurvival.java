@@ -7,6 +7,7 @@ import dev.oneforallsurvival.bench.BenchNetwork;
 import dev.oneforallsurvival.bench.BenchOverrides;
 import dev.oneforallsurvival.bench.BenchRegistry;
 import dev.oneforallsurvival.bench.WorkshopTicker;
+import dev.oneforallsurvival.coast.CoastCommands;
 import dev.oneforallsurvival.machine.MachineConfig;
 import dev.oneforallsurvival.repair.RepairRegistry;
 import dev.oneforallsurvival.role.RoleCommands;
@@ -37,6 +38,7 @@ public final class OneForAllSurvival {
         BenchNetwork.register();
         MinecraftForge.EVENT_BUS.register(new RoleEvents());
         MinecraftForge.EVENT_BUS.register(new RoleCommands());
+        MinecraftForge.EVENT_BUS.register(new CoastCommands());
         MinecraftForge.EVENT_BUS.register(new WorkshopTicker());
         context.registerConfig(ModConfig.Type.COMMON, BenchConfig.SPEC);
         context.registerConfig(ModConfig.Type.COMMON, MachineConfig.SPEC, "oneforallsurvival-machines.toml");

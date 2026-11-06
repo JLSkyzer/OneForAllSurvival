@@ -15,6 +15,8 @@ public final class MachineConfig {
     private static final ForgeConfigSpec.IntValue FLAME_TICKS;
     private static final ForgeConfigSpec.IntValue WELDER_CAPACITY;
     private static final ForgeConfigSpec.IntValue REPAIR_ENERGY;
+    private static final ForgeConfigSpec.IntValue SEA_LEVEL;
+    private static final ForgeConfigSpec.IntValue COAST_RADIUS;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -42,6 +44,12 @@ public final class MachineConfig {
         REPAIR_ENERGY = builder
                 .comment("Énergie que coûte une réparation au poste à souder, en FE.")
                 .defineInRange("repairEnergy", 400, 1, 1000000);
+        SEA_LEVEL = builder
+                .comment("Altitude (Y) à laquelle une source d'eau fait d'un lieu un lieu côtier.")
+                .defineInRange("seaLevel", 63, -64, 320);
+        COAST_RADIUS = builder
+                .comment("Rayon, en blocs, du disque où l'on cherche de l'eau salée autour d'une machine.")
+                .defineInRange("coastRadius", 16, 1, 64);
         SPEC = builder.build();
     }
 
@@ -109,6 +117,22 @@ public final class MachineConfig {
             return REPAIR_ENERGY.get();
         } catch (IllegalStateException e) {
             return 400;
+        }
+    }
+
+    public static int seaLevel() {
+        try {
+            return SEA_LEVEL.get();
+        } catch (IllegalStateException e) {
+            return 63;
+        }
+    }
+
+    public static int coastRadius() {
+        try {
+            return COAST_RADIUS.get();
+        } catch (IllegalStateException e) {
+            return 16;
         }
     }
 }

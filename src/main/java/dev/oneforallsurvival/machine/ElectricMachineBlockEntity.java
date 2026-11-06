@@ -1,5 +1,6 @@
 package dev.oneforallsurvival.machine;
 
+import dev.oneforallsurvival.coast.CoastDetector;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleTypes;
@@ -40,6 +41,7 @@ public abstract class ElectricMachineBlockEntity extends BlockEntity {
     private static final String TAG_PROTECTED = "protected";
     private static final int SMOKE_PERIOD = 20;
     private static final int FLAME_PERIOD = 5;
+    private static final int COAST_PERIOD = 200;
 
     private final MachineEnergyStorage storage;
     private final RandomSource random = RandomSource.create();
@@ -54,6 +56,9 @@ public abstract class ElectricMachineBlockEntity extends BlockEntity {
     /** Ticks de flammes restants ; les flammes ne se sauvegardent pas. */
     private int flameTicksLeft;
     private MachineState state = MachineState.STOPPED;
+    /** Dernière lecture du milieu côtier et tick de jeu de la suivante ; non sauvegardés. */
+    private boolean coastal;
+    private long nextCoastCheck;
 
     protected ElectricMachineBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState,
             int capacity, int maxReceive) {
@@ -197,9 +202,20 @@ public abstract class ElectricMachineBlockEntity extends BlockEntity {
         flameTicksLeft = MachineConfig.flameTicks();
     }
 
-    /** Le milieu est-il côtier ? Pas encore détecté : toujours faux. */
+    /**
+     * Le milieu est-il côtier ? Relu au plus tous les {@value #COAST_PERIOD} ticks : le détecteur garde
+     * son propre cache, mais on évite de l'interroger à chaque tick de travail.
+     */
     protected boolean isCoastal() {
-        return false;
+        if (!(level instanceof ServerLevel serverLevel)) {
+            return false;
+        }
+        long now = serverLevel.getGameTime();
+        if (now >= nextCoastCheck) {
+            coastal = CoastDetector.isCoastal(serverLevel, worldPosition);
+            nextCoastCheck = now + COAST_PERIOD;
+        }
+        return coastal;
     }
 
     private FaultType drawFault() {
@@ -246,8 +262,8 @@ public abstract class ElectricMachineBlockEntity extends BlockEntity {
 
     /** Un tick d'usure ; à 0 la machine tombe en panne de la pièce annoncée, et peut s'enflammer. */
     private void wear() {
-        condition = Math.max(0, condition - MachineWear.wearPerTick(MachineConfig.lifetimeTicks(), isCoastal(),
-                isProtected, MachineConfig.coastalMultiplier()));
+        condition = Math.max(0, condition - MachineWear.wearPerTick(MachineConfig.lifetimeTicks(),
+                !isProtected && isCoastal(), isProtected, MachineConfig.coastalMultiplier()));
         if (condition <= 0) {
             breakDown(nextFault);
             if (MachineConfig.flamesEnabled() && random.nextDouble() < MachineConfig.flameChance()) {
