@@ -213,12 +213,28 @@ Cette relance a ete precedee de plusieurs echecs, tous expliques :
   precedents. Correctif de l'`E2eClient` seulement (devcontent) : cible a 2 a 4 blocs, dans toutes les directions.
 - Trois lancements du client sont restes bloques en phase CONNEXION (le serveur avait envoye ses 27 messages
   de poignee de main FML, le client n'en a recu aucun et a fini par se deconnecter). Aucun lien etabli avec le
-  code du mod : les lancements voisins, avec les memes binaires, se sont connectes en 10 a 16 s. Hypothese non
-  prouvee : une course d'initialisation entre `Server Connector #1` et `Netty Client IO #0` (le meme mixin de
-  Create se charge sur l'un ou l'autre selon l'essai). Frequence observee : 3 blocages sur 6 lancements du
-  client ce jour. Le premier blocage (13:58) a eu lieu avec les correctifs de la revue deja en place, alors que
-  les essais de 12:53 et 13:21 passaient sans eux ; des lancements avec ces correctifs passent aussi (13:53,
-  14:24, 14:41). Rien ne dit donc si ces correctifs jouent sur la frequence, ni si de vrais joueurs sont touches.
+  code du mod : les lancements voisins, avec les memes binaires, se sont connectes en 10 a 16 s. Le premier
+  blocage (13:58) a eu lieu avec les correctifs de la revue deja en place, alors que les essais de 12:53 et 13:21
+  passaient sans eux ; des lancements avec ces correctifs passent aussi. Voir l'enquete ci-dessous.
+
+### Blocage a la connexion du client d'essai : enquete (2026-11-06)
+
+**Cause non trouvee.** 5 blocages entre 13:58 et 15:13 (dont 2 reproduits par une boucle serveur + client), puis
+14 lancements de suite sans blocage (15:16 a 16:22), sans changement du code du mod. Non reproductible a ce jour.
+
+Ecarte, par un releve pendant le blocage :
+- interblocage de fils : `jstack` des deux JVM (15:04) sans interblocage, `Netty Client IO` et `Netty Server IO`
+  au repos dans `WEPoll.wait`, serveur en attente de son tick ;
+- lecture coupee par `Connection.sendPacket` : `autoRead=true`, protocole `LOGIN`, canal ouvert et actif (15:13) ;
+- mixin de Create charge sur `Server Connector #1` : la meme chose dans des essais reussis (16:06, 16:16, 16:21).
+
+Constate : le serveur envoie ses 27 messages de poignee de main FML, le client ne journalise aucune reception
+(pas de `Recieved login wrapper packet`), puis les deux sessions tombent apres 30 s. Le code du mod n'envoie rien
+a ce stade : le catalogue part apres l'entree en jeu. Cela ne prouve pas que le mod n'y est pour rien.
+
+Pas fait, faute de blocage : etat d'inscription du socket (`interestOps`, `readPending`) et relance par
+`channel.read()` ; la meme serie sans l'etabli, sans valeur tant que le taux de blocage est nul. Non prouve : si de
+vrais joueurs sont touches. Prochaine etape si cela revient : `jstack` pendant le blocage, et ces deux releves.
 - Ces blocages ont ete signales comme une possible intervention exterieure ; rien ne le confirme.
 
 Essai final, passe : toutes les lignes `[e2e] PASS`, « bilan : TOUT PASSE », arret par `/stop`, 0 ERROR ni
