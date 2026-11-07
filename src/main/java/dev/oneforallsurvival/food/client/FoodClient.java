@@ -1,0 +1,50 @@
+package dev.oneforallsurvival.food.client;
+
+import dev.oneforallsurvival.OneForAllSurvival;
+import dev.oneforallsurvival.food.DecayState;
+import dev.oneforallsurvival.food.FoodStamp;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.level.Level;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.event.entity.player.ItemTooltipEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
+
+/** Branchements côté client seulement de la péremption : la ligne d'état dans l'infobulle. */
+@Mod.EventBusSubscriber(modid = OneForAllSurvival.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
+public final class FoodClient {
+
+    private FoodClient() {}
+
+    @SubscribeEvent
+    public static void onTooltip(ItemTooltipEvent event) {
+        if (!FoodStamp.isPerishable(event.getItemStack())) {
+            return;
+        }
+        // Sans monde (menu principal, livre de recettes hors partie), on n'a aucune horloge : rien à dire.
+        Level level = Minecraft.getInstance().level;
+        if (level == null) {
+            return;
+        }
+        DecayState state = FoodStamp.state(event.getItemStack(), FoodStamp.now(level));
+        String key;
+        ChatFormatting color;
+        switch (state) {
+            case STALE -> {
+                key = "stale";
+                color = ChatFormatting.YELLOW;
+            }
+            case SPOILED -> {
+                key = "spoiled";
+                color = ChatFormatting.RED;
+            }
+            default -> {
+                key = "fresh";
+                color = ChatFormatting.GREEN;
+            }
+        }
+        event.getToolTip().add(Component.translatable("food." + OneForAllSurvival.MODID + "." + key).withStyle(color));
+    }
+}

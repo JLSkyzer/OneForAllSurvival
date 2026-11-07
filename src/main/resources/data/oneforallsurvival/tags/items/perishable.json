@@ -1,0 +1,21 @@
+{
+  "replace": false,
+  "values": [
+    "#minecraft:fishes",
+    "minecraft:rabbit",
+    "minecraft:cooked_rabbit",
+    {"id": "#forge:raw_beef", "required": false},
+    {"id": "#forge:raw_chicken", "required": false},
+    {"id": "#forge:raw_pork", "required": false},
+    {"id": "#forge:raw_mutton", "required": false},
+    {"id": "#forge:raw_bacon", "required": false},
+    {"id": "#forge:raw_fishes", "required": false},
+    {"id": "#forge:cooked_beef", "required": false},
+    {"id": "#forge:cooked_chicken", "required": false},
+    {"id": "#forge:cooked_pork", "required": false},
+    {"id": "#forge:cooked_mutton", "required": false},
+    {"id": "#forge:cooked_bacon", "required": false},
+    {"id": "#forge:cooked_fishes", "required": false},
+    {"id": "#farmersdelight:meals", "required": false}
+  ]
+}

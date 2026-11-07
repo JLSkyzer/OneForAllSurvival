@@ -139,5 +139,12 @@
   "gui.oneforallsurvival.galvanic.energy": "%s / %s FE",
   "gui.oneforallsurvival.galvanic.jei.time": "Duration: %s",
   "gui.oneforallsurvival.galvanic.jei.energy": "%s FE per tick",
-  "tag.item.oneforallsurvival.wire": "Electrical wire"
+  "tag.item.oneforallsurvival.wire": "Electrical wire",
+  "item.oneforallsurvival.spoiled_food": "Spoiled Food",
+  "food.oneforallsurvival.fresh": "Fresh",
+  "food.oneforallsurvival.stale": "Stale",
+  "food.oneforallsurvival.spoiled": "Spoiled",
+  "tag.item.oneforallsurvival.perishable": "Perishable Food",
+  "tag.item.oneforallsurvival.slow_perishable": "Slowly Perishable Food",
+  "tag.item.oneforallsurvival.non_perishable": "Non-perishable Food"
 }
