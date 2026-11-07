@@ -52,4 +52,42 @@ public final class FoodDecay {
         BigInteger average = qr[1].signum() < 0 ? qr[0].subtract(BigInteger.ONE) : qr[0];
         return roundDown(average.longValueExact());
     }
+
+    /**
+     * La part de vie restante d'un aliment daté de {@code stamp} à l'instant {@code now}, de 1 (à la pose, ou date dans le
+     * futur) à 0 (avarié, et au-delà), répartie linéairement sur {@code freshTicks + staleTicks}. Vaut 0 exactement quand
+     * {@link #stateAt} rend {@link DecayState#SPOILED}.
+     */
+    public static double remainingFraction(long stamp, long now, long freshTicks, long staleTicks) {
+        if (stamp >= now) {
+            return 1.0;
+        }
+        long total;
+        try {
+            total = Math.addExact(freshTicks, staleTicks);
+        } catch (ArithmeticException e) {
+            total = Long.MAX_VALUE;
+        }
+        long age;
+        try {
+            age = Math.subtractExact(now, stamp);
+        } catch (ArithmeticException e) {
+            age = Long.MAX_VALUE;
+        }
+        if (age >= total) {
+            return 0.0;
+        }
+        return Math.min(1.0, Math.max(0.0, 1.0 - (double) age / (double) total));
+    }
+
+    /**
+     * Le nombre de traits pleins d'une barre de {@code cells} traits : arrondi vers le haut, donc au moins un trait tant
+     * que la vie restante n'est pas nulle.
+     */
+    public static int filledCells(double fraction, int cells) {
+        if (!(fraction > 0.0)) {
+            return 0;
+        }
+        return (int) Math.min(cells, Math.ceil(fraction * cells));
+    }
 }

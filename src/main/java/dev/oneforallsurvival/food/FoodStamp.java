@@ -49,14 +49,25 @@ public final class FoodStamp {
         if (!isStamped(stack)) {
             return DecayState.FRESH;
         }
-        long fresh = FoodConfig.freshTicks();
-        long stale = FoodConfig.staleTicks();
-        if (stack.is(FoodTags.SLOW_PERISHABLE)) {
-            double factor = FoodConfig.slowFactor();
-            fresh = scale(fresh, factor);
-            stale = scale(stale, factor);
+        return FoodDecay.stateAt(stamp(stack), now, freshTicks(stack), staleTicks(stack));
+    }
+
+    /** La part de vie restante de 1 à 0 (voir {@link FoodDecay#remainingFraction}) : 1 sans date, mêmes durées que {@link #state}. */
+    public static double remainingFraction(ItemStack stack, long now) {
+        if (!isStamped(stack)) {
+            return 1.0;
         }
-        return FoodDecay.stateAt(stamp(stack), now, fresh, stale);
+        return FoodDecay.remainingFraction(stamp(stack), now, freshTicks(stack), staleTicks(stack));
+    }
+
+    private static long freshTicks(ItemStack stack) {
+        long fresh = FoodConfig.freshTicks();
+        return stack.is(FoodTags.SLOW_PERISHABLE) ? scale(fresh, FoodConfig.slowFactor()) : fresh;
+    }
+
+    private static long staleTicks(ItemStack stack) {
+        long stale = FoodConfig.staleTicks();
+        return stack.is(FoodTags.SLOW_PERISHABLE) ? scale(stale, FoodConfig.slowFactor()) : stale;
     }
 
     public static long now(Level level) {

@@ -74,4 +74,55 @@ class FoodDecayTest {
         assertEquals(DecayState.SPOILED, FoodDecay.stateAt(Long.MIN_VALUE, Long.MAX_VALUE, FRESH, STALE));
         assertEquals(DecayState.STALE, FoodDecay.stateAt(0, Long.MAX_VALUE - 1, Long.MAX_VALUE - 10, Long.MAX_VALUE));
     }
+
+    @Test
+    void laVieRestanteVaDeUnAZeroSurFraisPlusRassis() {
+        long total = FRESH + STALE;
+        assertEquals(1.0, FoodDecay.remainingFraction(0, 0, FRESH, STALE), 0.0);
+        assertEquals(1.0 - 1.0 / total, FoodDecay.remainingFraction(0, 1, FRESH, STALE), 1e-12);
+        // La frontière frais / rassis tombe au milieu quand les deux durées sont égales.
+        assertEquals(FRESH == STALE ? 0.5 : (double) STALE / total, FoodDecay.remainingFraction(0, FRESH, FRESH, STALE), 1e-12);
+        assertEquals(1.0 / total, FoodDecay.remainingFraction(0, total - 1, FRESH, STALE), 1e-12);
+    }
+
+    @Test
+    void laVieRestanteEstNulleALAvarieEtAuDela() {
+        long total = FRESH + STALE;
+        assertEquals(0.0, FoodDecay.remainingFraction(0, total, FRESH, STALE), 0.0);
+        assertEquals(0.0, FoodDecay.remainingFraction(0, total + 1, FRESH, STALE), 0.0);
+        assertEquals(0.0, FoodDecay.remainingFraction(Long.MIN_VALUE, Long.MAX_VALUE, FRESH, STALE), 0.0);
+    }
+
+    @Test
+    void uneDateFutureALaVieEntiere() {
+        assertEquals(1.0, FoodDecay.remainingFraction(100, 50, FRESH, STALE), 0.0);
+    }
+
+    @Test
+    void laVieRestanteReste0Et1AGrandsNombres() {
+        double f = FoodDecay.remainingFraction(0, Long.MAX_VALUE - 1, Long.MAX_VALUE - 10, Long.MAX_VALUE);
+        assertEquals(true, f >= 0.0 && f <= 1.0);
+        assertEquals(1.0, FoodDecay.remainingFraction(Long.MAX_VALUE - 5, Long.MAX_VALUE, Long.MAX_VALUE, Long.MAX_VALUE), 1e-9);
+    }
+
+    @Test
+    void laVieRestanteSuitLEtat() {
+        for (long age : new long[] {0, 1, FRESH - 1, FRESH, FRESH + STALE - 1, FRESH + STALE, FRESH + STALE + 5}) {
+            boolean avarie = FoodDecay.stateAt(0, age, FRESH, STALE) == DecayState.SPOILED;
+            assertEquals(avarie, FoodDecay.remainingFraction(0, age, FRESH, STALE) == 0.0, "age " + age);
+        }
+    }
+
+    @Test
+    void laBarreGardeAuMoinsUnTraitTantQueCEstMangeable() {
+        assertEquals(20, FoodDecay.filledCells(1.0, 20));
+        assertEquals(0, FoodDecay.filledCells(0.0, 20));
+        assertEquals(1, FoodDecay.filledCells(1e-9, 20));
+        assertEquals(1, FoodDecay.filledCells(0.05, 20));
+        assertEquals(2, FoodDecay.filledCells(0.050001, 20));
+        assertEquals(10, FoodDecay.filledCells(0.5, 20));
+        assertEquals(11, FoodDecay.filledCells(0.51, 20));
+        assertEquals(20, FoodDecay.filledCells(7.0, 20));
+        assertEquals(0, FoodDecay.filledCells(-1.0, 20));
+    }
 }

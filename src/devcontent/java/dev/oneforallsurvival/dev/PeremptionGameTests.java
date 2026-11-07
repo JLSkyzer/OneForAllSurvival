@@ -157,6 +157,31 @@ public final class PeremptionGameTests {
     }
 
     @GameTest(template = "test/plancher", batch = "peremption")
+    public static void laVieRestanteSuitLeTagLent(GameTestHelper helper) {
+        ItemStack lent = essai(helper, "test_slow_food");
+        ItemStack normal = new ItemStack(Items.COOKED_BEEF);
+        long fresh = FoodConfig.freshTicks();
+        long stale = FoodConfig.staleTicks();
+        double facteur = FoodConfig.slowFactor();
+        helper.assertTrue(facteur == 8.0 && fresh == 432000 && stale == 432000, "config par défaut attendue : " + fresh + " " + stale + " " + facteur);
+        helper.assertTrue(FoodStamp.remainingFraction(normal, 5) == 1.0, "sans date : 1");
+        FoodStamp.setStamp(lent, 0);
+        FoodStamp.setStamp(normal, 0);
+        helper.assertTrue(FoodStamp.remainingFraction(normal, 0) == 1.0, "à la pose : 1");
+        helper.assertTrue(FoodStamp.remainingFraction(normal, fresh) == 0.5, "normal : la moitié à fresh, vu " + FoodStamp.remainingFraction(normal, fresh));
+        helper.assertTrue(FoodStamp.remainingFraction(normal, fresh + stale) == 0.0, "normal : 0 à fresh + stale");
+        helper.assertTrue(FoodStamp.remainingFraction(lent, fresh) == 1.0 - 1.0 / 16.0, "lent : 15/16 à fresh, vu " + FoodStamp.remainingFraction(lent, fresh));
+        helper.assertTrue(FoodStamp.remainingFraction(lent, 8 * fresh) == 0.5, "lent : la moitié à 8 fois fresh");
+        helper.assertTrue(FoodStamp.remainingFraction(lent, 8 * (fresh + stale) - 1) > 0.0, "lent : pas nulle juste avant l'avarié");
+        helper.assertTrue(FoodStamp.remainingFraction(lent, 8 * (fresh + stale)) == 0.0, "lent : 0 à 8 fois la somme");
+        for (long t : new long[] {0, 1, fresh - 1, fresh, fresh + stale - 1, fresh + stale, 8 * fresh, 8 * (fresh + stale) - 1, 8 * (fresh + stale)}) {
+            helper.assertTrue((FoodStamp.remainingFraction(lent, t) == 0.0) == (FoodStamp.state(lent, t) == DecayState.SPOILED), "bar et état divergent (lent) à " + t);
+            helper.assertTrue((FoodStamp.remainingFraction(normal, t) == 0.0) == (FoodStamp.state(normal, t) == DecayState.SPOILED), "bar et état divergent à " + t);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = "peremption")
     public static void sansDateCEstFrais(GameTestHelper helper) {
         ItemStack pile = new ItemStack(Items.BEEF);
         helper.assertTrue(!FoodStamp.isStamped(pile), "une pile neuve n'a pas de date");
