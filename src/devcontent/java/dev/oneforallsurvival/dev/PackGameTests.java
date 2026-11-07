@@ -126,7 +126,10 @@ public final class PackGameTests {
                 new Materiel("cleaning_kit", 3, 1, true, false),
                 new Materiel("tester", 4, 1, true, false),
                 new Materiel("welder", 5, 1, true, false),
-                new Materiel("galvanic_bath", 6, 1, true, true))) {
+                new Materiel("galvanic_bath", 6, 1, true, true),
+                new Materiel("fridge", 6, 1, true, false),
+                new Materiel("desalinator", 6, 1, true, false),
+                new Materiel("dryer", 6, 1, true, false))) {
             Item item = objet("oneforallsurvival", m.nom());
             helper.assertTrue(table.stream().noneMatch(r -> r.getResultItem(access).is(item)),
                     "une recette de table donne encore " + m.nom());
@@ -157,6 +160,27 @@ public final class PackGameTests {
         String ampoules = "light_bulb_addon_create_crafts_and__addions";
         if (ModList.get().isLoaded(ampoules)) {
             helper.assertTrue(porte(objet(ampoules, "fuse_16a"), "parts/fuse"), "le fusible 16 A doit servir de fusible");
+        }
+        helper.succeed();
+    }
+
+    /**
+     * Le sel et les rations ne se fabriquent qu'aux machines : le dessalinisateur donne le sel, le séchoir et
+     * le sel donnent les rations. Ni la table de craft ni l'établi n'en portent une recette, une fois le pack chargé.
+     */
+    @GameTest(template = "test/plancher", batch = "pack_materiel")
+    public static void selEtRationsNeSeFabriquentQuAuxMachines(GameTestHelper helper) {
+        var access = helper.getLevel().registryAccess();
+        var table = helper.getLevel().getRecipeManager().getAllRecipesFor(RecipeType.CRAFTING);
+        var etabli = BenchCatalog.current().recipes();
+        for (String nom : new String[] {"salt", "salted_meat", "salted_fish", "salted_fruit", "dried_meat",
+                "dried_fish", "dried_fruit", "potable_water_bottle", "spoiled_food"}) {
+            Item item = objet("oneforallsurvival", nom);
+            helper.assertTrue(item != null && item != net.minecraft.world.item.Items.AIR, "objet absent : " + nom);
+            helper.assertTrue(table.stream().noneMatch(r -> r.getResultItem(access).is(item)),
+                    "une recette de table donne " + nom);
+            helper.assertTrue(etabli.stream().noneMatch(r -> r.result().is(item)),
+                    "l'établi propose " + nom);
         }
         helper.succeed();
     }

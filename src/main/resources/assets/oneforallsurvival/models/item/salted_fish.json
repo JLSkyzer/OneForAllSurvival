@@ -1,6 +1,6 @@
 {
   "parent": "item/generated",
   "textures": {
-    "layer0": "minecraft:item/cod"
+    "layer0": "oneforallsurvival:item/salted_fish"
   }
 }

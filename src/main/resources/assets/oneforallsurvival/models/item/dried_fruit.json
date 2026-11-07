@@ -1,6 +1,6 @@
 {
   "parent": "item/generated",
   "textures": {
-    "layer0": "minecraft:item/dried_kelp"
+    "layer0": "oneforallsurvival:item/dried_fruit"
   }
 }

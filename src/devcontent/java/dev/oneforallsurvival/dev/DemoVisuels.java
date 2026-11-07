@@ -3,6 +3,13 @@ package dev.oneforallsurvival.dev;
 import com.mojang.blaze3d.platform.NativeImage;
 import dev.oneforallsurvival.bench.BenchRegistry;
 import dev.oneforallsurvival.bench.client.EngineerBenchScreen;
+import dev.oneforallsurvival.food.DesalinatorBlockEntity;
+import dev.oneforallsurvival.food.DryerBlockEntity;
+import dev.oneforallsurvival.food.FoodRegistry;
+import dev.oneforallsurvival.food.FridgeBlockEntity;
+import dev.oneforallsurvival.food.client.DesalinatorScreen;
+import dev.oneforallsurvival.food.client.DryerScreen;
+import dev.oneforallsurvival.food.client.FridgeScreen;
 import dev.oneforallsurvival.machine.ElectricMachineBlockEntity;
 import dev.oneforallsurvival.machine.FaultType;
 import dev.oneforallsurvival.repair.GalvanicBathBlockEntity;
@@ -39,12 +46,17 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.decoration.ItemFrame;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.LevelSettings;
 import net.minecraft.world.level.WorldDataConfiguration;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.HorizontalDirectionalBlock;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.WorldOptions;
 import net.minecraft.world.level.levelgen.presets.WorldPresets;
@@ -59,9 +71,10 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 /**
- * Capture de contrôle des visuels du lot 2 (développement seulement, jamais empaqueté). Un client qui se pilote
- * seul : il monte le bain dans ses quatre états réels, les cinq débris, un mur de cadres avec tous les objets,
- * puis ouvre l'écran du bain, l'établi et la catégorie JEI, et écrit une image par vue dans
+ * Capture de contrôle des visuels des lots 2 et 3 (développement seulement, jamais empaqueté). Un client qui se
+ * pilote seul : il monte le bain, l'armoire, le dessalinisateur et le séchoir dans leurs quatre états réels, les
+ * cinq débris, un mur de cadres avec tous les objets, une grille des objets du lot 3 à côté d'un steak, puis ouvre
+ * les écrans des machines, l'établi et les catégories JEI, et écrit une image par vue dans
  * {@code visuels-captures}. Activé par {@code -Doneforallsurvival.demo.visuels}.
  */
 @Mod.EventBusSubscriber(modid = "oneforallsurvival", bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
@@ -75,6 +88,12 @@ public final class DemoVisuels {
         "treated_bearing", "cleaning_kit", "treated_cleaning_kit", "scrap_metal", "aviation_wire", "instrument_core",
         "incomplete_instrument_core", "battery_cell", "incomplete_battery_cell", "debris_fuselage", "debris_wiring",
         "debris_instruments", "debris_battery", "debris_cabin", "galvanic_bath", "engineer_bench"};
+
+    /** Les objets du lot 3, rangés avec leur équivalent de Minecraft, pour juger la lisibilité. */
+    private static final String[] VIVRES = {"minecraft:cooked_beef", "dried_meat", "salted_meat", "minecraft:cooked_cod",
+        "dried_fish", "salted_fish", "minecraft:sweet_berries", "dried_fruit", "salted_fruit",
+        "minecraft:glass_bottle", "potable_water_bottle", "salt", "spoiled_food", "fridge", "desalinator", "dryer"};
+    private static final String[] MACHINES = {"armoire", "dessalinisateur", "sechoir"};
 
     private enum Phase { TITRE, ATTENTE_MONDE, PREPARATION, SCENARIO, FIN }
 
@@ -99,6 +118,9 @@ public final class DemoVisuels {
     private static BlockPos debris;
     private static BlockPos mur;
     private static BlockPos etabli;
+    /** Les machines du lot 3 : une rangée par machine, un bloc par état dans l'ordre de {@link #ETATS}. */
+    private static final BlockPos[][] VIVRES_BLOCS = new BlockPos[3][4];
+    private static final List<BlockPos> ALIMENTES = new ArrayList<>();
 
     private DemoVisuels() {}
 
@@ -139,6 +161,11 @@ public final class DemoVisuels {
         }
         if (event.getServer().overworld().getBlockEntity(BAINS[1]) instanceof GalvanicBathBlockEntity be) {
             be.energy().receiveEnergy(200, false);
+        }
+        for (BlockPos p : ALIMENTES) {
+            if (event.getServer().overworld().getBlockEntity(p) instanceof ElectricMachineBlockEntity machine) {
+                machine.energy().receiveEnergy(100, false);
+            }
         }
     }
 
@@ -201,7 +228,42 @@ public final class DemoVisuels {
     // ================================================================================================
 
     private static Item objet(String nom) {
-        return ForgeRegistries.ITEMS.getValue(new ResourceLocation("oneforallsurvival", nom));
+        return ForgeRegistries.ITEMS.getValue(nom.contains(":") ? new ResourceLocation(nom)
+                : new ResourceLocation("oneforallsurvival", nom));
+    }
+
+    /** Une machine du lot 3 face au sud, dans l'état voulu par les vrais chemins : vide, alimentée, sans courant, en panne. */
+    private static void poserMachine(ServerLevel monde, BlockPos p, int machine, int etat) {
+        Block bloc = List.of(FoodRegistry.FRIDGE.get(), FoodRegistry.DESALINATOR.get(), FoodRegistry.DRYER.get()).get(machine);
+        monde.setBlock(p, bloc.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, Direction.SOUTH), 3);
+        var be = (ElectricMachineBlockEntity) monde.getBlockEntity(p);
+        if (etat != 0) {
+            garnirMachine(be);
+        }
+        if (etat == 1) {
+            ALIMENTES.add(p);
+        } else if (etat == 3) {
+            be.breakDown(FaultType.FUSE);
+        }
+    }
+
+    private static void garnirMachine(ElectricMachineBlockEntity be) {
+        if (be instanceof FridgeBlockEntity fridge) {
+            fridge.inventory().setStackInSlot(0, new ItemStack(Items.COOKED_BEEF, 8));
+            fridge.inventory().setStackInSlot(1, new ItemStack(Items.COOKED_COD, 5));
+            fridge.inventory().setStackInSlot(9, new ItemStack(Items.SWEET_BERRIES, 12));
+        } else if (be instanceof DesalinatorBlockEntity desal) {
+            desal.waterTank().fill(new FluidStack(Fluids.WATER, 6000), IFluidHandler.FluidAction.EXECUTE);
+            desal.potableTank().fill(new FluidStack(FoodRegistry.POTABLE_WATER.get(), 3000), IFluidHandler.FluidAction.EXECUTE);
+            desal.inventory().setStackInSlot(DesalinatorBlockEntity.SLOT_EMPTY, new ItemStack(Items.GLASS_BOTTLE, 16));
+            desal.inventory().setStackInSlot(DesalinatorBlockEntity.SLOT_FILLED,
+                    new ItemStack(FoodRegistry.POTABLE_WATER_BOTTLE.get(), 3));
+            desal.inventory().setStackInSlot(DesalinatorBlockEntity.SLOT_SALT, new ItemStack(FoodRegistry.SALT.get(), 7));
+        } else if (be instanceof DryerBlockEntity dryer) {
+            dryer.inventory().setStackInSlot(DryerBlockEntity.SLOT_INPUT, new ItemStack(Items.BEEF, 8));
+            dryer.inventory().setStackInSlot(DryerBlockEntity.SLOT_SALT, new ItemStack(FoodRegistry.SALT.get(), 4));
+            dryer.inventory().setStackInSlot(DryerBlockEntity.SLOT_OUTPUT, new ItemStack(FoodRegistry.SALTED_MEAT.get(), 3));
+        }
     }
 
     private static GalvanicBathBlockEntity poserBain(ServerLevel monde, BlockPos p) {
@@ -241,6 +303,14 @@ public final class DemoVisuels {
         }
         etabli = o.offset(6, 0, 6);
         monde.setBlock(etabli, BenchRegistry.ENGINEER_BENCH.get().defaultBlockState(), 3);
+
+        // Les trois machines du lot 3, les quatre états de chacune.
+        for (int m = 0; m < 3; m++) {
+            for (int e = 0; e < 4; e++) {
+                VIVRES_BLOCS[m][e] = o.offset(4 * e, 0, -6 * (m + 1));
+                poserMachine(monde, VIVRES_BLOCS[m][e], m, e);
+            }
+        }
 
         // Les cinq débris, chacun en carré de deux sur deux pour voir le raccord.
         debris = o.offset(0, 0, 12);
@@ -286,8 +356,13 @@ public final class DemoVisuels {
 
     /** Tous les objets en grand, leur nom dessous : la vérité du modèle de chaque objet, et de sa clé de langue. */
     private static final class Grille extends Screen {
-        Grille() {
+        private final String[] noms;
+        private final int rangees;
+
+        Grille(String[] noms, int rangees) {
             super(Component.literal("grille"));
+            this.noms = noms;
+            this.rangees = rangees;
         }
 
         @Override
@@ -295,11 +370,11 @@ public final class DemoVisuels {
             g.fill(0, 0, width, height, 0xFF8B8B8B);
             int colonnes = 6;
             int cw = width / colonnes;
-            int ch = height / 4;
-            for (int i = 0; i < OBJETS.length; i++) {
+            int ch = height / rangees;
+            for (int i = 0; i < noms.length; i++) {
                 int x = (i % colonnes) * cw;
                 int y = (i / colonnes) * ch;
-                ItemStack pile = new ItemStack(objet(OBJETS[i]));
+                ItemStack pile = new ItemStack(objet(noms[i]));
                 g.pose().pushPose();
                 g.pose().translate(x + cw / 2F - 16, y + 2, 0);
                 g.pose().scale(2, 2, 1);
@@ -409,10 +484,21 @@ public final class DemoVisuels {
         }
         vue(mc, "objets_cadres.png", mur.offset(2, 1, 0), new Vec3(0.5, 0.5, 5.0), false);
 
+        // Le lot 3 : chaque machine dans ses quatre états, de jour, face au sud (la face avant se lit du sud-est).
+        for (int m = 0; m < 3; m++) {
+            for (int e = 0; e < 4; e++) {
+                vue(mc, MACHINES[m] + "_" + ETATS[e] + "_jour.png", VIVRES_BLOCS[m][e], sudEst, false);
+            }
+            vue(mc, MACHINES[m] + "_les_quatre.png", VIVRES_BLOCS[m][1].offset(2, 0, 0), new Vec3(0.0, 2.2, 5.5), false);
+            vue(mc, MACHINES[m] + "_arriere_dessus.png", VIVRES_BLOCS[m][1], new Vec3(-1.5, 1.6, -1.7), false);
+        }
+        vue(mc, "armoire_marche_nuit.png", VIVRES_BLOCS[0][1], sudEst, true);
+
         etape("grille", () -> {
             mc.options.hideGui = false;
-            mc.setScreen(new Grille());
+            mc.setScreen(new Grille(OBJETS, 4));
         }, () -> true, 800, "objets_grille.png");
+        etape("grille vivres", () -> mc.setScreen(new Grille(VIVRES, 3)), () -> true, 800, "vivres_grille.png");
         // En survie : en créatif, ce même écran s'ouvre sur les onglets et cache l'inventaire.
         etape("inventaire", () -> mc.getSingleplayerServer().execute(() -> mc.getSingleplayerServer().getPlayerList()
                 .getPlayers().get(0).setGameMode(GameType.SURVIVAL)), () -> !mc.player.getAbilities().instabuild, 500, null);
@@ -439,6 +525,21 @@ public final class DemoVisuels {
                 new ResourceLocation("oneforallsurvival", "galvanic_bath")), () -> true, 800, "etabli_bain.png");
         etape("etabli testeur", () -> ((EngineerBenchScreen) mc.screen).selectById(
                 new ResourceLocation("oneforallsurvival", "tester")), () -> true, 800, "etabli_testeur.png");
+        Class<?>[] ecrans = {FridgeScreen.class, DesalinatorScreen.class, DryerScreen.class};
+        for (int m = 0; m < 3; m++) {
+            int n = m;
+            for (int e : new int[] {1, 2, 3}) {
+                int k = e;
+                etape("ecran " + MACHINES[n] + " " + ETATS[k], () -> {
+                    fermer(mc);
+                    ouvrir(mc, VIVRES_BLOCS[n][k]);
+                }, () -> ecrans[n].isInstance(mc.screen), 1500, "ecran_" + MACHINES[n] + "_" + ETATS[k] + ".png");
+            }
+        }
+        etape("jei sechoir", () -> {
+            fermer(mc);
+            montrerDansJei(mc, "DRYING_TYPE");
+        }, () -> ecranJei(mc), 1500, "jei_sechoir.png");
         etape("jei bain", () -> {
             fermer(mc);
             montrerDansJei(mc, "GALVANIC_TYPE");
