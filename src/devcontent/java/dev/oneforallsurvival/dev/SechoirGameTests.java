@@ -1,8 +1,11 @@
 package dev.oneforallsurvival.dev;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonSyntaxException;
 import dev.oneforallsurvival.food.DecayState;
 import dev.oneforallsurvival.food.DryerBlockEntity;
 import dev.oneforallsurvival.food.DryerMenu;
+import dev.oneforallsurvival.food.DryingRecipe;
 import dev.oneforallsurvival.food.FoodConfig;
 import dev.oneforallsurvival.food.FoodEvents;
 import dev.oneforallsurvival.food.FoodRegistry;
@@ -442,23 +445,105 @@ public final class SechoirGameTests {
         helper.succeed();
     }
 
-    /** Un rechargement des données (/reload) installe un autre gestionnaire de recettes : la machine doit le suivre. */
+    /** Les recettes livrées sont chargées par le gestionnaire du serveur : au moins trois, une ration par aliment. */
     @GameTest(template = "test/plancher", batch = "sechoir")
-    public static void lesRecettesSontChargeesAvecLeurDefaut(GameTestHelper helper) {
+    public static void lesRecettesLivreesSontChargees(GameTestHelper helper) {
         var recettes = helper.getLevel().getRecipeManager()
-                .getAllRecipesFor(FoodRegistry.DRYING_TYPE.get());
-        helper.assertTrue(recettes.stream().filter(r -> !r.getId().getPath().startsWith("drying/test_")).count() >= 3,
-                "au moins trois recettes de séchage attendues, vues " + recettes.size());
+                .getAllRecipesFor(FoodRegistry.DRYING_TYPE.get()).stream()
+                .filter(r -> !r.getId().getPath().startsWith("drying/test_")).toList();
+        helper.assertTrue(recettes.size() >= 3, "au moins trois recettes de séchage attendues, vues " + recettes.size());
         for (var r : recettes) {
-            if (r.getId().getPath().startsWith("drying/test_")) {
-                continue; // recette d'essai courte de devcontent
-            }
-            helper.assertTrue(r.ticks() == 1200, r.getId() + " : 1200 ticks attendus, vus " + r.ticks());
             helper.assertTrue(r.resultFor(false).getCount() == 1 && r.resultFor(true).getCount() == 1,
                     r.getId() + " : une ration pour un aliment");
             helper.assertTrue(!r.resultFor(false).is(r.resultFor(true).getItem()), r.getId() + " : sec et salé distincts");
         }
         helper.succeed();
+    }
+
+    /** Sans {@code ticks}, la recette dure 1 200 ticks ; un {@code ticks} qui n'est pas un entier d'au moins 1 est rejeté. */
+    @GameTest(template = "test/plancher", batch = "sechoir")
+    public static void laDureeParDefautEstDe1200Ticks(GameTestHelper helper) {
+        var serialiseur = new DryingRecipe.Serializer();
+        var id = new ResourceLocation("oneforallsurvival", "drying/essai_json");
+        helper.assertTrue(DryingRecipe.DEFAULT_TICKS == 1200, "durée par défaut : 1200 attendus, vus " + DryingRecipe.DEFAULT_TICKS);
+        JsonObject json = recetteJson();
+        helper.assertTrue(serialiseur.fromJson(id, json).ticks() == 1200,
+                "sans ticks, 1200 attendus, vus " + serialiseur.fromJson(id, json).ticks());
+        json.addProperty("ticks", 300);
+        helper.assertTrue(serialiseur.fromJson(id, json).ticks() == 300, "ticks explicite non respecté");
+        for (int invalide : new int[] {0, -5}) {
+            json.addProperty("ticks", invalide);
+            try {
+                serialiseur.fromJson(id, json);
+                throw new GameTestAssertException("ticks " + invalide + " aurait dû être rejeté");
+            } catch (JsonSyntaxException attendu) {
+                // rejeté : c'est le comportement voulu
+            }
+        }
+        helper.succeed();
+    }
+
+    private static JsonObject recetteJson() {
+        JsonObject json = new JsonObject();
+        JsonObject entree = new JsonObject();
+        entree.addProperty("item", "minecraft:beef");
+        json.add("ingredient", entree);
+        json.add("result", sortieJson("oneforallsurvival:dried_meat"));
+        json.add("salted_result", sortieJson("oneforallsurvival:salted_meat"));
+        return json;
+    }
+
+    private static JsonObject sortieJson(String item) {
+        JsonObject o = new JsonObject();
+        o.addProperty("item", item);
+        return o;
+    }
+
+    /** Le poisson vanilla n'est pas une viande pour les loups : ses rations non plus. */
+    @GameTest(template = "test/plancher", batch = "sechoir")
+    public static void seulLaViandeEstUneViande(GameTestHelper helper) {
+        for (Item ration : List.of(FoodRegistry.DRIED_MEAT.get(), FoodRegistry.SALTED_MEAT.get())) {
+            helper.assertTrue(ration.getFoodProperties(new ItemStack(ration), null).isMeat(), ration + " devrait être une viande");
+        }
+        for (Item ration : List.of(FoodRegistry.DRIED_FISH.get(), FoodRegistry.SALTED_FISH.get(),
+                FoodRegistry.DRIED_FRUIT.get(), FoodRegistry.SALTED_FRUIT.get())) {
+            helper.assertTrue(!ration.getFoodProperties(new ItemStack(ration), null).isMeat(), ration + " ne devrait pas être une viande");
+        }
+        helper.succeed();
+    }
+
+    /**
+     * Une sortie occupée par une autre ration, ou par la version opposée, bloque la machine : elle reste à l'arrêt,
+     * sans courant consommé, et ni l'aliment ni le sel ne sont payés (sinon la sortie grossirait d'un autre objet).
+     */
+    @GameTest(template = "test/plancher", batch = "sechoir")
+    public static void uneSortieOccupeeBloqueLaMachine(GameTestHelper helper) {
+        DryerBlockEntity be = poser(helper);
+        // Du sel : la ration serait salée, la sortie contient la version séchée.
+        charger(be, new ItemStack(Items.BEEF, 1), new ItemStack(FoodRegistry.SALT.get(), 1));
+        be.inventory().setStackInSlot(DryerBlockEntity.SLOT_OUTPUT, new ItemStack(FoodRegistry.DRIED_MEAT.get(), 1));
+        alimenter(be);
+        presqueFini(be);
+        int energie = be.energy().getEnergyStored();
+        attendre(helper, 6, () -> {
+            bloquee(helper, be, FoodRegistry.DRIED_MEAT.get(), energie, true);
+            // Sans sel : la ration serait séchée, la sortie contient une autre ration.
+            be.inventory().setStackInSlot(DryerBlockEntity.SLOT_SALT, ItemStack.EMPTY);
+            be.inventory().setStackInSlot(DryerBlockEntity.SLOT_OUTPUT, new ItemStack(FoodRegistry.DRIED_FISH.get(), 1));
+        });
+        attendre(helper, 12, () -> {
+            bloquee(helper, be, FoodRegistry.DRIED_FISH.get(), energie, false);
+            helper.succeed();
+        });
+    }
+
+    private static void bloquee(GameTestHelper helper, DryerBlockEntity be, Item occupant, int energie, boolean sel) {
+        ItemStack out = sortie(be);
+        helper.assertTrue(out.is(occupant) && out.getCount() == 1, "la sortie devait rester intacte (" + occupant + "), vue " + out);
+        helper.assertTrue(be.inventory().getStackInSlot(DryerBlockEntity.SLOT_INPUT).getCount() == 1, "l'aliment ne devait pas être payé");
+        helper.assertTrue(!sel || be.inventory().getStackInSlot(DryerBlockEntity.SLOT_SALT).getCount() == 1, "le sel ne devait pas être payé");
+        helper.assertTrue(be.state() == MachineState.STOPPED, "STOPPED attendu, vu " + be.state());
+        helper.assertTrue(be.energy().getEnergyStored() == energie, "aucun courant ne devait être consommé");
     }
 
     private static int total(List<ItemEntity> objets, Item item) {

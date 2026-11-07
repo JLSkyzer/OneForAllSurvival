@@ -113,10 +113,10 @@ public final class FoodRegistry {
 
     /** Les rations du séchoir : séchées (périment lentement, tag slow_perishable) et salées (ne périment jamais). */
     public static final RegistryObject<Item> DRIED_MEAT = ration("dried_meat", 4, true);
-    public static final RegistryObject<Item> DRIED_FISH = ration("dried_fish", 3, true);
+    public static final RegistryObject<Item> DRIED_FISH = ration("dried_fish", 3, false);
     public static final RegistryObject<Item> DRIED_FRUIT = ration("dried_fruit", 2, false);
     public static final RegistryObject<Item> SALTED_MEAT = ration("salted_meat", 4, true);
-    public static final RegistryObject<Item> SALTED_FISH = ration("salted_fish", 3, true);
+    public static final RegistryObject<Item> SALTED_FISH = ration("salted_fish", 3, false);
     public static final RegistryObject<Item> SALTED_FRUIT = ration("salted_fruit", 2, false);
 
     private FoodRegistry() {}
