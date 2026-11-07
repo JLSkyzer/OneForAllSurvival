@@ -129,6 +129,12 @@ public final class FoodEvents {
         return a.areCapsCompatible(b) && Objects.equals(withoutStamp(a), withoutStamp(b));
     }
 
+    /** Deux piles du même objet qui ne diffèrent que par la date (ou son absence). */
+    static boolean sameWithoutStamp(ItemStack a, ItemStack b) {
+        return !a.isEmpty() && !b.isEmpty() && a.is(b.getItem()) && a.areCapsCompatible(b)
+                && Objects.equals(withoutStamp(a), withoutStamp(b));
+    }
+
     private static CompoundTag withoutStamp(ItemStack stack) {
         CompoundTag tag = stack.getTag();
         if (tag == null) {

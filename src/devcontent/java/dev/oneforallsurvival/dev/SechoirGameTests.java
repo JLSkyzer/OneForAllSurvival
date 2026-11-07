@@ -7,6 +7,7 @@ import dev.oneforallsurvival.food.DryerBlockEntity;
 import dev.oneforallsurvival.food.DryerMenu;
 import dev.oneforallsurvival.food.DryingRecipe;
 import dev.oneforallsurvival.food.FoodConfig;
+import dev.oneforallsurvival.food.FoodDecay;
 import dev.oneforallsurvival.food.FoodEvents;
 import dev.oneforallsurvival.food.FoodRegistry;
 import dev.oneforallsurvival.food.FoodStamp;
@@ -17,6 +18,11 @@ import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
@@ -533,6 +539,103 @@ public final class SechoirGameTests {
         });
         attendre(helper, 12, () -> {
             bloquee(helper, be, FoodRegistry.DRIED_FISH.get(), energie, false);
+            helper.succeed();
+        });
+    }
+
+    private static final BlockPos JOUEUR = new BlockPos(1, 1, 3);
+
+    /** Ouvre le menu comme le fait le clic droit : par le bloc lui-même, ce qui date les cases que FoodEvents voit. */
+    private static DryerMenu ouvrir(GameTestHelper helper, ServerPlayer p) {
+        BlockPos abs = helper.absolutePos(POS);
+        helper.getLevel().getBlockState(abs).use(helper.getLevel(), p, InteractionHand.MAIN_HAND,
+                new BlockHitResult(Vec3.atCenterOf(abs), Direction.UP, abs, false));
+        helper.assertTrue(p.containerMenu instanceof DryerMenu, "le menu devait s'ouvrir, vu " + p.containerMenu);
+        return (DryerMenu) p.containerMenu;
+    }
+
+    /**
+     * Ouvrir le menu date la ration séchée qui attend en sortie. Le résultat neuf, sans date, doit pourtant s'y
+     * empiler : la sortie passe à 2, avec la date moyenne des deux, et ni l'aliment ni la machine n'attendent.
+     */
+    @GameTest(template = "test/plancher", batch = "sechoir_menu", setupTicks = 20, timeoutTicks = 200)
+    public static void uneSortieDateeAccepteLeResultatNeuf(GameTestHelper helper) {
+        DryerBlockEntity be = poser(helper);
+        charger(be, new ItemStack(Items.BEEF, 2), ItemStack.EMPTY);
+        be.inventory().setStackInSlot(DryerBlockEntity.SLOT_OUTPUT, new ItemStack(FoodRegistry.DRIED_MEAT.get(), 1));
+        JoueurDeTest j = null;
+        try {
+            j = JoueurDeTest.rejoindre(helper.getLevel(), "Seche", helper.absoluteVec(Vec3.atBottomCenterOf(JOUEUR)));
+            j.joueur().gameMode.changeGameModeForPlayer(GameType.SURVIVAL);
+            ouvrir(helper, j.joueur());
+            helper.assertTrue(FoodStamp.isStamped(sortie(be)),
+                    "l'ouverture du menu devait dater la ration en sortie, vu " + sortie(be).getTag());
+        } finally {
+            if (j != null && j.connecte()) {
+                j.quitter();
+            }
+        }
+        long ancienne = FoodDecay.roundDown(FoodStamp.now(helper.getLevel())) - 72000;
+        FoodStamp.setStamp(sortie(be), ancienne);
+        alimenter(be);
+        presqueFini(be);
+        attendre(helper, 8, () -> {
+            ItemStack out = sortie(be);
+            helper.assertTrue(out.is(FoodRegistry.DRIED_MEAT.get()) && out.getCount() == 2,
+                    "2 viandes séchées attendues en sortie, vu " + out);
+            long maintenant = FoodDecay.roundDown(FoodStamp.now(helper.getLevel()));
+            long attendue = FoodDecay.weightedStamp(ancienne, 1, maintenant, 1);
+            long attendueAvant = FoodDecay.weightedStamp(ancienne, 1, maintenant - 18000, 1); // quart d'heure franchi entre-temps
+            helper.assertTrue(FoodStamp.isStamped(out) && (FoodStamp.stamp(out) == attendue || FoodStamp.stamp(out) == attendueAvant),
+                    "date moyenne attendue " + attendue + ", vue " + out.getTag());
+            helper.assertTrue(be.inventory().getStackInSlot(DryerBlockEntity.SLOT_INPUT).getCount() == 1,
+                    "un seul bœuf devait être payé, vu " + be.inventory().getStackInSlot(DryerBlockEntity.SLOT_INPUT));
+            helper.assertTrue(be.state() != MachineState.STOPPED || be.progress() < 10, "la machine devait avoir repris");
+            helper.succeed();
+        });
+    }
+
+    /** Une sortie sans date reste sans date quand le résultat s'y ajoute. */
+    @GameTest(template = "test/plancher", batch = "sechoir")
+    public static void uneSortieSansDateResteSansDate(GameTestHelper helper) {
+        DryerBlockEntity be = poser(helper);
+        charger(be, new ItemStack(Items.BEEF, 1), ItemStack.EMPTY);
+        be.inventory().setStackInSlot(DryerBlockEntity.SLOT_OUTPUT, new ItemStack(FoodRegistry.DRIED_MEAT.get(), 1));
+        alimenter(be);
+        presqueFini(be);
+        attendre(helper, 6, () -> {
+            ItemStack out = sortie(be);
+            helper.assertTrue(out.is(FoodRegistry.DRIED_MEAT.get()) && out.getCount() == 2 && out.getTag() == null,
+                    "2 viandes séchées sans date attendues, vu " + out + " " + out.getTag());
+            helper.succeed();
+        });
+    }
+
+    /** Un aliment qui avarie pendant le séchage arrête la machine : il n'est pas changé en ration, rien n'est perdu. */
+    @GameTest(template = "test/plancher", batch = "sechoir")
+    public static void unAlimentQuiAvarieEnRouteArreteLaMachine(GameTestHelper helper) {
+        DryerBlockEntity be = poser(helper);
+        long now = FoodStamp.now(helper.getLevel());
+        ItemStack boeuf = new ItemStack(Items.BEEF, 1);
+        // Rassis, et avarié une trentaine de ticks plus tard.
+        FoodStamp.setStamp(boeuf, now - FoodConfig.freshTicks() - FoodConfig.staleTicks() + 30);
+        helper.assertTrue(FoodStamp.state(boeuf, now) == DecayState.STALE, "le bœuf d'essai devait commencer rassis");
+        charger(be, boeuf, new ItemStack(FoodRegistry.SALT.get(), 1));
+        alimenter(be);
+        int[] releve = new int[2];
+        attendre(helper, 6, () -> helper.assertTrue(be.state() == MachineState.RUNNING && be.progress() > 0,
+                "le séchage devait avoir commencé, état " + be.state()));
+        attendre(helper, 50, () -> {
+            helper.assertTrue(be.state() == MachineState.STOPPED, "STOPPED attendu une fois avarié, vu " + be.state());
+            releve[0] = be.progress();
+            releve[1] = be.energy().getEnergyStored();
+        });
+        attendre(helper, 80, () -> {
+            helper.assertTrue(be.progress() == releve[0] && be.energy().getEnergyStored() == releve[1],
+                    "plus rien ne devait avancer ni se consommer");
+            helper.assertTrue(be.inventory().getStackInSlot(DryerBlockEntity.SLOT_INPUT).is(Items.BEEF)
+                    && be.inventory().getStackInSlot(DryerBlockEntity.SLOT_SALT).getCount() == 1
+                    && sortie(be).isEmpty(), "le bœuf et le sel devaient rester, sans sortie");
             helper.succeed();
         });
     }

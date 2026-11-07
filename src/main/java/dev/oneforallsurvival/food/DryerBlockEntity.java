@@ -208,7 +208,8 @@ public final class DryerBlockEntity extends ElectricMachineBlockEntity {
 
     private boolean outputFits(ItemStack result) {
         ItemStack out = items.getStackInSlot(SLOT_OUTPUT);
-        return out.isEmpty() || (ItemStack.isSameItemSameTags(out, result)
+        // Sans la date : ouvrir le menu date la ration séchée de la sortie, le résultat neuf n'en a pas.
+        return out.isEmpty() || (FoodEvents.sameWithoutStamp(out, result)
                 && out.getCount() + result.getCount() <= out.getMaxStackSize());
     }
 
@@ -256,7 +257,13 @@ public final class DryerBlockEntity extends ElectricMachineBlockEntity {
             items.setStackInSlot(SLOT_OUTPUT, result);
         } else {
             ItemStack grown = out.copy();
-            grown.grow(result.getCount());
+            if (FoodStamp.isStamped(grown)) {
+                // Sortie datée : le résultat neuf prend sa place dans la pile, à la date moyenne, comme deux piles qui se joignent.
+                FoodStamp.setStamp(result, FoodDecay.roundDown(FoodStamp.now(level)));
+                FoodEvents.merge(grown, result, grown.getMaxStackSize());
+            } else {
+                grown.grow(result.getCount());
+            }
             items.setStackInSlot(SLOT_OUTPUT, grown);
         }
         progress = 0;

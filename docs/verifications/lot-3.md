@@ -17,9 +17,11 @@ La barre de péremption (demande de Killian : « dans le tooltip d'avoir une bar
 
 `./gradlew runServer -PwithPack` puis `./gradlew runE2eClient -PwithPack`, puis `/stop`, nouveau `runServer` et `./gradlew runE2eRelance -PwithPack`. Client `Dev`, opérateur de `run-server` (`online-mode=false`, `server-ip=127.0.0.1`). Le client ne voit le serveur que par le réseau : inventaire, menus, état des blocs, messages. Les dates sont posées par de vraies commandes (`/give`, `/item replace`, `/summon`). Le serveur passe en difficulté facile (en paisible la faim ne baisse pas) et le monde est remis en paisible à la fin. Le client se ferme seul : fin normale par `/stop`, délai de garde de 25 min (10 min en relance) puis arrêt de la JVM par un second fil, écran de déconnexion et connexion de plus de 90 s traités comme des échecs.
 
-### Première phase (journal client `run-e2e/logs/latest.log`, 19:45 à 19:48) : 72 lignes `PASS`, 0 `FAIL`, « bilan : TOUT PASSE »
+### Première phase (journal client archivé `run-e2e/logs/2026-11-07-1.log.gz` ; `latest.log` est celui de la relance, qui l'a remplacé, 19:45 à 19:48) : 72 lignes `PASS`, 0 `FAIL`, « bilan : TOUT PASSE »
 
-Lignes lues, extraits :
+Les 72 lignes `PASS` comptent au moins 4 lignes sans contrôle (des messages d'étape, pas des mesures) : le nombre de mesures est un peu plus bas.
+
+Lignes lues, extraits (citées telles que le journal les écrit ; « jamais en train de manger » est le texte du contrôle, ce qui a été mesuré est la faim inchangée et la pile conservée) :
 
 ```
 [e2e] PASS pose par un clic droit reel en -39, 90, 228 : Refrigerated Cabinet   (idem Desalinator, Electric Dryer)
@@ -50,7 +52,7 @@ L'armoire, ses piles et leurs dates sont relues du disque (`avant l'arret [...] 
 
 ### Prouvé en plus, signalé par les relectures
 
-- **Le chemin réel d'un avarié** : `MultiPlayerGameMode.useItem`, touche « utiliser » tenue 3 s sur un vrai client, jamais en train de manger, faim inchangée, la pile n'est pas consommée et devient un déchet. Une sonde (un cabillaud sans date, vu daté au balayage d'une seconde du serveur) cale la phase : l'avarié est arrivé et utilisé à la phase 6 sur 20, donc avant le balayage suivant, ce n'est pas le balayage qui l'a remplacé. Le serveur remet bien l'avarié en main au retour de `useItem` (le déchet n'arrive qu'au balayage qui suit, moins d'une seconde plus tard) : le refus se mesure à « jamais en train de manger, faim inchangée ».
+- **Le chemin réel d'un avarié** : `MultiPlayerGameMode.useItem`, touche « utiliser » tenue 3 s sur un vrai client, faim inchangée, la pile conservée (pas d'état « en train de manger » mesuré), la pile n'est pas consommée et devient un déchet. Une sonde (un cabillaud sans date, vu daté au balayage d'une seconde du serveur) cale la phase : l'avarié est arrivé et utilisé à la phase 6 sur 20, donc avant le balayage suivant, ce n'est pas le balayage qui l'a remplacé. Le serveur remet bien l'avarié en main au retour de `useItem` (le déchet n'arrive qu'au balayage qui suit, moins d'une seconde plus tard) : le refus se mesure à « faim inchangée, pile conservée ».
 - **Un joueur réellement animé par le monde** : le vieillissement et le remplacement par le déchet dans l'inventaire se déroulent en vrai (balayage serveur, ligne ci-dessus), et le repas rassis rend moitié moins (gain 4 contre 8).
 - **Le dessalinisateur et le séchoir sur serveur dédié** démarrent, travaillent, ouvrent leurs menus et sauvegardent sans plantage de classes client : les deux phases ont tourné, 0 ligne `ERROR` ou `FATAL` aux deux journaux serveur (`run-server/logs/latest.log` copiés), le dessalinisateur a produit eau potable, sel et bouteilles pleines, le séchoir une ration salée.
 - **Une marmite de Farmer's Delight accepte un ingrédient daté**, le plat cuit est daté à son tour.

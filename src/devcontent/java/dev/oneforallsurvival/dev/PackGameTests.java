@@ -184,10 +184,12 @@ public final class PackGameTests {
                 "dried_fish", "dried_fruit", "potable_water_bottle", "spoiled_food"}) {
             Item item = objet("oneforallsurvival", nom);
             helper.assertTrue(item != null && item != net.minecraft.world.item.Items.AIR, "objet absent : " + nom);
-            // Seul le séchoir en fait (recettes oneforallsurvival:drying) ; le dessalinisateur n'a pas de recette.
+            // Seul le séchoir en fait, et seulement des six rations (recettes oneforallsurvival:drying) : le sel,
+            // la bouteille d'eau potable et le déchet n'ont droit à aucune recette.
+            boolean ration = nom.startsWith("dried_") || nom.startsWith("salted_");
             List<ResourceLocation> autres = recettesDonnant(helper, item).stream()
-                    .filter(id -> !helper.getLevel().getRecipeManager().byKey(id).orElseThrow().getType()
-                            .equals(FoodRegistry.DRYING_TYPE.get()))
+                    .filter(id -> !(ration && helper.getLevel().getRecipeManager().byKey(id).orElseThrow().getType()
+                            .equals(FoodRegistry.DRYING_TYPE.get())))
                     .toList();
             helper.assertTrue(autres.isEmpty(), nom + " se fabrique par d'autres recettes que le séchoir : " + autres);
             helper.assertTrue(etabli.stream().noneMatch(r -> r.result().is(item)),
