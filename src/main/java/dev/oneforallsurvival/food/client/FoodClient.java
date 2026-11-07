@@ -15,7 +15,7 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 
-/** Branchements côté client seulement de la péremption : la ligne d'état dans l'infobulle et l'écran de l'armoire. */
+/** Branchements côté client seulement de la péremption : la ligne d'état dans l'infobulle et les écrans des machines. */
 @Mod.EventBusSubscriber(modid = OneForAllSurvival.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
 public final class FoodClient {
 
@@ -51,7 +51,7 @@ public final class FoodClient {
         event.getToolTip().add(Component.translatable("food." + OneForAllSurvival.MODID + "." + key).withStyle(color));
     }
 
-    /** L'écran de l'armoire s'enregistre sur le bus du mod, au démarrage du client. */
+    /** Les écrans de l'armoire et du dessalinisateur s'enregistrent sur le bus du mod, au démarrage du client. */
     @Mod.EventBusSubscriber(modid = OneForAllSurvival.MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
     public static final class ModBus {
 
@@ -59,7 +59,10 @@ public final class FoodClient {
 
         @SubscribeEvent
         public static void onClientSetup(FMLClientSetupEvent event) {
-            event.enqueueWork(() -> MenuScreens.register(FoodRegistry.FRIDGE_MENU.get(), FridgeScreen::new));
+            event.enqueueWork(() -> {
+                MenuScreens.register(FoodRegistry.FRIDGE_MENU.get(), FridgeScreen::new);
+                MenuScreens.register(FoodRegistry.DESALINATOR_MENU.get(), DesalinatorScreen::new);
+            });
         }
     }
 }

@@ -2,10 +2,12 @@ package dev.oneforallsurvival.dev;
 
 import dev.oneforallsurvival.bench.BenchCatalog;
 import dev.oneforallsurvival.bench.BenchRecipe;
+import dev.oneforallsurvival.food.FoodRegistry;
 import dev.oneforallsurvival.repair.GalvanicRecipe;
 import java.lang.reflect.Method;
 import java.util.List;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.ResourceLocation;
@@ -15,9 +17,16 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeType;
+import net.minecraft.world.level.BlockAndTintGetter;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.Fluids;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
@@ -186,6 +195,49 @@ public final class PackGameTests {
             pile = (ItemStack) avancer.invoke(recette, pile);
             helper.assertTrue(pile.is(fini), id + " : la neuvième étape doit finir la pièce, vu " + pile);
         }
+        helper.succeed();
+    }
+
+    /**
+     * Un tuyau de Create posé contre le dessalinisateur le voit : sa propre logique de réseau (appelée par
+     * réflexion, le mod ne dépend pas de Create à la compilation) reconnaît la capability de fluides sur la face
+     * du tuyau, puis le raccord du tuyau avec la machine. Ce n'est PAS une pompe qui tourne : le montage d'une pompe
+     * demande une force cinétique que les GameTests ne fournissent pas. Le transfert lui-même passe par la
+     * capability, que {@code DessalinisateurGameTests} éprouve face par face.
+     */
+    @GameTest(template = "test/plancher", batch = "pack_tuyau")
+    public static void leTuyauCreateVoitLeFluide(GameTestHelper helper) throws ReflectiveOperationException {
+        if (!ModList.get().isLoaded("create")) {
+            helper.succeed();
+            return;
+        }
+        BlockPos machine = new BlockPos(1, 1, 1);
+        BlockPos tuyau = machine.east();
+        helper.setBlock(machine, FoodRegistry.DESALINATOR.get());
+        Block pipe = ForgeRegistries.BLOCKS.getValue(new ResourceLocation("create", "fluid_pipe"));
+        helper.assertTrue(pipe != null && pipe != Blocks.AIR, "le tuyau de Create (create:fluid_pipe) est introuvable");
+        helper.setBlock(tuyau, pipe);
+        var level = helper.getLevel();
+        BlockPos machineAbs = helper.absolutePos(machine);
+        BlockPos tuyauAbs = helper.absolutePos(tuyau);
+        Class<?> propagateur = Class.forName("com.simibubi.create.content.fluids.FluidPropagator");
+        Method aCapability = propagateur.getMethod("hasFluidCapability", BlockGetter.class, BlockPos.class, Direction.class);
+        helper.assertTrue((boolean) aCapability.invoke(null, level, machineAbs, Direction.EAST),
+                "Create ne voit pas de capability de fluides sur la face est du dessalinisateur");
+        Class<?> bloc = Class.forName("com.simibubi.create.content.fluids.pipes.FluidPipeBlock");
+        Method raccord = bloc.getMethod("canConnectTo", BlockAndTintGetter.class, BlockPos.class, BlockState.class,
+                Direction.class);
+        helper.assertTrue((boolean) raccord.invoke(null, level, tuyauAbs, level.getBlockState(tuyauAbs), Direction.WEST),
+                "le tuyau de Create ne se raccorde pas au dessalinisateur");
+        // Et ce que Create y verserait entre bien : l'eau seulement, par la face du tuyau.
+        BlockEntity be = helper.getBlockEntity(machine);
+        helper.assertTrue(be != null, "pas de block entity du dessalinisateur");
+        var cuve = be.getCapability(ForgeCapabilities.FLUID_HANDLER, Direction.EAST).orElse(null);
+        helper.assertTrue(cuve != null, "pas de capability de fluides sur la face est");
+        helper.assertTrue(cuve.fill(new FluidStack(Fluids.WATER, 1000), IFluidHandler.FluidAction.EXECUTE) == 1000,
+                "1000 mB d'eau devaient entrer");
+        helper.assertTrue(cuve.fill(new FluidStack(Fluids.LAVA, 1000), IFluidHandler.FluidAction.EXECUTE) == 0,
+                "la lave ne doit pas entrer");
         helper.succeed();
     }
 }
