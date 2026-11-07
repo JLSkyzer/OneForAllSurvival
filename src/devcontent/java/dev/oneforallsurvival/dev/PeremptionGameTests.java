@@ -19,14 +19,17 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.CompoundContainer;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.player.StackedContents;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ClickAction;
+import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.CraftingContainer;
+import net.minecraft.world.inventory.FurnaceMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.entity.SlotAccess;
 import net.minecraft.world.inventory.TransientCraftingContainer;
@@ -41,6 +44,7 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ComposterBlock;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
+import net.minecraft.world.level.block.entity.FurnaceBlockEntity;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.ItemStackedOnOtherEvent;
@@ -407,24 +411,137 @@ public final class PeremptionGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "test/plancher", batch = "peremption_bain")
+    /** Un four a un vrai conteneur de bloc : ses cases ont des rôles, on n'y regroupe jamais rien. */
+    @GameTest(template = "test/plancher", batch = "peremption_four")
     public static void laFermetureNeToucheJamaisUneAutreMachine(GameTestHelper helper) {
-        helper.setBlock(POS, RepairRegistry.GALVANIC_BATH.get());
-        GalvanicBathBlockEntity bain = (GalvanicBathBlockEntity) helper.getBlockEntity(POS);
-        helper.assertTrue(bain != null, "pas de bain");
-        bain.inventory().setStackInSlot(0, date(Items.BEEF, 3, 0));
-        bain.inventory().setStackInSlot(1, date(Items.BEEF, 1, 72000));
+        helper.setBlock(POS, Blocks.FURNACE);
+        FurnaceBlockEntity four = (FurnaceBlockEntity) helper.getBlockEntity(POS);
+        helper.assertTrue(four != null, "pas de four");
+        four.setItem(0, date(Items.BEEF, 3, 0));
+        four.setItem(2, date(Items.BEEF, 1, 72000));
         JoueurDeTest j = null;
         try {
             j = joueur(helper, "Curieux");
             ServerPlayer p = j.joueur();
-            GalvanicBathMenu menu = new GalvanicBathMenu(77, p.getInventory(), bain, helper.absolutePos(POS));
+            helper.assertTrue(p.openMenu(four).isPresent(), "le four devait s'ouvrir");
+            helper.assertTrue(p.containerMenu instanceof FurnaceMenu, "un menu de four attendu");
+            p.closeContainer();
+            helper.assertTrue(four.getItem(0).getCount() == 3 && FoodStamp.stamp(four.getItem(0)) == 0,
+                    "l'entrée du four devait rester intacte, vu " + four.getItem(0));
+            helper.assertTrue(four.getItem(2).getCount() == 1 && FoodStamp.stamp(four.getItem(2)) == 72000,
+                    "la sortie du four devait rester intacte, vu " + four.getItem(2));
+        } finally {
+            quitter(j);
+        }
+        helper.succeed();
+    }
+
+    /** Un grand coffre est un {@code CompoundContainer} derrière un {@code ChestMenu} : il est regroupé. */
+    @GameTest(template = "test/plancher", batch = "peremption_grand_coffre")
+    public static void laFermetureRegroupeUnGrandCoffre(GameTestHelper helper) {
+        helper.setBlock(POS, Blocks.CHEST);
+        helper.setBlock(POS.east(), Blocks.CHEST);
+        ChestBlockEntity gauche = (ChestBlockEntity) helper.getBlockEntity(POS);
+        ChestBlockEntity droite = (ChestBlockEntity) helper.getBlockEntity(POS.east());
+        helper.assertTrue(gauche != null && droite != null, "pas de coffres");
+        CompoundContainer grand = new CompoundContainer(gauche, droite);
+        grand.setItem(0, date(Items.BEEF, 30, 0));
+        grand.setItem(27 + 3, date(Items.BEEF, 20, 72000));
+        JoueurDeTest j = null;
+        try {
+            j = joueur(helper, "Rangeuse");
+            ServerPlayer p = j.joueur();
+            ChestMenu menu = ChestMenu.sixRows(91, p.getInventory(), grand);
             MinecraftForge.EVENT_BUS.post(new PlayerContainerEvent.Open(p, menu));
             MinecraftForge.EVENT_BUS.post(new PlayerContainerEvent.Close(p, menu));
-            helper.assertTrue(bain.inventory().getStackInSlot(0).getCount() == 3
-                    && FoodStamp.stamp(bain.inventory().getStackInSlot(0)) == 0, "la case 0 du bain devait rester intacte");
-            helper.assertTrue(bain.inventory().getStackInSlot(1).getCount() == 1
-                    && FoodStamp.stamp(bain.inventory().getStackInSlot(1)) == 72000, "la case 1 du bain devait rester intacte");
+            helper.assertTrue(grand.getItem(0).getCount() == 50, "50 attendus dans la première case, vu " + grand.getItem(0));
+            helper.assertTrue(grand.getItem(30).isEmpty(), "la seconde pile devait être vidée");
+            helper.assertTrue(FoodStamp.stamp(grand.getItem(0)) == FoodDecay.weightedStamp(0, 30, 72000, 20),
+                    "date moyenne attendue, vue " + FoodStamp.stamp(grand.getItem(0)));
+        } finally {
+            quitter(j);
+        }
+        helper.succeed();
+    }
+
+    /** L'inventaire du joueur, vu depuis un menu de coffre, n'est pas regroupé par la fermeture du coffre. */
+    @GameTest(template = "test/plancher", batch = "peremption_inventaire_coffre")
+    public static void laFermetureDUnCoffreNeRegroupePasLInventaire(GameTestHelper helper) {
+        helper.setBlock(POS, Blocks.CHEST);
+        ChestBlockEntity coffre = (ChestBlockEntity) helper.getBlockEntity(POS);
+        helper.assertTrue(coffre != null, "pas de coffre");
+        JoueurDeTest j = null;
+        try {
+            j = joueur(helper, "Porteur");
+            ServerPlayer p = j.joueur();
+            p.getInventory().setItem(9, date(Items.BEEF, 3, 0));
+            p.getInventory().setItem(10, date(Items.BEEF, 1, 72000));
+            helper.assertTrue(p.openMenu(coffre).isPresent(), "le coffre devait s'ouvrir");
+            p.closeContainer();
+            helper.assertTrue(p.getInventory().getItem(9).getCount() == 3 && p.getInventory().getItem(10).getCount() == 1,
+                    "l'inventaire n'est regroupé que par la passe du joueur");
+        } finally {
+            quitter(j);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = "peremption_ouverture")
+    public static void unAlimentNonDateEstDateALOuvertureDUnCoffre(GameTestHelper helper) {
+        helper.setBlock(POS, Blocks.CHEST);
+        ChestBlockEntity coffre = (ChestBlockEntity) helper.getBlockEntity(POS);
+        helper.assertTrue(coffre != null, "pas de coffre");
+        coffre.setItem(4, new ItemStack(Items.BEEF, 2));
+        coffre.setItem(5, new ItemStack(Items.STONE, 2));
+        JoueurDeTest j = null;
+        try {
+            j = joueur(helper, "Ouvreur");
+            helper.assertTrue(j.joueur().openMenu(coffre).isPresent(), "le coffre devait s'ouvrir");
+            helper.assertTrue(FoodStamp.isStamped(coffre.getItem(4)), "le boeuf du coffre devait être daté à l'ouverture");
+            helper.assertTrue(!coffre.getItem(5).hasTag(), "la pierre ne devait pas être touchée");
+        } finally {
+            quitter(j);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = "peremption_ouverture_avarie")
+    public static void unAvarieDansUnCoffreDevientUnDechetALOuverture(GameTestHelper helper) {
+        helper.setBlock(POS, Blocks.CHEST);
+        ChestBlockEntity coffre = (ChestBlockEntity) helper.getBlockEntity(POS);
+        helper.assertTrue(coffre != null, "pas de coffre");
+        coffre.setItem(4, date(Items.BEEF, 6, avarie()));
+        JoueurDeTest j = null;
+        try {
+            j = joueur(helper, "Fouineur");
+            helper.assertTrue(j.joueur().openMenu(coffre).isPresent(), "le coffre devait s'ouvrir");
+            ItemStack pile = coffre.getItem(4);
+            helper.assertTrue(pile.is(FoodRegistry.SPOILED_FOOD.get()) && pile.getCount() == 6,
+                    "6 déchets attendus, vu " + pile);
+        } finally {
+            quitter(j);
+        }
+        helper.succeed();
+    }
+
+    /** Une case de mod (ici celles du bain) peut refuser un objet : on la date, on n'y pose jamais de déchet. */
+    @GameTest(template = "test/plancher", batch = "peremption_bain")
+    public static void uneCaseDeModRecoitLaDateMaisJamaisLeDechet(GameTestHelper helper) {
+        helper.setBlock(POS, RepairRegistry.GALVANIC_BATH.get());
+        GalvanicBathBlockEntity bain = (GalvanicBathBlockEntity) helper.getBlockEntity(POS);
+        helper.assertTrue(bain != null, "pas de bain");
+        bain.inventory().setStackInSlot(0, new ItemStack(Items.BEEF, 3));
+        bain.inventory().setStackInSlot(1, date(Items.BEEF, 2, avarie()));
+        JoueurDeTest j = null;
+        try {
+            j = joueur(helper, "Curieuse");
+            ServerPlayer p = j.joueur();
+            GalvanicBathMenu menu = new GalvanicBathMenu(77, p.getInventory(), bain, helper.absolutePos(POS));
+            MinecraftForge.EVENT_BUS.post(new PlayerContainerEvent.Open(p, menu));
+            helper.assertTrue(FoodStamp.isStamped(bain.inventory().getStackInSlot(0)), "la case du bain devait être datée");
+            ItemStack avarie = bain.inventory().getStackInSlot(1);
+            helper.assertTrue(avarie.is(Items.BEEF) && avarie.getCount() == 2,
+                    "une case de mod ne reçoit jamais de déchet, vu " + avarie);
         } finally {
             quitter(j);
         }
@@ -549,34 +666,43 @@ public final class PeremptionGameTests {
         helper.succeed();
     }
 
+    /** Un repas dont l'aliment s'avarie en route : l'état noté au Start décide, rassis ou frais. */
     @GameTest(template = "test/plancher", batch = "peremption_pleine_bouche")
     public static void unAvarieEnPleineBoucheNePlantePas(GameTestHelper helper) {
+        int nutrition = Items.COOKED_BEEF.getFoodProperties().getNutrition();
         JoueurDeTest j = null;
         try {
             j = joueur(helper, "Lent");
             ServerPlayer p = j.joueur();
-            p.getFoodData().setFoodLevel(4);
-            p.setItemInHand(InteractionHand.MAIN_HAND, date(Items.COOKED_BEEF, 2, rassis()));
-            p.startUsingItem(InteractionHand.MAIN_HAND);
-            helper.assertTrue(p.isUsingItem(), "le repas devait commencer");
-            manger(p, 15);
-            // Le temps passe : l'aliment tenu en bouche s'avarie avant la fin du repas.
-            FoodStamp.setStamp(p.getMainHandItem(), avarie());
-            helper.assertTrue(p.isUsingItem(), "le repas devait être en cours");
-            FoodEvents.scan(p);
-            helper.assertTrue(p.getMainHandItem().is(Items.COOKED_BEEF) && p.getMainHandItem().getCount() == 2,
-                    "le repas en cours ne devait pas être remplacé, vu " + p.getMainHandItem());
-            manger(p, 25);
-            helper.assertTrue(!p.isUsingItem(), "le repas devait être fini");
-            int faim = p.getFoodData().getFoodLevel();
-            helper.assertTrue(faim >= 4 && faim <= 20, "faim négative ou démesurée : " + faim);
-            helper.assertTrue(p.getMainHandItem().getCount() == 1, "un seul steak devait avoir été mangé");
-            FoodEvents.scan(p);
-            ItemStack reste = p.getMainHandItem();
-            helper.assertTrue(reste.is(FoodRegistry.SPOILED_FOOD.get()) && reste.getCount() == 1,
-                    "le reste devait devenir 1 déchet, vu " + reste);
-            helper.assertTrue(total(p, Items.COOKED_BEEF, FoodRegistry.SPOILED_FOOD.get()) == 1,
-                    "aucun objet ne devait apparaître : 2 de départ, 1 mangé, 1 restant");
+            long maintenant = helper.getLevel().getGameTime();
+            long[] datesAuDepart = {rassis(), FoodDecay.roundDown(maintenant)};
+            int[] faimAttendue = {4 + nutrition / 2, 4 + nutrition};
+            String[] noms = {"rassis au Start", "frais au Start"};
+            for (int cas = 0; cas < 2; cas++) {
+                p.getFoodData().setFoodLevel(4);
+                p.setItemInHand(InteractionHand.MAIN_HAND, date(Items.COOKED_BEEF, 2, datesAuDepart[cas]));
+                p.startUsingItem(InteractionHand.MAIN_HAND);
+                helper.assertTrue(p.isUsingItem(), noms[cas] + " : le repas devait commencer");
+                manger(p, 15);
+                // Le temps passe : l'aliment tenu en bouche s'avarie avant la fin du repas.
+                FoodStamp.setStamp(p.getMainHandItem(), avarie());
+                helper.assertTrue(p.isUsingItem(), noms[cas] + " : le repas devait être en cours");
+                FoodEvents.scan(p);
+                helper.assertTrue(p.getMainHandItem().is(Items.COOKED_BEEF) && p.getMainHandItem().getCount() == 2,
+                        noms[cas] + " : le repas en cours ne devait pas être remplacé, vu " + p.getMainHandItem());
+                manger(p, 25);
+                helper.assertTrue(!p.isUsingItem(), noms[cas] + " : le repas devait être fini");
+                helper.assertTrue(p.getFoodData().getFoodLevel() == faimAttendue[cas],
+                        noms[cas] + " : faim " + faimAttendue[cas] + " attendue, vue " + p.getFoodData().getFoodLevel());
+                helper.assertTrue(p.getMainHandItem().getCount() == 1, noms[cas] + " : un seul steak devait avoir été mangé");
+                FoodEvents.scan(p);
+                ItemStack reste = p.getMainHandItem();
+                helper.assertTrue(reste.is(FoodRegistry.SPOILED_FOOD.get()) && reste.getCount() == 1,
+                        noms[cas] + " : le reste devait devenir 1 déchet, vu " + reste);
+                helper.assertTrue(total(p, Items.COOKED_BEEF, FoodRegistry.SPOILED_FOOD.get()) == 1,
+                        noms[cas] + " : aucun objet ne devait apparaître : 2 de départ, 1 mangé, 1 restant");
+                p.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+            }
         } finally {
             quitter(j);
         }

@@ -8,19 +8,19 @@ import java.util.Objects;
 import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.CompoundContainer;
-import net.minecraft.world.Container;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.food.FoodData;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.inventory.ClickAction;
+import net.minecraft.world.inventory.ShulkerBoxMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BaseContainerBlockEntity;
 import net.minecraftforge.event.ItemStackedOnOtherEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.EntityJoinLevelEvent;
@@ -168,9 +168,13 @@ public final class FoodEvents {
         }
     }
 
-    /** Les coffres et tonneaux ; jamais une autre machine, où un mod peut réserver des cases. */
-    private static boolean isStorage(Container container) {
-        return container instanceof BaseContainerBlockEntity || container instanceof CompoundContainer;
+    /**
+     * Les menus de rangement dont la fermeture regroupe les piles : coffres (grands coffres compris) et boîtes de
+     * shulker. Jamais un four, un alambic ni la machine d'un mod, dont les cases ont un rôle. Point d'extension :
+     * la tâche 3 y ajoute le menu de l'armoire.
+     */
+    private static boolean groupsOnClose(AbstractContainerMenu menu) {
+        return menu instanceof ChestMenu || menu instanceof ShulkerBoxMenu;
     }
 
     private static long now(Level level) {
@@ -198,6 +202,11 @@ public final class FoodEvents {
             if (!FoodStamp.isPerishable(stack)) {
                 continue;
             }
+            if (slot.getClass() != Slot.class) {
+                // Case fantôme ou de filtre d'un mod : on la date, mais slot.set ignore mayPlace, donc jamais de déchet.
+                FoodStamp.stampIfNeeded(stack, now);
+                continue;
+            }
             ItemStack seen = observe(stack, now);
             if (seen != stack) {
                 slot.set(seen);
@@ -207,12 +216,13 @@ public final class FoodEvents {
 
     @SubscribeEvent
     public void onContainerClose(PlayerContainerEvent.Close event) {
-        if (!(event.getEntity() instanceof ServerPlayer)) {
+        if (!(event.getEntity() instanceof ServerPlayer player) || !groupsOnClose(event.getContainer())) {
             return;
         }
         List<Slot> storage = new ArrayList<>();
         for (Slot slot : event.getContainer().slots) {
-            if (isStorage(slot.container)) {
+            // L'inventaire du joueur a sa propre passe, une fois par seconde.
+            if (slot.container != player.getInventory()) {
                 storage.add(slot);
             }
         }
