@@ -8,6 +8,7 @@ import dev.oneforallsurvival.food.FoodTags;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.ComposterBlock;
@@ -21,6 +22,12 @@ import net.minecraftforge.registries.ForgeRegistries;
 public final class PeremptionGameTests {
 
     private PeremptionGameTests() {}
+
+    private static ItemStack essai(GameTestHelper helper, String name) {
+        Item item = ForgeRegistries.ITEMS.getValue(new ResourceLocation("oneforallsurvival", name));
+        helper.assertTrue(item != null && item != Items.AIR, name + " est introuvable");
+        return new ItemStack(item);
+    }
 
     @GameTest(template = "test/plancher", batch = "peremption")
     public static void unBoeufEstPerissableMaisPasLaPierre(GameTestHelper helper) {
@@ -46,16 +53,31 @@ public final class PeremptionGameTests {
 
     @GameTest(template = "test/plancher", batch = "peremption")
     public static void nonPerishableLEmporte(GameTestHelper helper) {
-        // Le tag de données d'essai range la morue cuite dans non_perishable, alors que #minecraft:fishes
-        // (donc perishable) la contient aussi : le tag non périssable doit gagner.
-        ItemStack morue = new ItemStack(Items.COOKED_COD);
-        helper.assertTrue(morue.is(FoodTags.PERISHABLE) || morue.is(net.minecraft.tags.ItemTags.FISHES),
-                "la morue cuite devait être dans un tag périssable");
-        helper.assertTrue(morue.is(FoodTags.NON_PERISHABLE), "le tag d'essai non_perishable devait contenir la morue cuite");
-        helper.assertTrue(!FoodStamp.isPerishable(morue), "non_perishable doit l'emporter");
-        helper.assertTrue(!FoodStamp.stampIfNeeded(morue, 40000), "un non périssable ne reçoit pas de date");
+        // L'aliment d'essai est dans le tag périssable ET dans non_perishable : ce dernier gagne.
+        ItemStack pile = essai(helper, "test_non_perishable_food");
+        helper.assertTrue(pile.is(FoodTags.PERISHABLE), "l'aliment d'essai devait être dans le tag périssable");
+        helper.assertTrue(pile.is(FoodTags.NON_PERISHABLE), "il devait aussi être dans non_perishable");
+        helper.assertTrue(!FoodStamp.isPerishable(pile), "non_perishable doit l'emporter");
+        helper.assertTrue(!FoodStamp.stampIfNeeded(pile, 40000), "un non périssable ne reçoit pas de date");
         helper.assertTrue(!FoodStamp.isPerishable(new ItemStack(FoodRegistry.SPOILED_FOOD.get())),
                 "le déchet ne doit pas périmer");
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = "peremption")
+    public static void lesTagsDesViandesEtPoissonsResolvent(GameTestHelper helper) {
+        String[][] ids = {
+            {"minecraft", "cooked_beef"}, {"minecraft", "chicken"}, {"minecraft", "cooked_chicken"},
+            {"minecraft", "porkchop"}, {"minecraft", "cooked_porkchop"}, {"minecraft", "mutton"},
+            {"minecraft", "cooked_mutton"}, {"farmersdelight", "bacon"}, {"farmersdelight", "cooked_bacon"},
+            {"minecraft", "cod"}, {"minecraft", "cooked_cod"}, {"minecraft", "salmon"},
+            {"minecraft", "cooked_salmon"}, {"minecraft", "rabbit"}, {"minecraft", "cooked_rabbit"},
+        };
+        for (String[] id : ids) {
+            Item item = ForgeRegistries.ITEMS.getValue(new ResourceLocation(id[0], id[1]));
+            helper.assertTrue(item != null && item != Items.AIR, id[0] + ":" + id[1] + " est introuvable");
+            helper.assertTrue(FoodStamp.isPerishable(new ItemStack(item)), id[0] + ":" + id[1] + " devait périmer");
+        }
         helper.succeed();
     }
 
@@ -78,9 +100,8 @@ public final class PeremptionGameTests {
     @GameTest(template = "test/plancher", batch = "peremption")
     public static void leLentDureHuitFoisPlus(GameTestHelper helper) {
         helper.assertTrue(FoodConfig.slowFactor() == 8.0, "facteur lent 8 attendu par défaut");
-        // Le tag de données d'essai range le saumon cuit dans slow_perishable.
-        ItemStack lent = new ItemStack(Items.COOKED_SALMON);
-        helper.assertTrue(lent.is(FoodTags.SLOW_PERISHABLE), "le tag d'essai slow_perishable devait contenir le saumon cuit");
+        ItemStack lent = essai(helper, "test_slow_food");
+        helper.assertTrue(lent.is(FoodTags.SLOW_PERISHABLE), "l'aliment d'essai devait être dans slow_perishable");
         helper.assertTrue(FoodStamp.isPerishable(lent), "un aliment lent périme quand même");
         ItemStack normal = new ItemStack(Items.COOKED_BEEF);
         long fresh = FoodConfig.freshTicks();

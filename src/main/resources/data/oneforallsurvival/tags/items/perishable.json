@@ -16,6 +16,7 @@
     {"id": "#forge:cooked_mutton", "required": false},
     {"id": "#forge:cooked_bacon", "required": false},
     {"id": "#forge:cooked_fishes", "required": false},
-    {"id": "#farmersdelight:meals", "required": false}
+    {"id": "#farmersdelight:meals", "required": false},
+    {"id": "#oneforallsurvival:test_perishable", "required": false}
   ]
 }

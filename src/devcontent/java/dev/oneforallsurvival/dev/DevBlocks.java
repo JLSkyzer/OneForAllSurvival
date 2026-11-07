@@ -92,6 +92,9 @@ public final class DevBlocks {
             // Pièce d'essai du bain galvanique et sa version traitée (recette de devcontent).
             helper.register(new ResourceLocation("oneforallsurvival", "test_part"), new Item(new Item.Properties()));
             helper.register(new ResourceLocation("oneforallsurvival", "test_part_done"), new Item(new Item.Properties()));
+            // Aliments d'essai de la péremption : un non périssable (aussi dans le tag périssable) et un lent.
+            helper.register(new ResourceLocation("oneforallsurvival", "test_non_perishable_food"), new Item(new Item.Properties()));
+            helper.register(new ResourceLocation("oneforallsurvival", "test_slow_food"), new Item(new Item.Properties()));
         });
     }
 

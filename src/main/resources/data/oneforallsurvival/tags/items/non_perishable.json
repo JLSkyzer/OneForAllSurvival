@@ -1,4 +1,6 @@
 {
   "replace": false,
-  "values": []
+  "values": [
+    {"id": "#oneforallsurvival:test_non_perishable", "required": false}
+  ]
 }
