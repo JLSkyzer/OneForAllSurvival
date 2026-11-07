@@ -192,6 +192,36 @@ La suite Disabled, Enabled, Disabled, Enabled, Enabled revient dans 9 blocages s
 
 Non établi : le comportement contre un serveur distant (tout a été mesuré en local), un client sans le mod, et le taux sur la machine d'un joueur. Relevés : `run-demo/blocages-prod/` (`rapport.md`, `summary.tsv`, journaux), ignoré par git, local.
 
+## Blocage à la connexion : le correctif
+
+`client/ConnectionWatchdog` et `client/ReadRescue`, côté client seulement, sans mixin. Tant que l'écran de connexion est ouvert, à partir de 3 s puis toutes les 5 s, le mod demande une lecture sur la boucle du canal, si le canal est actif et `autoRead` vrai. Le défaut reste dans le code de Minecraft et de Forge : ceci en corrige le symptôme, pour les clients qui ont le mod.
+
+Mesure du 7 novembre, 00:29 à 01:02, 20 lancements en alternance contre un serveur local : **0 « Timed out »** (10 vrais clients, 10 clients de dev), contre 9 sur 20 sans correctif la veille au soir (mêmes scripts, sauf le serveur).
+
+| Suite `Disabled`/`Enabled` avant le premier message FML | Sans correctif | Avec correctif |
+|---|---|---|
+| D E D E E, lancements dont le journal a été lu | 9 | 5 (2 vrais clients, 3 dev) |
+| Finis en « Timed out » | 9 | 0 |
+
+Sur ces 5 lancements, le premier message du serveur suit la relance de 10 à 17 ms, par exemple sur le vrai client n° 14 :
+
+```
+00:51:44.780 [Render thread]      Connexion encore en attente du serveur : relance de la lecture
+00:51:44.797 [Netty Client IO #0] Recieved login wrapper packet event
+```
+
+JUnit : 66 tests, dont les 5 de `ReadRescueTest` (l'état reproduit avec Netty seul, débloqué par la relance ; rien lu avec `autoRead` faux ; canal fermé sans erreur). GameTests avec le pack : 184 sur 184. Jar : aucune classe `dev`.
+
+La relance s'est aussi déclenchée sur des connexions saines et lentes, sans les perturber. Un essai complet avec relance déclenchée (suite D D E E E, connexion saine) va jusqu'à `bilan : TOUT PASSE`, 01:08.
+
+Non prouvé :
+- **Une connexion rattrapée par la surveillance, jusqu'au bout de l'essai** : chaque lancement de la mesure était coupé juste après le premier message. Le vrai client ne va jamais en jeu ici, refusé faute du pack. Le seul cas allé au bout reste l'expérience du lot 2, même lecture, déclenchée à la main (`relire`).
+- **Un serveur distant** : tout est mesuré en local.
+- **Le ping de la liste des serveurs** : même classe `Connection`, ni observé ni couvert, la surveillance ne regarde que l'écran de connexion.
+- **La disparition complète** : 0 sur 20 n'exclut pas un cas rare, ni la suite D E E, bloquée une fois sans correctif (n° 11) et jamais retombée dans cette série.
+
+Relevés : `run-demo/blocages-fix/` (`summary.tsv`, journaux), ignoré par git, local. La colonne de durée de `summary.tsv` mesure le script, pas la connexion : lire les journaux.
+
 ## Film
 
 `./gradlew runDemoReparationFilm -PwithPack`, monde intégré plat, sans serveur dédié. Encodé par `MfEncoder.exe` : `run-demo/lot-2-reparation.mp4`, 96,7 s (967 images à 10 i/s), H.264 1280 x 720, 30163507 octets, non versionné (`run-demo` est ignoré). J'ai relu 30 images extraites des PNG et 10 extraites du mp4.
