@@ -278,7 +278,14 @@ public abstract class ElectricMachineBlockEntity extends BlockEntity {
         if (blockState.getValue(ElectricMachineBlock.STATE) != next) {
             level.setBlock(pos, blockState.setValue(ElectricMachineBlock.STATE, next), Block.UPDATE_CLIENTS);
         }
+        afterTick(level, next);
     }
+
+    /**
+     * Fin de chaque tick serveur, quel que soit l'état (panne, arrêt, manque de courant, marche) : pour une
+     * machine qui doit suivre le temps même quand elle ne travaille pas. Ne fait rien par défaut.
+     */
+    protected void afterTick(Level level, MachineState tickState) {}
 
     /** Un tick d'usure ; à 0 la machine tombe en panne de la pièce annoncée, et peut s'enflammer. */
     private void wear() {

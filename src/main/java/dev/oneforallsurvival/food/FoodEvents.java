@@ -170,11 +170,11 @@ public final class FoodEvents {
 
     /**
      * Les menus de rangement dont la fermeture regroupe les piles : coffres (grands coffres compris) et boîtes de
-     * shulker. Jamais un four, un alambic ni la machine d'un mod, dont les cases ont un rôle. Point d'extension :
-     * la tâche 3 y ajoute le menu de l'armoire.
+     * shulker, plus l'armoire frigorifique, dont les 27 cases sont du rangement. Jamais un four, un alambic ni la
+     * machine d'un mod, dont les cases ont un rôle. Point d'extension unique de ce regroupement.
      */
     private static boolean groupsOnClose(AbstractContainerMenu menu) {
-        return menu instanceof ChestMenu || menu instanceof ShulkerBoxMenu;
+        return menu instanceof ChestMenu || menu instanceof ShulkerBoxMenu || menu instanceof FridgeMenu;
     }
 
     private static long now(Level level) {

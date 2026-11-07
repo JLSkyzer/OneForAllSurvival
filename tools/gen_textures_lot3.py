@@ -37,6 +37,94 @@ SPOILED_FOOD = lot2.sprite(
 
 OBJETS = {"spoiled_food": SPOILED_FOOD}
 
+# ---------------------------------------------------------------------------------------------------
+# Armoire frigorifique : un caisson de fer récupéré, porte à poignée de laiton, voyant d'état.
+# ---------------------------------------------------------------------------------------------------
+VOYANTS = {"stopped": "z", "running": "g", "no_power": "h", "fault": "P"}  # arrêt, au froid, sans courant, panne
+
+
+def armoire_face(voyant):
+    lignes = [
+        "KKKKKKKKKKKKKKKK",
+        "KllllllllllllllK",
+        "KliiiiiiiiiiiidK",
+        "KliKKKiiiiiiiidK",
+        "KliK%KiiiiiiiidK",
+        "KliKKKiiiiiiiidK",
+        "KliiiiiiiiiiiidK",
+        "KKKKKKKKKKKKKKKK",
+        "KliiiiiiiiiiBbdK",
+        "KliiiiiiiiiiBydK",
+        "KliiiiiiiiiiBbdK",
+        "KliiiiiiiiiiBbdK",
+        "KliiiiiiiiiiiidK",
+        "KldddddddddddddK",
+        "KldddddddddddddK",
+        "KKKKKKKKKKKKKKKK",
+    ]
+    lignes[4] = "KliK" + voyant + "KiiiiiiiidK"
+    return lot2.sprite(*lignes)
+
+
+ARMOIRE_COTE = lot2.sprite(
+    "KKKKKKKKKKKKKKKK",
+    "KllllllllllllllK",
+    "KliiiiiiiiiiiidK",
+    "KliiiiiiiiiiiidK",
+    "KliiiiiiiiiiiidK",
+    "KliiiiiiiiiiiidK",
+    "KliiiiiiiiiiiidK",
+    "KKKKKKKKKKKKKKKK",
+    "KliiiiiiiiiiiidK",
+    "KliiiiiiiiiiiidK",
+    "KliiiiiiiiiiiidK",
+    "KliiiiiiiiiiiidK",
+    "KliiiiiiiiiiiidK",
+    "KliiiiiiiiiiiidK",
+    "KldddddddddddddK",
+    "KKKKKKKKKKKKKKKK",
+)
+
+ARMOIRE_DESSUS = lot2.sprite(
+    "KKKKKKKKKKKKKKKK",
+    "KllllllllllllllK",
+    "KlwliiiiiiiilidK",
+    "KliiiiiiiiiiiidK",
+    "KliKKKKKKKKKKidK",
+    "KliKddddddddKidK",
+    "KliKKKKKKKKKKidK",
+    "KliKddddddddKidK",
+    "KliKKKKKKKKKKidK",
+    "KliKddddddddKidK",
+    "KliKKKKKKKKKKidK",
+    "KliiiiiiiiiiiidK",
+    "KliiiiiiiiiiiidK",
+    "KliiiiiiiiiiiidK",
+    "KddddddddddddddK",
+    "KKKKKKKKKKKKKKKK",
+)
+
+
+def ecrire_armoire():
+    for etat, voyant in VOYANTS.items():
+        lot2.ecrire_png(armoire_face(voyant), lot2.ASSETS / f"textures/block/fridge_front_{etat}.png")
+        lot2.ecrire_json({"parent": "minecraft:block/orientable", "textures": {
+            "particle": f"{lot2.MOD}:block/fridge_side",
+            "front": f"{lot2.MOD}:block/fridge_front_{etat}",
+            "side": f"{lot2.MOD}:block/fridge_side",
+            "top": f"{lot2.MOD}:block/fridge_top"}}, lot2.ASSETS / f"models/block/fridge_{etat}.json")
+    lot2.ecrire_png(ARMOIRE_COTE, lot2.ASSETS / "textures/block/fridge_side.png")
+    lot2.ecrire_png(ARMOIRE_DESSUS, lot2.ASSETS / "textures/block/fridge_top.png")
+    lot2.ecrire_json({"parent": f"{lot2.MOD}:block/fridge_stopped"}, lot2.ASSETS / "models/item/fridge.json")
+    variantes = {}
+    for etat in VOYANTS:
+        for direction, rotation in (("north", 0), ("east", 90), ("south", 180), ("west", 270)):
+            modele = {"model": f"{lot2.MOD}:block/fridge_{etat}"}
+            if rotation:
+                modele["y"] = rotation
+            variantes[f"facing={direction},state={etat}"] = modele
+    lot2.ecrire_json({"variants": variantes}, lot2.ASSETS / "blockstates/fridge.json")
+
 
 def ecrire_tout():
     for nom, image in OBJETS.items():
@@ -47,3 +135,4 @@ def ecrire_tout():
 
 if __name__ == "__main__":
     ecrire_tout()
+    ecrire_armoire()

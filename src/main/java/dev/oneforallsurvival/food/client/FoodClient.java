@@ -2,17 +2,20 @@ package dev.oneforallsurvival.food.client;
 
 import dev.oneforallsurvival.OneForAllSurvival;
 import dev.oneforallsurvival.food.DecayState;
+import dev.oneforallsurvival.food.FoodRegistry;
 import dev.oneforallsurvival.food.FoodStamp;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.event.entity.player.ItemTooltipEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 
-/** Branchements côté client seulement de la péremption : la ligne d'état dans l'infobulle. */
+/** Branchements côté client seulement de la péremption : la ligne d'état dans l'infobulle et l'écran de l'armoire. */
 @Mod.EventBusSubscriber(modid = OneForAllSurvival.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
 public final class FoodClient {
 
@@ -46,5 +49,17 @@ public final class FoodClient {
             }
         }
         event.getToolTip().add(Component.translatable("food." + OneForAllSurvival.MODID + "." + key).withStyle(color));
+    }
+
+    /** L'écran de l'armoire s'enregistre sur le bus du mod, au démarrage du client. */
+    @Mod.EventBusSubscriber(modid = OneForAllSurvival.MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+    public static final class ModBus {
+
+        private ModBus() {}
+
+        @SubscribeEvent
+        public static void onClientSetup(FMLClientSetupEvent event) {
+            event.enqueueWork(() -> MenuScreens.register(FoodRegistry.FRIDGE_MENU.get(), FridgeScreen::new));
+        }
     }
 }

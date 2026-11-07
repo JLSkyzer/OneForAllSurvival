@@ -146,5 +146,12 @@
   "food.oneforallsurvival.spoiled": "Spoiled",
   "tag.item.oneforallsurvival.perishable": "Perishable Food",
   "tag.item.oneforallsurvival.slow_perishable": "Slowly Perishable Food",
-  "tag.item.oneforallsurvival.non_perishable": "Non-perishable Food"
+  "tag.item.oneforallsurvival.non_perishable": "Non-perishable Food",
+  "block.oneforallsurvival.fridge": "Refrigerated Cabinet",
+  "gui.oneforallsurvival.fridge.state": "State: %s",
+  "gui.oneforallsurvival.fridge.state.stopped": "Idle",
+  "gui.oneforallsurvival.fridge.state.running": "Cooling",
+  "gui.oneforallsurvival.fridge.state.no_power": "No power",
+  "gui.oneforallsurvival.fridge.state.fault": "Broken down",
+  "gui.oneforallsurvival.fridge.energy": "%s / %s FE"
 }

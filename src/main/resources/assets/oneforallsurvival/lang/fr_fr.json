@@ -146,5 +146,12 @@
   "food.oneforallsurvival.spoiled": "Avarié",
   "tag.item.oneforallsurvival.perishable": "Aliments périssables",
   "tag.item.oneforallsurvival.slow_perishable": "Aliments à péremption lente",
-  "tag.item.oneforallsurvival.non_perishable": "Aliments non périssables"
+  "tag.item.oneforallsurvival.non_perishable": "Aliments non périssables",
+  "block.oneforallsurvival.fridge": "Armoire frigorifique",
+  "gui.oneforallsurvival.fridge.state": "État : %s",
+  "gui.oneforallsurvival.fridge.state.stopped": "À l'arrêt",
+  "gui.oneforallsurvival.fridge.state.running": "Au froid",
+  "gui.oneforallsurvival.fridge.state.no_power": "Sans courant",
+  "gui.oneforallsurvival.fridge.state.fault": "En panne",
+  "gui.oneforallsurvival.fridge.energy": "%s / %s FE"
 }
