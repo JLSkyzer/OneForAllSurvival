@@ -54,8 +54,9 @@ public final class FoodConfig {
                 .comment("Combien de fois plus lentement un aliment vieillit dans une armoire alimentée.")
                 .defineInRange("fridgeFactor", DEFAULT_FRIDGE_FACTOR, 1.0, 10000.0);
         DESALINATOR_ENERGY = builder
-                .comment("Énergie (FE) que le dessalinisateur consomme à chaque tick de travail.")
-                .defineInRange("desalinatorEnergy", DEFAULT_DESALINATOR_ENERGY, 1, 100000);
+                .comment("Énergie (FE) que le dessalinisateur consomme à chaque tick de travail.",
+                        "Bornée à ce que sa réserve reçoit par tick (100) : au-delà il ne pourrait plus tourner.")
+                .defineInRange("desalinatorEnergy", DEFAULT_DESALINATOR_ENERGY, 1, DesalinatorBlockEntity.MAX_RECEIVE);
         DESALINATOR_CYCLE = builder
                 .comment("Ticks de travail d'un cycle du dessalinisateur.")
                 .defineInRange("desalinatorCycle", DEFAULT_DESALINATOR_CYCLE, 1, 10000);

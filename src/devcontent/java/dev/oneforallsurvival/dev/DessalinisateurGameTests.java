@@ -29,6 +29,7 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.IFluidHandler;
@@ -599,9 +600,30 @@ public final class DessalinisateurGameTests {
             helper.assertTrue(menu.stillValid(p), "le menu devait rester valide près de la machine");
             helper.getLevel().destroyBlock(helper.absolutePos(POS), false);
             helper.assertTrue(!menu.stillValid(p), "le menu devait se fermer quand la machine disparaît");
+            // Une autre machine reposée au même endroit passe le contrôle du bloc : seule l'instance trahit le remplacement.
+            helper.setBlock(POS, FoodRegistry.DESALINATOR.get());
+            helper.assertTrue(helper.getBlockEntity(POS) != be, "la machine reposée devait être une nouvelle instance");
+            helper.assertTrue(!menu.stillValid(p), "l'ancien menu devait rester invalide devant la machine reposée");
+            helper.assertTrue(ouvrir(helper, p).stillValid(p), "un menu neuf devait être valide devant la machine reposée");
         } finally {
             quitter(j);
         }
+        helper.succeed();
+    }
+
+    /**
+     * La réserve et la réception de la machine sont fixes : une consommation par tick que la config permettrait
+     * au-delà de la réception rendrait la machine morte (NO_POWER réserve pleine, ou jamais assez nourrie).
+     */
+    @GameTest(template = "test/plancher", batch = "dessalinisateur")
+    public static void laConfigNeDepasseJamaisLaReception(GameTestHelper helper) {
+        Object spec = FoodConfig.SPEC.getSpec().get("desalinatorEnergy");
+        helper.assertTrue(spec instanceof ForgeConfigSpec.ValueSpec, "réglage desalinatorEnergy introuvable : " + spec);
+        Object max = ((ForgeConfigSpec.ValueSpec) spec).getRange().getMax();
+        helper.assertTrue(max instanceof Integer m && m <= DesalinatorBlockEntity.MAX_RECEIVE,
+                "desalinatorEnergy doit être borné à la réception (" + DesalinatorBlockEntity.MAX_RECEIVE + "), borne vue " + max);
+        helper.assertTrue(DesalinatorBlockEntity.MAX_RECEIVE <= DesalinatorBlockEntity.CAPACITY,
+                "la réception ne doit pas dépasser la réserve");
         helper.succeed();
     }
 }
