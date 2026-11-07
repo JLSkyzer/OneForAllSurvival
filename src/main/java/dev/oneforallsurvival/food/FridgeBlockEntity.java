@@ -27,7 +27,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>Sans courant ou en panne, aucun crédit ne s'acquiert mais rien n'est perdu : ni les dates ni les nombres ne
  * bougent. Une zone déchargée n'est pas une coupure : si l'armoire était froide en la quittant, le temps écoulé
- * est rattrapé au premier tick suivant, sans payer d'énergie. Toutes les 100 ticks, les 27 cases sont observées,
+ * est rattrapé au premier tick suivant (tout écart de ticks, chargement ou non), sans payer d'énergie. Toutes les 100 ticks, les 27 cases sont observées,
  * menu fermé : les objets reçus par une trémie sont datés et les aliments avariés deviennent des déchets.
  */
 public final class FridgeBlockEntity extends ElectricMachineBlockEntity {
@@ -85,8 +85,6 @@ public final class FridgeBlockEntity extends ElectricMachineBlockEntity {
     private long lastTick;
     /** L'armoire était-elle au froid au dernier tick joué ? Sauvegardé : c'est ce qui permet de rattraper. */
     private boolean coldNow;
-    /** Le block entity vient d'être relu : le prochain tick rattrape le temps écoulé. */
-    private boolean catchUpPending;
     private long nextObserve;
 
     public FridgeBlockEntity(BlockPos pos, BlockState state) {
@@ -147,14 +145,13 @@ public final class FridgeBlockEntity extends ElectricMachineBlockEntity {
     @Override
     protected void afterTick(Level world, MachineState tickState) {
         long now = FoodStamp.now(world);
-        if (catchUpPending) {
-            catchUpPending = false;
-            if (coldNow && now > lastTick) {
-                // Le temps hors chunk chargé : même rendement que du temps travaillé, mais sans payer d'énergie.
-                coldCredit += (now - lastTick) * coldFraction() * efficiency();
-                setChanged();
-                applyCredit(now);
-            }
+        // Un écart de ticks : la zone a été déchargée, ou chargée sans tiquer (bordure de la distance de simulation).
+        // Une armoire neuve ou posée n'a jamais été froide (coldNow faux) : elle ne rattrape rien.
+        if (coldNow && now - lastTick > 1) {
+            // Même rendement que du temps travaillé, mais sans payer d'énergie.
+            coldCredit += (now - lastTick) * coldFraction() * efficiency();
+            setChanged();
+            applyCredit(now);
         }
         if (now >= nextObserve) {
             nextObserve = now + OBSERVE_PERIOD;
@@ -180,9 +177,10 @@ public final class FridgeBlockEntity extends ElectricMachineBlockEntity {
             ItemStack stack = items.getStackInSlot(i);
             if (FoodStamp.isPerishable(stack) && FoodStamp.isStamped(stack)) {
                 long stamp = FoodStamp.stamp(stack);
-                // Une date déjà dans le futur n'est jamais reculée.
-                if (stamp < now) {
-                    FoodStamp.setStamp(stack, Math.min(stamp + shift, now));
+                // Sur la grille du quart d'heure, jamais au-delà du quart d'heure courant, jamais reculée.
+                long shifted = Math.min(stamp + shift, Math.max(stamp, FoodDecay.roundDown(now)));
+                if (shifted != stamp) {
+                    FoodStamp.setStamp(stack, shifted);
                 }
             }
         }
@@ -267,6 +265,5 @@ public final class FridgeBlockEntity extends ElectricMachineBlockEntity {
         lastTick = tag.getLong(TAG_LAST_TICK);
         coldNow = tag.getBoolean(TAG_COLD_WHEN_LEFT);
         // Une machine posée depuis un objet n'a pas ces clés : coldNow reste faux, il n'y a rien à rattraper.
-        catchUpPending = true;
     }
 }

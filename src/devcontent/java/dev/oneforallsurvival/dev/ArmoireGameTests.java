@@ -157,7 +157,7 @@ public final class ArmoireGameTests {
     @GameTest(template = "test/plancher", batch = "armoire", setupTicks = 20)
     public static void leFroidNeDepassePasMaintenant(GameTestHelper helper) {
         FridgeBlockEntity be = poser(helper);
-        long recent = maintenant(helper) - 5000;
+        long recent = FoodDecay.roundDown(maintenant(helper)) - FoodDecay.BUCKET_TICKS;
         be.inventory().setStackInSlot(0, date(Items.BEEF, 4, recent));
         alimenter(be);
         helper.runAfterDelay(10, () -> {
@@ -168,6 +168,114 @@ public final class ArmoireGameTests {
             long date = FoodStamp.stamp(be.inventory().getStackInSlot(0));
             helper.assertTrue(date > recent, "la date devait avancer, vue " + date);
             helper.assertTrue(date <= maintenant(helper), "la date ne dépasse jamais maintenant : " + date + " contre " + maintenant(helper));
+            helper.assertTrue(date % FoodDecay.BUCKET_TICKS == 0, "la date doit rester sur la grille du quart d'heure, vue " + date);
+            helper.succeed();
+        });
+    }
+
+    /** Une date déjà au quart d'heure courant ne bouge pas : l'écrêter à « maintenant » la sortirait de la grille. */
+    @GameTest(template = "test/plancher", batch = "armoire", setupTicks = 20)
+    public static void laDateResteSurLaGrille(GameTestHelper helper) {
+        FridgeBlockEntity be = poser(helper);
+        long courant = FoodDecay.roundDown(maintenant(helper));
+        be.inventory().setStackInSlot(0, date(Items.BEEF, 4, courant));
+        alimenter(be);
+        helper.runAfterDelay(10, () -> {
+            helper.assertTrue(be.state() == MachineState.RUNNING, "RUNNING attendu, vu " + be.state());
+            dechargerPuisRecharger(helper, be, 32000);
+        });
+        helper.runAfterDelay(16, () -> {
+            long date = FoodStamp.stamp(be.inventory().getStackInSlot(0));
+            helper.assertTrue(date == courant, "la date devait rester " + courant + ", vue " + date);
+            helper.assertTrue(date % FoodDecay.BUCKET_TICKS == 0, "hors de la grille : " + date);
+            helper.succeed();
+        });
+    }
+
+    /** Une zone chargée qui ne tique plus ne passe jamais par load : l'écart de ticks suffit au rattrapage. */
+    @GameTest(template = "test/plancher", batch = "armoire", setupTicks = 20)
+    public static void unRattrapageSansChargement(GameTestHelper helper) {
+        FridgeBlockEntity be = poser(helper);
+        be.inventory().setStackInSlot(0, date(Items.BEEF, 4, ANCIENNE));
+        alimenter(be);
+        helper.runAfterDelay(10, () -> {
+            helper.assertTrue(be.state() == MachineState.RUNNING, "RUNNING attendu, vu " + be.state());
+            be.debugSetLastTick(maintenant(helper) - 32000);
+        });
+        helper.runAfterDelay(16, () -> {
+            helper.assertTrue(FoodStamp.stamp(be.inventory().getStackInSlot(0)) == ANCIENNE + FoodDecay.BUCKET_TICKS,
+                    "le rattrapage devait avoir décalé la date, vue " + FoodStamp.stamp(be.inventory().getStackInSlot(0)));
+            long credit = be.coldCredit();
+            helper.assertTrue(credit >= 6000 && credit <= 6030, "6000 de reste attendus, vus " + credit);
+            helper.succeed();
+        });
+    }
+
+    /** Une armoire neuve (lastTick à 0) ne rattrape pas l'âge du monde, alimentée ou non. */
+    @GameTest(template = "test/plancher", batch = "armoire", setupTicks = 20)
+    public static void uneArmoireNeuveNeRattrapeRien(GameTestHelper helper) {
+        FridgeBlockEntity be = poser(helper);
+        be.inventory().setStackInSlot(0, date(Items.BEEF, 4, ANCIENNE));
+        alimenter(be);
+        helper.runAfterDelay(20, () -> {
+            helper.assertTrue(be.coldCredit() <= 16, "20 ticks au plus de froid (15), vu " + be.coldCredit());
+            helper.assertTrue(FoodStamp.stamp(be.inventory().getStackInSlot(0)) == ANCIENNE, "la date ne devait pas bouger");
+            helper.succeed();
+        });
+    }
+
+    /** Une armoire sans courant ne rattrape rien, même avec un grand écart de ticks. */
+    @GameTest(template = "test/plancher", batch = "armoire", setupTicks = 20)
+    public static void uneArmoireCoupeeNeRattrapeRienSansChargement(GameTestHelper helper) {
+        FridgeBlockEntity be = poser(helper);
+        be.inventory().setStackInSlot(0, date(Items.BEEF, 4, ANCIENNE));
+        helper.runAfterDelay(10, () -> {
+            helper.assertTrue(be.state() == MachineState.NO_POWER, "NO_POWER attendu, vu " + be.state());
+            be.debugSetLastTick(maintenant(helper) - 32000);
+        });
+        helper.runAfterDelay(16, () -> {
+            helper.assertTrue(be.coldCredit() == 0, "coupée, rien à rattraper, vu " + be.coldCredit());
+            helper.assertTrue(FoodStamp.stamp(be.inventory().getStackInSlot(0)) == ANCIENNE, "la date ne devait pas bouger");
+            helper.succeed();
+        });
+    }
+
+    /** Sans debugSetLastTick : le dernier tick sauvegardé suit le temps de jeu. */
+    @GameTest(template = "test/plancher", batch = "armoire", setupTicks = 20)
+    public static void leDernierTickSauvegardeSuitLeTemps(GameTestHelper helper) {
+        FridgeBlockEntity be = poser(helper);
+        be.inventory().setStackInSlot(0, date(Items.BEEF, 4, ANCIENNE));
+        alimenter(be);
+        helper.runAfterDelay(30, () -> {
+            CompoundTag tag = be.saveWithoutMetadata();
+            long vu = tag.getLong("last_tick");
+            long now = maintenant(helper);
+            helper.assertTrue(vu >= now - 2 && vu <= now, "last_tick devait suivre " + now + ", vu " + vu);
+            helper.assertTrue(tag.getBoolean("cold_when_left"), "l'armoire devait être notée froide");
+            helper.succeed();
+        });
+    }
+
+    /** Le rattrapage garde le rendement de la machine, comme workTick : usée, elle rattrape moins. */
+    @GameTest(template = "test/plancher", batch = "armoire", setupTicks = 20)
+    public static void uneArmoireUseeRattrapeAuRendementDeLaMachine(GameTestHelper helper) {
+        FridgeBlockEntity be = poser(helper);
+        be.inventory().setStackInSlot(0, date(Items.BEEF, 4, ANCIENNE));
+        alimenter(be);
+        CompoundTag usee = be.saveWithoutMetadata();
+        usee.putDouble("condition", 10);
+        be.load(usee);
+        double rendement = be.efficiency();
+        helper.assertTrue(rendement < 1, "l'armoire devait être usée, rendement " + rendement);
+        helper.runAfterDelay(10, () -> {
+            helper.assertTrue(be.state() == MachineState.RUNNING, "RUNNING attendu, vu " + be.state());
+            be.debugSetLastTick(maintenant(helper) - 16000);
+        });
+        helper.runAfterDelay(16, () -> {
+            double attendu = 16000 * be.coldFraction() * rendement;
+            long credit = be.coldCredit();
+            helper.assertTrue(credit >= attendu - 20 && credit <= attendu + 40,
+                    "crédit de " + attendu + " attendu au rendement " + rendement + ", vu " + credit);
             helper.succeed();
         });
     }
@@ -353,17 +461,16 @@ public final class ArmoireGameTests {
         try {
             j = joueur(helper, "Porteur");
             ServerPlayer p = j.joueur();
-            int deDepart = total(p, Items.BEEF);
             p.getInventory().setItem(0, date(Items.BEEF, 5, ANCIENNE));
             FridgeMenu menu = ouvrir(helper, p);
             // Case 54 : la barre d'action du joueur (27 cases d'armoire, 27 de sac, puis la barre).
             helper.assertTrue(!menu.quickMoveStack(p, 54).isEmpty(), "le boeuf devait passer dans l'armoire");
             helper.assertTrue(be.inventory().getStackInSlot(0).getCount() == 5, "5 boeufs attendus en case 0");
-            helper.assertTrue(total(p, Items.BEEF) == deDepart, "le joueur devait avoir tout donné");
+            helper.assertTrue(total(p, Items.BEEF) == 0, "le joueur devait avoir tout donné");
             helper.assertTrue(!menu.quickMoveStack(p, 0).isEmpty(), "le boeuf devait ressortir");
             helper.assertTrue(be.inventory().getStackInSlot(0).isEmpty(), "l'armoire devait être vidée");
-            helper.assertTrue(total(p, Items.BEEF) == deDepart + 5, "les 5 boeufs devaient revenir chez le joueur, vus "
-                    + total(p, Items.BEEF) + " pour " + deDepart + " au départ");
+            helper.assertTrue(total(p, Items.BEEF) == 5, "les 5 boeufs devaient revenir chez le joueur, vus "
+                    + total(p, Items.BEEF));
         } finally {
             quitter(j);
         }
