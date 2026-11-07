@@ -2,16 +2,51 @@ package dev.oneforallsurvival.dev;
 
 import dev.oneforallsurvival.food.DecayState;
 import dev.oneforallsurvival.food.FoodConfig;
+import dev.oneforallsurvival.food.FoodDecay;
+import dev.oneforallsurvival.food.FoodEvents;
 import dev.oneforallsurvival.food.FoodRegistry;
 import dev.oneforallsurvival.food.FoodStamp;
 import dev.oneforallsurvival.food.FoodTags;
+import dev.oneforallsurvival.repair.GalvanicBathBlockEntity;
+import dev.oneforallsurvival.repair.GalvanicBathMenu;
+import dev.oneforallsurvival.repair.RepairRegistry;
+import java.util.Optional;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.player.StackedContents;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ClickAction;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.CraftingContainer;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.entity.SlotAccess;
+import net.minecraft.world.inventory.TransientCraftingContainer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.crafting.CraftingRecipe;
+import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.world.item.crafting.RecipeType;
+import net.minecraft.world.item.crafting.SmeltingRecipe;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ComposterBlock;
+import net.minecraft.world.level.block.entity.ChestBlockEntity;
+import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.ItemStackedOnOtherEvent;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.entity.living.LivingEntityUseItemEvent;
+import net.minecraftforge.event.entity.player.PlayerContainerEvent;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 import net.minecraftforge.registries.ForgeRegistries;
@@ -136,6 +171,453 @@ public final class PeremptionGameTests {
         float chance = ComposterBlock.COMPOSTABLES.getFloat(FoodRegistry.SPOILED_FOOD.get());
         helper.assertTrue(chance == 0.5F, "compostable à 0.5 attendu, vu " + chance);
         helper.assertTrue(!new ItemStack(FoodRegistry.SPOILED_FOOD.get()).getItem().isEdible(), "le déchet ne se mange pas");
+        helper.succeed();
+    }
+
+    // ------------------------------------------------------------------ vie des aliments
+
+    private static final BlockPos POS = new BlockPos(1, 1, 1);
+    private static final BlockPos JOUEUR = new BlockPos(1, 1, 3);
+
+    private static JoueurDeTest joueur(GameTestHelper helper, String nom) {
+        JoueurDeTest j = JoueurDeTest.rejoindre(helper.getLevel(), nom, helper.absoluteVec(Vec3.atBottomCenterOf(JOUEUR)));
+        j.joueur().gameMode.changeGameModeForPlayer(GameType.SURVIVAL);
+        return j;
+    }
+
+    private static void quitter(JoueurDeTest j) {
+        if (j != null && j.connecte()) {
+            j.quitter();
+        }
+    }
+
+    private static ItemStack date(Item item, int nombre, long date) {
+        ItemStack pile = new ItemStack(item, nombre);
+        FoodStamp.setStamp(pile, date);
+        return pile;
+    }
+
+    /** Une date qui fait de l'aliment un aliment rassis maintenant (la partie fraîche est écoulée). */
+    private static long rassis() {
+        return -FoodConfig.freshTicks() - 1000;
+    }
+
+    /** Une date qui fait de l'aliment un aliment avarié maintenant. */
+    private static long avarie() {
+        return -(FoodConfig.freshTicks() + FoodConfig.staleTicks()) - 1000;
+    }
+
+    private static int total(ServerPlayer joueur, Item... objets) {
+        int somme = 0;
+        for (int i = 0; i < joueur.getInventory().getContainerSize(); i++) {
+            ItemStack pile = joueur.getInventory().getItem(i);
+            for (Item objet : objets) {
+                if (pile.is(objet)) {
+                    somme += pile.getCount();
+                }
+            }
+        }
+        return somme;
+    }
+
+    private static SlotAccess portee(ItemStack[] main) {
+        return new SlotAccess() {
+            @Override
+            public ItemStack get() {
+                return main[0];
+            }
+
+            @Override
+            public boolean set(ItemStack pile) {
+                main[0] = pile;
+                return true;
+            }
+        };
+    }
+
+    @GameTest(template = "test/plancher", batch = "peremption_inventaire")
+    public static void lInventaireDateSesAliments(GameTestHelper helper) {
+        JoueurDeTest j = null;
+        try {
+            j = joueur(helper, "Gardemanger");
+            ServerPlayer p = j.joueur();
+            p.getInventory().setItem(0, new ItemStack(Items.BEEF, 3));
+            p.getInventory().setItem(1, new ItemStack(Items.COOKED_COD, 2));
+            p.getInventory().setItem(2, new ItemStack(Items.STONE, 5));
+            p.getInventory().setItem(3, date(Items.COOKED_BEEF, 2, 36000));
+            // Les joueurs d'essai ne sont pas animés par le niveau : on publie l'événement de tick nous-mêmes.
+            // Entre deux secondes, l'abonnement ne fait rien.
+            p.tickCount = 21;
+            MinecraftForge.EVENT_BUS.post(new TickEvent.PlayerTickEvent(TickEvent.Phase.END, p));
+            helper.assertTrue(!p.getInventory().getItem(0).hasTag(), "pas de passe entre deux secondes");
+            p.tickCount = 20;
+            MinecraftForge.EVENT_BUS.post(new TickEvent.PlayerTickEvent(TickEvent.Phase.START, p));
+            helper.assertTrue(!p.getInventory().getItem(0).hasTag(), "pas de passe au début du tick");
+            MinecraftForge.EVENT_BUS.post(new TickEvent.PlayerTickEvent(TickEvent.Phase.END, p));
+            helper.assertTrue(FoodStamp.isStamped(p.getInventory().getItem(0)), "le boeuf devait être daté");
+            helper.assertTrue(FoodStamp.isStamped(p.getInventory().getItem(1)), "le poisson devait être daté");
+            helper.assertTrue(FoodStamp.stamp(p.getInventory().getItem(0)) % FoodDecay.BUCKET_TICKS == 0,
+                    "la date devait être arrondie au quart d'heure");
+            helper.assertTrue(!p.getInventory().getItem(2).hasTag(), "la pierre ne devait pas être touchée");
+            helper.assertTrue(FoodStamp.stamp(p.getInventory().getItem(3)) == 36000, "une date existante ne se refait pas");
+        } finally {
+            quitter(j);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = "peremption")
+    public static void unObjetAuSolEstDate(GameTestHelper helper) {
+        ItemEntity boeuf = helper.spawnItem(Items.BEEF, 1.5F, 2.0F, 1.5F);
+        ItemEntity pierre = helper.spawnItem(Items.STONE, 2.5F, 2.0F, 1.5F);
+        helper.assertTrue(FoodStamp.isStamped(boeuf.getItem()), "l'objet au sol devait être daté dès son apparition");
+        helper.assertTrue(!pierre.getItem().hasTag(), "la pierre au sol ne devait pas être touchée");
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = "peremption")
+    public static void lAvarieDevientUnDechetAvecLeMemeNombre(GameTestHelper helper) {
+        long now = 40000;
+        ItemStack vieux = date(Items.BEEF, 5, avarie());
+        ItemStack dechet = FoodEvents.observe(vieux, now);
+        helper.assertTrue(dechet.is(FoodRegistry.SPOILED_FOOD.get()) && dechet.getCount() == 5,
+                "5 déchets attendus, vu " + dechet);
+        ItemStack frais = date(Items.BEEF, 3, FoodDecay.roundDown(now));
+        helper.assertTrue(FoodEvents.observe(frais, now) == frais, "un aliment frais reste la même pile");
+        ItemStack sansDate = new ItemStack(Items.COOKED_BEEF, 2);
+        helper.assertTrue(FoodEvents.observe(sansDate, now) == sansDate && FoodStamp.isStamped(sansDate),
+                "un aliment sans date est daté, sur place");
+        ItemStack pierre = new ItemStack(Items.STONE, 4);
+        helper.assertTrue(FoodEvents.observe(pierre, now) == pierre && !pierre.hasTag(), "la pierre reste intacte");
+        ItemStack deja = new ItemStack(FoodRegistry.SPOILED_FOOD.get(), 2);
+        helper.assertTrue(FoodEvents.observe(deja, now) == deja && !deja.hasTag(), "le déchet ne périme pas");
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = "peremption_balayage")
+    public static void lAvarieDansLInventaireDevientUnDechet(GameTestHelper helper) {
+        JoueurDeTest j = null;
+        try {
+            j = joueur(helper, "Oublieux");
+            ServerPlayer p = j.joueur();
+            p.getInventory().setItem(4, date(Items.BEEF, 5, avarie()));
+            p.getInventory().setItem(5, date(Items.COOKED_BEEF, 2, rassis()));
+            FoodEvents.scan(p);
+            ItemStack dechet = p.getInventory().getItem(4);
+            helper.assertTrue(dechet.is(FoodRegistry.SPOILED_FOOD.get()) && dechet.getCount() == 5,
+                    "5 déchets attendus à la place du boeuf, vu " + dechet);
+            helper.assertTrue(p.getInventory().getItem(5).is(Items.COOKED_BEEF), "le rassis reste un aliment");
+        } finally {
+            quitter(j);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = "peremption")
+    public static void laFusionFaitLaMoyenne(GameTestHelper helper) {
+        ItemStack dans = date(Items.BEEF, 3, 0);
+        ItemStack depuis = date(Items.BEEF, 1, 72000);
+        int deplace = FoodEvents.merge(dans, depuis, 64);
+        helper.assertTrue(deplace == 1, "1 objet déplacé attendu, vu " + deplace);
+        helper.assertTrue(dans.getCount() == 4, "4 objets attendus, vu " + dans.getCount());
+        helper.assertTrue(FoodStamp.stamp(dans) == 18000, "date 18000 attendue, vue " + FoodStamp.stamp(dans));
+        helper.assertTrue(depuis.isEmpty(), "la pile source devait être vide");
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = "peremption_clic")
+    public static void laFusionNePerdNiNeCreeRien(GameTestHelper helper) {
+        JoueurDeTest j = null;
+        try {
+            j = joueur(helper, "Fusionneur");
+            ServerPlayer p = j.joueur();
+            // Clic gauche : 60 + 10 donnent 64 + 6, et la pile portée est mise à jour.
+            p.getInventory().setItem(9, date(Items.BEEF, 60, 36000));
+            p.containerMenu.setCarried(date(Items.BEEF, 10, 90000));
+            p.containerMenu.clicked(9, 0, ClickType.PICKUP, p);
+            ItemStack fond = p.getInventory().getItem(9);
+            ItemStack main = p.containerMenu.getCarried();
+            helper.assertTrue(fond.getCount() == 64, "64 attendus dans la case, vu " + fond.getCount());
+            helper.assertTrue(main.getCount() == 6, "6 attendus en main, vu " + main.getCount());
+            helper.assertTrue(FoodStamp.stamp(fond) == FoodDecay.weightedStamp(36000, 60, 90000, 4),
+                    "date moyenne attendue dans la case, vue " + FoodStamp.stamp(fond));
+            helper.assertTrue(FoodStamp.stamp(main) == 90000, "le reste en main garde sa date");
+            // Pile pleine : rien ne se fond, le comportement vanilla échange, sans perte.
+            p.containerMenu.clicked(9, 0, ClickType.PICKUP, p);
+            helper.assertTrue(p.getInventory().getItem(9).getCount() + p.containerMenu.getCarried().getCount() == 70,
+                    "l'échange sur pile pleine ne devait rien perdre");
+            p.containerMenu.setCarried(ItemStack.EMPTY);
+            p.getInventory().setItem(9, ItemStack.EMPTY);
+            // Clic droit : un seul objet se déplace.
+            p.getInventory().setItem(10, date(Items.BEEF, 20, 0));
+            p.containerMenu.setCarried(date(Items.BEEF, 5, 72000));
+            p.containerMenu.clicked(10, 1, ClickType.PICKUP, p);
+            helper.assertTrue(p.getInventory().getItem(10).getCount() == 21,
+                    "21 attendus, vu " + p.getInventory().getItem(10).getCount());
+            helper.assertTrue(p.containerMenu.getCarried().getCount() == 4,
+                    "4 attendus en main, vu " + p.containerMenu.getCarried().getCount());
+            helper.assertTrue(FoodStamp.stamp(p.getInventory().getItem(10)) == FoodDecay.weightedStamp(0, 20, 72000, 1),
+                    "date moyenne attendue après le clic droit");
+            // Un seul objet portée : la main se vide.
+            p.containerMenu.setCarried(date(Items.BEEF, 1, 72000));
+            p.containerMenu.clicked(10, 1, ClickType.PICKUP, p);
+            helper.assertTrue(p.containerMenu.getCarried().isEmpty() && p.getInventory().getItem(10).getCount() == 22,
+                    "la main devait se vider, 22 dans la case");
+            // Des objets différents : l'événement n'est pas annulé.
+            ItemStack[] main2 = {date(Items.COD, 2, 72000)};
+            Slot case10 = p.containerMenu.slots.get(10);
+            boolean annule = MinecraftForge.EVENT_BUS.post(new ItemStackedOnOtherEvent(
+                    main2[0], case10.getItem(), case10, ClickAction.PRIMARY, p, portee(main2)));
+            helper.assertTrue(!annule, "deux objets différents ne devaient pas être fondus");
+            helper.assertTrue(main2[0].getCount() == 2 && case10.getItem().getCount() == 22, "rien ne devait bouger");
+            // Même objet à la même date : rien à moyenner, l'événement n'est pas annulé non plus.
+            ItemStack[] main3 = {date(Items.BEEF, 2, FoodStamp.stamp(case10.getItem()))};
+            boolean annule2 = MinecraftForge.EVENT_BUS.post(new ItemStackedOnOtherEvent(
+                    main3[0], case10.getItem(), case10, ClickAction.PRIMARY, p, portee(main3)));
+            helper.assertTrue(!annule2, "deux piles à la même date relèvent du comportement vanilla");
+        } finally {
+            quitter(j);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = "peremption_coffre")
+    public static void laFermetureDUnCoffreRegroupe(GameTestHelper helper) {
+        helper.setBlock(POS, Blocks.CHEST);
+        ChestBlockEntity coffre = (ChestBlockEntity) helper.getBlockEntity(POS);
+        helper.assertTrue(coffre != null, "pas de coffre");
+        coffre.setItem(0, date(Items.BEEF, 30, 0));
+        coffre.setItem(5, date(Items.BEEF, 20, 72000));
+        coffre.setItem(7, date(Items.BEEF, 10, 36000));
+        coffre.setItem(9, new ItemStack(Items.COD, 4));
+        JoueurDeTest j = null;
+        try {
+            j = joueur(helper, "Rangeur");
+            ServerPlayer p = j.joueur();
+            helper.assertTrue(p.openMenu(coffre).isPresent(), "le coffre devait s'ouvrir");
+            p.closeContainer();
+            helper.assertTrue(coffre.getItem(0).getCount() == 60, "60 attendus dans la première case, vu " + coffre.getItem(0));
+            helper.assertTrue(coffre.getItem(5).isEmpty() && coffre.getItem(7).isEmpty(), "les autres piles devaient être vidées");
+            helper.assertTrue(FoodStamp.stamp(coffre.getItem(0)) == 18000,
+                    "date 18000 attendue, vue " + FoodStamp.stamp(coffre.getItem(0)));
+            helper.assertTrue(coffre.getItem(9).getCount() == 4, "le poisson ne devait pas bouger");
+        } finally {
+            quitter(j);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = "peremption_bain")
+    public static void laFermetureNeToucheJamaisUneAutreMachine(GameTestHelper helper) {
+        helper.setBlock(POS, RepairRegistry.GALVANIC_BATH.get());
+        GalvanicBathBlockEntity bain = (GalvanicBathBlockEntity) helper.getBlockEntity(POS);
+        helper.assertTrue(bain != null, "pas de bain");
+        bain.inventory().setStackInSlot(0, date(Items.BEEF, 3, 0));
+        bain.inventory().setStackInSlot(1, date(Items.BEEF, 1, 72000));
+        JoueurDeTest j = null;
+        try {
+            j = joueur(helper, "Curieux");
+            ServerPlayer p = j.joueur();
+            GalvanicBathMenu menu = new GalvanicBathMenu(77, p.getInventory(), bain, helper.absolutePos(POS));
+            MinecraftForge.EVENT_BUS.post(new PlayerContainerEvent.Open(p, menu));
+            MinecraftForge.EVENT_BUS.post(new PlayerContainerEvent.Close(p, menu));
+            helper.assertTrue(bain.inventory().getStackInSlot(0).getCount() == 3
+                    && FoodStamp.stamp(bain.inventory().getStackInSlot(0)) == 0, "la case 0 du bain devait rester intacte");
+            helper.assertTrue(bain.inventory().getStackInSlot(1).getCount() == 1
+                    && FoodStamp.stamp(bain.inventory().getStackInSlot(1)) == 72000, "la case 1 du bain devait rester intacte");
+        } finally {
+            quitter(j);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = "peremption")
+    public static void unAlimentDateResteUnIngredient(GameTestHelper helper) {
+        ItemStack boeuf = date(Items.BEEF, 1, 36000);
+        Ingredient etiquette = Ingredient.of(TagKey.create(Registries.ITEM, new ResourceLocation("forge", "raw_beef")));
+        helper.assertTrue(etiquette.test(boeuf), "le boeuf daté devait rester un ingrédient du tag forge:raw_beef");
+        // Le four.
+        SimpleContainer four = new SimpleContainer(boeuf);
+        Optional<SmeltingRecipe> cuisson = helper.getLevel().getRecipeManager()
+                .getRecipeFor(RecipeType.SMELTING, four, helper.getLevel());
+        helper.assertTrue(cuisson.isPresent(), "la recette de four du boeuf daté est introuvable");
+        ItemStack sortie = cuisson.get().assemble(four, helper.getLevel().registryAccess());
+        helper.assertTrue(sortie.is(Items.COOKED_BEEF) && !sortie.hasTag(), "la sortie devait être un steak sans date, vu " + sortie);
+        // La table de craft (ragoût de lapin, recette sans forme).
+        CraftingContainer table = new TransientCraftingContainer(new AbstractContainerMenu(null, -1) {
+            @Override
+            public ItemStack quickMoveStack(Player joueur, int index) {
+                return ItemStack.EMPTY;
+            }
+
+            @Override
+            public boolean stillValid(Player joueur) {
+                return true;
+            }
+        }, 3, 3);
+        Item[] ingredients = {Items.COOKED_RABBIT, Items.BAKED_POTATO, Items.CARROT, Items.BROWN_MUSHROOM, Items.BOWL};
+        for (int i = 0; i < ingredients.length; i++) {
+            table.setItem(i, date(ingredients[i], 1, 36000));
+        }
+        Optional<CraftingRecipe> ragout = helper.getLevel().getRecipeManager()
+                .getRecipeFor(RecipeType.CRAFTING, table, helper.getLevel());
+        helper.assertTrue(ragout.isPresent(), "la recette du ragoût de lapin avec ingrédients datés est introuvable");
+        ItemStack plat = ragout.get().assemble(table, helper.getLevel().registryAccess());
+        helper.assertTrue(plat.is(Items.RABBIT_STEW) && !plat.hasTag(), "le ragoût devait sortir sans date, vu " + plat);
+        // Le livre de recettes compte les objets sans regarder leurs données.
+        StackedContents comptes = new StackedContents();
+        comptes.accountSimpleStack(boeuf);
+        helper.assertTrue(comptes.canCraft(cuisson.get(), null), "le livre de recettes devait compter le boeuf daté");
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = "peremption_avarie_main")
+    public static void onNeMangePasUnAvarie(GameTestHelper helper) {
+        JoueurDeTest j = null;
+        try {
+            j = joueur(helper, "Imprudent");
+            ServerPlayer p = j.joueur();
+            p.getFoodData().setFoodLevel(4);
+            p.setItemInHand(InteractionHand.MAIN_HAND, date(Items.COOKED_BEEF, 3, avarie()));
+            p.startUsingItem(InteractionHand.MAIN_HAND);
+            helper.assertTrue(!p.isUsingItem(), "un aliment avarié ne devait pas se manger");
+            ItemStack main = p.getMainHandItem();
+            helper.assertTrue(main.is(FoodRegistry.SPOILED_FOOD.get()) && main.getCount() == 3,
+                    "3 déchets attendus en main, vu " + main);
+            helper.assertTrue(p.getFoodData().getFoodLevel() == 4, "la faim ne devait pas bouger");
+            // Dans l'autre main aussi.
+            p.setItemInHand(InteractionHand.OFF_HAND, date(Items.COOKED_BEEF, 2, avarie()));
+            p.startUsingItem(InteractionHand.OFF_HAND);
+            helper.assertTrue(!p.isUsingItem() && p.getOffhandItem().is(FoodRegistry.SPOILED_FOOD.get())
+                    && p.getOffhandItem().getCount() == 2, "2 déchets attendus dans la main gauche");
+        } finally {
+            quitter(j);
+        }
+        helper.succeed();
+    }
+
+    /** Fait passer le temps d'un repas : le niveau n'anime pas les joueurs d'essai, on les anime à la main. */
+    private static void manger(ServerPlayer joueur, int ticks) {
+        for (int i = 0; i < ticks; i++) {
+            joueur.doTick();
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = "peremption_rassis")
+    public static void leRassisNourritDeMoitie(GameTestHelper helper) {
+        int nutrition = Items.COOKED_BEEF.getFoodProperties().getNutrition();
+        JoueurDeTest j = null;
+        try {
+            j = joueur(helper, "Convive");
+            ServerPlayer p = j.joueur();
+            p.getFoodData().setFoodLevel(4);
+            p.getFoodData().setSaturation(0.0F);
+            p.setItemInHand(InteractionHand.MAIN_HAND, date(Items.COOKED_BEEF, 2, rassis()));
+            p.startUsingItem(InteractionHand.MAIN_HAND);
+            helper.assertTrue(p.isUsingItem(), "un aliment rassis se mange");
+            manger(p, 40);
+            helper.assertTrue(!p.isUsingItem(), "le repas devait être fini");
+            helper.assertTrue(p.getMainHandItem().getCount() == 1, "un steak devait avoir été mangé");
+            int attendu = 4 + nutrition / 2;
+            helper.assertTrue(p.getFoodData().getFoodLevel() == attendu,
+                    "faim " + attendu + " attendue (moitié de " + nutrition + "), vue " + p.getFoodData().getFoodLevel());
+            helper.assertTrue(p.getFoodData().getSaturationLevel() <= p.getFoodData().getFoodLevel(),
+                    "la saturation ne dépasse pas la faim");
+        } finally {
+            quitter(j);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = "peremption_frais")
+    public static void leFraisNourritEntierement(GameTestHelper helper) {
+        int nutrition = Items.COOKED_BEEF.getFoodProperties().getNutrition();
+        JoueurDeTest j = null;
+        try {
+            j = joueur(helper, "Gourmand");
+            ServerPlayer p = j.joueur();
+            p.getFoodData().setFoodLevel(4);
+            p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.COOKED_BEEF, 2));
+            p.startUsingItem(InteractionHand.MAIN_HAND);
+            helper.assertTrue(p.isUsingItem(), "un aliment frais se mange");
+            manger(p, 40);
+            helper.assertTrue(p.getFoodData().getFoodLevel() == 4 + nutrition,
+                    "faim " + (4 + nutrition) + " attendue, vue " + p.getFoodData().getFoodLevel());
+        } finally {
+            quitter(j);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = "peremption_pleine_bouche")
+    public static void unAvarieEnPleineBoucheNePlantePas(GameTestHelper helper) {
+        JoueurDeTest j = null;
+        try {
+            j = joueur(helper, "Lent");
+            ServerPlayer p = j.joueur();
+            p.getFoodData().setFoodLevel(4);
+            p.setItemInHand(InteractionHand.MAIN_HAND, date(Items.COOKED_BEEF, 2, rassis()));
+            p.startUsingItem(InteractionHand.MAIN_HAND);
+            helper.assertTrue(p.isUsingItem(), "le repas devait commencer");
+            manger(p, 15);
+            // Le temps passe : l'aliment tenu en bouche s'avarie avant la fin du repas.
+            FoodStamp.setStamp(p.getMainHandItem(), avarie());
+            helper.assertTrue(p.isUsingItem(), "le repas devait être en cours");
+            FoodEvents.scan(p);
+            helper.assertTrue(p.getMainHandItem().is(Items.COOKED_BEEF) && p.getMainHandItem().getCount() == 2,
+                    "le repas en cours ne devait pas être remplacé, vu " + p.getMainHandItem());
+            manger(p, 25);
+            helper.assertTrue(!p.isUsingItem(), "le repas devait être fini");
+            int faim = p.getFoodData().getFoodLevel();
+            helper.assertTrue(faim >= 4 && faim <= 20, "faim négative ou démesurée : " + faim);
+            helper.assertTrue(p.getMainHandItem().getCount() == 1, "un seul steak devait avoir été mangé");
+            FoodEvents.scan(p);
+            ItemStack reste = p.getMainHandItem();
+            helper.assertTrue(reste.is(FoodRegistry.SPOILED_FOOD.get()) && reste.getCount() == 1,
+                    "le reste devait devenir 1 déchet, vu " + reste);
+            helper.assertTrue(total(p, Items.COOKED_BEEF, FoodRegistry.SPOILED_FOOD.get()) == 1,
+                    "aucun objet ne devait apparaître : 2 de départ, 1 mangé, 1 restant");
+        } finally {
+            quitter(j);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = "peremption_sans_faim")
+    public static void mangerSansFaimNeRendRienEnNegatif(GameTestHelper helper) {
+        JoueurDeTest j = null;
+        try {
+            j = joueur(helper, "Repu");
+            ServerPlayer p = j.joueur();
+            ItemStack repas = date(Items.COOKED_BEEF, 1, rassis());
+            // Repas rassis à pleine faim : rien n'a été donné, rien n'est repris.
+            p.getFoodData().setFoodLevel(20);
+            p.getFoodData().setSaturation(5.0F);
+            MinecraftForge.EVENT_BUS.post(new LivingEntityUseItemEvent.Start(p, repas, 32));
+            MinecraftForge.EVENT_BUS.post(new LivingEntityUseItemEvent.Finish(p, repas, 0, repas));
+            helper.assertTrue(p.getFoodData().getFoodLevel() == 20, "faim 20 attendue, vue " + p.getFoodData().getFoodLevel());
+            helper.assertTrue(p.getFoodData().getSaturationLevel() == 5.0F,
+                    "saturation 5 attendue, vue " + p.getFoodData().getSaturationLevel());
+            // La faim a baissé pendant le repas : rien à reprendre, jamais de valeur négative.
+            p.getFoodData().setFoodLevel(10);
+            MinecraftForge.EVENT_BUS.post(new LivingEntityUseItemEvent.Start(p, repas, 32));
+            p.getFoodData().setFoodLevel(3);
+            MinecraftForge.EVENT_BUS.post(new LivingEntityUseItemEvent.Finish(p, repas, 0, repas));
+            helper.assertTrue(p.getFoodData().getFoodLevel() == 3, "faim 3 attendue, vue " + p.getFoodData().getFoodLevel());
+            // Un seul point donné : la moitié (0) est reprise, la faim ne passe pas sous le point de départ.
+            p.getFoodData().setFoodLevel(0);
+            p.getFoodData().setSaturation(0.0F);
+            MinecraftForge.EVENT_BUS.post(new LivingEntityUseItemEvent.Start(p, repas, 32));
+            p.getFoodData().setFoodLevel(1);
+            MinecraftForge.EVENT_BUS.post(new LivingEntityUseItemEvent.Finish(p, repas, 0, repas));
+            helper.assertTrue(p.getFoodData().getFoodLevel() == 1, "faim 1 attendue, vue " + p.getFoodData().getFoodLevel());
+            // Un Finish sans Start n'a aucun effet.
+            p.getFoodData().setFoodLevel(7);
+            MinecraftForge.EVENT_BUS.post(new LivingEntityUseItemEvent.Finish(p, repas, 0, repas));
+            helper.assertTrue(p.getFoodData().getFoodLevel() == 7, "un Finish sans Start ne change rien");
+        } finally {
+            quitter(j);
+        }
         helper.succeed();
     }
 }
