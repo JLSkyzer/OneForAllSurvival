@@ -1,0 +1,9 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "particle": "oneforallsurvival:block/fridge_side",
+    "front": "oneforallsurvival:block/fridge_front_no_power",
+    "side": "oneforallsurvival:block/fridge_side",
+    "top": "oneforallsurvival:block/fridge_top"
+  }
+}

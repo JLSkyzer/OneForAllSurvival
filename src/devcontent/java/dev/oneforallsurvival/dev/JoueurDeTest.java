@@ -59,6 +59,8 @@ public final class JoueurDeTest {
         ServerPlayer joueur = new ServerPlayer(level.getServer(), level, new GameProfile(uuid, nom));
         joueur.moveTo(position.x, position.y, position.z, 0f, 0f);
         level.getServer().getPlayerList().placeNewPlayer(connexion, joueur);
+        // L'UUID découle du nom : placeNewPlayer relit le playerdata d'un joueur d'essai du même nom. On repart à vide.
+        joueur.getInventory().clearContent();
         JoueurDeTest simule = new JoueurDeTest(canal, joueur);
         simule.lire();
         // L'entrée en jeu a envoyé son lot de paquets : on ne garde que ce qui suit.

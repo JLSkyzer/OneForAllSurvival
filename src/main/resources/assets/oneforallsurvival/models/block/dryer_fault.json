@@ -1,0 +1,9 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "particle": "oneforallsurvival:block/dryer_side",
+    "front": "oneforallsurvival:block/dryer_front_fault",
+    "side": "oneforallsurvival:block/dryer_side",
+    "top": "oneforallsurvival:block/dryer_top"
+  }
+}

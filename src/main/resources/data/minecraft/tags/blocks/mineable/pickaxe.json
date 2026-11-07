@@ -6,6 +6,9 @@
     "oneforallsurvival:debris_instruments",
     "oneforallsurvival:debris_battery",
     "oneforallsurvival:debris_cabin",
-    "oneforallsurvival:galvanic_bath"
+    "oneforallsurvival:galvanic_bath",
+    "oneforallsurvival:fridge",
+    "oneforallsurvival:desalinator",
+    "oneforallsurvival:dryer"
   ]
 }

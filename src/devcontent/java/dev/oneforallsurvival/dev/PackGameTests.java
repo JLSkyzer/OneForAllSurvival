@@ -2,10 +2,12 @@ package dev.oneforallsurvival.dev;
 
 import dev.oneforallsurvival.bench.BenchCatalog;
 import dev.oneforallsurvival.bench.BenchRecipe;
+import dev.oneforallsurvival.food.FoodRegistry;
 import dev.oneforallsurvival.repair.GalvanicRecipe;
 import java.lang.reflect.Method;
 import java.util.List;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.ResourceLocation;
@@ -14,10 +16,16 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
-import net.minecraft.world.item.crafting.RecipeType;
+import net.minecraft.world.level.BlockAndTintGetter;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.Fluids;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
@@ -94,6 +102,17 @@ public final class PackGameTests {
     }
 
     /**
+     * Les identifiants de toutes les recettes, de tous les types (table, four, tailleur de pierre, assemblage de
+     * Create...), dont le résultat est cet objet. La règle du propriétaire vaut pour toutes les voies de fabrication,
+     * pas seulement la table : une machine ne se fabrique qu'à l'établi.
+     */
+    private static List<ResourceLocation> recettesDonnant(GameTestHelper helper, Item item) {
+        var access = helper.getLevel().registryAccess();
+        return helper.getLevel().getRecipeManager().getRecipes().stream()
+                .filter(r -> r.getResultItem(access).is(item)).map(Recipe::getId).toList();
+    }
+
+    /**
      * Un objet du matériel du métier : son nombre d'ingrédients, le nombre fabriqué et les mods qu'il lui faut.
      * La plaque de zinc vient de Crafts &amp; Additions, le reste de Create ; fusible et bobinage restent vanilla.
      */
@@ -108,8 +127,6 @@ public final class PackGameTests {
     public static void leMaterielDuMetierEstALEtabliSeulement(GameTestHelper helper) {
         boolean create = ModList.get().isLoaded("create");
         boolean additions = ModList.get().isLoaded("createaddition");
-        var access = helper.getLevel().registryAccess();
-        var table = helper.getLevel().getRecipeManager().getAllRecipesFor(RecipeType.CRAFTING);
         for (Materiel m : List.of(
                 new Materiel("fuse", 4, 2, false, false),
                 new Materiel("coil", 5, 1, false, false),
@@ -117,10 +134,14 @@ public final class PackGameTests {
                 new Materiel("cleaning_kit", 3, 1, true, false),
                 new Materiel("tester", 4, 1, true, false),
                 new Materiel("welder", 5, 1, true, false),
-                new Materiel("galvanic_bath", 6, 1, true, true))) {
+                new Materiel("galvanic_bath", 6, 1, true, true),
+                new Materiel("fridge", 6, 1, true, false),
+                new Materiel("desalinator", 6, 1, true, false),
+                new Materiel("dryer", 6, 1, true, false))) {
             Item item = objet("oneforallsurvival", m.nom());
-            helper.assertTrue(table.stream().noneMatch(r -> r.getResultItem(access).is(item)),
-                    "une recette de table donne encore " + m.nom());
+            // Aucune recette d'aucun type : l'établi (le catalogue) est la seule voie.
+            List<ResourceLocation> autres = recettesDonnant(helper, item);
+            helper.assertTrue(autres.isEmpty(), m.nom() + " a encore des recettes hors établi : " + autres);
             ResourceLocation id = new ResourceLocation("oneforallsurvival", m.nom());
             BenchRecipe recette = BenchCatalog.current().byId(id).orElse(null);
             if ((m.create() && !create) || (m.additions() && !additions)) {
@@ -148,6 +169,31 @@ public final class PackGameTests {
         String ampoules = "light_bulb_addon_create_crafts_and__addions";
         if (ModList.get().isLoaded(ampoules)) {
             helper.assertTrue(porte(objet(ampoules, "fuse_16a"), "parts/fuse"), "le fusible 16 A doit servir de fusible");
+        }
+        helper.succeed();
+    }
+
+    /**
+     * Le sel et les rations ne se fabriquent qu'aux machines : le dessalinisateur donne le sel, le séchoir et
+     * le sel donnent les rations. Ni la table de craft ni l'établi n'en portent une recette, une fois le pack chargé.
+     */
+    @GameTest(template = "test/plancher", batch = "pack_materiel")
+    public static void selEtRationsNeSeFabriquentQuAuxMachines(GameTestHelper helper) {
+        var etabli = BenchCatalog.current().recipes();
+        for (String nom : new String[] {"salt", "salted_meat", "salted_fish", "salted_fruit", "dried_meat",
+                "dried_fish", "dried_fruit", "potable_water_bottle", "spoiled_food"}) {
+            Item item = objet("oneforallsurvival", nom);
+            helper.assertTrue(item != null && item != net.minecraft.world.item.Items.AIR, "objet absent : " + nom);
+            // Seul le séchoir en fait, et seulement des six rations (recettes oneforallsurvival:drying) : le sel,
+            // la bouteille d'eau potable et le déchet n'ont droit à aucune recette.
+            boolean ration = nom.startsWith("dried_") || nom.startsWith("salted_");
+            List<ResourceLocation> autres = recettesDonnant(helper, item).stream()
+                    .filter(id -> !(ration && helper.getLevel().getRecipeManager().byKey(id).orElseThrow().getType()
+                            .equals(FoodRegistry.DRYING_TYPE.get())))
+                    .toList();
+            helper.assertTrue(autres.isEmpty(), nom + " se fabrique par d'autres recettes que le séchoir : " + autres);
+            helper.assertTrue(etabli.stream().noneMatch(r -> r.result().is(item)),
+                    "l'établi propose " + nom);
         }
         helper.succeed();
     }
@@ -186,6 +232,49 @@ public final class PackGameTests {
             pile = (ItemStack) avancer.invoke(recette, pile);
             helper.assertTrue(pile.is(fini), id + " : la neuvième étape doit finir la pièce, vu " + pile);
         }
+        helper.succeed();
+    }
+
+    /**
+     * Un tuyau de Create posé contre le dessalinisateur le voit : sa propre logique de réseau (appelée par
+     * réflexion, le mod ne dépend pas de Create à la compilation) reconnaît la capability de fluides sur la face
+     * du tuyau, puis le raccord du tuyau avec la machine. Ce n'est PAS une pompe qui tourne : le montage d'une pompe
+     * demande une force cinétique que les GameTests ne fournissent pas. Le transfert lui-même passe par la
+     * capability, que {@code DessalinisateurGameTests} éprouve face par face.
+     */
+    @GameTest(template = "test/plancher", batch = "pack_tuyau")
+    public static void leTuyauCreateVoitLeFluide(GameTestHelper helper) throws ReflectiveOperationException {
+        if (!ModList.get().isLoaded("create")) {
+            helper.succeed();
+            return;
+        }
+        BlockPos machine = new BlockPos(1, 1, 1);
+        BlockPos tuyau = machine.east();
+        helper.setBlock(machine, FoodRegistry.DESALINATOR.get());
+        Block pipe = ForgeRegistries.BLOCKS.getValue(new ResourceLocation("create", "fluid_pipe"));
+        helper.assertTrue(pipe != null && pipe != Blocks.AIR, "le tuyau de Create (create:fluid_pipe) est introuvable");
+        helper.setBlock(tuyau, pipe);
+        var level = helper.getLevel();
+        BlockPos machineAbs = helper.absolutePos(machine);
+        BlockPos tuyauAbs = helper.absolutePos(tuyau);
+        Class<?> propagateur = Class.forName("com.simibubi.create.content.fluids.FluidPropagator");
+        Method aCapability = propagateur.getMethod("hasFluidCapability", BlockGetter.class, BlockPos.class, Direction.class);
+        helper.assertTrue((boolean) aCapability.invoke(null, level, machineAbs, Direction.EAST),
+                "Create ne voit pas de capability de fluides sur la face est du dessalinisateur");
+        Class<?> bloc = Class.forName("com.simibubi.create.content.fluids.pipes.FluidPipeBlock");
+        Method raccord = bloc.getMethod("canConnectTo", BlockAndTintGetter.class, BlockPos.class, BlockState.class,
+                Direction.class);
+        helper.assertTrue((boolean) raccord.invoke(null, level, tuyauAbs, level.getBlockState(tuyauAbs), Direction.WEST),
+                "le tuyau de Create ne se raccorde pas au dessalinisateur");
+        // Et ce que Create y verserait entre bien : l'eau seulement, par la face du tuyau.
+        BlockEntity be = helper.getBlockEntity(machine);
+        helper.assertTrue(be != null, "pas de block entity du dessalinisateur");
+        var cuve = be.getCapability(ForgeCapabilities.FLUID_HANDLER, Direction.EAST).orElse(null);
+        helper.assertTrue(cuve != null, "pas de capability de fluides sur la face est");
+        helper.assertTrue(cuve.fill(new FluidStack(Fluids.WATER, 1000), IFluidHandler.FluidAction.EXECUTE) == 1000,
+                "1000 mB d'eau devaient entrer");
+        helper.assertTrue(cuve.fill(new FluidStack(Fluids.LAVA, 1000), IFluidHandler.FluidAction.EXECUTE) == 0,
+                "la lave ne doit pas entrer");
         helper.succeed();
     }
 }

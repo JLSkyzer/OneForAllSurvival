@@ -1,0 +1,33 @@
+{
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "create"
+    }
+  ],
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "minecraft:cauldron"
+    },
+    {
+      "item": "oneforallsurvival:coil"
+    },
+    {
+      "item": "oneforallsurvival:fuse"
+    },
+    {
+      "tag": "forge:plates/copper"
+    },
+    {
+      "tag": "forge:plates/copper"
+    },
+    {
+      "item": "create:fluid_pipe"
+    }
+  ],
+  "result": {
+    "item": "oneforallsurvival:desalinator"
+  }
+}

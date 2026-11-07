@@ -1,0 +1,7 @@
+{
+  "type": "oneforallsurvival:drying",
+  "ingredient": { "item": "oneforallsurvival:test_part" },
+  "result": { "item": "oneforallsurvival:dried_meat" },
+  "salted_result": { "item": "oneforallsurvival:salted_meat" },
+  "ticks": 20
+}

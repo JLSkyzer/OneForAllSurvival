@@ -56,7 +56,7 @@ public final class E2eClient {
     private static final double DIAGNOSTIC_CONNEXION_S = 17;
 
     private enum Phase { TITRE, CONNEXION, CATALOGUE, PROVISIONS, POSER, OUVRIR, COMMANDER, STOCK, OUVRIR_STOCK, PRENDRE,
-        REPARATION, ARRET, FIN }
+        REPARATION, VIVRES, ARRET, FIN }
 
     private static Phase phase = Phase.TITRE;
     private static long debutPhase = System.nanoTime();
@@ -76,6 +76,31 @@ public final class E2eClient {
     private static String derniereLigne = "";
     private static boolean diagnosticFait;
 
+    /**
+     * Délai de garde de tout l'essai, en secondes : au-delà, le client se ferme quel que soit l'écran où il est resté
+     * (connexion coupée, écran de déconnexion, menu bloqué). Un second fil, qui ne dépend pas de la boucle du jeu, arrête
+     * la JVM 40 s plus tard si la fermeture ordinaire n'a pas abouti.
+     */
+    private static final double GARDE_S = RELANCE ? 600 : 1500;
+    private static final long DEBUT_ESSAI_NS = System.nanoTime();
+    private static boolean gardeDeclenchee;
+
+    static {
+        if (ACTIF) {
+            Thread chien = new Thread(() -> {
+                try {
+                    Thread.sleep((long) ((GARDE_S + 40) * 1000));
+                    LOG.error("[e2e] FAIL delai de garde de la JVM depasse : arret force");
+                    Runtime.getRuntime().halt(2);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }, "e2e-garde");
+            chien.setDaemon(true);
+            chien.start();
+        }
+    }
+
     private E2eClient() {}
 
     private static String legende() {
@@ -91,6 +116,7 @@ public final class E2eClient {
             case OUVRIR_STOCK -> "Ouverture du stock";
             case PRENDRE -> "Récupération de la pile fabriquée";
             case REPARATION -> E2eReparation.legende();
+            case VIVRES -> E2eVivres.legende();
             case ARRET -> "Arrêt du serveur par /stop";
             default -> "Fin";
         };
@@ -131,6 +157,12 @@ public final class E2eClient {
         passer(Phase.ARRET);
     }
 
+    /** Un échec consigné sans arrêter l'essai : la suite ne dépend pas du pas qui vient d'échouer. */
+    static void failSoft(String texte) {
+        echecs++;
+        LOG.error("[e2e] FAIL {}", texte);
+    }
+
     @SubscribeEvent
     public static void onChat(ClientChatReceivedEvent event) {
         if (ACTIF) {
@@ -138,6 +170,7 @@ public final class E2eClient {
             String m = event.getMessage().getString();
             derniereLigne = m.length() > 70 ? m.substring(0, 70) : m;
             E2eReparation.recevoir(event.getMessage());
+            E2eVivres.recevoir(event.getMessage());
         }
     }
 
@@ -183,6 +216,23 @@ public final class E2eClient {
             return;
         }
         Minecraft mc = Minecraft.getInstance();
+        // Une touche pressée par une personne devant la fenetre (chat, par exemple) ne doit pas fausser l'essai.
+        if (mc.level != null && mc.screen instanceof net.minecraft.client.gui.screens.ChatScreen) {
+            LOG.info("[e2e] ecran de chat ouvert par une touche etrangere : ferme");
+            mc.setScreen(null);
+        }
+        if (!gardeDeclenchee && (System.nanoTime() - DEBUT_ESSAI_NS) / 1e9 > GARDE_S) {
+            gardeDeclenchee = true;
+            echecs++;
+            LOG.error("[e2e] FAIL delai de garde de l'essai depasse ({} s), phase {}, ecran {} : fermeture du client", GARDE_S, phase, mc.screen);
+            LOG.info("[e2e] bilan : {} ECHEC(S)", echecs);
+            phase = Phase.FIN;
+            if (film != null) {
+                film.terminer(echecs + " echec(s)");
+            }
+            mc.stop();
+            return;
+        }
         try {
             avancer(mc);
         } catch (RuntimeException e) {
@@ -190,7 +240,7 @@ public final class E2eClient {
             fail("exception en phase " + phase + " : " + e);
         }
         // La réparation a ses propres délais, pas par pas.
-        if (phase != Phase.TITRE && phase != Phase.FIN && phase != Phase.ARRET && phase != Phase.REPARATION && secondes() > 180) {
+        if (phase != Phase.TITRE && phase != Phase.FIN && phase != Phase.ARRET && phase != Phase.REPARATION && phase != Phase.VIVRES && secondes() > 180) {
             fail("delai depasse en phase " + phase);
         }
     }
@@ -198,6 +248,10 @@ public final class E2eClient {
     private static void avancer(Minecraft mc) {
         switch (phase) {
             case TITRE -> {
+                if (secondes() > 300) {
+                    fail("menu principal jamais atteint en 300 s, ecran " + mc.screen);
+                    return;
+                }
                 // Premier lancement d'un dossier neuf : l'écran d'accessibilité précède le menu.
                 if (mc.getOverlay() == null && mc.screen instanceof net.minecraft.client.gui.screens.AccessibilityOnboardingScreen) {
                     mc.setScreen(new TitleScreen());
@@ -223,6 +277,14 @@ public final class E2eClient {
                 }
             }
             case CONNEXION -> {
+                if (mc.screen instanceof net.minecraft.client.gui.screens.DisconnectedScreen) {
+                    fail("ecran de deconnexion pendant la connexion : " + mc.screen.getTitle().getString());
+                    return;
+                }
+                if (mc.player == null && secondes() > 90) {
+                    fail("connexion non etablie en 90 s, ecran " + mc.screen);
+                    return;
+                }
                 if (mc.player != null && mc.level != null) {
                     if (mc.getSingleplayerServer() == null) {
                         pass("connecte a un serveur distant (aucun serveur integre) : " + mc.getCurrentServer().ip);
@@ -483,6 +545,16 @@ public final class E2eClient {
             }
             case REPARATION -> {
                 if (E2eReparation.avancer(mc) && phase == Phase.REPARATION) {
+                    if (RELANCE) {
+                        E2eVivres.relance();
+                    } else {
+                        E2eVivres.premierePhase();
+                    }
+                    passer(Phase.VIVRES);
+                }
+            }
+            case VIVRES -> {
+                if (E2eVivres.avancer(mc) && phase == Phase.VIVRES) {
                     passer(Phase.ARRET);
                 }
             }
@@ -492,6 +564,7 @@ public final class E2eClient {
                     mc.options.keyShift.setDown(false);
                     if (mc.player != null) {
                         mc.setScreen(null);
+                        E2eVivres.rangerAvantArret(mc);
                         mc.player.connection.sendCommand("stop");
                         LOG.info("[e2e] /stop envoye");
                     }

@@ -36,11 +36,22 @@ final class FilmCapture {
     private final long debutNs = System.nanoTime();
     private long derniereNs;
     private int numero;
+    /** Gros plan : centre (pixels du jeu) et facteur, ou {@code null} pour l'image entière. Réglé par le film. */
+    private volatile double[] gros;
 
     FilmCapture(Path dossier, String titre) throws IOException {
         this.dossier = dossier;
         this.titre = titre;
         Files.createDirectories(dossier);
+    }
+
+    /** Les images suivantes montrent un gros plan de la région centrée en ({@code cx}, {@code cy}), agrandie {@code facteur} fois. */
+    void grosPlan(double cx, double cy, double facteur) {
+        gros = new double[] {cx, cy, facteur};
+    }
+
+    void pleinCadre() {
+        gros = null;
     }
 
     int images() {
@@ -69,11 +80,12 @@ final class FilmCapture {
                 }
             }
             Path fichier = dossier.resolve(String.format("f%05d.png", n));
-            ecrivains.execute(() -> ecrire(fichier, pixels, l, h, legende, valeurs, ecoule));
+            double[] zoom = gros;
+            ecrivains.execute(() -> ecrire(fichier, pixels, l, h, legende, valeurs, ecoule, zoom));
         }
     }
 
-    private void ecrire(Path fichier, int[] abgr, int l, int h, String legende, String valeurs, long ecoule) {
+    private void ecrire(Path fichier, int[] abgr, int l, int h, String legende, String valeurs, long ecoule, double[] zoom) {
         BufferedImage img = new BufferedImage(1280, 720, BufferedImage.TYPE_INT_RGB);
         int[] rgb = new int[abgr.length];
         for (int i = 0; i < abgr.length; i++) {
@@ -81,6 +93,19 @@ final class FilmCapture {
             rgb[i] = ((p & 0xFF) << 16) | (p & 0xFF00) | ((p >> 16) & 0xFF);
         }
         img.setRGB(0, 0, Math.min(l, 1280), Math.min(h, 720 - BANDEAU), rgb, 0, l);
+        if (zoom != null) {
+            int jeuH = 720 - BANDEAU;
+            int sw = (int) Math.round(1280 / zoom[2]);
+            int sh = (int) Math.round(jeuH / zoom[2]);
+            int sx = (int) Math.max(0, Math.min(1280 - sw, zoom[0] - sw / 2.0));
+            int sy = (int) Math.max(0, Math.min(jeuH - sh, zoom[1] - sh / 2.0));
+            BufferedImage coupe = new BufferedImage(sw, sh, BufferedImage.TYPE_INT_RGB);
+            coupe.createGraphics().drawImage(img.getSubimage(sx, sy, sw, sh), 0, 0, null);
+            Graphics2D z = img.createGraphics();
+            z.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+            z.drawImage(coupe, 0, 0, 1280, jeuH, null);
+            z.dispose();
+        }
         Graphics2D g = img.createGraphics();
         try {
             g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);

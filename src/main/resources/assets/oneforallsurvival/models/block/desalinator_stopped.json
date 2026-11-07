@@ -1,0 +1,9 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "particle": "oneforallsurvival:block/desalinator_side",
+    "front": "oneforallsurvival:block/desalinator_front_stopped",
+    "side": "oneforallsurvival:block/desalinator_side",
+    "top": "oneforallsurvival:block/desalinator_top"
+  }
+}

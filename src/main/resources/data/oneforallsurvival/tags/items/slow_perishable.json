@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "oneforallsurvival:dried_meat",
+    "oneforallsurvival:dried_fish",
+    "oneforallsurvival:dried_fruit",
+    {"id": "#oneforallsurvival:test_slow_perishable", "required": false}
+  ]
+}

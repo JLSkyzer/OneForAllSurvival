@@ -6,6 +6,9 @@ import dev.oneforallsurvival.bench.BenchRegistry;
 import dev.oneforallsurvival.bench.client.BenchClientState;
 import dev.oneforallsurvival.bench.client.BenchFormat;
 import dev.oneforallsurvival.bench.client.BenchTheme;
+import dev.oneforallsurvival.food.DryingRecipe;
+import dev.oneforallsurvival.food.FoodRegistry;
+import dev.oneforallsurvival.food.FoodTags;
 import dev.oneforallsurvival.repair.GalvanicRecipe;
 import dev.oneforallsurvival.repair.RepairRegistry;
 import java.util.ArrayList;
@@ -41,7 +44,8 @@ import org.slf4j.LoggerFactory;
 
 /**
  * JEI : une catégorie « Établi d'ingénieur » bâtie sur le catalogue que le client a reçu, l'établi comme
- * catalyseur, et une catégorie « Bain galvanique » bâtie sur les recettes du bain (le bain comme catalyseur). Les recettes d'un objet géré ont quitté la table : JEI n'y montre donc plus de recette de
+ * catalyseur, une catégorie « Bain galvanique » bâtie sur les recettes du bain (le bain comme catalyseur) et une catégorie du séchoir,
+ * bâtie de même sur ses recettes. Les recettes d'un objet géré ont quitté la table : JEI n'y montre donc plus de recette de
  * table pour lui, seulement celle de l'établi.
  *
  * <p>Toute référence à JEI reste dans cette classe : le mod se charge sans JEI, qui seul instancie le
@@ -56,6 +60,9 @@ public final class BenchJeiPlugin implements IModPlugin {
 
     public static final RecipeType<GalvanicRecipe> GALVANIC_TYPE =
             RecipeType.create(OneForAllSurvival.MODID, "galvanic_bath", GalvanicRecipe.class);
+
+    public static final RecipeType<DryingRecipe> DRYING_TYPE =
+            RecipeType.create(OneForAllSurvival.MODID, "drying", DryingRecipe.class);
 
     private static final Logger LOGGER = LoggerFactory.getLogger("oneforallsurvival-jei");
     private static final ResourceLocation UID = new ResourceLocation(OneForAllSurvival.MODID, "jei");
@@ -83,7 +90,8 @@ public final class BenchJeiPlugin implements IModPlugin {
     @Override
     public void registerCategories(IRecipeCategoryRegistration registration) {
         registration.addRecipeCategories(new Category(registration.getJeiHelpers().getGuiHelper()),
-                new GalvanicCategory(registration.getJeiHelpers().getGuiHelper()));
+                new GalvanicCategory(registration.getJeiHelpers().getGuiHelper()),
+                new DryingCategory(registration.getJeiHelpers().getGuiHelper()));
     }
 
     @Override
@@ -96,6 +104,8 @@ public final class BenchJeiPlugin implements IModPlugin {
         if (level != null) {
             registration.addRecipes(GALVANIC_TYPE,
                     level.getRecipeManager().getAllRecipesFor(RepairRegistry.GALVANIC_TYPE.get()));
+            registration.addRecipes(DRYING_TYPE,
+                    level.getRecipeManager().getAllRecipesFor(FoodRegistry.DRYING_TYPE.get()));
         }
     }
 
@@ -103,6 +113,7 @@ public final class BenchJeiPlugin implements IModPlugin {
     public void registerRecipeCatalysts(IRecipeCatalystRegistration registration) {
         registration.addRecipeCatalyst(new ItemStack(BenchRegistry.ENGINEER_BENCH_ITEM.get()), TYPE);
         registration.addRecipeCatalyst(new ItemStack(RepairRegistry.GALVANIC_BATH_ITEM.get()), GALVANIC_TYPE);
+        registration.addRecipeCatalyst(new ItemStack(FoodRegistry.DRYER_ITEM.get()), DRYING_TYPE);
     }
 
     @Override
@@ -330,6 +341,73 @@ public final class BenchJeiPlugin implements IModPlugin {
             graphics.drawString(font, BenchTheme.ellipsize(font, Component.translatable(
                     "gui.oneforallsurvival.galvanic.jei.energy", recipe.energyPerTick()).getString(),
                     G_WIDTH - 19 - 4 - 24), 24, 14, 0xFF555555, false);
+        }
+    }
+
+    /** La catégorie du séchoir : l'aliment et le sel à gauche, la ration sèche et la ration salée à droite. */
+    private static final class DryingCategory implements IRecipeCategory<DryingRecipe> {
+        private static final int D_WIDTH = 170;
+        private static final int D_HEIGHT = 56;
+        private final IDrawable icon;
+
+        DryingCategory(IGuiHelper gui) {
+            this.icon = gui.createDrawableItemStack(new ItemStack(FoodRegistry.DRYER_ITEM.get()));
+        }
+
+        @Override
+        public RecipeType<DryingRecipe> getRecipeType() {
+            return DRYING_TYPE;
+        }
+
+        @Override
+        public Component getTitle() {
+            return Component.translatable(FoodRegistry.DRYER.get().getDescriptionId());
+        }
+
+        @Override
+        public int getWidth() {
+            return D_WIDTH;
+        }
+
+        @Override
+        public int getHeight() {
+            return D_HEIGHT;
+        }
+
+        @Override
+        public IDrawable getIcon() {
+            return icon;
+        }
+
+        @Override
+        public void setRecipe(IRecipeLayoutBuilder builder, DryingRecipe recipe, IFocusGroup focuses) {
+            builder.addSlot(RecipeIngredientRole.INPUT, 1, 1).addItemStacks(GalvanicRecipe.realStacks(recipe.ingredient()));
+            // Étiquette vide : Forge met une barrière, qu'on ne montre pas.
+            builder.addSlot(RecipeIngredientRole.INPUT, 1, 19)
+                    .addItemStacks(GalvanicRecipe.realStacks(Ingredient.of(FoodTags.SALT)));
+            builder.addSlot(RecipeIngredientRole.OUTPUT, D_WIDTH - 19, 1).addItemStack(recipe.resultFor(false));
+            builder.addSlot(RecipeIngredientRole.OUTPUT, D_WIDTH - 19, 19).addItemStack(recipe.resultFor(true));
+        }
+
+        @Override
+        public void draw(DryingRecipe recipe, IRecipeSlotsView slots, GuiGraphics graphics, double mouseX,
+                double mouseY) {
+            var font = Minecraft.getInstance().font;
+            int right = D_WIDTH - 19 - 4;
+            rightAligned(graphics, font, Component.translatable("gui.oneforallsurvival.dryer.jei.plain").getString(), right, 5);
+            rightAligned(graphics, font, Component.translatable("gui.oneforallsurvival.dryer.jei.salted").getString(), right, 23);
+            graphics.drawString(font, BenchTheme.ellipsize(font, Component.translatable(
+                    "gui.oneforallsurvival.dryer.jei.time", BenchFormat.duration(Math.max(1, recipe.ticks() / 20)))
+                    .getString(), D_WIDTH - 2), 1, D_HEIGHT - 19, 0xFF555555, false);
+            graphics.drawString(font, BenchTheme.ellipsize(font, Component.translatable(
+                    "gui.oneforallsurvival.dryer.jei.energy", dev.oneforallsurvival.food.FoodConfig.dryerEnergy())
+                    .getString(), D_WIDTH - 2), 1, D_HEIGHT - 9, 0xFF555555, false);
+        }
+
+        private static void rightAligned(GuiGraphics graphics, net.minecraft.client.gui.Font font, String text, int right,
+                int y) {
+            String shown = BenchTheme.ellipsize(font, text, right - 24);
+            graphics.drawString(font, shown, right - font.width(shown), y, 0xFF555555, false);
         }
     }
 }

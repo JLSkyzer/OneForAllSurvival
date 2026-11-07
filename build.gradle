@@ -195,6 +195,16 @@ minecraft {
             args '--width', '1280', '--height', '656'
         }
 
+        // Film du lot 3 (dev seulement) : un client qui se pilote seul et enregistre ses images dans
+        // run-demo/frames-vivres, un bandeau de légende en dessous. Voir FilmVivres (devcontent).
+        demoVivresFilm {
+            parent minecraft.runs.client
+            workingDirectory project.file('run-demo')
+            property 'oneforallsurvival.demo.vivres', 'true'
+            jvmArgs '-Xmx3G'
+            args '--width', '1280', '--height', '656'
+        }
+
         server {
             // Un dossier à part : un client lancé en même temps tourne dans `run`.
             workingDirectory project.file('run-server')
@@ -337,6 +347,13 @@ tasks.matching { it.name == 'runDemoReparationFilm' }.configureEach {
     doFirst {
         delete project.file('run-demo/saves/film_reparation')
         delete project.file('run-demo/frames-reparation')
+    }
+}
+
+tasks.matching { it.name == 'runDemoVivresFilm' }.configureEach {
+    doFirst {
+        delete project.file('run-demo/saves/film_vivres')
+        delete project.file('run-demo/frames-vivres')
     }
 }
 
