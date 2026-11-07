@@ -444,6 +444,7 @@ final class E2eReparation {
             vider();
             commande("coast zone remove " + ZONE);
             commande("coast zone remove " + ZONE_GARDEE);
+            commande("coast zone remove e2e_vivres");
             commande("coast zone list");
         }, () -> trouve(P_COTE + "zone.list.empty") != null || trouve(P_COTE + "zone.list.header") != null,
                 () -> "pas de reponse a /coast zone list", null);
