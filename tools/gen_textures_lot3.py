@@ -31,6 +31,8 @@ lot2.PALETTE.update({
     "7": (84, 164, 190),  # eau potable dans l'ombre
     "8": (204, 246, 252),  # eau potable claire
     "m": (238, 236, 228),  # étiquette de bouteille
+    "0": (244, 242, 230),  # émail crème, reflet
+    "9": (190, 184, 164),  # émail crème, ombre
 })
 
 SPOILED_FOOD = lot2.sprite(
@@ -227,63 +229,65 @@ VOYANTS = {"stopped": "z", "running": "g", "no_power": "h", "fault": "P"}  # arr
 
 
 def armoire_face(voyant):
+    """Un vieux réfrigérateur de cabine : émail crème usé, petit compartiment froid en haut, grande porte dessous,
+    poignées de laiton sur le côté, rouille au bas de la porte, voyant sur le compartiment du haut."""
     lignes = [
         "KKKKKKKKKKKKKKKK",
-        "KllllllllllllllK",
-        "KliiiiiiiiiiiidK",
-        "KliKKKiiiiiiiidK",
-        "KliK%KiiiiiiiidK",
-        "KliKKKiiiiiiiidK",
-        "KliiiiiiiiiiiidK",
+        "K0ffffffffffff9K",
+        "K0fKKKffffffBf9K",
+        "K0fKLKffffffbf9K",
+        "K0fKKKffffffbf9K",
         "KKKKKKKKKKKKKKKK",
-        "KliiiiiiiiiiBbdK",
-        "KliiiiiiiiiiBydK",
-        "KliiiiiiiiiiBbdK",
-        "KliiiiiiiiiiBbdK",
-        "KliiiiiiiiiiiidK",
-        "KldddddddddddddK",
-        "KldddddddddddddK",
+        "K0ffffffffffff9K",
+        "K0ffffffffffBb9K",
+        "K0ffffffffffBy9K",
+        "K0ffffffffffBb9K",
+        "K0ffffffffffBb9K",
+        "K0ffffffffffBb9K",
+        "K0fffffffffffb9K",
+        "K0fffRffffffff9K",
+        "K0fRRrfffRfff99K",
         "KKKKKKKKKKKKKKKK",
     ]
-    lignes[4] = "KliK" + voyant + "KiiiiiiiidK"
+    lignes[3] = "K0fK" + voyant + "Kffffffbf9K"
     return lot2.sprite(*lignes)
 
 
 ARMOIRE_COTE = lot2.sprite(
     "KKKKKKKKKKKKKKKK",
-    "KllllllllllllllK",
-    "KliiiiiiiiiiiidK",
-    "KliiiiiiiiiiiidK",
-    "KliiiiiiiiiiiidK",
-    "KliiiiiiiiiiiidK",
-    "KliiiiiiiiiiiidK",
+    "K0ffffffffffff9K",
+    "K0ffffffffffff9K",
+    "K0ffffffffffff9K",
+    "K0ffffffffffff9K",
     "KKKKKKKKKKKKKKKK",
-    "KliiiiiiiiiiiidK",
-    "KliiiiiiiiiiiidK",
-    "KliiiiiiiiiiiidK",
-    "KliiiiiiiiiiiidK",
-    "KliiiiiiiiiiiidK",
-    "KliiiiiiiiiiiidK",
-    "KldddddddddddddK",
+    "K0ffffffffffff9K",
+    "K0ffffffffffff9K",
+    "K0ffffffffffff9K",
+    "K0ffffffffffff9K",
+    "K0fffffffRffff9K",
+    "K0ffffffffffff9K",
+    "K0ffffRfffffff9K",
+    "K0fffRRffffRff9K",
+    "K0ffRRrfffRRr99K",
     "KKKKKKKKKKKKKKKK",
 )
 
 ARMOIRE_DESSUS = lot2.sprite(
     "KKKKKKKKKKKKKKKK",
-    "KllllllllllllllK",
-    "KlwliiiiiiiilidK",
-    "KliiiiiiiiiiiidK",
-    "KliKKKKKKKKKKidK",
-    "KliKddddddddKidK",
-    "KliKKKKKKKKKKidK",
-    "KliKddddddddKidK",
-    "KliKKKKKKKKKKidK",
-    "KliKddddddddKidK",
-    "KliKKKKKKKKKKidK",
-    "KliiiiiiiiiiiidK",
-    "KliiiiiiiiiiiidK",
-    "KliiiiiiiiiiiidK",
-    "KddddddddddddddK",
+    "K0000000000000fK",
+    "K0ffffffffffff9K",
+    "K0ffKKKKKKKKff9K",
+    "K0ffKiiiiiidKf9K",
+    "K0ffKKKKKKKKff9K",
+    "K0ffKiiiiiidKf9K",
+    "K0ffKKKKKKKKff9K",
+    "K0ffffffffffff9K",
+    "K0fffffffffRff9K",
+    "K0ffffffffffff9K",
+    "K0ffffffffffff9K",
+    "K0ffffffffffff9K",
+    "K0ffffffffffff9K",
+    "K99999999999999K",
     "KKKKKKKKKKKKKKKK",
 )
 

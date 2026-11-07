@@ -56,7 +56,10 @@ public final class DesalinatorScreen extends AbstractContainerScreen<Desalinator
         renderBackground(g);
         super.render(g, mx, my, partialTick);
         renderTooltip(g, mx, my);
-        if (BenchTheme.inside(mx, my, leftPos + WATER_X, topPos + GAUGE_Y, GAUGE_W, GAUGE_H)) {
+        if (BenchTheme.inside(mx, my, leftPos + TEXT_X, topPos + ENERGY_Y, ENERGY_W, ENERGY_H)) {
+            g.renderTooltip(font, Component.translatable("gui.oneforallsurvival.desalinator.energy", menu.energy(),
+                    menu.capacity()), mx, my);
+        } else if (BenchTheme.inside(mx, my, leftPos + WATER_X, topPos + GAUGE_Y, GAUGE_W, GAUGE_H)) {
             g.renderTooltip(font, Component.translatable("gui.oneforallsurvival.desalinator.water",
                     menu.waterAmount(), DesalinatorBlockEntity.TANK_CAPACITY), mx, my);
         } else if (BenchTheme.inside(mx, my, leftPos + POTABLE_X, topPos + GAUGE_Y, GAUGE_W, GAUGE_H)) {
@@ -122,8 +125,10 @@ public final class DesalinatorScreen extends AbstractContainerScreen<Desalinator
         g.drawString(font, BenchTheme.ellipsize(font, cycleText, CYCLE_W), CYCLE_X, CYCLE_Y + CYCLE_H + 3,
                 BenchTheme.TEXT_DIM, false);
         int energyX = TEXT_X + ENERGY_W + 6;
-        String energy = Component.translatable("gui.oneforallsurvival.desalinator.energy", menu.energy(),
-                menu.capacity()).getString();
+        // Le court seulement : la place à droite de la barre tient « 4000 FE », pas « 4000 / 4000 FE » ; le détail est
+        // dans l'infobulle de la barre.
+        String energy = Component.translatable("gui.oneforallsurvival.desalinator.energy.short", menu.energy())
+                .getString();
         g.drawString(font, BenchTheme.ellipsize(font, energy, RIGHT - energyX), energyX, ENERGY_Y + 1,
                 BenchTheme.TEXT_DIM, false);
         g.drawString(font, playerInventoryTitle, 8, DesalinatorMenu.INVENTORY_Y - 12, BenchTheme.TEXT_DIM, false);

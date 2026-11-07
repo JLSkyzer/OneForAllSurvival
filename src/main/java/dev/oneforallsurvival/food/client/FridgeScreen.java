@@ -42,6 +42,10 @@ public final class FridgeScreen extends AbstractContainerScreen<FridgeMenu> {
         renderBackground(g);
         super.render(g, mx, my, partialTick);
         renderTooltip(g, mx, my);
+        if (BenchTheme.inside(mx, my, leftPos + ENERGY_X, topPos + ENERGY_Y, ENERGY_W, ENERGY_H)) {
+            g.renderTooltip(font, Component.translatable("gui.oneforallsurvival.fridge.energy", menu.energy(),
+                    menu.capacity()), mx, my);
+        }
     }
 
     @Override
@@ -69,11 +73,10 @@ public final class FridgeScreen extends AbstractContainerScreen<FridgeMenu> {
         String stateText = Component.translatable("gui.oneforallsurvival.fridge.state",
                 Component.translatable("gui.oneforallsurvival.fridge.state." + state.getSerializedName())).getString();
         g.drawString(font, BenchTheme.ellipsize(font, stateText, RIGHT - stateX), stateX, ENERGY_Y + 1, color, false);
-        // Le texte d'énergie sous la barre, coupé avant la marge plutôt que de déborder.
-        String energy = Component.translatable("gui.oneforallsurvival.fridge.energy", menu.energy(),
-                menu.capacity()).getString();
-        g.drawString(font, BenchTheme.ellipsize(font, energy, RIGHT - ENERGY_X), ENERGY_X, ENERGY_Y + ENERGY_H + 3,
-                BenchTheme.TEXT_DIM, false);
+        // L'énergie, en court, à droite sur la ligne du titre : la rangée de cases commence juste sous la barre, il n'y
+        // a pas de place dessous. Le détail (stock et capacité) est dans l'infobulle de la barre.
+        String energy = Component.translatable("gui.oneforallsurvival.fridge.energy.short", menu.energy()).getString();
+        g.drawString(font, energy, RIGHT - font.width(energy), titleLabelY, BenchTheme.TEXT_DIM, false);
         g.drawString(font, playerInventoryTitle, 8, FridgeMenu.INVENTORY_Y - 12, BenchTheme.TEXT_DIM, false);
     }
 }

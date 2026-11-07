@@ -16,7 +16,6 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
-import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.BlockAndTintGetter;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.Block;
@@ -103,6 +102,17 @@ public final class PackGameTests {
     }
 
     /**
+     * Les identifiants de toutes les recettes, de tous les types (table, four, tailleur de pierre, assemblage de
+     * Create...), dont le résultat est cet objet. La règle du propriétaire vaut pour toutes les voies de fabrication,
+     * pas seulement la table : une machine ne se fabrique qu'à l'établi.
+     */
+    private static List<ResourceLocation> recettesDonnant(GameTestHelper helper, Item item) {
+        var access = helper.getLevel().registryAccess();
+        return helper.getLevel().getRecipeManager().getRecipes().stream()
+                .filter(r -> r.getResultItem(access).is(item)).map(Recipe::getId).toList();
+    }
+
+    /**
      * Un objet du matériel du métier : son nombre d'ingrédients, le nombre fabriqué et les mods qu'il lui faut.
      * La plaque de zinc vient de Crafts &amp; Additions, le reste de Create ; fusible et bobinage restent vanilla.
      */
@@ -117,8 +127,6 @@ public final class PackGameTests {
     public static void leMaterielDuMetierEstALEtabliSeulement(GameTestHelper helper) {
         boolean create = ModList.get().isLoaded("create");
         boolean additions = ModList.get().isLoaded("createaddition");
-        var access = helper.getLevel().registryAccess();
-        var table = helper.getLevel().getRecipeManager().getAllRecipesFor(RecipeType.CRAFTING);
         for (Materiel m : List.of(
                 new Materiel("fuse", 4, 2, false, false),
                 new Materiel("coil", 5, 1, false, false),
@@ -131,8 +139,9 @@ public final class PackGameTests {
                 new Materiel("desalinator", 6, 1, true, false),
                 new Materiel("dryer", 6, 1, true, false))) {
             Item item = objet("oneforallsurvival", m.nom());
-            helper.assertTrue(table.stream().noneMatch(r -> r.getResultItem(access).is(item)),
-                    "une recette de table donne encore " + m.nom());
+            // Aucune recette d'aucun type : l'établi (le catalogue) est la seule voie.
+            List<ResourceLocation> autres = recettesDonnant(helper, item);
+            helper.assertTrue(autres.isEmpty(), m.nom() + " a encore des recettes hors établi : " + autres);
             ResourceLocation id = new ResourceLocation("oneforallsurvival", m.nom());
             BenchRecipe recette = BenchCatalog.current().byId(id).orElse(null);
             if ((m.create() && !create) || (m.additions() && !additions)) {
@@ -170,15 +179,17 @@ public final class PackGameTests {
      */
     @GameTest(template = "test/plancher", batch = "pack_materiel")
     public static void selEtRationsNeSeFabriquentQuAuxMachines(GameTestHelper helper) {
-        var access = helper.getLevel().registryAccess();
-        var table = helper.getLevel().getRecipeManager().getAllRecipesFor(RecipeType.CRAFTING);
         var etabli = BenchCatalog.current().recipes();
         for (String nom : new String[] {"salt", "salted_meat", "salted_fish", "salted_fruit", "dried_meat",
                 "dried_fish", "dried_fruit", "potable_water_bottle", "spoiled_food"}) {
             Item item = objet("oneforallsurvival", nom);
             helper.assertTrue(item != null && item != net.minecraft.world.item.Items.AIR, "objet absent : " + nom);
-            helper.assertTrue(table.stream().noneMatch(r -> r.getResultItem(access).is(item)),
-                    "une recette de table donne " + nom);
+            // Seul le séchoir en fait (recettes oneforallsurvival:drying) ; le dessalinisateur n'a pas de recette.
+            List<ResourceLocation> autres = recettesDonnant(helper, item).stream()
+                    .filter(id -> !helper.getLevel().getRecipeManager().byKey(id).orElseThrow().getType()
+                            .equals(FoodRegistry.DRYING_TYPE.get()))
+                    .toList();
+            helper.assertTrue(autres.isEmpty(), nom + " se fabrique par d'autres recettes que le séchoir : " + autres);
             helper.assertTrue(etabli.stream().noneMatch(r -> r.result().is(item)),
                     "l'établi propose " + nom);
         }
