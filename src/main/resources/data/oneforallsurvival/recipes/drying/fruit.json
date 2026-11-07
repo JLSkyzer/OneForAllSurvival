@@ -1,0 +1,7 @@
+{
+  "type": "oneforallsurvival:drying",
+  "ingredient": {"tag": "oneforallsurvival:dryable_fruits"},
+  "result": {"item": "oneforallsurvival:dried_fruit"},
+  "salted_result": {"item": "oneforallsurvival:salted_fruit"},
+  "ticks": 1200
+}

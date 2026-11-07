@@ -1,6 +1,9 @@
 {
   "replace": false,
   "values": [
+    "oneforallsurvival:salted_meat",
+    "oneforallsurvival:salted_fish",
+    "oneforallsurvival:salted_fruit",
     {"id": "#oneforallsurvival:test_non_perishable", "required": false}
   ]
 }

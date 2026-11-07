@@ -51,7 +51,7 @@ public final class FoodClient {
         event.getToolTip().add(Component.translatable("food." + OneForAllSurvival.MODID + "." + key).withStyle(color));
     }
 
-    /** Les écrans de l'armoire et du dessalinisateur s'enregistrent sur le bus du mod, au démarrage du client. */
+    /** Les écrans de l'armoire, du dessalinisateur et du séchoir s'enregistrent sur le bus du mod, au démarrage du client. */
     @Mod.EventBusSubscriber(modid = OneForAllSurvival.MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
     public static final class ModBus {
 
@@ -62,6 +62,7 @@ public final class FoodClient {
             event.enqueueWork(() -> {
                 MenuScreens.register(FoodRegistry.FRIDGE_MENU.get(), FridgeScreen::new);
                 MenuScreens.register(FoodRegistry.DESALINATOR_MENU.get(), DesalinatorScreen::new);
+                MenuScreens.register(FoodRegistry.DRYER_MENU.get(), DryerScreen::new);
             });
         }
     }

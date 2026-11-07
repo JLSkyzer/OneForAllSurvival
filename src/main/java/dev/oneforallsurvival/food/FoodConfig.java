@@ -24,6 +24,7 @@ public final class FoodConfig {
     private static final int DEFAULT_WATER_PER_CYCLE = 250;
     private static final int DEFAULT_POTABLE_PER_CYCLE = 200;
     private static final int DEFAULT_CYCLES_PER_SALT = 4;
+    private static final int DEFAULT_DRYER_ENERGY = 20;
 
     public static final ForgeConfigSpec SPEC;
 
@@ -36,6 +37,7 @@ public final class FoodConfig {
     private static final ForgeConfigSpec.IntValue WATER_PER_CYCLE;
     private static final ForgeConfigSpec.IntValue POTABLE_PER_CYCLE;
     private static final ForgeConfigSpec.IntValue CYCLES_PER_SALT;
+    private static final ForgeConfigSpec.IntValue DRYER_ENERGY;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -69,6 +71,10 @@ public final class FoodConfig {
         CYCLES_PER_SALT = builder
                 .comment("Nombre de cycles du dessalinisateur pour produire une unité de sel.")
                 .defineInRange("cyclesPerSalt", DEFAULT_CYCLES_PER_SALT, 1, 10000);
+        DRYER_ENERGY = builder
+                .comment("Énergie (FE) que le séchoir consomme à chaque tick de travail.",
+                        "Bornée à ce que sa réserve reçoit par tick (100) : au-delà il ne pourrait plus tourner.")
+                .defineInRange("dryerEnergy", DEFAULT_DRYER_ENERGY, 1, DryerBlockEntity.MAX_RECEIVE);
         SPEC = builder.build();
     }
 
@@ -108,6 +114,10 @@ public final class FoodConfig {
 
     public static int cyclesPerSalt() {
         return read(CYCLES_PER_SALT, DEFAULT_CYCLES_PER_SALT);
+    }
+
+    public static int dryerEnergy() {
+        return read(DRYER_ENERGY, DEFAULT_DRYER_ENERGY);
     }
 
     private static long ticks(double hours) {

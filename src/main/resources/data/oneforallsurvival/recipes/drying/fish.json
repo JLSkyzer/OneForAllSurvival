@@ -1,0 +1,12 @@
+{
+  "type": "oneforallsurvival:drying",
+  "ingredient": [
+    {"item": "minecraft:cod"},
+    {"item": "minecraft:salmon"},
+    {"item": "minecraft:cooked_cod"},
+    {"item": "minecraft:cooked_salmon"}
+  ],
+  "result": {"item": "oneforallsurvival:dried_fish"},
+  "salted_result": {"item": "oneforallsurvival:salted_fish"},
+  "ticks": 1200
+}
