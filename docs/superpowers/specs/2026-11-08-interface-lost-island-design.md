@@ -188,6 +188,13 @@ Non suivies par git (`art/` et `docs/assets/` ne sont jamais ajoutés au dépôt
 - **`reducedDebugInfo`** (règle de jeu) est respecté : coordonnées et données masquées comme
   dans le F3 actuel. Un serveur RP s'en sert.
 - **Les graphiques** (F3 + Alt, camembert du profileur) sont redessinés dans le même style.
+  *Décision de Killian (2026-11-08)* : le camembert du profileur (F3 + Maj) reste tel quel ; le
+  redessiner demanderait un mixin, que le mod n'a pas. Seuls les graphes de FPS et de TPS sont
+  redessinés.
+- *Décision de Killian (2026-11-08)* : dans le panneau Lost Island, **l'usure et la panne** de la
+  machine regardée ne s'affichent que pour l'Ingénieur et l'équipe du serveur (diagnostiquer reste
+  leur travail) ; les autres joueurs voient l'état « en marche / en panne » déjà visible sur le bloc.
+  Zone d'eau salée et réseau restent visibles par tous.
 - Les combinaisons F3 + touche existantes (F3 + B, F3 + H, F3 + T…) continuent de marcher.
 - **Remplacement du rendu** : le texte vient toujours de Minecraft et de l'événement de Forge
   (rien n'est recalculé à part), seul le dessin change ; un mixin sur l'écran de debug est
