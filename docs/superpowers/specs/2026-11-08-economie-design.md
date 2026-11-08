@@ -248,6 +248,11 @@ Demandé par Killian le 2026-11-08, sur le modèle des opérateurs du téléphon
   - Le **compteur** (feature 8) est posé en ligne à l'entrée de chaque client. Il compte les FE qui
     entrent dans cette maison, et c'est cette mesure qui fait la facture.
   - Le **disjoncteur d'abonné** (feature 8) suit le compteur et coupe la maison.
+  - **Les câbles sont ceux de Create: Crafts & Additions** : des connecteurs posés sur les blocs, reliés
+    par des fils tirés d'une bobine, qui pendent entre deux connecteurs comme de vraies lignes
+    électriques. Le mod n'ajoute pas de câble à lui. Le poste, le compteur et le disjoncteur acceptent
+    et rendent des FE par leurs faces, pour qu'on y pose un connecteur. Demandé par Killian le
+    2026-11-08.
 - **Rattachement.** Le mod ne sait pas de quel réseau vient le courant, car les câbles des mods
   d'ingénierie ne le disent pas. Le fournisseur ou un ingénieur **jumelle** donc chaque compteur au
   poste avec le testeur : un clic sur le poste, puis un sur le compteur, qui affiche le nom du
@@ -501,5 +506,8 @@ Elles décident de l'équilibre général et sont à trancher avant le lot E1 :
 - **Faut-il les comptes** (feature 76) dès le lot E3, ou une monnaie uniquement physique suffit-elle au
   début ? Les distributeurs et les cartes (81, 82) en dépendent.
 - **Le prix de l'électricité est-il libre**, ou la ville fixe-t-elle un plafond par FE contre les abus ?
+- **Les connecteurs et les fils d'un fournisseur** sont des blocs de Create: Crafts & Additions, que la
+  règle de sécurité de la feature 83 ne couvre pas. Faut-il les protéger aussi (le mod retiendrait
+  qui les a posés), ou laisser la ligne vulnérable, avec l'écart du poste pour repérer les pirates ?
 - **La carte bancaire paie-t-elle aussi aux étals** (feature 71), ou seulement au distributeur et dans
   le téléphone ?
