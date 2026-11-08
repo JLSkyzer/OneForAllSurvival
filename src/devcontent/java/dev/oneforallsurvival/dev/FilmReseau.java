@@ -6,6 +6,7 @@ import dev.oneforallsurvival.food.FoodStamp;
 import dev.oneforallsurvival.food.FridgeBlock;
 import dev.oneforallsurvival.food.FridgeBlockEntity;
 import dev.oneforallsurvival.grid.BreakerBlock;
+import dev.oneforallsurvival.grid.BreakerBlockEntity;
 import dev.oneforallsurvival.grid.GridRegistry;
 import dev.oneforallsurvival.grid.LoadShedderBlock;
 import dev.oneforallsurvival.grid.LoadShedderBlockEntity;
@@ -388,6 +389,10 @@ public final class FilmReseau {
         moteurA(monde, RPM_PLEIN);
         monde.setBlock(compteur, GridRegistry.METER.get().defaultBlockState().setValue(InlineEnergyBlock.FACING, Direction.EAST), 3);
         monde.setBlock(disjoncteur, GridRegistry.BREAKER.get().defaultBlockState().setValue(InlineEnergyBlock.FACING, Direction.NORTH), 3);
+        // Un disjoncteur ne se scelle qu'inscrit.
+        if (monde.getBlockEntity(disjoncteur) instanceof BreakerBlockEntity b) {
+            b.setSubscriber(ABONNE);
+        }
         armoiresDuTableau = new BlockPos[] {s.east(2), s.south(), s.north(2), s.above()};
         for (BlockPos p : armoiresDuTableau) {
             armoire(monde, p);

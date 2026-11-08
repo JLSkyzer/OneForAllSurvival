@@ -286,6 +286,67 @@ public final class CompteurGameTests {
         }
     }
 
+    /**
+     * Par le vrai paquet d'inscription : ce que le compteur a compté avant d'être inscrit n'est facturé à personne ;
+     * changer d'abonné laisse à l'ancien ce qu'il n'avait pas payé, et le nouveau part de l'index du changement.
+     */
+    @GameTest(template = "test/plancher", batch = "compteur_inscription_index")
+    public static void laFactureCommenceALInscriptionEtSuitLeChangementDAbonne(GameTestHelper helper) {
+        poserMachine(helper);
+        MeterBlockEntity be = poserCompteur(helper);
+        BlockPos pos = helper.absolutePos(COMPTEUR);
+        UUID numero = be.serial();
+        pousser(be, 100); // compté avant toute inscription
+        JoueurDeTest ingenieur = joueur(helper, "Inscripteur", true);
+        try {
+            ingenieur.envoyer(new SubscriberNamePacket(pos, "Lefevre"));
+        } catch (RuntimeException e) {
+            quitter(ingenieur);
+            throw e;
+        }
+        helper.runAfterDelay(3, () -> {
+            try {
+                verifier("Lefevre".equals(be.subscriber()), "l'ingénieur devait inscrire Lefevre, vu " + be.subscriber());
+                SubscriberSavedData data = SubscriberSavedData.get(serveur(helper));
+                MeterLedger.Previous depart = data.previous("Lefevre", numero);
+                verifier(depart != null && depart.baseline() && depart.index() == 100,
+                        "l'inscription devait noter l'index 100 au registre, vu " + depart);
+                pousser(be, 30);
+                tester(helper, ingenieur.joueur());
+                Reading r = releve(ingenieur.joueur());
+                verifier(r.index() == 130 && r.consumption() == 30,
+                        "seul l'après-inscription est facturé : index " + r.index() + ", consommation " + r.consumption());
+                verifier(r.anomalies().isEmpty(), "anomalies " + r.anomalies());
+                pousser(be, 20); // non relevé quand le compteur change d'abonné
+                ingenieur.envoyer(new SubscriberNamePacket(pos, "Moreau"));
+            } catch (RuntimeException e) {
+                quitter(ingenieur);
+                throw e;
+            }
+        });
+        helper.runAfterDelay(6, () -> {
+            try {
+                verifier("Moreau".equals(be.subscriber()), "le compteur devait passer à Moreau, vu " + be.subscriber());
+                SubscriberSavedData data = SubscriberSavedData.get(serveur(helper));
+                verifier(data.previous("Lefevre", numero) == null, "le compteur devait quitter le compte de Lefevre");
+                List<MeterLedger.Event> events = data.events("Lefevre");
+                verifier(events.size() == 1 && events.get(0).kind() == EventKind.RENAMED && events.get(0).carried() == 20
+                        && numero.equals(events.get(0).serial()),
+                        "Lefevre devait garder les 20 FE non relevés, vu " + events);
+                pousser(be, 5);
+                tester(helper, ingenieur.joueur());
+                Reading r = releve(ingenieur.joueur());
+                verifier("Moreau".equals(r.subscriber()) && r.index() == 155 && r.consumption() == 5,
+                        "Moreau ne paie que depuis le changement : " + r.subscriber() + ", index " + r.index()
+                                + ", consommation " + r.consumption());
+                verifier(r.anomalies().isEmpty(), "anomalies " + r.anomalies());
+                helper.succeed();
+            } finally {
+                quitter(ingenieur);
+            }
+        });
+    }
+
     @GameTest(template = "test/plancher", batch = "compteur_citoyen")
     public static void unCitoyenNeReleveRien(GameTestHelper helper) {
         poserMachine(helper);
@@ -296,7 +357,7 @@ public final class CompteurGameTests {
         try {
             tester(helper, j.joueur());
             verifier(releves(j.joueur()).isEmpty(), "le citoyen ne devait recevoir aucun relevé");
-            verifier(SubscriberSavedData.get(serveur(helper)).previous("Bernard") == null,
+            verifier(SubscriberSavedData.get(serveur(helper)).previous("Bernard", be.serial()) == null,
                     "rien ne devait être écrit au registre");
             helper.succeed();
         } finally {
@@ -414,9 +475,9 @@ public final class CompteurGameTests {
         verifier(data.isDirty(), "le registre devait être marqué à sauvegarder");
 
         SubscriberSavedData relu = SubscriberSavedData.load(data.save(new CompoundTag()));
-        verifier(relu.previous("leroy") != null && relu.previous("leroy").index() == 70,
-                "dernier relevé relu : " + relu.previous("leroy"));
-        verifier(relu.previous("Leroy").serial().equals(be.serial()), "numéro relu faux");
+        verifier(relu.previous("leroy", be.serial()) != null && relu.previous("leroy", be.serial()).index() == 70,
+                "dernier relevé relu : " + relu.previous("leroy", be.serial()));
+        verifier(relu.previous("Leroy", be.serial()).serial().equals(be.serial()), "numéro relu faux");
         verifier(relu.events("Leroy").size() == 1 && relu.events("Leroy").get(0).kind() == EventKind.SEAL_BROKEN,
                 "événements relus : " + relu.events("Leroy"));
 

@@ -9,6 +9,7 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
@@ -17,8 +18,8 @@ import net.minecraftforge.network.PacketDistributor;
 
 /**
  * Client vers serveur : inscrire {@code name} comme abonné du bloc en {@code pos} (tout {@link SubscriberHolder} :
- * compteur, disjoncteur). Le serveur revalide tout : rôle, distance, bloc, texte. {@link Open} fait le chemin
- * inverse et ouvre l'écran chez l'ingénieur.
+ * compteur, disjoncteur). Le serveur revalide tout : rôle, distance, bloc, texte ; un disjoncteur scellé ne change
+ * pas d'abonné. {@link Open} fait le chemin inverse et ouvre l'écran chez l'ingénieur.
  */
 public record SubscriberNamePacket(BlockPos pos, String name) {
 
@@ -55,11 +56,16 @@ public record SubscriberNamePacket(BlockPos pos, String name) {
                 || !(level.getBlockEntity(pos) instanceof SubscriberHolder holder)) {
             return;
         }
+        BlockState state = level.getBlockState(pos);
+        if (state.is(GridRegistry.BREAKER.get()) && state.getValue(BreakerBlock.SEALED)) {
+            sender.sendSystemMessage(Component.translatable(MESSAGE + "sealed"));
+            return;
+        }
         if (!MeterLedger.isValidName(packet.name())) {
             sender.sendSystemMessage(Component.translatable(MESSAGE + "invalid", MeterLedger.MAX_NAME_LENGTH));
             return;
         }
-        holder.setSubscriber(packet.name().trim());
+        holder.inscribe(packet.name().trim(), sender.server);
         sender.sendSystemMessage(Component.translatable(MESSAGE + "set", holder.subscriber()));
     }
 

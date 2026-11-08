@@ -106,7 +106,7 @@ public final class MeterBlock extends InlineEnergyBlock {
     public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean isMoving) {
         if (!state.is(newState.getBlock()) && !isMoving && level instanceof ServerLevel serverLevel
                 && level.getBlockEntity(pos) instanceof MeterBlockEntity meter && !meter.subscriber().isEmpty()) {
-            SubscriberSavedData.note(serverLevel.getServer(), meter.subscriber(), EventKind.REMOVED);
+            SubscriberSavedData.note(serverLevel.getServer(), meter.subscriber(), EventKind.REMOVED, meter.serial());
         }
         super.onRemove(state, level, pos, newState, isMoving);
     }

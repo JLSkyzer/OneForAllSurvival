@@ -52,6 +52,17 @@ public final class MeterBlockEntity extends InlineEnergyBlockEntity implements S
         setChanged();
     }
 
+    /**
+     * Inscrit ou change l'abonné, et le note au registre : le nouvel abonné ne paie qu'à partir de l'index actuel,
+     * l'ancien garde ce qu'il n'a pas encore payé (voir {@link MeterLedger#inscribe}).
+     */
+    @Override
+    public void inscribe(String name, MinecraftServer server) {
+        SubscriberSavedData.get(server).inscribe(subscriber, name, serial(), totalTransferred(),
+                SubscriberSavedData.today(server), MeterLedger.formatRealDate(Instant.now(), ZoneId.systemDefault()));
+        setSubscriber(name);
+    }
+
     /** Un compteur qui n'a rien compté et n'a pas d'abonné : son objet reste nu et s'empile. */
     boolean isFactoryFresh() {
         return totalTransferred() == 0 && subscriber.isEmpty();

@@ -6,6 +6,7 @@ import dev.oneforallsurvival.grid.MeterLedger.EventKind;
 import dev.oneforallsurvival.grid.MeterLedger.Previous;
 import dev.oneforallsurvival.grid.MeterLedger.Reading;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -18,8 +19,9 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.saveddata.SavedData;
 
 /**
- * Le registre des abonnés, sauvegardé dans le monde principal : pour chaque abonné (nom normalisé), son dernier relevé
- * et les événements notés depuis (compteur déposé, scellé brisé). La règle vit dans {@link MeterLedger}.
+ * Le registre des abonnés, sauvegardé dans le monde principal : pour chaque abonné (nom normalisé), le dernier relevé
+ * ou l'index d'inscription de chacun de ses compteurs, et les événements notés depuis (compteur déposé, scellé brisé,
+ * compteur parti chez un autre abonné). La règle vit dans {@link MeterLedger}.
  */
 public final class SubscriberSavedData extends SavedData {
 
@@ -27,7 +29,11 @@ public final class SubscriberSavedData extends SavedData {
 
     private static final String TAG_ACCOUNTS = "accounts";
     private static final String TAG_NAME = "name";
+    /** Ancien format : un seul dernier relevé par abonné. Relu, plus écrit. */
     private static final String TAG_PREVIOUS = "previous";
+    private static final String TAG_METERS = "meters";
+    private static final String TAG_BASELINE = "baseline";
+    private static final String TAG_CARRIED = "carried";
     private static final String TAG_SERIAL = "serial";
     private static final String TAG_INDEX = "index";
     private static final String TAG_DAY = "day";
@@ -55,12 +61,17 @@ public final class SubscriberSavedData extends SavedData {
      * relevé suivant : le compteur déposé, le disjoncteur dont le scellé est brisé.
      */
     public static void note(MinecraftServer server, String subscriber, EventKind kind) {
-        get(server).record(subscriber, kind, today(server));
+        note(server, subscriber, kind, null);
+    }
+
+    /** Comme {@link #note(MinecraftServer, String, EventKind)}, pour un événement qui concerne le compteur {@code serial}. */
+    public static void note(MinecraftServer server, String subscriber, EventKind kind, @Nullable UUID serial) {
+        get(server).record(subscriber, kind, today(server), serial);
     }
 
     @Nullable
-    public Previous previous(String subscriber) {
-        return ledger.previous(subscriber);
+    public Previous previous(String subscriber, UUID serial) {
+        return ledger.previous(subscriber, serial);
     }
 
     public List<Event> events(String subscriber) {
@@ -68,7 +79,17 @@ public final class SubscriberSavedData extends SavedData {
     }
 
     public void record(String subscriber, EventKind kind, long day) {
-        ledger.record(subscriber, kind, day);
+        record(subscriber, kind, day, null);
+    }
+
+    public void record(String subscriber, EventKind kind, long day, @Nullable UUID serial) {
+        ledger.record(subscriber, kind, day, serial);
+        setDirty();
+    }
+
+    /** Inscription ou changement d'abonné d'un compteur : voir {@link MeterLedger#inscribe}. */
+    public void inscribe(String from, String to, UUID serial, long index, long day, String realDate) {
+        ledger.inscribe(from, to, serial, index, day, realDate);
         setDirty();
     }
 
@@ -85,20 +106,30 @@ public final class SubscriberSavedData extends SavedData {
         for (Map.Entry<String, Account> entry : ledger.accounts().entrySet()) {
             CompoundTag account = new CompoundTag();
             account.putString(TAG_NAME, entry.getKey());
-            Previous previous = entry.getValue().previous();
-            if (previous != null) {
+            ListTag meters = new ListTag();
+            for (Previous previous : entry.getValue().meters().values()) {
                 CompoundTag p = new CompoundTag();
                 p.putUUID(TAG_SERIAL, previous.serial());
                 p.putLong(TAG_INDEX, previous.index());
                 p.putLong(TAG_DAY, previous.day());
                 p.putString(TAG_DATE, previous.realDate());
-                account.put(TAG_PREVIOUS, p);
+                if (previous.baseline()) {
+                    p.putBoolean(TAG_BASELINE, true);
+                }
+                meters.add(p);
             }
+            account.put(TAG_METERS, meters);
             ListTag events = new ListTag();
             for (Event event : entry.getValue().events()) {
                 CompoundTag e = new CompoundTag();
                 e.putString(TAG_KIND, event.kind().name().toLowerCase(Locale.ROOT));
                 e.putLong(TAG_DAY, event.day());
+                if (event.serial() != null) {
+                    e.putUUID(TAG_SERIAL, event.serial());
+                }
+                if (event.carried() != 0) {
+                    e.putLong(TAG_CARRIED, event.carried());
+                }
                 events.add(e);
             }
             account.put(TAG_EVENTS, events);
@@ -113,12 +144,19 @@ public final class SubscriberSavedData extends SavedData {
         ListTag accounts = tag.getList(TAG_ACCOUNTS, Tag.TAG_COMPOUND);
         for (int i = 0; i < accounts.size(); i++) {
             CompoundTag account = accounts.getCompound(i);
-            Previous previous = null;
+            Map<UUID, Previous> meters = new LinkedHashMap<>();
+            // Sauvegarde d'avant le relevé par compteur : un seul « previous », qui devient l'entrée de son compteur.
             if (account.contains(TAG_PREVIOUS, Tag.TAG_COMPOUND)) {
-                CompoundTag p = account.getCompound(TAG_PREVIOUS);
-                if (p.hasUUID(TAG_SERIAL)) {
-                    previous = new Previous(p.getUUID(TAG_SERIAL), p.getLong(TAG_INDEX), p.getLong(TAG_DAY),
-                            p.getString(TAG_DATE));
+                Previous previous = previousOf(account.getCompound(TAG_PREVIOUS));
+                if (previous != null) {
+                    meters.put(previous.serial(), previous);
+                }
+            }
+            ListTag meterList = account.getList(TAG_METERS, Tag.TAG_COMPOUND);
+            for (int j = 0; j < meterList.size(); j++) {
+                Previous previous = previousOf(meterList.getCompound(j));
+                if (previous != null) {
+                    meters.put(previous.serial(), previous);
                 }
             }
             List<Event> events = new ArrayList<>();
@@ -127,12 +165,22 @@ public final class SubscriberSavedData extends SavedData {
                 CompoundTag e = list.getCompound(j);
                 EventKind kind = kindOf(e.getString(TAG_KIND));
                 if (kind != null) {
-                    events.add(new Event(kind, e.getLong(TAG_DAY)));
+                    events.add(new Event(kind, e.getLong(TAG_DAY), e.hasUUID(TAG_SERIAL) ? e.getUUID(TAG_SERIAL) : null,
+                            e.getLong(TAG_CARRIED)));
                 }
             }
-            data.ledger.restore(account.getString(TAG_NAME), new MeterLedger.Account(previous, events));
+            data.ledger.restore(account.getString(TAG_NAME), new MeterLedger.Account(meters, events));
         }
         return data;
+    }
+
+    @Nullable
+    private static Previous previousOf(CompoundTag p) {
+        if (!p.hasUUID(TAG_SERIAL)) {
+            return null;
+        }
+        return new Previous(p.getUUID(TAG_SERIAL), p.getLong(TAG_INDEX), p.getLong(TAG_DAY), p.getString(TAG_DATE),
+                p.getBoolean(TAG_BASELINE));
     }
 
     @Nullable

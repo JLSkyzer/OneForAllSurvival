@@ -211,7 +211,7 @@ public final class DisjoncteurGameTests {
 
     @GameTest(template = "test/plancher", batch = "disjoncteur_scelle_role")
     public static void seulLIngenieurScelle(GameTestHelper helper) {
-        poser(helper, false, false);
+        poser(helper, false, false).setSubscriber("Bonnet");
         JoueurDeTest citoyen = joueur(helper, "Profane", false);
         JoueurDeTest ingenieur = joueur(helper, "Faraday", true);
         try {
@@ -244,7 +244,7 @@ public final class DisjoncteurGameTests {
 
     @GameTest(template = "test/plancher", batch = "disjoncteur_scelle_creatif")
     public static void enCreatifLeScelleNEstPasConsomme(GameTestHelper helper) {
-        poser(helper, false, false);
+        poser(helper, false, false).setSubscriber("Bonnet");
         JoueurDeTest ingenieur = joueur(helper, "Tesla", true);
         try {
             ingenieur.joueur().gameMode.changeGameModeForPlayer(GameType.CREATIVE);
@@ -288,7 +288,7 @@ public final class DisjoncteurGameTests {
 
     @GameTest(template = "test/plancher", batch = "disjoncteur_enclenche")
     public static void onNeScellePasUnDisjoncteurEnclenche(GameTestHelper helper) {
-        poser(helper, true, false);
+        poser(helper, true, false).setSubscriber("Bonnet");
         JoueurDeTest ingenieur = joueur(helper, "Watt", true);
         try {
             ItemStack pile = scelles(3);
@@ -300,6 +300,50 @@ public final class DisjoncteurGameTests {
         } finally {
             quitter(ingenieur);
         }
+    }
+
+    @GameTest(template = "test/plancher", batch = "disjoncteur_sans_abonne")
+    public static void onNeScellePasUnDisjoncteurSansAbonne(GameTestHelper helper) {
+        BreakerBlockEntity be = poser(helper, false, false);
+        verifier(be.subscriber().isEmpty(), "un disjoncteur posé n'a pas d'abonné");
+        JoueurDeTest ingenieur = joueur(helper, "Volta3", true);
+        try {
+            ingenieur.messagesRecus();
+            ItemStack pile = scelles(2);
+            verifier(cliquer(helper, ingenieur.joueur(), pile, false).consumesAction(), "le clic devait être pris");
+            verifier(!scelle(helper) && !enclenche(helper), "sans abonné, le disjoncteur ne se scelle pas");
+            verifier(pile.getCount() == 2, "le scellé ne devait pas être consommé, reste " + pile.getCount());
+            verifierMessage(ingenieur, MSG + "seal_needs_subscriber", "scellé sur un disjoncteur sans abonné");
+            helper.succeed();
+        } finally {
+            quitter(ingenieur);
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = "disjoncteur_scelle_nom")
+    public static void unDisjoncteurScelleNeChangePasDAbonne(GameTestHelper helper) {
+        BreakerBlockEntity be = poser(helper, false, true);
+        be.setSubscriber("Blanc");
+        BlockPos pos = helper.absolutePos(DISJONCTEUR);
+        JoueurDeTest ingenieur = joueur(helper, "Coulomb", true);
+        try {
+            ingenieur.messagesRecus();
+            ingenieur.envoyer(new SubscriberNamePacket(pos, "Noir"));
+        } catch (RuntimeException e) {
+            quitter(ingenieur);
+            throw e;
+        }
+        helper.runAfterDelay(4, () -> {
+            try {
+                verifier("Blanc".equals(be.subscriber()), "un disjoncteur scellé ne change pas d'abonné, vu "
+                        + be.subscriber());
+                verifier(scelle(helper) && !enclenche(helper), "rien d'autre ne change");
+                verifierMessage(ingenieur, "message.oneforallsurvival.subscriber.sealed", "nom sur un disjoncteur scellé");
+                helper.succeed();
+            } finally {
+                quitter(ingenieur);
+            }
+        });
     }
 
     @GameTest(template = "test/plancher", batch = "disjoncteur_reste_coupe")

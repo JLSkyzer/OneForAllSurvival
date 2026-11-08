@@ -602,7 +602,8 @@ final class E2eReseau {
             commande("setblock " + xyz(moteur) + " " + moteurA(RPM_PLEIN));
             commande("setblock " + xyz(alternateur) + " " + ALTERNATEUR + "[facing=west]");
             commande("setblock " + xyz(compteur) + " oneforallsurvival:meter[facing=east]");
-            commande("setblock " + xyz(disjoncteur) + " oneforallsurvival:breaker[facing=north]");
+            // Un disjoncteur ne se scelle qu'inscrit : il est posé au nom de l'abonné.
+            commande("setblock " + xyz(disjoncteur) + " oneforallsurvival:breaker[facing=north]{subscriber:\"" + abonne + "\"}");
             for (BlockPos m : new BlockPos[] {m1, m2, m3, m4}) {
                 commande("setblock " + xyz(m) + " oneforallsurvival:test_machine");
             }
@@ -699,13 +700,15 @@ final class E2eReseau {
                         + trouve(P_COMPTEUR + "reading_done").texte());
         controle("Le relevé lu dans son infobulle", () -> {
             Map<String, String> i = infobulle(dernierReleve());
-            return abonne.equals(i.get("subscriber")) && Long.parseLong(i.getOrDefault("index", "0")) > 0 && i.containsKey("day")
+            long idx = Long.parseLong(i.getOrDefault("index", "0"));
+            long conso = Long.parseLong(i.getOrDefault("consumption", "-1"));
+            return abonne.equals(i.get("subscriber")) && idx > 0 && i.containsKey("day")
                     && i.containsKey("date") && i.containsKey("no_anomaly")
-                    && i.get("consumption").equals(i.get("index"));
+                    && conso > 0 && conso <= idx;
         }, () -> {
             Map<String, String> i = infobulle(dernierReleve());
             index1 = Long.parseLong(i.getOrDefault("index", "0"));
-            return "infobulle du releve : " + i + " (premier releve : consommation = index)";
+            return "infobulle du releve : " + i + " (premier releve : consommation depuis l'inscription, pas tout l'index)";
         });
     }
 

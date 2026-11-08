@@ -32,7 +32,7 @@ import net.minecraft.world.phys.BlockHitResult;
  * <ul>
  *   <li>Clic droit main vide : bascule, pour tout le monde ; refusé s'il est scellé.</li>
  *   <li>Ingénieur accroupi, main vide : ouvre l'écran d'inscription de l'abonné, ou retire le scellé (détruit).</li>
- *   <li>Ingénieur, scellé en main, disjoncteur coupé : le scelle. Enclenché : refusé.</li>
+ *   <li>Ingénieur, scellé en main, disjoncteur inscrit et coupé : le scelle. Enclenché ou sans abonné : refusé.</li>
  * </ul>
  * Les autres joueurs reçoivent le message réservé à l'ingénieur pour tout geste d'ingénieur.
  */
@@ -124,13 +124,20 @@ public final class BreakerBlock extends InlineEnergyBlock {
         }
     }
 
-    /** Un scellé en main : seulement sur un disjoncteur coupé et pas déjà scellé, et par l'ingénieur. */
+    /**
+     * Un scellé en main : seulement sur un disjoncteur inscrit, coupé et pas déjà scellé, et par l'ingénieur. Sans
+     * abonné, sa casse ne serait notée au registre de personne : refusé.
+     */
     private static void seal(BlockState state, Level level, BlockPos pos, ServerPlayer player, ItemStack held) {
         if (!RoleGate.requireEngineer(player)) {
             return;
         }
         if (state.getValue(SEALED)) {
             player.displayClientMessage(Component.translatable(MESSAGE + "already_sealed"), true);
+            return;
+        }
+        if (!(level.getBlockEntity(pos) instanceof BreakerBlockEntity breaker) || breaker.subscriber().isEmpty()) {
+            player.displayClientMessage(Component.translatable(MESSAGE + "seal_needs_subscriber"), true);
             return;
         }
         if (state.getValue(CLOSED)) {
