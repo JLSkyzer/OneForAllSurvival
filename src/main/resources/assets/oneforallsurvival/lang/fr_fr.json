@@ -242,5 +242,6 @@
   "message.oneforallsurvival.breaker.already_sealed": "Ce disjoncteur est déjà scellé.",
   "message.oneforallsurvival.breaker.seal_done": "Disjoncteur scellé.",
   "message.oneforallsurvival.breaker.unsealed": "Scellé retiré et détruit.",
-  "block.oneforallsurvival.surge_arrester": "Parafoudre"
+  "block.oneforallsurvival.surge_arrester": "Parafoudre",
+  "block.oneforallsurvival.weather_station": "Station météo"
 }

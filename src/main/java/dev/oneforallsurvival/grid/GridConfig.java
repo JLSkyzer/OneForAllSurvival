@@ -21,6 +21,14 @@ public final class GridConfig {
     private static final double DEFAULT_ARRESTER_WEAR_PER_STRIKE = 10.0;
     /** Borne haute des rayons de la foudre : la recherche reste de quelques chunks. */
     private static final int MAX_RADIUS = 64;
+    private static final int DEFAULT_WEATHER_HORIZON = 6000;
+    private static final double DEFAULT_WEATHER_JITTER = 0.2;
+    private static final int DEFAULT_WEATHER_ENERGY = 2;
+    /**
+     * Borne haute de l'horizon de la station : au-delà de la prochaine bascule, vanilla tire ses durées au hasard (au
+     * moins 12 000 ticks, 3 600 pour un orage), la prévision n'a plus de sens loin devant.
+     */
+    private static final int MAX_WEATHER_HORIZON = 24_000;
 
     public static final ForgeConfigSpec SPEC;
 
@@ -32,6 +40,9 @@ public final class GridConfig {
     private static final ForgeConfigSpec.DoubleValue LIGHTNING_FUSE_CHANCE;
     private static final ForgeConfigSpec.IntValue ARRESTER_RADIUS;
     private static final ForgeConfigSpec.DoubleValue ARRESTER_WEAR_PER_STRIKE;
+    private static final ForgeConfigSpec.IntValue WEATHER_HORIZON;
+    private static final ForgeConfigSpec.DoubleValue WEATHER_JITTER;
+    private static final ForgeConfigSpec.IntValue WEATHER_ENERGY;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -60,6 +71,16 @@ public final class GridConfig {
         ARRESTER_WEAR_PER_STRIKE = builder
                 .comment("Points d'état (sur 100) qu'un parafoudre perd à chaque éclair encaissé, une seule fois par éclair.")
                 .defineInRange("arresterWearPerStrike", DEFAULT_ARRESTER_WEAR_PER_STRIKE, 0.0, 100.0);
+        WEATHER_HORIZON = builder
+                .comment("Avance (ticks) avec laquelle une station météo annonce la pluie ou l'orage. 6000 : environ 5 minutes.")
+                .defineInRange("weatherHorizon", DEFAULT_WEATHER_HORIZON, 1, MAX_WEATHER_HORIZON);
+        WEATHER_JITTER = builder
+                .comment("Décalage de l'horizon propre à chaque station (0 à 0,9) : tiré à la pose dans",
+                        "[1 - décalage, 1 + décalage] fois l'horizon, puis gardé par la station.")
+                .defineInRange("weatherJitter", DEFAULT_WEATHER_JITTER, 0.0, 0.9);
+        WEATHER_ENERGY = builder
+                .comment("Énergie (FE) qu'une station météo consomme par tick en marche (au moins 1 : sans courant, elle ne marche pas).")
+                .defineInRange("weatherEnergy", DEFAULT_WEATHER_ENERGY, 1, 1000);
         SPEC = builder.build();
     }
 
@@ -95,6 +116,18 @@ public final class GridConfig {
 
     public static double arresterWearPerStrike() {
         return read(ARRESTER_WEAR_PER_STRIKE, DEFAULT_ARRESTER_WEAR_PER_STRIKE);
+    }
+
+    public static int weatherHorizon() {
+        return read(WEATHER_HORIZON, DEFAULT_WEATHER_HORIZON);
+    }
+
+    public static double weatherJitter() {
+        return read(WEATHER_JITTER, DEFAULT_WEATHER_JITTER);
+    }
+
+    public static int weatherEnergy() {
+        return read(WEATHER_ENERGY, DEFAULT_WEATHER_ENERGY);
     }
 
     /** Lit une valeur ; repli sur le défaut tant que le fichier n'est pas chargé. */

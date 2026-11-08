@@ -70,6 +70,15 @@ public final class GridRegistry {
             BLOCK_ENTITIES.register("surge_arrester", () -> BlockEntityType.Builder
                     .of(SurgeArresterBlockEntity::new, SURGE_ARRESTER.get()).build(null));
 
+    public static final RegistryObject<Block> WEATHER_STATION = BLOCKS.register("weather_station",
+            () -> new WeatherStationBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL)
+                    .strength(3.0F).sound(SoundType.METAL).requiresCorrectToolForDrops()));
+    public static final RegistryObject<Item> WEATHER_STATION_ITEM = ITEMS.register("weather_station",
+            () -> new BlockItem(WEATHER_STATION.get(), new Item.Properties()));
+    public static final RegistryObject<BlockEntityType<WeatherStationBlockEntity>> WEATHER_STATION_BE =
+            BLOCK_ENTITIES.register("weather_station", () -> BlockEntityType.Builder
+                    .of(WeatherStationBlockEntity::new, WEATHER_STATION.get()).build(null));
+
     private GridRegistry() {}
 
     public static void register(IEventBus modEventBus) {
@@ -81,6 +90,6 @@ public final class GridRegistry {
 
     /** Les objets que l'onglet créatif affiche, dans l'ordre. */
     public static List<RegistryObject<? extends Item>> tabItems() {
-        return List.of(LOAD_SHEDDER_ITEM, METER_ITEM, BREAKER_ITEM, SEAL, SURGE_ARRESTER_ITEM);
+        return List.of(LOAD_SHEDDER_ITEM, METER_ITEM, BREAKER_ITEM, SEAL, SURGE_ARRESTER_ITEM, WEATHER_STATION_ITEM);
     }
 }

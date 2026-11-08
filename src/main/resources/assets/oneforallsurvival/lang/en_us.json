@@ -242,5 +242,6 @@
   "message.oneforallsurvival.breaker.already_sealed": "This breaker is already sealed.",
   "message.oneforallsurvival.breaker.seal_done": "Breaker sealed.",
   "message.oneforallsurvival.breaker.unsealed": "Seal removed and destroyed.",
-  "block.oneforallsurvival.surge_arrester": "Surge Arrester"
+  "block.oneforallsurvival.surge_arrester": "Surge Arrester",
+  "block.oneforallsurvival.weather_station": "Weather Station"
 }
