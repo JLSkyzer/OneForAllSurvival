@@ -66,6 +66,7 @@ public final class TextureStore implements AutoCloseable {
     private Thread decoder;
     private volatile boolean closed;
     private Throwable failure;
+    private long bytes; // mémoire vidéo estimée des textures envoyées (largeur x hauteur x canaux, mipmaps compris)
 
     /**
      * @param opener ouvre une image par son chemin sous {@code lostisland/loading/} (« sky/moon.png »), ou
@@ -318,6 +319,7 @@ public final class TextureStore implements AutoCloseable {
                         GL_UNSIGNED_BYTE, (ByteBuffer) null);
                 parameters(GL_TEXTURE_2D_ARRAY, GL_LINEAR);
                 textures.put(SEA_FRAMES, array);
+                bytes += (long) d.width() * d.height() * e.channels() * seaFrames;
             }
             glBindTexture(GL_TEXTURE_2D_ARRAY, array);
             glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, e.layer(), d.width(), d.height(), 1, format,
@@ -334,6 +336,8 @@ public final class TextureStore implements AutoCloseable {
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
             }
             textures.put(e.path(), id);
+            long size = (long) d.width() * d.height() * e.channels();
+            bytes += e.mipmap() ? size * 4 / 3 : size;
         }
         done(e.group());
     }
@@ -368,6 +372,14 @@ public final class TextureStore implements AutoCloseable {
     /** Première image obligatoire qui n'a pas pu être lue ou décodée, sinon {@code null}. */
     public Throwable failure() {
         return failure;
+    }
+
+    /**
+     * Mémoire vidéo estimée des textures envoyées, en octets : largeur x hauteur x canaux de chaque image (un tiers
+     * de plus pour les mipmaps). Estimation, pas une mesure : le pilote peut aligner ou compléter les formats.
+     */
+    public long bytes() {
+        return bytes;
     }
 
     /** Identifiant GL d'une texture envoyée (par son chemin, ou {@link #SEA_FRAMES}), sinon 0. */
@@ -407,5 +419,6 @@ public final class TextureStore implements AutoCloseable {
             glDeleteTextures(id);
         }
         textures.clear();
+        bytes = 0L;
     }
 }

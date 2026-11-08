@@ -64,8 +64,8 @@ public final class EarlyScene implements AutoCloseable {
     private final SceneRenderer renderer;
     private final BitmapFont font; // null : texte omis
     private final ZipFile clientJar; // null : nuages et flammes omis, police de repli
-    private final FrameRecorder recorder; // null : pas de film
-    private final StoryClock clock = new StoryClock();
+    private FrameRecorder recorder; // null : pas de film (ou film arrêté au passage à l'écran titre)
+    private final StoryClock clock;
     private final ProgressModel progress = new ProgressModel();
     private final ProgressTracker tracker = new ProgressTracker();
 
@@ -81,8 +81,9 @@ public final class EarlyScene implements AutoCloseable {
 
     private EarlyScene(long startNanos, Consumer<String> log, Runnable journal, SceneManifest manifest,
                        TextureStore textures, SceneRenderer renderer, BitmapFont font, ZipFile clientJar,
-                       FrameRecorder recorder) {
+                       FrameRecorder recorder, StoryClock clock) {
         this.startNanos = startNanos;
+        this.clock = clock;
         this.log = log;
         this.journal = journal;
         this.manifest = manifest;
@@ -104,6 +105,25 @@ public final class EarlyScene implements AutoCloseable {
      */
     public static EarlyScene create(long startNanos, Path gameDir, String mcVersion, Consumer<String> log,
                                     Runnable journal) {
+        return build(startNanos, gameDir, mcVersion, log, journal, new StoryClock(), true);
+    }
+
+    /**
+     * Scène recréée pour l'écran titre dans le contexte du jeu, sans fenêtre anticipée (retour au titre après un
+     * monde) : même catalogue, mêmes textures et même rendu, mais le récit est déjà sur l'aube tenue
+     * ({@link StoryClock#atDawn}), sans film ni relevé de Forge. Les PNG se décodent dans leur thread
+     * ({@link TextureStore}) et s'envoient image par image dans le budget habituel ({@link #uploadPending}) :
+     * rien ne gèle le thread du jeu ; tant que {@link #readyToShow} est faux, l'appelant dessine son repli.
+     * Thread du jeu, contexte du jeu courant ; l'appelant photographie et rend l'état GL autour.
+     *
+     * @throws RuntimeException comme {@link #create} (shader refusé, catalogue absent) : pas de scène
+     */
+    public static EarlyScene createForGame(Path gameDir, String mcVersion, Consumer<String> log) {
+        return build(System.nanoTime(), gameDir, mcVersion, log, () -> { }, StoryClock.atDawn(), false);
+    }
+
+    private static EarlyScene build(long startNanos, Path gameDir, String mcVersion, Consumer<String> log,
+                                    Runnable journal, StoryClock clock, boolean film) {
         ClassLoader loader = EarlyScene.class.getClassLoader();
         SceneManifest manifest;
         try (InputStream in = loader.getResourceAsStream("lostisland/loading/manifest.json")) {
@@ -139,8 +159,9 @@ public final class EarlyScene implements AutoCloseable {
             renderer.setSeaOpacity(0f);
             log.accept("effets actifs : " + renderer.activeEffects());
             textures.start();
-            FrameRecorder recorder = FrameRecorder.maybe(System.getProperty("lostisland.frames"), gameDir, log);
-            return new EarlyScene(startNanos, log, journal, manifest, textures, renderer, font, jar, recorder);
+            FrameRecorder recorder = film
+                    ? FrameRecorder.maybe(System.getProperty("lostisland.frames"), gameDir, log) : null;
+            return new EarlyScene(startNanos, log, journal, manifest, textures, renderer, font, jar, recorder, clock);
         } catch (RuntimeException | Error e) {
             if (textures != null) {
                 textures.close();
@@ -197,9 +218,61 @@ public final class EarlyScene implements AutoCloseable {
                 StatusMessages.of(phase, "", 0, 0)), uiAlpha);
     }
 
+    /**
+     * Image de l'écran titre, dans le framebuffer lié : chargement fini (le récit accélère jusqu'à l'aube puis la
+     * tient, la devise paraît avec elle), barre et texte effacés ({@code uiAlpha} 0), logo à sa place. Pas de film.
+     *
+     * @throws IllegalStateException comme {@link #render(int, int)}
+     */
+    public void renderTitle(int fbWidth, int fbHeight) {
+        renderFrame(renderer, fbWidth, fbHeight, new ProgressTracker.Reading(Phase.DONE, 1f,
+                StatusMessages.of(Phase.DONE, "", 0, 0)), 0f, false);
+    }
+
+    /**
+     * Vrai quand ciel, décor, effets et interface (logo) sont sur la carte graphique : la scène peut paraître. La
+     * mer, la plus lourde, arrive ensuite en fondu.
+     */
+    public boolean readyToShow() {
+        return textures.ready(TextureStore.SKY) && textures.ready(TextureStore.PLATES)
+                && textures.ready(TextureStore.FX) && textures.ready(TextureStore.UI);
+    }
+
+    /**
+     * Envoie les images décodées, dans le budget par image de {@link TextureStore#upload}, sans dessiner : images
+     * d'attente d'une scène recréée. Thread du jeu.
+     *
+     * @throws IllegalStateException si une image obligatoire est illisible
+     */
+    public void uploadPending() {
+        textures.upload();
+        Throwable failure = textures.failure();
+        if (failure != null) {
+            throw new IllegalStateException("image obligatoire illisible : " + failure.getMessage(), failure);
+        }
+    }
+
+    /** Mémoire vidéo estimée des textures de la scène, en octets ({@link TextureStore#bytes}). */
+    public long textureBytes() {
+        return textures.bytes();
+    }
+
+    /** Arrête le film de preuve s'il tourne : il ne couvre que le chargement. Thread qui tient le contexte. */
+    public void stopRecording() {
+        if (recorder != null) {
+            recorder.close();
+            recorder = null;
+        }
+    }
+
     /** {@code given} : avancement imposé par l'appelant ; {@code null} : lu dans les barres de Forge. */
     private void renderFrame(SceneRenderer target, int fbWidth, int fbHeight, ProgressTracker.Reading given,
                              float uiAlpha) {
+        renderFrame(target, fbWidth, fbHeight, given, uiAlpha, true);
+    }
+
+    private void renderFrame(SceneRenderer target, int fbWidth, int fbHeight, ProgressTracker.Reading given,
+                             float uiAlpha, boolean record) {
         double real = realTime();
         double dt = Math.max(0.0, real - lastReal);
         lastReal = real;
@@ -232,12 +305,14 @@ public final class EarlyScene implements AutoCloseable {
             seaStart = real;
             log.accept(String.format(Locale.ROOT, "mer prête à %.2f s (fondu de %.1f s)", real, SEA_FADE_SECONDS));
         }
-        float story = Double.isNaN(storyStart) ? 0f : clock.storyTime(real - storyStart, reading.phase() == Phase.DONE);
+        // Avant le départ du récit : l'image t=0 (ouverture depuis le noir), ou l'aube pour une horloge déjà tenue.
+        float story = Double.isNaN(storyStart) ? clock.storyTime(0.0, false)
+                : clock.storyTime(real - storyStart, reading.phase() == Phase.DONE);
         target.setSeaOpacity(Double.isNaN(seaStart) ? 0f : (float) Math.min(1.0, (real - seaStart) / SEA_FADE_SECONDS));
         last = new SceneState(story, shown, reading.status(), Math.max(0f, Math.min(1f, uiAlpha)), real,
                 real - uiStart);
         target.render(fbWidth, fbHeight, last);
-        if (recorder != null) {
+        if (record && recorder != null) {
             recorder.capture(fbWidth, fbHeight);
         }
         if (frames++ == 0) {
@@ -329,9 +404,7 @@ public final class EarlyScene implements AutoCloseable {
         closed = true;
         renderer.close();
         textures.close();
-        if (recorder != null) {
-            recorder.close();
-        }
+        stopRecording();
         closeQuietly(clientJar);
     }
 
