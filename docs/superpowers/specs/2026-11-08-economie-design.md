@@ -457,7 +457,9 @@ compris.
 
 Le lot E4 peut passer avant E2 si la ville a besoin de premiers revenus plus tôt : le butin des mobs
 répond en partie à la question « d'où vient le premier argent », avec la somme de départ. Le lot E6
-vient après E2 (factures) et a besoin du réseau électrique de l'ingénieur. Les quêtes de métier
+vient après E2 (factures) et a besoin du réseau électrique de l'ingénieur. Il **modifie** le compteur
+et le disjoncteur de la feature 8, déjà livrés au lot 4 de l'électricité : jumelage au poste,
+protection, facture quotidienne et coupure à distance. Les quêtes de métier
 (feature 79) arrivent avec chaque métier. Les branchements de la section 6 suivent chacun le lot de
 leur métier. Celui de l'ingénieur vient avec le lot E6.
 
