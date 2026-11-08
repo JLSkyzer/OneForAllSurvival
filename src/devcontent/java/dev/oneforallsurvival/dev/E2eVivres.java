@@ -281,6 +281,18 @@ final class E2eVivres {
         return ItemStack.EMPTY;
     }
 
+    /** Les cases non vides de l'inventaire, avec leur tag : pour le détail d'un échec. */
+    private static String inventaire() {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < mc.player.getInventory().items.size(); i++) {
+            ItemStack s = mc.player.getInventory().items.get(i);
+            if (!s.isEmpty()) {
+                sb.append(i).append('=').append(s).append(s.getTag() == null ? "" : s.getTag()).append(' ');
+            }
+        }
+        return sb.toString();
+    }
+
     private static Predicate<ItemStack> est(Item item) {
         return s -> s.is(item);
     }
@@ -424,6 +436,12 @@ final class E2eVivres {
             for (BlockPos q : new BlockPos[] {armoire, desal, sechoir, marmite, armoire.east(), desal.west(), sechoir.east()}) {
                 commande("setblock " + xyz(q) + " minecraft:air");
             }
+            // Une armoire retirée lâche ses aliments : ramassés, ils fusionneraient avec les steaks de l'essai (dates
+            // moyennées), et le steak « frais » disparaîtrait dans une pile plus vieille. Ces objets au sol sont détruits.
+            commande("kill @e[type=minecraft:item,distance=..48]");
+            for (String aliment : new String[] {"cooked_beef", "cooked_chicken", "cooked_porkchop", "beef"}) {
+                commande("clear " + nom() + " minecraft:" + aliment);
+            }
             // Le regard au ciel : la touche « utiliser » tenue ne vise aucun bloc de l'aire.
             mc.player.setXRot(-90.0F);
             // En paisible la faim ne baisse pas : il faut le niveau facile, sans monstre ni régénération.
@@ -539,7 +557,8 @@ final class E2eVivres {
                 () -> "case " + fente + " : " + mc.player.getInventory().getItem(fente) + ", utilisation " + mc.player.isUsingItem(), null);
         pas("Repas : " + nomRepas + ", lecture de la faim", () -> mc.options.keyUse.setDown(false), () -> ecoule() >= 1.0
                 && Math.abs((mc.player.getFoodData().getFoodLevel() - faimAvant) - attendu) <= 1,
-                () -> "faim " + faimAvant + " -> " + mc.player.getFoodData().getFoodLevel() + " (gain attendu " + attendu + ")",
+                () -> "faim " + faimAvant + " -> " + mc.player.getFoodData().getFoodLevel() + " (gain attendu " + attendu + ") ; inventaire "
+                        + inventaire(),
                 () -> "repas " + nomRepas + " : faim " + faimAvant + " -> " + mc.player.getFoodData().getFoodLevel() + ", gain "
                         + (mc.player.getFoodData().getFoodLevel() - faimAvant) + " (attendu " + attendu + " : steak cuit = 8)");
     }
