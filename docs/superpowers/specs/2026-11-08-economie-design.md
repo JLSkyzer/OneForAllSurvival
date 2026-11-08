@@ -4,6 +4,8 @@ Date : 2026-11-08. Statut : en attente de validation par Killian.
 
 Killian a demandé ce cahier le 2026-11-08, une fois les pièces de monnaie modélisées. Il veut le
 livrer **avant tous les autres lots**, pour que les métiers s'y branchent au fur et à mesure.
+Le même jour, il a ajouté le butin des mobs, les quêtes journalières et hebdomadaires, et un PNJ de la
+ville (features 78 à 80).
 
 **Ce document remplace la règle « le mod ne gère aucune monnaie »** des cahiers de
 [l'électricité](2026-11-06-features-lost-island-design.md),
@@ -27,7 +29,9 @@ l'argent qui circule a toujours une origine connue.**
 
 ### Objectifs
 - Une monnaie **physique**, qu'on porte, qu'on range, qu'on peut se faire voler.
-- Une **création monétaire contrôlée** : personne ne fabrique de l'argent sur une table de craft.
+- Une **création monétaire contrôlée** : personne ne fabrique de l'argent sur une table de craft, et
+  chaque source d'argent est déclarée, plafonnable et comptée.
+- Des **raisons de sortir et de jouer** qui rapportent : chasser, accomplir des quêtes.
 - Des **circuits** clairs :
   - d'où vient l'argent (sources) ;
   - où il disparaît (puits) ;
@@ -37,22 +41,31 @@ l'argent qui circule a toujours une origine connue.**
 
 ### Hors périmètre
 - **Bourse, prêts à intérêt, actions** : trop modernes pour une ville naissante, et sources d'abus.
-- **Économie avec des PNJ** : les villageois gardent leurs émeraudes vanilla ; aucun marchand automatique
-  ne vend à la place d'un joueur.
+- **Les villageois vanilla** gardent leurs émeraudes et n'acceptent pas les pièces. Le seul PNJ qui
+  manie la monnaie est celui de la ville (feature 80), placé et réglé par l'équipe du serveur.
 - **Fixer les prix** : ils relèvent des joueurs, sauf les tarifs publics (électricité, amendes) que la
   ville règle.
 
 ### Ce qui serait un échec, même si tout fonctionne
-- Une façon de **créer** de l'argent sans passer par la frappe (duplication, recette oubliée, échange
-  de PNJ).
+- Une façon de **créer** de l'argent hors des sources déclarées (duplication, recette oubliée, ferme à
+  mobs, quête répétée en boucle).
 - Une inflation que l'équipe ne voit pas venir faute de chiffres.
 - Un joueur absent qui perd tout son argent sans avoir pu réagir. Le vol reste possible, mais il
   laisse des traces.
 - Un système si lourd que les joueurs préfèrent troquer.
+- Des quêtes qui deviennent une corvée quotidienne obligatoire pour gagner sa vie.
 
 ### Règle de conception
-Une feature économique doit dire **d'où vient l'argent qu'elle fait circuler et où il va**. Une feature
-qui crée de l'argent sans contrepartie est refusée.
+Une feature économique doit dire **d'où vient l'argent qu'elle fait circuler et où il va**.
+
+Il existe exactement quatre **sources** qui créent de l'argent :
+- la presse à monnaie (68) ;
+- le butin des mobs (78) ;
+- les récompenses de quêtes (79) ;
+- les achats du PNJ de la ville (80).
+
+Chacune est réglable, plafonnable et comptée à part au tableau de bord (77). Une feature qui crée de
+l'argent hors de ces sources est refusée.
 
 ## 3. Contraintes techniques
 
@@ -89,7 +102,7 @@ Valeurs de départ, réglables :
 | Rubis | 10 000 |
 
 - **Le change** : 10 pièces d'une coupure s'échangent contre 1 de la coupure supérieure, et inversement,
-  sur une table de craft. Ces recettes ne créent rien, elles échangent à valeur égale. C'est la seule
+  sur une table de craft ou auprès du PNJ de la ville. Ces recettes ne créent rien, elles échangent à valeur égale. C'est la seule
   exception à la règle « aucune recette ne produit une pièce ».
 - L'infobulle d'une pièce indique sa valeur. Une pile indique son total.
 - Une pièce ne se fond pas, ne se composte pas, ne se vend pas à un villageois.
@@ -180,17 +193,110 @@ La numérotation prolonge celle du policier. Toutes les valeurs chiffrées sont 
 - Le relevé de compte se recopie en objet.
 - Un compte ne produit **aucun intérêt**.
 
+### Gagner sa vie
+
+**78. Butin des mobs.**
+- Tuer un mob **hostile** donne une **chance** de faire tomber des pièces. Une table par type de mob, en
+  données, fixe la chance et le montant. Au départ :
+  - quelques cuivres sur un zombie ou une araignée ;
+  - de l'argent sur un mob plus dangereux (sorcière, creeper chargé) ;
+  - davantage sur un boss.
+- Les **animaux** ne donnent rien : élever ne doit pas devenir une planche à billets.
+- **Garde-fous contre les fermes** :
+  - rien pour un mob tué sans joueur, ou apparu par un générateur (spawner) ou par un œuf d'apparition ;
+  - le gain baisse quand un joueur tue beaucoup de mobs au même endroit en peu de temps.
+  Les seuils sont réglables.
+- Un **plafond par joueur et par session** borne le total. Au-delà, plus rien ne tombe jusqu'à la session
+  suivante.
+- Le butin passe par un modificateur de butin global de Forge : les mobs des autres mods sont couverts par
+  leur tag ou par la table.
+
+**79. Quêtes journalières et hebdomadaires.**
+- Chaque joueur reçoit **3 quêtes journalières** et **5 quêtes hebdomadaires**, générées pour lui par un
+  algorithme.
+- **Renouvellement** : à heure fixe, sur le calendrier réel (fuseau réglable), tous les jours pour les
+  journalières et chaque lundi pour les hebdomadaires. Le serveur ne tournant que pendant les sessions,
+  une quête non terminée expire simplement, sans pénalité.
+- **Génération** :
+  - un tirage pondéré dans une réserve de **modèles** de quêtes, en données ;
+  - chaque modèle a une catégorie, une cible facultative (un bloc, un mob, un objet précis, ou un tag), une
+    fourchette de quantité et une récompense de base ;
+  - la quantité est tirée dans la fourchette, et la récompense suit la quantité et la difficulté ;
+  - pas deux quêtes du même modèle dans une même série ;
+  - une hebdomadaire vise environ cinq fois une journalière, en effort et en récompense ;
+  - une partie des modèles peut être **pondérée par rôle**, pour proposer plus souvent à un agriculteur
+    des quêtes de récolte, sans jamais l'y obliger.
+- **Une relance** par jour : le joueur peut redemander une quête qui ne lui plaît pas.
+- Un **écran de quêtes** (touche réglable) montre la progression. Une notification discrète annonce une
+  quête terminée. La récompense se **réclame** dans l'écran et arrive dans la bourse ou l'inventaire.
+- **Récompenses** : des pièces, comptées comme source au tableau de bord, avec un plafond hebdomadaire
+  par joueur.
+
+Catégories demandées par Killian :
+
+| Catégorie | Exemple |
+|---|---|
+| Casser des blocs | Casser 200 blocs de pierre |
+| Casser un bloc précis | Extraire 12 minerais de fer |
+| Poser des blocs, éventuellement précis | Poser 64 briques |
+| Tuer des mobs, éventuellement précis | Tuer 10 squelettes |
+
+Catégories proposées en plus, choisies pour ne pas être des corvées :
+
+| Catégorie | Exemple | Pourquoi |
+|---|---|---|
+| Récolter | Récolter 32 carottes mûres | Fait vivre les champs |
+| Pêcher | Pêcher 8 poissons | Une activité calme |
+| Cuisiner | Préparer 3 plats de Farmer's Delight | Donne un usage aux recettes |
+| Livrer | Déposer 16 pains au grenier communal | L'effort profite à toute la ville |
+| Commercer | Vendre 5 lots à son étal | Fait tourner l'économie entre joueurs |
+| Explorer | Atteindre un lieu placé par l'équipe | Fait découvrir l'île, sans révéler son mystère |
+| Élever | Faire naître 4 animaux | Fait vivre les enclos |
+| Métier | Réparer 2 machines, soigner 3 joueurs, dresser 2 contraventions | Valorise les rôles, proposé seulement au rôle concerné |
+| Conserver | Sécher ou fumer 10 aliments | Prépare les réserves |
+
+- **Garde-fous** :
+  - un bloc **posé par un joueur** ne compte pas pour une quête de casse, et un bloc posé puis cassé
+    aussitôt ne compte pas pour une quête de pose ;
+  - les mobs comptent selon les mêmes règles que le butin (pas de générateur, pas de ferme) ;
+  - une quête de commerce ne compte que les ventes à **un autre joueur**.
+  Le suivi des blocs posés est limité en taille et oublie les plus anciens.
+- L'équipe du serveur peut ajouter des **modèles** et lancer des **quêtes d'événement** communes à tous,
+  par commande.
+
+**80. PNJ de la ville.**
+- C'est un personnage que l'équipe du serveur **fait apparaître** par commande où elle veut, au spawn par
+  exemple. Il est **invulnérable**, immobile, et ne disparaît jamais. Son nom et son apparence sont
+  réglables (skin de joueur ou modèle du mod).
+- **Le change** : il convertit les pièces entre coupures, sans frais par défaut (frais réglables, versés
+  au trésor).
+- **Les échanges** : l'équipe lui donne une liste d'offres, en données ou par une interface d'édition
+  réservée :
+  - des objets qu'il **vend** contre des pièces ;
+  - des objets qu'il **achète** contre des pièces.
+- Les pièces qu'il **encaisse** sortent de la circulation (puits). Celles qu'il **paie** sont une source,
+  comptée au tableau de bord.
+- **Garde-fous** :
+  - chaque offre a un **stock** ou une **limite par joueur et par session** ;
+  - l'équipe est prévenue si une offre d'achat est plus chère que l'offre de vente du même objet, ce qui
+    créerait de l'argent en boucle ;
+  - l'équipe peut **fermer** une offre ou tout le PNJ à tout moment.
+- Plusieurs PNJ peuvent exister, chacun avec ses offres : un changeur au port, un acheteur de minerais à
+  la mine.
+- Un PNJ ne remplace pas un métier : les offres par défaut ne contiennent ni nourriture préparée, ni
+  matériel d'ingénieur, ni remèdes.
+
 ### Pilotage
 
 **77. Tableau de bord de l'équipe.**
 - Par commande, l'équipe du serveur lit :
-  - le **total frappé** ;
+  - le **total créé par source** : frappe, butin des mobs, quêtes, achats du PNJ ;
   - le **total détruit** (pièces brûlées, tombées dans le vide, disparues avec un objet au sol) ;
   - la **masse en comptes** ;
   - le **solde du trésor** ;
   - les **salaires dus** ;
   - le **volume des ventes** par période.
-- La masse en circulation se déduit : frappé moins détruit. Les pièces dans les coffres ne sont pas
+- La masse en circulation se déduit : total créé, moins total détruit, moins ce que le PNJ a encaissé. Les pièces dans les coffres ne sont pas
   comptées une à une, ce qui serait trop coûteux.
 - Les registres de la frappe et du trésor se consultent en entier.
 
@@ -219,8 +325,12 @@ compris.
 | E1 | Pièces déclarées, valeurs, change, vérification des recettes, registre partagé ; 68, 69, 77 | L'argent existe, ne vient que de la presse, et l'équipe le voit |
 | E2 | 70, 71, 72 | Les joueurs commercent entre eux, même absents |
 | E3 | 73, 74, 75, 76 | La ville a des finances : elle encaisse, elle paie, elle peut manquer |
+| E4 | 78, 80 | On gagne sa vie en chassant, et l'équipe ouvre un comptoir |
+| E5 | 79 | Des objectifs renouvelés chaque jour et chaque semaine |
 
-Les branchements de la section 6 suivent chacun le lot de leur métier. Celui de l'ingénieur peut se faire
+Le lot E4 peut passer avant E2 si la ville a besoin de premiers revenus plus tôt : le butin des mobs
+répond en partie à la question « d'où vient le premier argent ». Les quêtes de métier (feature 79)
+arrivent avec chaque métier. Les branchements de la section 6 suivent chacun le lot de leur métier. Celui de l'ingénieur peut se faire
 dès le lot 4 (compteurs), qui est en cours.
 
 ## 8. Vérification
@@ -238,12 +348,22 @@ dès le lot 4 (compteurs), qui est en cours.
   - la taxe arrive au trésor ;
   - un salaire impayé reste dû ;
   - une facture payée au guichet est marquée payée chez son émetteur ;
-  - le total frappé moins le total détruit est juste après une pièce jetée dans la lave.
+  - le total frappé moins le total détruit est juste après une pièce jetée dans la lave ;
+  - un mob de générateur ne donne rien, et le plafond de butin tient ;
+  - trois journalières différentes sont générées, et une relance en donne une autre ;
+  - un bloc posé puis cassé ne fait avancer aucune quête ;
+  - une quête de métier n'est pas proposée à un autre rôle ;
+  - le PNJ refuse une offre épuisée ;
+  - l'alerte se déclenche quand une offre d'achat dépasse l'offre de vente.
 - **Scénario d'acceptation** : l'équipe désigne un trésorier ; il frappe ; il verse un salaire ; le policier
   achète du pain à l'étal de l'agriculteur absent ; l'agriculteur récupère ses recettes ; on relance le
   serveur ; on lit le tableau de bord, et chaque pièce a une origine.
 - **Scénario d'abus** : tenter de dupliquer des pièces par déconnexion pendant un échange, par casse d'un
-  étal, et par une recette CraftTweaker. Aucune ne doit réussir.
+  étal, par une recette CraftTweaker, par une ferme à mobs à générateur, et par une boucle « poser,
+  casser » pour une quête. Aucune ne doit rapporter.
+- **Scénario des quêtes** : se connecter, lire ses 3 journalières et 5 hebdomadaires, en terminer une,
+  réclamer la récompense, relancer le serveur, retrouver sa progression ; changer la date du serveur et
+  constater le renouvellement.
 
 ## 9. Choix faits par l'auteur du document
 
@@ -258,14 +378,20 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 - la taxe sur les ventes est à 0 % au départ ;
 - les salaires sont payés sur le trésor, jamais créés à partir de rien ;
 - le solde du trésor est public ;
-- le tableau de bord ne compte pas les pièces des coffres une à une.
+- le tableau de bord ne compte pas les pièces des coffres une à une ;
+- seuls les mobs hostiles donnent des pièces, jamais ceux des générateurs ;
+- les quêtes se renouvellent sur le calendrier réel, avec une relance par jour, et expirent sans
+  pénalité ;
+- les quêtes de métier ne sont proposées qu'au rôle concerné ;
+- le PNJ ne vend ni nourriture préparée, ni matériel d'ingénieur, ni remèdes par défaut.
 
 ## 10. Questions ouvertes
 
 Elles décident de l'équilibre général et sont à trancher avant le lot E1 :
 - **Qui frappe ?** Un trésorier joueur, l'équipe du serveur seule, ou les deux ?
-- **D'où vient le premier argent ?** Une dotation de départ par nouveau joueur, un salaire de lancement
-  versé par la ville, la vente de la première récolte au grenier, ou un mélange ?
+- **D'où vient le premier argent ?** Le butin des mobs et les quêtes en apportent maintenant. Faut-il
+  en plus une dotation de départ par nouveau joueur ?
+- **Les récompenses de quêtes** : des pièces seulement, ou aussi des objets (graines rares, matériel) ?
 - **Le rubis** se frappe-t-il comme les autres, ou est-il réservé à l'équipe du serveur, par exemple pour
   des récompenses d'événement ?
 - **Faut-il les comptes** (feature 76) dès le lot E3, ou une monnaie uniquement physique suffit-elle au
