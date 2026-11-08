@@ -53,9 +53,12 @@ joueur l'entendent parler au téléphone.**
 ## 3. Contraintes techniques
 
 ### Interface : MCEF
-- Le téléphone s'affiche avec **MCEF** (Minecraft Chromium Embedded Framework), choix de Killian. Pour
-  Forge 1.20.1 : `mcef-forge` 2.1.6 de CinemaMod, ou le fork de Keksuccino (2.2.0, mars 2026), à
-  choisir au premier lot. Constaté sur CurseForge et sur le dépôt le 2026-11-08.
+- Le téléphone s'affiche avec **MCEF** (Minecraft Chromium Embedded Framework), choix de Killian.
+- **Version retenue : le fork de Keksuccino** (2.2.0 pour Forge 1.20.1, mars 2026), choisi par
+  l'auteur à la demande de Killian. C'est la version la plus récente trouvée, et son auteur maintient
+  aussi FancyMenu. La version de CinemaMod (`mcef-forge` 2.1.6) date d'octobre 2024. Relevé sur
+  CurseForge et les pages de mods le 2026-11-08. **Au lot T1, vérifier** sa version de Chromium, son
+  API et sa licence ; revenir à CinemaMod si le fork pose problème.
 - MCEF est un mod **client seulement**. Il télécharge Chromium (environ 100 Mo, chiffre de la page
   CraftBrowser) au premier lancement, depuis `mcef-download.cinemamod.com`. Certains antivirus le
   bloquent.
@@ -85,7 +88,8 @@ joueur l'entendent parler au téléphone.**
 ## 4. Socle
 
 ### Le téléphone
-- C'est un **objet** qu'on fabrique, qu'on porte, qu'on peut perdre ou se faire voler.
+- C'est un **objet** que **n'importe quel joueur** fabrique (choix de Killian), qu'on porte, qu'on peut
+  perdre ou se faire voler.
 - Il a une **batterie** qui se vide à l'usage, plus vite en FaceTime, et se recharge sur une prise
   alimentée en FE. Vide, il s'éteint.
 - Il a un **code de verrouillage** à 4 chiffres, choisi par son propriétaire. Un téléphone volé reste
@@ -203,13 +207,19 @@ La numérotation prolonge celle du cahier de l'économie.
 - L'équipe du serveur peut retirer une publication et suspendre un compte.
 
 **99. Ombre.**
-- Un canal **anonyme**, le « dark chat » : les messages sont signés d'un pseudo tiré de la carte SIM
-  (`fantôme-3BF`), qui change avec la carte.
+Direction revue par Killian le 2026-11-08.
+- Le « dark chat » de l'île, **anonyme** et **caché**.
+- **Pseudo** : à la première ouverture, le joueur choisit un pseudo. Il signe tous ses messages et
+  reste lié au **téléphone** : un téléphone volé et déverrouillé livre le pseudo de son propriétaire.
+  Deux joueurs ne peuvent pas avoir le même pseudo.
+- **Canaux** : n'importe qui peut **créer un canal** en lui donnant un nom.
+- **Aucune liste des canaux** n'existe. Pour **rejoindre** un canal, il faut connaître son nom
+  exact et le taper. Le nom se transmet de bouche à oreille, en RP.
+- L'écran d'accueil d'Ombre ne montre que les canaux que le joueur a déjà rejoints.
 - Les messages **disparaissent après 24 heures** réelles.
-- Avec une carte **à son nom**, un avertissement prévient que le fondateur de l'opérateur peut savoir
-  qu'on utilise Ombre. Avec une **SIM sans nom**, personne ne le peut.
-- L'équipe du serveur voit toujours l'auteur réel, pour la modération. Les joueurs, policier compris,
-  ne le voient pas.
+- **Personne ne lève l'anonymat en jeu**, pas même la police : pour démasquer quelqu'un, elle doit le
+  **piéger** en RP (rejoindre un canal, fixer un rendez-vous, saisir un téléphone). Choix de Killian.
+- L'équipe du serveur voit l'auteur réel, uniquement pour la modération hors RP.
 
 **100. App Store.**
 - Il installe des applications supplémentaires. L'**équipe du serveur choisit** celles qui sont
@@ -226,11 +236,11 @@ La numérotation prolonge celle du cahier de l'économie.
 
 | Avec | Branchement |
 |---|---|
-| Ingénieur | Il fabrique les antennes et les téléphones, et entretient les antennes avec l'outil de maintenance. |
+| Ingénieur | Il fabrique les antennes et les entretient avec l'outil de maintenance. Les téléphones, eux, se fabriquent par n'importe qui. |
 | Électricité | Chaque antenne est une machine qui consomme des FE, et dont la panne coupe un réseau. |
 | Économie | L'abonnement est prélevé en pièces (feature 86). Les apps payantes se paient en pièces. |
 | Maire | Il casse ou modifie une antenne, et supprime un opérateur. |
-| Policier | Les urgences (17), la fouille d'un téléphone ou d'une carte SIM. Il ne voit pas les auteurs d'Ombre. |
+| Policier | Les urgences (17), la fouille d'un téléphone ou d'une carte SIM. Il ne peut pas lever l'anonymat d'Ombre : il doit piéger ses utilisateurs en RP. |
 | Médecin | Les urgences (15). |
 
 ## 7. Découpage conseillé
@@ -259,6 +269,8 @@ La numérotation prolonge celle du cahier de l'économie.
   - l'abonnement est prélevé à minuit et arrive dans la caisse de l'antenne, et un refus prévient les
     deux parties ;
   - un message d'Ombre disparaît après 24 heures, et l'équipe voit son auteur réel ;
+  - un canal d'Ombre ne se rejoint qu'en tapant son nom exact, et aucune liste ne le révèle ;
+  - deux joueurs ne peuvent pas prendre le même pseudo ;
   - le quota de photos tient.
 - **Scénario des voix**, à trois joueurs : A appelle B ; C, à côté de A, entend A mais pas B ; A active
   le haut-parleur, C entend B et B entend C ; A coupe son micro, B n'entend plus A ni C, C entend
@@ -282,6 +294,10 @@ La numérotation prolonge celle du cahier de l'économie.
 - Appels par **Simple Voice Chat** : les gens autour entendent ; haut-parleur ; silence ; FaceTime.
 - Applications : dark chat (Ombre), Twitter (Écho), appareil photo, App Store, carte SIM.
 - **Pas d'appli de banque** ; l'abonnement est prélevé **chaque jour** en pièces.
+- **N'importe quel joueur** fabrique un téléphone.
+- **Ombre** : un pseudo choisi, des canaux nommés qu'on rejoint en tapant leur nom, et aucune levée
+  d'anonymat par la police, qui doit piéger les utilisateurs.
+- Le choix du fork de MCEF est laissé à l'auteur.
 
 ### Choix faits par l'auteur du document
 Ces choix n'ont pas été validés par Killian et peuvent être contestés :
@@ -292,12 +308,11 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 - code de verrouillage, numéro qui suit la SIM ;
 - FaceTime par rendu du personnage, pas par vidéo ;
 - messages d'Ombre effacés après 24 heures, auteur visible par l'équipe seulement ;
+- le pseudo d'Ombre est lié au téléphone, pas à la carte SIM ;
+- le fork de Keksuccino pour MCEF ;
 - écran de repli en interface classique si MCEF échoue.
 
 ## 10. Questions ouvertes
 
-- **Le fork de MCEF** : CinemaMod (2.1.6) ou Keksuccino (2.2.0) ?
 - **Les Mac à puce Apple** : à tester avant le lot T1. Si MCEF n'y marche pas, l'écran de repli
   suffit-il ?
-- **Qui fabrique le téléphone** : l'ingénieur, ou n'importe qui ?
-- **La police** doit-elle pouvoir, avec un mandat RP et l'équipe, lever l'anonymat d'Ombre ?

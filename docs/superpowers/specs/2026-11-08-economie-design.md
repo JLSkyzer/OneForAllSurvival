@@ -166,6 +166,7 @@ Demandé par Killian le 2026-11-08.
 
 **85. Coffre-fort personnel.**
 Demandé par Killian le 2026-11-08.
+- **N'importe quel joueur** le fabrique (recette en données), choix de Killian.
 - Chaque joueur peut poser **un seul** coffre-fort. Pour en poser un autre, il doit d'abord casser le
   premier, vide.
 - Il ne contient **que des pièces**, sans limite de quantité. Son total s'affiche à l'ouverture.
@@ -384,7 +385,7 @@ Catégories proposées en plus, choisies pour ne pas être des corvées :
 **88. Somme de départ.**
 Demandé par Killian le 2026-11-08.
 - À sa **première connexion**, un joueur reçoit une petite somme dans son inventaire, de quoi acheter
-  à manger les premiers jours (réglable, quelques pièces d'argent au départ).
+  à manger les premiers jours : **500 cuivres**, soit 5 pièces d'or (choix de Killian, réglable).
 - Une seule fois par joueur, jamais à une reconnexion ni après un changement de nom.
 - C'est une source, comptée à part au tableau de bord.
 
@@ -517,7 +518,8 @@ leur métier. Celui de l'ingénieur vient avec le lot E6.
 - Le **butin des mobs** n'a pas de plafond : seuls les mobs hostiles donnent des pièces.
 - Les quêtes ne récompensent **qu'en pièces**.
 - Le **rubis** n'est donné que par l'équipe du serveur.
-- Une **petite somme de départ** pour chaque nouveau joueur.
+- Une **somme de départ** de 500 cuivres pour chaque nouveau joueur.
+- **N'importe quel joueur** fabrique son coffre-fort.
 - **Monnaie entièrement physique** : pas de comptes, pas de distributeur, pas de carte bancaire, pas
   d'appli de banque.
 - **Un seul coffre-fort par joueur**, seul stockage personnel des pièces, cambriolable difficilement.
@@ -550,6 +552,5 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 
 ## 10. Questions ouvertes
 
-- **Qui fabrique le coffre-fort**, et avec quelle recette : l'ingénieur à son établi, ou n'importe qui ?
-- **Le montant de la somme de départ**, la table du butin et le plafond par semaine des quêtes, à
-  régler aux premiers essais.
+- **La table du butin** (pièces par mob) et le **plafond par semaine des quêtes**, à régler aux
+  premiers essais.
