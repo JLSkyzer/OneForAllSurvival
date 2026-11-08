@@ -236,14 +236,15 @@ Demandé par Killian le 2026-11-08, sur le modèle des opérateurs du téléphon
   fabriqué par l'ingénieur, en tête du réseau qu'alimentent ses générateurs. Le poste porte le nom du
   fournisseur. La ville peut être un fournisseur comme les autres.
 - **Le fournisseur fixe son prix** : un prix par FE consommé et, s'il le veut, un abonnement fixe par
-  semaine. Il le change depuis le panneau du poste. Le nouveau prix s'applique à la facture suivante, et
+  jour. Il le change depuis le panneau du poste. Le nouveau prix s'applique à la facture suivante, et
   les clients en sont prévenus.
 - Le panneau liste les **clients** : un compteur au nom de chacun, branché sur son réseau, avec sa
   consommation et ses impayés. Le fournisseur y accepte ou refuse une demande de raccordement, et peut
   **couper** un client en ouvrant son disjoncteur à distance. Le scellé reste un geste d'ingénieur.
-- **La facture est automatique.** À chaque échéance (fin de session RP au départ, réglable), chaque
-  compteur se relève seul et émet une facture (feature 72) : consommation fois prix, plus
-  l'abonnement. Elle est **prélevée sur la carte bancaire** (feature 82) que le client a liée à son
+- **La facture est automatique et quotidienne.** Chaque jour, à une heure fixe du calendrier réel
+  (minuit au départ, réglable), chaque compteur se relève seul et émet une facture (feature 72) :
+  consommation du jour fois prix, plus l'abonnement. Si le serveur est éteint à cette heure, les
+  factures en retard sont émises à son démarrage, une par jour manqué. Elle est **prélevée sur la carte bancaire** (feature 82) que le client a liée à son
   compteur, et l'argent va sur le compte du fournisseur.
 - Sans carte liée, ou si le prélèvement est refusé (solde insuffisant, carte en opposition), la facture
   reste due. Le client la paie au guichet ou au distributeur. Le fournisseur est prévenu et décide de
@@ -423,8 +424,9 @@ le lot E6, puisque les factures d'électricité passent par les fournisseurs et 
   - un retrait au distributeur ne change pas la masse totale (compte moins, pièces plus) ;
   - un retrait sans le bon code est refusé, et le plafond par jour tient ;
   - une carte en opposition est refusée au distributeur et au prélèvement de l'abonnement ;
-  - à l'échéance, la facture d'un compteur vaut sa consommation fois le prix du fournisseur, plus
+  - à minuit, la facture d'un compteur vaut sa consommation du jour fois le prix du fournisseur, plus
     l'abonnement, et le prélèvement passe du compte du client à celui du fournisseur ;
+  - un serveur éteint deux jours émet deux factures par compteur à son démarrage ;
   - un changement de prix ne touche que la facture suivante ;
   - un prélèvement refusé laisse la facture due et prévient le fournisseur ;
   - un fournisseur supprimé par le maire ne facture plus personne.
@@ -460,7 +462,7 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 - le distributeur n'a pas de réserve de pièces : il puise dans les comptes, il n'y a donc rien à y
   cambrioler ;
 - une carte bancaire demande un code pour retirer et a un plafond par jour ;
-- la facture d'électricité tombe à chaque fin de session, et la taxe sur l'électricité est à 0 % au
+- la facture d'électricité tombe chaque jour à minuit, et la taxe sur l'électricité est à 0 % au
   départ.
 
 ## 10. Questions ouvertes
