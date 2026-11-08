@@ -572,14 +572,19 @@ tasks.matching { it.name == 'runClient' }.configureEach {
 // Dossier de `titleFr` : le jar de service est recopié à chaque fois (il change), fml.toml et options.txt
 // ne sont écrits que s'ils manquent, pour ne pas écraser ce qu'on y règle à la main. Écriture en UTF-8 sans BOM.
 def titleRunDir = project.file('run-titre')
-def prepareTitleRun = tasks.register('prepareTitleRun', Copy) {
-    group = 'build'
-    description = 'Prépare run-titre/ : jar de service, fml.toml (fenêtre lostisland) et options.txt en français.'
+def copyTitleJar = tasks.register('copyTitleJar', Copy) {
+    description = 'Recopie le jar de service dans run-titre/mods (incrémental).'
     from earlyWindowJar
     into new File(titleRunDir, 'mods')
     doFirst {
         delete project.fileTree(new File(titleRunDir, 'mods')).matching { include "${mod_id}-earlywindow-*.jar" }
     }
+}
+// Toujours exécutée (aucune sortie déclarée) : recrée fml.toml et options.txt s'ils manquent.
+def prepareTitleRun = tasks.register('prepareTitleRun') {
+    group = 'build'
+    description = 'Prépare run-titre/ : jar de service, fml.toml (fenêtre lostisland) et options.txt en français.'
+    dependsOn copyTitleJar
     doLast {
         def fml = new File(titleRunDir, 'config/fml.toml')
         if (!fml.exists()) {
