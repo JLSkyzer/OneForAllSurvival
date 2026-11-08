@@ -3,10 +3,12 @@ package dev.oneforallsurvival.role;
 import static net.minecraft.ChatFormatting.BLUE;
 import static net.minecraft.ChatFormatting.DARK_GREEN;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Collection;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -149,6 +151,89 @@ class RoleBookTest {
         RoleBook relu = RoleBook.load(sauvegarde(roles, new ListTag()));
         assertEquals(Set.of("medecin", "ingenieur", "policier", "agriculteur", "citoyen", "pecheur"), ids(relu));
         assertEquals(net.minecraft.ChatFormatting.WHITE, relu.role("pecheur").orElseThrow().color());
+    }
+
+    @Test
+    void unMondeNeufNAPasDeMaire() {
+        assertTrue(book.mayor().isEmpty());
+        assertFalse(book.isMayor(joueur));
+        assertFalse(book.isMayor(null));
+    }
+
+    @Test
+    void nommerUnMaireGardeSonMetier() {
+        book.assign(joueur, "ingenieur");
+        assertEquals(Optional.empty(), book.appointMayor(joueur));
+        assertEquals(Optional.of(joueur), book.mayor());
+        assertTrue(book.isMayor(joueur));
+        assertEquals("ingenieur", book.roleOf(joueur).id());
+    }
+
+    @Test
+    void nommerUnNouveauMaireRemplaceLAncienEtLeRenvoie() {
+        UUID ancien = UUID.randomUUID();
+        book.appointMayor(ancien);
+        assertEquals(Optional.of(ancien), book.appointMayor(joueur));
+        assertTrue(book.isMayor(joueur));
+        assertFalse(book.isMayor(ancien));
+    }
+
+    @Test
+    void renommerLeMaireEnFonctionNeRemplacePersonne() {
+        book.appointMayor(joueur);
+        assertEquals(Optional.empty(), book.appointMayor(joueur));
+        assertTrue(book.isMayor(joueur));
+    }
+
+    @Test
+    void nommerPersonneEstRefuse() {
+        assertThrows(IllegalArgumentException.class, () -> book.appointMayor(null));
+    }
+
+    @Test
+    void retirerLeMaireLeRenvoieEtLaisseLaPlaceVide() {
+        book.appointMayor(joueur);
+        assertEquals(Optional.of(joueur), book.removeMayor());
+        assertTrue(book.mayor().isEmpty());
+        assertEquals(Optional.empty(), book.removeMayor());
+    }
+
+    @Test
+    void leMaireSurvitALaSauvegardeAvecSonMetier() {
+        book.assign(joueur, "medecin");
+        book.appointMayor(joueur);
+        RoleBook relu = RoleBook.load(book.save());
+        assertEquals(Optional.of(joueur), relu.mayor());
+        assertEquals("medecin", relu.roleOf(joueur).id());
+    }
+
+    @Test
+    void sansMaireLaSauvegardeNEnGardePas() {
+        book.appointMayor(joueur);
+        book.removeMayor();
+        CompoundTag tag = book.save();
+        assertFalse(tag.contains("mayor"));
+        assertTrue(RoleBook.load(tag).mayor().isEmpty());
+    }
+
+    @Test
+    void uneSauvegardeDAvantLeMaireSeChargeSansMaire() {
+        ListTag assignments = new ListTag();
+        assignments.add(assignTag(joueur, "ingenieur"));
+        RoleBook relu = RoleBook.load(sauvegarde(new ListTag(), assignments));
+        assertTrue(relu.mayor().isEmpty());
+        assertEquals("ingenieur", relu.roleOf(joueur).id());
+    }
+
+    @Test
+    void unMaireIllisibleEstIgnoreSansEmpecherLeChargement() {
+        ListTag assignments = new ListTag();
+        assignments.add(assignTag(joueur, "ingenieur"));
+        CompoundTag tag = sauvegarde(new ListTag(), assignments);
+        tag.putString("mayor", "pas-un-uuid");
+        RoleBook relu = RoleBook.load(tag);
+        assertTrue(relu.mayor().isEmpty());
+        assertEquals("ingenieur", relu.roleOf(joueur).id());
     }
 
     @Test

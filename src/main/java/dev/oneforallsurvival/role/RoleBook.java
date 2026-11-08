@@ -15,7 +15,12 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import org.slf4j.Logger;
 
-/** Registre des rôles et des attributions joueur → rôle. Logique pure, sans dépendance au monde. */
+/**
+ * Registre des rôles, des attributions joueur → rôle, et du maire. Logique pure, sans dépendance au monde.
+ *
+ * <p>Le maire est un statut qui s'ajoute au métier (un Ingénieur peut être maire) : il n'est pas un
+ * rôle de la liste, et un seul joueur le porte à la fois.
+ */
 public final class RoleBook {
 
     public static final String DEFAULT_ROLE_ID = "citoyen";
@@ -28,6 +33,7 @@ public final class RoleBook {
 
     private final Map<String, Role> roles = new LinkedHashMap<>();
     private final Map<UUID, String> assignments = new LinkedHashMap<>();
+    private UUID mayor;
 
     private RoleBook() {
     }
@@ -104,6 +110,36 @@ public final class RoleBook {
         assignments.values().removeIf(id::equals);
     }
 
+    /** Le maire en fonction ; vide tant que l'équipe du serveur n'en a nommé aucun. */
+    public Optional<UUID> mayor() {
+        return Optional.ofNullable(mayor);
+    }
+
+    public boolean isMayor(UUID player) {
+        return player != null && player.equals(mayor);
+    }
+
+    /**
+     * Nomme ce joueur maire ; il remplace le maire précédent, qui perd le statut.
+     *
+     * @return le maire remplacé, vide s'il n'y en avait pas ou si c'était déjà ce joueur
+     */
+    public Optional<UUID> appointMayor(UUID player) {
+        if (player == null) {
+            throw new IllegalArgumentException("Joueur absent");
+        }
+        UUID previous = mayor;
+        mayor = player;
+        return previous == null || previous.equals(player) ? Optional.empty() : Optional.of(previous);
+    }
+
+    /** Retire le statut de maire ; renvoie le maire retiré, vide s'il n'y en avait pas. */
+    public Optional<UUID> removeMayor() {
+        UUID previous = mayor;
+        mayor = null;
+        return Optional.ofNullable(previous);
+    }
+
     public CompoundTag save() {
         ListTag roleList = new ListTag();
         for (Role role : roles.values()) {
@@ -124,6 +160,9 @@ public final class RoleBook {
         CompoundTag tag = new CompoundTag();
         tag.put("roles", roleList);
         tag.put("assignments", assignList);
+        if (mayor != null) {
+            tag.putUUID("mayor", mayor);
+        }
         return tag;
     }
 
@@ -161,6 +200,12 @@ public final class RoleBook {
             if (book.roles.containsKey(roleId)) {
                 book.assignments.put(t.getUUID("player"), roleId);
             }
+        }
+        // Une sauvegarde d'avant le maire n'a pas cette clé : aucun maire, comme sur un monde neuf.
+        if (tag.hasUUID("mayor")) {
+            book.mayor = tag.getUUID("mayor");
+        } else if (tag.contains("mayor")) {
+            LOGGER.warn("Maire ignoré, identifiant de joueur invalide : aucun maire après chargement");
         }
         return book;
     }

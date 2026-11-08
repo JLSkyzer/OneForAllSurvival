@@ -8,6 +8,8 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import java.util.Collection;
+import java.util.Optional;
+import java.util.UUID;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -16,10 +18,14 @@ import net.minecraft.commands.arguments.ColorArgument;
 import net.minecraft.commands.arguments.GameProfileArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 
-/** Commande {@code /role} : consultation pour tous, gestion pour les opérateurs. */
+/**
+ * Commande {@code /role} : consultation pour tous, gestion pour les opérateurs. Le maire se gère sous
+ * {@code /role mayor} : voir qui l'est (tous), le nommer ou le retirer (opérateurs).
+ */
 public final class RoleCommands {
 
     private static final SuggestionProvider<CommandSourceStack> ROLE_IDS = (ctx, builder) ->
@@ -57,6 +63,13 @@ public final class RoleCommands {
         root.then(Commands.literal("delete").requires(s -> s.hasPermission(2))
                 .then(Commands.argument("id", StringArgumentType.word()).suggests(ROLE_IDS)
                         .executes(RoleCommands::delete)));
+        root.then(Commands.literal("mayor")
+                .executes(RoleCommands::showMayor)
+                .then(Commands.literal("set").requires(s -> s.hasPermission(2))
+                        .then(Commands.argument("joueur", GameProfileArgument.gameProfile())
+                                .executes(RoleCommands::setMayor)))
+                .then(Commands.literal("remove").requires(s -> s.hasPermission(2))
+                        .executes(RoleCommands::removeMayor)));
         dispatcher.register(root);
     }
 
@@ -194,6 +207,68 @@ public final class RoleCommands {
         data.setDirty();
         RoleEvents.refreshAll(server);
         ctx.getSource().sendSuccess(() -> Component.translatable("command.oneforallsurvival.role.deleted", id), true);
+        return 1;
+    }
+
+    /** Pseudo d'un joueur, connecté ou non ; son UUID si le serveur ne l'a jamais vu. */
+    private static String playerName(MinecraftServer server, UUID id) {
+        ServerPlayer online = server.getPlayerList().getPlayer(id);
+        if (online != null) {
+            return online.getGameProfile().getName();
+        }
+        var cache = server.getProfileCache();
+        Optional<GameProfile> known = cache == null ? Optional.empty() : cache.get(id);
+        return known.map(GameProfile::getName).orElse(id.toString());
+    }
+
+    private static int showMayor(CommandContext<CommandSourceStack> ctx) {
+        MinecraftServer server = ctx.getSource().getServer();
+        Optional<UUID> mayor = RoleSavedData.get(server).book().mayor();
+        if (mayor.isEmpty()) {
+            ctx.getSource().sendSuccess(
+                    () -> Component.translatable("command.oneforallsurvival.role.mayor.none"), false);
+            return 0;
+        }
+        String name = playerName(server, mayor.get());
+        ctx.getSource().sendSuccess(
+                () -> Component.translatable("command.oneforallsurvival.role.mayor.show", name), false);
+        return 1;
+    }
+
+    /** Nomme le maire ; l'ancien perd le statut, et le message le dit à l'équipe du serveur. */
+    private static int setMayor(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        GameProfile profile = singleProfile(ctx);
+        if (profile == null) {
+            return 0;
+        }
+        MinecraftServer server = ctx.getSource().getServer();
+        RoleSavedData data = RoleSavedData.get(server);
+        if (data.book().isMayor(profile.getId())) {
+            return fail(ctx, Component.translatable("command.oneforallsurvival.role.mayor.already", profile.getName()));
+        }
+        Optional<UUID> previous = data.book().appointMayor(profile.getId());
+        data.setDirty();
+        RoleEvents.refreshAll(server);
+        Component message = previous
+                .map(old -> (Component) Component.translatable("command.oneforallsurvival.role.mayor.replaced",
+                        profile.getName(), playerName(server, old)))
+                .orElseGet(() -> Component.translatable("command.oneforallsurvival.role.mayor.set", profile.getName()));
+        ctx.getSource().sendSuccess(() -> message, true);
+        return 1;
+    }
+
+    private static int removeMayor(CommandContext<CommandSourceStack> ctx) {
+        MinecraftServer server = ctx.getSource().getServer();
+        RoleSavedData data = RoleSavedData.get(server);
+        Optional<UUID> removed = data.book().removeMayor();
+        if (removed.isEmpty()) {
+            return fail(ctx, Component.translatable("command.oneforallsurvival.role.mayor.none_to_remove"));
+        }
+        data.setDirty();
+        RoleEvents.refreshAll(server);
+        String name = playerName(server, removed.get());
+        ctx.getSource().sendSuccess(
+                () -> Component.translatable("command.oneforallsurvival.role.mayor.removed", name), true);
         return 1;
     }
 }

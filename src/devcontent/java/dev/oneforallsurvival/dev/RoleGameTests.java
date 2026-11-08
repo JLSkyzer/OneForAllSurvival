@@ -1,12 +1,22 @@
 package dev.oneforallsurvival.dev;
 
 import dev.oneforallsurvival.role.RoleBook;
+import dev.oneforallsurvival.role.RoleEvents;
 import dev.oneforallsurvival.role.RoleGate;
 import dev.oneforallsurvival.role.RoleSavedData;
 import dev.oneforallsurvival.role.RoleTeams;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+import net.minecraft.commands.CommandSource;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.HoverEvent;
+import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.world.phys.Vec3;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.scores.PlayerTeam;
@@ -24,10 +34,10 @@ public final class RoleGameTests {
 
     private RoleGameTests() {}
 
-    /** Retire les équipes {@code ofas_*} et celles que le test a nommées. */
+    /** Retire les équipes {@code ofas_*}, celle du maire, et celles que le test a nommées. */
     private static void nettoyer(Scoreboard scoreboard, String... autres) {
         for (PlayerTeam team : new ArrayList<>(scoreboard.getPlayerTeams())) {
-            if (team.getName().startsWith("ofas_")) {
+            if (team.getName().startsWith("ofas_") || team.getName().equals(RoleTeams.MAYOR_TEAM)) {
                 scoreboard.removePlayerTeam(team);
             }
         }
@@ -206,6 +216,202 @@ public final class RoleGameTests {
         } finally {
             scoreboard.removePlayerFromTeam("Dev");
             nettoyer(scoreboard);
+        }
+    }
+
+    /** Le maire quitte l'équipe de son métier pour celle du maire, dont le préfixe porte les deux. */
+    @GameTest(template = "test/plancher", batch = "roles_maire_prefixe")
+    public static void lePrefixeDuMaireCombineStatutEtMetier(GameTestHelper helper) {
+        Scoreboard scoreboard = helper.getLevel().getServer().getScoreboard();
+        RoleBook book = RoleBook.withBuiltins();
+        UUID dev = UUID.randomUUID();
+        try {
+            book.assign(dev, "ingenieur");
+            book.appointMayor(dev);
+            RoleTeams.syncTeams(scoreboard, book);
+            RoleTeams.applyPlayer(scoreboard, "Dev", dev, book);
+            PlayerTeam team = scoreboard.getPlayersTeam("Dev");
+            helper.assertTrue(team != null && RoleTeams.MAYOR_TEAM.equals(team.getName()),
+                    "équipe du maire : " + (team == null ? "aucune" : team.getName()));
+            String prefixe = team.getPlayerPrefix().getString();
+            helper.assertTrue("[Maire] [Ingénieur] ".equals(prefixe), "préfixe du maire : " + prefixe);
+
+            book.removeMayor();
+            RoleTeams.syncTeams(scoreboard, book);
+            helper.assertTrue(scoreboard.getPlayerTeam(RoleTeams.MAYOR_TEAM) == null,
+                    "l'équipe du maire existe sans maire");
+            RoleTeams.applyPlayer(scoreboard, "Dev", dev, book);
+            PlayerTeam apres = scoreboard.getPlayersTeam("Dev");
+            helper.assertTrue(apres != null && "ofas_ingenieur".equals(apres.getName()),
+                    "équipe après le mandat : " + (apres == null ? "aucune" : apres.getName()));
+            helper.succeed();
+        } finally {
+            scoreboard.removePlayerFromTeam("Dev");
+            nettoyer(scoreboard);
+        }
+    }
+
+    /** Source de commande qui garde les messages renvoyés, pour lire ce que l'équipe du serveur verrait. */
+    private static final class SourceEcoute implements CommandSource {
+        final List<Component> messages = new ArrayList<>();
+
+        @Override
+        public void sendSystemMessage(Component message) {
+            messages.add(message);
+        }
+
+        @Override
+        public boolean acceptsSuccess() {
+            return true;
+        }
+
+        @Override
+        public boolean acceptsFailure() {
+            return true;
+        }
+
+        @Override
+        public boolean shouldInformAdmins() {
+            return false;
+        }
+
+        /** Clé et arguments (en texte) du dernier message, puis oubli des messages. */
+        String dernier() {
+            Component c = messages.isEmpty() ? Component.empty() : messages.get(messages.size() - 1);
+            messages.clear();
+            // sendFailure enveloppe le message dans un texte vide coloré en rouge.
+            if (!(c.getContents() instanceof TranslatableContents) && !c.getSiblings().isEmpty()) {
+                c = c.getSiblings().get(0);
+            }
+            if (c.getContents() instanceof TranslatableContents t) {
+                StringBuilder sb = new StringBuilder(t.getKey());
+                // Une exception dans la commande : son message est dans l'infobulle de « command.failed ».
+                HoverEvent survol = c.getStyle().getHoverEvent();
+                Component detail = survol == null ? null : survol.getValue(HoverEvent.Action.SHOW_TEXT);
+                if (detail != null) {
+                    sb.append(" (").append(detail.getString()).append(')');
+                }
+                for (Object arg : t.getArgs()) {
+                    sb.append('|').append(arg instanceof Component a ? a.getString() : String.valueOf(arg));
+                }
+                return sb.toString();
+            }
+            return c.getString();
+        }
+    }
+
+    private static String commande(MinecraftServer server, SourceEcoute ecoute, String texte) {
+        CommandSourceStack source = server.createCommandSourceStack().withSource(ecoute);
+        server.getCommands().performPrefixedCommand(source, texte);
+        return ecoute.dernier();
+    }
+
+    private static String equipe(Scoreboard scoreboard, JoueurDeTest j) {
+        PlayerTeam team = scoreboard.getPlayersTeam(j.joueur().getGameProfile().getName());
+        return team == null ? "aucune" : team.getName();
+    }
+
+    /**
+     * Le cycle complet par les commandes, avec de vrais joueurs connectés : nommer, changer le métier du
+     * maire, le remplacer, relire la sauvegarde, le retirer. Le nom affiché (chat, liste des joueurs) suit.
+     */
+    @GameTest(template = "test/plancher", batch = "roles_maire_commandes", timeoutTicks = 100)
+    public static void lesCommandesDuMaireNommentRemplacentEtRetirent(GameTestHelper helper) {
+        MinecraftServer server = helper.getLevel().getServer();
+        Scoreboard scoreboard = server.getScoreboard();
+        RoleSavedData data = RoleSavedData.get(server);
+        Optional<UUID> avant = data.book().mayor();
+        SourceEcoute ecoute = new SourceEcoute();
+        JoueurDeTest a = null;
+        JoueurDeTest b = null;
+        try {
+            data.book().removeMayor();
+            RoleEvents.refreshAll(server);
+            a = JoueurDeTest.rejoindre(helper.getLevel(), "MaireEssaiA", helper.absoluteVec(new Vec3(2.5, 1.0, 2.5)));
+            b = JoueurDeTest.rejoindre(helper.getLevel(), "MaireEssaiB", helper.absoluteVec(new Vec3(3.5, 1.0, 2.5)));
+            // Un sélecteur et non un pseudo : le serveur de GameTest n'a pas de cache de profils, et
+            // GameProfileArgument ne résout un pseudo que par ce cache.
+            String metier = commande(server, ecoute, "role set @a[name=MaireEssaiA] ingenieur");
+            helper.assertTrue(metier.startsWith("command.oneforallsurvival.role.set|"), "métier de A : " + metier);
+            commande(server, ecoute, "role set @a[name=MaireEssaiB] citoyen");
+
+            String vide = commande(server, ecoute, "role mayor");
+            helper.assertTrue("command.oneforallsurvival.role.mayor.none".equals(vide), "sans maire : " + vide);
+            String rien = commande(server, ecoute, "role mayor remove");
+            helper.assertTrue("command.oneforallsurvival.role.mayor.none_to_remove".equals(rien),
+                    "retrait sans maire : " + rien);
+            helper.assertTrue(!RoleGate.canDoMayorWork(a.joueur()), "un non-maire peut agir en maire");
+
+            String nomme = commande(server, ecoute, "role mayor set @a[name=MaireEssaiA]");
+            helper.assertTrue("command.oneforallsurvival.role.mayor.set|MaireEssaiA".equals(nomme), "nomination : " + nomme);
+            helper.assertTrue(RoleGate.isMayor(a.joueur()) && RoleGate.canDoMayorWork(a.joueur()),
+                    "MaireEssaiA n'est pas reconnu maire");
+            helper.assertTrue("ingenieur".equals(data.book().roleOf(a.uuid()).id()), "le maire a perdu son métier");
+            helper.assertTrue(RoleTeams.MAYOR_TEAM.equals(equipe(scoreboard, a)), "équipe de A : " + equipe(scoreboard, a));
+            String affiche = a.joueur().getDisplayName().getString();
+            helper.assertTrue("[Maire] [Ingénieur] MaireEssaiA".equals(affiche), "nom affiché de A : " + affiche);
+            String deja = commande(server, ecoute, "role mayor set @a[name=MaireEssaiA]");
+            helper.assertTrue("command.oneforallsurvival.role.mayor.already|MaireEssaiA".equals(deja), "renomination : " + deja);
+            String qui = commande(server, ecoute, "role mayor");
+            helper.assertTrue("command.oneforallsurvival.role.mayor.show|MaireEssaiA".equals(qui), "consultation : " + qui);
+
+            commande(server, ecoute, "role set @a[name=MaireEssaiA] medecin");
+            affiche = a.joueur().getDisplayName().getString();
+            helper.assertTrue("[Maire] [Médecin] MaireEssaiA".equals(affiche), "après changement de métier : " + affiche);
+
+            String remplace = commande(server, ecoute, "role mayor set @a[name=MaireEssaiB]");
+            helper.assertTrue("command.oneforallsurvival.role.mayor.replaced|MaireEssaiB|MaireEssaiA".equals(remplace),
+                    "remplacement : " + remplace);
+            helper.assertTrue(!RoleGate.isMayor(a.joueur()) && RoleGate.isMayor(b.joueur()), "le maire n'a pas changé");
+            helper.assertTrue("ofas_medecin".equals(equipe(scoreboard, a)), "équipe de l'ancien maire : " + equipe(scoreboard, a));
+            affiche = a.joueur().getDisplayName().getString();
+            helper.assertTrue("[Médecin] MaireEssaiA".equals(affiche), "nom de l'ancien maire : " + affiche);
+            affiche = b.joueur().getDisplayName().getString();
+            helper.assertTrue("[Maire] [Citoyen] MaireEssaiB".equals(affiche), "nom du nouveau maire : " + affiche);
+
+            RoleBook relu = RoleBook.load(data.save(new CompoundTag()));
+            helper.assertTrue(relu.isMayor(b.uuid()), "le maire ne survit pas à la sauvegarde");
+
+            String retire = commande(server, ecoute, "role mayor remove");
+            helper.assertTrue("command.oneforallsurvival.role.mayor.removed|MaireEssaiB".equals(retire), "retrait : " + retire);
+            helper.assertTrue(data.book().mayor().isEmpty(), "il reste un maire");
+            helper.assertTrue(scoreboard.getPlayerTeam(RoleTeams.MAYOR_TEAM) == null, "l'équipe du maire existe encore");
+            affiche = b.joueur().getDisplayName().getString();
+            helper.assertTrue("[Citoyen] MaireEssaiB".equals(affiche), "nom après le mandat : " + affiche);
+            helper.succeed();
+        } finally {
+            for (JoueurDeTest j : new JoueurDeTest[] {a, b}) {
+                if (j != null) {
+                    data.book().assign(j.uuid(), RoleBook.DEFAULT_ROLE_ID);
+                    j.quitter();
+                }
+            }
+            data.book().removeMayor();
+            avant.ifPresent(data.book()::appointMayor);
+            data.setDirty();
+            nettoyer(scoreboard);
+        }
+    }
+
+    /** Sans le niveau 2, un joueur ne nomme pas de maire : la commande lui est cachée. */
+    @GameTest(template = "test/plancher", batch = "roles_maire_permission", timeoutTicks = 100)
+    public static void unJoueurOrdinaireNeNommePasDeMaire(GameTestHelper helper) {
+        MinecraftServer server = helper.getLevel().getServer();
+        RoleSavedData data = RoleSavedData.get(server);
+        Optional<UUID> avant = data.book().mayor();
+        JoueurDeTest j = null;
+        try {
+            j = JoueurDeTest.rejoindre(helper.getLevel(), "MaireEssaiC", helper.absoluteVec(new Vec3(2.5, 1.0, 2.5)));
+            server.getCommands().performPrefixedCommand(j.joueur().createCommandSourceStack(),
+                    "role mayor set @a[name=MaireEssaiC]");
+            helper.assertTrue(!data.book().isMayor(j.uuid()), "un joueur ordinaire s'est nommé maire");
+            helper.assertTrue(data.book().mayor().equals(avant), "le maire a changé");
+            helper.succeed();
+        } finally {
+            if (j != null) {
+                j.quitter();
+            }
+            nettoyer(server.getScoreboard());
         }
     }
 }
