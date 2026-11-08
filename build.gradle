@@ -162,6 +162,13 @@ minecraft {
             args '--username', 'Dev2'
         }
 
+        // Essais de l'écran titre en français (dev seulement) : son propre dossier, pour ne jamais toucher
+        // aux réglages de run/. Préparé par prepareTitleRun (jar de service, fml.toml, options.txt).
+        titleFr {
+            parent minecraft.runs.client
+            workingDirectory project.file('run-titre')
+        }
+
         // Démonstration filmée (dev seulement) : un client qui se pilote seul, monte les scènes des
         // réseaux et enregistre ses images dans run-demo/frames. Voir DemoReseaux (devcontent).
         demo {
@@ -560,6 +567,61 @@ tasks.register('installEarlyWindow', Copy) {
 
 tasks.matching { it.name == 'runClient' }.configureEach {
     mustRunAfter 'installEarlyWindow'
+}
+
+// Dossier de `titleFr` : le jar de service est recopié à chaque fois (il change), fml.toml et options.txt
+// ne sont écrits que s'ils manquent, pour ne pas écraser ce qu'on y règle à la main. Écriture en UTF-8 sans BOM.
+def titleRunDir = project.file('run-titre')
+def prepareTitleRun = tasks.register('prepareTitleRun', Copy) {
+    group = 'build'
+    description = 'Prépare run-titre/ : jar de service, fml.toml (fenêtre lostisland) et options.txt en français.'
+    from earlyWindowJar
+    into new File(titleRunDir, 'mods')
+    doFirst {
+        delete project.fileTree(new File(titleRunDir, 'mods')).matching { include "${mod_id}-earlywindow-*.jar" }
+    }
+    doLast {
+        def fml = new File(titleRunDir, 'config/fml.toml')
+        if (!fml.exists()) {
+            fml.parentFile.mkdirs()
+            fml.write("""#Early window height
+earlyWindowHeight = 480
+#Enable forge global version checking
+versionCheck = true
+#Should we control the window. Disabling this disables new GL features and can be bad for mods that rely on them.
+earlyWindowControl = true
+#Early window framebuffer scale
+earlyWindowFBScale = 1
+#Early window provider
+earlyWindowProvider = "lostisland"
+#Early window width
+earlyWindowWidth = 854
+#Early window starts maximized
+earlyWindowMaximized = false
+#Default config path for servers
+defaultConfigPath = "defaultconfigs"
+#Disables Optimized DFU client-side - already disabled on servers
+disableOptimizedDFU = true
+#Skip specific GL versions, may help with buggy graphics card drivers
+earlyWindowSkipGLVersions = []
+#Whether to log a help message on first attempt, to aid troubleshooting. This setting should automatically disable itself after a successful launch
+earlyWindowLogHelpMessage = false
+#Max threads for early initialization parallelism,  -1 is based on processor count
+maxThreads = -1
+#Squir?
+earlyWindowSquir = false
+#Whether to show CPU usage stats in early window
+earlyWindowShowCPU = false
+""", 'UTF-8')
+        }
+        def options = new File(titleRunDir, 'options.txt')
+        if (!options.exists()) {
+            options.write('lang:fr_fr' + '\n', 'UTF-8')
+        }
+    }
+}
+tasks.matching { it.name == 'runTitleFr' }.configureEach {
+    dependsOn prepareTitleRun
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.
