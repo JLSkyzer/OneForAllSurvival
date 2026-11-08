@@ -237,7 +237,8 @@ indique quelles sorties sont coupées. Les priorités se règlent dans son inter
 **8. Compteurs et factures.**
 - Le **compteur** se branche en ligne, totalise les FE qui passent et porte le nom de l'abonné.
 - Seul l'Ingénieur le relève, avec le testeur, et obtient un **relevé** : abonné, consommation, date.
-- Le mod ne gère **aucune monnaie** : prix et paiement relèvent du RP.
+- Le mod ne gère **aucune monnaie** : prix et paiement relèvent du RP. *Remplacé le 2026-11-08 par le
+  [cahier de l'économie](2026-11-08-economie-design.md) : le relevé produit une facture d'électricité.*
 - Le **disjoncteur d'abonné** coupe la ligne et se verrouille par un scellé. Seul l'Ingénieur peut
   poser ou retirer un scellé, et un disjoncteur scellé ne se réenclenche pas.
 - Casser un compteur ou un disjoncteur scellé reste possible, le mod ne protège pas contre la casse : la
@@ -385,7 +386,7 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 - le chauffe-eau exige de l'eau potable, ce qui donne un débouché au dessalinisateur ;
 - l'usure ne touche que les machines de ce mod en première version ;
 - pas de jauge de moral, mais un effet Bien-être sans soin ;
-- pas de monnaie gérée par le mod ;
+- pas de monnaie gérée par le mod (remplacé par le [cahier de l'économie](2026-11-08-economie-design.md)) ;
 - armoire frigorifique plutôt qu'une pièce froide multi-bloc ;
 - débris et caches placés à la main ;
 - Farmer's Delight comme dépendance obligatoire ;

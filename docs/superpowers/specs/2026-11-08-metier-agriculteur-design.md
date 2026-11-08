@@ -29,7 +29,8 @@ qu'un citoyen soit privé de son potager.**
 - **Les saisons** : non prévues. Si le pack ajoute Serene Seasons, la serre devra s'y brancher plutôt
   que les recréer.
 - **De nouvelles cultures** : aucune n'est ajoutée ici.
-- **La monnaie** : comme pour l'ingénieur, prix et paiement relèvent du RP.
+- **La monnaie** : traitée par le [cahier de l'économie](2026-11-08-economie-design.md), qui prévoit l'étal de marché et le rachat
+  des dépôts du grenier.
 - **L'automatisation par Create** (moissonneuse, déployeur) : elle reste possible, mais aucune machine
   dédiée n'est ajoutée.
 

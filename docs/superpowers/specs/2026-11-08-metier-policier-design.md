@@ -31,7 +31,7 @@ sanction, sans que le mod désigne lui-même le coupable.**
 - **Empreintes digitales, fichier d'empreintes, marquage des biens, carte d'identité, permis, salle des
   scellés, bracelet électronique, insigne** : proposés, non retenus.
 - **Communication** (radio de police) : prévue plus tard.
-- **Monnaie** : une amende a un montant écrit, son paiement relève du RP.
+- **Monnaie** : traitée par le [cahier de l'économie](2026-11-08-economie-design.md) ; une amende y devient une facture publique.
 
 ### Ce qui serait un échec, même si tout fonctionne
 - Un mécanisme qui **désigne le coupable** à la place de l'enquête.
@@ -192,7 +192,8 @@ La numérotation prolonge celle du médecin. Toutes les valeurs chiffrées sont 
   **montant**.
 - Le contrevenant reçoit un **avis de contravention** (objet) et la ligne s'inscrit au casier comme
   **impayée**.
-- Le policier la marque **payée** quand le règlement a eu lieu en RP. Le mod ne gère aucune monnaie.
+- Le policier la marque **payée** quand le règlement a eu lieu en RP. Avec le [cahier de l'économie](2026-11-08-economie-design.md), le paiement au guichet la marque payée
+  automatiquement.
 
 **61. Cellule.**
 - La **porte de cellule** est un bloc que seul un policier verrouille et déverrouille. Fermée, elle
