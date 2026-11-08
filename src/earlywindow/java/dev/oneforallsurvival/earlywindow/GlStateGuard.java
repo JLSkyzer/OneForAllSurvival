@@ -78,8 +78,8 @@ public final class GlStateGuard {
     public void restore() {
         for (int i = 0; i < textures2d.length; i++) {
             glActiveTexture(GL_TEXTURE0 + i);
-            glBindTexture(GL_TEXTURE_2D, textures2d[i]);
-            glBindTexture(GL_TEXTURE_2D_ARRAY, texturesArray[i]);
+            glBindTexture(GL_TEXTURE_2D, alive(textures2d[i]));
+            glBindTexture(GL_TEXTURE_2D_ARRAY, alive(texturesArray[i]));
         }
         glActiveTexture(activeTexture);
         glUseProgram(program);
@@ -97,6 +97,16 @@ public final class GlStateGuard {
         glClearColor(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);
         glPixelStorei(GL_UNPACK_ALIGNMENT, unpackAlignment);
         glPixelStorei(GL_PACK_ALIGNMENT, packAlignment);
+    }
+
+    /**
+     * La texture photographiée, ou 0 si elle a été supprimée entre-temps. Une unité que Minecraft ne touche pas
+     * peut garder une texture de la scène (liée du temps de la fenêtre anticipée, même contexte) ; quand la scène est libérée sous cette garde,
+     * les relier donnerait {@code GL_INVALID_OPERATION} (nom qui n'est plus une texture), et la suppression les a
+     * déjà déliées.
+     */
+    private static int alive(int texture) {
+        return texture == 0 || glIsTexture(texture) ? texture : 0;
     }
 
     private static void enable(int cap, boolean on) {

@@ -3,6 +3,7 @@ package dev.oneforallsurvival.earlywindow.scene.effects;
 import static org.lwjgl.opengl.GL32C.*;
 
 import dev.oneforallsurvival.earlywindow.scene.BitmapFont;
+import dev.oneforallsurvival.earlywindow.scene.PixelUnpack;
 import java.nio.ByteBuffer;
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -59,14 +60,18 @@ final class FontAtlas {
                     }
                 }
             }
-            int previous = glGetInteger(GL_UNPACK_ALIGNMENT);
-            glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-            texture = glGenTextures();
-            glBindTexture(GL_TEXTURE_2D, texture);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, WIDTH, height, 0, GL_RED, GL_UNSIGNED_BYTE, pixels);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-            glPixelStorei(GL_UNPACK_ALIGNMENT, previous);
+            // Une scène recréée au retour d'un monde envoie l'atlas dans le contexte de Minecraft, où
+            // GL_UNPACK_SKIP_ROWS peut rester non nul : sans état neutre, le pilote lit au-delà du tampon.
+            PixelUnpack unpack = PixelUnpack.neutral();
+            try {
+                texture = glGenTextures();
+                glBindTexture(GL_TEXTURE_2D, texture);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, WIDTH, height, 0, GL_RED, GL_UNSIGNED_BYTE, pixels);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            } finally {
+                unpack.restore();
+            }
         } finally {
             MemoryUtil.memFree(pixels);
         }

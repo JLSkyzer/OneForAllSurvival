@@ -249,20 +249,9 @@ public final class TextureStore implements AutoCloseable {
         long start = System.nanoTime();
         // Dans le contexte de Minecraft (tâche 8), l'état de lecture des pixels peut être réglé autrement : on
         // le remet aux valeurs par défaut le temps de l'envoi, puis on le rend tel quel.
-        int previousAlignment = glGetInteger(GL_UNPACK_ALIGNMENT);
-        int previousRowLength = glGetInteger(GL_UNPACK_ROW_LENGTH);
-        int previousSkipRows = glGetInteger(GL_UNPACK_SKIP_ROWS);
-        int previousSkipPixels = glGetInteger(GL_UNPACK_SKIP_PIXELS);
-        int previousImageHeight = glGetInteger(GL_UNPACK_IMAGE_HEIGHT);
-        int previousSkipImages = glGetInteger(GL_UNPACK_SKIP_IMAGES);
-        glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-        glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
-        glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
-        glPixelStorei(GL_UNPACK_IMAGE_HEIGHT, 0);
-        glPixelStorei(GL_UNPACK_SKIP_IMAGES, 0);
+        PixelUnpack unpack = PixelUnpack.neutral();
         int previous2d = glGetInteger(GL_TEXTURE_BINDING_2D);
         int previousArray = glGetInteger(GL_TEXTURE_BINDING_2D_ARRAY);
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
         try {
             Decoded d;
             while (!closed && (d = queue.poll()) != null) {
@@ -276,12 +265,7 @@ public final class TextureStore implements AutoCloseable {
                 }
             }
         } finally {
-            glPixelStorei(GL_UNPACK_ALIGNMENT, previousAlignment);
-            glPixelStorei(GL_UNPACK_ROW_LENGTH, previousRowLength);
-            glPixelStorei(GL_UNPACK_SKIP_ROWS, previousSkipRows);
-            glPixelStorei(GL_UNPACK_SKIP_PIXELS, previousSkipPixels);
-            glPixelStorei(GL_UNPACK_IMAGE_HEIGHT, previousImageHeight);
-            glPixelStorei(GL_UNPACK_SKIP_IMAGES, previousSkipImages);
+            unpack.restore();
             glBindTexture(GL_TEXTURE_2D, previous2d);
             glBindTexture(GL_TEXTURE_2D_ARRAY, previousArray);
         }
