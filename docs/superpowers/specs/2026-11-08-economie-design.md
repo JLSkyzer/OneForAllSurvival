@@ -249,8 +249,6 @@ Catégories proposées en plus, choisies pour ne pas être des corvées :
 | Pêcher | Pêcher 8 poissons | Une activité calme |
 | Cuisiner | Préparer 3 plats de Farmer's Delight | Donne un usage aux recettes |
 | Livrer | Déposer 16 pains au grenier communal | L'effort profite à toute la ville |
-| Commercer | Vendre 5 lots à son étal | Fait tourner l'économie entre joueurs |
-| Explorer | Atteindre un lieu placé par l'équipe | Fait découvrir l'île, sans révéler son mystère |
 | Élever | Faire naître 4 animaux | Fait vivre les enclos |
 | Métier | Réparer 2 machines, soigner 3 joueurs, dresser 2 contraventions | Valorise les rôles, proposé seulement au rôle concerné |
 | Conserver | Sécher ou fumer 10 aliments | Prépare les réserves |
@@ -259,7 +257,6 @@ Catégories proposées en plus, choisies pour ne pas être des corvées :
   - un bloc **posé par un joueur** ne compte pas pour une quête de casse, et un bloc posé puis cassé
     aussitôt ne compte pas pour une quête de pose ;
   - les mobs comptent selon les mêmes règles que le butin (pas de générateur, pas de ferme) ;
-  - une quête de commerce ne compte que les ventes à **un autre joueur**.
   Le suivi des blocs posés est limité en taille et oublie les plus anciens.
 - L'équipe du serveur peut ajouter des **modèles** et lancer des **quêtes d'événement** communes à tous,
   par commande.
