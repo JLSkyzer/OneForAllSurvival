@@ -25,6 +25,7 @@ uniform vec3 uView;
 uniform vec2 uPlate;
 uniform vec2 uOut;
 uniform vec2 uSize;        // taille de la demi-plaque de mer
+uniform float uOpacity;    // fondu d'arrivée de la mer (dernier groupe décodé), 1 ensuite
 
 const vec3 MOON_GLINT = vec3(199.0, 214.0, 255.0) / 255.0; // #c7d6ff
 const vec3 SUN_GLINT = vec3(255.0, 204.0, 122.0) / 255.0;  // #ffcc7a
@@ -49,6 +50,6 @@ void main() {
     color += texture(uGlintMoon, uv).r * spark * MOON_GLINT * uMoonPower;
     color += texture(uGlintSun, uv).r * spark * SUN_GLINT * uSunPower;
     color = clamp(color, 0.0, 1.2);
-    float a = texture(uMask, uv).r;
+    float a = texture(uMask, uv).r * uOpacity;
     fragColor = vec4(color * a, a);
 }

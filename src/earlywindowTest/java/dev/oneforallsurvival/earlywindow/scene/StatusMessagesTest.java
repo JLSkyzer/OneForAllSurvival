@@ -66,6 +66,12 @@ class StatusMessagesTest {
     }
 
     @Test
+    void uneBarreSansEtapesNAffichePasZeroSurZero() {
+        // « EARLY » (Loading mods) n'a pas d'étapes : pas de « mods 0/0 ».
+        assertEquals("mods", StatusMessages.of(Phase.MOD_LOADING, "Loading mods", 0, 0).detail());
+    }
+
+    @Test
     void laLigneAfficheeEstLeThemeEtLeDetailEntreParentheses() {
         // Table de la spec, texte exact.
         assertEquals("Les moteurs toussent… (démarrage)", StatusMessages.of(Phase.FORGE_START, "", 0, 0).line());

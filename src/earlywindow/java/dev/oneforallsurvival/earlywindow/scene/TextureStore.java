@@ -71,7 +71,8 @@ public final class TextureStore implements AutoCloseable {
         for (String g : List.of(SKY, PLATES, SEA, FX, UI)) {
             remaining.put(g, 0);
         }
-        // Ordre de décodage = ordre d'affichage : ciel, décor, mer, effets.
+        // Ordre de décodage : ciel, interface (barre et texte, légers, visibles tôt), décor, effets, mer.
+        // Le récit attend ciel, décor et effets ; la mer, la plus lourde (48 images), arrive en dernier.
         for (String k : List.of("night", "pre", "sun")) {
             add(SKY, "sky/sky_" + k + ".png", 3, false);
         }
@@ -83,6 +84,13 @@ public final class TextureStore implements AutoCloseable {
         add(SKY, "sky/cloudbank_1.png", 4, false);
         entries.add(new Entry(SKY, CLOUDS, 4, false, true, -1, false));
         remaining.merge(SKY, 1, Integer::sum);
+        // Logo, sa lueur, son masque de reflet, icône de l'avion : facultatifs (un manque retire l'effet seul).
+        for (SceneManifest.Letter letter : manifest.logo().letters()) {
+            addOptional(UI, letter.file(), 4, false);
+        }
+        addOptional(UI, "ui/logo/glow.png", 4, false);
+        addOptional(UI, "ui/logo/face_mask.png", 4, false);
+        addOptional(UI, "ui/plane_icon.png", 4, false);
         for (String layer : List.of("far", "mid", "fg")) {
             for (String k : List.of("night", "pre", "sun")) {
                 add(PLATES, "plates/" + layer + "_" + k + ".png", 4, true);
@@ -93,13 +101,6 @@ public final class TextureStore implements AutoCloseable {
         // Masques du feuillage (vent) : facultatifs ; sans eux, le décor reste immobile.
         for (String layer : List.of("far", "mid", "fg")) {
             addOptional(PLATES, "plates/foliage_" + layer + ".png", 1, false);
-        }
-        for (String name : List.of("depth", "shallow", "mask", "glint_moon", "glint_sun")) {
-            add(SEA, "sea/" + name + ".png", 1, false);
-        }
-        for (int i = 0; i < seaFrames; i++) {
-            entries.add(new Entry(SEA, String.format("sea/sea_%02d.png", i), 3, false, false, i, false));
-            remaining.merge(SEA, 1, Integer::sum);
         }
         // Halo réduit jusqu'à 64 px (feux de camp) : mipmaps, comme le filtre de réduction de resized().
         entries.add(new Entry(FX, "fx/halo.png", 4, false, false, -1, true));
@@ -123,13 +124,13 @@ public final class TextureStore implements AutoCloseable {
         for (String plane : CrashTrack.spritePaths(opener)) {
             addOptional(FX, plane, 4, false);
         }
-        // Logo, sa lueur, son masque de reflet, icône de l'avion : facultatifs (un manque retire l'effet seul).
-        for (SceneManifest.Letter letter : manifest.logo().letters()) {
-            addOptional(UI, letter.file(), 4, false);
+        for (String name : List.of("depth", "shallow", "mask", "glint_moon", "glint_sun")) {
+            add(SEA, "sea/" + name + ".png", 1, false);
         }
-        addOptional(UI, "ui/logo/glow.png", 4, false);
-        addOptional(UI, "ui/logo/face_mask.png", 4, false);
-        addOptional(UI, "ui/plane_icon.png", 4, false);
+        for (int i = 0; i < seaFrames; i++) {
+            entries.add(new Entry(SEA, String.format("sea/sea_%02d.png", i), 3, false, false, i, false));
+            remaining.merge(SEA, 1, Integer::sum);
+        }
     }
 
     /** Ressources du jar de service ({@code lostisland/loading/}) et texture vanilla des nuages du jeu. */

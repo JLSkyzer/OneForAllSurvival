@@ -74,6 +74,7 @@ public final class SceneRenderer implements AutoCloseable {
     private FoliageWind wind; // null : retiré (shader refusé, tracé en échec)
     private Bloom bloom;      // null : retiré
     private boolean windEnabled = true;
+    private float seaOpacity = 1f;
     // Créé au premier rendu : le constructeur ne fait aucun appel GL direct (testable sans contexte).
     private GlQuad quad;
     private final Program layer;
@@ -241,6 +242,14 @@ public final class SceneRenderer implements AutoCloseable {
     }
 
     /**
+     * Opacité de la mer (0 à 1) : la fenêtre anticipée la fait monter quand le groupe {@link TextureStore#SEA},
+     * décodé en dernier, arrive, pour qu'elle apparaisse en fondu et non d'un coup. 1 par défaut.
+     */
+    public void setSeaOpacity(float opacity) {
+        seaOpacity = Math.max(0f, Math.min(1f, opacity));
+    }
+
+    /**
      * Dessine une image de la scène dans le framebuffer lié au moment de l'appel (fenêtre ou FBO de capture),
      * sur toute sa surface {@code fbWidth} x {@code fbHeight}. Thread GL.
      */
@@ -307,7 +316,7 @@ public final class SceneRenderer implements AutoCloseable {
                 drawMoonRays(a, real);
             }
         }
-        if (textures.ready(TextureStore.SEA)) {
+        if (textures.ready(TextureStore.SEA) && seaOpacity > 0f) {
             drawSea(a, real);
         }
         if (textures.ready(TextureStore.PLATES)) {
@@ -518,6 +527,7 @@ public final class SceneRenderer implements AutoCloseable {
         glUniform1f(sea.loc("uHorizon"), m.horizonRow());
         glUniform2f(sea.loc("uSize"), manifest.plateW() / 2f, manifest.plateH() / 2f);
         glUniform3f(sea.loc("uView"), v.zoom(), v.offX(), v.offY());
+        glUniform1f(sea.loc("uOpacity"), seaOpacity);
         quad.draw();
         glActiveTexture(GL_TEXTURE0);
     }

@@ -65,7 +65,8 @@ public final class StatusMessages {
     }
 
     private static String detailMods(String label, int current, int steps) {
-        String compte = "mods " + current + "/" + steps;
+        // Barre sans étapes (« EARLY », « Loading mods ») : pas de compte « 0/0 ».
+        String compte = steps > 0 ? "mods " + current + "/" + steps : "mods";
         String nom = label == null ? "" : label.trim();
         return NOM_DE_MOD.matcher(nom).matches() ? compte + " : " + nom : compte;
     }

@@ -112,6 +112,15 @@ minecraft {
         client {
             // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
             property 'forge.enabledGameTestNamespaces', mod_id
+            // Fenêtre de chargement : `-PsceneFrames=<dossier>` enregistre le film de la scène (relatif à run/),
+            // `-PearlyWindowFail` force le repli sur l'écran de Forge. Un -D sur la ligne de Gradle n'atteindrait
+            // pas le jeu : ce sont des propriétés du lancement.
+            if (project.hasProperty('sceneFrames')) {
+                property 'lostisland.frames', project.sceneFrames
+            }
+            if (project.hasProperty('earlyWindowFail')) {
+                property 'lostisland.earlywindow.fail', 'true'
+            }
         }
 
         // Second joueur pour essayer le multijoueur et les rôles : se connecte au client
