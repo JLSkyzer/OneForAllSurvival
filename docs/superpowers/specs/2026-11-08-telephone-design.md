@@ -55,8 +55,8 @@ joueur l'entendent parler au téléphone.**
 ### Interface : MCEF
 - Le téléphone s'affiche avec **MCEF** (Minecraft Chromium Embedded Framework), choix de Killian.
 - **Version retenue : le fork de Keksuccino** (2.2.0 pour Forge 1.20.1, mars 2026), choisi par
-  l'auteur à la demande de Killian. C'est la version la plus récente trouvée, et son auteur maintient
-  aussi FancyMenu. La version de CinemaMod (`mcef-forge` 2.1.6) date d'octobre 2024. Relevé sur
+  l'auteur à la demande de Killian. C'est la version la plus récente trouvée. Le mod n'utilise que la
+  bibliothèque MCEF, aucun autre mod de cet auteur. La version de CinemaMod (`mcef-forge` 2.1.6) date d'octobre 2024. Relevé sur
   CurseForge et les pages de mods le 2026-11-08. **Au lot T1, vérifier** sa version de Chromium, son
   API et sa licence ; revenir à CinemaMod si le fork pose problème.
 - MCEF est un mod **client seulement**. Il télécharge Chromium (environ 100 Mo, chiffre de la page
