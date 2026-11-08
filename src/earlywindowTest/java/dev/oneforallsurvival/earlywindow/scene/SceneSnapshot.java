@@ -22,8 +22,11 @@ import org.lwjgl.system.MemoryUtil;
  *
  * <pre>./gradlew sceneSnapshot --args="--t 3,12,22,33 --p 0.69 --size 1920x1080 --out build/scene-snapshots"</pre>
  *
- * <p>Chaque image est rendue avec {@code realTime = storyTime}, comme la vidéo de compose.py. Toutes les
- * textures sont attendues avant la première image.
+ * <p>{@code --t} donne le <em>temps réel</em> de chaque image. Le temps du récit s'en déduit par {@link StoryClock},
+ * chargement non terminé : il suit le temps réel puis se fige à {@link StoryClock#HOLD} (33,6 s). Jusqu'à 33,6 s,
+ * les deux horloges sont donc égales, comme dans la vidéo de compose.py ; au-delà ({@code --t 60,60.1,120}),
+ * l'aube est tenue et seuls les effets du temps réel (mer, nuages, feux, fumée, braises) bougent. Toutes les
+ * textures sont attendues avant la première image. Les effets retirés (shader refusé) sont listés au début.
  */
 public final class SceneSnapshot {
     private SceneSnapshot() {
@@ -100,6 +103,7 @@ public final class SceneSnapshot {
                 (System.nanoTime() - begin) / 1e9, textures.texture(TextureStore.CLOUDS) != 0 ? "oui" : "absents");
 
         SceneRenderer renderer = new SceneRenderer(manifest, textures);
+        System.out.println("effets actifs : " + renderer.activeEffects());
         int fbo = glGenFramebuffers();
         int color = glGenTextures();
         glBindTexture(GL_TEXTURE_2D, color);
@@ -114,8 +118,9 @@ public final class SceneSnapshot {
         StatusMessages.Status status = new StatusMessages.Status("Exploration du littoral…", "textures");
         try {
             for (float t : times) {
+                float story = new StoryClock().storyTime(t, false);
                 glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-                renderer.render(width, height, new SceneState(t, progress, status, 1f, t));
+                renderer.render(width, height, new SceneState(story, progress, status, 1f, t));
                 glBindFramebuffer(GL_FRAMEBUFFER, fbo);
                 glPixelStorei(GL_PACK_ALIGNMENT, 1);
                 glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixels);
@@ -127,7 +132,7 @@ public final class SceneSnapshot {
                 if (!STBImageWrite.stbi_write_png(file.toString(), width, height, 3, pixels, width * 3)) {
                     throw new IllegalStateException("écriture impossible : " + file);
                 }
-                System.out.println("écrit " + file);
+                System.out.printf(Locale.ROOT, "écrit %s (réel %.2f s, récit %.2f s)%n", file, t, story);
             }
         } finally {
             MemoryUtil.memFree(pixels);

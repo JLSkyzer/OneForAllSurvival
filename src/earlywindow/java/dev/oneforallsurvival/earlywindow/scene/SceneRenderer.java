@@ -2,8 +2,16 @@ package dev.oneforallsurvival.earlywindow.scene;
 
 import static org.lwjgl.opengl.GL32C.*;
 
+import dev.oneforallsurvival.earlywindow.scene.effects.EffectChain;
+import dev.oneforallsurvival.earlywindow.scene.effects.EmberEffect;
+import dev.oneforallsurvival.earlywindow.scene.effects.FireEffect;
+import dev.oneforallsurvival.earlywindow.scene.effects.HaloEffect;
+import dev.oneforallsurvival.earlywindow.scene.effects.SceneEffect;
+import dev.oneforallsurvival.earlywindow.scene.effects.SmokeEffect;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * Rendu OpenGL 3.2 (GLSL 150) de la scène de chargement, sans aucune classe de Minecraft : port de
@@ -20,6 +28,9 @@ import java.util.Map;
  *
  * <p>Dessine ce qui est prêt dans le {@link TextureStore} : rien (noir) avant le ciel, puis le décor, la mer et
  * les effets à mesure qu'ils arrivent.
+ *
+ * <p>Feux, fumées, braises et halos sont des {@link SceneEffect} facultatifs ({@link EffectChain}) : un effet dont
+ * le shader est refusé ou dont le rendu lève est retiré seul, journalisé une fois, et la scène continue.
  */
 public final class SceneRenderer implements AutoCloseable {
     // Palettes de compose.py : nuit, pré-aube, lever.
@@ -45,7 +56,9 @@ public final class SceneRenderer implements AutoCloseable {
 
     private final SceneManifest manifest;
     private final TextureStore textures;
-    private final GlQuad quad;
+    private final EffectChain effects;
+    // Créé au premier rendu : le constructeur ne fait aucun appel GL direct (testable sans contexte).
+    private GlQuad quad;
     private final Program layer;
     private final Program sprite;
     private final Program bank;
@@ -72,6 +85,15 @@ public final class SceneRenderer implements AutoCloseable {
 
     /** @throws ShaderLoader.ShaderException si un shader de base est refusé (l'appelant retombe sur Forge) */
     public SceneRenderer(SceneManifest manifest, TextureStore textures, ShaderLoader shaders) {
+        this(manifest, textures, shaders, line -> System.err.println("[lostisland] " + line));
+    }
+
+    /**
+     * @param log reçoit une ligne par effet retiré (shader refusé, rendu en échec)
+     * @throws ShaderLoader.ShaderException si un shader de base est refusé (l'appelant retombe sur Forge) ; un
+     *                                      shader d'effet refusé ne retire que cet effet
+     */
+    public SceneRenderer(SceneManifest manifest, TextureStore textures, ShaderLoader shaders, Consumer<String> log) {
         this.manifest = manifest;
         this.textures = textures;
         Map<String, Integer> loaded = new HashMap<>();
@@ -90,7 +112,10 @@ public final class SceneRenderer implements AutoCloseable {
         sea = new Program(loaded.get("sea"));
         multiply = new Program(loaded.get("multiply"));
         present = new Program(loaded.get("present"));
-        quad = new GlQuad();
+        // Ordre de dessin de compose.py dans la passe MID : halos, fumées, flammes, braises.
+        effects = new EffectChain(List.of(new HaloEffect(manifest), new SmokeEffect(manifest),
+                new FireEffect(manifest), new EmberEffect(manifest)), log);
+        effects.init(textures, shaders);
 
         // Caméra relevée de la bannière : tangage -4,6°, roulis -9°, lacet 0.
         double[] fwd = {0, Math.sin(PITCH), Math.cos(PITCH)};
@@ -131,6 +156,11 @@ public final class SceneRenderer implements AutoCloseable {
         return last + 1;
     }
 
+    /** Noms des effets encore actifs (ceux qui ont échoué en sont retirés), dans l'ordre de dessin. */
+    public List<String> activeEffects() {
+        return effects.active();
+    }
+
     /**
      * Dessine une image de la scène dans le framebuffer lié au moment de l'appel (fenêtre ou FBO de capture),
      * sur toute sa surface {@code fbWidth} x {@code fbHeight}. Thread GL.
@@ -138,6 +168,9 @@ public final class SceneRenderer implements AutoCloseable {
     public void render(int fbWidth, int fbHeight, SceneState state) {
         if (fbWidth <= 0 || fbHeight <= 0) {
             return;
+        }
+        if (quad == null) {
+            quad = new GlQuad();
         }
         int target = glGetInteger(GL_DRAW_FRAMEBUFFER_BINDING);
         ensureSceneTarget(fbWidth, fbHeight);
@@ -167,6 +200,8 @@ public final class SceneRenderer implements AutoCloseable {
         Ambiance a = Ambiance.at(t, real);
         boolean sky = textures.ready(TextureStore.SKY);
         boolean fx = textures.ready(TextureStore.FX);
+        // Effets : seulement une fois leurs images arrivées (groupe fx), aux emplacements de compose.py.
+        boolean withEffects = fx && textures.ready(TextureStore.PLATES);
 
         if (sky) {
             drawSky(a);
@@ -193,21 +228,28 @@ public final class SceneRenderer implements AutoCloseable {
         }
         if (textures.ready(TextureStore.PLATES)) {
             drawPlate("far", a.far(), a.day(), 1f);
-            // Tâche 4 : lueur du temple ici.
+            if (withEffects) {
+                drawEffects(SceneEffect.Pass.BEHIND_MID, state, a, refToNdc);
+            }
             // Avant l'impact, le décor n'a pas encore d'épave.
             if (t < StoryClock.IMPACT) {
                 drawLayer(textures.texture("plates/precrash_mid_night.png"), 0, 0f, a.mid(), full(), WHITE, false, 1f);
             } else {
                 drawPlate("mid", a.mid(), a.day(), 1f);
             }
-            // Tâche 4 : feux de l'épave, halos, fumées, flammes, braises ici.
+            if (withEffects) {
+                drawEffects(SceneEffect.Pass.MID_GLOW, state, a, refToNdc);
+                drawEffects(SceneEffect.Pass.MID, state, a, refToNdc);
+            }
         }
         // Pendant la tempête, le monde est plus sombre.
         drawMultiply(1 - 0.34f * a.storm(), 0f, 0f);
         // Tâche 5 : l'avion qui tombe (draw_falling_plane) ici.
         if (textures.ready(TextureStore.PLATES)) {
             drawPlate("fg", a.fg(), a.day(), 1 - 0.28f * a.storm());
-            // Tâche 4 : feux du premier plan ici.
+            if (withEffects) {
+                drawEffects(SceneEffect.Pass.FRONT, state, a, refToNdc);
+            }
         }
         // Tâche 5 : pluie, flash des éclairs et de l'impact ici. Tâche 9 : bloom (non porté).
 
@@ -233,6 +275,11 @@ public final class SceneRenderer implements AutoCloseable {
     }
 
     // --- Couches ---------------------------------------------------------------------------------------
+
+    private void drawEffects(SceneEffect.Pass pass, SceneState state, Ambiance a, float[] refToNdc) {
+        effects.render(state, new SceneEffect.View(pass, a, refToNdc, quad));
+        blendOver(); // un effet retiré en cours de tracé ne laisse pas un autre fondu derrière lui
+    }
 
     private void drawSky(Ambiance a) {
         // lerp3(A.sky, day) puis view_sky.sample : les deux opérations sont linéaires, on mêle après lecture.
@@ -499,7 +546,11 @@ public final class SceneRenderer implements AutoCloseable {
     @Override
     public void close() {
         deleteSceneTarget();
-        quad.close();
+        effects.close();
+        if (quad != null) {
+            quad.close();
+            quad = null;
+        }
         for (Program p : new Program[] {layer, sprite, bank, clouds, sea, multiply, present}) {
             glDeleteProgram(p.id);
         }

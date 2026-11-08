@@ -42,7 +42,7 @@ public final class TextureStore implements AutoCloseable {
 
     /** Une image à charger : groupe, chemin, canaux voulus, prémultiplication, couche de la mer (ou -1). */
     private record Entry(String group, String path, int channels, boolean premultiply, boolean optional,
-                         int layer) {
+                         int layer, boolean mipmap) {
     }
 
     /** Image décodée en attente d'envoi ; {@code pixels} vient de STB et se libère par stbi_image_free. */
@@ -80,7 +80,7 @@ public final class TextureStore implements AutoCloseable {
         add(SKY, "sky/sun.png", 4, false);
         add(SKY, "sky/cloudbank_0.png", 4, false);
         add(SKY, "sky/cloudbank_1.png", 4, false);
-        entries.add(new Entry(SKY, CLOUDS, 4, false, true, -1));
+        entries.add(new Entry(SKY, CLOUDS, 4, false, true, -1, false));
         remaining.merge(SKY, 1, Integer::sum);
         for (String layer : List.of("far", "mid", "fg")) {
             for (String k : List.of("night", "pre", "sun")) {
@@ -93,11 +93,23 @@ public final class TextureStore implements AutoCloseable {
             add(SEA, "sea/" + name + ".png", 1, false);
         }
         for (int i = 0; i < seaFrames; i++) {
-            entries.add(new Entry(SEA, String.format("sea/sea_%02d.png", i), 3, false, false, i));
+            entries.add(new Entry(SEA, String.format("sea/sea_%02d.png", i), 3, false, false, i, false));
             remaining.merge(SEA, 1, Integer::sum);
         }
-        add(FX, "fx/halo.png", 4, false);
+        // Halo réduit jusqu'à 64 px (feux de camp) : mipmaps, comme le filtre de réduction de resized().
+        entries.add(new Entry(FX, "fx/halo.png", 4, false, false, -1, true));
+        remaining.merge(FX, 1, Integer::sum);
         add(FX, "fx/moon_rays.png", 4, false);
+        // Images des effets (tâche 4) : facultatives. Si l'une manque, seul l'effet qui la lit se retire.
+        for (int i = 0; i < 2; i++) {
+            addOptional(FX, "fx/fire_" + i + "_strip.png", 4, false);
+        }
+        for (int i = 0; i < 6; i++) {
+            addOptional(FX, "fx/smoke_" + i + ".png", 4, true);
+        }
+        // Lueur des feux sur le décor : couleurs seules, l'alpha vient de la plaque de nuit (fire_plate).
+        addOptional(FX, "plates/mid_fire.png", 3, false);
+        addOptional(FX, "plates/fg_fire.png", 3, false);
         // Groupe UI : logo et icône viendront avec l'interface (tâche 6).
     }
 
@@ -109,7 +121,12 @@ public final class TextureStore implements AutoCloseable {
     }
 
     private void add(String group, String path, int channels, boolean premultiply) {
-        entries.add(new Entry(group, path, channels, premultiply, false, -1));
+        entries.add(new Entry(group, path, channels, premultiply, false, -1, false));
+        remaining.merge(group, 1, Integer::sum);
+    }
+
+    private void addOptional(String group, String path, int channels, boolean mipmap) {
+        entries.add(new Entry(group, path, channels, false, true, -1, mipmap));
         remaining.merge(group, 1, Integer::sum);
     }
 
@@ -260,6 +277,11 @@ public final class TextureStore implements AutoCloseable {
             glTexImage2D(GL_TEXTURE_2D, 0, internal, d.width(), d.height(), 0, format, GL_UNSIGNED_BYTE, d.pixels());
             // Nuages et bancs sont lus au texel près (texelFetch) ; le reste est filtré comme View.sample.
             parameters(GL_TEXTURE_2D, GL_LINEAR);
+            if (e.mipmap()) {
+                // Sprites très réduits (fumée, halo des feux de camp) : sans mipmaps, ils scintilleraient.
+                glGenerateMipmap(GL_TEXTURE_2D);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+            }
             textures.put(e.path(), id);
         }
         done(e.group());
