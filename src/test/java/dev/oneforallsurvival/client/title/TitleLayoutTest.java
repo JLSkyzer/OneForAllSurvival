@@ -120,6 +120,41 @@ class TitleLayoutTest {
     }
 
     @Test
+    void sansSceneLaColonneResteCentreeEtDansLEcran() {
+        Rect repli = TitleLayout.fallbackLogoRect(960, 540);
+        List<Rect> grand = TitleLayout.mainButtons(960, 540, repli, List.of());
+        int total = grand.get(3).bottom() - grand.get(0).y();
+        assertEquals((540 - total) / 2, grand.get(0).y(), "colonne centrée verticalement");
+        assertEquals(36, grand.get(0).x(), "même marge relative que le logo de la scène (72/1920)");
+
+        int[][] fenetres = {{854, 480}, {1280, 720}, {1920, 1080}, {3840, 2160}, {1600, 600}};
+        for (int[] f : fenetres) {
+            for (int scale = 1; scale <= 4; scale++) {
+                int w = (f[0] + scale - 1) / scale;
+                int h = (f[1] + scale - 1) / scale;
+                if (w < 320 || h < 240) {
+                    continue;
+                }
+                for (int n = 0; n <= 8; n++) {
+                    String ctx = w + "x" + h + " (échelle " + scale + "), " + n + " étrangers";
+                    // rangée réaliste : mods réduit (44 px), langue, accessibilité, puis n boutons étrangers
+                    List<int[]> sizes = new ArrayList<>(List.of(new int[] {44, 20}, new int[] {20, 20},
+                            new int[] {20, 20}));
+                    sizes.addAll(widgets(n, 20, 20));
+                    List<Rect> bottom = TitleLayout.bottomRow(w, h, sizes);
+                    List<Rect> main = TitleLayout.mainButtons(w, h, TitleLayout.fallbackLogoRect(w, h), bottom);
+                    for (Rect m : main) {
+                        assertTrue(m.x() >= 0 && m.y() >= 0 && m.right() <= w && m.bottom() <= h, ctx + " " + m);
+                        for (Rect r : bottom) {
+                            assertFalse(m.intersects(r), ctx + " : chevauchement " + m + " / " + r);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
     void logoAligneSurLaScene() {
         // À 1920x1080 en échelle 1, le recadrage est neutre : le logo est à sa place d'origine (compose.py).
         assertEquals(new Rect(72, 58, 593, 298), logo(1920, 1080, 1));

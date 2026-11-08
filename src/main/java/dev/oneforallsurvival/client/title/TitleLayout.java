@@ -69,6 +69,18 @@ public final class TitleLayout {
     }
 
     /**
+     * Position de repli du logo quand il n'y a pas de scène (jar de service absent, échec) : aucun logo n'est
+     * dessiné, ce rectangle vide sert seulement d'ancre à la colonne de boutons, centrée verticalement, à la même
+     * marge gauche relative que le logo de la scène (72 px sur 1920).
+     */
+    public static Rect fallbackLogoRect(int screenW, int screenH) {
+        int x = Math.max(2 * ROW_MARGIN, screenW * 3 / 80);
+        int total = MAIN_COUNT * MAIN_H + (MAIN_COUNT - 1) * MAIN_GAP;
+        int y = Math.max(0, (screenH - total) / 2 - LOGO_GAP);
+        return new Rect(x, y, 0, 0);
+    }
+
+    /**
      * Les quatre boutons principaux, l'un sous l'autre, alignés à gauche sur le logo et commençant
      * {@link #LOGO_GAP} px sous lui. Si la rangée du bas ({@code bottom}, vide si absente) gênerait, la colonne
      * remonte jusqu'à la laisser libre, quitte à recouvrir le logo sur les très petits écrans.
