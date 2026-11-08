@@ -198,8 +198,11 @@ du repli.
 
 `build/libs/oneforallsurvival-earlywindow-0.1.0.jar` (= `run/mods/`) : **59 933 939 octets (57,2 Mio)**, 444
 entrées. Tailles compressées : mer 27,1 Mio, plans du décor 19,0 Mio, effets (avion, feux, fumée…) 7,8 Mio, ciel
-2,9 Mio, interface 0,1 Mio, classes 0,15 Mio, shaders négligeables. Aucune texture de Mojang : nuages et police
-sont lus en place dans le jar du client.
+2,9 Mio, interface 0,1 Mio, classes 0,15 Mio, shaders négligeables. Correction de la revue finale : ce jar
+contenait alors deux copies des flammes vanilla (`fx/fire_0_strip.png`, `fx/fire_1_strip.png`, pixel pour pixel
+`block/fire_0.png` et `fire_1.png` de Mojang). Depuis, nuages, **flammes** et police sont lus en place dans le jar
+du client, et aucun fichier du jar de service n'est identique à un fichier de `client-extra.jar` (comparaison des
+octets et des pixels décodés : voir « Correctifs de la revue finale »).
 
 ### Masque du feuillage (vent)
 
@@ -316,6 +319,10 @@ ni texte, logo gardé. La devise « Là où tout recommence. » n'apparaît pas 
   parts de la barre seront fausses si les durées relatives des phases diffèrent (la barre ne recule pas et
   n'annonce pas la fin avant elle : propriétés du calcul, couvertes par les tests, non vues sur un autre poste).
 - **Masque du feuillage par matériau** : non fait (méthode par couleur, voir plus haut).
+- **Installation réelle** (jar du mod réobfusqué + jar de service posés par le launcher, hors userdev) : jamais
+  lancée ; tous les lancements sont `runClient` en développement.
+- **Pont actif + première image de l'overlay du mod en échec** : combinaison jamais lancée (le lancement C,
+  `-PoverlayFail=first`, date d'avant le pont) ; chemin relu seulement.
 
 ## Tâche 10 : saccade du passage aux ressources, film plein écran
 
@@ -356,7 +363,9 @@ partagé, jusqu'à la première image de l'overlay des ressources. Code : `GapBr
   local, sans quoi le rappel de démarrage de Minecraft (`Window.bootCrash`) ouvrirait une boîte « mettez à jour vos
   pilotes » et arrêterait le jeu ; (2) version allégée : ni bloom ni vent (`SceneRenderer(…, light = true)`), 30 i/s, priorité de thread
   abaissée ; (3) désactivé si `availableProcessors() ≤ 2`, GL < 3.2, rendu logiciel (GDI Generic, llvmpipe,
-  softpipe, SwiftShader, Microsoft Basic Render), ou hors Windows ; (4) réglage ci-dessous.
+  softpipe, SwiftShader, Microsoft Basic Render), ou hors Windows ; (4) réglage ci-dessous. La garde « GL < 3.2 »
+  ne peut pas servir : notre fenêtre n'existe qu'en GL 3.2 à 4.6 core (sinon repli sur Forge avant tout pont).
+  La consigne « GPU trop ancien » se réduit donc, en pratique, au filtre des rendus logiciels.
 
 ### Réglage
 
@@ -553,3 +562,73 @@ pont arrêté ; la phase des ressources est entrée par l'overlay ; titre attein
 Effet de l'essai lui-même : pour rester bloquable, le pont y garde le verrou entre ses images, si bien que le jeu ne
 l'a jamais repris pendant les mods (une seule prise d'écran, 135 images allégées) ; ce comportement n'existe que
 dans ce mode. L'image (≈ 2,5 s figée puis noire) n'a pas été filmée.
+
+## Correctifs de la revue finale
+
+Revue : `.superpowers/sdd/2026-11-08-chantier-1-ecran-de-chargement/final-review.md` (non commitée).
+
+- **Flammes de Mojang (C1)** : la scène lit `minecraft:textures/block/fire_0.png` et `fire_1.png` dans le jar du
+  client (même disposition que les anciennes bandes : 16x512 RGBA, 32 images, 0 pixel différent, vérifié par Pillow
+  sur `client-extra.jar`), comme les nuages ; `processEarlywindowResources` exclut `fx/fire_*_strip.png`. Les
+  flammes restent facultatives : sans jar du client, pas de flammes, sans plantage (`addOptional`).
+- **Pont sous verrou (I1)** : après une image sautée (barrière du jeu non franchie en 50 ms), le pont rend le
+  verrou puis attend une image entière (33 ms) **hors du verrou**, sur tous les chemins ; sur `GL_WAIT_FAILED` (ou
+  tout retour inconnu) il s'arrête proprement : retour à l'image figée d'avant. Logique pure testée
+  (`GapBridgeTest` : `fenceOutcome`, `pauseNanos`) ; le cas réel (barrière non franchie) n'a jamais été vu ici.
+- **Langues (I2, ruling 32)** : textes d'état, repères de la barre et devise dans
+  `lostisland/lang/fr_fr.json` et `en_us.json` du jar de service (mêmes clés). Langue : `lang:` de
+  `options.txt` du dossier du jeu si nous avons son fichier, sinon `en_us`, sinon le français intégré
+  (`Texts.BUILT_IN`, identique à `fr_fr.json`, test à l'appui). Une clé absente se lit dans le fichier suivant.
+  `run/options.txt` de ce poste dit `lang:en_us` : en développement, la scène s'affiche donc **en anglais**
+  (journal : `langue : en_us (options.txt : en_us)`). Le français n'a été vu qu'hors du jeu (`sceneSnapshot`).
+  Textes anglais : traduction de l'exécutant, non relue par Killian.
+- **Entrée de classpath mal formée (T7, mineur 2)** : ignorée (`EarlyScene.pathOrNull`), et toute erreur de la
+  recherche du jar du client ne retire que nuages, flammes et police (`EarlySceneTest`).
+- **Barre affichée dès le début** (demande de Killian, 2026-11-08) : barre, pourcentage, texte d'état et repères
+  ne suivent plus le récit (`BAR_IN` = 5,2 s de récit, soit ≈ 7 s après l'ouverture) mais arrivent en fondu de
+  0,5 s de temps réel dès que leurs images sont envoyées (`SceneState.uiTime`, origine tenue par la scène, partagée
+  avec le pont). Ils sont dessinés dans la fenêtre **après** l'ouverture depuis le noir (passe `HUD`), donc
+  lisibles pendant le noir du début, sans le grain de la scène. L'assombrissement du bas suit la même arrivée. Le
+  logo suit toujours le récit ; le fondu de fin (`uiAlpha`) est inchangé.
+
+### Ce que contient chaque jar
+
+- Jar de service (`build/libs/oneforallsurvival-earlywindow-0.1.0.jar`, 59 924 281 octets, 452 entrées avec les
+  dossiers) : classes `dev/oneforallsurvival/earlywindow/**`, shaders `lostisland/shaders/`, langues
+  `lostisland/lang/`, calques `lostisland/loading/` (sans les flammes), fichier de service. Vérification : ses 434
+  fichiers comparés aux 12 960 fichiers de `client-extra.jar` (1.20.1) par SHA-256 des octets, et ses PNG aux 2 401
+  PNG du client par SHA-256 des pixels RGBA décodés : **aucun identique** (script Pillow, 2026-11-08 ; la même
+  comparaison des pixels retrouve bien les anciennes bandes de flammes de `art/`). Les plans du décor, rendus à
+  partir des blocs de Minecraft, ne sont pas des copies ; la question de licence reste à Killian.
+- Propriétés `-D` lues par le code livré, **inertes tant qu'elles ne sont pas posées** (le launcher ne les pose
+  pas) : `lostisland.earlywindow.fail` (fait échouer notre fenêtre, repli sur Forge), `lostisland.overlay.fail`
+  (fait échouer l'overlay du mod), `lostisland.bridgeThread.fail` (second contexte impossible),
+  `lostisland.bridgeThread.slowStop` (pont qui garde le verrou à l'arrêt), `lostisland.frames` (enregistre le film
+  dans le dossier donné, **après en avoir effacé les `frame_*.png`**), `lostisland.progress.trace` (relevé détaillé
+  au journal) ; et le réglage `lostisland.bridgeThread=auto|false|force`. Chez un joueur qui les poserait, chacune
+  fait ce que dit sa parenthèse, rien de plus.
+
+### Lancement (un seul : `./gradlew --offline installEarlyWindow runClient -PwithPack -PsceneFrames=frames-final`)
+
+JVM PID 22384, arrêté par PID exact après la ligne `RealmsClient` de `latest.log` (+3 s), confirmé arrêté.
+Journal : `jar du client : …client-extra.jar`, `effets actifs : [halo, smoke, fire, …]`, `récit lancé … à 2.11 s`,
+pont actif, deux prises d'écran (13,40 et 16,43 s), `pont : ne dessine plus (signal attendu 0.0 ms), 52 images`
+à 18,351 s, overlay à 18,454 s, scène libérée à 29,577 s ; aucune ligne « barrière » (cas I1 non rencontré) ;
+22 lignes « exception » dans `latest.log`, comme aux lancements précédents. 650 images écrites. Regardé :
+
+- flammes vanilla sur l'épave (images 250 à 640), aussi dans les images du pont (400 à 426) ;
+- texte d'état en anglais (`lang:en_us`), « Taking stock of the cargo hold… (finding mods) » puis la suite ;
+- passage pont → overlay : image 426 (« registries », pont) puis 427 (« textures », overlay), même scène. Écarts
+  des dates d'écriture des PNG : 0,203 s (426), 0,19 s (428), **0,408 s** (430, déjà dans l'overlay) ; ces dates
+  sont celles de l'écriture, en retard (115 images abandonnées), pas du rendu : le pont n'est pas en cause, la
+  cadence d'écriture au début du rechargement n'est pas établie ;
+- barre dès l'image 6 (≈ 0,2 s après la première image), pendant le noir d'ouverture. Ce lancement avait la
+  première version de la règle (fondu compté depuis l'ouverture de la fenêtre, déjà fini à la première image :
+  la barre y apparaît d'un coup quand ses images arrivent) ; la version finale (fondu compté depuis l'arrivée des
+  images de l'interface) n'est prouvée que par `UiLogicTest` et un rendu hors du jeu, **pas en jeu**.
+
+### Tests
+
+`./gradlew --offline test --rerun-tasks` : BUILD SUCCESSFUL ; XML : `earlywindowTest` 89 tests (72 + 5
+`GapBridgeTest` + 2 `EarlySceneTest` + 9 `TextsTest` + 1 `UiLogicTest`), 0 échec, 0 erreur ; `test` (mod) 128
+tests, 0 échec, 0 erreur.
