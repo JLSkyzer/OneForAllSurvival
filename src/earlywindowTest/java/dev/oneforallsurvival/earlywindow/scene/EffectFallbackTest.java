@@ -65,29 +65,55 @@ class EffectFallbackTest {
                 new SceneManifest.Logo(List.of(), 593, 298, 60));
     }
 
+    /** Une trajectoire de crash minimale (deux images), pour que l'effet du crash s'initialise sans art/. */
+    private static java.io.InputStream data(String path) {
+        String json = switch (path) {
+            case "fx/crash/track.json" -> "{\"fps\": 60, \"start\": 0.6, \"crest_t\": 3.32, \"touch_t\": 3.92,"
+                    + " \"crest\": [0, 0, 0], \"frames\": [" + FRAME + ", " + FRAME + "]}";
+            case "fx/crash/sprites.json" -> "{\"0\": [1340, 43], \"1\": [1339, 43]}";
+            default -> null;
+        };
+        return json == null ? null : new java.io.ByteArrayInputStream(json.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static final String FRAME = "{\"pos\": [1, 2, 3], \"f\": [0, 0, 1], \"s\": [1, 0, 0],"
+            + " \"engine\": [1, 2, 3], \"break\": [1, 2, 3]}";
+
     @Test
     void unShaderRefuseRetireSeulementLEffet() {
         SceneManifest m = manifest();
-        TextureStore textures = new TextureStore(m, path -> null); // jamais démarré : aucun appel GL
-        FakeDriver driver = new FakeDriver("smoke");
+        TextureStore textures = new TextureStore(m, EffectFallbackTest::data); // jamais démarré : aucun appel GL
+        // ember.frag n'est lu que par les braises. (smoke.frag sert aussi au crash, halo.frag aux éclairs et au
+        // crash : un refus de l'un d'eux retire chaque effet qui le lit.)
+        FakeDriver driver = new FakeDriver("ember");
         List<String> log = new ArrayList<>();
 
         SceneRenderer renderer = new SceneRenderer(m, textures, driver, log::add);
 
-        assertEquals(List.of("halo", "fire", "embers"), renderer.activeEffects());
+        assertEquals(List.of("halo", "smoke", "fire", "rain", "bolts", "crash"), renderer.activeEffects());
         assertEquals(1, log.size(), "un seul effet retiré, journalisé une fois : " + log);
-        assertTrue(log.get(0).contains("smoke"), log.get(0));
+        assertTrue(log.get(0).contains("embers"), log.get(0));
         // Les shaders de base et ceux des autres effets ont bien été « compilés » depuis leurs vraies sources.
-        assertTrue(driver.compiled.containsAll(List.of("layer", "present", "halo", "fire", "fireglow", "ember")),
-                driver.compiled.toString());
+        assertTrue(driver.compiled.containsAll(List.of("layer", "present", "halo", "smoke", "fire", "fireglow",
+                "rain", "flash")), driver.compiled.toString());
     }
 
     @Test
     void sansRefusTousLesEffetsSontActifs() {
         SceneManifest m = manifest();
-        SceneRenderer renderer = new SceneRenderer(m, new TextureStore(m, path -> null), new FakeDriver(""),
+        SceneRenderer renderer = new SceneRenderer(m, new TextureStore(m, EffectFallbackTest::data), new FakeDriver(""),
                 line -> { });
-        assertEquals(List.of("halo", "smoke", "fire", "embers"), renderer.activeEffects());
+        assertEquals(List.of("halo", "smoke", "fire", "embers", "rain", "bolts", "crash"), renderer.activeEffects());
+    }
+
+    @Test
+    void sansTrajectoireSeulLeCrashSeRetire() {
+        SceneManifest m = manifest();
+        List<String> log = new ArrayList<>();
+        SceneRenderer renderer = new SceneRenderer(m, new TextureStore(m, path -> null), new FakeDriver(""), log::add);
+        assertEquals(List.of("halo", "smoke", "fire", "embers", "rain", "bolts"), renderer.activeEffects());
+        assertEquals(2, log.size(), log.toString()); // trajectoire illisible, puis effet retiré
+        assertTrue(log.get(1).contains("crash"), log.get(1));
     }
 
     /** Effet de test : lève à son n-ième rendu. */

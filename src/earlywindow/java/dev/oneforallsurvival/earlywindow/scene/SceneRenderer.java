@@ -2,10 +2,14 @@ package dev.oneforallsurvival.earlywindow.scene;
 
 import static org.lwjgl.opengl.GL32C.*;
 
+import dev.oneforallsurvival.earlywindow.scene.effects.BoltEffect;
+import dev.oneforallsurvival.earlywindow.scene.effects.CrashEffect;
+import dev.oneforallsurvival.earlywindow.scene.effects.CrashTrack;
 import dev.oneforallsurvival.earlywindow.scene.effects.EffectChain;
 import dev.oneforallsurvival.earlywindow.scene.effects.EmberEffect;
 import dev.oneforallsurvival.earlywindow.scene.effects.FireEffect;
 import dev.oneforallsurvival.earlywindow.scene.effects.HaloEffect;
+import dev.oneforallsurvival.earlywindow.scene.effects.RainEffect;
 import dev.oneforallsurvival.earlywindow.scene.effects.SceneEffect;
 import dev.oneforallsurvival.earlywindow.scene.effects.SmokeEffect;
 import java.util.HashMap;
@@ -29,8 +33,9 @@ import java.util.function.Consumer;
  * <p>Dessine ce qui est prêt dans le {@link TextureStore} : rien (noir) avant le ciel, puis le décor, la mer et
  * les effets à mesure qu'ils arrivent.
  *
- * <p>Feux, fumées, braises et halos sont des {@link SceneEffect} facultatifs ({@link EffectChain}) : un effet dont
- * le shader est refusé ou dont le rendu lève est retiré seul, journalisé une fois, et la scène continue.
+ * <p>Feux, fumées, braises, halos, pluie, éclairs et crash sont des {@link SceneEffect} facultatifs
+ * ({@link EffectChain}) : un effet dont le shader est refusé ou dont le rendu lève est retiré seul, journalisé une
+ * fois, et la scène continue.
  */
 public final class SceneRenderer implements AutoCloseable {
     // Palettes de compose.py : nuit, pré-aube, lever.
@@ -57,6 +62,7 @@ public final class SceneRenderer implements AutoCloseable {
     private final SceneManifest manifest;
     private final TextureStore textures;
     private final EffectChain effects;
+    private final CrashTrack track; // null si la trajectoire manque
     // Créé au premier rendu : le constructeur ne fait aucun appel GL direct (testable sans contexte).
     private GlQuad quad;
     private final Program layer;
@@ -112,9 +118,20 @@ public final class SceneRenderer implements AutoCloseable {
         sea = new Program(loaded.get("sea"));
         multiply = new Program(loaded.get("multiply"));
         present = new Program(loaded.get("present"));
-        // Ordre de dessin de compose.py dans la passe MID : halos, fumées, flammes, braises.
+        // Trajectoire du crash : elle place l'avion et donne les instants des chocs qui secouent la caméra.
+        // Illisible, seul l'effet du crash se retire ; la secousse de l'impact reste.
+        CrashTrack crash = null;
+        try {
+            crash = CrashTrack.load(textures::open);
+        } catch (RuntimeException e) {
+            log.accept("trajectoire du crash illisible : " + e.getMessage());
+        }
+        track = crash;
+        // Ordre de dessin de compose.py dans la passe MID : halos, fumées, flammes, braises. Dans la passe
+        // WEATHER : pluie, puis flash des éclairs, puis flash de l'impact.
         effects = new EffectChain(List.of(new HaloEffect(manifest), new SmokeEffect(manifest),
-                new FireEffect(manifest), new EmberEffect(manifest)), log);
+                new FireEffect(manifest), new EmberEffect(manifest), new RainEffect(manifest),
+                new BoltEffect(manifest), new CrashEffect(manifest, crash)), log);
         effects.init(textures, shaders);
 
         // Caméra relevée de la bannière : tangage -4,6°, roulis -9°, lacet 0.
@@ -197,7 +214,8 @@ public final class SceneRenderer implements AutoCloseable {
 
         float t = state.storyTime();
         double real = state.realTime();
-        Ambiance a = Ambiance.at(t, real);
+        // Caméra secouée par les chocs de l'avion (crête, sol, impact) : décor et effets la suivent ensemble.
+        Ambiance a = track == null ? Ambiance.at(t, real) : Ambiance.at(t, real, track.crestT(), track.touchT());
         boolean sky = textures.ready(TextureStore.SKY);
         boolean fx = textures.ready(TextureStore.FX);
         // Effets : seulement une fois leurs images arrivées (groupe fx), aux emplacements de compose.py.
@@ -218,7 +236,9 @@ public final class SceneRenderer implements AutoCloseable {
                 drawBank(1, real, 44, 0.97 * a.storm(), STORM_BANK_1, a.day());
                 drawBank(0, real, 80, 0.8 * a.storm(), STORM_BANK_0, a.day());
             }
-            // Tâche 5 : éclairs (draw_bolt) ici.
+            if (withEffects) {
+                drawEffects(SceneEffect.Pass.SKY, state, a, refToNdc); // éclairs (draw_bolt)
+            }
             if (fx && a.moon() > 0.01f) {
                 drawMoonRays(a, real);
             }
@@ -244,14 +264,19 @@ public final class SceneRenderer implements AutoCloseable {
         }
         // Pendant la tempête, le monde est plus sombre.
         drawMultiply(1 - 0.34f * a.storm(), 0f, 0f);
-        // Tâche 5 : l'avion qui tombe (draw_falling_plane) ici.
+        if (withEffects) {
+            drawEffects(SceneEffect.Pass.PLANE, state, a, refToNdc); // l'avion qui tombe, sa traînée
+        }
         if (textures.ready(TextureStore.PLATES)) {
             drawPlate("fg", a.fg(), a.day(), 1 - 0.28f * a.storm());
             if (withEffects) {
                 drawEffects(SceneEffect.Pass.FRONT, state, a, refToNdc);
             }
         }
-        // Tâche 5 : pluie, flash des éclairs et de l'impact ici. Tâche 9 : bloom (non porté).
+        if (withEffects) {
+            drawEffects(SceneEffect.Pass.WEATHER, state, a, refToNdc); // pluie, flash des éclairs et de l'impact
+        }
+        // Tâche 9 : bloom (non porté).
 
         // Étalonnage : vignette, puis assombrissement du bas pour le texte une fois la barre arrivée.
         float bottom = t >= StoryClock.BAR_IN

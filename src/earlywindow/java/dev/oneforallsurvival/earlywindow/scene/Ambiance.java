@@ -21,6 +21,16 @@ public record Ambiance(float progress, float day, float storm, float stars, floa
      * @param realTime  temps réel : dérive sinusoïdale de la caméra, qui continue après le récit
      */
     public static Ambiance at(float storyTime, double realTime) {
+        return at(storyTime, realTime, Double.NaN, Double.NaN);
+    }
+
+    /**
+     * Ambiance d'une image, avec les secousses des chocs de l'avion : crête ({@code crestT}), contact avec le sol
+     * ({@code touchT}) et impact final. Les instants viennent de la trajectoire du crash ; {@code NaN} omet le
+     * choc correspondant (trajectoire illisible), l'impact reste. Les secousses suivent le récit : elles sont
+     * éteintes bien avant que le récit se fige.
+     */
+    public static Ambiance at(float storyTime, double realTime, double crestT, double touchT) {
         double t = storyTime;
         double p = StoryClock.storyProgress(storyTime);
         double day = Math.min(2.0, sstep(0.28, 0.66, p) + sstep(0.66, 1.0, p));
@@ -28,11 +38,19 @@ public record Ambiance(float progress, float day, float storm, float stars, floa
         double stars = sstep(0.22, 0.42, p) * (1 - sstep(0.54, 0.74, p));
         double moon = sstep(0.18, 0.40, p) * (1 - sstep(0.6, 0.82, p));
         // Caméra : lente avancée sur la durée du récit, plus une dérive qui ne s'arrête jamais.
-        // Les secousses des chocs de l'avion (crête, sol, impact) viendront avec le crash (tâche 5).
         double advance = sstep(0, StoryClock.DURATION, t);
         double zoom = 1.0 + 0.042 * advance;
         double ox = -14 + 28 * advance + Math.sin(realTime * 0.21) * 4;
         double oy = Math.sin(realTime * 0.17) * 3;
+        // Les chocs de l'avion se transmettent à l'image : crête, sol, puis impact final.
+        double[][] shocks = {{crestT, 4.0, 6.0}, {touchT, 8.0, 5.0}, {StoryClock.IMPACT, 15.0, 4.2}};
+        for (double[] s : shocks) {
+            if (t >= s[0]) { // faux pour NaN : choc omis
+                double shake = Math.exp(-(t - s[0]) * s[2]) * s[1];
+                ox += Math.sin(t * 61) * shake;
+                oy += Math.cos(t * 47) * shake;
+            }
+        }
         return new Ambiance((float) p, (float) day, (float) storm, (float) stars, (float) moon,
                 (float) zoom, (float) ox, (float) oy);
     }

@@ -7,8 +7,9 @@ import dev.oneforallsurvival.earlywindow.scene.ShaderLoader;
 import dev.oneforallsurvival.earlywindow.scene.TextureStore;
 
 /**
- * Effet facultatif de la scène (feux, fumées, braises, halos). Un effet qui échoue, à l'initialisation ou en
- * cours de rendu, est retiré seul par {@link EffectChain} : le reste de la scène continue de s'afficher.
+ * Effet facultatif de la scène (feux, fumées, braises, halos, orage, crash). Un effet qui échoue, à
+ * l'initialisation ou en cours de rendu, est retiré seul par {@link EffectChain} : le reste de la scène continue
+ * de s'afficher.
  *
  * <p>Comme dans compose.py, un effet se déduit entièrement du temps (aucun état, aucun générateur aléatoire
  * global). Son <em>intensité</em> suit le récit ({@code storyTime}, {@link Ambiance}) ; son <em>mouvement</em>
@@ -39,14 +40,20 @@ public interface SceneEffect {
 
     /** Moment du rendu où la chaîne d'effets est appelée : les emplacements exacts de {@code render(t)}. */
     enum Pass {
+        /** Dans le ciel, après les bancs d'orage et avant les rayons de lune : éclairs ({@code draw_bolt}). */
+        SKY,
         /** Après l'arrière-plan, avant le calque du milieu : lueur du temple. */
         BEHIND_MID,
         /** Juste après le calque du milieu : lueur des feux sur le décor ({@code A.fire["mid"]}). */
         MID_GLOW,
         /** Halos, fumées, flammes, braises (dans cet ordre, celui de compose.py). */
         MID,
+        /** Après l'assombrissement de l'orage, avant le premier plan : l'avion qui tombe ({@code draw_falling_plane}). */
+        PLANE,
         /** Après le premier plan : lueur des feux du premier plan ({@code A.fire["fg"]}). */
-        FRONT
+        FRONT,
+        /** Après {@link #FRONT} : pluie, puis flash des éclairs et de l'impact (fin de l'image avant le bloom). */
+        WEATHER
     }
 
     /**

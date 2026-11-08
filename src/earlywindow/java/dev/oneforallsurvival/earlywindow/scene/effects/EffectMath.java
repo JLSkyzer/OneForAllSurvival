@@ -23,6 +23,26 @@ public final class EffectMath {
         return 0.82 + 0.1 * Math.sin(realTime * 13.1) + 0.08 * Math.sin(realTime * 31.7);
     }
 
+    /** Éclairs de l'orage ({@code FLASHES} de compose.py) : instant et puissance. */
+    static final double[][] FLASHES = {{1.55, 0.7}, {2.65, 1.0}, {7.3, 0.8}, {7.48, 0.5}, {10.6, 0.65}, {12.9, 0.45}};
+
+    /** Premier terme de {@code flash_at(t, storm)} : éclat des éclairs, sur le récit. */
+    public static double flash(double storyTime, double storm) {
+        double value = 0.0;
+        for (double[] f : FLASHES) {
+            double dt = storyTime - f[0];
+            if (dt >= 0) {
+                value = Math.max(value, f[1] * Math.exp(-dt * 7.5) * (0.8 + 0.2 * Math.sin(dt * 90)));
+            }
+        }
+        return value * Math.max(0.3, storm);
+    }
+
+    /** Second terme de {@code flash_at} : éclat de l'impact, qui retombe ensuite. */
+    public static double impactFlash(double storyTime) {
+        return storyTime >= StoryClock.IMPACT ? Math.exp(-(storyTime - StoryClock.IMPACT) * 3.2) : 0.0;
+    }
+
     /** {@code hash01(a, b)} de compose.py : bruit déterministe dans [0, 1). */
     public static double hash01(double a, double b) {
         return frac(Math.sin(a * 12.9898 + b * 78.233) * 43758.5453);

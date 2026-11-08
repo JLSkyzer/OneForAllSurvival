@@ -2,6 +2,7 @@ package dev.oneforallsurvival.earlywindow.scene;
 
 import static org.lwjgl.opengl.GL32C.*;
 
+import dev.oneforallsurvival.earlywindow.scene.effects.CrashTrack;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -110,6 +111,14 @@ public final class TextureStore implements AutoCloseable {
         // Lueur des feux sur le décor : couleurs seules, l'alpha vient de la plaque de nuit (fire_plate).
         addOptional(FX, "plates/mid_fire.png", 3, false);
         addOptional(FX, "plates/fg_fire.png", 3, false);
+        // Orage et crash (tâche 5), facultatifs eux aussi. La pluie est lue au texel près, l'avion à sa taille.
+        addOptional(FX, "fx/rain.png", 4, false);
+        for (int i = 0; i < 3; i++) {
+            addOptional(FX, "fx/bolt_" + i + ".png", 4, false);
+        }
+        for (String plane : CrashTrack.spritePaths(opener)) {
+            addOptional(FX, plane, 4, false);
+        }
         // Groupe UI : logo et icône viendront avec l'interface (tâche 6).
     }
 
@@ -118,6 +127,14 @@ public final class TextureStore implements AutoCloseable {
         return path -> path.startsWith("minecraft:")
                 ? loader.getResourceAsStream("assets/minecraft/" + path.substring("minecraft:".length()))
                 : loader.getResourceAsStream("lostisland/loading/" + path);
+    }
+
+    /**
+     * Ouvre un fichier de données de la scène (JSON) par le même chemin que les images ; {@code null} s'il
+     * n'existe pas. L'appelant ferme le flux.
+     */
+    public InputStream open(String path) {
+        return opener.apply(path);
     }
 
     private void add(String group, String path, int channels, boolean premultiply) {
