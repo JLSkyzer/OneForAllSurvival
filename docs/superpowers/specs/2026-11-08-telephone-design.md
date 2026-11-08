@@ -110,8 +110,10 @@ joueur l'entendent parler au téléphone.**
 - La ville peut être un opérateur comme les autres.
 
 ### Le maire
-- Le maire (cahier de l'économie, section 4) peut **casser ou modifier** une antenne, et **supprimer
-  un opérateur** : toutes ses cartes SIM sont alors désactivées et ses antennes ne relaient plus rien.
+- Le maire ([son cahier](2026-11-08-metier-maire-design.md)) peut **casser ou modifier** une antenne, et
+  **supprimer un opérateur** : toutes ses cartes SIM sont alors désactivées et ses antennes ne relaient
+  plus rien. Il publie ses annonces sur Écho par un compte officiel, et gère la ville depuis l'appli
+  Mairie.
 
 ## 5. Features
 
@@ -205,6 +207,8 @@ La numérotation prolonge celle du cahier de l'économie.
   mentions, « j'aime ».
 - Il faut du réseau pour publier. Chaque publication porte le nom du joueur.
 - L'équipe du serveur peut retirer une publication et suspendre un compte.
+- Le compte officiel **« Mairie »**, marqué comme vérifié, publie les annonces du maire (cahier du
+  maire, feature 108).
 
 **99. Ombre.**
 Direction revue par Killian le 2026-11-08.

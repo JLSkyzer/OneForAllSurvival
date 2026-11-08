@@ -225,6 +225,8 @@ La numérotation prolonge celle du médecin. Toutes les valeurs chiffrées sont 
   **impayée**.
 - Le policier la marque **payée** quand le règlement a eu lieu en RP. Avec le [cahier de l'économie](2026-11-08-economie-design.md), le paiement au guichet la marque payée
   automatiquement.
+- Avec le [cahier du maire](2026-11-08-metier-maire-design.md) (feature 105), le montant de chaque motif
+  vient du **barème** fixé par le maire ; seul le motif libre garde un montant écrit par le policier.
 
 **61. Cellule.**
 - La **porte de cellule** est un bloc que seul un policier verrouille et déverrouille. Fermée, elle

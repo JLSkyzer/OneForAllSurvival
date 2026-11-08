@@ -120,12 +120,13 @@ Valeurs de départ, réglables :
 - Une pièce ne se fond pas, ne se composte pas, ne se vend pas à un villageois.
 
 ### Le maire
-- Le **maire** est un rôle **codé en dur** dans le mod, comme les métiers et statuts qui le sont déjà.
-  Son cahier reste à écrire, et son code sera demandé à l'agent principal.
+- Le **maire** est un rôle **codé en dur** dans le mod, comme les métiers qui le sont déjà. Il a son
+  [cahier](2026-11-08-metier-maire-design.md).
 - Il est **élu en RP**, puis l'équipe du serveur lui donne le grade par commande.
-- Dans l'économie, il tient le trésor de la ville (73) et en verse les salaires (75). Il plafonne le
-  prix de l'électricité, et il peut modifier ou supprimer un fournisseur (83). Le cahier du téléphone
-  lui donne les mêmes pouvoirs sur les opérateurs.
+- Dans l'économie, il tient le trésor de la ville (73), y dépense publiquement, règle les taxes et
+  l'**impôt sur les coffres-forts** (0 à 35 %), plafonne le prix de l'électricité, et peut modifier
+  ou supprimer un fournisseur (83). Le cahier du téléphone lui donne les mêmes pouvoirs sur les
+  opérateurs.
 - Tant qu'aucun maire n'est désigné, seule l'équipe du serveur fait ces gestes.
 
 ### Registre
@@ -170,6 +171,8 @@ Demandé par Killian le 2026-11-08.
 - Chaque joueur peut poser **un seul** coffre-fort. Pour en poser un autre, il doit d'abord casser le
   premier, vide.
 - Il ne contient **que des pièces**, sans limite de quantité. Son total s'affiche à l'ouverture.
+- Son contenu est soumis à l'**impôt** fixé par le maire, prélevé chaque jour à minuit au profit du
+  trésor (cahier du maire, feature 106).
 - Seuls son propriétaire et l'équipe du serveur l'ouvrent et le cassent.
 - Il **peut être cambriolé, difficilement** : il se force avec l'outil de crochetage du policier
   (feature 67), plus lentement qu'un coffre verrouillé. L'effraction laisse une trace visible et
@@ -424,7 +427,7 @@ Chaque branchement se fait au lot du métier concerné, une fois l'économie liv
 | Agriculteur | L'**étal** vend la production et rachète les récoltes. Le **grenier communal** peut **payer les dépôts** au prix fixé par la ville, sur le trésor : la ville achète ses réserves. |
 | Médecin | Le médecin émet une **facture de soins** depuis le dossier médical, avec les soins listés. Elle peut être réglée par le trésor si la ville rend certains soins gratuits (réglable par type de soin). |
 | Policier | Une **contravention** devient une facture publique : payée au guichet, elle est marquée payée au casier sans geste du policier. Une **caution** peut être versée au trésor pour sortir de cellule plus tôt (réglable). Les pièces se fouillent et se confisquent comme le reste. Son outil de crochetage force aussi un coffre-fort (feature 85). |
-| Maire | Il tient le trésor, verse les salaires, plafonne le prix de l'électricité, modifie ou supprime un fournisseur. |
+| Maire | Voir son [cahier](2026-11-08-metier-maire-design.md) : trésor et dépenses publiques, taxes, impôt sur les coffres-forts, barème des amendes, plafond du prix de l'électricité, fournisseurs. |
 | Communication | L'**abonnement du téléphone** est prélevé chaque jour en pièces (feature 86) et va dans la caisse de l'antenne de l'opérateur. Voir le [cahier du téléphone](2026-11-08-telephone-design.md). |
 | Tous | Les **salaires publics**, la **taxe sur les ventes**, le **cambriolage** du trésor, d'un étal ou d'un coffre-fort. |
 
