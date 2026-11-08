@@ -67,6 +67,7 @@ import org.lwjgl.opengl.GLCapabilities;
 public final class LostIslandWindow implements ImmediateWindowProvider {
     private static final String NAME = "lostisland";
     private static final long LOG_INTERVAL_NANOS = 1_000_000_000L;
+    private static final int KEPT_LOGS = 5;
     private static final long MAIN_FRAME_NANOS = 1_000_000_000L / 60;
     private static final int[][] GL_VERSIONS = {{4, 6}, {4, 5}, {4, 4}, {4, 3}, {4, 2}, {4, 1}, {4, 0}, {3, 3}, {3, 2}};
     private static final String MOD_MODULE = "oneforallsurvival";
@@ -125,11 +126,17 @@ public final class LostIslandWindow implements ImmediateWindowProvider {
         lastLogNanos = startNanos - LOG_INTERVAL_NANOS;
         openLog(gameDir(arguments).resolve("logs").resolve("lostisland-earlywindow.log"));
         write("initialize : fournisseur " + NAME);
+        // Essais du repli : true (avant notre fenêtre), late (après la fenêtre et la scène), render (dans le
+        // thread de rendu, repli au prochain appel de Forge sur le thread principal).
+        String fail = System.getProperty("lostisland.earlywindow.fail", "");
         try {
-            if (Boolean.getBoolean("lostisland.earlywindow.fail")) {
+            if (fail.equals("true")) {
                 throw new IllegalStateException("échec demandé par -Dlostisland.earlywindow.fail=true");
             }
-            startOwn();
+            startOwn(fail.equals("render") ? 60 : 0);
+            if (fail.equals("late")) {
+                throw new IllegalStateException("échec demandé par -Dlostisland.earlywindow.fail=late");
+            }
         } catch (Throwable t) {
             write("initialize : échec de notre fenêtre (" + t + "), repli sur le DisplayWindow de Forge");
             teardownOwn();
@@ -140,7 +147,7 @@ public final class LostIslandWindow implements ImmediateWindowProvider {
 
     // --- Notre fenêtre -------------------------------------------------------------------------------------
 
-    private void startOwn() {
+    private void startOwn(int failAfterFrames) {
         String mcVersion = option(arguments, "--fml.mcVersion");
         String forgeVersion = option(arguments, "--fml.forgeVersion");
         int width = intOption(arguments, "--width", FMLConfig.getIntConfigValue(FMLConfig.ConfigValue.EARLY_WINDOW_WIDTH));
@@ -164,7 +171,8 @@ public final class LostIslandWindow implements ImmediateWindowProvider {
         write(String.format(Locale.ROOT, "scène prête en %.2f s", (System.nanoTime() - sceneBegin) / 1e9));
         glfwMakeContextCurrent(0L);
 
-        loop = new EarlyRenderLoop(window, capabilities, scene, () -> fbWidth, () -> fbHeight, this::write);
+        loop = new EarlyRenderLoop(window, capabilities, scene, () -> fbWidth, () -> fbHeight, this::write,
+                failAfterFrames);
         loop.start();
         shared = scene;
         // Comme Forge : le message de démarrage ; il fait passer la barre à la découverte des mods.
@@ -443,8 +451,8 @@ public final class LostIslandWindow implements ImmediateWindowProvider {
     @Override
     public void updateModuleReads(ModuleLayer layer) {
         write("updateModuleReads : couche du jeu disponible");
+        fallBackIfRenderFailed(); // avant de retenir la couche : le repli n'appelle pas updateModuleReads deux fois
         gameLayer = layer;
-        fallBackIfRenderFailed();
         if (delegated) {
             forge.updateModuleReads(layer);
             return;
@@ -565,9 +573,21 @@ public final class LostIslandWindow implements ImmediateWindowProvider {
         }
     }
 
+    /**
+     * Ouvre le journal ; ceux des lancements précédents sont gardés ({@code lostisland-earlywindow.1.log} le plus
+     * récent, jusqu'à {@value #KEPT_LOGS}), pour qu'un lancement n'efface jamais le relevé du précédent.
+     */
     private void openLog(Path file) {
         try {
             Files.createDirectories(file.getParent());
+            String base = file.getFileName().toString().replace(".log", "");
+            for (int i = KEPT_LOGS; i >= 1; i--) {
+                Path from = i == 1 ? file : file.resolveSibling(base + "." + (i - 1) + ".log");
+                if (Files.exists(from)) {
+                    Files.move(from, file.resolveSibling(base + "." + i + ".log"),
+                            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                }
+            }
             log = Files.newBufferedWriter(file, StandardCharsets.UTF_8);
         } catch (IOException e) {
             log = null;

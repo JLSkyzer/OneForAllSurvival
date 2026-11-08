@@ -33,12 +33,15 @@ final class EarlyRenderLoop {
     private final IntSupplier fbHeight;
     private final Consumer<String> log;
     private final CountDownLatch done = new CountDownLatch(1);
+    // Essai du repli (-Dlostisland.earlywindow.fail=render) : nombre d'images avant un échec simulé, 0 = jamais.
+    private final int failAfterFrames;
     private volatile boolean stop;
     private volatile Throwable failure;
     private Thread thread;
 
     EarlyRenderLoop(long window, GLCapabilities capabilities, EarlyScene scene, IntSupplier fbWidth,
-                    IntSupplier fbHeight, Consumer<String> log) {
+                    IntSupplier fbHeight, Consumer<String> log, int failAfterFrames) {
+        this.failAfterFrames = failAfterFrames;
         this.window = window;
         this.capabilities = capabilities;
         this.scene = scene;
@@ -60,7 +63,11 @@ final class EarlyRenderLoop {
         try {
             glfwSwapInterval(1);
             long next = System.nanoTime();
+            int frame = 0;
             while (!stop) {
+                if (failAfterFrames > 0 && ++frame > failAfterFrames) {
+                    throw new IllegalStateException("échec demandé par -Dlostisland.earlywindow.fail=render");
+                }
                 int w = fbWidth.getAsInt();
                 int h = fbHeight.getAsInt();
                 glBindFramebuffer(GL_FRAMEBUFFER, 0);

@@ -113,13 +113,14 @@ minecraft {
             // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
             property 'forge.enabledGameTestNamespaces', mod_id
             // Fenêtre de chargement : `-PsceneFrames=<dossier>` enregistre le film de la scène (relatif à run/),
-            // `-PearlyWindowFail` force le repli sur l'écran de Forge. Un -D sur la ligne de Gradle n'atteindrait
-            // pas le jeu : ce sont des propriétés du lancement.
+            // `-PearlyWindowFail[=true|late|render]` force le repli sur l'écran de Forge : avant notre fenêtre
+            // (true), après notre fenêtre et la scène (late), ou par un échec dans le thread de rendu (render).
+            // Un -D sur la ligne de Gradle n'atteindrait pas le jeu : ce sont des propriétés du lancement.
             if (project.hasProperty('sceneFrames')) {
                 property 'lostisland.frames', project.sceneFrames
             }
             if (project.hasProperty('earlyWindowFail')) {
-                property 'lostisland.earlywindow.fail', 'true'
+                property 'lostisland.earlywindow.fail', project.earlyWindowFail ?: 'true'
             }
         }
 
