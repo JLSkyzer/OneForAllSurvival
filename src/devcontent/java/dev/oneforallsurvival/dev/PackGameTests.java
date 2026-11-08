@@ -277,4 +277,53 @@ public final class PackGameTests {
                 "la lave ne doit pas entrer");
         helper.succeed();
     }
+
+    /**
+     * Le courant d'un vrai réseau de Create Crafts &amp; Additions traverse le tableau de délestage, au motif de la
+     * preuve des réseaux du lot 0 ({@link ReseauxGameTests}) : la créative, un connecteur, un fil de cuivre tiré à la
+     * bobine, un connecteur contre l'arrière du tableau, et la machine d'essai devant lui. Critère : la machine tourne
+     * et a travaillé 20 ticks, et le tableau affiche sa sortie avant alimentée, avec des FE.
+     */
+    @GameTest(template = "test/plancher", batch = "pack_delesteur", timeoutTicks = 300, setupTicks = 20)
+    public static void leCourantDeCraftsAdditionsTraverseLeDelesteur(GameTestHelper helper) {
+        if (!ReseauxDev.Reseau.CREATE_ADDITION.disponible()) {
+            helper.succeed();
+            return;
+        }
+        var level = helper.getLevel();
+        BlockPos source = helper.absolutePos(new BlockPos(0, 2, 1));
+        BlockPos tableau = source.east(5);
+        BlockPos machine = source.east(6);
+        java.util.List<String> journal = new java.util.ArrayList<>();
+        // Sortie avant à l'est, vers la machine ; entrée à l'ouest, du côté du connecteur.
+        level.setBlock(machine, DevBlocks.testMachine().defaultBlockState(), Block.UPDATE_ALL);
+        level.setBlock(tableau, dev.oneforallsurvival.grid.GridRegistry.LOAD_SHEDDER.get().defaultBlockState()
+                .setValue(dev.oneforallsurvival.grid.LoadShedderBlock.FACING, Direction.EAST), Block.UPDATE_ALL);
+        level.setBlock(source, ForgeRegistries.BLOCKS.getValue(new ResourceLocation("createaddition", "creative_energy"))
+                .defaultBlockState(), Block.UPDATE_ALL);
+        ReseauxDev.cliquer(level, "createaddition:connector", source, Direction.EAST, Direction.WEST, 1, journal);
+        ReseauxDev.cliquer(level, "createaddition:connector", tableau, Direction.WEST, Direction.EAST, 1, journal);
+        ReseauxDev.Scene scene = new ReseauxDev.Scene(ReseauxDev.Reseau.CREATE_ADDITION, true, source, machine, tableau,
+                source.east(1), source.east(4), journal);
+        // Le fil vient 5 ticks plus tard, comme dans la preuve du lot 0 : les connecteurs ont eu leur premier tick.
+        helper.runAfterDelay(5, () -> ReseauxDev.cabler(level, scene));
+        helper.succeedWhen(() -> {
+            helper.assertTrue(level.getBlockEntity(machine) instanceof TestMachineBlockEntity, "machine d'essai absente");
+            helper.assertTrue(level.getBlockEntity(tableau) instanceof dev.oneforallsurvival.grid.LoadShedderBlockEntity,
+                    "tableau absent");
+            TestMachineBlockEntity m = (TestMachineBlockEntity) level.getBlockEntity(machine);
+            var t = (dev.oneforallsurvival.grid.LoadShedderBlockEntity) level.getBlockEntity(tableau);
+            int devant = dev.oneforallsurvival.grid.LoadShedderBlockEntity.OUTPUT_FRONT;
+            helper.assertTrue(m.state() == dev.oneforallsurvival.machine.MachineState.RUNNING && m.progress() >= 20,
+                    "machine : " + m.state() + ", progression " + m.progress() + ", journal " + journal);
+            // Alimentée, ou partielle si le fil apporte moins que la machine ne prend : jamais coupée.
+            var etat = t.status(devant);
+            helper.assertTrue((etat == dev.oneforallsurvival.grid.OutputStatus.FED
+                    || etat == dev.oneforallsurvival.grid.OutputStatus.PARTIAL) && t.lastDelivered(devant) > 0,
+                    "sortie avant : " + etat + ", " + t.lastDelivered(devant) + " FE");
+            org.apache.logging.log4j.LogManager.getLogger("oneforallsurvival-reseaux").info(
+                    "[reseau] delesteur | RESULTAT OK au tick {} : progression {}, sortie avant {} a {} FE, journal {}",
+                    helper.getTick(), m.progress(), etat, t.lastDelivered(devant), journal);
+        });
+    }
 }
