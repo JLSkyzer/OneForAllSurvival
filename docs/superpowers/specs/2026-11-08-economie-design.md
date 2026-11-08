@@ -136,11 +136,11 @@ Valeurs de départ, réglables :
 | Bourse (69) | n'importe quel joueur | — | son porteur | oui, comme tout objet |
 | Coffre-fort (85) | n'importe quel joueur | son propriétaire, un seul | son propriétaire | oui, au crochetage, avec trace |
 | Étal de marché (71) | n'importe quel joueur | son propriétaire, autant qu'il veut | son propriétaire | oui, au crochetage, avec trace |
-| Trésor de la ville (73) | — | l'équipe du serveur, un seul | le maire | oui, au crochetage, avec trace |
-| Tableau de la mairie (73) | — | le maire, plusieurs | affichage seul | — |
+| Trésor de la ville (73) | — | l'équipe du serveur, un seul ; déplaçable par un ingénieur, le maire ou l'équipe | le maire | oui, au crochetage, avec trace |
+| Tableau de la mairie (73) | — | le maire, plusieurs ; déplaçable par un ingénieur, le maire ou l'équipe | affichage seul | — |
 | Poste de fournisseur (83) | l'ingénieur | n'importe quel joueur | le fournisseur | non, sa caisse se vide par le fournisseur |
 | PNJ changeur (80) | — | l'équipe, par commande | — | non, invulnérable |
-| Bureau du maire (cahier du maire) | — | l'équipe, un seul | le maire | non |
+| Bureau du maire (cahier du maire) | — | l'équipe, un seul ; déplaçable par un ingénieur, le maire ou l'équipe | le maire | non |
 
 ### Registre
 Le mécanisme de registre du grenier communal sert à toute l'économie : chaque mouvement est noté, avec
@@ -268,7 +268,12 @@ Demandé par Killian le 2026-11-08.
   les joueurs (feature 86). Il **envoie à distance** les salaires (feature 75). Personne n'a besoin de
   venir à la mairie pour payer ou être payé.
 - Il n'y en a **qu'un**, posé par l'**équipe du serveur** à la mairie (choix de Killian). Seuls le maire
-  et l'équipe l'ouvrent ; seule l'équipe le casse.
+  et l'équipe l'ouvrent.
+- **Déplacement** : un ingénieur (avec son outil de maintenance, comme pour les antennes), le maire ou
+  l'équipe peut le casser pour le reposer ailleurs (choix de Killian). Les pièces ne tombent pas :
+  le contenu est gardé par le serveur et le bloc cassé redevient le trésor unique, avec son contenu et
+  son registre, là où on le repose. Il ne peut pas exister deux trésors, et le déplacement s'inscrit au
+  registre.
 - Son solde est public, affiché sur un **tableau de la mairie**. Le maire peut poser ce tableau en
   plusieurs exemplaires dans la ville ; il affiche aussi les annonces et le registre des décisions
   (cahier du maire). La ville montre ses comptes.

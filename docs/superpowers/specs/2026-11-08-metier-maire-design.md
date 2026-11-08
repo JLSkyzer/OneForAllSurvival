@@ -78,7 +78,10 @@ La numérotation prolonge celle du cahier du téléphone.
 
 **102. Bureau du maire.**
 - C'est un **bloc** posé à la mairie par l'équipe du serveur. Il n'y en a qu'un. Seuls le maire et
-  l'équipe l'ouvrent et le cassent.
+  l'équipe l'ouvrent.
+- Un ingénieur (avec son outil de maintenance), le maire ou l'équipe peut le **casser pour le reposer
+  ailleurs** (choix de Killian). Rien ne se perd : il reste le bureau unique, avec ses réglages, et les
+  tableaux de la mairie se déplacent de la même façon.
 - Son interface a cinq onglets :
 
   | Onglet | Contenu |
