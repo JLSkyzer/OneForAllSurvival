@@ -251,7 +251,9 @@ indique quelles sorties sont coupées. Les priorités se règlent dans son inter
 - Le **disjoncteur d'abonné** coupe la ligne et se verrouille par un scellé. Seul l'Ingénieur peut
   poser ou retirer un scellé, et un disjoncteur scellé ne se réenclenche pas.
 - Casser un compteur ou un disjoncteur scellé reste possible, le mod ne protège pas contre la casse : la
-  trace visible sur le relevé suivant et le RP (Policier) prennent le relais.
+  trace visible sur le relevé suivant et le RP (Policier) prennent le relais. *Remplacé le 2026-11-08
+  par la feature 83 du cahier de l'économie : un compteur ou un disjoncteur posé par un fournisseur ne
+  se casse et ne s'utilise que par ce fournisseur, un ingénieur, le maire ou l'équipe du serveur.*
 
 ### Eau et nourriture
 

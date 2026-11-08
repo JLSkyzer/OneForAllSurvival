@@ -238,24 +238,45 @@ Demandé par Killian le 2026-11-08, sur le modèle des opérateurs du téléphon
 - **Le fournisseur fixe son prix** : un prix par FE consommé et, s'il le veut, un abonnement fixe par
   jour. Il le change depuis le panneau du poste. Le nouveau prix s'applique à la facture suivante, et
   les clients en sont prévenus.
-- Le panneau liste les **clients** : un compteur au nom de chacun, branché sur son réseau, avec sa
-  consommation et ses impayés. Le fournisseur y accepte ou refuse une demande de raccordement, et peut
-  **couper** un client en ouvrant son disjoncteur à distance. Le scellé reste un geste d'ingénieur.
+- **Branchement.** Le courant suit ce chemin :
+
+  ```
+  générateurs → poste du fournisseur → câbles du fournisseur → compteur → disjoncteur → maison du client
+  ```
+
+  - Le **poste** est en tête du réseau : tout le courant vendu passe par lui, et il compte ce qui sort.
+  - Le **compteur** (feature 8) est posé en ligne à l'entrée de chaque client. Il compte les FE qui
+    entrent dans cette maison, et c'est cette mesure qui fait la facture.
+  - Le **disjoncteur d'abonné** (feature 8) suit le compteur et coupe la maison.
+- **Rattachement.** Le mod ne sait pas de quel réseau vient le courant, car les câbles des mods
+  d'ingénierie ne le disent pas. Le fournisseur ou un ingénieur **jumelle** donc chaque compteur au
+  poste avec le testeur : un clic sur le poste, puis un sur le compteur, qui affiche le nom du
+  fournisseur. Le client apparaît alors dans le panneau. Tant qu'un compteur n'est pas rattaché et
+  accepté, il ne laisse pas passer le courant.
+- Le panneau liste les **clients** : un compteur au nom de chacun, avec sa consommation et ses
+  impayés. Le fournisseur y accepte ou refuse une demande de raccordement, et peut **couper** un client
+  en ouvrant son disjoncteur à distance. Le scellé reste un geste d'ingénieur.
+- **Vol de courant.** Le panneau affiche l'écart entre ce que le poste a fait sortir et ce que les
+  compteurs ont mesuré. Un écart élevé signale une perte ou un branchement pirate sur un câble, avant un
+  compteur. Le policier prend le relais en RP.
 - **La facture est automatique et quotidienne.** Chaque jour, à une heure fixe du calendrier réel
   (minuit au départ, réglable), chaque compteur se relève seul et émet une facture (feature 72) :
   consommation du jour fois prix, plus l'abonnement. Si le serveur est éteint à cette heure, les
-  factures en retard sont émises à son démarrage, une par jour manqué. Elle est **prélevée sur la carte bancaire** (feature 82) que le client a liée à son
-  compteur, et l'argent va sur le compte du fournisseur.
+  factures en retard sont émises à son démarrage, une par jour manqué. Elle est **prélevée sur la
+  carte bancaire** (feature 82) que le client a liée à son compteur, et l'argent va sur le compte du
+  fournisseur.
 - Sans carte liée, ou si le prélèvement est refusé (solde insuffisant, carte en opposition), la facture
   reste due. Le client la paie au guichet ou au distributeur. Le fournisseur est prévenu et décide de
   couper ou non.
 - Le compteur mesure les FE qui passent vraiment : un fournisseur ne facture que ce qu'il a livré.
 - Une **taxe sur l'électricité** (0 % au départ, réglable) part au trésor à chaque facture payée.
-- **Sécurité** : seuls le fournisseur, le **maire**, l'équipe du serveur et un ingénieur muni de l'outil
-  de maintenance peuvent ouvrir le panneau, régler le poste ou le casser. Le maire peut aussi
-  **supprimer un fournisseur** : ses clients sont détachés, et leurs compteurs ne facturent plus.
-- Pour changer de fournisseur, le client demande un raccordement à un autre, et un ingénieur rebranche
-  son compteur sur le nouveau réseau.
+- **Sécurité.** Le poste, les compteurs et les disjoncteurs posés par un fournisseur lui appartiennent.
+  Seuls ce fournisseur, un **ingénieur**, le **maire** et l'**équipe du serveur** peuvent les casser
+  ou interagir avec eux (ouvrir, régler, jumeler, réenclencher). Le client lui-même ne peut pas toucher
+  à son compteur ni à son disjoncteur. Le maire peut aussi **supprimer un fournisseur** : ses clients
+  sont détachés, et leurs compteurs ne facturent plus.
+- Pour changer de fournisseur, le client demande un raccordement à un autre. Le nouveau fournisseur ou
+  un ingénieur rebranche ses câbles et rejumelle son compteur au nouveau poste.
 - L'argent ne fait que passer d'un compte à l'autre : la feature ne crée rien.
 
 ### Gagner sa vie
@@ -429,7 +450,10 @@ le lot E6, puisque les factures d'électricité passent par les fournisseurs et 
   - un serveur éteint deux jours émet deux factures par compteur à son démarrage ;
   - un changement de prix ne touche que la facture suivante ;
   - un prélèvement refusé laisse la facture due et prévient le fournisseur ;
-  - un fournisseur supprimé par le maire ne facture plus personne.
+  - un fournisseur supprimé par le maire ne facture plus personne ;
+  - un compteur non jumelé ou non accepté ne laisse pas passer le courant ;
+  - un joueur sans droit (client compris) ne peut ni casser ni ouvrir le poste, un compteur ou un
+    disjoncteur d'un fournisseur ; le fournisseur, un ingénieur, le maire et l'équipe le peuvent.
 - **Scénario d'acceptation** : l'équipe désigne un trésorier ; il frappe ; il verse un salaire ; le policier
   achète du pain à l'étal de l'agriculteur absent ; l'agriculteur récupère ses recettes ; on relance le
   serveur ; on lit le tableau de bord, et chaque pièce a une origine.
