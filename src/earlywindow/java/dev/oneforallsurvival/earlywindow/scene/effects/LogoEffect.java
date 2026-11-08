@@ -5,6 +5,7 @@ import static org.lwjgl.opengl.GL32C.*;
 import dev.oneforallsurvival.earlywindow.scene.Ambiance;
 import dev.oneforallsurvival.earlywindow.scene.BitmapFont;
 import dev.oneforallsurvival.earlywindow.scene.SceneManifest;
+import dev.oneforallsurvival.earlywindow.scene.SceneProjection;
 import dev.oneforallsurvival.earlywindow.scene.SceneState;
 import dev.oneforallsurvival.earlywindow.scene.ShaderLoader;
 import dev.oneforallsurvival.earlywindow.scene.StoryClock;
@@ -25,8 +26,8 @@ import java.util.List;
 public final class LogoEffect implements SceneEffect {
     // Constantes de compose.py.
     private static final double LOAD_END = 29.0;
-    private static final int OX = 72;
-    private static final int OY = 58;
+    private static final int OX = SceneProjection.LOGO_X;
+    private static final int OY = SceneProjection.LOGO_Y;
     private static final float[] GLOW = Ambiance.rgb("#ffb040");
     private static final float[] SHEEN = Ambiance.rgb("#fff4d0");
     private static final float[] MOTTO = Ambiance.rgb("#3a1a08");

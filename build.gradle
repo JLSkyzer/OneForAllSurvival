@@ -369,6 +369,8 @@ dependencies {
     // Tests unitaires
     testImplementation "org.junit.jupiter:junit-jupiter:${junit_version}"
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    // TitleLayoutTest compare la disposition à la projection pure du jar de service.
+    testImplementation sourceSets.earlywindow.output.classesDirs
 
     earlywindowTestImplementation sourceSets.earlywindow.output.classesDirs
     earlywindowTestImplementation "org.junit.jupiter:junit-jupiter:${junit_version}"
