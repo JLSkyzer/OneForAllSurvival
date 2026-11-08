@@ -129,6 +129,20 @@ Valeurs de départ, réglables :
   opérateurs.
 - Tant qu'aucun maire n'est désigné, seule l'équipe du serveur fait ces gestes.
 
+### Qui fabrique, qui pose, qui gère
+
+| Bloc ou objet | Fabriqué par | Posé par | Géré par | Volable |
+|---|---|---|---|---|
+| Bourse (69) | n'importe quel joueur | — | son porteur | oui, comme tout objet |
+| Coffre-fort (85) | n'importe quel joueur | son propriétaire, un seul | son propriétaire | oui, au crochetage, avec trace |
+| Étal de marché (71) | n'importe quel joueur | son propriétaire, autant qu'il veut | son propriétaire | oui, au crochetage, avec trace |
+| Trésor de la ville (73) | — | l'équipe du serveur, un seul | le maire | oui, au crochetage, avec trace |
+| Tableau de la mairie (73) | — | le maire, plusieurs | affichage seul | — |
+| Guichet (74) | l'ingénieur | le maire, plusieurs | le maire (en libre-service) | non, il ne garde aucune pièce |
+| Poste de fournisseur (83) | l'ingénieur | n'importe quel joueur | le fournisseur | non, sa caisse se vide par le fournisseur |
+| PNJ changeur (80) | — | l'équipe, par commande | — | non, invulnérable |
+| Bureau du maire (cahier du maire) | — | l'équipe, un seul | le maire | non |
+
 ### Registre
 Le mécanisme de registre du grenier communal sert à toute l'économie : chaque mouvement est noté, avec
 l'auteur, le montant, l'heure et le motif. Le nombre de lignes est plafonné. Il est écrit une fois et
@@ -184,6 +198,7 @@ Demandé par Killian le 2026-11-08.
 
 **69. Bourse.**
 - C'est un objet porté qui **ramasse** les pièces, les range et affiche le total.
+- **N'importe quel joueur** la fabrique, par une recette simple (choix de Killian).
 - Payer avec la bourse **rend la monnaie** automatiquement : le change se fait sans passer par la table.
 - On peut la perdre, la laisser tomber, se la faire voler, et la fouiller (feature 52 du policier).
 - C'est le seul objet qui contient des pièces (feature 84). Une bourse ne se range pas dans un stockage
@@ -215,11 +230,16 @@ Demandé par Killian le 2026-11-08.
 ### Commerce
 
 **71. Étal de marché.**
-- C'est un bloc de commerce. Le propriétaire le garnit d'objets et fixe un prix par lot.
+- C'est un bloc de commerce. **N'importe quel joueur** le fabrique, et celui qui le pose en est le
+  **propriétaire** (choix de Killian). Il en pose autant qu'il veut.
+- Le propriétaire le garnit d'objets et fixe un prix par lot.
 - Un acheteur paie avec ses pièces ou sa bourse et reçoit le lot, **même si le vendeur est absent**.
 - Le vendeur récupère ses recettes dans l'étal. Seul lui peut retirer la marchandise et l'argent. Les
   trémies et entonnoirs peuvent le garnir, pas le vider.
-- L'étal ne se casse que vide.
+- L'étal ne se casse que vide, par son propriétaire ou l'équipe du serveur.
+- Il **peut être cambriolé**, comme le coffre-fort (choix de Killian) : il se force avec l'outil de
+  crochetage du policier (feature 67), lentement. Le voleur prend la caisse et la marchandise.
+  L'effraction laisse une trace visible et s'inscrit au registre de l'étal, que son propriétaire lit.
 - Une **taxe sur les ventes** (0 % au départ, réglable) part au trésor à chaque vente.
 - L'étal peut aussi **racheter** : le propriétaire fixe un prix d'achat et une quantité
   maximale, payés sur ses recettes. L'agriculteur peut ainsi acheter le blé de ses voisins.
@@ -234,14 +254,27 @@ Demandé par Killian le 2026-11-08.
 
 **73. Trésor de la ville.**
 - C'est un **coffre-fort** tenu par le maire, avec un registre. Il reçoit les taxes, les amendes, les
-  factures publiques, et il paie les salaires.
-- Son solde est public, affiché sur un **tableau** posable en ville. La ville montre ses comptes.
+  factures publiques et l'impôt, et il paie les salaires.
+- Il n'y en a **qu'un**, posé par l'**équipe du serveur** à la mairie (choix de Killian). Seuls le maire
+  et l'équipe l'ouvrent ; seule l'équipe le casse.
+- Son solde est public, affiché sur un **tableau de la mairie**. Le maire peut poser ce tableau en
+  plusieurs exemplaires dans la ville ; il affiche aussi les annonces et le registre des décisions
+  (cahier du maire). La ville montre ses comptes.
 - Il peut être cambriolé comme un coffre verrouillé (feature 67 du policier) : le registre montre alors un
   trou entre le solde attendu et le contenu.
 
 **74. Guichet.**
-- C'est un bloc relié au trésor, où l'on **paie une facture publique** (amende) sans que le maire soit
-  présent. On y paie aussi une facture d'électricité ou de téléphone restée due après un prélèvement
+- C'est un bloc **fabriqué par l'ingénieur** à son établi, et **posé par le maire** (choix de Killian),
+  ou par l'équipe du serveur. Il peut y en avoir plusieurs : à la mairie, au port, à la mine.
+- À sa pose, le maire le **relie au trésor** : le guichet affiche alors « Guichet de la ville » et
+  travaille avec le trésor unique, sans câble, quelle que soit la distance. Un guichet non relié ne fait
+  rien.
+- Il ne garde **aucune pièce** : tout ce qu'on y paie va directement au trésor ou au créancier, et tout
+  ce qu'on y retire vient du trésor. Le voler ne rapporte donc rien.
+- Seuls le maire, l'équipe du serveur et un ingénieur muni de l'outil de maintenance peuvent le casser
+  ou le déplacer.
+- Il fonctionne seul, en libre-service : aucun joueur n'a besoin d'être derrière.
+- On y **paie une facture publique** (amende) sans que le maire soit présent. On y paie aussi une facture d'électricité ou de téléphone restée due après un prélèvement
   refusé : les pièces vont alors au créancier.
 - Le paiement marque la facture payée là où elle a été émise : le relevé du compteur, le casier
   judiciaire.
