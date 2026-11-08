@@ -13,6 +13,8 @@ public final class SmoothNumber {
     public static final double TIME_CONSTANT = 0.15;
     /** Écart relatif au-delà duquel le chiffre saute directement. */
     public static final double JUMP_RATIO = 0.5;
+    /** Écart minimal (en unités) pour sauter : près de zéro ou en changeant de signe, un petit écart reste lissé. */
+    public static final double JUMP_MIN_GAP = 8.0;
 
     private final boolean jumpOnBigChange;
     private double value;
@@ -25,17 +27,20 @@ public final class SmoothNumber {
     /**
      * Avance d'une image et rend la valeur à afficher. Le premier appel adopte la cible telle quelle.
      *
-     * @param target valeur réelle
+     * @param target valeur réelle (NaN ou infinie : ignorée, la dernière valeur est conservée)
      * @param dt     secondes écoulées depuis l'appel précédent (négatif ou nul : valeur inchangée)
      */
     public double update(double target, double dt) {
+        if (Double.isNaN(target) || Double.isInfinite(target)) {
+            return value;
+        }
         if (!initialized) {
             value = target;
             initialized = true;
             return value;
         }
         double gap = Math.abs(target - value);
-        if (jumpOnBigChange && gap > JUMP_RATIO * Math.abs(value)) {
+        if (jumpOnBigChange && gap > Math.max(JUMP_RATIO * Math.abs(value), JUMP_MIN_GAP)) {
             value = target;
         } else if (dt > 0) {
             value += (target - value) * (1.0 - Math.exp(-dt / TIME_CONSTANT));

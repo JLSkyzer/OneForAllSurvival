@@ -45,4 +45,31 @@ class SmoothNumberTest {
         double v = x.update(5010, 0.016);
         assertTrue(v > 5000 && v < 5010);
     }
+
+    @Test
+    void nanEstIgnore() {
+        SmoothNumber n = new SmoothNumber(true);
+        assertEquals(0, n.update(Double.NaN, 0.016), 0);
+        n.update(50, 0.016);
+        assertEquals(50, n.update(Double.NaN, 0.016), 0);
+        assertEquals(50, n.update(Double.POSITIVE_INFINITY, 0.016), 0);
+        assertTrue(n.update(60, 0.016) > 50);
+    }
+
+    @Test
+    void pasDeSautPresDeZeroEtLesNegatifsMarchent() {
+        SmoothNumber n = new SmoothNumber(true);
+        n.update(-0.5, 0.016);
+        double v = n.update(0.5, 0.016);
+        assertTrue(v > -0.5 && v < 0.5);
+        // Un changement de signe de grande ampleur est une téléportation.
+        SmoothNumber m = new SmoothNumber(true);
+        m.update(-300, 0.016);
+        assertEquals(300, m.update(300, 0.016), 0);
+        // Négatif proche : lissé vers la cible.
+        SmoothNumber k = new SmoothNumber(true);
+        k.update(-300, 0.016);
+        double w = k.update(-310, 0.016);
+        assertTrue(w < -300 && w > -310);
+    }
 }

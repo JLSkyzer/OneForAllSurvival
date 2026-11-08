@@ -7,13 +7,13 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Mise en page des panneaux du F3 : deux colonnes collées aux bords de l'écran.
+ * Mise en page des panneaux du F3.
  *
- * <p>Logique pure (aucune classe de Minecraft). Colonne de gauche : Position, Monde, Lost Island, Mods
- * (puis la vue détaillée, en vue détaillée seulement). Colonne de droite : Performances, Cible.
- * Marges et écart de 4 px. Règle « Repli des panneaux » : quand l'écran est trop petit, Position,
- * Performances et Cible restent, les autres panneaux sont retirés du résultat (ils passent dans la vue
- * détaillée, qui est un affichage à part).
+ * <p>Logique pure (aucune classe de Minecraft). Vue normale ({@link #place}) : colonne de gauche Position,
+ * Monde, Lost Island, Mods ; colonne de droite Performances, Cible ; marges et écart de 4 px. Règle « Repli
+ * des panneaux » : quand l'écran est trop petit, Position, Performances et Cible restent, un panneau non
+ * essentiel qui ne tient pas est retiré. Vue détaillée ({@link #placeDetail}) : rien n'est jamais retiré,
+ * ce qui ne tient pas passe sur des pages suivantes.
  */
 public final class DebugLayout {
 
@@ -28,7 +28,7 @@ public final class DebugLayout {
      * Emplacements de mise en page. Distinct de {@link DebugLines.Panel} car Lost Island n'y figure pas
      * (ses données viennent d'un paquet) ; l'affichage associe chaque {@code Panel} à son emplacement :
      * POSITION, WORLD, PERFORMANCE, TARGET, MODS portent le même nom ; ISLAND est le panneau Lost Island ;
-     * DETAIL reçoit {@code Panel.DETAIL_ONLY} (vue détaillée uniquement).
+     * DETAIL reçoit {@code Panel.DETAIL_ONLY} (vue détaillée uniquement, jamais placé par {@link #place}).
      */
     public enum Slot {
         POSITION(true, false),
@@ -47,12 +47,12 @@ public final class DebugLayout {
             this.right = right;
         }
 
-        /** Vrai si le panneau reste quand l'écran est trop petit. */
+        /** Vrai si le panneau reste dans la vue normale quand l'écran est trop petit. */
         public boolean essential() {
             return essential;
         }
 
-        /** Vrai si le panneau est dans la colonne de droite. */
+        /** Vrai si le panneau est dans la colonne de droite de la vue normale. */
         public boolean right() {
             return right;
         }
@@ -62,24 +62,18 @@ public final class DebugLayout {
     public record Size(int w, int h) {}
 
     /**
-     * Place les panneaux. Un panneau absent de {@code sizes} (ou de taille nulle) n'est pas placé ; un
-     * panneau retiré par le repli est absent du résultat. {@link Slot#DETAIL} n'est placé qu'en vue détaillée.
-     * Les rectangles ne se chevauchent jamais.
-     *
-     * @param guiW   largeur d'interface
-     * @param guiH   hauteur d'interface
-     * @param sizes  taille de chaque panneau
-     * @param detail vrai pour la vue détaillée
+     * Place les panneaux de la vue normale. Un panneau absent de {@code sizes} (ou de taille nulle) n'est
+     * pas placé ; un panneau retiré par le repli est absent du résultat (la vue détaillée les montre tous).
+     * {@link Slot#DETAIL} n'est jamais placé ici. Les rectangles ne se chevauchent jamais et restent dans
+     * l'écran : un panneau trop large ou trop haut est rogné aux marges, et un panneau qui n'a plus aucune
+     * place est absent.
      */
-    public static Map<Slot, Rect> place(int guiW, int guiH, Map<Slot, Size> sizes, boolean detail) {
+    public static Map<Slot, Rect> place(int guiW, int guiH, Map<Slot, Size> sizes) {
         List<Slot> left = new ArrayList<>();
         List<Slot> right = new ArrayList<>();
         for (Slot s : Slot.values()) {
             Size size = sizes.get(s);
-            if (size == null || size.w() <= 0 || size.h() <= 0) {
-                continue;
-            }
-            if (s == Slot.DETAIL && !detail) {
+            if (size == null || size.w() <= 0 || size.h() <= 0 || s == Slot.DETAIL) {
                 continue;
             }
             (s.right() ? right : left).add(s);
@@ -100,6 +94,91 @@ public final class DebugLayout {
         out.putAll(stack(left, sizes, guiW, guiH, false));
         out.putAll(stack(right, sizes, guiW, guiH, true));
         return out;
+    }
+
+    /**
+     * Un morceau de panneau posé sur une page de la vue détaillée : les lignes {@code firstLine} à
+     * {@code firstLine + lineCount - 1} (un panneau entier : {@code firstLine = 0}, {@code lineCount} = toutes).
+     */
+    public record Placement(Slot slot, Rect rect, int firstLine, int lineCount) {}
+
+    /**
+     * Vue détaillée : rien n'est jamais retiré. Les panneaux (dans l'ordre de {@link Slot}) coulent en autant
+     * de colonnes que la largeur en permet, de haut en bas ; quand l'écran est plein, la suite passe à la page
+     * suivante (F3 + Tab fait défiler : vue normale, page 1, page 2, ..., vue normale). Un panneau plus haut
+     * que l'écran est coupé par lignes sur plusieurs colonnes ou pages, chaque morceau gardant son cadre.
+     *
+     * <p>La hauteur d'un panneau est {@code chrome + lignes * lineHeight} (cadre et titre dans
+     * {@code chrome}) ; le nombre de lignes se déduit de {@code Size.h()}. Chaque slot présent apparaît sur
+     * au moins une page et ses morceaux couvrent chacune de ses lignes une fois.
+     *
+     * @param lineHeight hauteur d'une ligne (au moins 1)
+     * @param chrome     hauteur fixe d'un panneau ou d'un morceau, en dehors des lignes
+     * @return les pages ; liste vide s'il n'y a aucun panneau
+     */
+    public static List<List<Placement>> placeDetail(
+            int guiW, int guiH, Map<Slot, Size> sizes, int lineHeight, int chrome) {
+        int lh = Math.max(1, lineHeight);
+        int usableH = Math.max(1, guiH - 2 * MARGIN);
+        int usableW = Math.max(1, guiW - 2 * MARGIN);
+        int colW = 1;
+        for (Slot s : Slot.values()) {
+            Size size = sizes.get(s);
+            if (size != null && size.w() > 0 && size.h() > 0) {
+                colW = Math.max(colW, size.w());
+            }
+        }
+        colW = Math.min(colW, usableW);
+        int cols = Math.max(1, (usableW + GAP) / (colW + GAP));
+
+        List<List<Placement>> pages = new ArrayList<>();
+        List<Placement> page = null;
+        int col = 0;
+        int y = 0;
+        for (Slot s : Slot.values()) {
+            Size size = sizes.get(s);
+            if (size == null || size.w() <= 0 || size.h() <= 0) {
+                continue;
+            }
+            int w = Math.min(size.w(), colW);
+            int total = Math.max(1, (size.h() - chrome + lh - 1) / lh);
+            int done = 0;
+            while (done < total) {
+                if (page == null) {
+                    page = new ArrayList<>();
+                    pages.add(page);
+                }
+                int remaining = total - done;
+                int fullH = chrome + remaining * lh;
+                int avail = usableH - y;
+                int take;
+                if (fullH <= avail) {
+                    take = remaining;
+                } else if (y > 0 && fullH <= usableH) {
+                    take = 0; // tient entier dans une colonne neuve : on change de colonne
+                } else {
+                    take = Math.min(remaining, (avail - chrome) / lh);
+                    if (take < 1 && y == 0) {
+                        take = 1; // écran minuscule : au moins une ligne, rognée par l'écran
+                    }
+                }
+                if (take < 1) {
+                    col++;
+                    y = 0;
+                    if (col >= cols) {
+                        col = 0;
+                        page = new ArrayList<>();
+                        pages.add(page);
+                    }
+                    continue;
+                }
+                int h = Math.max(1, Math.min(chrome + take * lh, usableH - y));
+                page.add(new Placement(s, new Rect(MARGIN + col * (colW + GAP), MARGIN + y, w, h), done, take));
+                y += h + GAP;
+                done += take;
+            }
+        }
+        return pages;
     }
 
     private static boolean tooWide(List<Slot> left, List<Slot> right, Map<Slot, Size> sizes, int guiW) {
@@ -132,9 +211,15 @@ public final class DebugLayout {
                 dropping = true;
                 continue;
             }
-            int x = rightAligned ? guiW - MARGIN - size.w() : MARGIN;
-            out.put(s, new Rect(x, y, size.w(), size.h()));
-            y += size.h() + GAP;
+            // Rognage aux marges de l'écran (un essentiel plus grand que l'écran reste visible en partie).
+            int w = Math.min(size.w(), guiW - 2 * MARGIN);
+            int h = Math.min(size.h(), guiH - MARGIN - y);
+            if (w <= 0 || h <= 0) {
+                continue;
+            }
+            int x = rightAligned ? guiW - MARGIN - w : MARGIN;
+            out.put(s, new Rect(x, y, w, h));
+            y += h + GAP;
         }
         return out;
     }
