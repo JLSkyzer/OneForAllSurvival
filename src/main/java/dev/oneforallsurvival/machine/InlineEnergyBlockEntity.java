@@ -48,6 +48,11 @@ public abstract class InlineEnergyBlockEntity extends BlockEntity {
         return totalTransferred;
     }
 
+    /** Énergie réellement transmise pendant le tick de jeu courant, en FE ; 0 si rien n'est passé à ce tick. */
+    public int transferredThisTick() {
+        return level != null && level.getGameTime() == budgetTick ? usedThisTick : 0;
+    }
+
     private Direction outputSide() {
         return getBlockState().getValue(InlineEnergyBlock.FACING);
     }

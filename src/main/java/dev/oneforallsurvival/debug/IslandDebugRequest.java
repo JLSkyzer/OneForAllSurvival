@@ -5,6 +5,7 @@ import java.util.function.Supplier;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.GameRules;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.network.NetworkEvent;
 import net.minecraftforge.network.PacketDistributor;
@@ -32,9 +33,16 @@ public record IslandDebugRequest(@Nullable BlockPos target) {
         if (sender == null || !LIMITER.allow(sender.getUUID(), sender.server.getTickCount())) {
             return;
         }
-        BlockPos target = IslandDebugInfo.acceptedTarget(sender, packet.target());
-        BenchNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> sender),
-                new IslandDebugResponse(target, IslandDebugInfo.collect(sender, target)));
+        BenchNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> sender), answer(sender, packet.target()));
+    }
+
+    /** Sous {@code reducedDebugInfo}, rien : comme dans vanilla, la règle vaut pour tous, opérateurs compris. */
+    private static IslandDebugResponse answer(ServerPlayer sender, @Nullable BlockPos requested) {
+        if (sender.serverLevel().getGameRules().getBoolean(GameRules.RULE_REDUCEDDEBUGINFO)) {
+            return new IslandDebugResponse(null, IslandDebugInfo.EMPTY);
+        }
+        BlockPos target = IslandDebugInfo.acceptedTarget(sender, requested);
+        return new IslandDebugResponse(target, IslandDebugInfo.collect(sender, target));
     }
 
     public static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {

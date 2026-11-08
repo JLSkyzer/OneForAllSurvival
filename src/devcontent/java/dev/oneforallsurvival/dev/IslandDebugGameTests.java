@@ -22,6 +22,7 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
@@ -138,7 +139,7 @@ public final class IslandDebugGameTests {
     }
 
     @GameTest(template = "test/plancher")
-    public static void leCompteurEstReserveALIngenieur(GameTestHelper helper) {
+    public static void unCitoyenLitLAbonneEtLeDebitMaisPasLIndex(GameTestHelper helper) {
         poserMachine(helper);
         helper.setBlock(COMPTEUR, GridRegistry.METER.get().defaultBlockState()
                 .setValue(InlineEnergyBlock.FACING, Direction.NORTH));
@@ -151,12 +152,53 @@ public final class IslandDebugGameTests {
         JoueurDeTest citoyen = joueur(helper, "f3_citoyen_cpt", false);
         try {
             IslandDebugInfo.Meter lu = demander(ingenieur, cible).info().meter();
-            verifier(lu != null && "Mme Essai".equals(lu.subscriber()) && lu.index() == 60, "lecture : " + lu);
-            IslandDebugResponse reponse = demander(citoyen, cible);
-            verifier(cible.equals(reponse.target()), "la cible est valable pour un citoyen : " + reponse.target());
-            verifier(reponse.info().meter() == null, "un citoyen a reçu le compteur : " + reponse.info().meter());
-        } finally {
+            verifier(lu != null && "Mme Essai".equals(lu.subscriber()) && lu.fePerTick() == 60
+                    && Long.valueOf(60).equals(lu.index()), "lecture de l'ingénieur : " + lu);
+            IslandDebugInfo.Meter vu = demander(citoyen, cible).info().meter();
+            verifier(vu != null && "Mme Essai".equals(vu.subscriber()) && vu.fePerTick() == 60,
+                    "un citoyen devait voir l'abonné et le débit : " + vu);
+            verifier(vu.index() == null, "un citoyen a reçu l'index : " + vu.index());
+        } catch (RuntimeException e) {
             quitter(ingenieur, citoyen);
+            throw e;
+        }
+        // Plus rien ne passe aux ticks suivants : le débit retombe, l'index reste.
+        helper.runAfterDelay(2, () -> {
+            try {
+                IslandDebugInfo.Meter apres = demander(ingenieur, cible).info().meter();
+                verifier(apres != null && apres.fePerTick() == 0 && Long.valueOf(60).equals(apres.index()),
+                        "sans courant, débit nul et index gardé : " + apres);
+            } finally {
+                quitter(ingenieur, citoyen);
+            }
+            helper.succeed();
+        });
+    }
+
+    /** Lot à part : la règle de jeu et le détecteur côtier sont globaux au serveur. */
+    @GameTest(template = "test/plancher", batch = "f3_reduit")
+    public static void sousReducedDebugInfoLaReponseEstVide(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        GameRules.BooleanValue regle = level.getGameRules().getRule(GameRules.RULE_REDUCEDDEBUGINFO);
+        poserMachine(helper);
+        BlockPos cible = helper.absolutePos(MACHINE);
+        JoueurDeTest ingenieur = joueur(helper, "f3_reduit", true);
+        Map<BlockPos, BlockState> avant = CoteGameTests.poserEau(level,
+                new BlockPos(cible.getX() + 3, MachineConfig.seaLevel(), cible.getZ()), true);
+        try {
+            CoastDetector.clearCache();
+            IslandDebugResponse temoin = demander(ingenieur, cible);
+            verifier(temoin.info().coastZone() && temoin.info().machine() != null, "témoin sans la règle : " + temoin);
+
+            regle.set(true, level.getServer());
+            IslandDebugResponse reduite = demander(ingenieur, cible);
+            verifier(reduite.target() == null, "la règle active, pas de cible : " + reduite.target());
+            verifier(IslandDebugInfo.EMPTY.equals(reduite.info()), "la règle active, réponse vide : " + reduite.info());
+        } finally {
+            regle.set(false, level.getServer());
+            CoteGameTests.rendre(level, avant);
+            CoastDetector.clearCache();
+            quitter(ingenieur);
         }
         helper.succeed();
     }

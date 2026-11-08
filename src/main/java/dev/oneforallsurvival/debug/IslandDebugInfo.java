@@ -23,11 +23,14 @@ import org.jetbrains.annotations.Nullable;
  *
  * @param coastZone le joueur se tient en zone d'eau salée
  * @param machine   la machine visée, ou {@code null}
- * @param meter     le compteur visé, ou {@code null} : aussi quand le joueur n'a pas le droit de le lire
+ * @param meter     le compteur visé, ou {@code null}
  * @param breaker   le disjoncteur visé, ou {@code null}
  */
 public record IslandDebugInfo(boolean coastZone, @Nullable Machine machine, @Nullable Meter meter,
         @Nullable Breaker breaker) {
+
+    /** Rien du tout : la réponse sous la règle {@code reducedDebugInfo}. */
+    public static final IslandDebugInfo EMPTY = new IslandDebugInfo(false, null, null, null);
 
     /** Marge de la portée : la main atteint la face du bloc, la distance se mesure à son centre. */
     private static final double REACH_PADDING = 1.0;
@@ -57,20 +60,24 @@ public record IslandDebugInfo(boolean coastZone, @Nullable Machine machine, @Nul
     }
 
     /**
-     * Réservé à l'ingénieur, comme le relevé au testeur et le nom de l'abonné au clic.
+     * Le réseau reste visible par tous, l'abonné est déjà donné à quiconque clique sur le compteur. L'index, lui, sert à
+     * la facturation : il reste à l'ingénieur, comme le relevé au testeur.
      *
      * @param subscriber l'abonné inscrit, vide si personne
-     * @param index      le total des FE passés
+     * @param fePerTick  les FE passés pendant le tick courant
+     * @param index      le total des FE passés ; {@code null} si le joueur n'y a pas droit
      */
-    public record Meter(String subscriber, long index) {
+    public record Meter(String subscriber, int fePerTick, @Nullable Long index) {
 
         void encode(FriendlyByteBuf buf) {
             buf.writeUtf(subscriber, MAX_SUBSCRIBER_LENGTH);
-            buf.writeVarLong(index);
+            buf.writeVarInt(fePerTick);
+            buf.writeNullable(index, FriendlyByteBuf::writeVarLong);
         }
 
         static Meter decode(FriendlyByteBuf buf) {
-            return new Meter(buf.readUtf(MAX_SUBSCRIBER_LENGTH), buf.readVarLong());
+            return new Meter(buf.readUtf(MAX_SUBSCRIBER_LENGTH), buf.readVarInt(),
+                    buf.readNullable(FriendlyByteBuf::readVarLong));
         }
     }
 
@@ -126,8 +133,9 @@ public record IslandDebugInfo(boolean coastZone, @Nullable Machine machine, @Nul
                 ? new Machine(be.state(), CoastDetector.isCoastal(level, target),
                         engineer ? (float) (MachineWear.FULL - be.condition()) : null, engineer ? be.fault() : null)
                 : null;
-        Meter meter = engineer && blockEntity instanceof MeterBlockEntity be
-                ? new Meter(limited(be.subscriber()), be.totalTransferred()) : null;
+        Meter meter = blockEntity instanceof MeterBlockEntity be
+                ? new Meter(limited(be.subscriber()), be.transferredThisTick(), engineer ? be.totalTransferred() : null)
+                : null;
         Breaker breaker = state.is(GridRegistry.BREAKER.get())
                 ? new Breaker(state.getValue(BreakerBlock.CLOSED), state.getValue(BreakerBlock.SEALED)) : null;
         return new IslandDebugInfo(coastZone, machine, meter, breaker);
