@@ -316,7 +316,7 @@ dependencies {
     testImplementation "org.junit.jupiter:junit-jupiter:${junit_version}"
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
-    earlywindowTestImplementation sourceSets.earlywindow.output
+    earlywindowTestImplementation sourceSets.earlywindow.output.classesDirs
     earlywindowTestImplementation "org.junit.jupiter:junit-jupiter:${junit_version}"
     earlywindowTestRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
