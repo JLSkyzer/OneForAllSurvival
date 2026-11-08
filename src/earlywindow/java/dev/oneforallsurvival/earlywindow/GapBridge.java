@@ -62,7 +62,9 @@ import org.lwjgl.system.windows.User32;
  *       pont et par {@code periodicTick} : jamais deux images à la fois. Le pont ne dessine que si aucune image
  *       n'est venue depuis {@value #TAKEOVER_MILLIS} ms, et le jeu reprend la main dès son image suivante.</li>
  *   <li>Ordre entre contextes : après chaque image du jeu, une barrière ({@code glFenceSync} puis {@code glFlush})
- *       que le pont attend avant de dessiner ; chaque image du pont finit par {@code glFinish}.</li>
+ *       que le pont attend avant de dessiner ; chaque image du pont finit par {@code glFinish}. Barrière pas franchie
+ *       en 50 ms : image du pont sautée, puis pause hors du verrou ({@link #pauseNanos}) ; attente en échec
+ *       ({@code GL_WAIT_FAILED}) : arrêt du pont ({@link #fenceOutcome}).</li>
  *   <li>Fin : {@code loadingOverlay} (thread du jeu, avant que la boucle du jeu ne vide le tampon de la fenêtre
  *       puis ne dessine l'overlay) demande l'arrêt et attend, jusqu'à 1 s, que le pont ne puisse plus dessiner
  *       ({@link #stopAndQuiesce} : verrou des images pris après la demande). Tant que ce n'est pas le cas, rien ne
@@ -75,7 +77,7 @@ import org.lwjgl.system.windows.User32;
  *       textures de la scène, partagées, et n'en détruit aucune.</li>
  * </ul>
  *
- * <p><b>Repli.</b> Toute erreur (création, partage, format de pixel, rendu, échange) arrête le pont, qui libère ses
+ * <p><b>Repli.</b> Toute erreur (création, partage, format de pixel, rendu, échange, attente de la barrière) arrête le pont, qui libère ses
  * objets et rend son contexte : l'image se fige alors comme avant, sans plantage.
  */
 final class GapBridge {
@@ -282,73 +284,118 @@ final class GapBridge {
                 LockSupport.parkNanos(1_000_000L);
                 continue;
             }
+            boolean skipped = false;
             try {
                 if (stop) {
                     return;
                 }
                 long now = System.nanoTime();
-                if (now - lastFrameNanos < (bridgeOwns ? FRAME_NANOS : TAKEOVER_NANOS)) {
-                    continue; // le jeu vient de dessiner
-                }
-                if (!bridgeOwns) {
-                    bridgeOwns = true;
-                    ownsSince = now;
-                    holdFrames = 0;
-                    takeovers++;
-                    log.accept(String.format(Locale.ROOT, "pont : prend l'écran (aucune image depuis %d ms)",
-                            (now - lastFrameNanos) / 1_000_000L));
-                } else if (now - ownsSince > MAX_HOLD_NANOS) {
-                    log.accept("pont : 60 s sans image du jeu, le pont s'arrête");
-                    return;
-                }
-                if (gameFence != 0L) {
-                    int waited = glClientWaitSync(gameFence, 0, FENCE_WAIT_NANOS);
-                    if (waited != GL_ALREADY_SIGNALED && waited != GL_CONDITION_SATISFIED) {
-                        // Image du jeu pas encore finie côté GPU (ou attente en échec) : on ne dessine pas par-dessus,
-                        // on réessaie à l'image suivante.
-                        if (!fenceTimeoutLogged) {
-                            fenceTimeoutLogged = true;
-                            log.accept("pont : image du jeu pas finie après 50 ms (0x" + Integer.toHexString(waited)
-                                    + "), image du pont sautée");
+                // Sinon : le jeu vient de dessiner, rien à faire avant la pause.
+                if (now - lastFrameNanos >= (bridgeOwns ? FRAME_NANOS : TAKEOVER_NANOS)) {
+                    if (!bridgeOwns) {
+                        bridgeOwns = true;
+                        ownsSince = now;
+                        holdFrames = 0;
+                        takeovers++;
+                        log.accept(String.format(Locale.ROOT, "pont : prend l'écran (aucune image depuis %d ms)",
+                                (now - lastFrameNanos) / 1_000_000L));
+                    } else if (now - ownsSince > MAX_HOLD_NANOS) {
+                        log.accept("pont : 60 s sans image du jeu, le pont s'arrête");
+                        return;
+                    }
+                    if (gameFence != 0L) {
+                        int waited = glClientWaitSync(gameFence, 0, FENCE_WAIT_NANOS);
+                        switch (fenceOutcome(waited)) {
+                            case DRAW -> {
+                                glDeleteSync(gameFence);
+                                gameFence = 0L;
+                            }
+                            case SKIP -> {
+                                // Image du jeu pas encore finie côté GPU : on ne dessine pas par-dessus, on réessaie
+                                // après la pause, hors du verrou, pour que le jeu puisse dessiner entre-temps.
+                                if (!fenceTimeoutLogged) {
+                                    fenceTimeoutLogged = true;
+                                    log.accept("pont : image du jeu pas finie après 50 ms (0x"
+                                            + Integer.toHexString(waited) + "), image du pont sautée");
+                                }
+                                skipped = true;
+                            }
+                            case STOP -> {
+                                // Attente en échec (GL_WAIT_FAILED, ou retour inconnu) : elle échouerait à chaque
+                                // essai. Le pont s'arrête proprement, l'image se fige au passage comme avant.
+                                log.accept("pont : attente de la barrière du jeu en échec (0x"
+                                        + Integer.toHexString(waited) + "), le pont s'arrête");
+                                return;
+                            }
                         }
-                        continue;
                     }
-                    glDeleteSync(gameFence);
-                    gameFence = 0L;
-                }
-                if (JNI.callPPI(hwnd, rect, getClientRect) == 0) {
-                    throw new IllegalStateException("GetClientRect a échoué");
-                }
-                int w = rect[2] - rect[0];
-                int h = rect[3] - rect[1];
-                if (w > 0 && h > 0) { // 0 : fenêtre réduite, rien à dessiner
-                    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-                    glViewport(0, 0, w, h);
-                    scene.renderWith(light, w, h);
-                    if (!GDI32.SwapBuffers(dc)) {
-                        throw new IllegalStateException("SwapBuffers a échoué");
-                    }
-                    glFinish();
-                    frames++;
-                    holdFrames++;
-                }
-                lastFrameNanos = System.nanoTime();
-                if (slowStopMillis > 0L) {
-                    // Essai seulement : attendre la prochaine image en gardant le verrou, et à la demande d'arrêt le
-                    // garder encore slowStopMillis, comme un pilote bloqué.
-                    while (!stop && System.nanoTime() - lastFrameNanos < FRAME_NANOS) {
-                        LockSupport.parkNanos(1_000_000L);
-                    }
-                    if (stop) {
-                        log.accept("pont : essai du pont en retard, verrou gardé " + slowStopMillis + " ms");
-                        LockSupport.parkNanos(slowStopMillis * 1_000_000L);
+                    if (!skipped) {
+                        drawFrame(light, dc, getClientRect, rect);
                     }
                 }
             } finally {
                 frameLock.unlock();
             }
-            LockSupport.parkNanos(Math.max(0L, lastFrameNanos + FRAME_NANOS - System.nanoTime()));
+            // Pause hors du verrou sur tous les chemins (image dessinée, sautée, ou jeu qui vient de dessiner).
+            LockSupport.parkNanos(pauseNanos(skipped, lastFrameNanos, System.nanoTime()));
         }
+    }
+
+    /** Une image du pont, sous {@link #frameLock}, barrière du jeu franchie. */
+    private void drawFrame(SceneRenderer light, long dc, long getClientRect, int[] rect) {
+        if (JNI.callPPI(hwnd, rect, getClientRect) == 0) {
+            throw new IllegalStateException("GetClientRect a échoué");
+        }
+        int w = rect[2] - rect[0];
+        int h = rect[3] - rect[1];
+        if (w > 0 && h > 0) { // 0 : fenêtre réduite, rien à dessiner
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glViewport(0, 0, w, h);
+            scene.renderWith(light, w, h);
+            if (!GDI32.SwapBuffers(dc)) {
+                throw new IllegalStateException("SwapBuffers a échoué");
+            }
+            glFinish();
+            frames++;
+            holdFrames++;
+        }
+        lastFrameNanos = System.nanoTime();
+        if (slowStopMillis > 0L) {
+            // Essai seulement : attendre la prochaine image en gardant le verrou, et à la demande d'arrêt le
+            // garder encore slowStopMillis, comme un pilote bloqué.
+            while (!stop && System.nanoTime() - lastFrameNanos < FRAME_NANOS) {
+                LockSupport.parkNanos(1_000_000L);
+            }
+            if (stop) {
+                log.accept("pont : essai du pont en retard, verrou gardé " + slowStopMillis + " ms");
+                LockSupport.parkNanos(slowStopMillis * 1_000_000L);
+            }
+        }
+    }
+
+    /** Suite à donner au retour de {@code glClientWaitSync} sur la barrière du jeu. */
+    enum FenceOutcome { DRAW, SKIP, STOP }
+
+    /**
+     * {@code GL_ALREADY_SIGNALED}/{@code GL_CONDITION_SATISFIED} : dessiner ; {@code GL_TIMEOUT_EXPIRED} : sauter
+     * l'image et réessayer ; {@code GL_WAIT_FAILED} ou tout autre retour : arrêter le pont.
+     */
+    static FenceOutcome fenceOutcome(int waited) {
+        return switch (waited) {
+            case GL_ALREADY_SIGNALED, GL_CONDITION_SATISFIED -> FenceOutcome.DRAW;
+            case GL_TIMEOUT_EXPIRED -> FenceOutcome.SKIP;
+            default -> FenceOutcome.STOP;
+        };
+    }
+
+    /**
+     * Pause du pont après avoir rendu le verrou : jusqu'à l'image suivante ({@code lastFrame + FRAME_NANOS}), et au
+     * moins une image entière après une image sautée, où {@code lastFrame} n'a pas avancé : sans quoi le pont
+     * reprendrait le verrou aussitôt et le jeu ne pourrait plus dessiner.
+     */
+    static long pauseNanos(boolean skipped, long lastFrame, long now) {
+        long until = skipped ? now + FRAME_NANOS : lastFrame + FRAME_NANOS;
+        return Math.max(0L, until - now);
     }
 
     // --- Thread du jeu -------------------------------------------------------------------------------------
