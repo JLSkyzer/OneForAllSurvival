@@ -3,7 +3,10 @@ package dev.oneforallsurvival.earlywindow.scene;
 import dev.oneforallsurvival.earlywindow.scene.ProgressModel.Phase;
 import java.util.regex.Pattern;
 
-/** Messages d'état thématiques Lost Island, avec l'étape réelle en détail. Logique pure. */
+/**
+ * Messages d'état thématiques Lost Island, avec l'étape réelle en détail. Textes lus dans {@link Texts#current()}
+ * (fichiers de langue du jar de service, français intégré par défaut).
+ */
 public final class StatusMessages {
     public record Status(String theme, String detail) {
         /**
@@ -53,20 +56,25 @@ public final class StatusMessages {
 
     /** Message de la phase ; {@code rawForgeLabel} sert au nom du mod en cours de chargement. */
     public static Status of(Phase phase, String rawForgeLabel, int current, int steps) {
+        return of(Texts.current(), phase, rawForgeLabel, current, steps);
+    }
+
+    /** Comme {@link #of(Phase, String, int, int)}, avec des textes donnés. */
+    public static Status of(Texts t, Phase phase, String rawForgeLabel, int current, int steps) {
         return switch (phase) {
-            case FORGE_START -> new Status("Les moteurs toussent…", "démarrage");
-            case MOD_DISCOVERY -> new Status("Inventaire de la soute…", "recherche des mods");
-            case MOD_LOADING ->
-                    new Status("Tri des caisses de l'épave…", detailMods(rawForgeLabel, current, steps));
-            case REGISTRIES -> new Status("Le camp s'organise…", "registres");
-            case RESOURCES -> new Status("Exploration du littoral…", "textures");
-            case DONE -> new Status("Bienvenue sur Lost Island.", "");
+            case FORGE_START -> new Status(t.get(Texts.STATUS_FORGE_START), t.get(Texts.DETAIL_FORGE_START));
+            case MOD_DISCOVERY -> new Status(t.get(Texts.STATUS_MOD_DISCOVERY), t.get(Texts.DETAIL_MOD_DISCOVERY));
+            case MOD_LOADING -> new Status(t.get(Texts.STATUS_MOD_LOADING),
+                    detailMods(t.get(Texts.DETAIL_MODS), rawForgeLabel, current, steps));
+            case REGISTRIES -> new Status(t.get(Texts.STATUS_REGISTRIES), t.get(Texts.DETAIL_REGISTRIES));
+            case RESOURCES -> new Status(t.get(Texts.STATUS_RESOURCES), t.get(Texts.DETAIL_RESOURCES));
+            case DONE -> new Status(t.get(Texts.STATUS_DONE), "");
         };
     }
 
-    private static String detailMods(String label, int current, int steps) {
+    private static String detailMods(String mods, String label, int current, int steps) {
         // Barre sans étapes (« EARLY », « Loading mods ») : pas de compte « 0/0 ».
-        String compte = steps > 0 ? "mods " + current + "/" + steps : "mods";
+        String compte = steps > 0 ? mods + " " + current + "/" + steps : mods;
         String nom = label == null ? "" : label.trim();
         return NOM_DE_MOD.matcher(nom).matches() ? compte + " : " + nom : compte;
     }

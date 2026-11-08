@@ -9,6 +9,7 @@ import dev.oneforallsurvival.earlywindow.scene.SceneRenderer;
 import dev.oneforallsurvival.earlywindow.scene.SceneState;
 import dev.oneforallsurvival.earlywindow.scene.StatusMessages;
 import dev.oneforallsurvival.earlywindow.scene.StoryClock;
+import dev.oneforallsurvival.earlywindow.scene.Texts;
 import dev.oneforallsurvival.earlywindow.scene.TextureStore;
 import java.io.File;
 import java.io.IOException;
@@ -17,6 +18,7 @@ import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -61,7 +63,7 @@ public final class EarlyScene implements AutoCloseable {
     private final TextureStore textures;
     private final SceneRenderer renderer;
     private final BitmapFont font; // null : texte omis
-    private final ZipFile clientJar; // null : nuages omis, police de repli
+    private final ZipFile clientJar; // null : nuages et flammes omis, police de repli
     private final FrameRecorder recorder; // null : pas de film
     private final StoryClock clock = new StoryClock();
     private final ProgressModel progress = new ProgressModel();
@@ -70,6 +72,7 @@ public final class EarlyScene implements AutoCloseable {
     private double lastReal;
     private double storyStart = Double.NaN;
     private double seaStart = Double.NaN;
+    private double uiStart = Double.NaN; // arrivée de l'interface : partagée par le rendu du jeu et celui du pont
     private double resourcesStart = Double.NaN;
     private Phase loggedPhase;
     private int frames;
@@ -111,7 +114,20 @@ public final class EarlyScene implements AutoCloseable {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        ZipFile jar = openClientJar(mcVersion, log);
+        // Textes de la langue du jeu (options.txt), avant toute image : messages d'état, repères, devise.
+        String gameLanguage = Texts.gameLanguage(gameDir);
+        Texts texts = Texts.load(gameLanguage, loader::getResourceAsStream, log);
+        Texts.install(texts);
+        log.accept("langue : " + texts.origin() + " (options.txt : " + (gameLanguage == null ? "aucune" : gameLanguage)
+                + ")");
+        ZipFile jar;
+        try {
+            jar = openClientJar(mcVersion, log);
+        } catch (RuntimeException e) {
+            // Le jar du client ne sert qu'aux nuages, aux flammes et à la police : son échec ne retire qu'eux.
+            log.accept("jar du client : recherche en échec (" + e + ") : nuages et flammes omis, police de repli");
+            jar = null;
+        }
         TextureStore textures = null;
         try {
             Function<String, InputStream> opener = opener(loader, jar);
@@ -208,13 +224,18 @@ public final class EarlyScene implements AutoCloseable {
             storyStart = real;
             log.accept(String.format(Locale.ROOT, "récit lancé (ciel, décor et effets prêts) à %.2f s", real));
         }
+        if (Double.isNaN(uiStart) && textures.ready(TextureStore.UI)) {
+            uiStart = real;
+            log.accept(String.format(Locale.ROOT, "interface prête à %.2f s (barre en fondu)", real));
+        }
         if (Double.isNaN(seaStart) && textures.ready(TextureStore.SEA)) {
             seaStart = real;
             log.accept(String.format(Locale.ROOT, "mer prête à %.2f s (fondu de %.1f s)", real, SEA_FADE_SECONDS));
         }
         float story = Double.isNaN(storyStart) ? 0f : clock.storyTime(real - storyStart, reading.phase() == Phase.DONE);
         target.setSeaOpacity(Double.isNaN(seaStart) ? 0f : (float) Math.min(1.0, (real - seaStart) / SEA_FADE_SECONDS));
-        last = new SceneState(story, shown, reading.status(), Math.max(0f, Math.min(1f, uiAlpha)), real);
+        last = new SceneState(story, shown, reading.status(), Math.max(0f, Math.min(1f, uiAlpha)), real,
+                real - uiStart);
         target.render(fbWidth, fbHeight, last);
         if (recorder != null) {
             recorder.capture(fbWidth, fbHeight);
@@ -345,11 +366,12 @@ public final class EarlyScene implements AutoCloseable {
     }
 
     /**
-     * Jar du client de Minecraft (nuages, police) : lu en place, rien n'est copié dans le nôtre. Cherché dans le
-     * classpath du lancement ({@code legacyClassPath} ou {@code legacyClassPath.file} du BootstrapLauncher :
+     * Jar du client de Minecraft (nuages, flammes, police) : lu en place, rien n'est copié dans le nôtre. Cherché
+     * dans le classpath du lancement ({@code legacyClassPath} ou {@code legacyClassPath.file} du BootstrapLauncher :
      * {@code client-extra.jar} en développement), puis sous {@code libraryDirectory}
      * ({@code net/minecraft/client/<version>-…/client-…-extra.jar} d'une installation Forge). Retenu s'il contient
-     * {@code clouds.png} ; {@code null} sinon (nuages omis, police de repli).
+     * {@code clouds.png} ; {@code null} sinon (nuages et flammes omis, police de repli). Une entrée mal formée
+     * est ignorée ({@link #pathOrNull}).
      */
     static ZipFile openClientJar(String mcVersion, Consumer<String> log) {
         Set<Path> candidates = new LinkedHashSet<>();
@@ -369,18 +391,20 @@ public final class EarlyScene implements AutoCloseable {
         // Les jars du client d'abord (client-extra.jar), puis le reste de ce qui ressemble à Minecraft.
         for (boolean clientOnly : new boolean[] {true, false}) {
             for (String entry : classpath) {
-                String name = Paths.get(entry.trim()).getFileName() == null ? ""
-                        : Paths.get(entry.trim()).getFileName().toString().toLowerCase(Locale.ROOT);
+                Path path = pathOrNull(entry);
+                Path file = path == null ? null : path.getFileName();
+                String name = file == null ? "" : file.toString().toLowerCase(Locale.ROOT);
                 boolean client = name.startsWith("client") && name.endsWith(".jar");
                 boolean likely = name.contains("minecraft") || name.startsWith("forge-");
                 if (clientOnly ? client : likely) {
-                    candidates.add(Paths.get(entry.trim()));
+                    candidates.add(path);
                 }
             }
         }
         String libraries = System.getProperty("libraryDirectory");
-        if (libraries != null) {
-            Path clientDir = Paths.get(libraries, "net", "minecraft", "client");
+        Path clientDir = libraries == null ? null : pathOrNull(libraries);
+        if (clientDir != null) {
+            clientDir = clientDir.resolve(Paths.get("net", "minecraft", "client"));
             if (Files.isDirectory(clientDir)) {
                 try (Stream<Path> files = Files.walk(clientDir, 2)) {
                     files.filter(p -> {
@@ -409,6 +433,19 @@ public final class EarlyScene implements AutoCloseable {
         }
         log.accept("jar du client introuvable (" + candidates.size() + " candidats) : nuages omis, police de repli");
         return null;
+    }
+
+    /**
+     * Chemin d'une entrée de classpath, ou {@code null} si elle est mal formée : une entrée illisible ne retire
+     * que les fonctions du jar du client (nuages, flammes, police), jamais toute la scène.
+     */
+    static Path pathOrNull(String entry) {
+        try {
+            String trimmed = entry.trim();
+            return trimmed.isEmpty() ? null : Paths.get(trimmed);
+        } catch (InvalidPathException e) {
+            return null;
+        }
     }
 
     private static void closeQuietly(ZipFile zip) {

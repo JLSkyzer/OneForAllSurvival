@@ -7,7 +7,7 @@ out vec4 fragColor;
 
 uniform float uFactor;   // facteur constant (1 - 0.34 * storm, ou 1)
 uniform float uVignette; // 1 : applique A.vignette
-uniform float uBottom;   // k de sstep(BAR_IN, BAR_IN + 0.7, t) : mélange vers A.bottom
+uniform float uBottom;   // arrivée de la barre (ProgressUi.intro, temps réel) : mélange vers A.bottom
 uniform vec2 uOut;
 
 void main() {

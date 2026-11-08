@@ -383,11 +383,9 @@ public final class SceneRenderer implements AutoCloseable {
             blendOver();
         }
 
-        // Étalonnage : vignette, puis assombrissement du bas pour le texte une fois la barre arrivée.
-        float bottom = t >= StoryClock.BAR_IN
-                ? (float) Ambiance.sstep(StoryClock.BAR_IN, StoryClock.BAR_IN + 0.7, t) : 0f;
-        drawMultiply(1f, 1f, bottom);
-        // Logo, barre et texte : après l'étalonnage, avant l'ouverture depuis le noir.
+        // Étalonnage : vignette, puis assombrissement du bas pour le texte, avec l'arrivée de la barre (temps réel).
+        drawMultiply(1f, 1f, (float) ProgressUi.intro(state.uiTime()));
+        // Logo : après l'étalonnage, avant l'ouverture depuis le noir (il suit le récit).
         if (textures.ready(TextureStore.UI)) {
             drawEffects(SceneEffect.Pass.UI, state, a, refToNdc);
         }
@@ -404,6 +402,14 @@ public final class SceneRenderer implements AutoCloseable {
         // Grain : son motif change 60 fois par seconde de temps réel (index = int(t * FPS) de compose.py).
         glUniform1f(present.loc("uSeed"), (float) (Math.floorMod((long) Math.floor(real * 60), 512L) * 7.31));
         quad.draw();
+        // Barre, pourcentage, texte : dans la fenêtre, après l'ouverture depuis le noir, pour être lisibles dès
+        // les premières images (sans le grain, qui ne touche que la scène).
+        if (textures.ready(TextureStore.UI)) {
+            glEnable(GL_BLEND);
+            blendOver();
+            drawEffects(SceneEffect.Pass.HUD, state, a, refToNdc);
+            glDisable(GL_BLEND);
+        }
         glBindVertexArray(0);
         glUseProgram(0);
     }

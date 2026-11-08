@@ -54,8 +54,13 @@ public interface SceneEffect {
         FRONT,
         /** Après {@link #FRONT} : pluie, puis flash des éclairs et de l'impact (fin de l'image avant le bloom). */
         WEATHER,
-        /** Après le bloom et l'étalonnage, avant l'ouverture depuis le noir : logo, barre et texte. */
-        UI
+        /** Après le bloom et l'étalonnage, avant l'ouverture depuis le noir : logo (il suit le récit). */
+        UI,
+        /**
+         * Après l'ouverture depuis le noir, dans la fenêtre même : barre, pourcentage, texte d'état et repères,
+         * visibles dès les premières images, noir d'ouverture compris (demande de Killian, 2026-11-08).
+         */
+        HUD
     }
 
     /**

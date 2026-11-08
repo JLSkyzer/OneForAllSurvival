@@ -8,7 +8,7 @@ import dev.oneforallsurvival.earlywindow.scene.SceneManifest;
 import dev.oneforallsurvival.earlywindow.scene.SceneState;
 import dev.oneforallsurvival.earlywindow.scene.ShaderLoader;
 import dev.oneforallsurvival.earlywindow.scene.StatusMessages;
-import dev.oneforallsurvival.earlywindow.scene.StoryClock;
+import dev.oneforallsurvival.earlywindow.scene.Texts;
 import dev.oneforallsurvival.earlywindow.scene.TextureStore;
 
 /**
@@ -18,8 +18,10 @@ import dev.oneforallsurvival.earlywindow.scene.TextureStore;
  *
  * <p>La barre, le pourcentage et le texte suivent le <em>vrai</em> chargement ({@link SceneState#progress()},
  * {@link SceneState#status()}), jamais le récit ; le texte est {@link StatusMessages.Status#line()}. L'arrivée
- * (fondu et glissement) suit le récit ({@code BAR_IN}), puis {@link SceneState#uiAlpha()} estompe le tout. Le
- * balancement de l'avion suit le temps réel.
+ * (fondu et glissement, {@link #intro}) suit le temps réel depuis l'arrivée de ses images, pas le récit : la
+ * barre est là dès les premières images, noir d'ouverture compris (passe {@link Pass#HUD}, dessinée après
+ * l'ouverture depuis le noir). Puis {@link SceneState#uiAlpha()} estompe le tout. Le balancement de l'avion suit
+ * le temps réel.
  */
 public final class ProgressUi implements SceneEffect {
     private static final int X0 = 96;
@@ -55,25 +57,38 @@ public final class ProgressUi implements SceneEffect {
         program = EffectProgram.load(shaders, name(), "ui");
     }
 
+    /** Durée du fondu d'arrivée de la barre, en secondes réelles depuis l'arrivée de l'interface. */
+    public static final double INTRO_SECONDS = 0.5;
+
+    /**
+     * Arrivée de la barre et de l'assombrissement du bas (0 à 1) : fondu de {@value #INTRO_SECONDS} s de temps réel
+     * depuis l'arrivée de l'interface ({@link SceneState#uiTime()}, quelques dixièmes de seconde après l'ouverture
+     * de la fenêtre), indépendant du récit ; 0 avant ({@code NaN}). L'origine est tenue par la scène, partagée par
+     * tous les rendus : le rendu allégé du pont ne refait pas l'arrivée.
+     */
+    public static double intro(double uiTime) {
+        return Double.isNaN(uiTime) ? 0.0 : Ambiance.sstep(0.0, INTRO_SECONDS, uiTime);
+    }
+
     /** {@code f"{int(p * 100 + 1e-4)} %"}. */
     static String percent(float p) {
         return (int) (p * 100 + 1e-4) + " %";
     }
 
-    /** Texte d'état : la ligne du message réel, « Bienvenue sur Lost Island. » une fois la barre pleine. */
+    /** Texte d'état : la ligne du message réel, le message de fin (« Bienvenue sur Lost Island. ») barre pleine. */
     static String statusLine(StatusMessages.Status status, float p) {
         if (p >= 1f) {
-            return "Bienvenue sur Lost Island.";
+            return Texts.current().get(Texts.STATUS_DONE);
         }
         return status == null ? "" : status.line();
     }
 
     @Override
     public void render(SceneState state, View view) {
-        if (view.pass() != Pass.UI) {
+        if (view.pass() != Pass.HUD) {
             return;
         }
-        double intro = Ambiance.sstep(StoryClock.BAR_IN, StoryClock.BAR_IN + 0.7, state.storyTime());
+        double intro = intro(state.uiTime());
         double alpha = intro * Math.max(0f, Math.min(1f, state.uiAlpha()));
         if (alpha <= 0) {
             return;
@@ -112,8 +127,9 @@ public final class ProgressUi implements SceneEffect {
         // Repères de départ et d'arrivée, et état du chargement.
         if (font != null) {
             BitmapFont f = font.font();
-            font.draw(program, view, "LOST ISLAND RP", X0, y + 16, 2, GREY, alpha, true);
-            String end = "ÎLE INCONNUE";
+            Texts texts = Texts.current();
+            font.draw(program, view, texts.get(Texts.UI_START), X0, y + 16, 2, GREY, alpha, true);
+            String end = texts.get(Texts.UI_END);
             font.draw(program, view, end, X1 - f.width(end, 2), y + 16, 2, p > 0.98f ? GOLD : GREY, alpha, true);
             font.draw(program, view, statusLine(state.status(), p), X0, y - 62, 3, WHITE, alpha, true);
             String percent = percent(p);

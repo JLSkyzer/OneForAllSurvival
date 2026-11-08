@@ -14,6 +14,7 @@ package dev.oneforallsurvival.earlywindow.scene;
 public final class StoryClock {
     public static final float DURATION = 36f;
     public static final float IMPACT = 4.4f;
+    /** Arrivée de la barre dans compose.py ; ici, seul le logo s'y règle (la barre est là dès l'ouverture). */
     public static final float BAR_IN = 5.2f;
     /** Image tenue après le récit (FADE_OUT de compose.py). */
     public static final float HOLD = 33.6f;

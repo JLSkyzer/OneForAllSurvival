@@ -28,6 +28,18 @@ class UiLogicTest {
     }
 
     @Test
+    void laBarreArriveDesLOuvertureEnTempsReelSansAttendreLeRecit() {
+        // Demande de Killian : visible dès les premières images, noir d'ouverture compris (récit encore à t = 0).
+        assertEquals(0.0, ProgressUi.intro(Double.NaN), 1e-12); // images de l'interface pas encore arrivées
+        assertEquals(0.0, ProgressUi.intro(0.0), 1e-12);
+        assertEquals(0.5, ProgressUi.intro(ProgressUi.INTRO_SECONDS / 2), 1e-12);
+        assertEquals(1.0, ProgressUi.intro(ProgressUi.INTRO_SECONDS), 1e-12);
+        assertEquals(1.0, ProgressUi.intro(1.5), 1e-12); // avant le début du récit (≈ 2 s, ruling 14) : pleine
+        assertTrue(ProgressUi.intro(0.1) > 0);
+        assertTrue(ProgressUi.INTRO_SECONDS < StoryClock.BAR_IN);
+    }
+
+    @Test
     void lesLettresRebondissentCommeEaseOutBack() {
         // Valeurs de ease_out_back de compose.py.
         assertEquals(0.0, LogoEffect.easeOutBack(0), 1e-12);

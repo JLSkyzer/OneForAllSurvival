@@ -8,6 +8,7 @@ import dev.oneforallsurvival.earlywindow.scene.SceneManifest;
 import dev.oneforallsurvival.earlywindow.scene.SceneState;
 import dev.oneforallsurvival.earlywindow.scene.ShaderLoader;
 import dev.oneforallsurvival.earlywindow.scene.StoryClock;
+import dev.oneforallsurvival.earlywindow.scene.Texts;
 import dev.oneforallsurvival.earlywindow.scene.TextureStore;
 import java.util.ArrayList;
 import java.util.List;
@@ -142,7 +143,7 @@ public final class LogoEffect implements SceneEffect {
         // Devise du projet, une fois le chargement du récit terminé.
         double tag = Ambiance.sstep(LOAD_END + 0.6, LOAD_END + 1.5, t);
         if (tag > 0 && font != null) {
-            font.draw(program, view, "Là où tout recommence.", OX + 12, OY + m.height() - 6, 3, MOTTO, tag, false);
+            font.draw(program, view, Texts.current().get(Texts.UI_MOTTO), OX + 12, OY + m.height() - 6, 3, MOTTO, tag, false);
         }
     }
 

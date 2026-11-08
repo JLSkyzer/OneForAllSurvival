@@ -1,0 +1,16 @@
+{
+  "lostisland.loading.status.forge_start": "The engines are coughing…",
+  "lostisland.loading.detail.forge_start": "startup",
+  "lostisland.loading.status.mod_discovery": "Taking stock of the cargo hold…",
+  "lostisland.loading.detail.mod_discovery": "finding mods",
+  "lostisland.loading.status.mod_loading": "Sorting the crates from the wreck…",
+  "lostisland.loading.detail.mods": "mods",
+  "lostisland.loading.status.registries": "The camp gets organised…",
+  "lostisland.loading.detail.registries": "registries",
+  "lostisland.loading.status.resources": "Exploring the shoreline…",
+  "lostisland.loading.detail.resources": "textures",
+  "lostisland.loading.status.done": "Welcome to Lost Island.",
+  "lostisland.loading.ui.start": "LOST ISLAND RP",
+  "lostisland.loading.ui.end": "UNKNOWN ISLAND",
+  "lostisland.loading.ui.motto": "Where everything begins again."
+}
