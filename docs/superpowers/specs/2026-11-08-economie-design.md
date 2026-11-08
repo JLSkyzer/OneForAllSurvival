@@ -282,6 +282,9 @@ Demandé par Killian le 2026-11-08, sur le modèle des opérateurs du téléphon
   ou interagir avec eux (ouvrir, régler, jumeler, réenclencher). Le client lui-même ne peut pas toucher
   à son compteur ni à son disjoncteur. Le maire peut aussi **supprimer un fournisseur** : ses clients
   sont détachés, et leurs compteurs ne facturent plus.
+- **La ligne reste vulnérable**, par choix de Killian le 2026-11-08 : les câbles et les connecteurs,
+  qui viennent d'autres mods, ne sont pas protégés. N'importe qui peut couper une ligne ou s'y piquer.
+  L'écart affiché au poste et le RP (policier) prennent le relais.
 - Pour changer de fournisseur, le client demande un raccordement à un autre. Le nouveau fournisseur ou
   un ingénieur rebranche ses câbles et rejumelle son compteur au nouveau poste.
 - L'argent ne fait que passer d'un compte à l'autre : la feature ne crée rien.
@@ -510,8 +513,5 @@ Elles décident de l'équilibre général et sont à trancher avant le lot E1 :
 - **Faut-il les comptes** (feature 76) dès le lot E3, ou une monnaie uniquement physique suffit-elle au
   début ? Les distributeurs et les cartes (81, 82) en dépendent.
 - **Le prix de l'électricité est-il libre**, ou la ville fixe-t-elle un plafond par FE contre les abus ?
-- **Les câbles et les connecteurs d'un fournisseur** sont des blocs d'autres mods, que la règle de
-  sécurité de la feature 83 ne couvre pas. Faut-il les protéger aussi (le mod retiendrait
-  qui les a posés), ou laisser la ligne vulnérable, avec l'écart du poste pour repérer les pirates ?
 - **La carte bancaire paie-t-elle aussi aux étals** (feature 71), ou seulement au distributeur et dans
   le téléphone ?
