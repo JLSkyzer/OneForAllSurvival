@@ -231,6 +231,12 @@ public final class LostIslandLoadingOverlay extends LoadingOverlay {
             return;
         }
         released = true;
+        if (!window.awaitBridgeStopped()) {
+            // Pont toujours en cours (pilote bloqué) : il lit encore les textures de la scène. Fuite assumée plutôt
+            // que de les détruire sous lui.
+            scene.log("overlay du mod : pont pas arrêté, scène gardée (non libérée)");
+            return;
+        }
         try {
             scene.close();
             scene.log("overlay du mod : scène libérée");

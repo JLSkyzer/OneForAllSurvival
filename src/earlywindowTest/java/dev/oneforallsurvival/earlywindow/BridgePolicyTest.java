@@ -37,6 +37,16 @@ class BridgePolicyTest {
         assertFalse(BridgePolicy.decide(Setting.AUTO, 8, "n/a", RTX, true).enabled());
         assertTrue(BridgePolicy.atLeast32("3.3"));
         assertTrue(BridgePolicy.atLeast32("4.0"));
+        assertTrue(BridgePolicy.atLeast32("3.2.0"));
+        assertTrue(BridgePolicy.atLeast32(" 4.6 "));
+        assertFalse(BridgePolicy.atLeast32(null));
+    }
+
+    @Test
+    void uneProprieteReconnueNeCreePasLeFichier(@TempDir Path dir) {
+        List<String> log = new ArrayList<>();
+        assertEquals(Setting.OFF, BridgePolicy.resolve("false", dir, log::add));
+        assertFalse(Files.exists(dir.resolve(BridgePolicy.FILE_NAME)));
     }
 
     @Test

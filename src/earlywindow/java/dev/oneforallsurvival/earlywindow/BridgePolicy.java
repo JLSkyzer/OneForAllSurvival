@@ -116,8 +116,8 @@ public final class BridgePolicy {
     }
 
     /**
-     * Réglage effectif : la propriété système si elle est posée et reconnue, sinon le fichier (créé avec
-     * {@code auto} s'il manque), sinon {@code auto}. Une valeur non reconnue est journalisée et vaut {@code auto}.
+     * Réglage effectif : la propriété système si elle est posée et reconnue (le fichier n'est alors ni lu ni créé),
+     * sinon le fichier (créé avec {@code auto} s'il manque), sinon {@code auto}. Une valeur non reconnue est journalisée et vaut {@code auto}.
      */
     public static Setting resolve(String property, Path configDir, Consumer<String> log) {
         if (property != null) {

@@ -132,6 +132,11 @@ final class ForgeOverlayBridge extends DisplayWindow {
         }
         closed = true;
         deleteTargets();
+        if (scene != null && !bridgeStopped.getAsBoolean()) {
+            // Pont toujours en cours (pilote bloqué) : ses lectures de textures continuent ; scène gardée.
+            log.accept("overlay de Forge : pont pas arrêté, scène gardée (non libérée)");
+            return;
+        }
         if (scene != null) {
             scene.close();
         }

@@ -10,14 +10,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
-import org.lwjgl.PointerBuffer;
+import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.glfw.GLFWNativeWGL;
 import org.lwjgl.glfw.GLFWNativeWin32;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.WGL;
 import org.lwjgl.system.JNI;
-import org.lwjgl.system.MemoryStack;
-import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.system.windows.GDI32;
 import org.lwjgl.system.windows.User32;
 
@@ -66,8 +64,12 @@ import org.lwjgl.system.windows.User32;
  *   <li>Ordre entre contextes : après chaque image du jeu, une barrière ({@code glFenceSync} puis {@code glFlush})
  *       que le pont attend avant de dessiner ; chaque image du pont finit par {@code glFinish}.</li>
  *   <li>Fin : {@code loadingOverlay} (thread du jeu, avant que la boucle du jeu ne vide le tampon de la fenêtre
- *       puis ne dessine l'overlay) demande l'arrêt et attend la fin du thread ({@link #stopAndWait}) ; l'overlay
- *       l'attend encore avant sa première image et ne touche pas la scène tant que le thread vit.</li>
+ *       puis ne dessine l'overlay) demande l'arrêt et attend, jusqu'à 1 s, que le pont ne puisse plus dessiner
+ *       ({@link #stopAndQuiesce} : verrou des images pris après la demande). Tant que ce n'est pas le cas, rien ne
+ *       touche la scène (ni phase, ni image, ni libération des textures) : l'overlay affiche du noir et redemande à
+ *       chaque image. Limite : si le pont reste bloqué plus d'une seconde au milieu d'une image (pilote figé), la
+ *       boucle du jeu présente quand même sa propre image ; seule la fenêtre peut alors montrer un mélange, aucun
+ *       état ni objet partagé n'est touché par le jeu.</li>
  *   <li>Objets : le pont a son propre rendu ({@link EarlyScene#createLightRenderer()}) : tampons (FBO), VAO,
  *       programmes et atlas de police créés dans son contexte et détruits par lui avant de s'arrêter. Il lit les
  *       textures de la scène, partagées, et n'en détruit aucune.</li>
@@ -99,6 +101,11 @@ final class GapBridge {
     private volatile Throwable failure;
     private boolean destroyed;
     private volatile Thread thread;
+    private volatile boolean quiesced;
+    // Essai du pont en retard (-Dlostisland.bridgeThread.slowStop=<ms>) : à la demande d'arrêt, le pont garde le
+    // verrou des images ce temps-là, comme un pilote bloqué au milieu d'une image.
+    private final long slowStopMillis = Long.getLong("lostisland.bridgeThread.slowStop", 0L);
+    private boolean fenceTimeoutLogged;
     // Sous frameLock :
     private long gameFence;
     private boolean exited;
@@ -122,47 +129,59 @@ final class GapBridge {
      * Crée la fenêtre cachée et son contexte, partagé avec celui de {@code visible}. Thread principal, aucun des deux
      * contextes courant nulle part (le thread de rendu d'avant le passage l'a rendu, le jeu ne l'a pas encore pris).
      *
-     * @param fail essai du repli ({@code -Dlostisland.bridgeThread.fail=true}) : la création échoue exprès
+     * <p>Le rappel d'erreur de GLFW en place à ce moment est celui du démarrage de Minecraft
+     * ({@code Window.bootCrash} : boîte « mettez à jour vos pilotes » puis arrêt du jeu). Tous les appels GLFW de la
+     * création passent donc sous un rappel local qui ne fait que noter l'erreur, et l'ancien est remis ensuite : un
+     * échec retombe en silence sur la saccade d'avant.
+     *
+     * @param fail essai du repli ({@code -Dlostisland.bridgeThread.fail=true}) : version de contexte impossible
+     *             (99), pour que la création échoue par une vraie erreur de GLFW
      * @throws IllegalStateException si le second contexte ne se crée pas ; rien ne reste alloué
      */
     static GapBridge create(long visible, String glVersion, EarlyScene scene, Consumer<String> log, boolean fail) {
         String[] v = glVersion.split("\\.");
-        glfwDefaultWindowHints();
-        glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
-        glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_NATIVE_CONTEXT_API);
-        glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
-        glfwWindowHint(GLFW_FOCUSED, GLFW_FALSE);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, Integer.parseInt(v[0]));
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, Integer.parseInt(v[1]));
-        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-        glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
-        // Partage : « share: The window whose context to share resources with » (glfwCreateWindow).
-        long hidden = glfwCreateWindow(16, 16, "lostisland-pont", 0L, visible);
-        String error = lastGlfwError();
-        glfwDefaultWindowHints();
-        if (hidden == 0L) {
-            throw new IllegalStateException("second contexte non créé (glfwCreateWindow : " + error + ")");
-        }
-        if (fail) {
-            glfwDestroyWindow(hidden);
-            throw new IllegalStateException("échec demandé par -Dlostisland.bridgeThread.fail=true");
-        }
-        long hwnd = GLFWNativeWin32.glfwGetWin32Window(visible);
-        long hiddenHwnd = GLFWNativeWin32.glfwGetWin32Window(hidden);
-        long context = GLFWNativeWGL.glfwGetWGLContext(hidden);
-        if (hwnd == 0L || hiddenHwnd == 0L || context == 0L) {
-            glfwDestroyWindow(hidden);
-            throw new IllegalStateException("poignées Win32/WGL introuvables");
-        }
-        return new GapBridge(hidden, hwnd, hiddenHwnd, context, scene, log);
-    }
-
-    private static String lastGlfwError() {
-        try (MemoryStack stack = MemoryStack.stackPush()) {
-            PointerBuffer description = stack.mallocPointer(1);
-            int code = glfwGetError(description);
-            return code == GLFW_NO_ERROR ? "aucune erreur" : "0x" + Integer.toHexString(code) + " "
-                    + MemoryUtil.memUTF8Safe(description.get(0));
+        int major = fail ? 99 : Integer.parseInt(v[0].trim());
+        int minor = Integer.parseInt(v[1].trim());
+        String[] error = {null};
+        GLFWErrorCallback local = GLFWErrorCallback.create((code, description) -> {
+            if (error[0] == null) {
+                error[0] = "0x" + Integer.toHexString(code) + " " + GLFWErrorCallback.getDescription(description);
+            }
+        });
+        GLFWErrorCallback previous = glfwSetErrorCallback(local);
+        long hidden = 0L;
+        try {
+            glfwDefaultWindowHints();
+            glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
+            glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_NATIVE_CONTEXT_API);
+            glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+            glfwWindowHint(GLFW_FOCUSED, GLFW_FALSE);
+            glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, major);
+            glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, minor);
+            glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+            glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
+            // Partage : « share: The window whose context to share resources with » (glfwCreateWindow).
+            hidden = glfwCreateWindow(16, 16, "lostisland-pont", 0L, visible);
+            if (hidden == 0L) {
+                throw new IllegalStateException("second contexte non créé (glfwCreateWindow, erreur GLFW : "
+                        + error[0] + (fail ? ", essai demandé par -Dlostisland.bridgeThread.fail=true" : "") + ")");
+            }
+            long hwnd = GLFWNativeWin32.glfwGetWin32Window(visible);
+            long hiddenHwnd = GLFWNativeWin32.glfwGetWin32Window(hidden);
+            long context = GLFWNativeWGL.glfwGetWGLContext(hidden);
+            if (hwnd == 0L || hiddenHwnd == 0L || context == 0L) {
+                throw new IllegalStateException("poignées Win32/WGL introuvables (erreur GLFW : " + error[0] + ")");
+            }
+            GapBridge bridge = new GapBridge(hidden, hwnd, hiddenHwnd, context, scene, log);
+            hidden = 0L; // gardée par le pont
+            return bridge;
+        } finally {
+            if (hidden != 0L) {
+                glfwDestroyWindow(hidden);
+            }
+            glfwDefaultWindowHints(); // aussi sur exception : aucun indice global laissé modifié
+            glfwSetErrorCallback(previous);
+            local.free();
         }
     }
 
@@ -283,7 +302,17 @@ final class GapBridge {
                     return;
                 }
                 if (gameFence != 0L) {
-                    glClientWaitSync(gameFence, 0, FENCE_WAIT_NANOS);
+                    int waited = glClientWaitSync(gameFence, 0, FENCE_WAIT_NANOS);
+                    if (waited != GL_ALREADY_SIGNALED && waited != GL_CONDITION_SATISFIED) {
+                        // Image du jeu pas encore finie côté GPU (ou attente en échec) : on ne dessine pas par-dessus,
+                        // on réessaie à l'image suivante.
+                        if (!fenceTimeoutLogged) {
+                            fenceTimeoutLogged = true;
+                            log.accept("pont : image du jeu pas finie après 50 ms (0x" + Integer.toHexString(waited)
+                                    + "), image du pont sautée");
+                        }
+                        continue;
+                    }
                     glDeleteSync(gameFence);
                     gameFence = 0L;
                 }
@@ -304,6 +333,17 @@ final class GapBridge {
                     holdFrames++;
                 }
                 lastFrameNanos = System.nanoTime();
+                if (slowStopMillis > 0L) {
+                    // Essai seulement : attendre la prochaine image en gardant le verrou, et à la demande d'arrêt le
+                    // garder encore slowStopMillis, comme un pilote bloqué.
+                    while (!stop && System.nanoTime() - lastFrameNanos < FRAME_NANOS) {
+                        LockSupport.parkNanos(1_000_000L);
+                    }
+                    if (stop) {
+                        log.accept("pont : essai du pont en retard, verrou gardé " + slowStopMillis + " ms");
+                        LockSupport.parkNanos(slowStopMillis * 1_000_000L);
+                    }
+                }
             } finally {
                 frameLock.unlock();
             }
@@ -321,10 +361,11 @@ final class GapBridge {
     /** Après l'échange de l'image du jeu : barrière pour le pont, puis le verrou est rendu. */
     void unlockAfterGame() {
         try {
+            if (gameFence != 0L) {
+                glDeleteSync(gameFence); // objet partagé : supprimable depuis le contexte du jeu (même si le pont
+                gameFence = 0L;          // s'est arrêté sans contexte courant)
+            }
             if (!exited) {
-                if (gameFence != 0L) {
-                    glDeleteSync(gameFence);
-                }
                 gameFence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
                 glFlush(); // sans quoi l'attente du pont, dans l'autre contexte, pourrait ne jamais finir
             }
@@ -338,15 +379,37 @@ final class GapBridge {
         }
     }
 
-    /** Demande l'arrêt et attend la fin du thread (contexte rendu, objets du pont libérés). Thread du jeu. */
-    boolean stopAndWait(long timeoutMillis) {
+    /**
+     * Demande l'arrêt et attend que le pont ne puisse plus dessiner : soit son thread est fini, soit le verrou des
+     * images a été pris <i>après</i> la demande (le pont relit l'arrêt sous ce verrou avant chaque image, et chaque
+     * image du pont finit par {@code glFinish} sous ce verrou). Une fois vrai, le pont ne lit plus rien de la scène
+     * ni ne dessine ; il ne lui reste qu'à libérer ses propres objets. Thread du jeu.
+     *
+     * @return vrai si le pont ne dessinera plus
+     */
+    boolean stopAndQuiesce(long timeoutMillis) {
         stop = true;
+        if (quiesced) {
+            return true;
+        }
+        if (finished() || dead()) {
+            quiesced = true;
+            return true;
+        }
         try {
-            return done.await(timeoutMillis, TimeUnit.MILLISECONDS) || dead();
+            if (frameLock.tryLock(timeoutMillis, TimeUnit.MILLISECONDS)) {
+                frameLock.unlock();
+                quiesced = true;
+                return true;
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return false;
         }
+        if (finished() || dead()) {
+            quiesced = true;
+            return true;
+        }
+        return false;
     }
 
     /** Fin propre : contexte rendu, objets du pont libérés. */
@@ -368,16 +431,27 @@ final class GapBridge {
     }
 
     int frames() {
-        return frames; // lu après la fin du thread
+        return frames; // lu après stopAndQuiesce (verrou pris après l'arrêt, ou thread fini)
     }
 
-    /** Détruit la fenêtre cachée. Thread principal, seulement une fois le thread du pont fini. */
+    /**
+     * Détruit la fenêtre cachée. Thread principal, seulement une fois le thread du pont fini (contexte rendu). Sous
+     * un rappel d'erreur local : selon le moment, celui de Minecraft arrêterait le démarrage sur une erreur GLFW.
+     */
     void destroyWindow() {
         if (destroyed || !finished()) {
             return;
         }
         destroyed = true;
-        glfwDestroyWindow(hidden);
+        GLFWErrorCallback local = GLFWErrorCallback.create((code, description) -> log.accept(
+                "pont : erreur GLFW à la destruction de la fenêtre cachée : 0x" + Integer.toHexString(code)));
+        GLFWErrorCallback previous = glfwSetErrorCallback(local);
+        try {
+            glfwDestroyWindow(hidden);
+        } finally {
+            glfwSetErrorCallback(previous);
+            local.free();
+        }
     }
 
     /** Secondes depuis la création du pont. */

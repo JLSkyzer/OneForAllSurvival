@@ -145,6 +145,10 @@ minecraft {
             if (project.hasProperty('bridgeThreadFail')) {
                 property 'lostisland.bridgeThread.fail', 'true'
             }
+            // `-PbridgeSlowStop=<ms>` : essai du pont en retard, il garde son verrou ce temps-là à la demande d'arrêt.
+            if (project.hasProperty('bridgeSlowStop')) {
+                property 'lostisland.bridgeThread.slowStop', project.bridgeSlowStop ?: '2500'
+            }
             if (project.hasProperty('activeProcessors')) {
                 jvmArg "-XX:ActiveProcessorCount=${project.activeProcessors}"
             }

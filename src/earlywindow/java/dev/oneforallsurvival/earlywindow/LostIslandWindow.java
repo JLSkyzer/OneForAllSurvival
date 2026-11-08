@@ -98,6 +98,7 @@ public final class LostIslandWindow implements ImmediateWindowProvider {
     private GapBridge bridge; // null : pas de pont (décision, échec, ou déjà arrêté et détruit)
     private boolean bridgeWaited;
     private boolean bridgeLate;
+    private boolean bridgeQuiet;
     private EarlyScene scene;
     private EarlyRenderLoop loop;
     private ModuleLayer gameLayer;
@@ -415,35 +416,36 @@ public final class LostIslandWindow implements ImmediateWindowProvider {
     }
 
     /**
-     * Arrête le pont et attend qu'il ait rendu son contexte, puis détruit sa fenêtre cachée. Appelé par
-     * {@link #loadingOverlay} puis par chaque overlay avant de dessiner (signal explicite : tant que cette méthode
-     * rend {@code false}, l'overlay ne touche pas la scène). La première attente dure au plus 250 ms, les suivantes
-     * ne font que regarder. Thread du jeu (thread principal de GLFW).
+     * Arrête le pont et attend qu'il ne puisse plus dessiner ({@link GapBridge#stopAndQuiesce}) ; sa fenêtre cachée
+     * est détruite dès que son thread a fini. Appelé par {@link #loadingOverlay}, puis par chaque overlay avant de
+     * dessiner et avant de libérer la scène (signal explicite : tant que cette méthode rend {@code false}, rien ne
+     * touche la scène ni ses textures). La première attente dure au plus 1 s, les suivantes ne font que regarder.
+     * Thread du jeu (thread principal de GLFW).
      *
-     * @return {@code true} si aucun pont ne tourne plus
+     * @return {@code true} si aucun pont ne peut plus dessiner
      */
     public boolean awaitBridgeStopped() {
         GapBridge b = bridge;
         if (b == null) {
             return true;
         }
+        if (bridgeQuiet) {
+            reapBridge();
+            return true;
+        }
         long begin = System.nanoTime();
-        boolean stopped = b.stopAndWait(bridgeWaited ? 0L : 250L);
+        boolean quiet = b.stopAndQuiesce(bridgeWaited ? 0L : 1000L);
         bridgeWaited = true;
-        if (!stopped) {
+        if (!quiet) {
             if (!bridgeLate) {
                 bridgeLate = true;
-                write("pont : pas encore arrêté au signal, l'overlay attend sans dessiner la scène");
+                write("pont : pas encore arrêté au signal, l'overlay attend sans toucher la scène");
             }
             return false;
         }
-        if (b.dead()) {
-            write("pont : thread mort sans rendre son contexte, fenêtre cachée laissée en place");
-            bridge = null;
-            return true;
-        }
-        write(String.format(Locale.ROOT, "pont : arrêté au signal en %.1f ms, %d images dessinées en tout",
-                (System.nanoTime() - begin) / 1e6, b.frames()));
+        bridgeQuiet = true;
+        write(String.format(Locale.ROOT, "pont : ne dessine plus (signal attendu %.1f ms%s), %d images dessinées en tout",
+                (System.nanoTime() - begin) / 1e6, bridgeLate ? ", après un retard" : "", b.frames()));
         reapBridge();
         return true;
     }
@@ -451,8 +453,14 @@ public final class LostIslandWindow implements ImmediateWindowProvider {
     /** Fenêtre cachée détruite une fois le thread du pont fini (arrêt ou erreur). Thread principal. */
     private void reapBridge() {
         GapBridge b = bridge;
-        if (b != null && (b.finished() || b.dead())) {
-            b.destroyWindow(); // sans effet si le thread est mort sans rendre son contexte
+        if (b == null) {
+            return;
+        }
+        if (b.finished()) {
+            b.destroyWindow();
+            bridge = null;
+        } else if (b.dead()) {
+            write("pont : thread mort sans rendre son contexte, fenêtre cachée laissée en place");
             bridge = null;
         }
     }
@@ -487,8 +495,9 @@ public final class LostIslandWindow implements ImmediateWindowProvider {
         overlayRequested = true;
         // Le pont s'arrête ici, avant que la boucle du jeu ne vide le tampon de la fenêtre (RenderSystem.clear au
         // début de Minecraft.runTick, avant même l'overlay) : plus aucune image de lui ensuite.
-        awaitBridgeStopped();
-        if (scene != null && !scene.closed()) {
+        // Pont en retard : la phase n'est pas touchée ici (état non sûr entre threads) ; la première image de
+        // l'overlay, une fois le pont arrêté, y entre de toute façon.
+        if (awaitBridgeStopped() && scene != null && !scene.closed()) {
             scene.enter(dev.oneforallsurvival.earlywindow.scene.ProgressModel.Phase.RESOURCES);
         }
         try {
