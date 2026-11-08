@@ -27,7 +27,7 @@ Les visuels finaux font partie de chaque lot qui ajoute un bloc ou un objet livr
 
 ## Idées pour plus tard
 
-- **Config des recettes de l'établi par mod** (demande de Killian, 2026-11-06) : cadrée le 2026-11-08, [cahier des charges](../docs/superpowers/specs/2026-11-08-etabli-types-de-recettes-design.md) et [plan](../docs/superpowers/plans/2026-11-08-etabli-types-de-recettes.md) écrits. À exécuter plus tard, à la demande de Killian : rien n'est construit.
+- **Config des recettes de l'établi par mod** (demande de Killian, 2026-11-06) : cadrée le 2026-11-08, [cahier des charges](../docs/superpowers/specs/2026-11-08-etabli-types-de-recettes-design.md) et [plan](../docs/superpowers/plans/2026-11-08-etabli-types-de-recettes.md) écrits. À exécuter plus tard, à la demande de Killian : rien n'est construit. **À revoir avant de l'exécuter** : depuis le 2026-11-08, le cahier des features prévoit un établi par métier et un tag de métier par objet ; le plan envoie toutes les recettes transférées à l'établi d'ingénieur, il faudra décider vers quel établi elles partent.
 
 ## Hors du mod, côté pack
 
