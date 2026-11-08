@@ -19,10 +19,15 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 // jamais empaquetés dans le mod livré.
 sourceSets {
     devcontent
+    // Fenêtre de chargement anticipée : jar de service à part (ImmediateWindowProvider « lostisland »),
+    // chargé par FML avant le jeu. Aucune classe de Minecraft ici : il tourne avant que le jeu existe.
+    earlywindow
 }
 
 configurations {
     devcontentImplementation.extendsFrom implementation
+    // fmlloader, fmlearlydisplay, LWJGL et Gson, déjà résolus pour le mod, sans nouveau téléchargement.
+    earlywindowCompileClasspath.extendsFrom compileClasspath
 }
 
 println "Java: ${System.getProperty 'java.version'}, JVM: ${System.getProperty 'java.vm.version'} (${System.getProperty 'java.vendor'}), Arch: ${System.getProperty 'os.arch'}"
@@ -407,6 +412,40 @@ tasks.matching { it.name == 'runGameTestServer' }.configureEach {
         // Les GameTests partent d'un monde neuf.
         delete project.file('run-gametest/world')
     }
+}
+
+// Le jar de service de la fenêtre anticipée : classes `earlywindow` seulement, sans mods.toml. FML le met dans
+// la couche SERVICE parce qu'il déclare un ImmediateWindowProvider (ModDirTransformerDiscoverer).
+def earlyWindowJar = tasks.register('earlyWindowJar', Jar) {
+    group = 'build'
+    description = 'Construit le jar de service de la fenêtre de chargement Lost Island.'
+    archiveBaseName = "${mod_id}-earlywindow"
+    archiveVersion = mod_version
+    from sourceSets.earlywindow.output
+    manifest {
+        attributes([
+                'Automatic-Module-Name'   : "${mod_id}.earlywindow",
+                'Implementation-Title'    : "${mod_id}-earlywindow",
+                'Implementation-Version'  : mod_version,
+                'Implementation-Vendor'   : mod_authors,
+        ])
+    }
+}
+
+// Essais en développement : le jar de service va dans run/mods, comme dans le dossier mods d'un vrai client.
+tasks.register('installEarlyWindow', Copy) {
+    group = 'build'
+    description = 'Copie le jar de service de la fenêtre anticipée dans run/mods.'
+    from earlyWindowJar
+    into project.file('run/mods')
+    doFirst {
+        // Une ancienne version laissée à côté serait chargée elle aussi.
+        delete project.fileTree('run/mods').matching { include "${mod_id}-earlywindow-*.jar" }
+    }
+}
+
+tasks.matching { it.name == 'runClient' }.configureEach {
+    mustRunAfter 'installEarlyWindow'
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.
