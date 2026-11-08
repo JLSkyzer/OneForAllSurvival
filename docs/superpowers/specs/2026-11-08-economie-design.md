@@ -43,8 +43,8 @@ l'argent qui circule a toujours une origine connue.**
 - **Bourse, prêts à intérêt, actions** : trop modernes pour une ville naissante, et sources d'abus.
 - **Les villageois vanilla** gardent leurs émeraudes et n'acceptent pas les pièces. Le seul PNJ qui
   manie la monnaie est celui de la ville (feature 80), placé et réglé par l'équipe du serveur.
-- **Fixer les prix** : ils relèvent des joueurs, sauf les tarifs publics (électricité, amendes) que la
-  ville règle.
+- **Fixer les prix** : ils relèvent des joueurs, sauf les tarifs publics (amendes) que la ville règle.
+  Le prix de l'électricité est fixé par chaque fournisseur (feature 83).
 
 ### Ce qui serait un échec, même si tout fonctionne
 - Une façon de **créer** de l'argent hors des sources déclarées (duplication, recette oubliée, ferme à
@@ -173,8 +173,8 @@ La numérotation prolonge celle du policier. Toutes les valeurs chiffrées sont 
   trou entre le solde attendu et le contenu.
 
 **74. Guichet.**
-- C'est un bloc relié au trésor, où l'on **paie une facture publique** (électricité, amende) sans que le
-  trésorier soit présent.
+- C'est un bloc relié au trésor, où l'on **paie une facture publique** (amende) sans que le
+  trésorier soit présent. On y paie aussi une facture d'électricité restée impayée (feature 83).
 - Le paiement marque la facture payée là où elle a été émise : le relevé du compteur, le casier
   judiciaire.
 
@@ -228,6 +228,34 @@ Demandé par Killian le 2026-11-08.
   laisse des traces.
 - Un prélèvement refusé (solde insuffisant, carte en opposition) est signalé au titulaire et à
   l'opérateur, qui décide de suspendre ou non la carte SIM.
+- On peut aussi la lier à son compteur électrique, pour payer son fournisseur (feature 83).
+
+**83. Fournisseur d'électricité.**
+Demandé par Killian le 2026-11-08, sur le modèle des opérateurs du téléphone.
+- **N'importe quel joueur peut devenir fournisseur.** Il pose un **poste de fournisseur**, un bloc
+  fabriqué par l'ingénieur, en tête du réseau qu'alimentent ses générateurs. Le poste porte le nom du
+  fournisseur. La ville peut être un fournisseur comme les autres.
+- **Le fournisseur fixe son prix** : un prix par FE consommé et, s'il le veut, un abonnement fixe par
+  semaine. Il le change depuis le panneau du poste. Le nouveau prix s'applique à la facture suivante, et
+  les clients en sont prévenus.
+- Le panneau liste les **clients** : un compteur au nom de chacun, branché sur son réseau, avec sa
+  consommation et ses impayés. Le fournisseur y accepte ou refuse une demande de raccordement, et peut
+  **couper** un client en ouvrant son disjoncteur à distance. Le scellé reste un geste d'ingénieur.
+- **La facture est automatique.** À chaque échéance (fin de session RP au départ, réglable), chaque
+  compteur se relève seul et émet une facture (feature 72) : consommation fois prix, plus
+  l'abonnement. Elle est **prélevée sur la carte bancaire** (feature 82) que le client a liée à son
+  compteur, et l'argent va sur le compte du fournisseur.
+- Sans carte liée, ou si le prélèvement est refusé (solde insuffisant, carte en opposition), la facture
+  reste due. Le client la paie au guichet ou au distributeur. Le fournisseur est prévenu et décide de
+  couper ou non.
+- Le compteur mesure les FE qui passent vraiment : un fournisseur ne facture que ce qu'il a livré.
+- Une **taxe sur l'électricité** (0 % au départ, réglable) part au trésor à chaque facture payée.
+- **Sécurité** : seuls le fournisseur, le **maire**, l'équipe du serveur et un ingénieur muni de l'outil
+  de maintenance peuvent ouvrir le panneau, régler le poste ou le casser. Le maire peut aussi
+  **supprimer un fournisseur** : ses clients sont détachés, et leurs compteurs ne facturent plus.
+- Pour changer de fournisseur, le client demande un raccordement à un autre, et un ingénieur rebranche
+  son compteur sur le nouveau réseau.
+- L'argent ne fait que passer d'un compte à l'autre : la feature ne crée rien.
 
 ### Gagner sa vie
 
@@ -339,7 +367,7 @@ Chaque branchement se fait au lot du métier concerné, une fois l'économie liv
 
 | Métier | Branchement |
 |---|---|
-| Ingénieur | Le **relevé de compteur** produit une **facture d'électricité** au tarif de la ville (par FE, réglable). Le paiement se fait au guichet. Impayée, la facture justifie un scellé en RP. Le matériel fabriqué à l'établi se vend à l'étal. Il **fabrique et pose les distributeurs** (feature 81), qui consomment son électricité à chaque opération. |
+| Ingénieur | Il fabrique les **postes de fournisseur** (feature 83), pose et rebranche les compteurs, et pose les scellés. Les factures d'électricité sont émises automatiquement au prix de chaque fournisseur et prélevées sur la carte du client. Impayée, une facture justifie un scellé en RP. Le matériel fabriqué à l'établi se vend à l'étal. Il **fabrique et pose les distributeurs** (feature 81), qui consomment son électricité à chaque opération. |
 | Agriculteur | L'**étal** vend la production et rachète les récoltes. Le **grenier communal** peut **payer les dépôts** au prix fixé par la ville, sur le trésor : la ville achète ses réserves. |
 | Médecin | Le médecin émet une **facture de soins** depuis le dossier médical, avec les soins listés. Elle peut être réglée par le trésor si la ville rend certains soins gratuits (réglable par type de soin). |
 | Policier | Une **contravention** devient une facture publique : payée au guichet, elle est marquée payée au casier sans geste du policier. Une **caution** peut être versée au trésor pour sortir de cellule plus tôt (réglable). Les pièces se fouillent et se confisquent comme le reste. |
@@ -361,13 +389,13 @@ compris.
 | E3 | 73, 74, 75, 76 | La ville a des finances : elle encaisse, elle paie, elle peut manquer |
 | E4 | 78, 80 | On gagne sa vie en chassant, et l'équipe ouvre un comptoir |
 | E5 | 79 | Des objectifs renouvelés chaque jour et chaque semaine |
-| E6 | 81, 82 | Les comptes s'utilisent loin du guichet, et une carte volée ne vide pas un compte |
+| E6 | 81, 82, 83 | Les comptes s'utilisent loin du guichet, une carte volée ne vide pas un compte, et chacun peut vendre son électricité |
 
 Le lot E4 peut passer avant E2 si la ville a besoin de premiers revenus plus tôt : le butin des mobs
 répond en partie à la question « d'où vient le premier argent ». Le lot E6 vient après E3, puisqu'il
 utilise les comptes, et a besoin du réseau électrique de l'ingénieur. Les quêtes de métier (feature 79)
-arrivent avec chaque métier. Les branchements de la section 6 suivent chacun le lot de leur métier. Celui de l'ingénieur peut se faire
-dès le lot 4 (compteurs), qui est en cours.
+arrivent avec chaque métier. Les branchements de la section 6 suivent chacun le lot de leur métier. Celui de l'ingénieur vient avec
+le lot E6, puisque les factures d'électricité passent par les fournisseurs et les cartes.
 
 ## 8. Vérification
 
@@ -394,7 +422,12 @@ dès le lot 4 (compteurs), qui est en cours.
   - un distributeur sans courant refuse toute opération, et chaque opération consomme l'énergie réglée ;
   - un retrait au distributeur ne change pas la masse totale (compte moins, pièces plus) ;
   - un retrait sans le bon code est refusé, et le plafond par jour tient ;
-  - une carte en opposition est refusée au distributeur et au prélèvement de l'abonnement.
+  - une carte en opposition est refusée au distributeur et au prélèvement de l'abonnement ;
+  - à l'échéance, la facture d'un compteur vaut sa consommation fois le prix du fournisseur, plus
+    l'abonnement, et le prélèvement passe du compte du client à celui du fournisseur ;
+  - un changement de prix ne touche que la facture suivante ;
+  - un prélèvement refusé laisse la facture due et prévient le fournisseur ;
+  - un fournisseur supprimé par le maire ne facture plus personne.
 - **Scénario d'acceptation** : l'équipe désigne un trésorier ; il frappe ; il verse un salaire ; le policier
   achète du pain à l'étal de l'agriculteur absent ; l'agriculteur récupère ses recettes ; on relance le
   serveur ; on lit le tableau de bord, et chaque pièce a une origine.
@@ -426,7 +459,9 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 - le PNJ ne vend ni nourriture préparée, ni matériel d'ingénieur, ni remèdes par défaut ;
 - le distributeur n'a pas de réserve de pièces : il puise dans les comptes, il n'y a donc rien à y
   cambrioler ;
-- une carte bancaire demande un code pour retirer et a un plafond par jour.
+- une carte bancaire demande un code pour retirer et a un plafond par jour ;
+- la facture d'électricité tombe à chaque fin de session, et la taxe sur l'électricité est à 0 % au
+  départ.
 
 ## 10. Questions ouvertes
 
@@ -439,5 +474,6 @@ Elles décident de l'équilibre général et sont à trancher avant le lot E1 :
   des récompenses d'événement ?
 - **Faut-il les comptes** (feature 76) dès le lot E3, ou une monnaie uniquement physique suffit-elle au
   début ? Les distributeurs et les cartes (81, 82) en dépendent.
+- **Le prix de l'électricité est-il libre**, ou la ville fixe-t-elle un plafond par FE contre les abus ?
 - **La carte bancaire paie-t-elle aussi aux étals** (feature 71), ou seulement au distributeur et dans
   le téléphone ?

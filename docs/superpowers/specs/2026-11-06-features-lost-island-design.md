@@ -245,7 +245,9 @@ indique quelles sorties sont coupées. Les priorités se règlent dans son inter
 - Le **compteur** se branche en ligne, totalise les FE qui passent et porte le nom de l'abonné.
 - Seul l'Ingénieur le relève, avec le testeur, et obtient un **relevé** : abonné, consommation, date.
 - Le mod ne gère **aucune monnaie** : prix et paiement relèvent du RP. *Remplacé le 2026-11-08 par le
-  [cahier de l'économie](2026-11-08-economie-design.md) : le relevé produit une facture d'électricité.*
+  [cahier de l'économie](2026-11-08-economie-design.md) : n'importe quel joueur peut devenir fournisseur
+  d'électricité, fixer son prix, et le compteur émet seul une facture prélevée sur la carte bancaire du
+  client (features 82 et 83). Le relevé au testeur reste possible pour contrôler un compteur.*
 - Le **disjoncteur d'abonné** coupe la ligne et se verrouille par un scellé. Seul l'Ingénieur peut
   poser ou retirer un scellé, et un disjoncteur scellé ne se réenclenche pas.
 - Casser un compteur ou un disjoncteur scellé reste possible, le mod ne protège pas contre la casse : la
