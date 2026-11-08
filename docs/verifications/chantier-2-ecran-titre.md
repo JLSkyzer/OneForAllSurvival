@@ -39,8 +39,13 @@ Le premier lancement (17:12) a planté le client au premier rendu de la scène r
 `LogoEffect.render` ← … ← `LostIslandTitleScreen.render` (`run/hs_err_pid21376.log`). Cause prouvée par un lancement
 instrumenté : dans le contexte de Minecraft, `GL_UNPACK_SKIP_ROWS` valait 90 ; l'atlas ne réglait que l'alignement et
 le pilote lisait au-delà du tampon. Correctif `dd36e20` (`PixelUnpack` : état de lecture neutre autour de chaque envoi
-depuis la mémoire du processus), qui fait aussi disparaître 5 lignes `GL_INVALID_OPERATION` vues à l'entrée dans le
-monde. Rapport du correctif : `.superpowers/sdd/2026-11-08-chantier-2-ecran-titre/fix-crash-report.md` (non commité).
+depuis la mémoire du processus), dont la partie `GlStateGuard.alive()` (ne pas relier un nom de texture supprimé) visait aussi 5 lignes
+`GL_INVALID_OPERATION` vues à l'entrée dans le monde, juste avant « scène libérée » : ces lignes n'ont plus été vues
+depuis (cause supposée, non tracée unité par unité, et corrélation seulement).
+Cause du crash, prouvée : au `hs_err` d'origine, la faute est une lecture à la fin exacte du tampon de l'atlas
+(1024 x 208 octets) ; un lancement instrumenté a lu `skipRows=90` avant le `glTexImage2D` de la scène recréée
+(`skipRows=0` pour les trois envois de la fenêtre anticipée), et le crash s'est reproduit à l'identique
+(`nvoglv64.dll`, même pile `FontAtlas.ensure`). Aucun tampon de pixels lié (`pbo=0`) : seul `SKIP_ROWS` est en cause.
 Depuis : 0 ligne `GlDebug` dans `latest.log` aux lancements 1, 2 et 4 (`run-titre/logs/latest.log` pour le 2).
 
 Dans ce même essai, deux ouvertures de la liste des mods hors scénario étaient des clics de Killian dans la fenêtre
@@ -85,7 +90,7 @@ Journal (`termine.json` : fin normale, 0 échec, « bilan : TOUT PASSE, 12 image
   (`IN_WORLD`), retour par les appels de `PauseScreen.onDisconnect`. **Recréation synchrone : 24,7 ms** pour le
   `setScreen` du titre, recréation comprise (TitleScene : « scène recréée sur l'aube en … ms (textures en
   chargement, fond de repli) ») ; première image de la scène recréée **1 245 ms** après le retour, pendant lesquels le
-  fond de repli est dessiné. Autres relevés du même pas : 25,4 / 1 176 / 1 160 / 1 178 ms aux autres lancements.
+  fond de repli est dessiné. Lancement 2 : recréation à 1 178 ms (voir plus bas). Les autres valeurs vues pendant le travail ne sont pas retenues, faute de source.
   La scène recréée est tenue sur l'aube : journal « phase DONE : Welcome to Lost Island. », aucune chute de l'avion
   sur l'image 12.
 - **Déconnexion d'un serveur dédié** (décision 6) : le joueur rejoint le serveur local (`[Ingénieur] Dev joined
@@ -166,7 +171,7 @@ au premier plan, poste libre.
   Raison relevée au javap (Create 6.0.8, `OpenCreateMenuButton$OpenConfigButtonHandler`) : Create n'ajoute son bouton
   au titre que s'il trouve, par le texte traduit, un bouton vanilla de la ligne `mainMenuConfigButtonRow` (2 dans
   `run/config/create-client.toml`) ; nos boutons ont nos clés et Multijoueur est retiré, il n'ajoute donc rien.
-  Aucun autre mod du pack n'a ajouté de bouton au titre (0 widget étranger aux lancements 1 à 4).
+  Aucun autre mod du pack n'a ajouté de bouton visible au titre (0 widget visible étranger aux lancements 1 à 4).
 - **Les deux ouvertures de la liste des mods du premier essai** étaient ses clics : pas un défaut.
 
 ## Tests
@@ -181,6 +186,8 @@ tests, 0 échec, 0 erreur. Le rangement des boutons d'autres mods n'est couvert 
 
 - **Bouton d'un autre mod rangé en jeu** : aucun mod du pack n'en ajoute ; enchaînement réel `arrange()` jamais vu
   avec un widget FOREIGN ; widget remplacé sans changement de nombre (mineur de la tâche 3) non replacé.
+- **Bouton « Multijoueur » d'un autre mod sur notre titre** : routage couvert par `TitleRoutingTest` seulement
+  (la liste ouverte avec notre titre pour parent est laissée).
 - **Autres mods que le pack** (menus personnalisés, mods qui remplacent le titre) : jamais essayés.
 - **Continuité à l'écran du passage chargement → titre** et **fondu d'arrivée de la barre** (règle finale du
   chantier 1) : non vus, le film n'a pas montré la fenêtre du jeu. Le passage n'est prouvé que par les états de la

@@ -19,7 +19,7 @@ import org.slf4j.Logger;
  *
  * <ul>
  *   <li>{@link #onOpening} : ce que décide {@link TitleRouting} devient un {@link LostIslandTitleScreen} — tout
- *       {@code TitleScreen} de classe exacte, et la liste Multijoueur ouverte avec un écran titre pour parent (retour
+ *       {@code TitleScreen} de classe exacte, et la liste Multijoueur ouverte avec un {@code TitleScreen} de classe exacte pour parent (retour
  *       d'une déconnexion volontaire d'un serveur). Une sous-classe venue d'un autre mod est laissée telle quelle.
  *       Les écrans ouverts depuis le titre (Options, liste des mods, connexion, expulsion) gardent notre instance
  *       comme parent et y reviennent directement. Priorité basse : un mod qui remplace tout le titre passe avant et
@@ -47,8 +47,10 @@ public final class TitleEvents {
         TitleRouting.Opening kind = next.getClass() == TitleScreen.class ? TitleRouting.Opening.VANILLA_TITLE
                 : next.getClass() == JoinMultiplayerScreen.class ? TitleRouting.Opening.MULTIPLAYER_LIST
                 : TitleRouting.Opening.OTHER;
-        boolean parentIsTitle = kind == TitleRouting.Opening.MULTIPLAYER_LIST
-                && parentOf(next) instanceof TitleScreen;
+        // Classe exacte : un parent qui est notre titre (ou une sous-classe d'un autre mod) est un bouton
+        // « Multijoueur » ajouté par un autre mod, qui doit rester opérant.
+        Screen parent = kind == TitleRouting.Opening.MULTIPLAYER_LIST ? parentOf(next) : null;
+        boolean parentIsTitle = parent != null && parent.getClass() == TitleScreen.class;
         if (TitleRouting.openOurTitle(kind, parentIsTitle)) {
             event.setNewScreen(new LostIslandTitleScreen());
         }

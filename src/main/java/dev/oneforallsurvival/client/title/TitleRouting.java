@@ -8,11 +8,12 @@ package dev.oneforallsurvival.client.title;
  * <ul>
  *   <li>un {@code TitleScreen} de classe exacte (premier titre, sortie d'un monde solo, {@code setScreen(null)} hors
  *       monde) ;</li>
- *   <li>la liste Multijoueur ({@code JoinMultiplayerScreen} de classe exacte) dont le parent est un écran titre : c'est
- *       le retour de {@code PauseScreen.onDisconnect} après une déconnexion volontaire d'un serveur
+ *   <li>la liste Multijoueur ({@code JoinMultiplayerScreen} de classe exacte) dont le parent est un
+ *       {@code TitleScreen} de classe exacte, créé neuf : c'est le retour de {@code PauseScreen.onDisconnect} (et de
+ *       {@code ClientPacketListener.onDisconnect} sans écran de rappel) après une déconnexion
  *       ({@code new JoinMultiplayerScreen(new TitleScreen())}). Notre titre n'a pas de bouton Multijoueur, le joueur
- *       n'a donc pas d'autre chemin vers cette liste. Ouverte par un autre mod depuis un autre écran, elle est
- *       laissée.</li>
+ *       n'a donc pas d'autre chemin vers cette liste. Ouverte par un autre mod, depuis un autre écran ou depuis notre
+ *       titre ({@code new JoinMultiplayerScreen(this)}, parent de classe non exacte), elle est laissée.</li>
  * </ul>
  * L'expulsion par le serveur ouvre un {@code DisconnectedScreen} dont le retour est notre instance (parent de la
  * connexion) : rien à remplacer.
@@ -32,8 +33,8 @@ public final class TitleRouting {
 
     /**
      * @param opening        l'écran qui s'ouvre
-     * @param parentIsTitle  pour la liste Multijoueur : son écran parent est un {@code TitleScreen} (celui de
-     *                       Minecraft ou le nôtre) ; ignoré sinon
+     * @param parentIsTitle  pour la liste Multijoueur : son écran parent est un {@code TitleScreen} de classe
+     *                       exacte (celui de Minecraft, pas le nôtre ni une sous-classe) ; ignoré sinon
      * @return {@code true} s'il faut ouvrir l'écran titre de Lost Island à sa place
      */
     public static boolean openOurTitle(Opening opening, boolean parentIsTitle) {

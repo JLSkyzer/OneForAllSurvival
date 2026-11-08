@@ -29,4 +29,11 @@ class TitleRoutingTest {
     void uneListeMultijoueurOuverteParUnAutreModEstLaissee() {
         assertFalse(TitleRouting.openOurTitle(Opening.MULTIPLAYER_LIST, false));
     }
+
+    @Test
+    void uneListeMultijoueurOuverteDepuisNotreTitreEstLaissee() {
+        // bouton d'un autre mod sur notre titre : new JoinMultiplayerScreen(this), parent de classe non exacte,
+        // donc parentIsTitle faux (TitleEvents compare la classe exacte TitleScreen)
+        assertFalse(TitleRouting.openOurTitle(Opening.MULTIPLAYER_LIST, false));
+    }
 }

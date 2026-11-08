@@ -3,6 +3,7 @@ package dev.oneforallsurvival.client.loading;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.GlConst;
 import com.mojang.blaze3d.systems.RenderSystem;
+import dev.oneforallsurvival.client.title.LostIslandTitleScreen;
 import dev.oneforallsurvival.client.title.TitleScene;
 import dev.oneforallsurvival.earlywindow.EarlyScene;
 import dev.oneforallsurvival.earlywindow.GlStateGuard;
@@ -16,7 +17,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.LoadingOverlay;
 import net.minecraft.client.gui.screens.Overlay;
-import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.server.packs.resources.ReloadInstance;
 import org.lwjgl.opengl.GL32C;
 
@@ -235,7 +235,7 @@ public final class LostIslandLoadingOverlay extends LoadingOverlay {
         if (released) {
             return;
         }
-        if (!failed && minecraft.screen instanceof TitleScreen && minecraft.level == null
+        if (!failed && minecraft.screen instanceof LostIslandTitleScreen && minecraft.level == null
                 && window.awaitBridgeStopped() && TitleScene.adoptFromLoading(scene, window::awaitBridgeStopped)) {
             released = true;
             scene.log("overlay du mod : scène confiée à l'écran titre (non libérée)");
