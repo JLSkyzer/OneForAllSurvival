@@ -126,6 +126,7 @@ Demandé par Killian. C'est le seul endroit où fabriquer le matériel du métie
   matériel électrique des autres métiers (serre, coffret médical, autoclave, défibrillateur, taser, lampe
   UV, transmetteur d'alarme, enregistreur) reste chez l'ingénieur. Si deux métiers revendiquent le même
   mod, le tag de l'objet tranche, puis l'ordre de la config ; le conflit est signalé en journal.
+  Seul le fonctionnement est commun : chaque établi a son propre habillage (couleurs, matières, bloc).
 - **Restent hors de cette règle**, sur décision de Killian : les fours et cuissons, et les machines de
   Create (presse, mélangeur, assemblage séquencé).
 - L'établi lui-même se fabrique sur une table de craft normale, avec des matériaux vanilla, pour que le

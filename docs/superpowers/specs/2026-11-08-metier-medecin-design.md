@@ -117,7 +117,16 @@ recopié.
   relève de ce métier sont **retirées pour tout le monde**, assembleurs mécaniques de Create compris.
 - Seul un joueur au rôle Médecin peut utiliser cet établi, avec le contournement de l'équipe du serveur. Les
   autres joueurs achètent ou reçoivent ses fabrications.
-- Même interface : catégories par mod, liste défilante, recherche, coût, temps, ce qui manque.
+- **Mêmes fonctions** à l'écran : catégories par mod, liste défilante, recherche, coût, temps, ce qui
+  manque. La disposition reste la même, pour qu'un joueur qui change de rôle s'y retrouve.
+- **Habillage propre au métier**, demandé par Killian : couleurs, matières, cadres, boutons, icônes et
+  modèle du bloc changent d'un établi à l'autre. Les visuels sont finaux et faits par Claude, dans le
+  style bricolage et récupération du serveur. Proposition de départ :
+  - **matières** : carrelage blanc, inox, papier d'ordonnance ;
+  - **couleurs** : blanc, vert d'eau et bleu des blocs d'Hospitals, avec la croix rouge en accent ;
+  - **détails** : onglets en fiches cartonnées, liste en tiroirs à médicaments, file en flacons
+    étiquetés ;
+  - **bloc** : une paillasse de laboratoire bricolée, avec une lampe, une balance et des flacons.
 - Même fonctionnement : prélèvement immédiat, file d'attente, annulation qui rend tout, stock sans
   limite, file et stock liés au joueur, crafts qui avancent tant que le serveur tourne, lent à la main
   et rapide sous courant.
