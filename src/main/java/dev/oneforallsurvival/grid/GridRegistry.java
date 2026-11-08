@@ -61,6 +61,15 @@ public final class GridRegistry {
     public static final RegistryObject<Item> SEAL = ITEMS.register("seal",
             () -> new SealItem(new Item.Properties().stacksTo(16)));
 
+    public static final RegistryObject<Block> SURGE_ARRESTER = BLOCKS.register("surge_arrester",
+            () -> new SurgeArresterBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL)
+                    .strength(3.0F).sound(SoundType.METAL).requiresCorrectToolForDrops()));
+    public static final RegistryObject<Item> SURGE_ARRESTER_ITEM = ITEMS.register("surge_arrester",
+            () -> new BlockItem(SURGE_ARRESTER.get(), new Item.Properties()));
+    public static final RegistryObject<BlockEntityType<SurgeArresterBlockEntity>> SURGE_ARRESTER_BE =
+            BLOCK_ENTITIES.register("surge_arrester", () -> BlockEntityType.Builder
+                    .of(SurgeArresterBlockEntity::new, SURGE_ARRESTER.get()).build(null));
+
     private GridRegistry() {}
 
     public static void register(IEventBus modEventBus) {
@@ -72,6 +81,6 @@ public final class GridRegistry {
 
     /** Les objets que l'onglet créatif affiche, dans l'ordre. */
     public static List<RegistryObject<? extends Item>> tabItems() {
-        return List.of(LOAD_SHEDDER_ITEM, METER_ITEM, BREAKER_ITEM, SEAL);
+        return List.of(LOAD_SHEDDER_ITEM, METER_ITEM, BREAKER_ITEM, SEAL, SURGE_ARRESTER_ITEM);
     }
 }

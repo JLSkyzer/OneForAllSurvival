@@ -156,6 +156,21 @@ public abstract class ElectricMachineBlockEntity extends BlockEntity {
     }
 
     /**
+     * Retire des points d'état sans passer par le travail (un coup de foudre, par exemple). À 0, la machine tombe en
+     * panne de la pièce annoncée, comme à l'usure. Une machine déjà en panne n'est pas touchée.
+     */
+    public void takeDamage(double points) {
+        if (fault != null || points <= 0) {
+            return;
+        }
+        condition = Math.max(0, condition - points);
+        setChanged();
+        if (condition <= 0) {
+            breakDown(nextFault);
+        }
+    }
+
+    /**
      * Ce que donnerait {@link #repair} avec cette pièce, sans rien changer. La pièce doit être celle
      * qui a lâché, ou à défaut celle qui lâchera.
      */

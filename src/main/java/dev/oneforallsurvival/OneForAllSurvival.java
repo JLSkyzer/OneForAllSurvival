@@ -13,6 +13,7 @@ import dev.oneforallsurvival.food.FoodEvents;
 import dev.oneforallsurvival.food.FoodRegistry;
 import dev.oneforallsurvival.grid.GridConfig;
 import dev.oneforallsurvival.grid.GridRegistry;
+import dev.oneforallsurvival.grid.LightningEvents;
 import dev.oneforallsurvival.machine.MachineConfig;
 import dev.oneforallsurvival.repair.RepairRegistry;
 import dev.oneforallsurvival.role.RoleCommands;
@@ -49,6 +50,7 @@ public final class OneForAllSurvival {
         MinecraftForge.EVENT_BUS.register(new CoastCommands());
         MinecraftForge.EVENT_BUS.register(new WorkshopTicker());
         MinecraftForge.EVENT_BUS.register(new FoodEvents());
+        MinecraftForge.EVENT_BUS.register(new LightningEvents());
         context.registerConfig(ModConfig.Type.COMMON, BenchConfig.SPEC);
         context.registerConfig(ModConfig.Type.COMMON, MachineConfig.SPEC, "oneforallsurvival-machines.toml");
         // SERVER : Forge synchronise ce fichier vers les clients, pour que l'infobulle suive le serveur.

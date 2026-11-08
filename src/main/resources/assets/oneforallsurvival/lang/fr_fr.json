@@ -241,5 +241,6 @@
   "message.oneforallsurvival.breaker.seal_needs_cut": "On ne scelle qu'un disjoncteur coupé : coupez-le d'abord.",
   "message.oneforallsurvival.breaker.already_sealed": "Ce disjoncteur est déjà scellé.",
   "message.oneforallsurvival.breaker.seal_done": "Disjoncteur scellé.",
-  "message.oneforallsurvival.breaker.unsealed": "Scellé retiré et détruit."
+  "message.oneforallsurvival.breaker.unsealed": "Scellé retiré et détruit.",
+  "block.oneforallsurvival.surge_arrester": "Parafoudre"
 }

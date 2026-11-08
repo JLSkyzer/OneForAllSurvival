@@ -12,6 +12,7 @@
     "oneforallsurvival:dryer",
     "oneforallsurvival:load_shedder",
     "oneforallsurvival:meter",
-    "oneforallsurvival:breaker"
+    "oneforallsurvival:breaker",
+    "oneforallsurvival:surge_arrester"
   ]
 }
