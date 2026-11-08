@@ -10,7 +10,7 @@
       "model": "oneforallsurvival:block/surge_arrester"
     },
     "state=fault": {
-      "model": "oneforallsurvival:block/surge_arrester"
+      "model": "oneforallsurvival:block/surge_arrester_fault"
     }
   }
 }

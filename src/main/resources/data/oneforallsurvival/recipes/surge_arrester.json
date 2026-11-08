@@ -1,0 +1,33 @@
+{
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "create"
+    }
+  ],
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "minecraft:lightning_rod"
+    },
+    {
+      "item": "minecraft:terracotta"
+    },
+    {
+      "item": "minecraft:terracotta"
+    },
+    {
+      "tag": "forge:plates/copper"
+    },
+    {
+      "item": "oneforallsurvival:fuse"
+    },
+    {
+      "tag": "oneforallsurvival:wire"
+    }
+  ],
+  "result": {
+    "item": "oneforallsurvival:surge_arrester"
+  }
+}

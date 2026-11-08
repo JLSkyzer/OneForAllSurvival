@@ -1,9 +1,9 @@
 {
   "parent": "minecraft:block/orientable",
   "textures": {
-    "particle": "minecraft:block/iron_block",
-    "front": "minecraft:block/redstone_lamp_on",
-    "side": "minecraft:block/iron_block",
-    "top": "minecraft:block/iron_block"
+    "particle": "oneforallsurvival:block/breaker_side",
+    "front": "oneforallsurvival:block/breaker_front_closed",
+    "side": "oneforallsurvival:block/breaker_side",
+    "top": "oneforallsurvival:block/breaker_top"
   }
 }

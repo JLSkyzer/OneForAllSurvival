@@ -1,0 +1,33 @@
+{
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "create"
+    }
+  ],
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "tag": "forge:plates/iron"
+    },
+    {
+      "tag": "forge:plates/brass"
+    },
+    {
+      "item": "create:cogwheel"
+    },
+    {
+      "item": "oneforallsurvival:coil"
+    },
+    {
+      "item": "minecraft:glass_pane"
+    },
+    {
+      "tag": "oneforallsurvival:wire"
+    }
+  ],
+  "result": {
+    "item": "oneforallsurvival:meter"
+  }
+}

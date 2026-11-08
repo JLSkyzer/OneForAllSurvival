@@ -137,7 +137,14 @@ public final class PackGameTests {
                 new Materiel("galvanic_bath", 6, 1, true, true),
                 new Materiel("fridge", 6, 1, true, false),
                 new Materiel("desalinator", 6, 1, true, false),
-                new Materiel("dryer", 6, 1, true, false))) {
+                new Materiel("dryer", 6, 1, true, false),
+                // Lot 4 : la gestion du réseau. Le scellé, un consommable, reste à la portée d'une île sans Create.
+                new Materiel("load_shedder", 7, 1, true, false),
+                new Materiel("meter", 6, 1, true, false),
+                new Materiel("breaker", 5, 1, true, false),
+                new Materiel("seal", 3, 4, false, false),
+                new Materiel("surge_arrester", 6, 1, true, false),
+                new Materiel("weather_station", 6, 1, true, false))) {
             Item item = objet("oneforallsurvival", m.nom());
             // Aucune recette d'aucun type : l'établi (le catalogue) est la seule voie.
             List<ResourceLocation> autres = recettesDonnant(helper, item);
@@ -195,6 +202,21 @@ public final class PackGameTests {
             helper.assertTrue(etabli.stream().noneMatch(r -> r.result().is(item)),
                     "l'établi propose " + nom);
         }
+        helper.succeed();
+    }
+
+    /**
+     * Le relevé de compteur ne naît que du testeur de l'ingénieur posé sur un compteur : aucune recette d'aucun type,
+     * ni à la table ni à l'établi, une fois le pack chargé.
+     */
+    @GameTest(template = "test/plancher", batch = "pack_materiel")
+    public static void leReleveNeSeFabriquePas(GameTestHelper helper) {
+        Item releve = objet("oneforallsurvival", "meter_reading");
+        helper.assertTrue(releve != null && releve != net.minecraft.world.item.Items.AIR, "objet absent : meter_reading");
+        List<ResourceLocation> recettes = recettesDonnant(helper, releve);
+        helper.assertTrue(recettes.isEmpty(), "le relevé a des recettes : " + recettes);
+        helper.assertTrue(BenchCatalog.current().recipes().stream().noneMatch(r -> r.result().is(releve)),
+                "l'établi propose le relevé");
         helper.succeed();
     }
 

@@ -1,9 +1,9 @@
 {
   "parent": "minecraft:block/orientable",
   "textures": {
-    "particle": "minecraft:block/iron_block",
-    "front": "minecraft:block/redstone_lamp",
-    "side": "minecraft:block/iron_block",
-    "top": "minecraft:block/copper_block"
+    "particle": "oneforallsurvival:block/weather_station_side",
+    "front": "oneforallsurvival:block/weather_station_front_off",
+    "side": "oneforallsurvival:block/weather_station_side",
+    "top": "oneforallsurvival:block/weather_station_top"
   }
 }

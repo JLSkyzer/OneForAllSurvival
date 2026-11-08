@@ -1,0 +1,33 @@
+{
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "create"
+    }
+  ],
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "create:propeller"
+    },
+    {
+      "item": "minecraft:compass"
+    },
+    {
+      "item": "create:electron_tube"
+    },
+    {
+      "tag": "forge:plates/brass"
+    },
+    {
+      "item": "oneforallsurvival:coil"
+    },
+    {
+      "tag": "oneforallsurvival:wire"
+    }
+  ],
+  "result": {
+    "item": "oneforallsurvival:weather_station"
+  }
+}
