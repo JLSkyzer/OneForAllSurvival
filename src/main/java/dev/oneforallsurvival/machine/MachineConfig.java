@@ -22,7 +22,7 @@ public final class MachineConfig {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
         LIFETIME_HOURS = builder
                 .comment("Heures de fonctionnement d'une machine neuve avant la panne.")
-                .defineInRange("lifetimeHours", 12.0, 0.01, 100000.0);
+                .defineInRange("lifetimeHours", 72.0, 0.01, 100000.0);
         REDUCED_EFFICIENCY = builder
                 .comment("Rendement d'une machine dont l'état est tombé sous 50 % (1.0 = plein rendement).")
                 .defineInRange("reducedEfficiency", 0.75, 0.01, 1.0);
@@ -60,7 +60,7 @@ public final class MachineConfig {
         try {
             return LIFETIME_HOURS.get() * 3600.0 * 20.0;
         } catch (IllegalStateException e) {
-            return 12.0 * 3600.0 * 20.0;
+            return 72.0 * 3600.0 * 20.0;
         }
     }
 
