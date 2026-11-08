@@ -4,8 +4,8 @@ Date : 2026-11-08. Statut : en attente de validation par Killian.
 
 Killian a demandé ce cahier le 2026-11-08, une fois les pièces de monnaie modélisées. Il veut le
 livrer **avant tous les autres lots**, pour que les métiers s'y branchent au fur et à mesure.
-Le même jour, il a ajouté le butin des mobs, les quêtes journalières et hebdomadaires, un PNJ de la
-ville (features 78 à 80), puis les fournisseurs d'électricité (83). Il a enfin rendu la monnaie
+Le même jour, il a ajouté le butin des mobs, les quêtes journalières et hebdomadaires, un PNJ changeur
+(features 78 à 80), puis les fournisseurs d'électricité (83). Il a enfin rendu la monnaie
 **entièrement physique** : plus de presse, de comptes, de distributeur ni de carte bancaire, mais un
 coffre-fort par joueur, des factures prélevées en pièces, une somme de départ et les injections de
 l'équipe (features 84 à 88). Ses réponses sont
@@ -35,7 +35,7 @@ l'argent qui circule a toujours une origine connue.**
 - Une monnaie **entièrement physique** : des pièces qu'on porte, qu'on range dans son coffre-fort, qu'on
   peut se faire voler. Il n'existe aucun argent qui ne soit pas une pièce quelque part.
 - Une **création monétaire contrôlée** : personne ne fabrique de l'argent, et chaque source est
-  déclarée, plafonnable et comptée.
+  déclarée et comptée.
 - Des **raisons de sortir et de jouer** qui rapportent : chasser, accomplir des quêtes.
 - Des **circuits** clairs :
   - d'où vient l'argent (sources) ;
@@ -50,7 +50,7 @@ l'argent qui circule a toujours une origine connue.**
 - **Bourse des valeurs, prêts à intérêt, actions** : trop modernes pour une ville naissante, et sources
   d'abus. (À ne pas confondre avec la bourse de la feature 69, le porte-monnaie.)
 - **Les villageois vanilla** gardent leurs émeraudes et n'acceptent pas les pièces. Le seul PNJ qui
-  manie la monnaie est celui de la ville (feature 80), placé et réglé par l'équipe du serveur.
+  manie la monnaie est le changeur (feature 80), placé par l'équipe du serveur.
 - **Fixer les prix** : ils relèvent des joueurs, sauf les tarifs publics (amendes) que la ville règle.
   Le prix de l'électricité est fixé par chaque fournisseur, sous un plafond fixé par le maire
   (feature 83).
@@ -74,7 +74,7 @@ Il existe exactement quatre **sources** qui créent de l'argent :
 - la somme de départ d'un nouveau joueur (88) ;
 - l'injection par l'équipe du serveur (87).
 
-Chacune est réglable, plafonnable et comptée à part au tableau de bord (77). Une feature qui crée de
+Chacune est réglable et comptée à part au tableau de bord (77). Une feature qui crée de
 l'argent hors de ces sources est refusée. Il n'y a **pas de frappe** : aucun joueur ne fabrique de
 pièces.
 
@@ -97,8 +97,7 @@ pièces.
   possible (« 2 or 3 argent 5 cuivre »).
 - Les écritures (trésor, coffres-forts, factures) sont conservées par le serveur et survivent aux
   relances.
-- **Échéances au calendrier réel.** Les factures automatiques, les salaires et les plafonds par jour se
-  comptent sur le calendrier réel, à minuit (heure et fuseau réglables). Si le serveur est éteint à
+- **Échéances au calendrier réel.** Les factures automatiques et les salaires se comptent sur le calendrier réel, à minuit (heure et fuseau réglables). Si le serveur est éteint à
   minuit, ce qui était dû est traité à son démarrage, une fois par jour manqué.
 
 ## 4. Socle
@@ -115,7 +114,7 @@ Valeurs de départ, réglables :
 | Rubis | 10 000 |
 
 - **Le change** : 10 pièces d'une coupure s'échangent contre 1 de la coupure supérieure, et inversement,
-  sur une table de craft ou auprès du PNJ de la ville. Ces recettes ne créent rien, elles échangent à
+  sur une table de craft ou auprès du PNJ changeur (feature 80). Ces recettes ne créent rien, elles échangent à
   valeur égale. C'est la seule exception à la règle « aucune recette ne produit une pièce ».
 - L'infobulle d'une pièce indique sa valeur. Une pile indique son total.
 - Une pièce ne se fond pas, ne se composte pas, ne se vend pas à un villageois.
@@ -316,12 +315,10 @@ Demandé par Killian le 2026-11-08, sur le modèle des opérateurs du téléphon
   - de l'argent sur un mob plus dangereux (sorcière, creeper chargé) ;
   - davantage sur un boss.
 - Les **animaux** ne donnent rien : élever ne doit pas devenir une planche à billets.
-- **Garde-fous contre les fermes** :
-  - rien pour un mob tué sans joueur, ou apparu par un générateur (spawner) ou par un œuf d'apparition ;
-  - le gain baisse quand un joueur tue beaucoup de mobs au même endroit en peu de temps.
-  Les seuils sont réglables.
-- Un **plafond par joueur et par jour** borne le total. Au-delà, plus rien ne tombe jusqu'au lendemain
-  minuit.
+- **Pas de plafond** (choix de Killian) : seuls les mobs hostiles donnent des pièces, et chaque mob
+  tué peut en donner.
+- **Seul garde-fou contre les fermes automatiques** : rien pour un mob tué sans joueur, ou apparu par un
+  générateur (spawner) ou par un œuf d'apparition.
 - Le butin passe par un modificateur de butin global de Forge : les mobs des autres mods sont couverts par
   leur tag ou par la table.
 
@@ -375,22 +372,14 @@ Catégories proposées en plus, choisies pour ne pas être des corvées :
 - L'équipe du serveur peut ajouter des **modèles** et lancer des **quêtes d'événement** communes à tous,
   par commande.
 
-**80. PNJ de la ville.**
+**80. PNJ changeur.**
 - C'est un personnage que l'équipe du serveur **fait apparaître** par commande où elle veut, au spawn par
   exemple. Il est **invulnérable**, immobile, et ne disparaît jamais. Son nom et son apparence sont
   réglables (skin de joueur ou modèle du mod).
-- **Le change** : il convertit les pièces entre coupures, sans frais par défaut (frais réglables, versés
-  au trésor).
-- **Les ventes** : l'équipe lui donne une liste d'objets qu'il **vend** contre des pièces, en données ou
-  par une interface d'édition réservée. Il **n'achète rien** : il n'est pas une source d'argent.
-- Les pièces qu'il **encaisse** sortent de la circulation (puits), comptées au tableau de bord.
-- **Garde-fous** :
-  - chaque offre a un **stock** ou une **limite par joueur et par jour** ;
-  - l'équipe peut **fermer** une offre ou tout le PNJ à tout moment.
-- Plusieurs PNJ peuvent exister, chacun avec ses offres : un changeur au port, un vendeur d'outils à la
-  mine.
-- Un PNJ ne remplace pas un métier : les offres par défaut ne contiennent ni nourriture préparée, ni
-  matériel d'ingénieur, ni remèdes.
+- Il ne fait **qu'une chose : le change**. Il convertit les pièces en plus grosses ou en plus petites
+  coupures (dix argents contre un or, un or contre dix argents), à valeur égale et sans frais.
+- Il ne vend rien et n'achète rien : il ne crée ni ne détruit d'argent.
+- L'équipe peut en poser plusieurs, par exemple au port et à la mine.
 
 **88. Somme de départ.**
 Demandé par Killian le 2026-11-08.
@@ -414,7 +403,7 @@ Demandé par Killian le 2026-11-08.
 - Par commande, l'équipe du serveur lit :
   - le **total créé par source** : butin des mobs, quêtes, somme de départ, injections de l'équipe ;
   - le **total détruit** (pièces brûlées, tombées dans le vide, disparues avec un objet au sol,
-    encaissées par le PNJ, retirées par l'équipe) ;
+    retirées par l'équipe) ;
   - la **masse dans les coffres-forts**, que le serveur connaît exactement ;
   - le **solde du trésor** ;
   - les **salaires dus** ;
@@ -451,7 +440,7 @@ compris.
 | E1 | Pièces déclarées, valeurs, change, vérification des recettes, registre partagé ; 84, 85, 69, 87, 88, 77 | L'argent existe, ne vient que de sources déclarées, ne se range qu'aux endroits permis, et l'équipe le voit |
 | E2 | 70, 71, 72 | Les joueurs commercent entre eux, même absents |
 | E3 | 73, 74, 75 | La ville a des finances : elle encaisse, elle paie, elle peut manquer |
-| E4 | 78, 80 | On gagne sa vie en chassant, et l'équipe ouvre un comptoir |
+| E4 | 78, 80 | On gagne sa vie en chassant, et on fait la monnaie auprès d'un changeur |
 | E5 | 79 | Des objectifs renouvelés chaque jour et chaque semaine |
 | E6 | 86, 83 | Les factures se paient seules en pièces, et chacun peut vendre son électricité |
 
@@ -485,11 +474,11 @@ leur métier. Celui de l'ingénieur vient avec le lot E6.
   - le total créé moins le total détruit est juste après une pièce jetée dans la lave ;
   - la somme de départ n'est donnée qu'une fois par joueur ;
   - une injection de l'équipe est notée au registre et au tableau de bord ;
-  - un mob de générateur ne donne rien, et le plafond de butin par jour tient ;
+  - un mob de générateur ou d'œuf ne donne rien, un animal ne donne rien ;
   - trois journalières différentes sont générées, et une relance en donne une autre ;
   - un bloc posé puis cassé ne fait avancer aucune quête ;
   - une quête de métier n'est pas proposée à un autre rôle ;
-  - le PNJ refuse une offre épuisée et n'achète rien ;
+  - le PNJ changeur rend exactement la même valeur dans les deux sens ;
   - un prélèvement prend d'abord dans l'inventaire, puis dans le coffre-fort, rend la monnaie, et
     n'est jamais partiel ;
   - un prélèvement sur un joueur déconnecté prend dans son coffre-fort, même zone non chargée ;
@@ -524,7 +513,8 @@ leur métier. Celui de l'ingénieur vient avec le lot E6.
 ### Décisions de Killian (2026-11-08)
 - Plus de **presse à monnaie** : l'argent vient des quêtes, du butin des mobs, de la somme de départ et
   des injections de l'équipe du serveur.
-- Le **PNJ n'achète rien**.
+- Le **PNJ ne fait que le change** de coupures : pas de boutique, ni achat ni vente.
+- Le **butin des mobs** n'a pas de plafond : seuls les mobs hostiles donnent des pièces.
 - Les quêtes ne récompensent **qu'en pièces**.
 - Le **rubis** n'est donné que par l'équipe du serveur.
 - Une **petite somme de départ** pour chaque nouveau joueur.
@@ -553,7 +543,6 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 - les quêtes se renouvellent sur le calendrier réel, avec une relance par jour, et expirent sans
   pénalité ;
 - les quêtes de métier ne sont proposées qu'au rôle concerné ;
-- le PNJ ne vend ni nourriture préparée, ni matériel d'ingénieur, ni remèdes par défaut ;
 - un prélèvement n'est jamais partiel ;
 - les pièces prélevées vont dans une caisse (poste, antenne) que le créancier vide, plutôt que dans son
   coffre-fort ;
@@ -562,5 +551,5 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 ## 10. Questions ouvertes
 
 - **Qui fabrique le coffre-fort**, et avec quelle recette : l'ingénieur à son établi, ou n'importe qui ?
-- **Le montant de la somme de départ** et les plafonds par jour (butin) et par semaine (quêtes), à
+- **Le montant de la somme de départ**, la table du butin et le plafond par semaine des quêtes, à
   régler aux premiers essais.
