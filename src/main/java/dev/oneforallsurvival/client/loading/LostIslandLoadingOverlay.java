@@ -62,6 +62,7 @@ public final class LostIslandLoadingOverlay extends LoadingOverlay {
     private long fadeOutStart = -1L;
     private long lastProgressLog = Long.MIN_VALUE / 2;
     private boolean firstFrame = true;
+    private boolean bridgeStopped;
     private boolean failed;
     private boolean released;
 
@@ -157,6 +158,14 @@ public final class LostIslandLoadingOverlay extends LoadingOverlay {
      * la place de celui-ci (échec de la première image).
      */
     private boolean drawScene(boolean done, float uiAlpha) {
+        // Signal du pont de la fenêtre anticipée : il est déjà arrêté par loadingOverlay ; on le vérifie avant la
+        // première image, et tant qu'il tourne la scène n'est pas touchée (image noire), jamais dessinée à deux.
+        if (!bridgeStopped) {
+            if (!window.awaitBridgeStopped()) {
+                return true;
+            }
+            bridgeStopped = true;
+        }
         RenderTarget target = minecraft.getMainRenderTarget();
         target.bindWrite(true);
         GlStateGuard state = GlStateGuard.save();

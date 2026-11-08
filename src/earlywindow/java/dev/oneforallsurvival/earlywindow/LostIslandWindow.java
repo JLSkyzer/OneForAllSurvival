@@ -51,6 +51,10 @@ import org.lwjgl.opengl.GLCapabilities;
  *       contexte et la fenêtre passent au jeu, comme chez Forge.</li>
  *   <li>{@link #periodicTick} (thread du jeu, pendant le chargement des mods seulement) : la scène est dessinée sur
  *       ce thread, l'état GL du jeu sauvegardé et rendu autour.</li>
+ *   <li>Pont ({@link GapBridge}, après le passage) : quand le thread du jeu ne dessine plus depuis
+ *       {@value GapBridge#TAKEOVER_MILLIS} ms (surtout entre la fin du chargement des mods et l'overlay des
+ *       ressources), un fil allégé (sans bloom ni vent, 30 i/s) dessine la scène avec un second contexte partagé ;
+ *       il s'arrête à {@link #loadingOverlay}. Réglage et garde-fous : {@link BridgePolicy}.</li>
  *   <li>{@link #loadingOverlay} : l'overlay du mod ({@code LostIslandLoadingOverlay}), qui dessine la scène dans
  *       le contexte du jeu ; s'il manque ou échoue, celui de Forge ({@link #forgeOverlay}), qui dessine notre scène
  *       par {@link ForgeOverlayBridge}.</li>
@@ -89,6 +93,11 @@ public final class LostIslandWindow implements ImmediateWindowProvider {
     private long window;
     private GLCapabilities capabilities;
     private String glVersion;
+    private String glRenderer;
+    private BridgePolicy.Setting bridgeSetting = BridgePolicy.Setting.AUTO;
+    private GapBridge bridge; // null : pas de pont (décision, échec, ou déjà arrêté et détruit)
+    private boolean bridgeWaited;
+    private boolean bridgeLate;
     private EarlyScene scene;
     private EarlyRenderLoop loop;
     private ModuleLayer gameLayer;
@@ -127,6 +136,8 @@ public final class LostIslandWindow implements ImmediateWindowProvider {
         lastLogNanos = startNanos - LOG_INTERVAL_NANOS;
         openLog(gameDir(arguments).resolve("logs").resolve("lostisland-earlywindow.log"));
         write("initialize : fournisseur " + NAME);
+        bridgeSetting = BridgePolicy.resolve(System.getProperty(BridgePolicy.PROPERTY), gameDir(arguments).resolve("config"),
+                this::write);
         // Essais du repli : true (avant notre fenêtre), late (après la fenêtre et la scène), render (dans le
         // thread de rendu, repli au prochain appel de Forge sur le thread principal).
         String fail = System.getProperty("lostisland.earlywindow.fail", "");
@@ -161,7 +172,8 @@ public final class LostIslandWindow implements ImmediateWindowProvider {
         // Le contexte, le temps de préparer la scène sur ce thread : un shader refusé lève ici, avant tout rendu.
         glfwMakeContextCurrent(window);
         capabilities = GL.createCapabilities();
-        write("GL : " + GL32C.glGetString(GL32C.GL_VENDOR) + " / " + GL32C.glGetString(GL32C.GL_RENDERER) + " / "
+        glRenderer = GL32C.glGetString(GL32C.GL_RENDERER);
+        write("GL : " + GL32C.glGetString(GL32C.GL_VENDOR) + " / " + glRenderer + " / "
                 + GL32C.glGetString(GL32C.GL_VERSION));
         // Quelque chose tout de suite : la fenêtre s'ouvre noire, comme la première image du récit.
         GL32C.glClearColor(0f, 0f, 0f, 1f);
@@ -361,6 +373,9 @@ public final class LostIslandWindow implements ImmediateWindowProvider {
             fallBackIfRenderFailed();
             return forge.setupMinecraftWindow(width, height, title, monitor);
         }
+        // Le second contexte se crée ici : thread principal (glfwCreateWindow l'exige), et aucun contexte n'est
+        // courant nulle part (le thread de rendu vient de rendre celui de la fenêtre, le jeu ne l'a pas encore pris).
+        createBridge();
         glfwMakeContextCurrent(window);
         glfwSetWindowTitle(window, title.get());
         glfwSwapInterval(0);
@@ -371,7 +386,75 @@ public final class LostIslandWindow implements ImmediateWindowProvider {
         refreshGeometry();
         handedOff = true;
         write("setupMinecraftWindow : la fenêtre et son contexte passent à Minecraft");
+        if (bridge != null) {
+            bridge.start();
+        }
         return window;
+    }
+
+    /** Décide du pont et crée son contexte. Toute erreur : pas de pont, comportement d'avant. Thread principal. */
+    private void createBridge() {
+        if (scene == null || scene.closed()) {
+            return;
+        }
+        BridgePolicy.Decision decision = BridgePolicy.decide(bridgeSetting, Runtime.getRuntime().availableProcessors(),
+                glVersion, glRenderer, org.lwjgl.system.Platform.get() == org.lwjgl.system.Platform.WINDOWS);
+        write("pont : " + (decision.enabled() ? "actif" : "désactivé") + " (" + decision.reason()
+                + ", availableProcessors=" + Runtime.getRuntime().availableProcessors() + ")");
+        if (!decision.enabled()) {
+            return;
+        }
+        try {
+            bridge = GapBridge.create(window, glVersion, scene, this::write,
+                    Boolean.getBoolean("lostisland.bridgeThread.fail"));
+            write("pont : second contexte créé (fenêtre cachée, GL " + glVersion + ", partagé avec celui du jeu)");
+        } catch (Throwable t) {
+            bridge = null;
+            write("pont : second contexte impossible, l'image se figera au passage comme avant : " + t);
+        }
+    }
+
+    /**
+     * Arrête le pont et attend qu'il ait rendu son contexte, puis détruit sa fenêtre cachée. Appelé par
+     * {@link #loadingOverlay} puis par chaque overlay avant de dessiner (signal explicite : tant que cette méthode
+     * rend {@code false}, l'overlay ne touche pas la scène). La première attente dure au plus 250 ms, les suivantes
+     * ne font que regarder. Thread du jeu (thread principal de GLFW).
+     *
+     * @return {@code true} si aucun pont ne tourne plus
+     */
+    public boolean awaitBridgeStopped() {
+        GapBridge b = bridge;
+        if (b == null) {
+            return true;
+        }
+        long begin = System.nanoTime();
+        boolean stopped = b.stopAndWait(bridgeWaited ? 0L : 250L);
+        bridgeWaited = true;
+        if (!stopped) {
+            if (!bridgeLate) {
+                bridgeLate = true;
+                write("pont : pas encore arrêté au signal, l'overlay attend sans dessiner la scène");
+            }
+            return false;
+        }
+        if (b.dead()) {
+            write("pont : thread mort sans rendre son contexte, fenêtre cachée laissée en place");
+            bridge = null;
+            return true;
+        }
+        write(String.format(Locale.ROOT, "pont : arrêté au signal en %.1f ms, %d images dessinées en tout",
+                (System.nanoTime() - begin) / 1e6, b.frames()));
+        reapBridge();
+        return true;
+    }
+
+    /** Fenêtre cachée détruite une fois le thread du pont fini (arrêt ou erreur). Thread principal. */
+    private void reapBridge() {
+        GapBridge b = bridge;
+        if (b != null && (b.finished() || b.dead())) {
+            b.destroyWindow(); // sans effet si le thread est mort sans rendre son contexte
+            bridge = null;
+        }
     }
 
     private static void freeCallback(org.lwjgl.system.Callback callback) {
@@ -402,6 +485,9 @@ public final class LostIslandWindow implements ImmediateWindowProvider {
             return forge.loadingOverlay(mc, ri, ex, fade);
         }
         overlayRequested = true;
+        // Le pont s'arrête ici, avant que la boucle du jeu ne vide le tampon de la fenêtre (RenderSystem.clear au
+        // début de Minecraft.runTick, avant même l'overlay) : plus aucune image de lui ensuite.
+        awaitBridgeStopped();
         if (scene != null && !scene.closed()) {
             scene.enter(dev.oneforallsurvival.earlywindow.scene.ProgressModel.Phase.RESOURCES);
         }
@@ -432,9 +518,9 @@ public final class LostIslandWindow implements ImmediateWindowProvider {
             if (scene == null || scene.closed() || mainFailed) {
                 write("loadingOverlay : scène indisponible, l'overlay de Forge dessinera une image noire");
             }
-            DisplayWindow bridge = new ForgeOverlayBridge(scene, window, this::write);
+            DisplayWindow forgeBridge = new ForgeOverlayBridge(scene, window, this::write, this::awaitBridgeStopped);
             write("loadingOverlay : overlay de Forge, qui dessine notre scène");
-            return (Supplier<T>) forgeOverlay.invoke(null, mc, ri, ex, bridge);
+            return (Supplier<T>) forgeOverlay.invoke(null, mc, ri, ex, forgeBridge);
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException("ForgeLoadingOverlay.newInstance a échoué", e);
         }
@@ -493,6 +579,7 @@ public final class LostIslandWindow implements ImmediateWindowProvider {
             fallBackIfRenderFailed();
             return;
         }
+        reapBridge();
         // Après le passage, pendant le chargement des mods : la scène sur le thread du jeu, dans son contexte.
         if (overlayRequested || mainFailed || scene == null || scene.closed()) {
             return;
@@ -507,6 +594,20 @@ public final class LostIslandWindow implements ImmediateWindowProvider {
         } catch (IllegalStateException e) {
             GL.setCapabilities(capabilities);
         }
+        GapBridge b = bridge;
+        if (b != null && !b.lockForGame()) {
+            return; // le pont dessine une image en ce moment : on ne dessine jamais à deux
+        }
+        try {
+            drawOnGameThread();
+        } finally {
+            if (b != null) {
+                b.unlockAfterGame();
+            }
+        }
+    }
+
+    private void drawOnGameThread() {
         GlStateGuard state = GlStateGuard.save();
         try {
             int[] w = new int[1];

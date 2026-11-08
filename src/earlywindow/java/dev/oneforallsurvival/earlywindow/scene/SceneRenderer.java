@@ -133,6 +133,16 @@ public final class SceneRenderer implements AutoCloseable {
      */
     public SceneRenderer(SceneManifest manifest, TextureStore textures, ShaderLoader shaders, Consumer<String> log,
                          BitmapFont font) {
+        this(manifest, textures, shaders, log, font, false);
+    }
+
+    /**
+     * @param light rendu allégé (pont du passage aux ressources) : ni vent dans le feuillage ni bloom, qui ne sont
+     *              même pas préparés ; tout le reste est identique
+     * @throws ShaderLoader.ShaderException si un shader de base est refusé
+     */
+    public SceneRenderer(SceneManifest manifest, TextureStore textures, ShaderLoader shaders, Consumer<String> log,
+                         BitmapFont font, boolean light) {
         this.manifest = manifest;
         this.log = log;
         this.textures = textures;
@@ -168,21 +178,8 @@ public final class SceneRenderer implements AutoCloseable {
                 new BoltEffect(manifest), new CrashEffect(manifest, crash), new LogoEffect(manifest, font),
                 new ProgressUi(manifest, font)), log);
         effects.init(textures, shaders);
-        FoliageWind w = new FoliageWind(manifest);
-        try {
-            w.init(textures, shaders);
-            wind = w;
-        } catch (SceneEffect.EffectUnavailable | RuntimeException e) {
-            log.accept("effet « wind » retiré (échec à l'initialisation) : " + e.getMessage());
-            w.close();
-        }
-        Bloom b = new Bloom(manifest);
-        try {
-            b.init(shaders);
-            bloom = b;
-        } catch (SceneEffect.EffectUnavailable | RuntimeException e) {
-            log.accept("effet « bloom » retiré (échec à l'initialisation) : " + e.getMessage());
-            b.close();
+        if (!light) {
+            initWindAndBloom(textures, shaders);
         }
 
         // Caméra relevée de la bannière : tangage -4,6°, roulis -9°, lacet 0.
@@ -203,6 +200,25 @@ public final class SceneRenderer implements AutoCloseable {
         camUp = floats(up);
         camFocal = (float) focal;
         cloudRows = cloudRows(fwd, right, up, focal, camW, camH);
+    }
+
+    private void initWindAndBloom(TextureStore textures, ShaderLoader shaders) {
+        FoliageWind w = new FoliageWind(manifest);
+        try {
+            w.init(textures, shaders);
+            wind = w;
+        } catch (SceneEffect.EffectUnavailable | RuntimeException e) {
+            log.accept("effet « wind » retiré (échec à l'initialisation) : " + e.getMessage());
+            w.close();
+        }
+        Bloom b = new Bloom(manifest);
+        try {
+            b.init(shaders);
+            bloom = b;
+        } catch (SceneEffect.EffectUnavailable | RuntimeException e) {
+            log.accept("effet « bloom » retiré (échec à l'initialisation) : " + e.getMessage());
+            b.close();
+        }
     }
 
     /** {@code A.cloud_rows} : dernière ligne de la demi-plaque où un rayon monte au-dessus de 0,01, plus un. */

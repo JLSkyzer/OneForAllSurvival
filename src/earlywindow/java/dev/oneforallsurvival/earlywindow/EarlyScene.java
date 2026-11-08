@@ -41,7 +41,9 @@ import net.minecraftforge.fml.loading.progress.StartupNotificationManager;
  * fois : le thread {@code lostisland-render} de {@link EarlyRenderLoop} avant le passage de la fenêtre à
  * Minecraft, puis le thread principal du jeu (« Render thread »), qui reçoit ce même contexte : les textures restent
  * valides. Aucune méthode n'est sûre entre threads ; le passage (arrêt et attente du thread de rendu avant que le
- * thread du jeu ne prenne le contexte) fait la séparation. Seul le décodage des PNG tourne à part
+ * thread du jeu ne prenne le contexte) fait la séparation. Après le passage, le pont ({@link GapBridge}) dessine
+ * aussi la scène, dans son propre contexte partagé, avec son propre rendu ({@link #createLightRenderer}) : ses
+ * images et celles du thread du jeu sont exclues l'une de l'autre par le verrou du pont. Seul le décodage des PNG tourne à part
  * ({@link TextureStore}).
  *
  * <p>Deux horloges : le temps réel part de l'ouverture de la fenêtre ; le récit ne part qu'une fois le ciel, le
@@ -58,6 +60,7 @@ public final class EarlyScene implements AutoCloseable {
     private final SceneManifest manifest;
     private final TextureStore textures;
     private final SceneRenderer renderer;
+    private final BitmapFont font; // null : texte omis
     private final ZipFile clientJar; // null : nuages omis, police de repli
     private final FrameRecorder recorder; // null : pas de film
     private final StoryClock clock = new StoryClock();
@@ -74,13 +77,15 @@ public final class EarlyScene implements AutoCloseable {
     private boolean closed;
 
     private EarlyScene(long startNanos, Consumer<String> log, Runnable journal, SceneManifest manifest,
-                       TextureStore textures, SceneRenderer renderer, ZipFile clientJar, FrameRecorder recorder) {
+                       TextureStore textures, SceneRenderer renderer, BitmapFont font, ZipFile clientJar,
+                       FrameRecorder recorder) {
         this.startNanos = startNanos;
         this.log = log;
         this.journal = journal;
         this.manifest = manifest;
         this.textures = textures;
         this.renderer = renderer;
+        this.font = font;
         this.clientJar = clientJar;
         this.recorder = recorder;
     }
@@ -119,7 +124,7 @@ public final class EarlyScene implements AutoCloseable {
             log.accept("effets actifs : " + renderer.activeEffects());
             textures.start();
             FrameRecorder recorder = FrameRecorder.maybe(System.getProperty("lostisland.frames"), gameDir, log);
-            return new EarlyScene(startNanos, log, journal, manifest, textures, renderer, jar, recorder);
+            return new EarlyScene(startNanos, log, journal, manifest, textures, renderer, font, jar, recorder);
         } catch (RuntimeException | Error e) {
             if (textures != null) {
                 textures.close();
@@ -137,7 +142,23 @@ public final class EarlyScene implements AutoCloseable {
      *                               tampon de la scène est incomplet : l'appelant retombe sur Forge
      */
     public void render(int fbWidth, int fbHeight) {
-        renderFrame(fbWidth, fbHeight, null, 1f);
+        renderFrame(renderer, fbWidth, fbHeight, null, 1f);
+    }
+
+    /**
+     * Rendu allégé du pont ({@link GapBridge}) : sans vent ni bloom, à créer avec le contexte du pont courant. Ses
+     * tampons, VAO et programmes sont à lui (objets non partageables, ou partageables mais propres au pont) ; il ne
+     * fait que lire les textures de la scène, partagées entre les deux contextes, et ne les détruit jamais : sa
+     * fermeture ne libère que ce qu'il a créé.
+     */
+    SceneRenderer createLightRenderer() {
+        return new SceneRenderer(manifest, textures, new GlShaderLoader(EarlyScene.class.getClassLoader()), log, font,
+                true);
+    }
+
+    /** Comme {@link #render(int, int)}, avec un autre rendu (celui du pont). Même état : un seul thread à la fois. */
+    void renderWith(SceneRenderer other, int fbWidth, int fbHeight) {
+        renderFrame(other, fbWidth, fbHeight, null, 1f);
     }
 
     /**
@@ -156,12 +177,13 @@ public final class EarlyScene implements AutoCloseable {
         }
         // L'avancement réel de Minecraft court devant le temps : lissé par la durée attendue (ruling 26).
         float fraction = done ? 1f : ProgressModel.resourcesFraction(reloadProgress, realTime() - resourcesStart);
-        renderFrame(fbWidth, fbHeight, new ProgressTracker.Reading(phase, fraction,
+        renderFrame(renderer, fbWidth, fbHeight, new ProgressTracker.Reading(phase, fraction,
                 StatusMessages.of(phase, "", 0, 0)), uiAlpha);
     }
 
     /** {@code given} : avancement imposé par l'appelant ; {@code null} : lu dans les barres de Forge. */
-    private void renderFrame(int fbWidth, int fbHeight, ProgressTracker.Reading given, float uiAlpha) {
+    private void renderFrame(SceneRenderer target, int fbWidth, int fbHeight, ProgressTracker.Reading given,
+                             float uiAlpha) {
         double real = realTime();
         double dt = Math.max(0.0, real - lastReal);
         lastReal = real;
@@ -191,9 +213,9 @@ public final class EarlyScene implements AutoCloseable {
             log.accept(String.format(Locale.ROOT, "mer prête à %.2f s (fondu de %.1f s)", real, SEA_FADE_SECONDS));
         }
         float story = Double.isNaN(storyStart) ? 0f : clock.storyTime(real - storyStart, reading.phase() == Phase.DONE);
-        renderer.setSeaOpacity(Double.isNaN(seaStart) ? 0f : (float) Math.min(1.0, (real - seaStart) / SEA_FADE_SECONDS));
+        target.setSeaOpacity(Double.isNaN(seaStart) ? 0f : (float) Math.min(1.0, (real - seaStart) / SEA_FADE_SECONDS));
         last = new SceneState(story, shown, reading.status(), Math.max(0f, Math.min(1f, uiAlpha)), real);
-        renderer.render(fbWidth, fbHeight, last);
+        target.render(fbWidth, fbHeight, last);
         if (recorder != null) {
             recorder.capture(fbWidth, fbHeight);
         }

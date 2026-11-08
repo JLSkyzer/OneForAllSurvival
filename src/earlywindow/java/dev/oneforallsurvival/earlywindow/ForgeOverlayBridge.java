@@ -5,6 +5,7 @@ import static org.lwjgl.opengl.GL32C.*;
 
 import dev.oneforallsurvival.earlywindow.scene.ProgressModel.Phase;
 import java.nio.ByteBuffer;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import net.minecraftforge.fml.earlydisplay.ColourScheme;
 import net.minecraftforge.fml.earlydisplay.DisplayWindow;
@@ -37,6 +38,7 @@ final class ForgeOverlayBridge extends DisplayWindow {
     private final EarlyScene scene;
     private final long window;
     private final Consumer<String> log;
+    private final BooleanSupplier bridgeStopped;
     private final int[] w = new int[1];
     private final int[] h = new int[1];
     private int sceneFbo;
@@ -49,7 +51,9 @@ final class ForgeOverlayBridge extends DisplayWindow {
     private boolean closed;
     private boolean firstFrame = true;
 
-    ForgeOverlayBridge(EarlyScene scene, long window, Consumer<String> log) {
+    /** @param bridgeStopped vrai une fois le pont arrêté : avant, la scène n'est pas touchée (image noire) */
+    ForgeOverlayBridge(EarlyScene scene, long window, Consumer<String> log, BooleanSupplier bridgeStopped) {
+        this.bridgeStopped = bridgeStopped;
         this.scene = scene;
         this.window = window;
         this.log = log;
@@ -71,7 +75,12 @@ final class ForgeOverlayBridge extends DisplayWindow {
         try {
             size();
             ensureTargets(w[0], h[0]);
-            if (!failed) {
+            if (!failed && !bridgeStopped.getAsBoolean()) {
+                glBindFramebuffer(GL_FRAMEBUFFER, sceneFbo);
+                glViewport(0, 0, targetW, targetH);
+                glClearColor(0f, 0f, 0f, 1f);
+                glClear(GL_COLOR_BUFFER_BIT);
+            } else if (!failed) {
                 try {
                     if (scene == null || scene.closed()) {
                         throw new IllegalStateException("scène indisponible");

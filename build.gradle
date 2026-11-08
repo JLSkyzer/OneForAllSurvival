@@ -135,6 +135,19 @@ minecraft {
             if (project.hasProperty('progressTrace')) {
                 property 'lostisland.progress.trace', 'true'
             }
+            // Pont du passage aux ressources : `-PbridgeThread=auto|false|force` (l'emporte sur
+            // config/lostisland-earlywindow.properties), `-PbridgeThreadFail` fait échouer la création du second
+            // contexte, `-PactiveProcessors=2` simule un petit PC (`-XX:ActiveProcessorCount`, vu par
+            // Runtime.availableProcessors()).
+            if (project.hasProperty('bridgeThread')) {
+                property 'lostisland.bridgeThread', project.bridgeThread ?: 'auto'
+            }
+            if (project.hasProperty('bridgeThreadFail')) {
+                property 'lostisland.bridgeThread.fail', 'true'
+            }
+            if (project.hasProperty('activeProcessors')) {
+                jvmArg "-XX:ActiveProcessorCount=${project.activeProcessors}"
+            }
         }
 
         // Second joueur pour essayer le multijoueur et les rôles : se connecte au client
