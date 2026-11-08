@@ -9,6 +9,11 @@
     "oneforallsurvival:galvanic_bath",
     "oneforallsurvival:fridge",
     "oneforallsurvival:desalinator",
-    "oneforallsurvival:dryer"
+    "oneforallsurvival:dryer",
+    "oneforallsurvival:load_shedder",
+    "oneforallsurvival:meter",
+    "oneforallsurvival:breaker",
+    "oneforallsurvival:surge_arrester",
+    "oneforallsurvival:weather_station"
   ]
 }

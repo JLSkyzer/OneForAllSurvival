@@ -36,7 +36,8 @@ import org.apache.logging.log4j.Logger;
  * Preuve de bout en bout contre un serveur dédié (développement seulement, jamais empaqueté). Un vrai
  * client se connecte à {@code -Doneforallsurvival.e2e=<hôte>}, se fait Ingénieur par la vraie commande
  * {@code /role}, pose un établi, l'ouvre par un vrai clic droit, commande un craft court, attend le stock,
- * le retire, joue le métier de réparation ({@link E2eReparation}), puis arrête le serveur par {@code /stop}.
+ * le retire, joue le métier de réparation ({@link E2eReparation}), les vivres ({@link E2eVivres}) et le réseau
+ * ({@link E2eReseau}), puis arrête le serveur par {@code /stop}.
  * Avec {@code -Doneforallsurvival.e2e.relance}, après une vraie relance du serveur, il relit ce que la première
  * phase a laissé. Chaque contrôle écrit une ligne {@code PASS} ou {@code FAIL} dans le journal ; le client
  * quitte à la fin.
@@ -56,7 +57,7 @@ public final class E2eClient {
     private static final double DIAGNOSTIC_CONNEXION_S = 17;
 
     private enum Phase { TITRE, CONNEXION, CATALOGUE, PROVISIONS, POSER, OUVRIR, COMMANDER, STOCK, OUVRIR_STOCK, PRENDRE,
-        REPARATION, VIVRES, ARRET, FIN }
+        REPARATION, VIVRES, RESEAU, ARRET, FIN }
 
     private static Phase phase = Phase.TITRE;
     private static long debutPhase = System.nanoTime();
@@ -117,6 +118,7 @@ public final class E2eClient {
             case PRENDRE -> "Récupération de la pile fabriquée";
             case REPARATION -> E2eReparation.legende();
             case VIVRES -> E2eVivres.legende();
+            case RESEAU -> E2eReseau.legende();
             case ARRET -> "Arrêt du serveur par /stop";
             default -> "Fin";
         };
@@ -171,6 +173,7 @@ public final class E2eClient {
             derniereLigne = m.length() > 70 ? m.substring(0, 70) : m;
             E2eReparation.recevoir(event.getMessage());
             E2eVivres.recevoir(event.getMessage());
+            E2eReseau.recevoir(event.getMessage());
         }
     }
 
@@ -240,7 +243,8 @@ public final class E2eClient {
             fail("exception en phase " + phase + " : " + e);
         }
         // La réparation a ses propres délais, pas par pas.
-        if (phase != Phase.TITRE && phase != Phase.FIN && phase != Phase.ARRET && phase != Phase.REPARATION && phase != Phase.VIVRES && secondes() > 180) {
+        if (phase != Phase.TITRE && phase != Phase.FIN && phase != Phase.ARRET && phase != Phase.REPARATION && phase != Phase.VIVRES
+                && phase != Phase.RESEAU && secondes() > 180) {
             fail("delai depasse en phase " + phase);
         }
     }
@@ -555,6 +559,16 @@ public final class E2eClient {
             }
             case VIVRES -> {
                 if (E2eVivres.avancer(mc) && phase == Phase.VIVRES) {
+                    if (RELANCE) {
+                        E2eReseau.relance();
+                    } else {
+                        E2eReseau.premierePhase();
+                    }
+                    passer(Phase.RESEAU);
+                }
+            }
+            case RESEAU -> {
+                if (E2eReseau.avancer(mc) && phase == Phase.RESEAU) {
                     passer(Phase.ARRET);
                 }
             }
@@ -565,6 +579,7 @@ public final class E2eClient {
                     if (mc.player != null) {
                         mc.setScreen(null);
                         E2eVivres.rangerAvantArret(mc);
+                        E2eReseau.rangerAvantArret(mc);
                         mc.player.connection.sendCommand("stop");
                         LOG.info("[e2e] /stop envoye");
                     }

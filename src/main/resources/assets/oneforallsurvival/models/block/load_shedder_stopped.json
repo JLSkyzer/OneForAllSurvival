@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "particle": "oneforallsurvival:block/load_shedder_output",
+    "north": "oneforallsurvival:block/load_shedder_front_stopped",
+    "south": "oneforallsurvival:block/load_shedder_input",
+    "east": "oneforallsurvival:block/load_shedder_output",
+    "west": "oneforallsurvival:block/load_shedder_output",
+    "up": "oneforallsurvival:block/load_shedder_output",
+    "down": "oneforallsurvival:block/load_shedder_bottom"
+  }
+}

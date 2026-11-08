@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "state=stopped": {
+      "model": "oneforallsurvival:block/surge_arrester"
+    },
+    "state=running": {
+      "model": "oneforallsurvival:block/surge_arrester"
+    },
+    "state=no_power": {
+      "model": "oneforallsurvival:block/surge_arrester"
+    },
+    "state=fault": {
+      "model": "oneforallsurvival:block/surge_arrester_fault"
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "create"
+    }
+  ],
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "tag": "forge:plates/iron"
+    },
+    {
+      "item": "minecraft:lever"
+    },
+    {
+      "item": "oneforallsurvival:fuse"
+    },
+    {
+      "item": "oneforallsurvival:coil"
+    },
+    {
+      "tag": "oneforallsurvival:wire"
+    }
+  ],
+  "result": {
+    "item": "oneforallsurvival:breaker"
+  }
+}

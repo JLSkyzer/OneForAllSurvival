@@ -1,0 +1,9 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "particle": "oneforallsurvival:block/breaker_side",
+    "front": "oneforallsurvival:block/breaker_front_cut_sealed",
+    "side": "oneforallsurvival:block/breaker_side",
+    "top": "oneforallsurvival:block/breaker_top"
+  }
+}

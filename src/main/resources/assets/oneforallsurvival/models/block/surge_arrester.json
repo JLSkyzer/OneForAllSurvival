@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "particle": "oneforallsurvival:block/surge_arrester_side",
+    "end": "oneforallsurvival:block/surge_arrester_end",
+    "side": "oneforallsurvival:block/surge_arrester_side"
+  }
+}

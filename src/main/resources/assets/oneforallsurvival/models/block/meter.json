@@ -1,0 +1,9 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "particle": "oneforallsurvival:block/meter_side",
+    "front": "oneforallsurvival:block/meter_front",
+    "side": "oneforallsurvival:block/meter_side",
+    "top": "oneforallsurvival:block/meter_top"
+  }
+}

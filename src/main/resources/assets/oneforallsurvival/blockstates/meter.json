@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "oneforallsurvival:block/meter",
+      "y": 180
+    },
+    "facing=east": {
+      "model": "oneforallsurvival:block/meter",
+      "y": 270
+    },
+    "facing=south": {
+      "model": "oneforallsurvival:block/meter"
+    },
+    "facing=west": {
+      "model": "oneforallsurvival:block/meter",
+      "y": 90
+    }
+  }
+}

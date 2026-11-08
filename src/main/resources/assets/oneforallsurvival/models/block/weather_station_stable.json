@@ -1,0 +1,9 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "particle": "oneforallsurvival:block/weather_station_side",
+    "front": "oneforallsurvival:block/weather_station_front_stable",
+    "side": "oneforallsurvival:block/weather_station_side",
+    "top": "oneforallsurvival:block/weather_station_top"
+  }
+}

@@ -10,6 +10,13 @@ import dev.oneforallsurvival.food.FridgeBlockEntity;
 import dev.oneforallsurvival.food.client.DesalinatorScreen;
 import dev.oneforallsurvival.food.client.DryerScreen;
 import dev.oneforallsurvival.food.client.FridgeScreen;
+import dev.oneforallsurvival.grid.BreakerBlock;
+import dev.oneforallsurvival.grid.GridRegistry;
+import dev.oneforallsurvival.grid.LoadShedderBlockEntity;
+import dev.oneforallsurvival.grid.WeatherForecast;
+import dev.oneforallsurvival.grid.WeatherStationBlock;
+import dev.oneforallsurvival.grid.client.LoadShedderScreen;
+import dev.oneforallsurvival.grid.client.SubscriberNameScreen;
 import dev.oneforallsurvival.machine.ElectricMachineBlockEntity;
 import dev.oneforallsurvival.machine.FaultType;
 import dev.oneforallsurvival.repair.GalvanicBathBlockEntity;
@@ -63,6 +70,7 @@ import net.minecraft.world.level.levelgen.presets.WorldPresets;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -71,10 +79,11 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 /**
- * Capture de contrôle des visuels des lots 2 et 3 (développement seulement, jamais empaqueté). Un client qui se
+ * Capture de contrôle des visuels des lots 2, 3 et 4 (développement seulement, jamais empaqueté). Un client qui se
  * pilote seul : il monte le bain, l'armoire, le dessalinisateur et le séchoir dans leurs quatre états réels, les
- * cinq débris, un mur de cadres avec tous les objets, une grille des objets du lot 3 à côté d'un steak, puis ouvre
- * les écrans des machines, l'établi et les catégories JEI, et écrit une image par vue dans
+ * cinq débris, un mur de cadres avec tous les objets, une grille des objets du lot 3 à côté d'un steak, le matériel
+ * du réseau (délesteurs, disjoncteurs, compteur, parafoudres, stations sous trois temps), puis ouvre les écrans des
+ * machines, du délesteur et de l'abonné, l'établi et les catégories JEI, et écrit une image par vue dans
  * {@code visuels-captures}. Activé par {@code -Doneforallsurvival.demo.visuels}.
  */
 @Mod.EventBusSubscriber(modid = "oneforallsurvival", bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
@@ -94,6 +103,22 @@ public final class DemoVisuels {
         "dried_fish", "salted_fish", "minecraft:sweet_berries", "dried_fruit", "salted_fruit",
         "minecraft:glass_bottle", "potable_water_bottle", "salt", "spoiled_food", "fridge", "desalinator", "dryer"};
     private static final String[] MACHINES = {"armoire", "dessalinisateur", "sechoir"};
+
+    /** Le matériel du lot 4, à côté de ce qui lui ressemble dans Minecraft, pour juger la lisibilité. */
+    private static final String[] RESEAU = {"load_shedder", "meter", "breaker", "seal", "meter_reading", "surge_arrester",
+        "weather_station", "minecraft:lever", "minecraft:paper", "minecraft:lightning_rod", "minecraft:compass",
+        "minecraft:iron_nugget"};
+    /** Les délesteurs dans l'ordre : à l'arrêt, en marche (courant poussé dans l'entrée), en panne. */
+    private static final BlockPos[] DELESTEURS = new BlockPos[3];
+    private static final String[] ETATS_DELESTEUR = {"arret", "marche", "panne"};
+    /** Les disjoncteurs : enclenché, coupé, coupé et scellé, enclenché et scellé (cet état ne se joue pas). */
+    private static final BlockPos[] DISJONCTEURS = new BlockPos[4];
+    private static final String[] ETATS_DISJONCTEUR = {"enclenche", "coupe", "coupe_scelle", "enclenche_scelle"};
+    private static BlockPos compteur;
+    private static BlockPos parafoudre;
+    private static BlockPos parafoudrePanne;
+    private static BlockPos station;
+    private static BlockPos stationEteinte;
 
     private enum Phase { TITRE, ATTENTE_MONDE, PREPARATION, SCENARIO, FIN }
 
@@ -166,6 +191,12 @@ public final class DemoVisuels {
             if (event.getServer().overworld().getBlockEntity(p) instanceof ElectricMachineBlockEntity machine) {
                 machine.energy().receiveEnergy(100, false);
             }
+        }
+        // 15 FE par tick dans l'entrée (au nord) du délesteur en marche : devant rien, gauche servie, droite en
+        // partie, dessus coupé. Chaque machine d'essai prend 10 FE par tick une fois pleine.
+        if (DELESTEURS[1] != null && event.getServer().overworld().getBlockEntity(DELESTEURS[1]) instanceof
+                LoadShedderBlockEntity tableau) {
+            tableau.getCapability(ForgeCapabilities.ENERGY, Direction.NORTH).ifPresent(e -> e.receiveEnergy(15, false));
         }
     }
 
@@ -339,15 +370,75 @@ public final class DemoVisuels {
             monde.addFreshEntity(cadre);
         }
 
-        // De quoi remplir l'inventaire pour la vue en cases.
+        preparerReseau(monde, o);
+
+        // De quoi remplir l'inventaire pour la vue en cases, le matériel du lot 4 à la suite.
         joueur.getInventory().clearContent();
         for (int i = 0; i < OBJETS.length && i < 36; i++) {
             joueur.getInventory().setItem(i, new ItemStack(objet(OBJETS[i])));
+        }
+        for (int i = 0; i < 7; i++) {
+            joueur.getInventory().setItem(OBJETS.length + i, new ItemStack(objet(RESEAU[i])));
         }
         joueur.setGameMode(GameType.CREATIVE);
         joueur.getAbilities().flying = true;
         joueur.onUpdateAbilities();
         preparationFaite = true;
+    }
+
+    /** Une machine d'essai pleine : elle ne demande plus que ses 10 FE par tick. */
+    private static void consommateur(ServerLevel monde, BlockPos p, boolean plein) {
+        monde.setBlock(p, DevBlocks.testMachine().defaultBlockState(), 3);
+        if (plein && monde.getBlockEntity(p) instanceof ElectricMachineBlockEntity m) {
+            for (int k = 0; k < 20; k++) { // la réserve n'accepte qu'une part par appel
+                m.energy().receiveEnergy(1000, false);
+            }
+        }
+    }
+
+    /** Le lot 4, au nord des machines du lot 3 : délesteurs, disjoncteurs et compteur, parafoudres, stations. */
+    private static void preparerReseau(ServerLevel monde, BlockPos o) {
+        for (int i = 0; i < 3; i++) {
+            DELESTEURS[i] = o.offset(5 * i, 0, -28);
+            monde.setBlock(DELESTEURS[i], GridRegistry.LOAD_SHEDDER.get().defaultBlockState()
+                    .setValue(HorizontalDirectionalBlock.FACING, Direction.SOUTH), 3);
+        }
+        // En marche : rien devant, pour qu'on voie la face ; des machines à gauche (ouest), à droite (est) et dessus.
+        BlockPos marche = DELESTEURS[1];
+        consommateur(monde, marche.west(), true);
+        consommateur(monde, marche.east(), true);
+        consommateur(monde, marche.above(), true);
+        // En panne : une machine branchée dessus, que l'écran montre coupée.
+        ((ElectricMachineBlockEntity) monde.getBlockEntity(DELESTEURS[2])).breakDown(FaultType.FUSE);
+        consommateur(monde, DELESTEURS[2].above(), false);
+
+        // Les disjoncteurs et le compteur, blocs en ligne : FACING est le sens du courant, la face regarde l'arrière.
+        // Courant vers le nord, face au sud.
+        boolean[][] etats = {{true, false}, {false, false}, {false, true}, {true, true}};
+        for (int i = 0; i < 4; i++) {
+            DISJONCTEURS[i] = o.offset(3 * i, 0, -34);
+            monde.setBlock(DISJONCTEURS[i], GridRegistry.BREAKER.get().defaultBlockState()
+                    .setValue(HorizontalDirectionalBlock.FACING, Direction.NORTH)
+                    .setValue(BreakerBlock.CLOSED, etats[i][0]).setValue(BreakerBlock.SEALED, etats[i][1]), 3);
+        }
+        compteur = o.offset(12, 0, -34);
+        monde.setBlock(compteur, GridRegistry.METER.get().defaultBlockState()
+                .setValue(HorizontalDirectionalBlock.FACING, Direction.NORTH), 3);
+
+        parafoudre = o.offset(0, 0, -40);
+        parafoudrePanne = o.offset(3, 0, -40);
+        monde.setBlock(parafoudre, GridRegistry.SURGE_ARRESTER.get().defaultBlockState(), 3);
+        monde.setBlock(parafoudrePanne, GridRegistry.SURGE_ARRESTER.get().defaultBlockState(), 3);
+        ((ElectricMachineBlockEntity) monde.getBlockEntity(parafoudrePanne)).breakDown(FaultType.FUSE);
+
+        // Deux stations : l'une alimentée, l'autre jamais (face éteinte).
+        station = o.offset(7, 0, -40);
+        stationEteinte = o.offset(10, 0, -40);
+        for (BlockPos p : new BlockPos[] {station, stationEteinte}) {
+            monde.setBlock(p, GridRegistry.WEATHER_STATION.get().defaultBlockState()
+                    .setValue(HorizontalDirectionalBlock.FACING, Direction.SOUTH), 3);
+        }
+        ALIMENTES.add(station);
     }
 
     // ================================================================================================
@@ -415,6 +506,17 @@ public final class DemoVisuels {
 
     private static void vue(Minecraft mc, String fichier, BlockPos b, Vec3 d, boolean nuit) {
         etape("vue " + fichier, () -> regarder(mc, b, d, nuit), () -> true, 1500, fichier);
+    }
+
+    /** Change le temps du monde, devant la station alimentée, et attend que sa face suive. */
+    private static void meteo(Minecraft mc, String fichier, boolean pluie, boolean orage, WeatherForecast.Trend attendue) {
+        etape("meteo " + attendue, () -> {
+            regarder(mc, station, new Vec3(1.35, 1.0, 1.75), false);
+            MinecraftServer serveur = mc.getSingleplayerServer();
+            serveur.execute(() -> serveur.overworld().setWeatherParameters(pluie ? 0 : 6000, pluie ? 6000 : 0, pluie,
+                    orage));
+        }, () -> mc.level.getBlockState(station).is(GridRegistry.WEATHER_STATION.get())
+                && mc.level.getBlockState(station).getValue(WeatherStationBlock.TREND) == attendue, 2500, fichier);
     }
 
     private static void ouvrir(Minecraft mc, BlockPos p) {
@@ -494,11 +596,43 @@ public final class DemoVisuels {
         }
         vue(mc, "armoire_marche_nuit.png", VIVRES_BLOCS[0][1], sudEst, true);
 
+        // Le lot 4 : chaque bloc dans ses états réels, de jour, face au sud.
+        Vec3 face = new Vec3(0.0, 0.5, 2.3);
+        Vec3 arriereDessus = new Vec3(-1.5, 1.6, -1.7);
+        vue(mc, "delesteurs_les_trois.png", DELESTEURS[1], new Vec3(0.0, 2.6, 7.5), false);
+        for (int i = 0; i < 3; i++) {
+            vue(mc, "delesteur_" + ETATS_DELESTEUR[i] + "_face.png", DELESTEURS[i], face, false);
+        }
+        vue(mc, "delesteur_arret_jour.png", DELESTEURS[0], sudEst, false);
+        vue(mc, "delesteur_arret_arriere_dessus.png", DELESTEURS[0], arriereDessus, false);
+        vue(mc, "delesteur_arret_dessous.png", DELESTEURS[0], new Vec3(1.5, -0.1, 1.5), false);
+        vue(mc, "delesteur_marche_nuit.png", DELESTEURS[1], face, true);
+        vue(mc, "disjoncteurs_les_quatre.png", DISJONCTEURS[1].offset(1, 0, 0), new Vec3(0.5, 1.6, 4.2), false);
+        for (int i = 0; i < 4; i++) {
+            vue(mc, "disjoncteur_" + ETATS_DISJONCTEUR[i] + ".png", DISJONCTEURS[i], sudEst, false);
+        }
+        vue(mc, "disjoncteur_arriere_dessus.png", DISJONCTEURS[0], arriereDessus, false);
+        vue(mc, "compteur_jour.png", compteur, sudEst, false);
+        vue(mc, "compteur_face.png", compteur, face, false);
+        vue(mc, "compteur_arriere_dessus.png", compteur, arriereDessus, false);
+        vue(mc, "parafoudre_jour.png", parafoudre, sudEst, false);
+        vue(mc, "parafoudre_panne_jour.png", parafoudrePanne, sudEst, false);
+        vue(mc, "parafoudre_dessus.png", parafoudre, new Vec3(0.4, 1.9, 0.7), false);
+        vue(mc, "station_eteinte_jour.png", stationEteinte, sudEst, false);
+        vue(mc, "station_stable_jour.png", station, sudEst, false);
+        vue(mc, "station_arriere_dessus.png", station, arriereDessus, false);
+        // La météo du monde est figée (doWeatherCycle à faux) : la station lit le temps présent.
+        meteo(mc, "station_pluie.png", true, false, WeatherForecast.Trend.RAIN_SOON);
+        meteo(mc, "station_orage.png", true, true, WeatherForecast.Trend.STORM_SOON);
+        meteo(mc, null, false, false, WeatherForecast.Trend.STABLE);
+        vue(mc, "parafoudres_stations.png", parafoudre.offset(5, 0, 0), new Vec3(0.0, 2.2, 6.5), false);
+
         etape("grille", () -> {
             mc.options.hideGui = false;
             mc.setScreen(new Grille(OBJETS, 4));
         }, () -> true, 800, "objets_grille.png");
         etape("grille vivres", () -> mc.setScreen(new Grille(VIVRES, 3)), () -> true, 800, "vivres_grille.png");
+        etape("grille reseau", () -> mc.setScreen(new Grille(RESEAU, 2)), () -> true, 800, "reseau_grille.png");
         // En survie : en créatif, ce même écran s'ouvre sur les onglets et cache l'inventaire.
         etape("inventaire", () -> mc.getSingleplayerServer().execute(() -> mc.getSingleplayerServer().getPlayerList()
                 .getPlayers().get(0).setGameMode(GameType.SURVIVAL)), () -> !mc.player.getAbilities().instabuild, 500, null);
@@ -525,6 +659,10 @@ public final class DemoVisuels {
                 new ResourceLocation("oneforallsurvival", "galvanic_bath")), () -> true, 800, "etabli_bain.png");
         etape("etabli testeur", () -> ((EngineerBenchScreen) mc.screen).selectById(
                 new ResourceLocation("oneforallsurvival", "tester")), () -> true, 800, "etabli_testeur.png");
+        etape("etabli delesteur", () -> ((EngineerBenchScreen) mc.screen).selectById(
+                new ResourceLocation("oneforallsurvival", "load_shedder")), () -> true, 800, "etabli_delesteur.png");
+        etape("etabli scelle", () -> ((EngineerBenchScreen) mc.screen).selectById(
+                new ResourceLocation("oneforallsurvival", "seal")), () -> true, 800, "etabli_scelle.png");
         Class<?>[] ecrans = {FridgeScreen.class, DesalinatorScreen.class, DryerScreen.class};
         for (int m = 0; m < 3; m++) {
             int n = m;
@@ -536,6 +674,19 @@ public final class DemoVisuels {
                 }, () -> ecrans[n].isInstance(mc.screen), 1500, "ecran_" + MACHINES[n] + "_" + ETATS[k] + ".png");
             }
         }
+        for (int i : new int[] {1, 2}) {
+            etape("ecran delesteur " + ETATS_DELESTEUR[i], () -> {
+                fermer(mc);
+                ouvrir(mc, DELESTEURS[i]);
+            }, () -> mc.screen instanceof LoadShedderScreen, 1500, "ecran_delesteur_" + ETATS_DELESTEUR[i] + ".png");
+        }
+        etape("ecran abonne", () -> {
+            fermer(mc);
+            mc.options.hideGui = false;
+            mc.setScreen(new SubscriberNameScreen(compteur, "Marin Lefevre"));
+        }, () -> mc.screen instanceof SubscriberNameScreen, 800, "ecran_abonne.png");
+        etape("ecran abonne vide", () -> mc.setScreen(new SubscriberNameScreen(compteur, "")),
+                () -> mc.screen instanceof SubscriberNameScreen, 800, "ecran_abonne_vide.png");
         etape("jei sechoir", () -> {
             fermer(mc);
             montrerDansJei(mc, "DRYING_TYPE");
