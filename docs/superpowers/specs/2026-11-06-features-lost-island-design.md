@@ -24,7 +24,9 @@ l'ingénieur doit être quelqu'un dont on a besoin.**
 
 ### Hors périmètre
 - **Le soin** : il appartient au métier de médecin (Hospitals, Medical Remedies, First Aid).
-- **La communication entre joueurs** (téléphone, radio, haut-parleurs) : prévue plus tard.
+- **La communication entre joueurs** (téléphone, radio, haut-parleurs) : prévue plus tard. *Le
+  téléphone a maintenant son [cahier](2026-11-08-telephone-design.md) ; ses antennes consomment de
+  l'électricité.*
 - **La production et le transport d'électricité** : déjà couverts par les mods d'ingénierie.
 - **Les lampes, alarmes, fusibles, poteaux, tenue de plongée** : déjà couverts.
 - **L'usure des machines des autres mods** en première version (choix de l'auteur, voir 9).
@@ -246,8 +248,9 @@ indique quelles sorties sont coupées. Les priorités se règlent dans son inter
 - Seul l'Ingénieur le relève, avec le testeur, et obtient un **relevé** : abonné, consommation, date.
 - Le mod ne gère **aucune monnaie** : prix et paiement relèvent du RP. *Remplacé le 2026-11-08 par le
   [cahier de l'économie](2026-11-08-economie-design.md) : n'importe quel joueur peut devenir fournisseur
-  d'électricité, fixer son prix, et le compteur émet seul une facture prélevée sur la carte bancaire du
-  client (features 82 et 83). Le relevé au testeur reste possible pour contrôler un compteur.*
+  d'électricité et fixer son prix sous un plafond du maire. Chaque jour à minuit, le compteur émet seul
+  une facture, prélevée en pièces dans l'inventaire puis le coffre-fort du client (features 83 et 86).
+  Le relevé au testeur reste possible pour contrôler un compteur.*
 - Le **disjoncteur d'abonné** coupe la ligne et se verrouille par un scellé. Seul l'Ingénieur peut
   poser ou retirer un scellé, et un disjoncteur scellé ne se réenclenche pas.
 - Casser un compteur ou un disjoncteur scellé reste possible, le mod ne protège pas contre la casse : la
