@@ -657,7 +657,7 @@ public final class TitleShots {
         }
         pas("widgets-" + (quand.contains("retour") ? "retour" : "debut"), ok, nos + " boutons à nous (attendu 4), "
                 + etrangers.size() + " widget(s) étranger(s) visibles"
-                + (etrangers.isEmpty() ? " (aucun : lancement sans le pack ?)" : " sous nos boutons (y ≥ " + basDesNotres
+                + (etrangers.isEmpty() ? " (aucun : aucun autre mod n'a ajouté de bouton au titre)" : " sous nos boutons (y ≥ " + basDesNotres
                 + ") et dans l'écran : " + detail));
     }
 
