@@ -192,3 +192,17 @@
 - [ ] **Step 2: Annoncer à Killian**, un lancement final enregistré ; assembler le film avec ffmpeg (`run/frames-chargement` → `run/film-chargement.mp4`) ; l'envoyer à Killian (SendUserFile). Fermer le client par PID.
 - [ ] **Step 3:** Écrire la vérification : commandes, durées avec et sans la scène, poids du jar de service, méthode du masque de feuillage, comparaison aux images de référence, replis essayés, et la liste « Non prouvé » (vieilles cartes graphiques, macOS et Linux, écrans HiDPI, overlay de Mojang au `/reload`, joueur sans le réglage `fml.toml`).
 - [ ] **Step 4: Commit et push** `docs(chargement): vérification du chantier 1`. Mettre à jour `tasks/todo.md` (chantier 1 fait, chantiers 2 et 3 à planifier).
+
+### Task 10 (ajoutée après le plan, sur décision de Killian le 2026-11-08) : supprimer la saccade au passage Forge → ressources
+
+**Pourquoi.** Au passage de la phase Forge à celle des ressources, l'image se figeait ~1,6 s : après `setupMinecraftWindow`, le contexte GL appartient au thread du jeu, occupé à s'initialiser, et personne ne dessine (même trou avec l'écran de Forge).
+
+**Décision de Killian** (« Je valide tout ce que tu as dit. Tu feras donc tout ça après la phase 9 ») : garder un fil de dessin allégé au-delà de la remise de la fenêtre, avec un second contexte OpenGL **partagé** avec celui du jeu, jusqu'à la première image de `LostIslandLoadingOverlay`, avec quatre garde-fous obligatoires, pensés pour les PC modestes des joueurs :
+1. **Repli automatique** : contexte non créé ou moindre erreur → comportement d'avant (saccade), jamais de plantage.
+2. **Version allégée** pendant le trou : sans bloom ni vent, cadence réduite.
+3. **Désactivation sur les petites machines** : ≤ 2 cœurs logiques, ou rendu logiciel (GDI Generic, llvmpipe…).
+4. **Un réglage pour le couper** : `config/lostisland-earlywindow.properties` (et la propriété `lostisland.bridgeThread`).
+
+**Ce qui a été fait** (commits `dc3c586`, `dd3e47d`, correctifs `9c98e0b`, `56e4f80`, puis `944444b` de la revue finale) : `GapBridge` (fenêtre cachée et contexte partagé créés sur le thread principal sous un rappel d'erreur GLFW local, contexte rendu courant par WGL sur le thread du pont, aucun appel GLFW sur ce thread, verrou par image et barrière GPU, arrêt avant la première image de l'overlay, rien de la scène touché tant que le pont peut dessiner), `BridgePolicy` (garde-fous 2 à 4) et ses tests.
+
+**Preuve** (détail dans `docs/verifications/chantier-1-chargement.md`, section « Saccade ») : figeage ramené de ~1,6 s à 0,18–0,26 s ; 2 cœurs simulés par affinité → pont désactivé par la règle ; repli prouvé par une vraie erreur GLFW et par un arrêt retardé ; un seul pilote essayé (NVIDIA). Le film plein écran à 60 i/s du lancement complet a été fait en fin de tâche (`run/film-plein-ecran.mp4`, non commité).
