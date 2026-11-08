@@ -35,6 +35,7 @@ import net.minecraft.util.FrameTimer;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.CustomizeGuiOverlayEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
@@ -46,6 +47,9 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Le nouveau F3. Passe en dernier sur {@code DebugText} pour voir les lignes de tous les mods, les classe, vide les
  * listes (Forge ne dessine plus rien) et dessine les cartes. L'événement est posté à chaque image, même F3 fermé.
+ *
+ * <p>Limite inhérente à ce passage en dernier : les lignes qu'ajouterait un écouteur {@code LOWEST} d'un autre mod,
+ * appelé après nous, ne sont pas classées ; Forge les dessine en brut par-dessus les cartes. Rien n'est perdu.
  */
 @Mod.EventBusSubscriber(modid = OneForAllSurvival.MODID, value = Dist.CLIENT)
 public final class DebugHud {
@@ -84,6 +88,7 @@ public final class DebugHud {
     private static int pages;
     private static int trackedGuiWidth;
     private static SmoothNumber feSmooth = new SmoothNumber(false);
+    private static SmoothNumber distanceSmooth = new SmoothNumber(true);
     @Nullable
     private static BlockPos feTarget;
 
@@ -115,19 +120,20 @@ public final class DebugHud {
         double dt = advanceClock();
         Map<Panel, List<Line>> lines = smoothed(classified, dt);
         List<Row> island = islandRows(mc, reduced, dt);
+        Extras extras = extras(mc, reduced, lines.get(Panel.TARGET), event.getPartialTick(), dt);
         Performance performance = performance(mc, lines.get(Panel.PERFORMANCE), dt);
         GuiGraphics g = event.getGuiGraphics();
         double titleScale = DebugTheme.titleScale((int) mc.getWindow().getGuiScale());
         g.drawManaged(() -> {
             int usable = g.guiHeight() - HINT_H - (mc.options.renderFpsChart ? DebugGraphs.RESERVED_H : 0);
             // La vue détaillée n'est calculée que quand elle est affichée.
-            Detail detail = view == 0 ? null : layoutDetail(mc.font, g.guiWidth(), usable, lines, island);
+            Detail detail = view == 0 ? null : layoutDetail(mc.font, g.guiWidth(), usable, lines, island, extras);
             if (detail != null) {
                 pages = detail.pages().size();
                 view = DebugViews.clamp(view, pages);
             }
             if (view == 0) {
-                drawNormal(g, mc.font, usable, lines, island, performance, titleScale);
+                drawNormal(g, mc.font, usable, lines, island, extras, performance, titleScale);
             } else {
                 drawDetail(g, mc.font, detail, detail.pages().get(view - 1), titleScale);
             }
@@ -147,6 +153,7 @@ public final class DebugHud {
         view = 0;
         pages = 0;
         SMOOTH.clear();
+        distanceSmooth = new SmoothNumber(true);
         LABELS.clear();
         NAMES.clear();
         DebugPanels.forgetWidths();
@@ -234,17 +241,61 @@ public final class DebugHud {
         return IslandLines.rows(false, new IslandLines.Input(info, matches, state, name, fe), DebugHud::label);
     }
 
+    /** Ce que les lignes du F3 ne disent pas : jour, heure et météo pour Monde, distance pour Cible. */
+    private record Extras(List<Row> world, @Nullable Row distance) {}
+
+    /** Rien en mode réduit : ces informations situent le joueur, comme les autres lignes de ces cartes. */
+    private static Extras extras(Minecraft mc, boolean reduced, List<Line> target, float partialTick, double dt) {
+        if (reduced || mc.level == null) {
+            return new Extras(List.of(), null);
+        }
+        List<Row> world = List.of(DebugFormat.dayTimeRow(mc.level.getDayTime(), DebugHud::label),
+                DebugFormat.weatherRow(mc.level.isRaining(), mc.level.isThundering(), DebugHud::label));
+        return new Extras(world, targetDistance(mc, target, partialTick, dt));
+    }
+
+    /**
+     * Depuis les yeux du joueur : jusqu'au point visé à portée de main (bloc ou entité) ; plus loin, seul le F3 connaît
+     * le bloc visé (jusqu'à 20 blocs), et c'est la distance à son centre.
+     */
+    @Nullable
+    private static Row targetDistance(Minecraft mc, List<Line> target, float partialTick, double dt) {
+        if (mc.player == null || target.isEmpty()) {
+            return null;
+        }
+        DebugFormat.Point point = null;
+        if (mc.hitResult != null && mc.hitResult.getType() != HitResult.Type.MISS) {
+            Vec3 hit = mc.hitResult.getLocation();
+            point = new DebugFormat.Point(hit.x, hit.y, hit.z);
+        } else {
+            for (Line line : target) {
+                if (line.key().equals("target.block.pos")) {
+                    point = DebugFormat.blockCenter(line.text());
+                }
+            }
+        }
+        if (point == null) {
+            return null;
+        }
+        Vec3 eye = mc.player.getEyePosition(partialTick);
+        double blocks = DebugFormat.distance(new DebugFormat.Point(eye.x, eye.y, eye.z), point);
+        return DebugFormat.distanceRow(distanceSmooth.update(blocks, dt), DebugHud::label);
+    }
+
     private static void drawNormal(GuiGraphics g, Font font, int usable, Map<Panel, List<Line>> lines, List<Row> island,
-            Performance perf, double titleScale) {
+            Extras extras, Performance perf, double titleScale) {
         int guiW = g.guiWidth();
         if (guiW != trackedGuiWidth) {
             trackedGuiWidth = guiW;
             Arrays.fill(TRACKED_WIDTHS, 0);
         }
         Map<Slot, List<Row>> rows = new EnumMap<>(Slot.class);
-        for (Slot slot : List.of(Slot.POSITION, Slot.WORLD, Slot.MODS, Slot.TARGET)) {
-            rows.put(slot, DebugFormat.rows(lines.get(PANELS.get(slot)), DebugHud::label, DebugHud::targetName));
+        for (Slot slot : List.of(Slot.POSITION, Slot.WORLD, Slot.MODS)) {
+            rows.put(slot, new ArrayList<>(DebugFormat.rows(lines.get(PANELS.get(slot)), DebugHud::label, DebugHud::targetName)));
         }
+        rows.get(Slot.WORLD).addAll(extras.world());
+        rows.put(Slot.TARGET, DebugFormat.targetRows(lines.get(Panel.TARGET), lines.get(Panel.DETAIL_ONLY), DebugHud::label,
+                DebugHud::targetName, extras.distance()));
         rows.put(Slot.ISLAND, island);
 
         int maxW = Math.min(NORMAL_MAX_W, guiW / 2 - DebugLayout.MARGIN - DebugLayout.GAP);
@@ -268,7 +319,7 @@ public final class DebugHud {
             DebugPanels.card(g, font, rect, title(slot), slot == Slot.ISLAND, alpha, titleScale);
             if (slot == Slot.PERFORMANCE) {
                 DebugPanels.performance(g, font, rect, perf.fps(), perf.fpsSuffix(), perf.timer(), perf.memory(),
-                        perf.memoryLabel(), perf.memoryValue(), perf.footer(), alpha);
+                        perf.memoryRow(), perf.footer(), alpha);
             } else {
                 DebugPanels.rows(g, font, rect, rows.get(slot), alpha);
             }
@@ -293,7 +344,7 @@ public final class DebugHud {
 
     /** Ce que montre la carte Performances pour cette image. */
     private record Performance(int fps, String fpsSuffix, FrameTimer timer, @Nullable DebugFormat.Memory memory,
-            String memoryLabel, String memoryValue, @Nullable Row footer) {}
+            Row memoryRow, @Nullable Row footer) {}
 
     private static Performance performance(Minecraft mc, List<Line> lines, double dt) {
         int fps = -1;
@@ -308,17 +359,24 @@ public final class DebugHud {
         FrameTimer timer = mc.getFrameTimer();
         String suffix = "FPS" + DebugFormat.SEPARATOR + String.format(Locale.ROOT, "%.1f ms", averageMillis(timer));
         String memoryValue = memory == null ? "" : memory.used() + " / " + memory.max() + " " + label(DebugFormat.key("unit.megabytes"));
-        return new Performance(fps, suffix, timer, memory, label(DebugFormat.key("label.memory")), memoryValue, footer(mc, dt));
+        Row memoryRow = new Row("memory", List.of(new Segment(label(DebugFormat.key("label.memory")), Tone.LABEL),
+                new Segment(" " + memoryValue, Tone.VALUE)));
+        return new Performance(fps, suffix, timer, memory, memoryRow, footer(mc, dt));
     }
 
     private static double averageMillis(FrameTimer timer) {
         long[] log = timer.getLog();
         int end = timer.getLogEnd();
         long sum = 0;
+        int measured = 0;
         for (int i = 1; i <= AVERAGE_FRAMES; i++) {
-            sum += log[timer.wrapIndex(end - i + log.length)];
+            long nanos = log[timer.wrapIndex(end - i + log.length)];
+            if (nanos > 0) { // au démarrage, le journal n'est pas encore plein
+                sum += nanos;
+                measured++;
+            }
         }
-        return sum / (double) AVERAGE_FRAMES / 1_000_000.0;
+        return measured == 0 ? 0 : sum / (double) measured / 1_000_000.0;
     }
 
     /** TPS en solo (serveur intégré), ping en multijoueur. */
@@ -343,21 +401,24 @@ public final class DebugHud {
     private record Detail(Map<Slot, List<String>> texts, List<List<Placement>> pages) {}
 
     /** Toutes les lignes, découpées à la largeur de la colonne : rien n'est coupé ni perdu dans cette vue. */
-    private static Detail layoutDetail(Font font, int guiW, int usable, Map<Panel, List<Line>> lines, List<Row> island) {
+    private static Detail layoutDetail(Font font, int guiW, int usable, Map<Panel, List<Line>> lines, List<Row> island, Extras extras) {
         int usableW = Math.max(1, guiW - 2 * DebugLayout.MARGIN);
         int inner = Math.max(1, Math.min(DETAIL_MAX_W, usableW) - 2 * DebugPanels.PAD_X);
         Map<Slot, List<String>> texts = new EnumMap<>(Slot.class);
         int widest = 0;
         for (Slot slot : Slot.values()) {
             List<String> wrapped = new ArrayList<>();
-            if (slot == Slot.ISLAND) {
-                for (Row row : island) {
-                    wrapped.addAll(DebugFormat.wrap(row.text(), inner, s -> DebugPanels.width(font, s)));
-                }
-            } else {
+            if (slot != Slot.ISLAND) {
                 for (Line line : lines.get(PANELS.get(slot))) {
                     wrapped.addAll(DebugFormat.wrap(line.text(), inner, s -> DebugPanels.width(font, s)));
                 }
+            }
+            List<Row> added = slot == Slot.ISLAND ? island
+                    : slot == Slot.WORLD ? extras.world()
+                    : slot == Slot.TARGET && extras.distance() != null ? List.of(extras.distance())
+                    : List.of();
+            for (Row row : added) {
+                wrapped.addAll(DebugFormat.wrap(row.text(), inner, s -> DebugPanels.width(font, s)));
             }
             if (!wrapped.isEmpty()) {
                 texts.put(slot, wrapped);

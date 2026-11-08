@@ -2,6 +2,7 @@ package dev.oneforallsurvival.client.debug;
 
 import dev.oneforallsurvival.OneForAllSurvival;
 import dev.oneforallsurvival.client.title.TitleLayout.Rect;
+import java.util.Locale;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -31,6 +32,7 @@ public final class DebugGraphs {
     private static final int FPS_DIVISOR = 60;
     private static final int TPS_SCALE = 60;
     private static final int TPS_DIVISOR = 20;
+    private static final int STATS_GAP = 6;
 
     /** Hauteur à laisser libre en bas de l'écran quand les graphes sont affichés. */
     static final int RESERVED_H = CARD_H + DebugLayout.MARGIN;
@@ -64,8 +66,8 @@ public final class DebugGraphs {
 
     private static void drawCard(GuiGraphics g, Font font, FrameTimer timer, int x, int w, boolean fps) {
         int y = g.guiHeight() - DebugLayout.MARGIN - CARD_H;
-        DebugPanels.card(g, font, new Rect(x, y, w, CARD_H), I18n.get(DebugFormat.key(fps ? "graph.fps" : "graph.tps")),
-                false, 1.0, 1.0);
+        String title = I18n.get(DebugFormat.key(fps ? "graph.fps" : "graph.tps"));
+        DebugPanels.card(g, font, new Rect(x, y, w, CARD_H), title, false, 1.0, 1.0);
 
         long[] log = timer.getLog();
         int bars = Math.max(0, Math.min(w - 2 * PAD, log.length));
@@ -79,15 +81,20 @@ public final class DebugGraphs {
         long min = Long.MAX_VALUE;
         long max = 0;
         long sum = 0;
+        int measured = 0;
         for (int i = 0; i < bars; i++) {
             // La plus ancienne à gauche, comme vanilla.
             long nanos = log[timer.wrapIndex(end - bars + i + log.length)];
             int value = timer.scaleSampleTo(nanos, scale, divisor);
             int h = Math.max(0, Math.min(BARS_H, value));
             g.fill(left + i, base - h, left + i + 1, base, DebugTheme.sampleColor(Math.min(value, colorMax), colorMax));
-            min = Math.min(min, nanos);
-            max = Math.max(max, nanos);
-            sum += nanos;
+            // Au démarrage, le journal n'est pas encore plein : ces zéros ne sont pas des mesures.
+            if (nanos > 0) {
+                min = Math.min(min, nanos);
+                max = Math.max(max, nanos);
+                sum += nanos;
+                measured++;
+            }
         }
 
         if (fps) {
@@ -97,9 +104,13 @@ public final class DebugGraphs {
             guide(g, font, left, bars, base - 60, "20 TPS");
         }
 
-        if (bars > 0) {
-            String stats = I18n.get(DebugFormat.key("graph.stats"), millis(min), millis(sum / bars), millis(max));
-            g.drawString(font, stats, x + w - PAD - DebugPanels.width(font, stats), y + PAD, DebugTheme.LABEL, false);
+        if (measured > 0) {
+            String stats = I18n.get(DebugFormat.key("graph.stats"), millis(min), millis(sum / measured), millis(max));
+            int statsX = x + w - PAD - DebugPanels.width(font, stats);
+            int titleEnd = x + DebugPanels.PAD_X + DebugPanels.width(font, title.toUpperCase(Locale.ROOT));
+            if (statsX >= titleEnd + STATS_GAP) {
+                g.drawString(font, stats, statsX, y + PAD, DebugTheme.LABEL, false);
+            }
         }
     }
 

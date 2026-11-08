@@ -3,6 +3,7 @@ package dev.oneforallsurvival.client.debug;
 import dev.oneforallsurvival.client.debug.DebugLines.Line;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.function.ToIntFunction;
 import java.util.regex.Matcher;
@@ -51,6 +52,9 @@ public final class DebugFormat {
     /** Mémoire relevée sur la ligne {@code Mem:}. */
     public record Memory(int percent, long used, long max) {}
 
+    /** Un point du monde. */
+    public record Point(double x, double y, double z) {}
+
     public static final String SEPARATOR = " · ";
 
     private static final Pattern CODES = Pattern.compile("§.");
@@ -66,11 +70,19 @@ public final class DebugFormat {
     private static final Pattern DIFFICULTY = Pattern.compile("^Local Difficulty: (\\S+) // \\S+ \\(Day (\\d+)\\)$");
     private static final Pattern TARGET_BLOCK = Pattern.compile("^Targeted Block: (.+)$");
     private static final Pattern TARGET_FLUID = Pattern.compile("^Targeted Fluid: (.+)$");
+    private static final Pattern TARGET_BLOCK_POS = Pattern.compile("^Targeted Block: (-?\\d+), (-?\\d+), (-?\\d+)$");
+    private static final Pattern PROPERTY = Pattern.compile("^([^:]+): (.+)$");
     private static final Pattern MEMORY = Pattern.compile("^Mem:\\s*(\\d+)% (\\d+)/(\\d+)MB$");
     private static final Pattern FPS = Pattern.compile("^(\\d+) fps\\b.*");
     /** Libellé sans mise en forme, de longueur raisonnable : une ligne d'un mod se lit comme les autres. */
     private static final Pattern LABELLED = Pattern.compile("^([^:§]{1,32}): (.+)$");
     private static final Set<String> DIRECTIONS = Set.of("north", "south", "east", "west", "up", "down");
+    /** Propriétés d'état montrées sur la carte Cible ; toutes restent dans la vue détaillée. */
+    private static final int TARGET_PROPERTIES = 3;
+    private static final long TICKS_PER_DAY = 24000;
+    private static final long TICKS_PER_HOUR = 1000;
+    /** Le tick 0 du jour est 6 h du matin. */
+    private static final long DAWN_TICKS = 6000;
 
     private DebugFormat() {}
 
@@ -131,11 +143,8 @@ public final class DebugFormat {
                 return (m = SERVER_LIGHT.matcher(text)).matches()
                         ? light(k, l, "label.light_server", null, m.group(1), m.group(2)) : null;
             case "difficulty":
-                if ((m = DIFFICULTY.matcher(text)).matches()) {
-                    return new Row(k, List.of(label(l, "label.difficulty"), new Segment(" " + m.group(1), Tone.VALUE), separator(),
-                            label(l, "label.day"), new Segment(" " + m.group(2), Tone.VALUE)));
-                }
-                return null;
+                // Le jour figure avec l'heure, sur sa propre ligne.
+                return (m = DIFFICULTY.matcher(text)).matches() ? labelled(k, l, "label.difficulty", m.group(1)) : null;
             case "target.block.pos":
                 return (m = TARGET_BLOCK.matcher(text)).matches() ? labelled(k, l, "label.target_block", m.group(1)) : null;
             case "target.fluid.pos":
@@ -150,6 +159,77 @@ public final class DebugFormat {
             default:
                 return null;
         }
+    }
+
+    /**
+     * La carte Cible : les lignes de cible, chaque identifiant de bloc ou de fluide suivi de ses premières propriétés
+     * d'état (lues dans les lignes de la vue détaillée, où elles restent), puis la distance. Rien sans ligne de cible.
+     *
+     * @param distance la ligne de distance, {@code null} si elle est inconnue
+     */
+    public static List<Row> targetRows(List<Line> target, List<Line> detail, Labels labels, Names names, @Nullable Row distance) {
+        if (target.isEmpty()) {
+            return List.of();
+        }
+        List<Row> out = new ArrayList<>(target.size() + TARGET_PROPERTIES + 1);
+        int room = TARGET_PROPERTIES;
+        for (Line line : target) {
+            out.add(row(line, labels, names));
+            if (!line.key().equals("target.block") && !line.key().equals("target.fluid")) {
+                continue;
+            }
+            String prefix = line.key() + ".prop.";
+            for (Line candidate : detail) {
+                if (room > 0 && candidate.key().startsWith(prefix)) {
+                    Matcher m = PROPERTY.matcher(plain(candidate.text()));
+                    if (m.matches()) {
+                        out.add(new Row(candidate.key(), List.of(new Segment(m.group(1), Tone.LABEL), new Segment(" " + m.group(2), Tone.VALUE))));
+                        room--;
+                    }
+                }
+            }
+        }
+        if (distance != null) {
+            out.add(distance);
+        }
+        return out;
+    }
+
+    /** « Jour 14, 06:12 ». Le numéro du jour est celui de vanilla : il change à 6 h, au tick 0 du jour. */
+    public static Row dayTimeRow(long dayTime, Labels l) {
+        long day = Math.floorDiv(dayTime, TICKS_PER_DAY);
+        long clock = Math.floorMod(dayTime + DAWN_TICKS, TICKS_PER_DAY);
+        long hours = clock / TICKS_PER_HOUR;
+        long minutes = clock % TICKS_PER_HOUR * 60 / TICKS_PER_HOUR;
+        return new Row("world.time", List.of(label(l, "label.day"),
+                new Segment(String.format(Locale.ROOT, " %d, %02d:%02d", day, hours, minutes), Tone.VALUE)));
+    }
+
+    /** La météo : l'orage prime sur la pluie. */
+    public static Row weatherRow(boolean raining, boolean thundering, Labels l) {
+        String value = thundering ? "value.thunder" : raining ? "value.rain" : "value.clear";
+        return new Row("world.weather", List.of(label(l, "label.weather"), new Segment(" " + l.get(key(value)), Tone.VALUE)));
+    }
+
+    public static Row distanceRow(double blocks, Labels l) {
+        return new Row("target.distance", List.of(label(l, "label.distance"),
+                new Segment(" " + SmoothLines.format(blocks, 1) + " " + l.get(key("unit.blocks")), Tone.VALUE)));
+    }
+
+    public static double distance(Point a, Point b) {
+        double dx = a.x() - b.x();
+        double dy = a.y() - b.y();
+        double dz = a.z() - b.z();
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
+    /** Le centre du bloc d'une ligne « Targeted Block: x, y, z », {@code null} si le format est inattendu. */
+    @Nullable
+    public static Point blockCenter(String text) {
+        Matcher m = TARGET_BLOCK_POS.matcher(plain(text));
+        return m.matches()
+                ? new Point(Integer.parseInt(m.group(1)) + 0.5, Integer.parseInt(m.group(2)) + 0.5, Integer.parseInt(m.group(3)) + 0.5)
+                : null;
     }
 
     /** Une ligne sans format connu : affichée telle quelle, mise en forme du mod comprise. */
@@ -229,7 +309,8 @@ public final class DebugFormat {
             }
             int cut = fit(rest, carry, maxWidth, width);
             int space = rest.lastIndexOf(' ', cut);
-            if (space > 0) {
+            // Couper à un espace seulement si la tête montre quelque chose : « §a mot » ne donne pas une ligne vide.
+            if (space > 0 && !plain(rest.substring(0, space)).isBlank()) {
                 cut = space;
             }
             String head = rest.substring(0, cut);
@@ -238,6 +319,11 @@ public final class DebugFormat {
             rest = rest.substring(cut).stripLeading();
         }
         return out;
+    }
+
+    /** Le début de {@code text} qui tient dans {@code maxWidth}, sans couper un code de mise en forme. */
+    public static String head(String text, int maxWidth, ToIntFunction<String> width) {
+        return text.isEmpty() ? text : text.substring(0, fit(text, "", maxWidth, width));
     }
 
     /** La plus longue tête de {@code rest} qui tient ; au moins un caractère, pour toujours avancer. */

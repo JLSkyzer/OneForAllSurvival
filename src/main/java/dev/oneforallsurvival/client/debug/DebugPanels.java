@@ -108,7 +108,8 @@ final class DebugPanels {
             String shown = s.text();
             int w = width(font, shown);
             if (w > room) {
-                shown = font.plainSubstrByWidth(shown, Math.max(0, room - width(font, "…"))) + "…";
+                // Pas de Font.plainSubstrByWidth : il compte les codes de mise en forme comme du texte.
+                shown = DebugFormat.head(shown, Math.max(0, room - width(font, "…")), font::width) + "…";
                 w = room;
             }
             text(g, font, shown, cx, y, toneColor(s.tone()), alpha);
@@ -142,7 +143,7 @@ final class DebugPanels {
 
     /** Le corps de la carte Performances : FPS en grand, temps d'image, mémoire, puis TPS ou ping. */
     static void performance(GuiGraphics g, Font font, Rect r, int fps, String fpsSuffix, FrameTimer timer,
-            @Nullable DebugFormat.Memory memory, String memoryLabel, String memoryValue, @Nullable Row footer, double alpha) {
+            @Nullable DebugFormat.Memory memory, Row memoryRow, @Nullable Row footer, double alpha) {
         int x = r.x() + PAD_X;
         int y = r.y() + PAD_TOP + TITLE_H;
         int inner = r.w() - 2 * PAD_X;
@@ -168,8 +169,7 @@ final class DebugPanels {
         y += SPARK_SPACE;
 
         if (memory != null && y + LINE_H + BAR_SPACE <= bottom) {
-            text(g, font, memoryLabel, x, y, DebugTheme.LABEL, alpha);
-            text(g, font, memoryValue, x + width(font, memoryLabel) + 3, y, DebugTheme.VALUE, alpha);
+            drawRow(g, font, memoryRow, x, y, inner, alpha);
             y += LINE_H;
             int full = Math.max(0, Math.min(inner, inner * memory.percent() / 100));
             g.fill(x, y, x + inner, y + BAR_H, DebugTheme.fade(DebugTheme.TRACK, alpha));

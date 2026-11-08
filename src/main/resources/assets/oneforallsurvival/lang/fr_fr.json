@@ -316,5 +316,11 @@
   "gui.oneforallsurvival.f3.graph.tps": "Temps de tick",
   "gui.oneforallsurvival.f3.graph.stats": "min %s · moy %s · max %s ms",
   "key.oneforallsurvival.f3_detail": "Vue détaillée du F3",
-  "key.categories.oneforallsurvival": "Lost Island"
+  "key.categories.oneforallsurvival": "Lost Island",
+  "gui.oneforallsurvival.f3.label.weather": "Météo",
+  "gui.oneforallsurvival.f3.label.distance": "Distance",
+  "gui.oneforallsurvival.f3.value.clear": "clair",
+  "gui.oneforallsurvival.f3.value.rain": "pluie",
+  "gui.oneforallsurvival.f3.value.thunder": "orage",
+  "gui.oneforallsurvival.f3.unit.blocks": "blocs"
 }

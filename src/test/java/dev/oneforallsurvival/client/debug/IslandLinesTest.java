@@ -114,6 +114,11 @@ class IslandLinesTest {
         for (String[] ligne : vanilla) {
             DebugFormat.row(new Line(ligne[0], ligne[1]), labels, (k, id) -> null);
         }
+        DebugFormat.dayTimeRow(0, labels);
+        DebugFormat.weatherRow(false, false, labels);
+        DebugFormat.weatherRow(true, false, labels);
+        DebugFormat.weatherRow(true, true, labels);
+        DebugFormat.distanceRow(1, labels);
         for (String suffixe : List.of("panel.position", "panel.world", "panel.island", "panel.mods", "panel.detail",
                 "panel.performance", "panel.target", "hint.normal", "hint.page", "label.memory", "label.server", "label.ping",
                 "unit.megabytes", "graph.fps", "graph.tps", "graph.stats")) {
