@@ -127,6 +127,15 @@ minecraft {
             if (project.hasProperty('reloadAfterTitle')) {
                 property 'lostisland.reloadAfterTitle', 'true'
             }
+            // `-PtitleShots=<dossier>` : captures de contrôle de l'écran titre (relatif au dossier du jeu, frames-titre
+            // par défaut), puis fermeture du client ; `-PtitleShotsServer=<hôte:port>` y ajoute la preuve de la
+            // déconnexion d'un serveur. Voir TitleShots (devcontent). Valent aussi pour titleFr (même parent).
+            if (project.hasProperty('titleShots')) {
+                property 'lostisland.titleShots', project.titleShots ?: 'frames-titre'
+            }
+            if (project.hasProperty('titleShotsServer')) {
+                property 'lostisland.titleShots.server', project.titleShotsServer
+            }
             // `-PoverlayFail=first` : la première image de l'overlay du mod échoue, celui de Forge prend la main.
             // `-PprogressTrace` : relevé de l'avancement des ressources une fois par seconde au journal de la scène.
             if (project.hasProperty('overlayFail')) {
