@@ -1,0 +1,85 @@
+{
+  "id": "interface",
+  "title": "Interface",
+  "intro": "L'identité Lost Island RP, de l'ouverture de la fenêtre jusqu'au jeu, en trois chantiers.",
+  "diagrams": [
+    {
+      "title": "Du lancement au menu",
+      "steps": ["Ouverture de la fenêtre", "Récit du crash", "Aube jusqu'au chargement", "Écran titre sans coupure"]
+    },
+    {
+      "title": "Le récit de chargement",
+      "steps": ["Chute de nuit sous la pluie", "Impact", "Feux", "Lever du jour"]
+    }
+  ],
+  "cards": [
+    {
+      "id": "ecran-chargement",
+      "name": "Écran de chargement",
+      "kind": "systeme",
+      "status": "dispo",
+      "lot": "Chantier 1",
+      "image": null,
+      "what": "Scène animée du crash, avec barre et texte suivant le vrai chargement.",
+      "who": {"utilise": "Tous"},
+      "steps": [
+        "Le récit se joue, puis reste sur l'aube.",
+        "La barre ne recule jamais.",
+        "Les messages thématiques montrent l'étape réelle."
+      ],
+      "flow": ["Forge démarre", "Mods", "Textures", "Bienvenue"],
+      "numbers": [
+        {"k": "Durée du récit", "v": "36 s"},
+        {"k": "Jar de service", "v": "57 Mio"}
+      ],
+      "staff": [
+        "fml.toml : earlyWindowProvider = \"lostisland\".",
+        "Ne jamais écrire fml.toml avec un BOM.",
+        "Sans jar ni réglage : écran de Forge, sans plantage.",
+        "Jar absent mais demandé : aucune fenêtre anticipée."
+      ]
+    },
+    {
+      "id": "ecran-titre",
+      "name": "Écran titre",
+      "kind": "systeme",
+      "status": "dispo",
+      "lot": "Chantier 2",
+      "image": null,
+      "what": "Scène de l'aube en boucle, logo et boutons empilés à gauche.",
+      "who": {"utilise": "Tous"},
+      "steps": [
+        "Boutons : Solo, Rejoindre l'île, Options, Quitter.",
+        "Rejoindre l'île connecte directement au serveur.",
+        "Mods, langue, accessibilité : rangée en bas à gauche."
+      ],
+      "flow": ["Rejoindre l'île", "Serveur"],
+      "staff": [
+        "Adresse du serveur : constante du code, pas un réglage.",
+        "Adresse vide : bouton grisé, « Serveur bientôt disponible ».",
+        "Pas de Multijoueur ; Create passe par Mods → Config.",
+        "Connexion refusée : écran d'erreur habituel de Minecraft."
+      ]
+    },
+    {
+      "id": "menu-f3",
+      "name": "Menu F3",
+      "kind": "systeme",
+      "status": "prevu",
+      "lot": "Chantier 3",
+      "image": null,
+      "what": "F3 redessiné en panneaux de verre ambré, rangés par thème.",
+      "who": {"utilise": "Tous"},
+      "steps": [
+        "Panneaux : position, monde, Lost Island, performances, cible, mods.",
+        "Vue détaillée avec F3 + Tab.",
+        "F3 + B, H, T continuent de marcher."
+      ],
+      "staff": [
+        "La règle reducedDebugInfo reste respectée.",
+        "Le texte vient de Minecraft et Forge ; seul le dessin change.",
+        "Pas encore de plan."
+      ]
+    }
+  ]
+}

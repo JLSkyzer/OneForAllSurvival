@@ -1,0 +1,1066 @@
+{
+  "id": "electricite",
+  "title": "Électricité et ingénieur",
+  "intro": "L'Ingénieur fabrique, entretient et répare les machines électriques qui font tourner la ville.",
+  "diagrams": [
+    {
+      "title": "Réparer une machine",
+      "steps": [
+        "Usure",
+        "Panne",
+        "Testeur : quelle pièce ?",
+        "Poste à souder + pièce",
+        "État 100 %"
+      ]
+    },
+    {
+      "title": "Le courant d'un abonné",
+      "steps": [
+        "Arrivée de courant",
+        "Tableau de délestage",
+        "Disjoncteur d'abonné",
+        "Compteur",
+        "Maison de l'abonné"
+      ]
+    },
+    {
+      "title": "Conserver les aliments",
+      "steps": [
+        "Aliment frais",
+        "Armoire frigorifique ou séchoir",
+        "Ration séchée ou salée",
+        "Ne périme plus (salée)"
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "id": "roles",
+      "name": "Rôles et métiers",
+      "kind": "role",
+      "status": "dispo",
+      "lot": "Lot 0",
+      "image": null,
+      "what": "Un métier par joueur, affiché en préfixe coloré devant son pseudo.",
+      "steps": [
+        "Sans métier attribué, on est Citoyen.",
+        "Préfixe visible dans le chat, au-dessus de la tête, au TAB.",
+        "Le maire est un statut ajouté au métier."
+      ],
+      "numbers": [
+        {
+          "k": "Métiers codés",
+          "v": "5"
+        },
+        {
+          "k": "Maire",
+          "v": "1 à la fois"
+        },
+        {
+          "k": "Contournement",
+          "v": "Opérateur niveau 2"
+        }
+      ],
+      "staff": [
+        "Seul l'Ingénieur a des gestes réservés ; les autres métiers sont affichés.",
+        "Le statut de maire n'ouvre encore aucun geste : prévu pour l'économie.",
+        "Préfixes via équipes ofas_<id> : conflit possible avec d'autres plugins d'équipes."
+      ]
+    },
+    {
+      "id": "etabli-ingenieur",
+      "name": "Établi d'ingénieur",
+      "kind": "machine",
+      "status": "dispo",
+      "lot": "Lot 1",
+      "image": {
+        "type": "block",
+        "top": "engineer_bench_wood.png",
+        "side": "engineer_bench_frame.png",
+        "front": "engineer_bench_panel.png"
+      },
+      "what": "Seul endroit où l'on fabrique le matériel d'ingénierie, par file d'attente.",
+      "who": {
+        "fabrique": "Tous",
+        "pose": "Tous",
+        "utilise": "Ingénieur",
+        "casse": "Tous, à la hache"
+      },
+      "steps": [
+        "Choisir un objet et une quantité, puis Crafter.",
+        "Les ingrédients sont prélevés, la fabrication entre en file.",
+        "Retirer les objets finis dans le Stock."
+      ],
+      "flow": [
+        "Inventaire",
+        "File d'attente",
+        "Stock personnel"
+      ],
+      "numbers": [
+        {
+          "k": "Vitesse alimentée",
+          "v": "×4"
+        },
+        {
+          "k": "Énergie",
+          "v": "20 FE/t"
+        },
+        {
+          "k": "Réserve",
+          "v": "1000 FE"
+        },
+        {
+          "k": "File max",
+          "v": "64"
+        }
+      ],
+      "staff": [
+        "Les recettes de table des mods d'ingénierie passent à l'établi, pour tous.",
+        "Config : config/oneforallsurvival-common.toml (managedMods, excludedItems...).",
+        "Surcharges de recettes par datapack : bench_overrides/<nom>.json.",
+        "Retirer réacteurs, PC et CPU avec excludedItems."
+      ]
+    },
+    {
+      "id": "usure-pannes",
+      "num": 1,
+      "name": "Usure et pannes",
+      "kind": "systeme",
+      "status": "dispo",
+      "lot": "Lot 2",
+      "image": null,
+      "what": "Chaque machine du mod s'use en travaillant et finit par tomber en panne.",
+      "who": {
+        "utilise": "Tous",
+        "casse": "Tous"
+      },
+      "steps": [
+        "Sous 50 %, rendement réduit ; sous 20 %, fumée.",
+        "À 0 %, panne : Fusible, Bobinage, Roulement ou Encrassement.",
+        "Casser puis reposer ne répare pas."
+      ],
+      "flow": [
+        "En marche",
+        "Fatiguée",
+        "Elle fume",
+        "En panne"
+      ],
+      "numbers": [
+        {
+          "k": "Durée de vie",
+          "v": "12 h de marche"
+        },
+        {
+          "k": "Rendement < 50 %",
+          "v": "75 %"
+        },
+        {
+          "k": "Usure côtière",
+          "v": "×2"
+        }
+      ],
+      "staff": [
+        "Config : config/oneforallsurvival-machines.toml.",
+        "Seules les machines de ce mod s'usent, pas celles de Create.",
+        "Les flammes de panne sont visuelles : aucun feu posé.",
+        "Équilibrage en jeu pas encore fait."
+      ]
+    },
+    {
+      "id": "trousse-diagnostic",
+      "num": 2,
+      "name": "Trousse de diagnostic",
+      "kind": "objet",
+      "status": "dispo",
+      "lot": "Lot 2",
+      "image": {
+        "type": "item",
+        "file": "welder.png"
+      },
+      "items": [
+        {
+          "name": "Testeur",
+          "file": "tester.png"
+        },
+        {
+          "name": "Poste à souder",
+          "file": "welder.png"
+        },
+        {
+          "name": "Fusible de rechange",
+          "file": "fuse.png"
+        },
+        {
+          "name": "Bobinage de rechange",
+          "file": "coil.png"
+        },
+        {
+          "name": "Roulement de rechange",
+          "file": "bearing.png"
+        },
+        {
+          "name": "Kit de nettoyage",
+          "file": "cleaning_kit.png"
+        }
+      ],
+      "what": "Le testeur diagnostique la panne, le poste à souder répare avec la pièce.",
+      "who": {
+        "fabrique": "Ingénieur",
+        "utilise": "Tous ; réparer : Ingénieur"
+      },
+      "steps": [
+        "Clic droit au testeur : état, panne, pièce à prévoir.",
+        "Poste accroupi sur une machine : il se recharge.",
+        "Debout, pièce dans l'autre main : réparation à 100 %."
+      ],
+      "numbers": [
+        {
+          "k": "Batterie du poste",
+          "v": "2000 FE"
+        },
+        {
+          "k": "Coût réparation",
+          "v": "400 FE + 1 pièce"
+        }
+      ],
+      "staff": [
+        "Mauvaise pièce : rien n'est consommé.",
+        "Le fusible 16 A d'Advanced Electricity est accepté.",
+        "En créatif, la pièce n'est pas consommée."
+      ]
+    },
+    {
+      "id": "bain-galvanique",
+      "num": 3,
+      "name": "Bain galvanique",
+      "kind": "machine",
+      "status": "dispo",
+      "lot": "Lot 2",
+      "image": {
+        "type": "block",
+        "top": "galvanic_bath_liquid_running.png",
+        "side": "galvanic_bath_tub.png",
+        "front": "galvanic_bath_anode.png"
+      },
+      "items": [
+        {
+          "name": "Fusible traité",
+          "file": "treated_fuse.png"
+        },
+        {
+          "name": "Bobinage traité",
+          "file": "treated_coil.png"
+        },
+        {
+          "name": "Roulement traité",
+          "file": "treated_bearing.png"
+        },
+        {
+          "name": "Kit de nettoyage traité",
+          "file": "treated_cleaning_kit.png"
+        }
+      ],
+      "what": "Traite les pièces au zinc ; elles protègent la machine de la corrosion marine.",
+      "who": {
+        "fabrique": "Ingénieur",
+        "pose": "Tous",
+        "utilise": "Tous",
+        "casse": "Tous, à la pioche"
+      },
+      "steps": [
+        "Pièce par le dessus, zinc par les côtés.",
+        "Sortie par le dessous, après 10 s.",
+        "Réparer avec une pièce traitée : machine protégée."
+      ],
+      "flow": [
+        "Pièce + zinc",
+        "Bain galvanique",
+        "Pièce traitée",
+        "Machine protégée"
+      ],
+      "numbers": [
+        {
+          "k": "Durée",
+          "v": "10 s"
+        },
+        {
+          "k": "Énergie",
+          "v": "20 FE/t"
+        },
+        {
+          "k": "Zinc",
+          "v": "1 lingot"
+        }
+      ],
+      "staff": [
+        "Côtier : source d'eau à Y 63 dans un rayon de 16.",
+        "Une zone déclarée fait ignorer la détection dans toute la dimension.",
+        "Résultat de détection en cache 5 minutes."
+      ]
+    },
+    {
+      "id": "epave",
+      "num": 4,
+      "name": "Récupération sur l'épave",
+      "kind": "bloc",
+      "status": "dispo",
+      "lot": "Lot 2",
+      "image": {
+        "type": "block",
+        "top": "debris_fuselage.png",
+        "side": "debris_fuselage.png",
+        "front": "debris_fuselage.png"
+      },
+      "items": [
+        {
+          "name": "Ferraille",
+          "file": "scrap_metal.png"
+        },
+        {
+          "name": "Fil d'aviation",
+          "file": "aviation_wire.png"
+        },
+        {
+          "name": "Noyau d'instrument",
+          "file": "instrument_core.png"
+        },
+        {
+          "name": "Cellule de batterie",
+          "file": "battery_cell.png"
+        }
+      ],
+      "what": "Débris d'avion à démonter pour récupérer des matériaux ; stock limité.",
+      "who": {
+        "pose": "Staff",
+        "casse": "Tous, pioche ou clé"
+      },
+      "steps": [
+        "Démonter avec une pioche ou la clé de Create.",
+        "Le bloc disparaît, le butin est tiré au hasard.",
+        "Pièces rares refabricables par assemblage séquencé Create."
+      ],
+      "numbers": [
+        {
+          "k": "Types de débris",
+          "v": "5"
+        },
+        {
+          "k": "Noyau d'instrument",
+          "v": "35 %"
+        },
+        {
+          "k": "Cellule de batterie",
+          "v": "50 %"
+        }
+      ],
+      "staff": [
+        "Aucune recette ni génération : les débris se posent à la main.",
+        "Résistent aux explosions, pistons, dragon et Wither.",
+        "Butin : loot_tables/blocks/debris_*.json, surchargeable par datapack."
+      ]
+    },
+    {
+      "id": "debris-cablage",
+      "num": 4,
+      "name": "Débris de câblage",
+      "kind": "bloc",
+      "status": "dispo",
+      "lot": "Lot 2",
+      "image": {
+        "type": "block",
+        "top": "debris_wiring.png",
+        "side": "debris_wiring.png",
+        "front": "debris_wiring.png"
+      },
+      "items": [
+        {
+          "name": "Fil d'aviation",
+          "file": "aviation_wire.png"
+        }
+      ],
+      "what": "Débris d'épave qui donne du fil d'aviation et un peu de cuivre.",
+      "who": {
+        "pose": "Staff",
+        "casse": "Tous, pioche ou clé"
+      },
+      "numbers": [
+        {
+          "k": "Fil d'aviation",
+          "v": "2 à 4"
+        }
+      ]
+    },
+    {
+      "id": "debris-instruments",
+      "num": 4,
+      "name": "Débris d'instruments",
+      "kind": "bloc",
+      "status": "dispo",
+      "lot": "Lot 2",
+      "image": {
+        "type": "block",
+        "top": "debris_instruments.png",
+        "side": "debris_instruments.png",
+        "front": "debris_instruments.png"
+      },
+      "items": [
+        {
+          "name": "Noyau d'instrument",
+          "file": "instrument_core.png"
+        }
+      ],
+      "what": "Débris d'épave qui peut donner un noyau d'instrument.",
+      "who": {
+        "pose": "Staff",
+        "casse": "Tous, pioche ou clé"
+      },
+      "numbers": [
+        {
+          "k": "Noyau d'instrument",
+          "v": "35 %"
+        }
+      ]
+    },
+    {
+      "id": "debris-batterie",
+      "num": 4,
+      "name": "Débris de batterie",
+      "kind": "bloc",
+      "status": "dispo",
+      "lot": "Lot 2",
+      "image": {
+        "type": "block",
+        "top": "debris_battery.png",
+        "side": "debris_battery.png",
+        "front": "debris_battery.png"
+      },
+      "items": [
+        {
+          "name": "Cellule de batterie",
+          "file": "battery_cell.png"
+        }
+      ],
+      "what": "Débris d'épave qui peut donner une cellule de batterie.",
+      "who": {
+        "pose": "Staff",
+        "casse": "Tous, pioche ou clé"
+      },
+      "numbers": [
+        {
+          "k": "Cellule de batterie",
+          "v": "50 %"
+        }
+      ]
+    },
+    {
+      "id": "debris-cabine",
+      "num": 4,
+      "name": "Débris de cabine",
+      "kind": "bloc",
+      "status": "dispo",
+      "lot": "Lot 2",
+      "image": {
+        "type": "block",
+        "top": "debris_cabin.png",
+        "side": "debris_cabin.png",
+        "front": "debris_cabin.png"
+      },
+      "what": "Débris d'épave qui donne cuir, laine et ficelle.",
+      "who": {
+        "pose": "Staff",
+        "casse": "Tous, pioche ou clé"
+      }
+    },
+    {
+      "id": "delestage",
+      "num": 7,
+      "name": "Tableau de délestage",
+      "kind": "machine",
+      "status": "dispo",
+      "lot": "Lot 4",
+      "image": {
+        "type": "block",
+        "top": "load_shedder_output.png",
+        "side": "load_shedder_input.png",
+        "front": "load_shedder_front_running.png"
+      },
+      "what": "Répartit le courant entre quatre sorties ; coupe les dernières en cas de manque.",
+      "who": {
+        "fabrique": "Ingénieur",
+        "pose": "Tous",
+        "utilise": "Tous",
+        "casse": "Tous, à la pioche"
+      },
+      "steps": [
+        "Poser dos au mur : l'entrée est derrière.",
+        "Sorties : devant, gauche, droite, dessus.",
+        "Clic droit : Monter ou Descendre les priorités."
+      ],
+      "flow": [
+        "Entrée arrière",
+        "Tableau",
+        "Sortie 1 servie d'abord"
+      ],
+      "numbers": [
+        {
+          "k": "Sorties",
+          "v": "4"
+        },
+        {
+          "k": "Débit max",
+          "v": "4096 FE/t"
+        },
+        {
+          "k": "Réserve",
+          "v": "aucune"
+        }
+      ],
+      "staff": [
+        "Les rangs sont perdus quand on casse le tableau.",
+        "Testé avec Crafts & Additions seulement.",
+        "Config : serverconfig/oneforallsurvival-grid.toml (shedderMaxPerTick)."
+      ]
+    },
+    {
+      "id": "compteur",
+      "num": 8,
+      "name": "Compteur",
+      "kind": "bloc",
+      "status": "dispo",
+      "lot": "Lot 4",
+      "image": {
+        "type": "block",
+        "top": "meter_top.png",
+        "side": "meter_side.png",
+        "front": "meter_front.png"
+      },
+      "items": [
+        {
+          "name": "Relevé de compteur",
+          "file": "meter_reading.png"
+        }
+      ],
+      "what": "Totalise les FE d'un abonné ; l'Ingénieur le relève au testeur.",
+      "who": {
+        "fabrique": "Ingénieur",
+        "pose": "Tous",
+        "utilise": "Ingénieur (inscription, relevé)",
+        "casse": "Tous, à la pioche"
+      },
+      "steps": [
+        "Poser sur le câble, sortie devant vous.",
+        "Ingénieur, main vide : inscrire le nom de l'abonné.",
+        "Ingénieur, testeur : obtenir un Relevé de compteur."
+      ],
+      "numbers": [
+        {
+          "k": "Débit max",
+          "v": "4096 FE/t"
+        },
+        {
+          "k": "Usure",
+          "v": "aucune"
+        }
+      ],
+      "staff": [
+        "Anomalies au relevé : dépose, remplacement, index en baisse, scellé brisé.",
+        "Aucune monnaie dans le mod : le paiement se fait en RP.",
+        "Facturation automatique prévue avec l'économie (lot E6)."
+      ]
+    },
+    {
+      "id": "disjoncteur",
+      "num": 8,
+      "name": "Disjoncteur d'abonné",
+      "kind": "bloc",
+      "status": "dispo",
+      "lot": "Lot 4",
+      "image": {
+        "type": "block",
+        "top": "breaker_top.png",
+        "side": "breaker_side.png",
+        "front": "breaker_front_closed.png"
+      },
+      "items": [
+        {
+          "name": "Scellé",
+          "file": "seal.png"
+        }
+      ],
+      "what": "Coupe la ligne d'un abonné ; un scellé empêche de la rallumer.",
+      "who": {
+        "fabrique": "Ingénieur",
+        "pose": "Tous",
+        "utilise": "Tous si non scellé",
+        "casse": "Tous, à la pioche"
+      },
+      "steps": [
+        "Clic droit main vide : enclenché ou coupé.",
+        "Ingénieur accroupi : inscrire l'abonné ou retirer le scellé.",
+        "Ingénieur, Scellé en main : sceller un disjoncteur coupé."
+      ],
+      "flow": [
+        "Inscrit",
+        "Coupé",
+        "Scellé"
+      ],
+      "numbers": [
+        {
+          "k": "Débit max",
+          "v": "4096 FE/t"
+        },
+        {
+          "k": "Usure",
+          "v": "aucune"
+        }
+      ],
+      "staff": [
+        "Casser un disjoncteur scellé reste possible ; « scellé brisé » apparaît au relevé.",
+        "Le Policier prend le relais en RP."
+      ]
+    },
+    {
+      "id": "parafoudre",
+      "num": 5,
+      "name": "Parafoudre",
+      "kind": "machine",
+      "status": "dispo",
+      "lot": "Lot 4",
+      "image": {
+        "type": "block",
+        "top": "surge_arrester_end.png",
+        "side": "surge_arrester_side.png",
+        "front": "surge_arrester_side.png"
+      },
+      "what": "Protège les machines proches de la foudre, mais s'use à chaque éclair.",
+      "who": {
+        "fabrique": "Ingénieur",
+        "pose": "Tous",
+        "casse": "Tous, à la pioche"
+      },
+      "steps": [
+        "Poser près des machines, sans câble ni courant.",
+        "Chaque éclair encaissé lui retire 10 points.",
+        "À 0, il ne protège plus : le réparer."
+      ],
+      "flow": [
+        "Éclair",
+        "Parafoudre",
+        "Machines épargnées"
+      ],
+      "numbers": [
+        {
+          "k": "Protection",
+          "v": "24 blocs"
+        },
+        {
+          "k": "Rayon de la foudre",
+          "v": "16 blocs"
+        },
+        {
+          "k": "Risque de fusible",
+          "v": "25 %"
+        },
+        {
+          "k": "Dégât sinon",
+          "v": "25 points"
+        }
+      ],
+      "staff": [
+        "N'attire pas la foudre : le paratonnerre vanilla garde ce rôle.",
+        "Un éclair /summon compte ; foudre d'un vrai orage non prouvée.",
+        "Config : oneforallsurvival-grid.toml (lightning*, arrester*)."
+      ]
+    },
+    {
+      "id": "station-meteo",
+      "num": 6,
+      "name": "Station météo",
+      "kind": "machine",
+      "status": "dispo",
+      "lot": "Lot 4",
+      "image": {
+        "type": "block",
+        "top": "weather_station_top.png",
+        "side": "weather_station_side.png",
+        "front": "weather_station_front_storm_soon.png"
+      },
+      "what": "Annonce le temps à venir et émet un signal redstone avant l'orage.",
+      "who": {
+        "fabrique": "Ingénieur",
+        "pose": "Tous",
+        "casse": "Tous, à la pioche"
+      },
+      "steps": [
+        "Lire la face : soleil, nuage ou éclair.",
+        "Orage annoncé : redstone 15 sur toutes les faces.",
+        "Sans courant ou en panne : face éteinte."
+      ],
+      "numbers": [
+        {
+          "k": "Avance",
+          "v": "≈ 5 min"
+        },
+        {
+          "k": "Énergie",
+          "v": "2 FE/t"
+        },
+        {
+          "k": "Signal",
+          "v": "15"
+        }
+      ],
+      "staff": [
+        "Nether et End toujours « stable ».",
+        "Config : oneforallsurvival-grid.toml (weatherHorizon, weatherJitter, weatherEnergy).",
+        "Fonctionnement sur un vrai cycle météo non prouvé."
+      ]
+    },
+    {
+      "id": "dessalinisateur",
+      "num": 9,
+      "name": "Dessalinisateur",
+      "kind": "machine",
+      "status": "dispo",
+      "lot": "Lot 3",
+      "image": {
+        "type": "block",
+        "top": "desalinator_top.png",
+        "side": "desalinator_side.png",
+        "front": "desalinator_front_running.png"
+      },
+      "items": [
+        {
+          "name": "Sel",
+          "file": "salt.png"
+        },
+        {
+          "name": "Bouteille d'eau potable",
+          "file": "potable_water_bottle.png"
+        }
+      ],
+      "what": "Transforme l'eau de mer en eau potable et en sel.",
+      "who": {
+        "fabrique": "Ingénieur",
+        "pose": "Tous",
+        "utilise": "Tous",
+        "casse": "Tous, à la pioche"
+      },
+      "steps": [
+        "En bord de mer, il se remplit seul.",
+        "Ailleurs, l'alimenter en eau par tuyau.",
+        "Bouteille vide dans sa case : bouteille d'eau potable."
+      ],
+      "flow": [
+        "Eau de mer",
+        "Dessalinisateur",
+        "Eau potable + sel"
+      ],
+      "numbers": [
+        {
+          "k": "Énergie",
+          "v": "40 FE/t"
+        },
+        {
+          "k": "Cycle",
+          "v": "250 → 200 mB"
+        },
+        {
+          "k": "Sel",
+          "v": "1 tous les 4 cycles"
+        },
+        {
+          "k": "Cuves",
+          "v": "2 × 8000 mB"
+        }
+      ],
+      "staff": [
+        "Casser la machine perd le contenu des cuves.",
+        "Config : serverconfig/oneforallsurvival-food.toml.",
+        "Pas de soif sur le serveur : l'eau potable est un ingrédient."
+      ]
+    },
+    {
+      "id": "armoire-frigorifique",
+      "num": 10,
+      "name": "Armoire frigorifique",
+      "kind": "machine",
+      "status": "dispo",
+      "lot": "Lot 3",
+      "image": {
+        "type": "block",
+        "top": "fridge_top.png",
+        "side": "fridge_side.png",
+        "front": "fridge_front_running.png"
+      },
+      "items": [
+        {
+          "name": "Déchet d'aliment avarié",
+          "file": "spoiled_food.png"
+        }
+      ],
+      "what": "Ralentit la péremption des viandes, poissons et plats tant qu'elle est alimentée.",
+      "who": {
+        "fabrique": "Ingénieur",
+        "pose": "Tous",
+        "utilise": "Tous",
+        "casse": "Tous, à la pioche"
+      },
+      "steps": [
+        "Ranger les aliments périssables dans ses 27 cases.",
+        "Sans courant, la péremption reprend sa vitesse normale.",
+        "Aliment avarié : déchet compostable."
+      ],
+      "flow": [
+        "Frais",
+        "Rassis",
+        "Avarié"
+      ],
+      "numbers": [
+        {
+          "k": "Conservation",
+          "v": "×4"
+        },
+        {
+          "k": "Énergie",
+          "v": "4 FE/t"
+        },
+        {
+          "k": "Frais puis rassis",
+          "v": "6 h + 6 h"
+        },
+        {
+          "k": "Cases",
+          "v": "27"
+        }
+      ],
+      "staff": [
+        "Durées en temps serveur allumé.",
+        "Listes par tags : perishable, slow_perishable, non_perishable.",
+        "Config : oneforallsurvival-food.toml (freshHours, staleHours, fridgeFactor)."
+      ]
+    },
+    {
+      "id": "sechoir",
+      "num": 11,
+      "name": "Séchoir électrique",
+      "kind": "machine",
+      "status": "dispo",
+      "lot": "Lot 3",
+      "image": {
+        "type": "block",
+        "top": "dryer_top.png",
+        "side": "dryer_side.png",
+        "front": "dryer_front_running.png"
+      },
+      "items": [
+        {
+          "name": "Viande séchée",
+          "file": "dried_meat.png"
+        },
+        {
+          "name": "Poisson séché",
+          "file": "dried_fish.png"
+        },
+        {
+          "name": "Fruit séché",
+          "file": "dried_fruit.png"
+        },
+        {
+          "name": "Viande salée",
+          "file": "salted_meat.png"
+        },
+        {
+          "name": "Poisson salé",
+          "file": "salted_fish.png"
+        },
+        {
+          "name": "Fruit salé",
+          "file": "salted_fruit.png"
+        }
+      ],
+      "what": "Change viande, poisson et fruits en rations qui se conservent.",
+      "who": {
+        "fabrique": "Ingénieur",
+        "pose": "Tous",
+        "utilise": "Tous",
+        "casse": "Tous, à la pioche"
+      },
+      "steps": [
+        "Aliment par le dessus, sel par les côtés.",
+        "Attendre 60 s, sortie par le dessous.",
+        "Sans sel : séchée ; avec sel : salée."
+      ],
+      "flow": [
+        "Aliment (+ sel)",
+        "Séchoir",
+        "Ration séchée ou salée"
+      ],
+      "numbers": [
+        {
+          "k": "Durée",
+          "v": "60 s"
+        },
+        {
+          "k": "Énergie",
+          "v": "20 FE/t"
+        },
+        {
+          "k": "Séchée",
+          "v": "périme 8× moins vite"
+        },
+        {
+          "k": "Salée",
+          "v": "ne périme jamais"
+        }
+      ],
+      "staff": [
+        "Recettes oneforallsurvival:drying, modifiables par datapack.",
+        "Fruits acceptés via le tag dryable_fruits.",
+        "Un aliment avarié est refusé."
+      ]
+    },
+    {
+      "id": "commandes-staff",
+      "name": "Commandes staff",
+      "kind": "commande",
+      "status": "dispo",
+      "lot": "Lot 0",
+      "image": null,
+      "what": "Commandes livrées pour les métiers, le maire et la détection côtière.",
+      "who": {
+        "utilise": "Opérateur niveau 2"
+      },
+      "staff": [
+        "/role list",
+        "/role get [joueur]",
+        "/role set <joueur> <id>",
+        "/role create <id> <couleur> <libellé...>",
+        "/role edit <id> <couleur> <libellé...>",
+        "/role delete <id>",
+        "/role mayor [set <joueur> | remove]",
+        "/coast zone add <id> <from> <to>",
+        "/coast zone remove <id>",
+        "/coast zone list",
+        "/coast check [pos]"
+      ]
+    },
+    {
+      "id": "bien-etre",
+      "name": "Effet Bien-être",
+      "kind": "systeme",
+      "status": "prevu",
+      "lot": "Lot 6",
+      "image": null,
+      "what": "Léger bonus d'activité, sans soin, donné par la douche chaude et le cinéma."
+    },
+    {
+      "id": "couveuse",
+      "num": 12,
+      "name": "Couveuse",
+      "kind": "machine",
+      "status": "prevu",
+      "lot": "Lot 5",
+      "image": null,
+      "what": "Fait éclore à coup sûr jusqu'à 4 œufs ; une coupure peut perdre la couvée.",
+      "who": {
+        "fabrique": "Ingénieur",
+        "utilise": "Tous"
+      }
+    },
+    {
+      "id": "cuisine-cantine",
+      "num": 13,
+      "name": "Cuisine de cantine",
+      "kind": "machine",
+      "status": "prevu",
+      "lot": "Lot 5",
+      "image": null,
+      "what": "Marmite électrique pour Farmer's Delight en grande quantité, et plaque électrique."
+    },
+    {
+      "id": "cloture-electrique",
+      "num": 16,
+      "name": "Clôture électrique",
+      "kind": "machine",
+      "status": "prevu",
+      "lot": "Lot 5",
+      "image": null,
+      "what": "Un électrificateur alimente 64 blocs de clôture qui repoussent et blessent les mobs."
+    },
+    {
+      "id": "phare-projecteurs",
+      "num": 17,
+      "name": "Phare et projecteurs",
+      "kind": "machine",
+      "status": "prevu",
+      "lot": "Lot 6",
+      "image": null,
+      "what": "Faisceau tournant, symbole de la ville, et projecteur orientable."
+    },
+    {
+      "id": "detecteur-metaux",
+      "num": 21,
+      "name": "Détecteur de métaux",
+      "kind": "objet",
+      "status": "prevu",
+      "lot": "Lot 7",
+      "image": null,
+      "what": "Objet à batterie qui bipe plus vite près d'une cache enfouie par le staff."
+    },
+    {
+      "id": "lampe-frontale",
+      "num": 22,
+      "name": "Lampe frontale rechargeable",
+      "kind": "objet",
+      "status": "prevu",
+      "lot": "Lot 7",
+      "image": null,
+      "what": "Portée à la place du casque, elle éclaire tant que sa batterie tient."
+    },
+    {
+      "id": "recepteur-signaux",
+      "num": 23,
+      "name": "Récepteur de signaux",
+      "kind": "machine",
+      "status": "prevu",
+      "lot": "Lot 7",
+      "image": null,
+      "what": "Bloc alimenté réglé sur une fréquence ; affiche les messages envoyés par le staff."
+    },
+    {
+      "id": "mecanismes-ruines",
+      "num": 24,
+      "name": "Mécanismes des ruines",
+      "kind": "bloc",
+      "status": "prevu",
+      "lot": "Lot 7",
+      "image": null,
+      "what": "Bloc ancien qui exige du courant un temps donné, puis émet un signal.",
+      "who": {
+        "pose": "Staff",
+        "casse": "Personne en survie"
+      }
+    },
+    {
+      "id": "chauffe-eau-douche",
+      "num": 25,
+      "name": "Chauffe-eau et douche",
+      "kind": "machine",
+      "status": "prevu",
+      "lot": "Lot 6",
+      "image": null,
+      "what": "Chauffe l'eau potable au courant ; quelques secondes de douche donnent Bien-être."
+    },
+    {
+      "id": "salle-projection",
+      "num": 26,
+      "name": "Salle de projection",
+      "kind": "machine",
+      "status": "prevu",
+      "lot": "Lot 6",
+      "image": null,
+      "what": "Projecteur à bobines et écran multi-bloc ; une séance complète donne Bien-être."
+    }
+  ]
+}

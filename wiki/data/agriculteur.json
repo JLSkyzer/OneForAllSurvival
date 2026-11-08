@@ -1,0 +1,229 @@
+{
+  "id": "agriculteur",
+  "title": "Agriculteur",
+  "intro": "L'agriculteur reçoit des outils, un savoir-faire de conservation et une place dans les échanges, sans priver personne de son potager.",
+  "diagrams": [
+    {
+      "title": "Du champ au grenier",
+      "steps": ["Semer", "Faucille ou faux", "Récolte replantée", "Grenier communal", "Registre"]
+    },
+    {
+      "title": "De la viande à la ration fumée",
+      "steps": ["Viande ou poisson", "Fumoir à bois + bois", "Aliment fumé", "+ sel : ne périme plus"]
+    },
+    {
+      "title": "Du lait au fromage",
+      "steps": ["Lait + sel", "Tonneau : caillé", "Presse : meule", "Cave sombre : affinage", "Portions au couteau"]
+    }
+  ],
+  "cards": [
+    {
+      "id": "metier-agriculteur",
+      "name": "Le métier",
+      "kind": "role",
+      "status": "prevu",
+      "lot": "Lot A",
+      "image": null,
+      "what": "Le rôle existant gagne des outils, la conservation et une place dans les échanges.",
+      "who": {"utilise": "Agriculteur"},
+      "steps": [
+        "Réservé : faux, fermentation, affinage, état d'un animal, droits du grenier.",
+        "Ouvert à tous : faucille, semer, récolter, nourrir, déposer au grenier.",
+        "Ouvert à tous : fumoir, serre, retirer et manger les produits finis."
+      ],
+      "numbers": [
+        {"k": "Bonus de métier", "v": "chance de récolte en plus (faucille, faux)"}
+      ],
+      "staff": [
+        "Seul bonus chiffré du métier : la récolte en plus.",
+        "Aucun mod ajouté : Farmer's Delight et Create suffisent."
+      ]
+    },
+    {
+      "id": "etabli-agriculteur",
+      "name": "Établi d'agriculteur",
+      "kind": "bloc",
+      "status": "prevu",
+      "lot": "Lot A",
+      "image": null,
+      "what": "L'établi du métier, calqué sur l'établi d'ingénieur, habillé en grange.",
+      "who": {"fabrique": "Table de craft", "pose": "Agriculteur", "utilise": "Agriculteur"},
+      "steps": [
+        "Choisir une recette : les ingrédients sont prélevés tout de suite.",
+        "La fabrication part en file ; annuler rend tout.",
+        "Les autres achètent ou reçoivent ce qu'il fabrique."
+      ],
+      "flow": ["Ingrédients", "File d'attente", "Stock de l'agriculteur", "Vente"],
+      "numbers": [
+        {"k": "Stock", "v": "illimité"},
+        {"k": "Vitesse", "v": "lente à la main, rapide sous courant"}
+      ],
+      "staff": [
+        "Recettes de table retirées : objets agriculteur et tout Farmer's Delight.",
+        "Piège : couteaux, marmite, planche, sandwichs réservés ; rendables via tableAllowedItems.",
+        "Fours, cuissons et machines de Create restent hors de la règle.",
+        "Marmite et planche restent utilisables par tous une fois achetées."
+      ]
+    },
+    {
+      "id": "faucille-et-faux",
+      "num": 27,
+      "name": "Faucille et faux",
+      "kind": "objet",
+      "status": "prevu",
+      "lot": "Lot A",
+      "image": null,
+      "what": "Récoltent et replantent d'un coup les cultures mûres d'une zone.",
+      "who": {"fabrique": "Établi d'agriculteur", "utilise": "Faucille : tous"},
+      "steps": [
+        "Frapper une culture : les cultures mûres de la zone sont récoltées.",
+        "Les cultures pas mûres sont ignorées, jamais cassées.",
+        "Chaque case est replantée avec une graine de la récolte."
+      ],
+      "numbers": [
+        {"k": "Faucille", "v": "3 × 3"},
+        {"k": "Faux (agriculteur)", "v": "5 × 5, plus lente, plus solide"},
+        {"k": "Fortune", "v": "s'applique"}
+      ],
+      "staff": [
+        "Pris en charge : CropBlock et le tag sickle_harvestable.",
+        "À vérifier : riz de Farmer's Delight, baies, cacao, verrues du Nether.",
+        "Déployeur de Create : agit comme un citoyen ; faux joueur à vérifier."
+      ]
+    },
+    {
+      "id": "mangeoires",
+      "num": 28,
+      "name": "Mangeoires et bien-être animal",
+      "kind": "bloc",
+      "status": "prevu",
+      "lot": "Lot B",
+      "image": null,
+      "what": "Animaux rassasiés, normaux ou affamés ; un affamé ne produit plus, sans mourir.",
+      "who": {"fabrique": "Établi d'agriculteur", "utilise": "Tous (remplissage)"},
+      "steps": [
+        "Remplir la mangeoire : à la main, par trémie ou entonnoir.",
+        "Donner de l'eau : source, chaudron ou abreuvoir à portée.",
+        "Affamé : ni reproduction, ni ponte, ni laine, ni traite."
+      ],
+      "flow": ["Mangeoire pleine", "Animal mange seul", "Rassasié", "Produit plus"],
+      "numbers": [
+        {"k": "Rayon", "v": "8 blocs"},
+        {"k": "Espace max", "v": "12 animaux"}
+      ],
+      "staff": [
+        "Animaux configurables : poule, vache, mouton, cochon, chèvre, lapin.",
+        "La faim se fige en zone déchargée.",
+        "Une mangeoire pleine tient plusieurs sessions RP.",
+        "Seul l'agriculteur lit l'état exact d'un animal."
+      ]
+    },
+    {
+      "id": "fermentation-affinage",
+      "num": 29,
+      "name": "Fermentation et affinage",
+      "kind": "bloc",
+      "status": "prevu",
+      "lot": "Lot C",
+      "image": null,
+      "what": "Le tonneau fermente, la presse fait des meules qui s'affinent en cave.",
+      "who": {"fabrique": "Établi d'agriculteur", "utilise": "Agriculteur (lancer)"},
+      "steps": [
+        "Remplir et fermer le tonneau ; l'ouvrir annule et rend tout.",
+        "Vin de baies, vinaigre, choucroute, saumure ou caillé selon la recette.",
+        "La meule posée vieillit, puis se découpe au couteau."
+      ],
+      "flow": ["Lait + sel", "Tonneau : caillé", "Presse : meule", "Cave : affinage"],
+      "numbers": [
+        {"k": "Cave", "v": "lumière ≤ 7"},
+        {"k": "Affinage en cave", "v": "× 2"},
+        {"k": "Stades de la meule", "v": "jeune, affinée, vieille"}
+      ],
+      "staff": [
+        "Recettes en JSON, avec un type dédié.",
+        "Seuil de lumière réglable.",
+        "Produits rattachés aux tags de péremption du lot 3.",
+        "Un vin oublié dans le tonneau devient du vinaigre."
+      ]
+    },
+    {
+      "id": "fumoir-a-bois",
+      "num": 30,
+      "name": "Fumoir à bois",
+      "kind": "bloc",
+      "status": "prevu",
+      "lot": "Lot B",
+      "image": null,
+      "what": "Brûle du bois pour fumer viande et poisson, qui se conservent.",
+      "who": {"fabrique": "Établi d'agriculteur", "utilise": "Tous"},
+      "steps": [
+        "Mettre du bois et jusqu'à quatre viandes ou poissons.",
+        "Après plusieurs minutes : aliments fumés, à péremption lente.",
+        "Avec du sel : fumé-salé, qui ne périme plus."
+      ],
+      "flow": ["Viande ou poisson", "Fumoir + bois", "Fumé", "Fumé-salé"],
+      "numbers": [
+        {"k": "Capacité", "v": "4 viandes ou poissons"},
+        {"k": "Combustible", "v": "bûches, planches"}
+      ],
+      "staff": [
+        "Combustible et durée réglables.",
+        "Nom en jeu à distinguer du fumoir vanilla.",
+        "Marche sans électricité, contrairement au séchoir."
+      ]
+    },
+    {
+      "id": "serre-bricolee",
+      "num": 31,
+      "name": "Serre bricolée",
+      "kind": "machine",
+      "status": "prevu",
+      "lot": "Lot D",
+      "image": null,
+      "what": "Un contrôleur électrique double la croissance dans un volume clos de verre.",
+      "who": {"fabrique": "Établi d'ingénieur", "utilise": "Tous (planter)"},
+      "steps": [
+        "Clore un volume de verre ou de vitres.",
+        "Poser le contrôleur : il signale l'ouverture s'il y en a une.",
+        "Sans courant : croissance normale, rien ne meurt."
+      ],
+      "numbers": [
+        {"k": "Volume max", "v": "≈ 16 × 16 × 8"},
+        {"k": "Croissance", "v": "× 2"}
+      ],
+      "staff": [
+        "Machine du socle commun : FE, quatre états, usure, pannes.",
+        "Volume et multiplicateur réglables ; tag greenhouse_only vide au départ.",
+        "Cultures en cache, croissances par tick plafonnées.",
+        "Eau potable par tuyau de Create : terres gardées humides."
+      ]
+    },
+    {
+      "id": "grenier-communal",
+      "num": 32,
+      "name": "Grenier communal",
+      "kind": "bloc",
+      "status": "prevu",
+      "lot": "Lot A",
+      "image": null,
+      "what": "Stock de vivres partagé ; chaque mouvement est inscrit dans un registre.",
+      "who": {"fabrique": "Établi d'agriculteur", "utilise": "Tous (dépôt)", "casse": "Seulement une fois vide"},
+      "steps": [
+        "Tout le monde dépose des produits agricoles ou alimentaires.",
+        "Retirer : seulement si l'agriculteur autorise votre rôle.",
+        "Registre en onglet ; relevé du grenier en objet."
+      ],
+      "flow": ["Dépôt", "Registre", "Retrait autorisé"],
+      "numbers": [
+        {"k": "Capacité", "v": "108 cases"},
+        {"k": "Registre", "v": "500 lignes max"}
+      ],
+      "staff": [
+        "Tag des objets acceptés et capacité configurables.",
+        "Entrées automatiques notées ; sorties automatiques refusées.",
+        "Droits par rôle, pas par joueur ; contournement staff.",
+        "Rachat des dépôts : relève du cahier de l'économie."
+      ]
+    }
+  ]
+}

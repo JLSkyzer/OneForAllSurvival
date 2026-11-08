@@ -1,0 +1,460 @@
+{
+  "id": "economie",
+  "title": "Économie",
+  "intro": "Une monnaie en pièces, sans banque : l'argent naît de quatre sources et circule de main à main.",
+  "diagrams": [
+    {
+      "title": "D'où vient l'argent",
+      "steps": ["Butin des mobs", "Quêtes", "Somme de départ", "Injection de l'équipe", "Inventaire du joueur"]
+    },
+    {
+      "title": "Où va l'argent",
+      "steps": ["Inventaire ou coffre-fort", "Prélèvement de minuit", "Trésor, poste ou antenne", "Salaires publics", "Coffre-fort du joueur"]
+    },
+    {
+      "title": "Ordre du prélèvement",
+      "steps": ["Inventaire et bourse", "Coffre-fort", "Refusé : facture due", "Représentée chaque minuit"]
+    }
+  ],
+  "cards": [
+    {
+      "id": "pieces",
+      "name": "Les pièces",
+      "kind": "objet",
+      "status": "prevu",
+      "lot": "Lot E1",
+      "image": null,
+      "what": "Cinq coupures, du cuivre au rubis ; dix pièces valent la suivante.",
+      "who": {"fabrique": "Personne", "utilise": "Tous"},
+      "steps": [
+        "Changer à la table de craft ou au changeur.",
+        "L'infobulle donne la valeur, ou le total d'une pile.",
+        "Pas perdues à la mort : keepInventory actif."
+      ],
+      "numbers": [
+        {"k": "Cuivre", "v": "1 cuivre"},
+        {"k": "Argent", "v": "10 cuivres"},
+        {"k": "Or", "v": "100 cuivres"},
+        {"k": "Émeraude", "v": "1 000 cuivres"},
+        {"k": "Rubis", "v": "10 000 cuivres"}
+      ],
+      "staff": [
+        "Aucune recette ne crée de pièce ; vérifié au démarrage.",
+        "Une pièce ne se fond pas, ne se vend pas aux villageois.",
+        "Le rubis ne vient que d'une injection de l'équipe."
+      ]
+    },
+    {
+      "id": "ou-ranger",
+      "num": 84,
+      "name": "Où ranger ses pièces",
+      "kind": "systeme",
+      "status": "prevu",
+      "lot": "Lot E1",
+      "image": null,
+      "what": "Quelques rangements autorisés ; tout autre stockage refuse la pièce.",
+      "who": {"utilise": "Tous"},
+      "steps": [
+        "Autorisé : inventaire, bourse, son coffre-fort.",
+        "Autorisé : étal, trésor, poste de fournisseur, antenne.",
+        "Une pièce jetée au sol se ramasse par n'importe qui."
+      ],
+      "flow": ["Pièce", "Coffre ou sac", "Refusée"],
+      "staff": [
+        "Point le plus fragile : un mod de stockage peut contourner.",
+        "Chaque cas trouvé va dans une liste en config.",
+        "Entonnoirs et tuyaux ne ramassent pas les pièces.",
+        "Signaler toute pièce trouvée dans un stockage interdit."
+      ]
+    },
+    {
+      "id": "prelevement",
+      "num": 86,
+      "name": "Le prélèvement de minuit",
+      "kind": "systeme",
+      "status": "prevu",
+      "lot": "Lot E6",
+      "image": null,
+      "what": "À minuit, les sommes dues sont prises à distance, en entier ou pas du tout.",
+      "who": {"utilise": "Automatique"},
+      "steps": [
+        "Prélevés : électricité, téléphone, amendes, impôt du coffre.",
+        "Après un refus, la facture revient chaque minuit.",
+        "Payer tout de suite : objet facture ou téléphone."
+      ],
+      "flow": ["Inventaire", "Coffre-fort", "Refusé"],
+      "numbers": [
+        {"k": "Échéance", "v": "minuit, heure réelle"},
+        {"k": "Paiement partiel", "v": "jamais"}
+      ],
+      "staff": [
+        "Un joueur ne peut pas émettre de facture prélevable.",
+        "Le créancier décide de couper ou non.",
+        "Jours manqués serveur éteint : traités au démarrage.",
+        "Chaque prélèvement s'inscrit au registre."
+      ]
+    },
+    {
+      "id": "sources",
+      "name": "Les 4 sources d'argent",
+      "kind": "systeme",
+      "status": "prevu",
+      "lot": "Lot E1",
+      "image": null,
+      "what": "Seules quatre sources créent de l'argent ; aucun joueur ne frappe monnaie.",
+      "steps": [
+        "Butin des mobs hostiles.",
+        "Récompenses de quêtes.",
+        "Somme de départ et injection de l'équipe."
+      ],
+      "flow": ["Source", "Pièces", "Inventaire"],
+      "staff": [
+        "Chaque source est réglable et comptée au tableau de bord.",
+        "Une feature créant de l'argent ailleurs est refusée."
+      ]
+    },
+    {
+      "id": "retire",
+      "name": "Retiré du projet",
+      "kind": "systeme",
+      "status": "prevu",
+      "image": null,
+      "what": "Retirés par Killian le 2026-11-08 ; leurs numéros ne reviendront pas.",
+      "steps": [
+        "68 Presse à monnaie, 74 Guichet, 76 Comptes.",
+        "81 Distributeur (ATM), 82 Carte bancaire.",
+        "Aussi exclus : banque, virements, bourse, prêts."
+      ],
+      "staff": [
+        "Les villageois vanilla gardent les émeraudes vanilla."
+      ]
+    },
+    {
+      "id": "coffre-fort",
+      "num": 85,
+      "name": "Coffre-fort",
+      "kind": "bloc",
+      "status": "prevu",
+      "lot": "Lot E1",
+      "image": null,
+      "what": "Un coffre par joueur, que des pièces, sans limite, taxé chaque nuit.",
+      "who": {"fabrique": "Tous", "pose": "Propriétaire, un seul", "utilise": "Propriétaire", "casse": "Propriétaire, staff"},
+      "steps": [
+        "Fabriquer puis poser ; un seul par joueur.",
+        "L'ouvrir affiche son total.",
+        "Salaires et prélèvements passent même hors ligne."
+      ],
+      "flow": ["Coffre-fort", "Impôt de minuit", "Trésor"],
+      "numbers": [
+        {"k": "Exemplaires", "v": "1 par joueur"},
+        {"k": "Impôt", "v": "0 à 35 %"}
+      ],
+      "staff": [
+        "Contenu gardé par le serveur, même zone déchargée.",
+        "Forçable au crochetage du policier, plus lent qu'un coffre.",
+        "Une effraction laisse une trace et une ligne au registre."
+      ]
+    },
+    {
+      "id": "bourse",
+      "num": 69,
+      "name": "Bourse",
+      "kind": "objet",
+      "status": "prevu",
+      "lot": "Lot E1",
+      "image": null,
+      "what": "Porte-monnaie qui ramasse les pièces, affiche le total et rend la monnaie.",
+      "who": {"fabrique": "Tous", "utilise": "Son porteur"},
+      "steps": [
+        "La fabriquer avec une recette simple.",
+        "Elle ramasse les pièces toute seule.",
+        "Au paiement, le change se fait seul."
+      ],
+      "staff": [
+        "Se perd ou se vole comme tout objet.",
+        "Le policier peut la fouiller.",
+        "Pleine, elle ne va pas dans un stockage interdit."
+      ]
+    },
+    {
+      "id": "main-a-main",
+      "num": 70,
+      "name": "Paiement de main à main",
+      "kind": "systeme",
+      "status": "prevu",
+      "lot": "Lot E2",
+      "image": null,
+      "what": "Fenêtre d'échange entre deux joueurs proches, validée par les deux.",
+      "who": {"utilise": "Deux joueurs proches"},
+      "steps": [
+        "Ouvrir l'échange, chacun pose objets et pièces.",
+        "Les deux confirment l'état final.",
+        "Un reçu est remis sur demande."
+      ],
+      "flow": ["Joueur A", "Échange confirmé", "Joueur B"],
+      "staff": [
+        "Test d'abus prévu : duplication par déconnexion pendant l'échange."
+      ]
+    },
+    {
+      "id": "etal",
+      "num": 71,
+      "name": "Étal de marché",
+      "kind": "bloc",
+      "status": "prevu",
+      "lot": "Lot E2",
+      "image": null,
+      "what": "Vend et rachète en l'absence du propriétaire ; une taxe va au trésor.",
+      "who": {"fabrique": "Tous", "pose": "Propriétaire", "utilise": "Acheteurs", "casse": "Propriétaire, staff"},
+      "steps": [
+        "Garnir l'étal et fixer un prix par lot.",
+        "L'acheteur paie et reçoit son lot.",
+        "Racheter : prix et quantité, payés sur les recettes."
+      ],
+      "flow": ["Acheteur", "Caisse de l'étal", "Taxe au trésor"],
+      "numbers": [
+        {"k": "Taxe sur les ventes", "v": "0 % au départ"},
+        {"k": "Étals par joueur", "v": "sans limite"}
+      ],
+      "staff": [
+        "Les entonnoirs peuvent garnir l'étal, pas le vider.",
+        "Crochetage lent : caisse et marchandise volées, trace au registre."
+      ]
+    },
+    {
+      "id": "facture",
+      "num": 72,
+      "name": "Facture",
+      "kind": "objet",
+      "status": "prevu",
+      "lot": "Lot E2",
+      "image": null,
+      "what": "Dette écrite d'un joueur à un autre ; payée, elle devient un reçu.",
+      "who": {"fabrique": "Émetteur ou métier", "utilise": "Le débiteur"},
+      "steps": [
+        "Payer de main à main.",
+        "Ou l'utiliser : les pièces de l'inventaire partent.",
+        "Les factures publiques sont prélevées à minuit."
+      ],
+      "flow": ["Facture", "Paiement", "Reçu"],
+      "staff": [
+        "Les métiers produisent leurs factures avec ce même objet."
+      ]
+    },
+    {
+      "id": "tresor",
+      "num": 73,
+      "name": "Trésor de la ville",
+      "kind": "bloc",
+      "status": "prevu",
+      "lot": "Lot E3",
+      "image": null,
+      "what": "Banque de l'île, unique, tenue par le maire ; encaisse et paie à distance.",
+      "who": {"pose": "Staff, un seul", "utilise": "Maire, staff", "casse": "Ingénieur, maire, staff"},
+      "steps": [
+        "Taxes, amendes et impôt y arrivent à distance.",
+        "Les salaires en partent à distance.",
+        "Le solde s'affiche sur les tableaux de la mairie."
+      ],
+      "flow": ["Taxes et amendes", "Trésor", "Salaires"],
+      "staff": [
+        "Déplacé, il garde contenu et registre ; les pièces ne tombent pas.",
+        "En créatif : casser accroupi, reposer depuis l'onglet du mod.",
+        "Sans emplacement, il fonctionne ; seule l'ouverture est impossible.",
+        "Après un vol, le registre montre le trou."
+      ]
+    },
+    {
+      "id": "salaires",
+      "num": 75,
+      "name": "Salaires publics",
+      "kind": "systeme",
+      "status": "prevu",
+      "lot": "Lot E3",
+      "image": null,
+      "what": "Payés chaque minuit sur le trésor, selon le temps connecté dans le rôle.",
+      "who": {"utilise": "Policier, médecin, maire"},
+      "steps": [
+        "Le salaire est arrêté chaque minuit.",
+        "Il arrive au coffre-fort, sinon dans l'inventaire.",
+        "Trésor vide : dette visible de la ville."
+      ],
+      "flow": ["Trésor", "Salaire", "Coffre-fort"],
+      "staff": [
+        "Réglable en config ou par commande prévue.",
+        "Seuls les rôles publics sont proposés.",
+        "Un salaire impayé reste dû."
+      ]
+    },
+    {
+      "id": "fournisseur",
+      "num": 83,
+      "name": "Fournisseur d'électricité",
+      "kind": "machine",
+      "status": "prevu",
+      "lot": "Lot E6",
+      "image": null,
+      "what": "Un joueur vend son courant au FE ; compteurs relevés et facturés à minuit.",
+      "who": {"fabrique": "Ingénieur", "pose": "Le fournisseur", "utilise": "Le fournisseur", "casse": "Fournisseur, ingénieur, maire"},
+      "steps": [
+        "Poser le poste en tête de réseau.",
+        "Jumeler chaque compteur au poste avec le testeur.",
+        "Fixer un prix par FE, sous le plafond du maire."
+      ],
+      "flow": ["Générateurs", "Poste", "Câbles", "Compteur", "Maison"],
+      "numbers": [
+        {"k": "Facture", "v": "conso × prix + abonnement"},
+        {"k": "Taxe électricité", "v": "0 % au départ"}
+      ],
+      "staff": [
+        "Le panneau montre l'écart sortie/compteurs : perte ou piratage.",
+        "Le client ne peut pas casser son compteur.",
+        "Le maire peut modifier ou supprimer un fournisseur.",
+        "Les câbles ne sont pas protégés."
+      ]
+    },
+    {
+      "id": "butin",
+      "num": 78,
+      "name": "Butin des mobs",
+      "kind": "systeme",
+      "status": "prevu",
+      "lot": "Lot E4",
+      "image": null,
+      "what": "Un mob hostile tué par un joueur peut lâcher des pièces.",
+      "who": {"utilise": "Tous"},
+      "steps": [
+        "Zombie ou araignée : quelques cuivres.",
+        "Sorcière ou creeper chargé : de l'argent.",
+        "Boss : davantage, sans plafond."
+      ],
+      "flow": ["Mob tué", "Pièces au sol", "Inventaire"],
+      "staff": [
+        "Table de chance et montant par mob, en données.",
+        "Rien pour un mob de générateur, d'œuf ou sans joueur.",
+        "Les animaux ne donnent rien."
+      ]
+    },
+    {
+      "id": "quetes",
+      "num": 79,
+      "name": "Quêtes",
+      "kind": "systeme",
+      "status": "prevu",
+      "lot": "Lot E5",
+      "image": null,
+      "what": "Quêtes journalières et hebdomadaires tirées au sort, payées en pièces.",
+      "who": {"utilise": "Tous"},
+      "steps": [
+        "Ouvrir l'écran de quêtes avec sa touche.",
+        "Une relance par jour remplace une quête.",
+        "Réclamer la récompense dans l'écran."
+      ],
+      "numbers": [
+        {"k": "Par jour", "v": "3 quêtes"},
+        {"k": "Par semaine", "v": "5 quêtes, lundi"},
+        {"k": "Relance", "v": "1 par jour"}
+      ],
+      "staff": [
+        "Modèles en données, tirage pondéré.",
+        "Plafond de récompense hebdomadaire par joueur.",
+        "Un bloc posé par un joueur ne compte pas en casse.",
+        "Quêtes d'événement lancées par commande prévue."
+      ]
+    },
+    {
+      "id": "changeur",
+      "num": 80,
+      "name": "PNJ changeur",
+      "kind": "systeme",
+      "status": "prevu",
+      "lot": "Lot E4",
+      "image": null,
+      "what": "PNJ invulnérable qui change les pièces à valeur égale, sans frais.",
+      "who": {"pose": "Staff", "utilise": "Tous", "casse": "Invulnérable"},
+      "steps": [
+        "Lui donner des pièces.",
+        "Recevoir des coupures plus grosses ou plus petites.",
+        "Il ne vend et n'achète rien d'autre."
+      ],
+      "flow": ["10 argents", "Changeur", "1 or"],
+      "staff": [
+        "Nom et apparence réglables.",
+        "Plusieurs possibles, par exemple au port et à la mine."
+      ]
+    },
+    {
+      "id": "depart",
+      "num": 88,
+      "name": "Somme de départ",
+      "kind": "systeme",
+      "status": "prevu",
+      "lot": "Lot E1",
+      "image": null,
+      "what": "À la première connexion, chaque joueur reçoit 5 pièces d'or.",
+      "who": {"utilise": "Nouveau joueur"},
+      "numbers": [
+        {"k": "Montant", "v": "500 cuivres"},
+        {"k": "Versements", "v": "1 seul"}
+      ],
+      "staff": [
+        "Montant réglable.",
+        "Jamais redonnée, même après un changement de nom."
+      ]
+    },
+    {
+      "id": "injection",
+      "num": 87,
+      "name": "Injection par l'équipe",
+      "kind": "commande",
+      "status": "prevu",
+      "lot": "Lot E1",
+      "image": null,
+      "what": "L'équipe donne ou retire des pièces pour piloter l'économie.",
+      "who": {"utilise": "Staff"},
+      "flow": ["Équipe", "Joueur ou trésor"],
+      "staff": [
+        "Seule source de rubis.",
+        "Usages : relancer une ville pauvre, récompenser un événement.",
+        "Auteur et motif inscrits au registre."
+      ]
+    },
+    {
+      "id": "tableau-de-bord",
+      "num": 77,
+      "name": "Tableau de bord de l'équipe",
+      "kind": "commande",
+      "status": "prevu",
+      "lot": "Lot E1",
+      "image": null,
+      "what": "L'équipe lit l'argent créé, détruit et stocké sur l'île.",
+      "who": {"utilise": "Staff"},
+      "staff": [
+        "Masse en circulation : total créé moins total détruit.",
+        "Montre trésor, coffres-forts, salaires et factures dus.",
+        "Inventaires, bourses et étals ne sont pas comptés un à un."
+      ]
+    },
+    {
+      "id": "maire",
+      "name": "Le maire",
+      "kind": "role",
+      "status": "prevu",
+      "image": null,
+      "what": "Statut ajouté au métier : il tient le trésor et règle les taxes.",
+      "who": {"utilise": "Le maire"},
+      "steps": [
+        "Élu en RP, puis nommé par l'équipe.",
+        "Règle taxes, impôt des coffres et plafond électrique.",
+        "Peut modifier ou supprimer un fournisseur ou opérateur."
+      ],
+      "numbers": [
+        {"k": "Impôt sur les coffres", "v": "0 à 35 %"}
+      ],
+      "staff": [
+        "Nommer : /role mayor set <joueur>.",
+        "Sans maire, seule l'équipe fait ces gestes."
+      ]
+    }
+  ]
+}

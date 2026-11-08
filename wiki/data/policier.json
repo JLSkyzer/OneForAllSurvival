@@ -1,0 +1,292 @@
+{
+  "id": "policier",
+  "title": "Policier",
+  "intro": "Il répond aux alertes, interpelle, enquête et sanctionne, sans arme létale ; le mod ne désigne jamais le coupable.",
+  "diagrams": [
+    {"title": "De l'alerte à la cellule", "steps": ["Sifflet ou alarme", "Alerte avec repère", "Étourdi", "Menotté", "Escorté", "Cellule"]},
+    {"title": "De la trace au suspect", "steps": ["Tache de sang", "Lampe UV", "Écouvillon", "Groupe sanguin", "Enquête", "Suspect"]},
+    {"title": "Une preuve sous scellés", "steps": ["Fouille", "Confiscation", "Sac scellé", "Chaîne de garde", "Casier"]}
+  ],
+  "cards": [
+    {
+      "id": "metier-policier", "name": "Le métier", "kind": "role", "status": "prevu", "lot": "Lot P1",
+      "image": null,
+      "what": "Interpeller, fouiller, enquêter et sanctionner, sans arme létale.",
+      "who": {"utilise": "Policier"},
+      "steps": [
+        "Nommé par l'équipe du serveur, jamais par le maire.",
+        "Réservé : menotter, escorter, fouiller, confisquer, étourdir, incarcérer.",
+        "Réservé : prélever, sceller, casier, contraventions, mandats, avis."
+      ],
+      "staff": [
+        "Rôle existant depuis le lot 0, aujourd'hui seulement affiché.",
+        "Chaque action réservée s'inscrit au journal de police.",
+        "Un non-policier reçoit un message clair ; l'équipe garde un contournement.",
+        "Nommer un policier : `/role set <joueur> policier` (opérateur niveau 2)."
+      ]
+    },
+    {
+      "id": "etabli-policier", "name": "Établi de policier", "kind": "machine", "status": "prevu", "lot": "Lot P1",
+      "image": null,
+      "what": "Fabrique tout l'équipement de police ; seul un policier l'utilise.",
+      "who": {"fabrique": "Table de craft", "utilise": "Policier"},
+      "steps": [
+        "Choisir une recette : catégories, recherche, coût, temps.",
+        "File d'attente et stock liés au joueur, annulation rembourse.",
+        "Lent à la main, rapide sous courant."
+      ],
+      "numbers": [{"k": "Stock", "v": "Sans limite"}],
+      "staff": [
+        "Recettes de police retirées de la table, du forgeron et de Create.",
+        "Restent à la table : le crochet et la copie de clé.",
+        "Taser, lampe UV, transmetteur et enregistreur : établi d'ingénieur.",
+        "Bureau de police récupéré : bleu nuit, gris acier, jaune."
+      ]
+    },
+    {
+      "id": "menottes", "num": 50, "name": "Menottes", "kind": "objet", "status": "prevu", "lot": "Lot P1",
+      "image": null,
+      "what": "Le menotté marche lentement et parle, rien de plus.",
+      "who": {"fabrique": "Établi de policier", "utilise": "Policier"},
+      "steps": [
+        "Menotter une cible à terre, étourdie, ou qui se rend.",
+        "Libérer avec la clé de menottes.",
+        "Le menotté peut se débattre : sa chance grandit."
+      ],
+      "flow": ["Étourdi", "Menotté", "Escorté", "Cellule"],
+      "numbers": [{"k": "Ouverture auto", "v": "30 min"}],
+      "staff": [
+        "Délai compté en temps connecté, réglable en config.",
+        "Se déconnecter ne libère pas.",
+        "Chaque menottage s'inscrit au casier et au journal."
+      ]
+    },
+    {
+      "id": "escorte", "num": 51, "name": "Escorte", "kind": "systeme", "status": "prevu", "lot": "Lot P1",
+      "image": null,
+      "what": "Le menotté suit le policier, une personne à la fois.",
+      "who": {"utilise": "Policier"},
+      "steps": [
+        "Clic droit sur un menotté pour le prendre.",
+        "Second clic droit pour le lâcher.",
+        "Cesse si le policier part, meurt ou tombe."
+      ],
+      "numbers": [{"k": "Rappel", "v": "au-delà de 3 blocs"}, {"k": "Replacé", "v": "bloqué à 10 blocs"}],
+      "staff": ["Distances de départ, à équilibrer."]
+    },
+    {
+      "id": "fouille", "num": 52, "name": "Fouille", "kind": "systeme", "status": "prevu", "lot": "Lot P1",
+      "image": null,
+      "what": "Voir l'inventaire d'un menotté ou d'un joueur à terre, et confisquer.",
+      "who": {"utilise": "Policier"},
+      "steps": [
+        "Ouvrir sac, armure et mains en lecture seule.",
+        "Confisquer : l'objet part dans un sac de preuves.",
+        "Fouille et confiscation s'inscrivent au casier."
+      ],
+      "staff": ["Dépend de l'état à terre du médecin (feature 38)."]
+    },
+    {
+      "id": "matraque", "num": 53, "name": "Matraque", "kind": "objet", "status": "prevu", "lot": "Lot P2",
+      "image": null,
+      "what": "Arme de mêlée qui étourdit sans jamais mettre à terre.",
+      "who": {"fabrique": "Établi de policier", "utilise": "Policier"},
+      "steps": [
+        "Chaque coup peut étourdir, plus souvent sur un joueur déjà touché.",
+        "Dégâts faibles, sur la tête et les bras.",
+        "Hors des mains d'un policier : un simple bâton."
+      ],
+      "staff": ["Dégâts par une source normale, répartis par First Aid."]
+    },
+    {
+      "id": "taser", "num": 54, "name": "Taser bricolé", "kind": "objet", "status": "prevu", "lot": "Lot P2",
+      "image": null,
+      "what": "Arme à distance sur batterie qui étourdit sa cible.",
+      "who": {"fabrique": "Établi d'ingénieur", "utilise": "Policier uniquement"},
+      "steps": [
+        "Viser un joueur ou un mob à portée.",
+        "Chaque tir consomme une charge.",
+        "Recharger en FE, comme le poste à souder."
+      ],
+      "numbers": [{"k": "Portée", "v": "8 blocs"}],
+      "staff": ["Charge par tir et délai entre tirs non précisés.", "Déchargé, il ne fait rien."]
+    },
+    {
+      "id": "traces-de-sang", "num": 55, "name": "Traces de sang", "kind": "systeme", "status": "prevu", "lot": "Lot P4",
+      "image": null,
+      "what": "Un blessé laisse des taches invisibles ; jamais un nom, seulement un groupe sanguin.",
+      "who": {"fabrique": "Écouvillon : établi policier", "utilise": "Policier"},
+      "steps": [
+        "La lampe UV révèle les taches à son porteur.",
+        "L'écouvillon prélève un échantillon : heure et groupe sanguin.",
+        "Le lien avec une personne vient de l'enquête."
+      ],
+      "flow": ["Tache", "Lampe UV", "Échantillon", "Enquête"],
+      "numbers": [{"k": "Rayon lampe UV", "v": "12 blocs"}, {"k": "Durée des taches", "v": "≈ 2 sessions"}],
+      "staff": ["Lampe UV : établi d'ingénieur, batterie FE.", "Durée des taches en config, temps du monde."]
+    },
+    {
+      "id": "sac-de-preuves", "num": 56, "name": "Sac de preuves", "kind": "objet", "status": "prevu", "lot": "Lot P1",
+      "image": null,
+      "what": "Sac scellé avec numéro d'affaire et chaîne de garde ; l'ouvrir se voit.",
+      "who": {"fabrique": "Établi de policier", "utilise": "Policier", "casse": "Tous, visiblement"},
+      "steps": [
+        "Le policier scelle une pile d'objets.",
+        "Chaque détenteur s'inscrit à la chaîne de garde.",
+        "Sortir l'objet descelle le sac pour toujours."
+      ],
+      "staff": ["Descellé par un non-policier : infobulle rouge.", "Registre des sacs plafonné."]
+    },
+    {
+      "id": "rapport-agression", "num": 57, "name": "Rapport d'agression", "kind": "systeme", "status": "prevu", "lot": "Lot P4",
+      "image": null,
+      "what": "Le serveur retient l'agresseur en secret ; le constat ne le nomme jamais.",
+      "who": {"fabrique": "Médecin, sur réquisition", "utilise": "Policier"},
+      "steps": [
+        "Le stéthoscope révèle la nature de la blessure.",
+        "Le policier requiert un constat auprès du médecin.",
+        "Constat : blessure, objet, lieu, heure."
+      ],
+      "staff": ["Seule l'équipe lit l'agresseur, pour arbitrer un litige.", "Commande non précisée."]
+    },
+    {
+      "id": "bande-scene-de-crime", "num": 58, "name": "Bande de scène de crime", "kind": "bloc", "status": "prevu", "lot": "Lot P3",
+      "image": null,
+      "what": "Ruban traversable qui note qui le franchit ou le casse.",
+      "who": {"fabrique": "Établi de policier", "pose": "Policier", "casse": "Tous, avec trace"},
+      "steps": [
+        "Poser le ruban entre deux blocs.",
+        "Chaque passage et chaque casse sont notés.",
+        "Un policier lit la liste en l'utilisant."
+      ],
+      "staff": ["Seul un policier le retire sans trace.", "Registre plafonné."]
+    },
+    {
+      "id": "casier-judiciaire", "num": 59, "name": "Casier judiciaire", "kind": "systeme", "status": "prevu", "lot": "Lot P1",
+      "image": null,
+      "what": "Chaque joueur a un casier qui se remplit seul ; seuls les policiers le lisent.",
+      "who": {"utilise": "Policier"},
+      "steps": [
+        "Rempli par menottage, fouille, amende, cellule, mandat, avis.",
+        "Le policier ajoute des notes libres.",
+        "Il peut remettre un extrait de casier."
+      ],
+      "staff": ["Seule l'équipe efface une ligne ; commande non précisée.", "Registre plafonné."]
+    },
+    {
+      "id": "carnet-contraventions", "num": 60, "name": "Carnet de contraventions", "kind": "objet", "status": "prevu", "lot": "Lot P2",
+      "image": null,
+      "what": "Dresser une amende avec un motif et un montant.",
+      "who": {"fabrique": "Établi de policier", "utilise": "Policier"},
+      "steps": [
+        "Viser un joueur proche, choisir motif et montant.",
+        "Le contrevenant reçoit un avis ; casier : impayée.",
+        "Marquée payée après règlement en RP."
+      ],
+      "flow": ["Amende dressée", "Inventaire", "Coffre-fort", "Payée"],
+      "staff": [
+        "Avec l'économie : prélèvement automatique, inventaire puis coffre-fort.",
+        "Avec le maire : montant tiré de son barème, sauf motif libre.",
+        "Liste des motifs en config."
+      ]
+    },
+    {
+      "id": "cellule", "num": 61, "name": "Cellule", "kind": "bloc", "status": "prevu", "lot": "Lot P2",
+      "image": null,
+      "what": "Une porte de cellule fermée définit une pièce où incarcérer un menotté.",
+      "who": {"fabrique": "Établi de policier", "utilise": "Policier"},
+      "steps": [
+        "Fermer la porte : le volume clos devient cellule.",
+        "Incarcérer un menotté présent, durée sous plafond.",
+        "Fin de peine : la porte se déverrouille."
+      ],
+      "numbers": [{"k": "Plafond", "v": "30 min"}],
+      "staff": [
+        "Peine en temps connecté : figée à la déconnexion.",
+        "Le détenu ne peut casser aucune paroi.",
+        "L'équipe libère à tout moment ; commande non précisée."
+      ]
+    },
+    {
+      "id": "mandat-perquisition", "num": 62, "name": "Mandat de perquisition", "kind": "systeme", "status": "prevu", "lot": "Lot P3",
+      "image": null,
+      "what": "Ouvrir des serrures sans crochet, pour un temps limité.",
+      "who": {"fabrique": "Équipe ou rôle autorisé", "utilise": "Policier"},
+      "steps": [
+        "Vise une zone ou les serrures d'un joueur.",
+        "Le porteur ouvre et fouille les conteneurs visés.",
+        "Le visé est prévenu à sa connexion."
+      ],
+      "numbers": [{"k": "Validité", "v": "1 session"}],
+      "staff": ["Validité en temps du monde.", "Inscrit au casier et au journal.", "Forme (objet ou non) non précisée."]
+    },
+    {
+      "id": "avis-de-recherche", "num": 63, "name": "Avis de recherche", "kind": "objet", "status": "prevu", "lot": "Lot P3",
+      "image": null,
+      "what": "Affiche murale décrivant une personne recherchée.",
+      "who": {"fabrique": "Établi de policier", "pose": "Policier"},
+      "steps": [
+        "Poser l'affiche comme un tableau.",
+        "Écrire nom, motif, description, récompense.",
+        "Clore l'affaire : toutes les affiches liées l'affichent."
+      ],
+      "staff": ["L'avis s'inscrit au casier du recherché."]
+    },
+    {
+      "id": "appel-a-l-aide", "num": 64, "name": "Appel à l'aide", "kind": "objet", "status": "prevu", "lot": "Lot P5",
+      "image": null,
+      "what": "Un sifflet alerte les policiers connectés, avec un repère.",
+      "who": {"fabrique": "Établi de policier", "utilise": "Habitants"},
+      "steps": [
+        "Un habitant souffle dans le sifflet.",
+        "Les policiers voient nom, distance et repère.",
+        "Le premier qui répond clôt l'alerte."
+      ],
+      "flow": ["Sifflet", "Alerte", "Repère", "Policier sur place"],
+      "staff": ["Chaque appel s'inscrit au journal.", "Délai entre deux appels en config."]
+    },
+    {
+      "id": "alarmes-reliees", "num": 65, "name": "Alarmes reliées", "kind": "machine", "status": "prevu", "lot": "Lot P5",
+      "image": null,
+      "what": "Un transmetteur change un signal redstone en alerte de police.",
+      "who": {"fabrique": "Établi d'ingénieur", "pose": "Propriétaire"},
+      "steps": [
+        "Le propriétaire nomme le transmetteur.",
+        "Toute source redstone le déclenche.",
+        "Sans courant, il reste muet."
+      ],
+      "staff": ["Sans usure : il ne tombe pas en panne.", "Une coupure de courant apparaît au compteur."]
+    },
+    {
+      "id": "enregistreur-de-passage", "num": 66, "name": "Enregistreur de passage", "kind": "machine", "status": "prevu", "lot": "Lot P5",
+      "image": null,
+      "what": "Machine électrique qui note qui entre dans une zone.",
+      "who": {"fabrique": "Établi d'ingénieur", "pose": "Propriétaire", "utilise": "Propriétaire et policiers"},
+      "steps": [
+        "Note chaque entrée avec l'heure.",
+        "Tête couverte : « inconnu masqué ».",
+        "Une coupure laisse un trou visible au registre."
+      ],
+      "numbers": [{"k": "Zone max", "v": "8 × 4 × 8"}],
+      "staff": ["Consomme du FE, s'use, peut tomber en panne.", "Objets masquants en config ; registre plafonné."]
+    },
+    {
+      "id": "serrures-crochetage", "num": 67, "name": "Serrures et crochetage", "kind": "objet", "status": "prevu", "lot": "Lot P3",
+      "image": null,
+      "what": "Une serrure protège un accès ; n'importe qui peut la crocheter, bruyamment.",
+      "who": {"fabrique": "Établi de policier", "pose": "Propriétaire", "casse": "Clé, mandat ou crochet"},
+      "steps": [
+        "Poser sur porte, trappe, portillon, coffre ou tonneau.",
+        "Ouvrir avec la clé ; copie : clé + pépite de fer.",
+        "Crocheter : maintenir l'action quelques secondes."
+      ],
+      "flow": ["Crochetage", "Bruit", "Ouvert", "Serrure forcée"],
+      "numbers": [{"k": "Bruit", "v": "16 blocs"}],
+      "staff": [
+        "Crochet fabriqué sur la table de craft ; la police n'en vend pas.",
+        "Une trémie ne vide pas un coffre verrouillé.",
+        "Les murs restent cassables : on protège un accès."
+      ]
+    }
+  ]
+}

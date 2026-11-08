@@ -1,0 +1,335 @@
+{
+  "id": "telephone",
+  "title": "Téléphone",
+  "intro": "Un téléphone façon iOS, relié à des antennes posées par les joueurs et payé en pièces.",
+  "diagrams": [
+    {
+      "title": "Un appel entre deux opérateurs",
+      "steps": ["Téléphone de l'appelant", "Antenne de l'appelant", "Antenne de l'appelé", "Téléphone de l'appelé"]
+    },
+    {
+      "title": "Qui entend quoi en haut-parleur",
+      "steps": ["Correspondant parle", "Entendu à 8 blocs du téléphone", "Joueurs à moins de 16 blocs", "Entendus par le correspondant"]
+    },
+    {
+      "title": "L'abonnement chaque minuit",
+      "steps": ["Inventaire ou coffre-fort", "Prélèvement", "Caisse de l'antenne principale", "Fondateur"]
+    }
+  ],
+  "cards": [
+    {
+      "id": "telephone",
+      "name": "Téléphone",
+      "kind": "objet",
+      "status": "prevu",
+      "lot": "Lot T1",
+      "image": null,
+      "what": "Objet porté, interface iOS, batterie et code de verrouillage à 4 chiffres.",
+      "who": {"fabrique": "Tous", "utilise": "Son porteur"},
+      "steps": [
+        "Glisser une carte SIM depuis l'inventaire.",
+        "Recharger la batterie sur une prise FE.",
+        "Volé, il reste verrouillé ; urgences toujours possibles."
+      ],
+      "numbers": [
+        {"k": "Code", "v": "4 chiffres"}
+      ],
+      "staff": [
+        "Interface HTML par MCEF, mod client seulement.",
+        "MCEF télécharge Chromium au premier lancement (~100 Mo, chiffre externe).",
+        "Si MCEF échoue : écran de repli, appels, messages, urgences.",
+        "Aucun site extérieur ne se charge."
+      ]
+    },
+    {
+      "id": "carte-sim",
+      "name": "Carte SIM",
+      "kind": "objet",
+      "status": "prevu",
+      "lot": "Lot T2",
+      "image": null,
+      "what": "Porte le numéro et le titulaire ; le numéro suit la carte.",
+      "who": {"fabrique": "Fondateur d'opérateur", "utilise": "Son porteur"},
+      "steps": [
+        "Demander une carte au fondateur d'un opérateur.",
+        "La recevoir en main propre.",
+        "La glisser dans un téléphone."
+      ],
+      "numbers": [
+        {"k": "Numéro", "v": "06 xx xx xx xx"}
+      ],
+      "staff": [
+        "Contacts et conversations suivent la carte.",
+        "Se donne, se vend, se vole ; fouillable par le policier.",
+        "Une SIM sans nom ne porte aucun titulaire."
+      ]
+    },
+    {
+      "id": "antenne",
+      "num": 89,
+      "name": "Antenne",
+      "kind": "machine",
+      "status": "prevu",
+      "lot": "Lot T2",
+      "image": null,
+      "what": "Bloc qui fonde ou étend un opérateur ; consomme du FE, encaisse les abonnements.",
+      "who": {"fabrique": "Ingénieur", "pose": "Tous", "utilise": "Fondateur", "casse": "Fondateur, maire, staff"},
+      "steps": [
+        "Poser sa première antenne fonde un opérateur.",
+        "L'alimenter en FE par n'importe quel câble.",
+        "Sans courant : panne, plus de signal."
+      ],
+      "flow": ["Générateur", "Câble", "Antenne", "Signal"],
+      "numbers": [
+        {"k": "Portée", "v": "270 blocs"},
+        {"k": "Veille", "v": "40 FE/t"},
+        {"k": "Par SIM active", "v": "+6 FE/t"},
+        {"k": "Par appel", "v": "+9 FE/t"},
+        {"k": "Par FaceTime", "v": "+24 FE/t"}
+      ],
+      "staff": [
+        "Portée et consommations réglables.",
+        "Signal de 0 à 4 barres ; à zéro, l'appel coupe.",
+        "Un ingénieur la casse avec l'outil de maintenance."
+      ]
+    },
+    {
+      "id": "panneau-operateur",
+      "num": 90,
+      "name": "Panneau de l'opérateur",
+      "kind": "appli",
+      "status": "prevu",
+      "lot": "Lot T2",
+      "image": null,
+      "what": "Gestion du fondateur : SIM, tarif, consommation, sur l'antenne ou l'appli.",
+      "who": {"utilise": "Fondateur"},
+      "steps": [
+        "Émettre, refuser, suspendre ou réactiver une SIM.",
+        "Fixer le tarif par jour.",
+        "Suivre recette, électricité et état du relais."
+      ]
+    },
+    {
+      "id": "relais",
+      "num": 91,
+      "name": "Relais entre opérateurs",
+      "kind": "systeme",
+      "status": "prevu",
+      "lot": "Lot T2",
+      "image": null,
+      "what": "Les antennes alimentées se relaient seules, sans réglage ni portée.",
+      "steps": [
+        "Chacune des deux antennes consomme pour l'appel.",
+        "Antenne de l'appelé en panne : message « Injoignable »."
+      ],
+      "flow": ["Téléphone A", "Antenne A", "Antenne B", "Téléphone B"]
+    },
+    {
+      "id": "abonnement",
+      "num": 92,
+      "name": "Abonnement",
+      "kind": "systeme",
+      "status": "prevu",
+      "lot": "Lot T6",
+      "image": null,
+      "what": "Tarif par jour fixé par le fondateur, prélevé en pièces à minuit.",
+      "who": {"utilise": "Abonnés"},
+      "steps": [
+        "Prélevé dans l'inventaire, puis le coffre-fort.",
+        "Refus : abonné et fondateur prévenus.",
+        "Carte suspendue : plus rien sauf les urgences."
+      ],
+      "flow": ["Inventaire", "Coffre-fort", "Caisse de l'antenne"],
+      "staff": [
+        "Vient après le lot E6 de l'économie.",
+        "Jours manqués rattrapés au démarrage."
+      ]
+    },
+    {
+      "id": "appel-vocal",
+      "num": 93,
+      "name": "Appel vocal",
+      "kind": "appli",
+      "status": "prevu",
+      "lot": "Lot T3",
+      "image": null,
+      "what": "Appel par Simple Voice Chat ; les gens proches entendent celui qui parle.",
+      "who": {"utilise": "Tous"},
+      "steps": [
+        "Appeler depuis contacts, récents ou clavier.",
+        "Silence : le micro ne part plus au correspondant.",
+        "L'île dynamique montre le minuteur."
+      ],
+      "numbers": [
+        {"k": "Haut-parleur, écoute", "v": "8 blocs"},
+        {"k": "Haut-parleur, micro", "v": "16 blocs"}
+      ],
+      "staff": [
+        "Simple Voice Chat requis sur serveur et clients.",
+        "La voix de proximité n'est jamais coupée.",
+        "Distances du haut-parleur réglables."
+      ]
+    },
+    {
+      "id": "facetime",
+      "num": 94,
+      "name": "FaceTime",
+      "kind": "appli",
+      "status": "prevu",
+      "lot": "Lot T4",
+      "image": null,
+      "what": "Appel avec le personnage de l'autre rendu en direct ; pas une vidéo.",
+      "who": {"utilise": "Tous"},
+      "steps": [
+        "Passer de l'appel vocal à FaceTime, et inversement.",
+        "Batterie vidée plus vite."
+      ],
+      "numbers": [
+        {"k": "Coût antenne", "v": "+24 FE/t"}
+      ],
+      "staff": [
+        "Scénario de performance prévu : images par seconde, mémoire."
+      ]
+    },
+    {
+      "id": "urgences",
+      "num": 95,
+      "name": "Urgences",
+      "kind": "appli",
+      "status": "prevu",
+      "lot": "Lot T3",
+      "image": null,
+      "what": "Le 17 et le 15 passent partout, sans SIM ni abonnement.",
+      "who": {"utilise": "Tous"},
+      "steps": [
+        "Composer le 17 (police) ou le 15 (hôpital).",
+        "Ça sonne chez les joueurs en service.",
+        "Ils reçoivent la position de l'appelant."
+      ],
+      "flow": ["Téléphone", "N'importe quelle antenne", "Rôle en service"],
+      "staff": [
+        "Un appel abusif est enregistré.",
+        "Il peut valoir une amende en RP."
+      ]
+    },
+    {
+      "id": "messages",
+      "num": 96,
+      "name": "Messages",
+      "kind": "appli",
+      "status": "prevu",
+      "lot": "Lot T3",
+      "image": null,
+      "what": "Conversations par numéro, avec indicateur de saisie.",
+      "who": {"utilise": "Tous"},
+      "steps": [
+        "Pas de signal : « non distribué ».",
+        "Destinataire suspendu ou supprimé : « non distribué ».",
+        "Les conversations suivent la carte SIM."
+      ],
+      "staff": [
+        "Conversations gardées par le serveur."
+      ]
+    },
+    {
+      "id": "photos",
+      "num": 97,
+      "name": "Appareil photo et Photos",
+      "kind": "appli",
+      "status": "prevu",
+      "lot": "Lot T4",
+      "image": null,
+      "what": "Photo ou selfie de la vue, sans interface, partageable.",
+      "who": {"utilise": "Tous"},
+      "steps": [
+        "Prendre la photo.",
+        "Elle est rangée dans le téléphone.",
+        "La partager dans Messages ou Écho."
+      ],
+      "staff": [
+        "Quota de photos par joueur, taille non précisée.",
+        "L'équipe peut retirer une photo.",
+        "Chaque envoi est noté avec son auteur."
+      ]
+    },
+    {
+      "id": "echo",
+      "num": 98,
+      "name": "Écho",
+      "kind": "appli",
+      "status": "prevu",
+      "lot": "Lot T5",
+      "image": null,
+      "what": "Fil d'actualité public de l'île, façon Twitter, signé du joueur.",
+      "who": {"utilise": "Tous"},
+      "steps": [
+        "Publier demande du réseau.",
+        "Photos, mentions et « j'aime ».",
+        "Le compte vérifié « Mairie » publie les annonces du maire."
+      ],
+      "staff": [
+        "L'équipe peut retirer une publication.",
+        "Elle peut suspendre un compte."
+      ]
+    },
+    {
+      "id": "ombre",
+      "num": 99,
+      "name": "Ombre",
+      "kind": "appli",
+      "status": "prevu",
+      "lot": "Lot T5",
+      "image": null,
+      "what": "Chat anonyme et caché ; canaux rejoints en connaissant leur nom exact.",
+      "who": {"utilise": "Tous"},
+      "steps": [
+        "Choisir un pseudo unique, lié au téléphone.",
+        "Créer ou rejoindre un canal par son nom.",
+        "Aucune liste de canaux : les noms circulent en RP."
+      ],
+      "numbers": [
+        {"k": "Durée des messages", "v": "24 h réelles"}
+      ],
+      "staff": [
+        "Personne ne lève l'anonymat en jeu, pas même la police.",
+        "Téléphone volé et déverrouillé : pseudo du propriétaire livré.",
+        "L'équipe voit l'auteur réel, pour la modération hors RP."
+      ]
+    },
+    {
+      "id": "app-store",
+      "num": 100,
+      "name": "App Store",
+      "kind": "appli",
+      "status": "prevu",
+      "lot": "Lot T5",
+      "image": null,
+      "what": "Applis supplémentaires choisies par l'équipe, payées en pièces.",
+      "who": {"utilise": "Tous"},
+      "steps": [
+        "Télécharger demande du réseau.",
+        "Payer avec les pièces de l'inventaire.",
+        "Au départ : Annonces, Carte, Notes."
+      ],
+      "staff": [
+        "L'équipe choisit les applis et leur prix."
+      ]
+    },
+    {
+      "id": "reglages",
+      "num": 101,
+      "name": "Réglages",
+      "kind": "appli",
+      "status": "prevu",
+      "lot": "Lot T1",
+      "image": null,
+      "what": "Gère SIM, mode avion, code et batterie ; montre opérateur et abonnement.",
+      "who": {"utilise": "Son porteur"},
+      "steps": [
+        "Choisir ou retirer une SIM.",
+        "Activer le mode avion.",
+        "Changer le code de verrouillage."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,480 @@
+{
+  "id": "medecin",
+  "title": "Médecin",
+  "intro": "Les citoyens gardent les premiers secours ; seul le médecin soigne vraiment, et un blessé grave tombe à terre au lieu de mourir.",
+  "diagrams": [
+    {
+      "title": "Du coup à la guérison",
+      "steps": ["Coup violent", "Saignement ou fracture", "À terre", "Relevé par le médecin", "Soins et convalescence"]
+    },
+    {
+      "title": "Premiers secours ou soins médicaux",
+      "steps": ["Blessé", "Premiers secours : tout le monde stabilise", "Soins médicaux : le médecin guérit"]
+    }
+  ],
+  "cards": [
+    {
+      "id": "metier-medecin",
+      "name": "Le métier",
+      "kind": "role",
+      "status": "prevu",
+      "lot": "Lot M1",
+      "image": null,
+      "what": "Seul le médecin soigne vraiment ; les citoyens gardent les premiers secours.",
+      "who": {"utilise": "Médecin"},
+      "steps": [
+        "Réservé : soins médicaux, opérations, radios, défibrillateur, dossier, paillasse.",
+        "Ouvert à tous : premiers secours, sur soi et sur autrui.",
+        "Ouvert à tous : avaler une pilule reçue, soigner un animal."
+      ],
+      "staff": [
+        "Un non-médecin reçoit un message clair.",
+        "L'équipe du serveur garde un contournement.",
+        "Mods requis : Hospitals, Medical Remedies, First Aid, sans les modifier."
+      ]
+    },
+    {
+      "id": "paillasse",
+      "name": "Paillasse de médecin",
+      "kind": "bloc",
+      "status": "prevu",
+      "lot": "Lot M1",
+      "image": null,
+      "what": "L'établi du médecin, calqué sur l'établi d'ingénieur.",
+      "who": {"fabrique": "Table de craft", "pose": "Médecin", "utilise": "Médecin"},
+      "steps": [
+        "Choisir une recette : les ingrédients sont prélevés tout de suite.",
+        "La fabrication part en file ; annuler rend tout.",
+        "Les citoyens achètent au médecin, premiers secours compris."
+      ],
+      "flow": ["Ingrédients", "File d'attente", "Stock du médecin", "Vente aux citoyens"],
+      "numbers": [
+        {"k": "Stock", "v": "illimité"},
+        {"k": "Vitesse", "v": "lente à la main, rapide sous courant"}
+      ],
+      "staff": [
+        "Recettes de table d'Hospitals, Medical Remedies et First Aid retirées pour tous.",
+        "Pilules d'Hospitals : uniquement par la chaîne de pharmacie (48).",
+        "Alambic : un non-médecin ne distille aucun objet médical.",
+        "Piège : ~150 blocs déco d'Hospitals réservés ; rendables via tableAllowedItems."
+      ]
+    },
+    {
+      "id": "deux-niveaux-de-soin",
+      "name": "Deux niveaux de soin",
+      "kind": "systeme",
+      "status": "prevu",
+      "lot": "Lot M1",
+      "image": null,
+      "what": "Chaque objet de soin est premier secours ou soin médical, selon un tag.",
+      "who": {"utilise": "Tous ou médecin"},
+      "steps": [
+        "Premiers secours : tout le monde, effet partiel.",
+        "Soins médicaux : médecin seul, guérison complète.",
+        "Pansements, garrot, attelle : secours ; seringues, morphine, perfusion : médicaux."
+      ],
+      "flow": ["Blessé", "Premiers secours", "Stabilisé", "Médecin", "Guéri"],
+      "staff": [
+        "Classement par tag réglable.",
+        "RoleGate généralisé à tous les rôles, travail partagé avec l'agriculteur.",
+        "Soins médicaux réservés même sur soi : choix non encore validé."
+      ]
+    },
+    {
+      "id": "coffret-electrique-medical",
+      "name": "Coffret électrique médical",
+      "kind": "machine",
+      "status": "prevu",
+      "lot": "Lot M4",
+      "image": null,
+      "what": "Alimente en FE les blocs d'Hospitals proches ; coupé, toute la salle s'arrête.",
+      "steps": [
+        "Poser près des blocs d'Hospitals, brancher au réseau.",
+        "Un bloc alimenté s'éclaire.",
+        "Un bloc non alimenté refuse ses fonctions avancées."
+      ],
+      "numbers": [
+        {"k": "Rayon", "v": "8 blocs"}
+      ],
+      "staff": [
+        "Machine du socle commun : FE, quatre états, usure, pannes.",
+        "Consommation selon le nombre de blocs alimentés en marche.",
+        "Blocs alimentés réglés par le tag powered_medical.",
+        "Réparation par l'ingénieur."
+      ]
+    },
+    {
+      "id": "pansements-cibles",
+      "num": 33,
+      "name": "Pansements ciblés",
+      "kind": "objet",
+      "status": "prevu",
+      "lot": "Lot M1",
+      "image": null,
+      "what": "Chaque soin ouvre l'écran de First Aid pour choisir la partie du corps.",
+      "who": {"fabrique": "Paillasse", "utilise": "Tous ou médecin"},
+      "steps": [
+        "Utiliser l'objet : l'écran des parties du corps s'ouvre.",
+        "Choisir la partie à soigner.",
+        "Sur autrui : s'accroupir, puis clic droit."
+      ],
+      "staff": [
+        "Passe par l'API HealingItemApiHelper de First Aid.",
+        "Fraction soignée par un premier secours réglable.",
+        "À vérifier au lot M1 : soin vanilla donné par Medical Remedies."
+      ]
+    },
+    {
+      "id": "pilules-utiles",
+      "num": 34,
+      "name": "Pilules utiles",
+      "kind": "objet",
+      "status": "prevu",
+      "lot": "Lot M3",
+      "image": null,
+      "what": "Certaines pilules d'Hospitals reçoivent un vrai effet selon leur famille.",
+      "who": {"fabrique": "Chaîne de pharmacie", "utilise": "Tout le monde"},
+      "steps": [
+        "Antalgiques et opioïdes suspendent les malus de First Aid.",
+        "Antibiotiques contre l'infection ; corticoïdes accélèrent la consolidation.",
+        "Les autres : placebo. Abus d'une même famille : nausée."
+      ],
+      "staff": [
+        "Association pilule → effet dans un fichier de données.",
+        "L'infobulle montre la famille, pas la posologie."
+      ]
+    },
+    {
+      "id": "degats-repartis",
+      "num": 35,
+      "name": "Nos dégâts répartis par First Aid",
+      "kind": "systeme",
+      "status": "prevu",
+      "lot": "Lot M1",
+      "image": null,
+      "what": "Les dégâts du mod touchent des parties précises du corps.",
+      "steps": [
+        "Clôture électrique : les bras, puis courte fatigue des bras.",
+        "Flammes d'une machine en panne : pieds, jambes et torse.",
+        "Saignement : la partie qui saigne ; infection grave : le torse."
+      ],
+      "staff": [
+        "Répartitions First Aid en JSON.",
+        "Tous les dégâts du mod passent par une source normale."
+      ]
+    },
+    {
+      "id": "hemorragie",
+      "num": 36,
+      "name": "Hémorragie",
+      "kind": "systeme",
+      "status": "prevu",
+      "lot": "Lot M3",
+      "image": null,
+      "what": "Un coup violent fait saigner une partie ; le saignement mène à terre.",
+      "steps": [
+        "Léger : un premier secours l'arrête.",
+        "Grave sur un membre : garrot, puis soin du médecin.",
+        "Interne au torse : seule une opération l'arrête."
+      ],
+      "flow": ["Coup violent", "Saignement", "Garrot ou soin", "Arrêté"],
+      "staff": [
+        "Seuil et types de dégâts concernés réglables.",
+        "Ne tue jamais directement : mène à l'état à terre."
+      ]
+    },
+    {
+      "id": "fractures",
+      "num": 37,
+      "name": "Fractures",
+      "kind": "systeme",
+      "status": "prevu",
+      "lot": "Lot M3",
+      "image": null,
+      "what": "Chute ou coup violent casse un membre ; seuls plâtre et temps guérissent.",
+      "who": {"fabrique": "Paillasse", "utilise": "Tous (attelle)"},
+      "steps": [
+        "Attelle : atténue le malus, tout le monde peut la poser.",
+        "Plâtre médical posé par le médecin, puis consolidation.",
+        "Ouverte : opérer d'abord. Cachée : radiographier d'abord."
+      ],
+      "flow": ["Fracture", "Attelle", "Plâtre médical", "Consolidation"],
+      "numbers": [
+        {"k": "Consolidation", "v": "une session RP (départ)"}
+      ],
+      "staff": [
+        "Consolidation comptée sur le temps du monde.",
+        "Seuils et chance de fracture ouverte réglables.",
+        "Les corticoïdes accélèrent la consolidation."
+      ]
+    },
+    {
+      "id": "a-terre",
+      "num": 38,
+      "name": "À terre au lieu de mort",
+      "kind": "systeme",
+      "status": "prevu",
+      "lot": "Lot M2",
+      "image": null,
+      "what": "Tête ou torse à zéro : on tombe à terre, les médecins sont prévenus.",
+      "who": {"utilise": "Médecin (relevage)"},
+      "steps": [
+        "À terre : on rampe, on parle, ni objet ni attaque.",
+        "Les médecins reçoivent le nom et la distance du blessé.",
+        "Sans médecin : relevé seul après 5 min, très faible."
+      ],
+      "flow": ["Blessé", "À terre", "Médecin prévenu", "Relevé"],
+      "numbers": [
+        {"k": "Délai", "v": "5 min"},
+        {"k": "Vie au relevé seul", "v": "très peu"}
+      ],
+      "staff": [
+        "Délai réglable ; se déconnecter ne remet pas le compteur à zéro.",
+        "Vide, /kill et types listés en config restent mortels.",
+        "À vérifier au lot M1 : annulation de FirstAidLivingDamageEvent.",
+        "Les mobs ignorent un joueur à terre."
+      ]
+    },
+    {
+      "id": "defibrillateur",
+      "num": 39,
+      "name": "Défibrillateur",
+      "kind": "objet",
+      "status": "prevu",
+      "lot": "Lot M2",
+      "image": null,
+      "what": "Objet à batterie qui relève presque instantanément un joueur à terre.",
+      "who": {"fabrique": "Établi d'ingénieur", "utilise": "Médecin"},
+      "steps": [
+        "Recharger, comme le poste à souder.",
+        "Utiliser sur un joueur à terre sans saignement grave.",
+        "Il se relève avec un peu plus de vie."
+      ],
+      "flow": ["À terre", "Défibrillateur", "Relevé"],
+      "numbers": [
+        {"k": "Énergie", "v": "batterie FE"},
+        {"k": "Par usage", "v": "une charge + délai"}
+      ],
+      "staff": [
+        "Valeurs de charge et de délai non précisées."
+      ]
+    },
+    {
+      "id": "stethoscope",
+      "num": 40,
+      "name": "Stéthoscope qui sert",
+      "kind": "objet",
+      "status": "prevu",
+      "lot": "Lot M2",
+      "image": null,
+      "what": "Le stéthoscope d'Hospitals affiche un diagnostic ; complet pour le médecin seul.",
+      "who": {"fabrique": "Paillasse", "utilise": "Tous"},
+      "steps": [
+        "Utiliser le stéthoscope sur un joueur.",
+        "Médecin : parties, saignements, fractures cachées, infection, effets.",
+        "Autres : respire ou non, et saigne ou non."
+      ]
+    },
+    {
+      "id": "operations",
+      "num": 41,
+      "name": "Opérations",
+      "kind": "systeme",
+      "status": "prevu",
+      "lot": "Lot M4",
+      "image": null,
+      "what": "Sur la table d'opération, le médecin enchaîne les instruments dans l'ordre.",
+      "who": {"fabrique": "Paillasse", "utilise": "Médecin"},
+      "steps": [
+        "Le patient s'allonge et accepte l'anesthésie.",
+        "Le médecin utilise les instruments dans le bon ordre.",
+        "Mauvais instrument : blesse le patient, sans jamais le tuer."
+      ],
+      "flow": ["Table d'opération", "Anesthésie", "Instruments en ordre", "Instruments sales"],
+      "numbers": [
+        {"k": "Opérations", "v": "hémorragie interne, fracture ouverte, infection grave"}
+      ],
+      "staff": [
+        "Ordre des instruments défini en données.",
+        "Coupure de courant : opération suspendue, reprise au retour.",
+        "Machine d'anesthésie alimentée par le coffret.",
+        "Un patient à terre est anesthésié d'office."
+      ]
+    },
+    {
+      "id": "radiographie",
+      "num": 42,
+      "name": "Radiographie",
+      "kind": "machine",
+      "status": "prevu",
+      "lot": "Lot M4",
+      "image": null,
+      "what": "Produit un cliché du patient, fractures cachées comprises.",
+      "who": {"fabrique": "Paillasse", "utilise": "Médecin"},
+      "steps": [
+        "Placer le patient devant le support de radiographie.",
+        "Utiliser la machine, alimentée par le coffret.",
+        "Le cliché montre silhouette, nom, date et fractures."
+      ],
+      "flow": ["Patient au support", "Machine alimentée", "Cliché", "Dossier médical"],
+      "staff": [
+        "Affichage sur le négatoscope : question ouverte.",
+        "Sinon, cliché lisible en infobulle ou dans un écran."
+      ]
+    },
+    {
+      "id": "infection",
+      "num": 43,
+      "name": "Infection des plaies",
+      "kind": "systeme",
+      "status": "prevu",
+      "lot": "Lot M3",
+      "image": null,
+      "what": "Une plaie mal soignée ou touchée sale s'infecte, en trois stades.",
+      "steps": [
+        "Lavabo chirurgical ou gel : « mains propres » quelques minutes.",
+        "Locale, fièvre, grave : guérison bloquée, faiblesse, perte de vie.",
+        "Traitement : antibiotiques, plus opération au stade grave."
+      ],
+      "flow": ["Plaie", "Locale", "Fièvre", "Grave"],
+      "numbers": [
+        {"k": "Stades", "v": "3"}
+      ],
+      "staff": [
+        "Progresse seulement quand le joueur est connecté.",
+        "Ne tue jamais directement ; le stade grave peut mener à terre.",
+        "Plaies concernées : saignement, fracture ouverte, opération."
+      ]
+    },
+    {
+      "id": "repos-hopital",
+      "num": 44,
+      "name": "Repos à l'hôpital",
+      "kind": "bloc",
+      "status": "prevu",
+      "lot": "Lot M5",
+      "image": null,
+      "what": "Le lit d'hôpital fait guérir lentement toutes les parties du corps.",
+      "who": {"fabrique": "Paillasse", "utilise": "Patient"},
+      "steps": [
+        "S'allonger dans un lit d'hôpital : guérison lente.",
+        "Bonus : moniteur cardiaque ou tête de lit alimentés à côté.",
+        "Bonus : perfusion posée par un médecin."
+      ],
+      "staff": [
+        "Coupure de courant : bonus perdus, repos de base gardé.",
+        "Côté pack : baisser la guérison par le sommeil de First Aid.",
+        "Le lit raccourcit aussi la convalescence."
+      ]
+    },
+    {
+      "id": "convalescence",
+      "num": 45,
+      "name": "Convalescence",
+      "kind": "systeme",
+      "status": "prevu",
+      "lot": "Lot M2",
+      "image": null,
+      "what": "Après un relevage ou une opération : un peu lent, fatigué, sans sprint.",
+      "steps": [
+        "Donnée après relevage, opération ou relevage automatique.",
+        "L'effet ne se cumule pas.",
+        "Passe deux fois plus vite au lit d'hôpital."
+      ],
+      "numbers": [
+        {"k": "Durée", "v": "quelques minutes"}
+      ],
+      "staff": [
+        "Durée réglable, pas encore chiffrée."
+      ]
+    },
+    {
+      "id": "centrifugeuse",
+      "num": 46,
+      "name": "Centrifugeuse alimentée",
+      "kind": "machine",
+      "status": "prevu",
+      "lot": "Lot M4",
+      "image": null,
+      "what": "Les centrifugeuses d'Hospitals exigent un coffret et prennent du temps.",
+      "who": {"fabrique": "Paillasse"},
+      "steps": [
+        "Placer un coffret électrique à portée.",
+        "Lancer le traitement, puis attendre sa fin."
+      ],
+      "staff": [
+        "Durée réglable.",
+        "Traitement non instantané à confirmer en lisant leur logique."
+      ]
+    },
+    {
+      "id": "autoclave",
+      "num": 47,
+      "name": "Autoclave",
+      "kind": "machine",
+      "status": "prevu",
+      "lot": "Lot M4",
+      "image": null,
+      "what": "Machine électrique qui stérilise les instruments chirurgicaux sales.",
+      "steps": [
+        "L'état de l'instrument s'affiche dans son infobulle.",
+        "Placer les instruments sales dans l'autoclave.",
+        "Ils ressortent stériles."
+      ],
+      "flow": ["Instrument neuf", "Opération", "Sale", "Autoclave", "Stérile"],
+      "numbers": [
+        {"k": "Entrées", "v": "FE + eau potable"}
+      ],
+      "staff": [
+        "Eau par tuyau de Create ou bouteilles du dessalinisateur.",
+        "Opérer avec un instrument sale augmente fortement le risque d'infection."
+      ]
+    },
+    {
+      "id": "chaine-pharmacie",
+      "num": 48,
+      "name": "Chaîne de pharmacie",
+      "kind": "machine",
+      "status": "prevu",
+      "lot": "Lot M5",
+      "image": null,
+      "what": "Quatre blocs d'Hospitals alimentés : seul moyen de fabriquer des pilules.",
+      "who": {"fabrique": "Paillasse", "utilise": "Médecin"},
+      "steps": [
+        "Balance analytique : peser les ingrédients.",
+        "Isolateur : une substance active par famille de pilules.",
+        "Remplisseuses : substance en gélules, puis en flacon."
+      ],
+      "flow": ["Balance", "Isolateur", "Gélules", "Flacons"],
+      "numbers": [
+        {"k": "Blocs", "v": "4"}
+      ],
+      "staff": [
+        "Ingrédients en données : fleurs, champignons, miel, os, sel…",
+        "Repli possible à deux étapes : isolateur, puis remplissage.",
+        "Alimentée par le coffret électrique médical."
+      ]
+    },
+    {
+      "id": "dossier-medical",
+      "num": 49,
+      "name": "Dossier médical",
+      "kind": "systeme",
+      "status": "prevu",
+      "lot": "Lot M1",
+      "image": null,
+      "what": "Chaque joueur a un dossier qui se remplit seul, lu par les médecins.",
+      "who": {"fabrique": "Paillasse", "utilise": "Médecin"},
+      "steps": [
+        "Se remplit seul : soins, fractures, opérations, clichés, passages à terre.",
+        "Le médecin le lit au porte-bloc et ajoute des notes.",
+        "Invisible au patient ; le médecin peut lui en remettre copie."
+      ],
+      "staff": [
+        "Nombre de lignes par dossier plafonné.",
+        "Consultation staff par une commande (nom non précisé).",
+        "Groupe sanguin lu dans la variable blood_type d'Hospitals."
+      ]
+    }
+  ]
+}

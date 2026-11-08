@@ -1,0 +1,104 @@
+/* Wiki Lost Island : fiches courtes, une couleur par statut, des blocs en 3D isométrique. */
+:root{
+  --bg:#f4f1ea; --card:#fffdf8; --ink:#1c2228; --soft:#5d666e; --line:#e1dbcf;
+  --sea:#0e6a6e; --sea-2:#d9eeec; --sand:#c4862a; --sand-2:#f5e7cc;
+  --live:#1d7a45; --live-2:#d8f0e0; --plan:#8a5b00; --plan-2:#fbecc8; --staff:#5a3ea5; --staff-2:#ebe5fb;
+  --display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#11161a; --card:#182027; --ink:#e6eaed; --soft:#9aa5ad; --line:#29343c;
+  --sea:#5ec3c1; --sea-2:#15393a; --sand:#e2ad5c; --sand-2:#3a2e1a;
+  --live:#6fd49a; --live-2:#16382a; --plan:#f0c463; --plan-2:#3a3017; --staff:#b8a1ff; --staff-2:#2b2446; color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--ink)}
+body{margin:0;font:15px/1.5 var(--body)}
+a{color:var(--sea)}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--sea);outline-offset:2px}
+.muted{color:var(--soft)}
+
+.top{position:sticky;top:0;z-index:10;display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--card);border-bottom:1px solid var(--line);
+  padding:10px max(16px,env(safe-area-inset-right)) 10px max(16px,env(safe-area-inset-left))}
+.brand{font:800 19px var(--display);color:var(--ink);text-decoration:none;display:flex;gap:8px;align-items:center;white-space:nowrap}
+.dot{width:13px;height:13px;border-radius:50%;background:radial-gradient(circle at 35% 35%,var(--sand),var(--sea))}
+#q{flex:1 1 200px;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:7px 12px}
+.seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{border:0;background:var(--bg);padding:6px 12px;cursor:pointer;color:var(--soft)}
+.seg button[aria-pressed=true]{background:var(--sea);color:var(--card)}
+.only{display:flex;gap:6px;align-items:center;font-size:14px;color:var(--soft);white-space:nowrap}
+.tabs{display:flex;gap:6px;overflow-x:auto;padding:10px max(16px,env(safe-area-inset-right)) 10px max(16px,env(safe-area-inset-left));scrollbar-width:thin}
+.tabs a{white-space:nowrap;text-decoration:none;color:var(--ink);border:1px solid var(--line);background:var(--card);border-radius:999px;padding:5px 12px;font-size:14px;display:flex;gap:6px;align-items:center}
+.tabs a.on{background:var(--ink);color:var(--card);border-color:var(--ink)}
+.tabs a small{font-size:11px;color:var(--live)}
+.tabs a.on small{color:var(--live-2)}
+
+main{max-width:1240px;margin:0 auto;padding:8px max(16px,env(safe-area-inset-right)) 60px max(16px,env(safe-area-inset-left))}
+h1{font:800 clamp(26px,4vw,38px)/1.1 var(--display);margin:14px 0 4px;letter-spacing:-.01em;text-wrap:balance}
+.intro{color:var(--soft);margin:0 0 18px;max-width:70ch}
+h2{font:600 19px var(--display);margin:26px 0 10px}
+
+/* Schémas : une rangée de bulles reliées par des flèches. */
+.diagrams{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:12px;margin-bottom:8px}
+.diagram{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.diagram b{display:block;font:600 14px var(--display);margin-bottom:8px}
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.flow span{background:var(--sea-2);color:var(--ink);border-radius:9px;padding:4px 9px;font-size:13px;font-weight:500}
+.flow i{color:var(--sea);font-style:normal;font-weight:700}
+
+/* Cartes */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,270px),1fr));gap:14px;align-items:start}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column}
+.card.plan .art{filter:saturate(.75)}
+.art{height:118px;display:grid;place-items:center;position:relative;background:linear-gradient(160deg,var(--sea-2),var(--sand-2))}
+.badge{position:absolute;top:9px;left:9px;font-size:11.5px;font-weight:600;border-radius:999px;padding:2px 9px}
+.badge.live{background:var(--live);color:#fff}
+.badge.plan{background:var(--plan-2);color:var(--plan);border:1px solid var(--plan)}
+.num{position:absolute;top:9px;right:10px;font-size:12px;color:var(--soft);font-variant-numeric:tabular-nums}
+.body{padding:12px 14px 14px;display:flex;flex-direction:column;gap:9px}
+.body h3{font:600 17px/1.2 var(--display);margin:0}
+.what{margin:0;color:var(--ink)}
+.who{display:flex;flex-wrap:wrap;gap:5px}
+.who span{font-size:12.5px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:2px 7px;display:inline-flex;gap:5px;align-items:center}
+.who svg{width:13px;height:13px;color:var(--sea)}
+.who em{font-style:normal;color:var(--soft)}
+.steps{margin:0;padding:0;list-style:none;counter-reset:s;display:flex;flex-direction:column;gap:4px}
+.steps li{counter-increment:s;display:flex;gap:8px;font-size:14px}
+.steps li::before{content:counter(s);flex:0 0 20px;height:20px;border-radius:50%;background:var(--sea);color:var(--card);font-size:11.5px;font-weight:600;display:grid;place-items:center;margin-top:1px}
+.nums{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:6px}
+.nums div{background:var(--sand-2);border-radius:9px;padding:5px 8px}
+.nums small{display:block;font-size:11px;color:var(--soft)}
+.nums b{font-size:14px;font-variant-numeric:tabular-nums}
+.items{display:flex;flex-wrap:wrap;gap:6px}
+.items span{display:inline-flex;gap:5px;align-items:center;font-size:12.5px;border:1px solid var(--line);border-radius:8px;padding:2px 7px 2px 3px}
+.px{width:22px;height:22px;background-size:100% auto;background-position:top;image-rendering:pixelated;display:inline-block}
+details.staff{border-top:1px dashed var(--line);padding-top:7px}
+details.staff summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--staff)}
+details.staff ul{margin:6px 0 0;padding-left:18px;font-size:13.5px}
+details.staff code,.card code{font-size:12.5px;background:var(--staff-2);padding:0 4px;border-radius:4px}
+body.v-joueurs details.staff{display:none}
+
+/* Bloc en 3D isométrique à partir de ses textures. */
+.cube{width:56px;height:56px;position:relative;transform-style:preserve-3d;transform:rotateX(-30deg) rotateY(-45deg);margin-top:6px}
+.cube div{position:absolute;inset:0;background-size:100% auto;background-position:top;image-rendering:pixelated;backface-visibility:hidden}
+.cube .f-top{transform:rotateX(90deg) translateZ(28px)}
+.cube .f-front{transform:translateZ(28px);filter:brightness(.92)}
+.cube .f-side{transform:rotateY(90deg) translateZ(28px);filter:brightness(.72)}
+.item-big{width:64px;height:64px;background-size:100% auto;background-position:top;image-rendering:pixelated}
+.glyph{width:56px;height:56px;border-radius:16px;background:var(--card);display:grid;place-items:center;box-shadow:0 2px 0 var(--line)}
+.glyph svg{width:30px;height:30px;color:var(--sea)}
+
+/* Accueil */
+.board{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:14px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px}
+.panel h2{margin:0 0 8px}
+.row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--line);font-size:14.5px}
+.row:last-child{border:0}
+.row a{text-decoration:none;color:var(--ink)}
+.pill{font-size:12px;font-weight:600;border-radius:999px;padding:1px 8px;white-space:nowrap}
+.pill.live{background:var(--live-2);color:var(--live)}
+.pill.plan{background:var(--plan-2);color:var(--plan)}
+.empty{padding:24px;text-align:center;color:var(--soft);border:1px dashed var(--line);border-radius:14px}
+.foot{max-width:1240px;margin:0 auto;padding:0 16px 30px;color:var(--soft);font-size:13px}
+@media (max-width:560px){.only{order:5}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
