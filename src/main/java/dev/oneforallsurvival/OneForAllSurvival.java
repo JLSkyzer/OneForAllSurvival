@@ -8,6 +8,7 @@ import dev.oneforallsurvival.bench.BenchOverrides;
 import dev.oneforallsurvival.bench.BenchRegistry;
 import dev.oneforallsurvival.bench.WorkshopTicker;
 import dev.oneforallsurvival.coast.CoastCommands;
+import dev.oneforallsurvival.debug.IslandDebugRequest;
 import dev.oneforallsurvival.food.FoodConfig;
 import dev.oneforallsurvival.food.FoodEvents;
 import dev.oneforallsurvival.food.FoodRegistry;
@@ -61,6 +62,7 @@ public final class OneForAllSurvival {
         MinecraftForge.EVENT_BUS.addListener(BenchCatalog::onTagsUpdated);
         MinecraftForge.EVENT_BUS.addListener(BenchNetwork::onDatapackSync);
         MinecraftForge.EVENT_BUS.addListener(BenchNetwork::onLogout);
+        MinecraftForge.EVENT_BUS.addListener(IslandDebugRequest::onLogout);
     }
 
     private void commonSetup(FMLCommonSetupEvent event) {

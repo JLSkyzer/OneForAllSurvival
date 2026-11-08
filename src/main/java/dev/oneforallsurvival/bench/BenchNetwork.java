@@ -3,6 +3,8 @@ package dev.oneforallsurvival.bench;
 import com.mojang.logging.LogUtils;
 import dev.oneforallsurvival.OneForAllSurvival;
 import dev.oneforallsurvival.bench.client.BenchClientState;
+import dev.oneforallsurvival.debug.IslandDebugRequest;
+import dev.oneforallsurvival.debug.IslandDebugResponse;
 import dev.oneforallsurvival.grid.SubscriberNamePacket;
 import java.util.Locale;
 import java.util.Map;
@@ -24,15 +26,15 @@ import net.minecraftforge.network.simple.SimpleChannel;
 import org.slf4j.Logger;
 
 /**
- * Le canal réseau du mod (né avec l'établi), protocole « 2 » : client et serveur doivent concorder. Chaque paquet du
+ * Le canal réseau du mod (né avec l'établi), protocole « 3 » : client et serveur doivent concorder. Chaque paquet du
  * client est traité sur le thread du serveur, et revalide tout : rôle, distance, menu ouvert. Un client
  * n'est jamais cru sur parole.
  */
 public final class BenchNetwork {
 
     public static final ResourceLocation CHANNEL_ID = new ResourceLocation(OneForAllSurvival.MODID, "bench");
-    /** « 2 » depuis l'inscription des abonnés (lot 4) : un client plus ancien ne la connaît pas. */
-    private static final String PROTOCOL = "2";
+    /** « 3 » depuis les données Lost Island du F3 : un serveur plus ancien ne connaît pas la requête. */
+    private static final String PROTOCOL = "3";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(CHANNEL_ID, () -> PROTOCOL,
             PROTOCOL::equals, PROTOCOL::equals);
@@ -47,6 +49,9 @@ public final class BenchNetwork {
     /** Gestion du réseau : inscrire l'abonné d'un compteur ou d'un disjoncteur, et en ouvrir l'écran. */
     public static final int ID_SUBSCRIBER_NAME = 6;
     public static final int ID_SUBSCRIBER_SCREEN = 7;
+    /** Le F3 : demande des données Lost Island, et réponse filtrée selon le rôle. */
+    public static final int ID_ISLAND_DEBUG_REQUEST = 8;
+    public static final int ID_ISLAND_DEBUG_RESPONSE = 9;
 
     /** Clé de traduction d'un refus : {@code message.oneforallsurvival.bench.refused.<résultat>}. */
     public static final String REFUSED_KEY = "message.oneforallsurvival.bench.refused.";
@@ -83,6 +88,12 @@ public final class BenchNetwork {
         CHANNEL.messageBuilder(SubscriberNamePacket.Open.class, ID_SUBSCRIBER_SCREEN, NetworkDirection.PLAY_TO_CLIENT)
                 .encoder(SubscriberNamePacket.Open::encode).decoder(SubscriberNamePacket.Open::decode)
                 .consumerMainThread(SubscriberNamePacket.Open::handle).add();
+        CHANNEL.messageBuilder(IslandDebugRequest.class, ID_ISLAND_DEBUG_REQUEST, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(IslandDebugRequest::encode).decoder(IslandDebugRequest::decode)
+                .consumerMainThread(IslandDebugRequest::handle).add();
+        CHANNEL.messageBuilder(IslandDebugResponse.class, ID_ISLAND_DEBUG_RESPONSE, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(IslandDebugResponse::encode).decoder(IslandDebugResponse::decode)
+                .consumerMainThread(IslandDebugResponse::handle).add();
     }
 
     // --- Serveur vers client -----------------------------------------------------------------

@@ -4,6 +4,7 @@ import com.mojang.authlib.GameProfile;
 import dev.oneforallsurvival.bench.BenchNetwork;
 import dev.oneforallsurvival.bench.QueuePacket;
 import dev.oneforallsurvival.bench.RecipeListPacket;
+import dev.oneforallsurvival.debug.IslandDebugResponse;
 import dev.oneforallsurvival.grid.SubscriberNamePacket;
 import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.util.AttributeKey;
@@ -45,6 +46,8 @@ public final class JoueurDeTest {
     private final List<QueuePacket> files = new ArrayList<>();
     /** Les ouvertures de l'écran d'inscription d'un abonné reçues. */
     private final List<SubscriberNamePacket.Open> ecransAbonne = new ArrayList<>();
+    /** Les réponses du F3 reçues, décodées depuis les octets réellement envoyés. */
+    private final List<IslandDebugResponse> reponsesDebug = new ArrayList<>();
     /** Les clés des messages (chat ou barre d'action) reçus, dans l'ordre ; un texte brut est gardé tel quel. */
     private final List<String> messages = new ArrayList<>();
     /** Les paquets de synchronisation de menu (contenu, case, donnée), dans l'ordre d'envoi. */
@@ -124,6 +127,8 @@ public final class JoueurDeTest {
                     files.add(QueuePacket.decode(donnees));
                 } else if (discriminant == BenchNetwork.ID_SUBSCRIBER_SCREEN) {
                     ecransAbonne.add(SubscriberNamePacket.Open.decode(donnees));
+                } else if (discriminant == BenchNetwork.ID_ISLAND_DEBUG_RESPONSE) {
+                    reponsesDebug.add(IslandDebugResponse.decode(donnees));
                 }
             } finally {
                 donnees.release();
@@ -160,6 +165,14 @@ public final class JoueurDeTest {
         lire();
         List<SubscriberNamePacket.Open> out = new ArrayList<>(ecransAbonne);
         ecransAbonne.clear();
+        return out;
+    }
+
+    /** Les réponses du F3 reçues depuis le dernier appel, retirées. */
+    public List<IslandDebugResponse> reponsesDebugRecues() {
+        lire();
+        List<IslandDebugResponse> out = new ArrayList<>(reponsesDebug);
+        reponsesDebug.clear();
         return out;
     }
 

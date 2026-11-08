@@ -37,7 +37,7 @@ public final class CoteGameTests {
     private CoteGameTests() {}
 
     /** Ce que la cuvette a remplacé, pour le rendre. */
-    private static Map<BlockPos, BlockState> poserEau(ServerLevel level, BlockPos eau, boolean source) {
+    static Map<BlockPos, BlockState> poserEau(ServerLevel level, BlockPos eau, boolean source) {
         Map<BlockPos, BlockState> avant = new LinkedHashMap<>();
         avant.put(eau, level.getBlockState(eau));
         for (Direction d : new Direction[] {Direction.DOWN, Direction.NORTH, Direction.SOUTH, Direction.EAST,
@@ -51,7 +51,7 @@ public final class CoteGameTests {
         return avant;
     }
 
-    private static void rendre(ServerLevel level, Map<BlockPos, BlockState> avant) {
+    static void rendre(ServerLevel level, Map<BlockPos, BlockState> avant) {
         avant.forEach((p, etat) -> level.setBlock(p, etat, Block.UPDATE_CLIENTS));
     }
 
