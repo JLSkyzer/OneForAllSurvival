@@ -112,7 +112,16 @@ public final class TitleLayout {
      * lisent de haut en bas dans l'ordre des widgets, la dernière touchant le bas. Rects dans l'ordre d'entrée.
      */
     public static List<Rect> bottomRow(int screenW, int screenH, List<int[]> sizes) {
-        int limit = (int) (screenW * ROW_MAX_SHARE);
+        return bottomRow(screenW, screenH, sizes, (int) (screenW * ROW_MAX_SHARE));
+    }
+
+    /**
+     * Comme {@link #bottomRow(int, int, List)}, mais une ligne ne dépasse pas {@code maxRight} (bord droit permis,
+     * ramené à au plus {@link #ROW_MAX_SHARE} de la largeur) : laisse la place à la mention de Mojang en bas à droite
+     * sur les écrans étroits. Un widget seul plus large que la limite garde sa ligne.
+     */
+    public static List<Rect> bottomRow(int screenW, int screenH, List<int[]> sizes, int maxRight) {
+        int limit = Math.min(maxRight, (int) (screenW * ROW_MAX_SHARE));
         List<List<Integer>> lines = new ArrayList<>();
         List<Integer> line = new ArrayList<>();
         int used = ROW_MARGIN;

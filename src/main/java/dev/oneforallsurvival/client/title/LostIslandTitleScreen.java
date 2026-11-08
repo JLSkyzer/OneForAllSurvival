@@ -4,7 +4,6 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.oneforallsurvival.client.title.TitleLayout.Rect;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Optional;
@@ -104,6 +103,9 @@ public class LostIslandTitleScreen extends TitleScreen {
         quit = addRenderableWidget(Button.builder(Component.translatable("gui.oneforallsurvival.title.quit"),
                 b -> minecraft.stop()).size(TitleLayout.MAIN_W, TitleLayout.MAIN_H).build());
         ours.addAll(List.of(solo, join, options, quit));
+        for (Button b : List.of(solo, join, options, quit)) {
+            b.setTabOrderGroup(-1); // Tab parcourt nos quatre boutons avant les petits boutons et ceux des autres mods
+        }
         arrange();
     }
 
@@ -114,11 +116,14 @@ public class LostIslandTitleScreen extends TitleScreen {
      * (choix de son mod) n'est pas déplacé.
      */
     public void arrange() {
-        if (solo == null) {
-            return; // init() pas encore passé
+        if (solo == null || !children().contains(solo)) {
+            // init() pas passé (pas encore, ou Init.Pre annulé après un clearWidgets) : rien à placer, et pas de
+            // nouvel essai à chaque image
+            arrangedChildren = children().size();
+            return;
         }
         List<AbstractWidget> row = new ArrayList<>();
-        List<Integer> ranks = new ArrayList<>();
+        List<String> keys = new ArrayList<>();
         AbstractWidget copyright = null;
         for (GuiEventListener listener : children()) {
             if (ours.contains(listener) || !(listener instanceof AbstractWidget widget) || !widget.visible) {
@@ -130,13 +135,9 @@ public class LostIslandTitleScreen extends TitleScreen {
                 continue;
             }
             row.add(widget);
-            ranks.add(TitleWidgets.rowRank(key, TitleWidgets.classify(key, false)));
+            keys.add(key);
         }
-        List<Integer> order = new ArrayList<>();
-        for (int i = 0; i < row.size(); i++) {
-            order.add(i);
-        }
-        order.sort(Comparator.comparingInt(ranks::get)); // tri stable : l'ordre d'ajout départage
+        List<Integer> order = TitleWidgets.rowOrder(keys);
 
         if (vanillaMods != null) {
             vanillaMods.setWidth(Math.max(MODS_MIN_W, font.width(vanillaMods.getMessage()) + 16));
@@ -145,7 +146,9 @@ public class LostIslandTitleScreen extends TitleScreen {
         for (int i : order) {
             sizes.add(new int[] {row.get(i).getWidth(), row.get(i).getHeight()});
         }
-        List<Rect> bottom = TitleLayout.bottomRow(width, height, sizes);
+        // Sur un écran étroit, la rangée s'arrête avant la mention de Mojang (même bande du bas).
+        int maxRight = copyright == null ? width : width - copyright.getWidth() - 2 - TitleLayout.ROW_GAP;
+        List<Rect> bottom = TitleLayout.bottomRow(width, height, sizes, maxRight);
         for (int k = 0; k < order.size(); k++) {
             Rect r = bottom.get(k);
             row.get(order.get(k)).setPosition(r.x(), r.y());

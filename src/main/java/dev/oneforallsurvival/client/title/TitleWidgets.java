@@ -1,5 +1,8 @@
 package dev.oneforallsurvival.client.title;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -76,5 +79,18 @@ public final class TitleWidgets {
             }
         }
         return 3;
+    }
+
+    /**
+     * Ordre de la rangée du bas pour des widgets (non nôtres) donnés par leurs clés, dans l'ordre d'ajout : indices
+     * triés par {@link #rowRank}, tri stable (l'ordre d'ajout départage).
+     */
+    public static List<Integer> rowOrder(List<String> keys) {
+        List<Integer> order = new ArrayList<>(keys.size());
+        for (int i = 0; i < keys.size(); i++) {
+            order.add(i);
+        }
+        order.sort(Comparator.comparingInt(i -> rowRank(keys.get(i), classify(keys.get(i), false))));
+        return order;
     }
 }

@@ -120,6 +120,22 @@ class TitleLayoutTest {
     }
 
     @Test
+    void laRangeeLaisseLaPlaceALaMentionDeMojang() {
+        // 320 px de large : la mention (~196 px) commence à x = 122, avant les 45 % (144 px).
+        int w = 320, h = 240, mention = 196;
+        int maxRight = w - mention - 2 - TitleLayout.ROW_GAP;
+        List<int[]> sizes = new ArrayList<>(List.of(new int[] {44, 20}, new int[] {20, 20}, new int[] {20, 20}));
+        sizes.addAll(widgets(3, 20, 20));
+        Rect copyright = new Rect(w - mention - 2, h - 10, mention, 10);
+        for (Rect r : TitleLayout.bottomRow(w, h, sizes, maxRight)) {
+            assertFalse(r.intersects(copyright), "chevauchement avec la mention : " + r);
+            assertTrue(r.x() >= 0 && r.y() >= 0 && r.bottom() <= h, "hors de l'écran : " + r);
+        }
+        // Sur grand écran, la limite des 45 % reste celle qui compte.
+        assertEquals(TitleLayout.bottomRow(960, 540, sizes), TitleLayout.bottomRow(960, 540, sizes, 960 - 198));
+    }
+
+    @Test
     void sansSceneLaColonneResteCentreeEtDansLEcran() {
         Rect repli = TitleLayout.fallbackLogoRect(960, 540);
         List<Rect> grand = TitleLayout.mainButtons(960, 540, repli, List.of());

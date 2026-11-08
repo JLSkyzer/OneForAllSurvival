@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import dev.oneforallsurvival.client.title.TitleWidgets.Kind;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -48,12 +47,7 @@ class TitleWidgetsTest {
         List<String> added = new ArrayList<>(List.of("narrator.button.accessibility", "gui.othermod.button",
                 "fml.menu.mods", "narrator.button.language"));
         added.add(1, null); // Create
-        List<Integer> order = new ArrayList<>();
-        for (int i = 0; i < added.size(); i++) {
-            order.add(i);
-        }
-        order.sort(Comparator.comparingInt(
-                i -> TitleWidgets.rowRank(added.get(i), TitleWidgets.classify(added.get(i), false))));
+        List<Integer> order = TitleWidgets.rowOrder(added);
         List<String> sorted = new ArrayList<>();
         for (int i : order) {
             sorted.add(added.get(i));
