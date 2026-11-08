@@ -136,6 +136,18 @@ minecraft {
             if (project.hasProperty('titleShotsServer')) {
                 property 'lostisland.titleShots.server', project.titleShotsServer
             }
+            // `-PdebugShots=<dossier>` : preuve en jeu du F3 (relatif au dossier du jeu), puis fermeture du client ;
+            // `-PdebugShotsFilm` : version filmée, sans images PNG. `-PgameArgs="--fullscreen --width 2560 --height 1440"` :
+            // arguments de lancement de Minecraft, sans toucher à options.txt. Voir F3Shots (devcontent).
+            if (project.hasProperty('debugShots')) {
+                property 'lostisland.debugShots', project.debugShots ?: 'frames-f3'
+            }
+            if (project.hasProperty('debugShotsFilm')) {
+                property 'lostisland.debugShots.film', 'true'
+            }
+            if (project.hasProperty('gameArgs')) {
+                args project.gameArgs.trim().split(/\s+/).toList()
+            }
             // `-PoverlayFail=first` : la première image de l'overlay du mod échoue, celui de Forge prend la main.
             // `-PprogressTrace` : relevé de l'avancement des ressources une fois par seconde au journal de la scène.
             if (project.hasProperty('overlayFail')) {
