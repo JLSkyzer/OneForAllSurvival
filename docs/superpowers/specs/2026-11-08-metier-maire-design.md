@@ -65,7 +65,7 @@ Les autres joueurs reçoivent un message clair.
 
 ### Salaire
 Le maire touche un **salaire** sur le trésor, comme les rôles publics (économie, feature 75). Son
-montant est réglé par l'équipe du serveur. Il le retire au guichet.
+montant est réglé par l'équipe du serveur. Il arrive chaque jour à minuit dans son coffre-fort.
 
 ### Absence du maire
 Rien ne dépend de sa présence : les salaires, les prélèvements, les taxes et l'impôt tournent seuls.

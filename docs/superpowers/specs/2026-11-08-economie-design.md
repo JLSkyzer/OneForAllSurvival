@@ -138,7 +138,6 @@ Valeurs de départ, réglables :
 | Étal de marché (71) | n'importe quel joueur | son propriétaire, autant qu'il veut | son propriétaire | oui, au crochetage, avec trace |
 | Trésor de la ville (73) | — | l'équipe du serveur, un seul | le maire | oui, au crochetage, avec trace |
 | Tableau de la mairie (73) | — | le maire, plusieurs | affichage seul | — |
-| Guichet (74) | l'ingénieur | le maire, plusieurs | le maire (en libre-service) | non, il ne garde aucune pièce |
 | Poste de fournisseur (83) | l'ingénieur | n'importe quel joueur | le fournisseur | non, sa caisse se vide par le fournisseur |
 | PNJ changeur (80) | — | l'équipe, par commande | — | non, invulnérable |
 | Bureau du maire (cahier du maire) | — | l'équipe, un seul | le maire | non |
@@ -153,7 +152,7 @@ partagé.
 La numérotation prolonge celle du policier. Toutes les valeurs chiffrées sont des valeurs de départ, à
 équilibrer.
 
-**Features retirées le 2026-11-08 par Killian** : 68 (presse à monnaie), 76 (comptes au guichet), 81
+**Features retirées le 2026-11-08 par Killian** : 68 (presse à monnaie), 74 (guichet), 76 (comptes au guichet), 81
 (distributeur), 82 (carte bancaire). Leurs numéros ne sont pas réutilisés.
 
 ### Garder son argent
@@ -212,19 +211,27 @@ Demandé par Killian le 2026-11-08.
 
 **86. Prélèvement automatique.**
 Demandé par Killian le 2026-11-08.
-- Il paie les factures **automatiques** : l'électricité (83) et l'abonnement du téléphone. Un joueur
-  ne peut pas émettre lui-même une facture prélevable.
+- Il paie toutes les sommes dues **à distance**, sans que personne ait à se déplacer :
+  - l'électricité (83) et l'abonnement du téléphone ;
+  - les **factures publiques** : amendes, cautions, factures de la ville ;
+  - l'impôt sur les coffres-forts (cahier du maire).
+- Un joueur ne peut pas émettre lui-même une facture prélevable. Les factures entre joueurs (soins,
+  travaux) se règlent de main à main.
 - À l'échéance, le montant est pris **en pièces** :
   1. dans l'**inventaire** du joueur, bourse comprise, s'il est connecté ;
   2. sinon, ou s'il n'y en a pas assez, dans son **coffre-fort** ;
   3. sinon, le **paiement est refusé**.
 - Le prélèvement se fait **en entier ou pas du tout** : pas de paiement partiel. La monnaie est rendue
   au besoin.
-- Les pièces vont dans la caisse du poste du fournisseur ou de l'antenne de l'opérateur, où le
-  créancier les retire.
+- Les pièces vont au **trésor** pour une somme publique, ou dans la caisse du poste du fournisseur ou de
+  l'antenne de l'opérateur, où le créancier les retire.
 - Un paiement refusé laisse la facture **due**. Le débiteur est **prévenu** (message à la connexion, et
-  notification du téléphone s'il en a un), ainsi que le créancier, qui décide de couper ou non. Une
-  facture due se paie ensuite de main à main ou au guichet.
+  notification du téléphone s'il en a un), ainsi que le créancier, qui décide de couper ou non.
+- Une facture due est **représentée chaque jour à minuit** jusqu'à ce qu'elle soit payée. Le débiteur
+  peut aussi la payer **tout de suite** : en utilisant l'objet facture (ou l'avis de contravention), qui
+  prend les pièces de son inventaire, ou depuis son téléphone.
+- Le paiement marque la facture payée là où elle a été émise : le relevé du compteur, le casier
+  judiciaire.
 - Chaque prélèvement s'inscrit au registre.
 
 ### Commerce
@@ -246,15 +253,20 @@ Demandé par Killian le 2026-11-08.
 
 **72. Facture.**
 - C'est un document (objet) émis par un joueur à un autre : émetteur, débiteur, motif, montant, date.
-- Il est **payable** à un guichet (feature 74) ou de main à main. Payée, la facture devient un **reçu**.
-- Les factures automatiques (électricité, téléphone) sont prélevées (feature 86).
+- Il est **payable** de main à main, ou en l'utilisant, ce qui prend les pièces de l'inventaire. Payée,
+  la facture devient un **reçu**.
+- Les factures publiques et automatiques (amendes, électricité, téléphone) sont prélevées à distance
+  (feature 86).
 - Les métiers produisent leurs factures par ce même objet (section 6).
 
 ### La ville
 
 **73. Trésor de la ville.**
-- C'est un **coffre-fort** tenu par le maire, avec un registre. Il reçoit les taxes, les amendes, les
-  factures publiques et l'impôt, et il paie les salaires.
+- C'est la **banque de l'île** : un **coffre-fort** tenu par le maire, avec un registre. C'est le
+  **seul bloc** de la ville qui manie l'argent public (choix de Killian, qui a retiré le guichet).
+- Il **reçoit à distance** les taxes, les amendes, les factures publiques et l'impôt, prélevés chez
+  les joueurs (feature 86). Il **envoie à distance** les salaires (feature 75). Personne n'a besoin de
+  venir à la mairie pour payer ou être payé.
 - Il n'y en a **qu'un**, posé par l'**équipe du serveur** à la mairie (choix de Killian). Seuls le maire
   et l'équipe l'ouvrent ; seule l'équipe le casse.
 - Son solde est public, affiché sur un **tableau de la mairie**. Le maire peut poser ce tableau en
@@ -263,28 +275,12 @@ Demandé par Killian le 2026-11-08.
 - Il peut être cambriolé comme un coffre verrouillé (feature 67 du policier) : le registre montre alors un
   trou entre le solde attendu et le contenu.
 
-**74. Guichet.**
-- C'est un bloc **fabriqué par l'ingénieur** à son établi, et **posé par le maire** (choix de Killian),
-  ou par l'équipe du serveur. Il peut y en avoir plusieurs : à la mairie, au port, à la mine.
-- À sa pose, le maire le **relie au trésor** : le guichet affiche alors « Guichet de la ville » et
-  travaille avec le trésor unique, sans câble, quelle que soit la distance. Un guichet non relié ne fait
-  rien.
-- Il ne garde **aucune pièce** : tout ce qu'on y paie va directement au trésor ou au créancier, et tout
-  ce qu'on y retire vient du trésor. Le voler ne rapporte donc rien.
-- Seuls le maire, l'équipe du serveur et un ingénieur muni de l'outil de maintenance peuvent le casser
-  ou le déplacer.
-- Il fonctionne seul, en libre-service : aucun joueur n'a besoin d'être derrière.
-- On y **paie une facture publique** (amende) sans que le maire soit présent. On y paie aussi une facture d'électricité ou de téléphone restée due après un prélèvement
-  refusé : les pièces vont alors au créancier.
-- Le paiement marque la facture payée là où elle a été émise : le relevé du compteur, le casier
-  judiciaire.
-- On y **retire son salaire** (75).
-
 **75. Salaires publics.**
 - Chaque rôle peut recevoir un **salaire**, réglé en config ou par commande. À la création, seuls les
-  rôles publics sont proposés : policier, médecin.
-- Le salaire est dû au **temps passé connecté dans le rôle**. Il est arrêté chaque jour à minuit, et le
-  joueur le retire au **guichet**.
+  rôles publics sont proposés : policier, médecin, maire.
+- Le salaire est dû au **temps passé connecté dans le rôle**. Il est arrêté chaque jour à minuit et
+  **envoyé à distance** au joueur : dans son **coffre-fort** ; s'il n'en a pas, dans son inventaire s'il
+  est connecté ; sinon, il attend sa prochaine connexion.
 - Il est payé **sur le trésor**. Si le trésor ne suffit pas, le salaire reste **dû** et s'affiche comme
   une dette de la ville : une ville pauvre a des conséquences visibles.
 
@@ -459,7 +455,7 @@ Chaque branchement se fait au lot du métier concerné, une fois l'économie liv
 | Ingénieur | Il fabrique les **postes de fournisseur** (feature 83), pose et rebranche les compteurs, et pose les scellés. Les factures d'électricité sont émises automatiquement au prix de chaque fournisseur et prélevées en pièces (feature 86). Impayée, une facture justifie un scellé en RP. Le matériel fabriqué à l'établi se vend à l'étal. |
 | Agriculteur | L'**étal** vend la production et rachète les récoltes. Le **grenier communal** peut **payer les dépôts** au prix fixé par la ville, sur le trésor : la ville achète ses réserves. |
 | Médecin | Le médecin émet une **facture de soins** depuis le dossier médical, avec les soins listés. Elle peut être réglée par le trésor si la ville rend certains soins gratuits (réglable par type de soin). |
-| Policier | Une **contravention** devient une facture publique : payée au guichet, elle est marquée payée au casier sans geste du policier. Une **caution** peut être versée au trésor pour sortir de cellule plus tôt (réglable). Les pièces se fouillent et se confisquent comme le reste. Son outil de crochetage force aussi un coffre-fort (feature 85). |
+| Policier | Une **contravention** devient une facture publique, prélevée à distance (feature 86) : payée, elle est marquée payée au casier sans geste du policier. Une **caution** peut être versée au trésor pour sortir de cellule plus tôt (réglable). Les pièces se fouillent et se confisquent comme le reste. Son outil de crochetage force aussi un coffre-fort (feature 85). |
 | Maire | Voir son [cahier](2026-11-08-metier-maire-design.md) : trésor et dépenses publiques, taxes, impôt sur les coffres-forts, barème des amendes, plafond du prix de l'électricité, fournisseurs. |
 | Communication | L'**abonnement du téléphone** est prélevé chaque jour en pièces (feature 86) et va dans la caisse de l'antenne de l'opérateur. Voir le [cahier du téléphone](2026-11-08-telephone-design.md). |
 | Tous | Les **salaires publics**, la **taxe sur les ventes**, le **cambriolage** du trésor, d'un étal ou d'un coffre-fort. |
@@ -476,7 +472,7 @@ compris.
 |---|---|---|
 | E1 | Pièces déclarées, valeurs, change, vérification des recettes, registre partagé ; 84, 85, 69, 87, 88, 77 | L'argent existe, ne vient que de sources déclarées, ne se range qu'aux endroits permis, et l'équipe le voit |
 | E2 | 70, 71, 72 | Les joueurs commercent entre eux, même absents |
-| E3 | 73, 74, 75 | La ville a des finances : elle encaisse, elle paie, elle peut manquer |
+| E3 | 73, 75 | La ville a des finances : elle encaisse, elle paie, elle peut manquer |
 | E4 | 78, 80 | On gagne sa vie en chassant, et on fait la monnaie auprès d'un changeur |
 | E5 | 79 | Des objectifs renouvelés chaque jour et chaque semaine |
 | E6 | 86, 83 | Les factures se paient seules en pièces, et chacun peut vendre son électricité |
@@ -507,7 +503,9 @@ leur métier. Celui de l'ingénieur vient avec le lot E6.
   - un étal plein ne se casse pas ;
   - la taxe arrive au trésor ;
   - un salaire impayé reste dû ;
-  - une facture payée au guichet est marquée payée chez son émetteur ;
+  - une amende prélevée à distance arrive au trésor et est marquée payée au casier ;
+  - une facture due est représentée à chaque minuit, et se paie aussi en utilisant l'objet facture ;
+  - un salaire arrive au coffre-fort à minuit, ou attend la connexion d'un joueur sans coffre-fort ;
   - le total créé moins le total détruit est juste après une pièce jetée dans la lave ;
   - la somme de départ n'est donnée qu'une fois par joueur ;
   - une injection de l'équipe est notée au registre et au tableau de bord ;
@@ -558,6 +556,8 @@ leur métier. Celui de l'ingénieur vient avec le lot E6.
 - **N'importe quel joueur** fabrique son coffre-fort.
 - **Monnaie entièrement physique** : pas de comptes, pas de distributeur, pas de carte bancaire, pas
   d'appli de banque.
+- **Pas de guichet** : le trésor est le seul bloc de l'argent public. Taxes, amendes et impôt sont
+  prélevés à distance, et les salaires envoyés à distance dans le coffre-fort.
 - **Un seul coffre-fort par joueur**, seul stockage personnel des pièces, cambriolable difficilement.
 - Les pièces ne vont que dans l'inventaire, la bourse, le coffre-fort, l'étal, le trésor et les caisses
   des fournisseurs et opérateurs.

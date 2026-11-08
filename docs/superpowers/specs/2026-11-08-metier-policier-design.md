@@ -223,8 +223,8 @@ La numérotation prolonge celle du médecin. Toutes les valeurs chiffrées sont 
   **montant**.
 - Le contrevenant reçoit un **avis de contravention** (objet) et la ligne s'inscrit au casier comme
   **impayée**.
-- Le policier la marque **payée** quand le règlement a eu lieu en RP. Avec le [cahier de l'économie](2026-11-08-economie-design.md), le paiement au guichet la marque payée
-  automatiquement.
+- Le policier la marque **payée** quand le règlement a eu lieu en RP. Avec le [cahier de l'économie](2026-11-08-economie-design.md), l'amende est prélevée à
+  distance dans l'inventaire puis le coffre-fort du contrevenant, et marquée payée automatiquement.
 - Avec le [cahier du maire](2026-11-08-metier-maire-design.md) (feature 105), le montant de chaque motif
   vient du **barème** fixé par le maire ; seul le motif libre garde un montant écrit par le policier.
 
