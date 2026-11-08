@@ -248,11 +248,13 @@ Demandé par Killian le 2026-11-08, sur le modèle des opérateurs du téléphon
   - Le **compteur** (feature 8) est posé en ligne à l'entrée de chaque client. Il compte les FE qui
     entrent dans cette maison, et c'est cette mesure qui fait la facture.
   - Le **disjoncteur d'abonné** (feature 8) suit le compteur et coupe la maison.
-  - **Les câbles sont ceux de Create: Crafts & Additions** : des connecteurs posés sur les blocs, reliés
-    par des fils tirés d'une bobine, qui pendent entre deux connecteurs comme de vraies lignes
-    électriques. Le mod n'ajoute pas de câble à lui. Le poste, le compteur et le disjoncteur acceptent
-    et rendent des FE par leurs faces, pour qu'on y pose un connecteur. Demandé par Killian le
-    2026-11-08.
+  - **Les câbles viennent de n'importe quel mod.** Le mod n'ajoute pas de câble à lui. Le poste, le
+    compteur et le disjoncteur exposent l'énergie Forge (FE) sur toutes leurs faces : tout câble,
+    connecteur ou conduit qui transporte des FE s'y branche, quel que soit son mod. Les fils suspendus
+    de Create: Crafts & Additions, qui pendent entre deux connecteurs comme de vraies lignes, sont le
+    cas de référence pour les essais. Demandé par Killian le 2026-11-08.
+  - Le compteur doit mesurer juste quel que soit le câble : il compte ce qui le traverse réellement,
+    et ne laisse passer que ce que la maison consomme.
 - **Rattachement.** Le mod ne sait pas de quel réseau vient le courant, car les câbles des mods
   d'ingénierie ne le disent pas. Le fournisseur ou un ingénieur **jumelle** donc chaque compteur au
   poste avec le testeur : un clic sur le poste, puis un sur le compteur, qui affiche le nom du
@@ -457,6 +459,8 @@ le lot E6, puisque les factures d'électricité passent par les fournisseurs et 
   - un prélèvement refusé laisse la facture due et prévient le fournisseur ;
   - un fournisseur supprimé par le maire ne facture plus personne ;
   - un compteur non jumelé ou non accepté ne laisse pas passer le courant ;
+  - le compteur mesure la même consommation avec un câble de Crafts & Additions, de Create: New Age et
+    un câble FE d'un autre mod ;
   - un joueur sans droit (client compris) ne peut ni casser ni ouvrir le poste, un compteur ou un
     disjoncteur d'un fournisseur ; le fournisseur, un ingénieur, le maire et l'équipe le peuvent.
 - **Scénario d'acceptation** : l'équipe désigne un trésorier ; il frappe ; il verse un salaire ; le policier
@@ -506,8 +510,8 @@ Elles décident de l'équilibre général et sont à trancher avant le lot E1 :
 - **Faut-il les comptes** (feature 76) dès le lot E3, ou une monnaie uniquement physique suffit-elle au
   début ? Les distributeurs et les cartes (81, 82) en dépendent.
 - **Le prix de l'électricité est-il libre**, ou la ville fixe-t-elle un plafond par FE contre les abus ?
-- **Les connecteurs et les fils d'un fournisseur** sont des blocs de Create: Crafts & Additions, que la
-  règle de sécurité de la feature 83 ne couvre pas. Faut-il les protéger aussi (le mod retiendrait
+- **Les câbles et les connecteurs d'un fournisseur** sont des blocs d'autres mods, que la règle de
+  sécurité de la feature 83 ne couvre pas. Faut-il les protéger aussi (le mod retiendrait
   qui les a posés), ou laisser la ligne vulnérable, avec l'écart du poste pour repérer les pirates ?
 - **La carte bancaire paie-t-elle aussi aux étals** (feature 71), ou seulement au distributeur et dans
   le téléphone ?
