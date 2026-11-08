@@ -64,4 +64,20 @@ class StatusMessagesTest {
         assertEquals("mods 23/154",
                 StatusMessages.of(Phase.MOD_LOADING, "Mod Gather working", 23, 154).detail());
     }
+
+    @Test
+    void laLigneAfficheeEstLeThemeEtLeDetailEntreParentheses() {
+        // Table de la spec, texte exact.
+        assertEquals("Les moteurs toussent… (démarrage)", StatusMessages.of(Phase.FORGE_START, "", 0, 0).line());
+        assertEquals("Inventaire de la soute… (recherche des mods)",
+                StatusMessages.of(Phase.MOD_DISCOVERY, "", 0, 0).line());
+        assertEquals("Tri des caisses de l'épave… (mods 23/154 : create)",
+                StatusMessages.of(Phase.MOD_LOADING, "create", 23, 154).line());
+        assertEquals("Le camp s'organise… (registres)", StatusMessages.of(Phase.REGISTRIES, "", 0, 0).line());
+        assertEquals("Exploration du littoral… (textures)", StatusMessages.of(Phase.RESOURCES, "", 0, 0).line());
+        // La fin n'a pas de détail : pas de parenthèses vides.
+        assertEquals("Bienvenue sur Lost Island.", StatusMessages.of(Phase.DONE, "", 0, 0).line());
+        assertEquals("Thème", new Status("Thème", null).line());
+        assertEquals("Thème", new Status("Thème", "  ").line());
+    }
 }

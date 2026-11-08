@@ -90,6 +90,10 @@ public final class TextureStore implements AutoCloseable {
         }
         // Avant l'impact, compose.py ne prend que la variante de nuit (il fait encore nuit).
         add(PLATES, "plates/precrash_mid_night.png", 4, true);
+        // Masques du feuillage (vent) : facultatifs ; sans eux, le décor reste immobile.
+        for (String layer : List.of("far", "mid", "fg")) {
+            addOptional(PLATES, "plates/foliage_" + layer + ".png", 1, false);
+        }
         for (String name : List.of("depth", "shallow", "mask", "glint_moon", "glint_sun")) {
             add(SEA, "sea/" + name + ".png", 1, false);
         }
@@ -119,7 +123,13 @@ public final class TextureStore implements AutoCloseable {
         for (String plane : CrashTrack.spritePaths(opener)) {
             addOptional(FX, plane, 4, false);
         }
-        // Groupe UI : logo et icône viendront avec l'interface (tâche 6).
+        // Logo, sa lueur, son masque de reflet, icône de l'avion : facultatifs (un manque retire l'effet seul).
+        for (SceneManifest.Letter letter : manifest.logo().letters()) {
+            addOptional(UI, letter.file(), 4, false);
+        }
+        addOptional(UI, "ui/logo/glow.png", 4, false);
+        addOptional(UI, "ui/logo/face_mask.png", 4, false);
+        addOptional(UI, "ui/plane_icon.png", 4, false);
     }
 
     /** Ressources du jar de service ({@code lostisland/loading/}) et texture vanilla des nuages du jeu. */

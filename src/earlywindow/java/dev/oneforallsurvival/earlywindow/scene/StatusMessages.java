@@ -5,7 +5,17 @@ import java.util.regex.Pattern;
 
 /** Messages d'état thématiques Lost Island, avec l'étape réelle en détail. Logique pure. */
 public final class StatusMessages {
-    public record Status(String theme, String detail) { }
+    public record Status(String theme, String detail) {
+        /**
+         * Ligne affichée sous la barre : le thème, puis l'étape réelle entre parenthèses (table de la spec).
+         * Sans détail (« Bienvenue sur Lost Island. »), le thème seul.
+         */
+        public String line() {
+            String t = theme == null ? "" : theme;
+            String d = detail == null ? "" : detail.trim();
+            return d.isEmpty() ? t : t + " (" + d + ")";
+        }
+    }
 
     // Un libellé de Forge n'est un nom de mod que s'il est un identifiant seul (« create »).
     // Les libellés relevés (« Loading mods », « Mod Gather working ») n'en portent pas.

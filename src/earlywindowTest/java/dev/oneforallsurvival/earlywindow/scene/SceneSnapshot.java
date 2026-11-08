@@ -27,6 +27,10 @@ import org.lwjgl.system.MemoryUtil;
  * les deux horloges sont donc égales, comme dans la vidéo de compose.py ; au-delà ({@code --t 60,60.1,120}),
  * l'aube est tenue et seuls les effets du temps réel (mer, nuages, feux, fumée, braises) bougent. Toutes les
  * textures sont attendues avant la première image. Les effets retirés (shader refusé) sont listés au début.
+ *
+ * <p>{@code --p} est la vraie progression affichée par la barre ; le texte d'état est celui de la phase des
+ * ressources. {@code --wind off} coupe le vent dans le feuillage (images suffixées {@code _nowind}), pour isoler
+ * son effet ; {@code --font ttf} force la police de repli (Monocraft.ttf).
  */
 public final class SceneSnapshot {
     private SceneSnapshot() {
@@ -38,6 +42,8 @@ public final class SceneSnapshot {
         int width = 1920;
         int height = 1080;
         Path out = Path.of("build", "scene-snapshots");
+        boolean wind = true;
+        boolean ttf = false;
         for (int i = 0; i + 1 < args.length; i += 2) {
             String v = args[i + 1];
             switch (args[i]) {
@@ -54,6 +60,8 @@ public final class SceneSnapshot {
                     height = Integer.parseInt(wh[1]);
                 }
                 case "--out" -> out = Path.of(v);
+                case "--wind" -> wind = !v.equals("off");
+                case "--font" -> ttf = v.equals("ttf");
                 default -> throw new IllegalArgumentException("option inconnue : " + args[i]);
             }
         }
@@ -102,7 +110,18 @@ public final class SceneSnapshot {
         System.out.printf(Locale.ROOT, "textures prêtes en %.1f s (nuages vanilla : %s)%n",
                 (System.nanoTime() - begin) / 1e9, textures.texture(TextureStore.CLOUDS) != 0 ? "oui" : "absents");
 
-        SceneRenderer renderer = new SceneRenderer(manifest, textures);
+        java.util.function.Consumer<String> log = line -> System.out.println("[lostisland] " + line);
+        BitmapFont font;
+        if (ttf) {
+            try (InputStream in = loader.getResourceAsStream("Monocraft.ttf")) {
+                font = BitmapFont.fromTrueType(in.readAllBytes());
+            }
+        } else {
+            font = SceneRenderer.defaultFont(textures, log);
+        }
+        System.out.println("police : " + (font == null ? "aucune (texte omis)" : font.origin()));
+        SceneRenderer renderer = new SceneRenderer(manifest, textures, new GlShaderLoader(), log, font);
+        renderer.setWindEnabled(wind);
         System.out.println("effets actifs : " + renderer.activeEffects());
         int fbo = glGenFramebuffers();
         int color = glGenTextures();
@@ -128,7 +147,8 @@ public final class SceneSnapshot {
                 if (error != GL_NO_ERROR) {
                     throw new IllegalStateException("erreur GL 0x" + Integer.toHexString(error) + " à t=" + t);
                 }
-                Path file = out.resolve(String.format(Locale.ROOT, "scene_%04.1f_%dx%d.png", t, width, height));
+                Path file = out.resolve(String.format(Locale.ROOT, "scene_%04.1f_%dx%d%s.png", t, width, height,
+                        wind ? "" : "_nowind"));
                 if (!STBImageWrite.stbi_write_png(file.toString(), width, height, 3, pixels, width * 3)) {
                     throw new IllegalStateException("écriture impossible : " + file);
                 }

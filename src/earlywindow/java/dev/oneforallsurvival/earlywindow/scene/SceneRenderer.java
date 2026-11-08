@@ -2,16 +2,21 @@ package dev.oneforallsurvival.earlywindow.scene;
 
 import static org.lwjgl.opengl.GL32C.*;
 
+import dev.oneforallsurvival.earlywindow.scene.effects.Bloom;
 import dev.oneforallsurvival.earlywindow.scene.effects.BoltEffect;
 import dev.oneforallsurvival.earlywindow.scene.effects.CrashEffect;
 import dev.oneforallsurvival.earlywindow.scene.effects.CrashTrack;
 import dev.oneforallsurvival.earlywindow.scene.effects.EffectChain;
 import dev.oneforallsurvival.earlywindow.scene.effects.EmberEffect;
 import dev.oneforallsurvival.earlywindow.scene.effects.FireEffect;
+import dev.oneforallsurvival.earlywindow.scene.effects.FoliageWind;
 import dev.oneforallsurvival.earlywindow.scene.effects.HaloEffect;
+import dev.oneforallsurvival.earlywindow.scene.effects.LogoEffect;
+import dev.oneforallsurvival.earlywindow.scene.effects.ProgressUi;
 import dev.oneforallsurvival.earlywindow.scene.effects.RainEffect;
 import dev.oneforallsurvival.earlywindow.scene.effects.SceneEffect;
 import dev.oneforallsurvival.earlywindow.scene.effects.SmokeEffect;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,7 +40,9 @@ import java.util.function.Consumer;
  *
  * <p>Feux, fumées, braises, halos, pluie, éclairs et crash sont des {@link SceneEffect} facultatifs
  * ({@link EffectChain}) : un effet dont le shader est refusé ou dont le rendu lève est retiré seul, journalisé une
- * fois, et la scène continue.
+ * fois, et la scène continue. Le logo, la barre et le texte ({@link LogoEffect}, {@link ProgressUi}) en sont
+ * aussi. Le vent dans le feuillage ({@link FoliageWind}) et le bloom ({@link Bloom}) se retirent de même : la
+ * plaque reste immobile, l'image reste sans halo.
  */
 public final class SceneRenderer implements AutoCloseable {
     // Palettes de compose.py : nuit, pré-aube, lever.
@@ -63,6 +70,10 @@ public final class SceneRenderer implements AutoCloseable {
     private final TextureStore textures;
     private final EffectChain effects;
     private final CrashTrack track; // null si la trajectoire manque
+    private final Consumer<String> log;
+    private FoliageWind wind; // null : retiré (shader refusé, tracé en échec)
+    private Bloom bloom;      // null : retiré
+    private boolean windEnabled = true;
     // Créé au premier rendu : le constructeur ne fait aucun appel GL direct (testable sans contexte).
     private GlQuad quad;
     private final Program layer;
@@ -83,7 +94,9 @@ public final class SceneRenderer implements AutoCloseable {
     private int sceneTex;
     private int sceneW;
     private int sceneH;
-    private long frames;
+    // De l'image en cours, pour les tracés qui ne les reçoivent pas en paramètre.
+    private float[] refToNdc = {1f, 1f};
+    private double real;
 
     public SceneRenderer(SceneManifest manifest, TextureStore textures) {
         this(manifest, textures, new GlShaderLoader());
@@ -100,7 +113,27 @@ public final class SceneRenderer implements AutoCloseable {
      *                                      shader d'effet refusé ne retire que cet effet
      */
     public SceneRenderer(SceneManifest manifest, TextureStore textures, ShaderLoader shaders, Consumer<String> log) {
+        this(manifest, textures, shaders, log, defaultFont(textures, log));
+    }
+
+    /**
+     * Police du jeu lue dans le jar du client par l'ouvreur des textures ({@code minecraft:} + chemin sous
+     * {@code assets/minecraft/}), sinon Monocraft.ttf de fmlearlydisplay, sinon {@code null} (texte omis).
+     */
+    public static BitmapFont defaultFont(TextureStore textures, Consumer<String> log) {
+        ClassLoader loader = SceneRenderer.class.getClassLoader();
+        return BitmapFont.loadOrFallback(path -> textures.open("minecraft:" + path),
+                () -> loader.getResourceAsStream("Monocraft.ttf"), log);
+    }
+
+    /**
+     * @param font police du texte (barre, devise) ; {@code null} : le texte est omis, le reste s'affiche
+     * @throws ShaderLoader.ShaderException si un shader de base est refusé (l'appelant retombe sur Forge)
+     */
+    public SceneRenderer(SceneManifest manifest, TextureStore textures, ShaderLoader shaders, Consumer<String> log,
+                         BitmapFont font) {
         this.manifest = manifest;
+        this.log = log;
         this.textures = textures;
         Map<String, Integer> loaded = new HashMap<>();
         try {
@@ -131,8 +164,25 @@ public final class SceneRenderer implements AutoCloseable {
         // WEATHER : pluie, puis flash des éclairs, puis flash de l'impact.
         effects = new EffectChain(List.of(new HaloEffect(manifest), new SmokeEffect(manifest),
                 new FireEffect(manifest), new EmberEffect(manifest), new RainEffect(manifest),
-                new BoltEffect(manifest), new CrashEffect(manifest, crash)), log);
+                new BoltEffect(manifest), new CrashEffect(manifest, crash), new LogoEffect(manifest, font),
+                new ProgressUi(manifest, font)), log);
         effects.init(textures, shaders);
+        FoliageWind w = new FoliageWind(manifest);
+        try {
+            w.init(textures, shaders);
+            wind = w;
+        } catch (SceneEffect.EffectUnavailable | RuntimeException e) {
+            log.accept("effet « wind » retiré (échec à l'initialisation) : " + e.getMessage());
+            w.close();
+        }
+        Bloom b = new Bloom(manifest);
+        try {
+            b.init(shaders);
+            bloom = b;
+        } catch (SceneEffect.EffectUnavailable | RuntimeException e) {
+            log.accept("effet « bloom » retiré (échec à l'initialisation) : " + e.getMessage());
+            b.close();
+        }
 
         // Caméra relevée de la bannière : tangage -4,6°, roulis -9°, lacet 0.
         double[] fwd = {0, Math.sin(PITCH), Math.cos(PITCH)};
@@ -175,7 +225,19 @@ public final class SceneRenderer implements AutoCloseable {
 
     /** Noms des effets encore actifs (ceux qui ont échoué en sont retirés), dans l'ordre de dessin. */
     public List<String> activeEffects() {
-        return effects.active();
+        List<String> names = new ArrayList<>(effects.active());
+        if (wind != null) {
+            names.add("wind");
+        }
+        if (bloom != null) {
+            names.add("bloom");
+        }
+        return names;
+    }
+
+    /** Outil de développement ({@code SceneSnapshot --wind off}) : coupe le vent pour isoler son effet. */
+    void setWindEnabled(boolean enabled) {
+        windEnabled = enabled;
     }
 
     /**
@@ -204,6 +266,8 @@ public final class SceneRenderer implements AutoCloseable {
         // Recadrage centré : la plus petite échelle qui couvre la fenêtre.
         float scale = Math.max((float) fbWidth / manifest.outW(), (float) fbHeight / manifest.outH());
         float[] refToNdc = {2f * scale / fbWidth, 2f * scale / fbHeight};
+        this.refToNdc = refToNdc;
+        this.real = state.realTime();
         for (Program p : new Program[] {layer, sprite, bank, clouds, sea, multiply, present}) {
             glUseProgram(p.id);
             glUniform2f(p.loc("uRefCenter"), manifest.outW() / 2f, manifest.outH() / 2f);
@@ -253,7 +317,10 @@ public final class SceneRenderer implements AutoCloseable {
             }
             // Avant l'impact, le décor n'a pas encore d'épave.
             if (t < StoryClock.IMPACT) {
-                drawLayer(textures.texture("plates/precrash_mid_night.png"), 0, 0f, a.mid(), full(), WHITE, false, 1f);
+                int precrash = textures.texture("plates/precrash_mid_night.png");
+                if (!drawWithWind("mid", precrash, 0, 0f, a.mid(), 1f)) {
+                    drawLayer(precrash, 0, 0f, a.mid(), full(), WHITE, false, 1f);
+                }
             } else {
                 drawPlate("mid", a.mid(), a.day(), 1f);
             }
@@ -276,13 +343,29 @@ public final class SceneRenderer implements AutoCloseable {
         if (withEffects) {
             drawEffects(SceneEffect.Pass.WEATHER, state, a, refToNdc); // pluie, flash des éclairs et de l'impact
         }
-        // Tâche 9 : bloom (non porté).
+        // Bloom léger : c'est ce qui fait respirer les feux et le soleil.
+        if (bloom != null) {
+            try {
+                bloom.apply(sceneFbo, sceneTex, fbWidth, fbHeight, scale, refToNdc, quad);
+            } catch (RuntimeException e) {
+                log.accept("effet « bloom » retiré (échec au rendu) : " + e.getMessage());
+                bloom.close();
+                bloom = null;
+                glBindFramebuffer(GL_FRAMEBUFFER, sceneFbo);
+                glViewport(0, 0, fbWidth, fbHeight);
+            }
+            glEnable(GL_BLEND);
+            blendOver();
+        }
 
         // Étalonnage : vignette, puis assombrissement du bas pour le texte une fois la barre arrivée.
         float bottom = t >= StoryClock.BAR_IN
                 ? (float) Ambiance.sstep(StoryClock.BAR_IN, StoryClock.BAR_IN + 0.7, t) : 0f;
         drawMultiply(1f, 1f, bottom);
-        // Tâche 6 : logo, barre et texte ici (après l'étalonnage, avant l'ouverture depuis le noir).
+        // Logo, barre et texte : après l'étalonnage, avant l'ouverture depuis le noir.
+        if (textures.ready(TextureStore.UI)) {
+            drawEffects(SceneEffect.Pass.UI, state, a, refToNdc);
+        }
 
         // Vers la fenêtre : ouverture depuis le noir, grain, écrêtage.
         glBindFramebuffer(GL_FRAMEBUFFER, target);
@@ -293,7 +376,8 @@ public final class SceneRenderer implements AutoCloseable {
         bindTexture(0, GL_TEXTURE_2D, sceneTex);
         glUniform1i(present.loc("uScene"), 0);
         glUniform1f(present.loc("uFade"), (float) Ambiance.sstep(0.0, 1.2, t));
-        glUniform1f(present.loc("uSeed"), (frames++ % 512) * 7.31f);
+        // Grain : son motif change 60 fois par seconde de temps réel (index = int(t * FPS) de compose.py).
+        glUniform1f(present.loc("uSeed"), (float) (Math.floorMod((long) Math.floor(real * 60), 512L) * 7.31));
         quad.draw();
         glBindVertexArray(0);
         glUseProgram(0);
@@ -445,7 +529,27 @@ public final class SceneRenderer implements AutoCloseable {
         float f = fraction(day);
         int a = textures.texture("plates/" + name + "_" + k[pair[0]] + ".png");
         int b = f < 1e-3f ? 0 : textures.texture("plates/" + name + "_" + k[pair[1]] + ".png");
-        drawLayer(a, b, b == 0 ? 0f : f, view, full(), new float[] {gain, gain, gain}, false, 1f);
+        if (!drawWithWind(name, a, b, f, view, gain)) {
+            drawLayer(a, b, b == 0 ? 0f : f, view, full(), new float[] {gain, gain, gain}, false, 1f);
+        }
+    }
+
+    /**
+     * Plaque avec le vent dans le feuillage, si son masque est là ; {@code false} sinon (l'appelant la dessine
+     * immobile). Un tracé qui lève retire le vent, journalisé une fois.
+     */
+    private boolean drawWithWind(String name, int a, int b, float mix, Ambiance.View view, float gain) {
+        if (wind == null || !windEnabled) {
+            return false;
+        }
+        try {
+            return wind.draw(name, a, b, mix, view, gain, real, refToNdc, quad);
+        } catch (RuntimeException e) {
+            log.accept("effet « wind » retiré (échec au rendu) : " + e.getMessage());
+            wind.close();
+            wind = null;
+            return false;
+        }
     }
 
     private void drawMultiply(float factor, float vignette, float bottom) {
@@ -572,6 +676,14 @@ public final class SceneRenderer implements AutoCloseable {
     public void close() {
         deleteSceneTarget();
         effects.close();
+        if (wind != null) {
+            wind.close();
+            wind = null;
+        }
+        if (bloom != null) {
+            bloom.close();
+            bloom = null;
+        }
         if (quad != null) {
             quad.close();
             quad = null;

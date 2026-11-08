@@ -88,9 +88,10 @@ class EffectFallbackTest {
         FakeDriver driver = new FakeDriver("ember");
         List<String> log = new ArrayList<>();
 
-        SceneRenderer renderer = new SceneRenderer(m, textures, driver, log::add);
+        SceneRenderer renderer = new SceneRenderer(m, textures, driver, log::add, null);
 
-        assertEquals(List.of("halo", "smoke", "fire", "rain", "bolts", "crash"), renderer.activeEffects());
+        assertEquals(List.of("halo", "smoke", "fire", "rain", "bolts", "crash", "logo", "ui", "wind", "bloom"),
+                renderer.activeEffects());
         assertEquals(1, log.size(), "un seul effet retiré, journalisé une fois : " + log);
         assertTrue(log.get(0).contains("embers"), log.get(0));
         // Les shaders de base et ceux des autres effets ont bien été « compilés » depuis leurs vraies sources.
@@ -102,16 +103,45 @@ class EffectFallbackTest {
     void sansRefusTousLesEffetsSontActifs() {
         SceneManifest m = manifest();
         SceneRenderer renderer = new SceneRenderer(m, new TextureStore(m, EffectFallbackTest::data), new FakeDriver(""),
-                line -> { });
-        assertEquals(List.of("halo", "smoke", "fire", "embers", "rain", "bolts", "crash"), renderer.activeEffects());
+                line -> { }, null);
+        assertEquals(List.of("halo", "smoke", "fire", "embers", "rain", "bolts", "crash", "logo", "ui", "wind",
+                "bloom"), renderer.activeEffects());
+    }
+
+    @Test
+    void unShaderDeVentOuDeBloomRefuseNeRetireQueLui() {
+        SceneManifest m = manifest();
+        for (String broken : List.of("wind", "bloom")) {
+            List<String> log = new ArrayList<>();
+            SceneRenderer renderer = new SceneRenderer(m, new TextureStore(m, EffectFallbackTest::data),
+                    new FakeDriver(broken), log::add, null);
+            List<String> active = renderer.activeEffects();
+            assertTrue(!active.contains(broken) && active.contains("ui") && active.contains("logo"), active.toString());
+            assertEquals(1, log.size(), log.toString());
+            assertTrue(log.get(0).contains(broken), log.get(0));
+        }
+    }
+
+    @Test
+    void unShaderDInterfaceRefuseRetireLeLogoEtLaBarreSeulement() {
+        // ui.frag sert au logo et à la barre : son refus retire les deux, la scène reste.
+        SceneManifest m = manifest();
+        List<String> log = new ArrayList<>();
+        SceneRenderer renderer = new SceneRenderer(m, new TextureStore(m, EffectFallbackTest::data),
+                new FakeDriver("ui"), log::add, null);
+        assertEquals(List.of("halo", "smoke", "fire", "embers", "rain", "bolts", "crash", "wind", "bloom"),
+                renderer.activeEffects());
+        assertEquals(2, log.size(), log.toString());
     }
 
     @Test
     void sansTrajectoireSeulLeCrashSeRetire() {
         SceneManifest m = manifest();
         List<String> log = new ArrayList<>();
-        SceneRenderer renderer = new SceneRenderer(m, new TextureStore(m, path -> null), new FakeDriver(""), log::add);
-        assertEquals(List.of("halo", "smoke", "fire", "embers", "rain", "bolts"), renderer.activeEffects());
+        SceneRenderer renderer = new SceneRenderer(m, new TextureStore(m, path -> null), new FakeDriver(""), log::add,
+                null);
+        assertEquals(List.of("halo", "smoke", "fire", "embers", "rain", "bolts", "logo", "ui", "wind", "bloom"),
+                renderer.activeEffects());
         assertEquals(2, log.size(), log.toString()); // trajectoire illisible, puis effet retiré
         assertTrue(log.get(1).contains("crash"), log.get(1));
     }

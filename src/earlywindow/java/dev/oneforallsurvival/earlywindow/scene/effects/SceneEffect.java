@@ -53,7 +53,9 @@ public interface SceneEffect {
         /** Après le premier plan : lueur des feux du premier plan ({@code A.fire["fg"]}). */
         FRONT,
         /** Après {@link #FRONT} : pluie, puis flash des éclairs et de l'impact (fin de l'image avant le bloom). */
-        WEATHER
+        WEATHER,
+        /** Après le bloom et l'étalonnage, avant l'ouverture depuis le noir : logo, barre et texte. */
+        UI
     }
 
     /**

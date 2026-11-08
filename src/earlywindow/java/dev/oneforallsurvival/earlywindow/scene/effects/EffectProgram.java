@@ -50,6 +50,13 @@ final class EffectProgram {
         glDeleteProgram(id);
     }
 
+    /** Largeur et hauteur d'une texture (taille du sprite de compose.py). Laisse la texture liée. */
+    static int[] size(int texture) {
+        glBindTexture(GL_TEXTURE_2D, texture);
+        return new int[] {glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH),
+                glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT)};
+    }
+
     /** Texture d'effet envoyée, ou une erreur qui retire l'effet (image facultative absente ou illisible). */
     static int texture(TextureStore textures, String path) {
         int id = textures.texture(path);
