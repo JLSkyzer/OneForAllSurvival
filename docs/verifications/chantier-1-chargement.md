@@ -1,6 +1,11 @@
 # Vérifications du chantier 1 : écran de chargement Lost Island
 
-Relevés du 2026-11-08, sur la branche `interface-chargement`.
+Relevés du 2026-11-08, sur la branche `interface-chargement` (non fusionnée). Spec :
+`docs/superpowers/specs/2026-11-08-interface-lost-island-design.md` (chantier 1) ; plan :
+`docs/superpowers/plans/2026-11-08-chantier-1-ecran-de-chargement.md`.
+
+Poste de tous les lancements : celui de Killian, Windows 11, NVIDIA GeForce RTX 4060 (pilote 621.14, GL 4.6),
+pack complet (`-PwithPack`), Forge 47.4.28, fenêtre 854x480. Le bilan (tâche 9) est en fin de document.
 
 ## Tâche 0 : branchement du fournisseur `lostisland`
 
@@ -61,3 +66,208 @@ Lancements du 8 novembre 2026 (`./gradlew --offline installEarlyWindow runClient
 - Durée jusqu'à l'écran titre (première ligne de `latest.log` → ligne Realms) : **24,3 s** avec la scène (sans film), **27,1 s** avec la scène et le film d'images, **23,8 s** avec l'écran de Forge (`fmlearlywindow`). Un lancement de chaque, pas une moyenne.
 - `reload.getActualProgress()` est très en avance sur le temps : 0,70 à la première image, 0,95 une seconde plus tard, 1,00 à 5 s, alors que le rechargement finit à 7,6 s. La barre passe donc vite à ≈ 97 % et y reste.
 - Review Focus 5 (`-PreloadAfterTitle`, `ReloadAfterTitle` en devcontent) : `Minecraft.reloadResourcePacks()` 4 s après l'écran titre ; overlay vu `net.minecraft.client.gui.screens.LoadingOverlay` (celui de Mojang), rechargement fini en 5,9 s, retour à `TitleScreen`, aucune exception nouvelle (mêmes messages que sans rechargement, répétés par le second chargement des modèles). La scène était libérée avant : plus rien ne la dessine.
+
+## Tâche 9 : bilan du chantier
+
+### Commandes
+
+- Tests : `./gradlew --offline test --rerun-tasks` (comptes lus dans les XML de `build/test-results/`).
+- Lancement : `./gradlew --offline installEarlyWindow runClient -PwithPack`, avec au besoin :
+  - `-PsceneFrames=<dossier>` : film de la scène (une image sur deux, PNG, dossier relatif à `run/`) ;
+  - `-PprogressTrace` : relevé, une fois par seconde, de l'avancement réel des ressources et de la barre montrée ;
+  - `-PearlyWindowFail[=true|late|render]` : repli de la fenêtre anticipée sur celle de Forge (tâche 7) ;
+  - `-PoverlayFail=first` : première image de l'overlay du mod en échec (tâche 9) ;
+  - `-PreloadAfterTitle` : rechargement des ressources une fois l'écran titre atteint (tâche 8).
+- Arrêt : le seul JVM `bootstraplauncher` de ce dépôt, trouvé par `Win32_Process`, arrêté par son PID exact une
+  fois la ligne Realms de l'écran titre écrite dans `latest.log`, puis confirmé arrêté. Aucun autre java touché.
+- Film : `ffmpeg -f concat -safe 0 -i film-concat.txt -vf "fps=30,format=yuv420p" -c:v libx264 -crf 18
+  run/film-chargement.mp4`, où `film-concat.txt` donne à chaque image la durée qui la sépare de la suivante
+  (dates d'écriture des PNG). Voir « Film ».
+
+Lancements de la tâche 9 (heure de la première ligne de `latest.log`) : **A** 13:35:33 (étalonnage,
+`-PprogressTrace`), **B** 13:37:27 (film, `-PsceneFrames=frames-film -PprogressTrace`), **C** 13:39:28
+(`-PoverlayFail=first`).
+
+### Étalonnage de la barre (`ProgressModel`)
+
+Durée de chaque phase lue dans `run/logs/lostisland-earlywindow.log` (changements de phase ; les ressources
+jusqu'à « rechargement fini »), sur **deux démarrages avec la scène et sans film** : le lancement 3 de la tâche 8
+(13:21) et le lancement A.
+
+| Phase | 13:21 (tâche 8) | A 13:35 | Moyenne retenue | Part de la barre |
+|---|---|---|---|---|
+| `FORGE_START` (fenêtre → « Forge loading ») | 0,58 s | 0,59 s | 0,59 s | 2,4 % |
+| `MOD_DISCOVERY` (→ barre EARLY « Loading mods ») | 11,16 s | 11,37 s | 11,27 s | 46,7 % |
+| `MOD_LOADING` (→ registres) | 2,70 s | 2,62 s | 2,66 s | 11,0 % |
+| `REGISTRIES` (→ overlay des ressources) | 2,01 s | 2,11 s | 2,06 s | 8,5 % |
+| `RESOURCES` (→ rechargement fini) | 7,53 s | 7,60 s | 7,56 s | 31,3 % |
+| Total | 23,98 s | 24,29 s | 24,14 s | 100 % |
+
+Les durées attendues (`ProgressModel.EXPECTED_SECONDS`) donnent les parts (`WEIGHTS`, normalisées) et servent à
+l'avancement au temps des phases sans étapes (`ProgressTracker`) et des ressources. Le relevé de la tâche 0
+(≈ 44 s, un seul lancement avec la fenêtre de Forge, relevé à 1 Hz) n'est plus utilisé : il donnait 45 % de la
+barre à la préparation du jeu et 32 % aux ressources, sur un démarrage presque deux fois plus long que ceux
+d'aujourd'hui. Le film B (étalonnage appliqué) montre « Inventaire de la soute… » à 44 % vers 11 s, 69 % au début
+des ressources, 80 % puis 94 % pendant, 100 % à « Bienvenue sur Lost Island. ».
+
+### Avancement des ressources (ruling 26)
+
+`reload.getActualProgress()` court devant le temps : 0,703 à la première image, 0,946 une seconde plus tard, 0,979
+pendant trois secondes, 1,000 à 5 s, pour un rechargement fini à 7,6 s (relevé identique aux lancements 3 de la
+tâche 8, A et B). La fraction montrée est désormais `min(réel, temps écoulé / 7,56 s)`, plafonnée à 0,98 jusqu'à
+la fin réelle (`ProgressModel.resourcesFraction`, DONE donne ensuite 1).
+
+**Écart au ruling, assumé** : le ruling écrit `max(réel, estimé)`. Avec le relevé ci-dessus, `max` vaut 0,95 dès
+la première seconde, c'est-à-dire exactement la barre presque pleine que le ruling veut éviter. `min` garde
+l'intention (la barre suit le temps, ne recule pas puisque les deux termes croissent, ne dépasse jamais le vrai
+rechargement, n'annonce pas la fin avant elle). Sur un poste plus lent que celui de l'étalonnage, la barre
+s'arrête à 98 % de la phase jusqu'à la fin ; plus rapide, elle saute à 100 % (lissée par `CATCH_UP`).
+
+Relevé du lancement A (`-PprogressTrace`), barre entière :
+```
+[  16.695 s] overlay du mod : rechargement à 0.703, barre à 0.686
+[  17.697 s] overlay du mod : rechargement à 0.946, barre à 0.728
+[  18.701 s] overlay du mod : rechargement à 0.979, barre à 0.770
+[  19.701 s] overlay du mod : rechargement à 0.979, barre à 0.811
+[  20.708 s] overlay du mod : rechargement à 0.979, barre à 0.853
+[  21.819 s] overlay du mod : rechargement à 1.000, barre à 0.900
+[  22.825 s] overlay du mod : rechargement à 1.000, barre à 0.942
+[  24.287 s] overlay du mod : rechargement à 1.000, barre à 0.994
+[  24.288 s] overlay du mod : rechargement fini en 7.66 s, fondu de la barre et du texte (1000 ms)
+```
+Avant (tâche 8), la barre était à ≈ 97 % dès la deuxième seconde. Le lancement B donne les mêmes valeurs à quelques
+millièmes près (0,687 → 0,937, puis 0,994 à la fin). Tests : `ProgressModelTest` (quatre nouveaux, sur le relevé ci-dessus : temps plutôt qu'avance, jamais
+devant le rechargement, plafond jusqu'à DONE, jamais de recul, barre < 85 % une seconde après le début des
+ressources).
+
+### Durées jusqu'à l'écran titre
+
+Première ligne de `latest.log` → ligne du vérificateur Realms de l'écran titre.
+
+| Configuration | Lancements | Durées | Remarque |
+|---|---|---|---|
+| Scène, sans film | 2 | 24,3 s (tâche 8, 13:21) ; 24,6 s (A) | moyenne 24,5 s |
+| Scène avec film | 2 | 27,1 s (tâche 8, 13:17) ; 25,0 s (B) | le film lit les pixels et écrit des PNG |
+| Écran de Forge (`fmlearlywindow`) | 1 | 23,8 s (tâche 8, 13:20) | |
+| Overlay du mod en échec → overlay de Forge + pont | 1 | 29,7 s (C) | toutes les phases plus lentes, dès la découverte |
+
+Écart scène / écran de Forge : + 0,5 à + 0,8 s, sur deux lancements contre **un seul** côté Forge : ce n'est pas
+une mesure du coût de la scène, seulement l'indication qu'il reste de l'ordre de la seconde au plus sur ce poste.
+Le lancement C est plus lent dès la découverte des mods (fenêtre → « Loading mods » 14,5 s contre 11,4 s), avant
+toute différence de code : écart de la machine, non attribué au repli.
+
+### Jar de service
+
+`build/libs/oneforallsurvival-earlywindow-0.1.0.jar` (= `run/mods/`) : **59 933 939 octets (57,2 Mio)**, 444
+entrées. Tailles compressées : mer 27,1 Mio, plans du décor 19,0 Mio, effets (avion, feux, fumée…) 7,8 Mio, ciel
+2,9 Mio, interface 0,1 Mio, classes 0,15 Mio, shaders négligeables. Aucune texture de Mojang : nuages et police
+sont lus en place dans le jar du client.
+
+### Masque du feuillage (vent)
+
+Aucun `blender.exe` sur la machine (ruling 15) : les masques sont **dérivés des plans par la couleur**, pas
+rendus par matériau. Plaque `<plan>_sun.png`, teinte HSV 55 à 150°, saturation > 0,30, alpha > 0,5, ouverture
+1 px, fermeture 2 px, dilatation 2 px, flou gaussien σ 1,2. Couverture : lointain 1,5 %, milieu 43,5 %, premier
+plan 0 % (masque noir voulu : sol et bûche seulement). Limite (ruling 17) : l'herbe des terrasses, du même vert
+que les feuilles, est dans le masque du milieu ; l'herbe étant lisse, son ondulation ne se voit qu'aux bords des
+terrasses. Mesuré en tâche 6 : avec / sans vent à 90 s, 56 720 pixels changent de plus de 8 niveaux, 100 % dans le
+masque projeté. Un masque exact par matériau reste possible depuis `render_plates.py` (lanceur de rayons numpy qui
+connaît les matériaux des feuilles).
+
+### Comparaison à la vidéo de référence et à `compose.py`
+
+Rendus hors jeu (`./gradlew sceneSnapshot`, 1920x1080) comparés à la vidéo et, en tâche 6, à des images sans perte
+de `compose.py` (même script que la vidéo). Chiffres repris des rapports des tâches 3 à 6 :
+
+- Tâche 3 (décor, ciel, mer, sans effets) : cadrage et ambiances conformes à t = 12, 22 et 33 ; écart restant à
+  t=33 attribué au bloom, non porté alors.
+- Tâche 4 (épave, feux, fumée) : zone de l'épave, moyenne RVB nous / vidéo : t=12 26/34/31 contre 27/34/30 ;
+  t=22 64/46/39 contre 65/45/38 ; t=33 82/83/53 contre 83/83/52.
+- Tâche 5 (avion, pluie, éclairs) : moyennes RVB nous / vidéo à 0,5 / 2 / 2,7 / 3,5 / 5 s à moins de 1,5 niveau
+  près par canal (ex. 2,7 s : 28,9/50,5/59,8 contre 28,2/49,5/59,4) ; impact (4,4 s) 54 % saturé contre 65 %,
+  faute de bloom.
+- Tâche 6 (logo, barre, texte, vent, bloom) : écart absolu moyen à `compose.py` sans perte **0,51** (t=4,4),
+  **1,77** (t=22), **2,66** (t=33) ; part saturée de l'impact 56,7 %, celle de `compose.py` ; logo à 3,2 niveaux de
+  la vidéo (ciel derrière). Images : `build/scene-snapshots/pair_t6_*.png`.
+
+En jeu, les images du film des tâches 7, 8 et 9 ont été regardées (ouverture depuis le noir, chute, épave, aube,
+fin) : même scène que les rendus hors jeu, à l'endroit, du début à l'écran titre.
+
+### Replis essayés en jeu
+
+| Repli | Commande | Preuve |
+|---|---|---|
+| Échec avant notre fenêtre | `-PearlyWindowFail` (tâche 7) | `initialize : échec de notre fenêtre (… -Dlostisland.earlywindow.fail=true), repli sur le DisplayWindow de Forge`, `EARLYDISPLAY: Trying GL version 4.6` dans `latest.log`, titre atteint |
+| Échec après notre fenêtre et la scène | `-PearlyWindowFail=late` (tâche 7) | `notre fenêtre est prête, thread de rendu lancé` puis `échec … =late, repli sur le DisplayWindow de Forge` à 0,58 s, `DisplayWindow de Forge prêt` à 0,69 s, titre atteint |
+| Échec du thread de rendu | `-PearlyWindowFail=render` (tâche 7) | `thread de rendu arrêté` à 1,73 s, `repli sur Forge après l'échec du thread de rendu` à 3,93 s (fenêtre figée entre les deux), titre atteint |
+| Jar de service absent | jar retiré de `run/mods` (tâche 7) | `Failed to find ImmediateWindowProvider lostisland, disabling` : **aucune** fenêtre anticipée (ni la nôtre ni celle de Forge), écran de Mojang, titre atteint (ruling 22) |
+| Première image de l'overlay du mod en échec | `-PoverlayFail=first` (tâche 9, lancement C) | voir ci-dessous |
+
+Lancement C, `lostisland-earlywindow.log` :
+```
+[  20.572 s] [Render thread] loadingOverlay : overlay du mod (dev.oneforallsurvival.client.loading.LostIslandLoadingOverlay)
+[  20.627 s] [Render thread] overlay du mod : première image en échec (java.lang.IllegalStateException: échec demandé par -Dlostisland.overlay.fail=first), l'overlay de Forge prend la main
+[  20.634 s] [Render thread] loadingOverlay : overlay de Forge, qui dessine notre scène
+[  20.673 s] [Render thread] overlay de Forge : première image de la scène dans le contexte du jeu
+[  20.673 s] [Render thread] phase RESOURCES : Exploration du littoral… (textures)
+[  29.368 s] [Render thread] phase DONE : Bienvenue sur Lost Island.
+[  31.343 s] [Render thread] overlay de Forge : fin du fondu, scène libérée
+```
+`latest.log` : `Sound engine started` 13:39:57.165, ligne Realms 13:39:58.045 (écran titre) ; 22 lignes
+« exception », mêmes messages distincts qu'au lancement A (diff vide). La scène continue donc sans coupure par
+l'overlay de Forge et le pont. Dans ce repli, la barre des ressources suit les étapes de « Minecraft Progress » de
+Forge, sans le lissage du ruling 26.
+
+### Film
+
+`run/film-chargement.mp4` (non commité) : lancement B, 634 images 854x480 écrites (1 277 rendues, une sur deux
+retenue, 5 abandonnées faute d'écriture à temps), **25,20 s**, H.264, 30 i/s, 10,1 Mo. Les images ne sont pas
+régulières : médiane 0,035 s entre deux, moyenne 25,2 i/s, et deux trous d'environ 0,8 s aux images 416-418 (le
+passage Forge → ressources, ruling 27). Chaque image reçoit donc sa durée réelle (date d'écriture du PNG suivant ;
+deux threads d'écriture, précision de quelques millisecondes) : le film dure 25,20 s pour 25,15 s de scène au
+journal (0,65 → 25,80 s), il se lit en temps réel, saccade du passage comprise. Images vérifiées dans le film à
+1, 4, 11, 17, 20, 23, 24,5 et 25,1 s : noir (attente des groupes, ruling 23), chute de l'avion, « Inventaire de la
+soute… » 44 %, « Exploration du littoral… » 69 / 80 / 94 %, « Bienvenue sur Lost Island. » 100 %, aube sans barre
+ni texte, logo gardé. La devise « Là où tout recommence. » n'apparaît pas : elle suit le temps du récit
+(ruling 16, ≈ 29 s de récit) et le chargement finit avant sur ce poste.
+
+### Tests
+
+`./gradlew --offline test --rerun-tasks` : BUILD SUCCESSFUL ; XML : `earlywindowTest` 62 tests, 0 échec, 0 erreur ;
+`test` (mod) 128 tests, 0 échec, 0 erreur.
+
+### Non prouvé
+
+- **Vieilles cartes graphiques** : un seul poste (RTX 4060, GL 4.6). Les versions GL 4.6 → 3.2 sont essayées
+  comme chez Forge, mais aucun GL 3.2 réel, aucune carte intégrée ancienne, aucun pilote AMD ou Intel.
+- **macOS et Linux** : jamais lancés. Rien de propre à Windows dans le code, mais GLFW, contexte partagé et HiDPI s'y
+  comportent autrement (macOS impose notamment le thread principal pour certaines opérations de fenêtre).
+- **Écrans HiDPI** : seulement 854x480 à l'échelle 100 % ; `fbScale` est ignoré (rendu à la taille réelle du
+  tampon), non vu sur un écran mis à l'échelle.
+- **Jar du client en installation réelle** : trouvé par le classpath de développement (`client-extra.jar`) ; la
+  recherche sous `libraryDirectory` (installation Forge du launcher) n'a jamais servi. S'il manque : nuages omis
+  et police de repli (Monocraft), sans plantage, d'après le code seulement.
+- **`onFinish` qui remplace l'overlay** (retour aux packs par défaut après une erreur de ressources) : chemin relu,
+  jamais provoqué.
+- **≈ 2 s de noir au départ** (ruling 23) : la fenêtre s'ouvre en 0,3 s mais le récit attend ciel, décor et effets
+  (1,85 à 2,1 s selon les lancements). Accepté pour ce chantier ; piste : démarrer sur ciel + décor et ne retarder
+  que l'avion.
+- **≈ 1,6 s d'image figée au passage** des mods aux ressources (ruling 27) : le thread du jeu est occupé, personne
+  ne dessine. Vu dans le film (images 416-418). Non élucidé : le relevé d'une ligne par seconde saute ≈ 1,4 s juste
+  avant la fin du rechargement (22,8 → 24,3 s au lancement A, 23,3 → 24,7 s au lancement B), alors que les dates
+  des images du film B n'y montrent aucun trou de plus de 0,18 s.
+- **Overlay de Mojang au F3+T et au rechargement des ressources** : comportement vanilla, hors du chantier ; vu une
+  fois par `-PreloadAfterTitle` (tâche 8), F3+T jamais pressé à la main.
+- **Joueur sans le jar mais avec `fml.toml` réglé sur `lostisland`** : aucune fenêtre anticipée du tout, ni la
+  nôtre ni celle de Forge (ruling 22). Le launcher maison doit livrer les deux ensemble ; un pack qui garderait
+  `fmlearlywindow` montrerait l'écran de Forge.
+- **Coût GPU du bloom et du vent** : non mesuré (aucun minuteur GPU). Seuls indices : la durée totale du démarrage
+  ne bouge pas de façon visible (voir « Durées »), et 1 277 images ont été rendues en 25,2 s au lancement B
+  (≈ 51 i/s de moyenne, film et passage compris, boucle plafonnée à 60 i/s) sur une RTX 4060.
+- **Nom du mod dans les libellés de Forge** (ruling 8) : jamais présent dans les barres réelles ; le détail affiché
+  est « mods N/M ». Le format avec nom reste géré mais n'a jamais servi.
+- **Écart scène / écran de Forge** : un seul lancement côté Forge, voir « Durées ».
+- **Postes plus lents ou plus rapides** : l'étalonnage repose sur deux démarrages d'un seul poste ; ailleurs, les
+  parts de la barre seront fausses dans la même proportion que les durées (la barre ne recule jamais et
+  n'annonce jamais la fin avant elle, par construction et par les tests).
+- **Masque du feuillage par matériau** : non fait (méthode par couleur, voir plus haut).
