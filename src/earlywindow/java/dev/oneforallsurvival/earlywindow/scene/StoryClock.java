@@ -28,6 +28,16 @@ public final class StoryClock {
     private double recitAuFini;
     private float dernier;
 
+    /**
+     * Horloge déjà sur l'aube tenue ({@link #HOLD}) dès le premier instant : scène recréée pour l'écran titre au
+     * retour d'un monde, où le récit (chute, crash) ne doit pas recommencer.
+     */
+    public static StoryClock atDawn() {
+        StoryClock c = new StoryClock();
+        c.dernier = HOLD;
+        return c;
+    }
+
     /** Temps du récit pour un temps réel donné (secondes depuis l'ouverture de la fenêtre). */
     public float storyTime(double realSeconds, boolean loadingDone) {
         double reel = Math.max(0.0, realSeconds);

@@ -133,14 +133,48 @@ final class FilmCapture {
         }
     }
 
-    /** Attend les écritures et dépose {@code termine.json}. */
-    void terminer(String echec) {
+    /**
+     * Une image nommée {@code nom.png}, à la taille de la fenêtre, sans bandeau ni cadence : l'image que le jeu vient
+     * de dessiner (à appeler à la fin d'une image, thread de rendu). Écrite en tâche de fond.
+     */
+    void instantane(Minecraft mc, String nom) {
+        numero++;
+        try (NativeImage image = Screenshot.takeScreenshot(mc.getMainRenderTarget())) {
+            int l = image.getWidth();
+            int h = image.getHeight();
+            int[] rgb = new int[l * h];
+            for (int y = 0; y < h; y++) {
+                for (int x = 0; x < l; x++) {
+                    int p = image.getPixelRGBA(x, y);
+                    rgb[y * l + x] = ((p & 0xFF) << 16) | (p & 0xFF00) | ((p >> 16) & 0xFF);
+                }
+            }
+            Path fichier = dossier.resolve(nom + ".png");
+            ecrivains.execute(() -> {
+                BufferedImage img = new BufferedImage(l, h, BufferedImage.TYPE_INT_RGB);
+                img.setRGB(0, 0, l, h, rgb, 0, l);
+                try {
+                    ImageIO.write(img, "png", fichier.toFile());
+                } catch (IOException ex) {
+                    LOG.error("[film] image non écrite : {}", fichier, ex);
+                }
+            });
+        }
+    }
+
+    /** Attend la fin des écritures en cours ; plus aucune image n'est acceptée ensuite. */
+    void attendre() {
         ecrivains.shutdown();
         try {
             ecrivains.awaitTermination(2, TimeUnit.MINUTES);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
         }
+    }
+
+    /** Attend les écritures et dépose {@code termine.json}. */
+    void terminer(String echec) {
+        attendre();
         String e = echec == null ? "null" : "\"" + echec.replace('"', '\'') + "\"";
         try {
             Files.writeString(dossier.resolve("termine.json"),

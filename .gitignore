@@ -30,6 +30,7 @@ run-client2
 run-e2e
 logs
 run-demo
+run-titre
 
 # compagnons de brainstorming (superpowers)
 .superpowers/brainstorm/

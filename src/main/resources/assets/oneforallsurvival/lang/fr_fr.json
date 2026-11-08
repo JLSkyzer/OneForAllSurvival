@@ -247,5 +247,10 @@
   "message.oneforallsurvival.breaker.seal_done": "Disjoncteur scellé.",
   "message.oneforallsurvival.breaker.unsealed": "Scellé retiré et détruit.",
   "block.oneforallsurvival.surge_arrester": "Parafoudre",
-  "block.oneforallsurvival.weather_station": "Station météo"
+  "block.oneforallsurvival.weather_station": "Station météo",
+  "gui.oneforallsurvival.title.solo": "Solo",
+  "gui.oneforallsurvival.title.join": "Rejoindre l'île",
+  "gui.oneforallsurvival.title.join.soon": "Serveur bientôt disponible",
+  "gui.oneforallsurvival.title.options": "Options",
+  "gui.oneforallsurvival.title.quit": "Quitter le jeu"
 }

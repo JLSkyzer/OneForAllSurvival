@@ -247,5 +247,10 @@
   "message.oneforallsurvival.breaker.seal_done": "Breaker sealed.",
   "message.oneforallsurvival.breaker.unsealed": "Seal removed and destroyed.",
   "block.oneforallsurvival.surge_arrester": "Surge Arrester",
-  "block.oneforallsurvival.weather_station": "Weather Station"
+  "block.oneforallsurvival.weather_station": "Weather Station",
+  "gui.oneforallsurvival.title.solo": "Singleplayer",
+  "gui.oneforallsurvival.title.join": "Join the island",
+  "gui.oneforallsurvival.title.join.soon": "Server coming soon",
+  "gui.oneforallsurvival.title.options": "Options",
+  "gui.oneforallsurvival.title.quit": "Quit Game"
 }

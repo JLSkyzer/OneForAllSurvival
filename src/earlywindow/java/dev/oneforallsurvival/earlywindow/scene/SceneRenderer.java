@@ -289,7 +289,7 @@ public final class SceneRenderer implements AutoCloseable {
         blendOver();
 
         // Recadrage centré : la plus petite échelle qui couvre la fenêtre.
-        float scale = Math.max((float) fbWidth / manifest.outW(), (float) fbHeight / manifest.outH());
+        float scale = SceneProjection.coverScale(fbWidth, fbHeight, manifest.outW(), manifest.outH());
         float[] refToNdc = {2f * scale / fbWidth, 2f * scale / fbHeight};
         this.refToNdc = refToNdc;
         this.real = state.realTime();

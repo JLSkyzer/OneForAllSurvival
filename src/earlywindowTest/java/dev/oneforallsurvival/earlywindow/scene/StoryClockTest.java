@@ -47,6 +47,14 @@ class StoryClockTest {
     }
 
     @Test
+    void uneHorlogeSurLAubeTientDesLePremierInstant() {
+        StoryClock c = StoryClock.atDawn();
+        assertEquals(StoryClock.HOLD, c.storyTime(0.0, false), 0f);
+        assertEquals(StoryClock.HOLD, c.storyTime(3.0, true), 0f);
+        assertTrue(c.storyFinished(100.0, true));
+    }
+
+    @Test
     void leTempsNeReculeJamais() {
         StoryClock c = new StoryClock();
         float prec = -1f;

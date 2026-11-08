@@ -3,6 +3,7 @@ package dev.oneforallsurvival.client.loading;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.GlConst;
 import com.mojang.blaze3d.systems.RenderSystem;
+import dev.oneforallsurvival.client.title.TitleScene;
 import dev.oneforallsurvival.earlywindow.EarlyScene;
 import dev.oneforallsurvival.earlywindow.GlStateGuard;
 import dev.oneforallsurvival.earlywindow.LostIslandWindow;
@@ -15,6 +16,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.LoadingOverlay;
 import net.minecraft.client.gui.screens.Overlay;
+import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.server.packs.resources.ReloadInstance;
 import org.lwjgl.opengl.GL32C;
 
@@ -32,8 +34,9 @@ import org.lwjgl.opengl.GL32C;
  *       ({@link GlStateGuard}, ruling 11) ; la barre suit {@code reload.getActualProgress()} ;</li>
  *   <li>rechargement fini : erreurs relevées et remises à {@code onFinish}, écran courant réinitialisé, puis la
  *       barre et le texte s'effacent en {@value #UI_FADE_MS} ms (le logo reste) ;</li>
- *   <li>au bout du fondu : l'overlay se retire ({@code setOverlay(null)}), l'écran titre s'affiche, et la scène est
- *       libérée (chantier 1 seul : voir {@link #release}).</li>
+ *   <li>au bout du fondu : l'overlay se retire ({@code setOverlay(null)}), l'écran titre s'affiche, et la scène lui
+ *       est confiée sans être libérée ({@link TitleScene#adoptFromLoading}, chantier 2) ; sans écran titre
+ *       derrière, elle est libérée comme au chantier 1 ({@link #release}).</li>
  * </ul>
  * Repli : si la première image échoue, l'overlay de Forge, qui dessine la même scène par le pont de la fenêtre
  * anticipée, prend sa place ; un échec plus tard laisse une image noire jusqu'à l'écran titre. Jamais de plantage.
@@ -77,6 +80,7 @@ public final class LostIslandLoadingOverlay extends LoadingOverlay {
         this.reloadSupplier = ri;
         this.window = window;
         this.scene = scene;
+        TitleScene.loadingOverlayStarted();
     }
 
     /**
@@ -126,7 +130,7 @@ public final class LostIslandLoadingOverlay extends LoadingOverlay {
                 minecraft.setOverlay(null);
             }
             scene.log("overlay du mod : retiré, écran titre");
-            release();
+            finish();
             return;
         }
 
@@ -149,6 +153,7 @@ public final class LostIslandLoadingOverlay extends LoadingOverlay {
                 // onFinish a posé un autre overlay (retour aux packs par défaut après une erreur) : plus d'image ici.
                 scene.log("overlay du mod : remplacé par " + describe(minecraft.getOverlay()) + ", scène libérée");
                 release();
+                TitleScene.loadingReleased();
             }
         }
     }
@@ -212,6 +217,8 @@ public final class LostIslandLoadingOverlay extends LoadingOverlay {
         try {
             Supplier<Overlay> forge = window.forgeOverlay(minecraftSupplier, reloadSupplier, onFinish);
             minecraft.setOverlay(forge.get());
+            // La scène est à l'overlay de Forge, qui la libère à sa fin : pas de scène à l'écran titre.
+            TitleScene.loadingFailed();
             return true;
         } catch (Throwable t) {
             scene.log("overlay du mod : overlay de Forge indisponible (" + t + "), image noire jusqu'à l'écran titre");
@@ -220,11 +227,31 @@ public final class LostIslandLoadingOverlay extends LoadingOverlay {
     }
 
     /**
-     * Libère la scène (textures, shaders, film) : le chantier 1 n'en a plus l'usage après l'écran titre.
-     *
-     * <p>Chantier 2 (écran titre animé) : c'est ici qu'il faudra la garder au lieu de la libérer, et la remettre à
-     * l'écran titre, qui la libérera à son tour ; {@code LostIslandWindow.sceneState()} reste non nul tant qu'elle
-     * n'est pas libérée.
+     * Fin du fondu, overlay retiré. Si l'écran courant est un écran titre (celui de Minecraft ou sa sous-classe du
+     * mod), que la scène n'a pas échoué et que le pont ne dessine plus, la scène lui est confiée sans être libérée :
+     * le récit continue. Sinon (autre écran, échec, pont en retard), elle est libérée comme au chantier 1.
+     */
+    private void finish() {
+        if (released) {
+            return;
+        }
+        if (!failed && minecraft.screen instanceof TitleScreen && minecraft.level == null
+                && window.awaitBridgeStopped() && TitleScene.adoptFromLoading(scene, window::awaitBridgeStopped)) {
+            released = true;
+            scene.log("overlay du mod : scène confiée à l'écran titre (non libérée)");
+            return;
+        }
+        release();
+        if (failed) {
+            TitleScene.loadingFailed();
+        } else {
+            TitleScene.loadingReleased();
+        }
+    }
+
+    /**
+     * Libère la scène (textures, shaders, film) quand aucun écran titre ne la reprend ; {@code
+     * LostIslandWindow.sceneState()} reste non nul tant qu'elle n'est pas libérée.
      */
     private void release() {
         if (released) {
