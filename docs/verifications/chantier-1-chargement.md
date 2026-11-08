@@ -139,8 +139,11 @@ la fin réelle (`ProgressModel.resourcesFraction`, DONE donne ensuite 1).
 
 **Écart au ruling, assumé** : le ruling écrit `max(réel, estimé)`. Avec le relevé ci-dessus, `max` vaut 0,95 dès
 la première seconde, c'est-à-dire la barre presque pleine que le ruling veut éviter. `min` garde l'intention :
-c'est cette estimation au temps qui étale la barre sur la phase ; elle ne recule pas (deux termes croissants, et
-`ProgressModel` garde le maximum), ne dépasse pas l'avancement réel et reste sous 0,98 avant la fin réelle
+c'est cette estimation au temps qui étale la barre sur la phase ; elle ne recule pas parce que `ProgressModel`
+garde le maximum de ce qu'il a montré (propriété du calcul, testée). Que les deux termes du `min` soient eux-mêmes
+croissants est une **supposition** pour `reload.getActualProgress()` : on l'a vu croître au relevé d'une ligne par
+seconde du lancement A (cité ci-dessous ; un tel relevé ne verrait pas un recul bref entre deux lignes), sans
+garantie lue dans le code de Mojang. La fraction ne dépasse pas l'avancement réel et reste sous 0,98 avant la fin réelle
 (propriétés du calcul, couvertes par les tests ci-dessous). Sur un poste plus lent que celui de l'étalonnage, la
 barre s'arrête à 98 % de la phase jusqu'à la fin ; plus rapide, la fin arrive avant l'estimation et la barre saute
 à 100 %. `CATCH_UP` (3 barres entières par seconde) ne fait que borner la vitesse d'un saut : il franchit les
@@ -179,9 +182,17 @@ Première ligne de `latest.log` → ligne du vérificateur Realms de l'écran ti
 lancements), 23,8 s avec l'écran de Forge (**un seul** lancement). Or les démarrages avec la scène s'étalent de
 24,3 à 29,7 s selon les lancements (≈ 5 s de dispersion, film et repli compris) : un écart de 0,5 à 0,8 s contre
 un lancement unique ne dit rien du coût de la scène.
-Le lancement C est plus lent dès la découverte des mods (fenêtre → « Loading mods » 15,1 s contre 11,7 à 12,4 s
-aux lancements A et B), alors que le repli n'intervient qu'à 20,6 s : la cause de cette lenteur n'est pas établie,
-et sa durée ne mesure pas le coût du repli.
+Le lancement C est plus lent dès la découverte des mods : entrée dans le chargement des mods (ligne
+`phase MOD_LOADING` de `lostisland-earlywindow.log`, temps depuis l'ouverture de la fenêtre) à 15,14 s, contre
+11,96 s (A) et 12,39 s (B), 11,74 s au lancement 3 de la tâche 8 :
+```
+C  [  15.139 s] [Render thread] phase MOD_LOADING : Tri des caisses de l'épave… (mods)
+A  [  11.963 s] [Render thread] phase MOD_LOADING : Tri des caisses de l'épave… (mods)
+B  [  12.393 s] [Render thread] phase MOD_LOADING : Tri des caisses de l'épave… (mods)
+T8 [  11.743 s] [Render thread] phase MOD_LOADING : Tri des caisses de l'épave… (mods)
+```
+Le repli n'intervient qu'à 20,6 s : la cause de cette lenteur n'est pas établie, et sa durée ne mesure pas le coût
+du repli.
 
 ### Jar de service
 
@@ -271,8 +282,10 @@ ni texte, logo gardé. La devise « Là où tout recommence. » n'apparaît pas 
 
 - **Vieilles cartes graphiques** : un seul poste (RTX 4060, GL 4.6). Les versions GL 4.6 → 3.2 sont essayées
   comme chez Forge, mais aucun GL 3.2 réel, aucune carte intégrée ancienne, aucun pilote AMD ou Intel.
-- **macOS et Linux** : jamais lancés. Aucun appel propre à Windows relevé à la relecture du code, mais GLFW, contexte partagé et HiDPI s'y
-  comportent autrement (macOS impose notamment le thread principal pour certaines opérations de fenêtre).
+- **macOS et Linux** : jamais lancés. Le pont de la tâche 10 est propre à Windows (WGL) et ne s'active pas
+  ailleurs : l'image s'y fige au passage comme avant (décision de `BridgePolicy`, testée sans GL, jamais vue sur
+  ces systèmes). Le reste n'a pas d'appel propre à Windows relevé à la relecture, mais GLFW, contexte partagé et
+  HiDPI s'y comportent autrement (macOS impose notamment le thread principal pour certaines opérations de fenêtre).
 - **Écrans HiDPI** : seulement 854x480 à l'échelle 100 % ; `fbScale` est ignoré (rendu à la taille réelle du
   tampon), non vu sur un écran mis à l'échelle.
 - **Jar du client en installation réelle** : trouvé par le classpath de développement (`client-extra.jar`) ; la
@@ -283,8 +296,9 @@ ni texte, logo gardé. La devise « Là où tout recommence. » n'apparaît pas 
 - **≈ 2 s de noir au départ** (ruling 23) : la fenêtre s'ouvre en 0,3 s mais le récit attend ciel, décor et effets
   (récit lancé entre 1,85 et 2,11 s aux cinq lancements avec la scène relevés en tâches 7 à 9). Accepté pour ce chantier ; piste : démarrer sur ciel + décor et ne retarder
   que l'avion.
-- **≈ 1,6 s d'image figée au passage** des mods aux ressources (ruling 27) : le thread du jeu est occupé, personne
-  ne dessine. Vu dans le film (images 416-418). Non élucidé : le relevé d'une ligne par seconde saute ≈ 1,4 s juste
+- **Image figée au passage** des mods aux ressources (ruling 27) : ≈ 1,6 s avant la tâche 10 (images 416-418 du
+  film B) ; avec le pont, ≤ 0,2 s sur ce poste (voir « Tâche 10 »), mais toujours ≈ 1,6 s quand le pont est coupé
+  ou désactivé (≤ 2 cœurs, rendu logiciel, hors Windows, réglage `false`). Non élucidé : le relevé d'une ligne par seconde saute ≈ 1,4 s juste
   avant la fin du rechargement (22,8 → 24,3 s au lancement A, 23,3 → 24,7 s au lancement B), alors que les dates
   des images du film B n'y montrent aucun trou de plus de 0,18 s.
 - **Overlay de Mojang au F3+T et au rechargement des ressources** : comportement vanilla, hors du chantier ; vu une
@@ -302,3 +316,165 @@ ni texte, logo gardé. La devise « Là où tout recommence. » n'apparaît pas 
   parts de la barre seront fausses si les durées relatives des phases diffèrent (la barre ne recule pas et
   n'annonce pas la fin avant elle : propriétés du calcul, couvertes par les tests, non vues sur un autre poste).
 - **Masque du feuillage par matériau** : non fait (méthode par couleur, voir plus haut).
+
+## Tâche 10 : saccade du passage aux ressources, film plein écran
+
+Décision de Killian : garder un fil de dessin vivant après la remise de la fenêtre, avec un second contexte OpenGL
+partagé, jusqu'à la première image de l'overlay des ressources. Code : `GapBridge` (le pont), `BridgePolicy`
+(décision et réglage), `LostIslandWindow` (création, verrou avec `periodicTick`, arrêt au signal).
+
+### Comment c'est fait, et pourquoi le jeu et le pont ne dessinent jamais ensemble
+
+- Pendant le trou, le thread du jeu garde son contexte et s'en sert (constructeur de `Minecraft`, lu dans le code
+  décompilé : textures, cibles, shaders de `TextureManager`, `GameRenderer`, `LevelRenderer`, `resizeDisplay`…) ;
+  il ne vide ni ne présente la fenêtre avant `Minecraft.runTick`. On ne peut donc pas lui prendre son contexte.
+- Le pont crée, sur le thread principal (`setupMinecraftWindow`, aucun contexte courant à ce moment), une fenêtre
+  GLFW cachée dont le contexte partage les objets de celui du jeu (`glfwCreateWindow(…, share)`). Sur son thread, il
+  rend ce contexte courant **sur la fenêtre du jeu** par WGL, avec son propre DC (`GetDCEx(DCX_CACHE)`), après avoir
+  vérifié que les deux fenêtres ont le même format de pixel (`wglMakeCurrent` : « same device and same pixel
+  format » ; « supplying each thread with its own rendering context and device context »). Windows seulement.
+- Aucun appel GLFW sur le thread du pont : le rappel d'erreur de GLFW est global et celui de Minecraft exige le
+  thread du jeu (premier essai, ci-dessous). `glfwCreateWindow` et `glfwDestroyWindow` (« main thread only ») sont
+  appelés sur le thread du jeu, qui est celui de `glfwInit` ; la fenêtre cachée n'est détruite qu'après la fin du
+  thread du pont (« must not be current on any other thread »). La taille de la fenêtre est lue par
+  `GetClientRect` (`glfwGetFramebufferSize` est réservé au thread principal).
+- Exclusion : chaque image (rendu + échange, et `glFinish` pour le pont) se fait sous un verrou commun au pont et à
+  `periodicTick` (qui saute son image si le pont dessine). Le pont ne dessine que si aucune image n'est venue depuis
+  150 ms ; le jeu reprend la main à son image suivante. Ordre GPU entre contextes : barrière `glFenceSync` + `glFlush`
+  après chaque image du jeu, attendue par le pont ; `glFinish` à chaque image du pont.
+- Fin : `loadingOverlay` demande l'arrêt et attend la fin du thread (250 ms au plus), **avant** que la boucle du
+  jeu ne vide le tampon de la fenêtre (`RenderSystem.clear` au début de `runTick`, avant l'overlay). L'overlay du mod
+  (et le pont de l'overlay de Forge) refait la vérification avant sa première image et ne touche pas la scène tant
+  que le thread vit (image noire à la place, jamais deux dessins).
+- Objets : le pont a son propre rendu (`EarlyScene.createLightRenderer`) : FBO, VAO, programmes, atlas de police
+  créés dans son contexte et détruits par lui. Il ne lit que les textures de la scène et n'en détruit aucune.
+- Garde-fous : (1) toute erreur (création, partage, format, rendu, échange) arrête le pont, l'image se fige comme
+  avant ; (2) version allégée : ni bloom ni vent (`SceneRenderer(…, light = true)`), 30 i/s, priorité de thread
+  abaissée ; (3) désactivé si `availableProcessors() ≤ 2`, GL < 3.2, rendu logiciel (GDI Generic, llvmpipe,
+  softpipe, SwiftShader, Microsoft Basic Render), ou hors Windows ; (4) réglage ci-dessous.
+
+### Réglage
+
+`config/lostisland-earlywindow.properties`, créé au premier démarrage (UTF-8 sans BOM) :
+```
+bridgeThread=auto
+```
+`auto` (défaut), `false` (coupé : saccade d'avant), `force` (actif même sur une petite machine ; ne passe pas outre
+la plateforme). La propriété `-Dlostisland.bridgeThread=auto|false|force` l'emporte (Gradle : `-PbridgeThread=…`).
+Essai du repli : `-PbridgeThreadFail` (`-Dlostisland.bridgeThread.fail=true`). Petit PC simulé : affinité du JVM du
+jeu, ou `-PactiveProcessors=2` (`-XX:ActiveProcessorCount`, non utilisé ici). Tests sans GL : `BridgePolicyTest`
+(9 : cœurs, version, rendu logiciel, réglage, fichier créé sans BOM, propriété prioritaire).
+
+### Lancements (six, tous `./gradlew --offline installEarlyWindow runClient -PwithPack …`, arrêt par PID)
+
+| # | Options | Résultat | Titre (1ʳᵉ ligne de `latest.log` → ligne Realms) |
+|---|---|---|---|
+| 1 | `-PsceneFrames=frames-saccade` | pont actif, puis **thread mort** à son arrêt (voir ci-dessous) ; ressources en noir, titre atteint | non retenu |
+| 2 | `-PsceneFrames=frames-saccade` (correctif) | pont actif, arrêté au signal, overlay normal | 27,1 s (avec film d'images) |
+| 3 | affinité 2 cœurs | pont **désactivé** par la règle | 69,9 s |
+| 4 | affinité 2 cœurs, `-PbridgeThread=force` | pont actif | 72,7 s |
+| 5 | `-PbridgeThreadFail` | second contexte refusé, comportement d'avant | 24,1 s |
+| 6 | film plein écran (ffmpeg) | pont actif | 24,3 s |
+
+Toutes : 22 lignes « exception » dans `latest.log`, le compte des lancements précédents (préexistantes).
+
+**Lancement 1** : `pont : prend l'écran` puis plus rien ; `stdout` de Gradle :
+`Exception in thread "lostisland-pont" java.lang.IllegalStateException: Rendersystem called from wrong thread`, levée
+par `Window.defaultErrorCallback` de Minecraft depuis `glfwMakeContextCurrent(NULL)` appelé en fin de pont. Le thread
+est mort sans signaler sa fin ; l'overlay a attendu sans dessiner la scène (« pas encore arrêté au signal »), la
+phase des ressources est restée noire, sans plantage, titre atteint. Corrigé : plus aucun appel GLFW sur le pont
+(WGL seul), fin signalée avant toute écriture au journal, et un thread mort est reconnu (`dead()`) pour que
+l'overlay reprenne la main.
+
+**Lancement 2**, `lostisland-earlywindow.log` :
+```
+[  12.517 s] [Render thread] pont : actif (16 cœurs, GL 4.6, NVIDIA GeForce RTX 4060/PCIe/SSE2, availableProcessors=16)
+[  12.548 s] [Render thread] pont : second contexte créé (fenêtre cachée, GL 4.6, partagé avec celui du jeu)
+[  12.549 s] [Render thread] setupMinecraftWindow : la fenêtre et son contexte passent à Minecraft
+[  12.600 s] [lostisland-pont] pont : prêt (format de pixel 12, rendu allégé [halo, smoke, fire, embers, rain, bolts, crash, logo, ui] compilé en 0.02 s, 30 i/s, prise de l'écran après 150 ms sans image)
+[  12.699 s] [lostisland-pont] pont : prend l'écran (aucune image depuis 150 ms)
+[  12.807 s] [Render thread] pont : le jeu reprend l'écran après 3 images du pont
+[  15.683 s] [Render thread] phase REGISTRIES : Le camp s'organise… (registres)
+[  15.858 s] [lostisland-pont] pont : prend l'écran (aucune image depuis 151 ms)
+[  17.263 s] [Render thread] pont : le jeu reprend l'écran après 38 images du pont
+[  17.414 s] [lostisland-pont] pont : prend l'écran (aucune image depuis 150 ms)
+[  18.003 s] [lostisland-pont] pont : thread terminé (57 images dessinées, 3 prises d'écran)
+[  18.003 s] [Render thread] pont : arrêté au signal en 23.0 ms, 57 images dessinées en tout
+[  18.031 s] [Render thread] loadingOverlay : overlay du mod (dev.oneforallsurvival.client.loading.LostIslandLoadingOverlay)
+[  18.104 s] [Render thread] overlay du mod : première image de la scène dans le contexte du jeu, 854x480
+```
+Le trou n'est pas d'un seul tenant : le jeu ne dessine plus pendant ≈ 1,4 s au milieu des registres (15,86 →
+17,26 s), redessine, puis se tait jusqu'à l'overlay (17,41 → 18,10 s). Le pont couvre aussi le petit trou de la
+remise de la fenêtre (12,55 → 12,81 s).
+
+**Écarts entre images** (dates d'écriture des PNG de `run/frames-saccade/`, 657 images, une sur deux retenue,
+53 abandonnées faute d'écriture à temps) : de l'image 405 à l'overlay (images 413 à 428 dessinées par le pont),
+plus grand écart **0,182 s** (image 422, la reprise du jeu puis du pont), environ 0,07 s entre deux images
+retenues du pont. Le plus grand écart de tout le passage est **0,241 s** (image 438), une seconde après la première
+image de l'overlay : c'est l'overlay lui-même, dessiné par le thread du jeu, lent au début du rechargement (déjà vu
+en tâche 9 aux images 420-424) ; les images 438 et 439 sont écrites dans le désordre (deux threads d'écriture), la
+mesure est donc grossière. Avant : deux trous de ≈ 0,8 s (≈ 1,6 s) aux images 416-418 du film B de la tâche 9.
+Images regardées (planche des images 405, 412, 418, 422, 426, 428, 429, 432, 440) : même scène, même cadrage, à
+l'endroit, barre 61 → 70 % sans recul, texte « Le camp s'organise… » puis « Exploration du littoral… » ; les
+images du pont ont un peu moins de lueur autour des feux (pas de bloom).
+
+**Petit PC simulé** : affinité du JVM du jeu fixée à 2 cœurs 20 ms après son apparition
+(`ProcessorAffinity = 3`, relue 3). Vérifié avant, sur un petit programme Java : `availableProcessors()` passe de 16
+à 2 dès que l'affinité change (Java 17, Windows) ; d'où l'affinité plutôt que `-XX:ActiveProcessorCount`.
+```
+lancement 3 [  33.858 s] [Render thread] pont : désactivé (2 cœurs logiques (≤ 2), availableProcessors=2)
+lancement 4 [  34.615 s] [Render thread] pont : actif (forcé par le réglage (bridgeThread=force), 2 cœurs, GL 4.6, NVIDIA GeForce RTX 4060/PCIe/SSE2, availableProcessors=2)
+lancement 4 [  46.264 s] [Render thread] pont : arrêté au signal en 31.5 ms, 77 images dessinées en tout
+```
+Durées jusqu'au titre : **69,9 s sans le pont, 72,7 s avec**, **un lancement chacun** ; l'écart (2,8 s, 4 %) n'est
+pas établi au-delà du bruit d'un lancement unique. Sur 2 cœurs, le jeu ne dessinait plus pendant de longs moments
+des mods (5 prises d'écran, dont 2,2 s au milieu des registres) : c'est exactement là que le pont prend du temps au
+jeu, d'où la règle ≤ 2 cœurs gardée.
+
+**Repli** (lancement 5) :
+```
+[  11.374 s] [Render thread] pont : actif (16 cœurs, GL 4.6, NVIDIA GeForce RTX 4060/PCIe/SSE2, availableProcessors=16)
+[  11.403 s] [Render thread] pont : second contexte impossible, l'image se figera au passage comme avant : java.lang.IllegalStateException: échec demandé par -Dlostisland.bridgeThread.fail=true
+[  11.403 s] [Render thread] setupMinecraftWindow : la fenêtre et son contexte passent à Minecraft
+[  16.654 s] [Render thread] overlay du mod : première image de la scène dans le contexte du jeu, 854x480
+```
+Titre atteint. Ce mode crée la fenêtre cachée puis la détruit et lève : il n'essaie pas un échec sur le thread du
+pont (format de pixel, `wglMakeCurrent`, rendu), seulement relu ; la mort du thread du lancement 1 a montré, elle,
+que l'overlay ne dessine pas à deux et que le jeu va au bout.
+
+### Film plein écran (lancement 6)
+
+`run/film-plein-ecran.mp4` (non commité) : ffmpeg `ddagrab` 60 i/s, `h264_nvenc` `-cq 19`, démarré juste avant
+Gradle, arrêté par `q` 3 s après le titre. ffprobe : `h264`, **2560x1440**, `r_frame_rate=60/1`,
+`avg_frame_rate=60/1`, 2 481 images, **41,35 s**, 56 796 951 octets (ffmpeg : 59 images dupliquées, 5 abandonnées).
+La fenêtre du jeu est en 854x480 au milieu du bureau ; **le bureau de Killian est visible** autour.
+Images regardées : 0,5 et 11,5 s (bureau seul, pas encore de fenêtre) ; une image toutes les 0,25 s de 13,5 à
+17,5 s, recadrée sur la fenêtre : la fenêtre s'ouvre noire vers 13,8 s, la scène sort du noir vers 15,5 s, éclair
+et chute, **aucun écran de Forge ni de Mojang** ; 20 et 26,5 s (chute, épave, barre des mods) ; une image toutes les
+0,25 s de 27,5 à 31,5 s (le passage) : barre 59 → 72 %, « Tri des caisses… » → « Le camp s'organise… » →
+« Exploration du littoral… », ciel et nuages qui bougent, pas d'image répétée visible ; 33, 37 s (ressources,
+aube) ; 40,5 s (écran titre de Minecraft).
+Immobilité mesurée (`freezedetect`, zone de la fenêtre, -60 dB, ≥ 0,1 s ; une image presque identique compte comme
+immobile) : au passage, 0,13 et 0,12 s aux deux prises d'écran du pont (le seuil de 150 ms), **0,20 s** entre
+l'arrêt du pont et les premières images de l'overlay, puis 0,18 et 0,22 s pendant le début du rechargement (overlay
+dessiné par le jeu) ; 0,22 s à la remise de la fenêtre. Ailleurs : **0,57 s juste avant la fin du rechargement**
+(film 36,9 → 37,5 s, journal ≈ 23,4 → 24,0 s, avant `phase DONE`) : c'est l'overlay du jeu, hors du pont ; il
+recoupe le saut d'une seconde et demie du relevé par seconde noté en tâche 9, toujours non élucidé.
+
+### Tests
+
+`./gradlew --offline test --rerun-tasks` : BUILD SUCCESSFUL ; XML : `earlywindowTest` 71 tests (62 + 9), 0 échec,
+0 erreur ; `test` (mod) 128 tests, 0 échec, 0 erreur.
+
+### Non prouvé (tâche 10)
+
+- Un seul poste (RTX 4060, pilote NVIDIA 621.14) : deux contextes sur une même fenêtre par deux DC, et un DC du
+  cache pour OpenGL, ne sont vus que sur ce pilote. Sur un autre (AMD, Intel), un échec de `wglMakeCurrent` ou du
+  format de pixel retombe sur la saccade ; un pilote qui accepterait mais dessinerait mal n'est pas exclu.
+- Échec sur le thread du pont (format, `wglMakeCurrent`, rendu) : chemin relu ; seul l'échec de création
+  (lancement 5) et la mort du thread (lancement 1, avant correctif) ont été vus.
+- Coût sur 2 cœurs : un lancement avec, un sans (voir plus haut).
+- Démarrage très long : au-delà de 5 s sans que le thread du jeu traite les messages, Windows peut remplacer la
+  fenêtre par son image « ne répond pas », que le pont ne peut empêcher ; non observé (trous ≤ 2,2 s ici).
+- Un mod qui dessinerait dans la fenêtre pendant le trou (événements du constructeur de `Minecraft`) : aucun vu ;
+  ce ne serait qu'un défaut d'image.
