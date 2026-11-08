@@ -355,14 +355,14 @@ Chaque lot produit quelque chose de jouable et peut être livré seul, **visuels
 | 2 | 1, 2, 4, 3 | Le métier de réparation existe |
 | 3 | 9, 10, 11 | L'électricité devient vitale |
 | 4 | 7, 8, 5, 6 | La gestion du réseau et ses arbitrages |
+| 5 | 12, 13, 16 | Vivres et protection |
+| 6 | 25, 26, 17 | La vie de la ville |
+| 7 | 21, 22, 23, 24 | L'exploration et les outils de l'équipe du serveur |
 
 *Le lot 4 est livré. Les changements apportés le 2026-11-08 à la feature 8 (fournisseurs, jumelage,
 protection, facture quotidienne) ne rouvrent pas ce lot : ils sont faits au lot E6 du
 [cahier de l'économie](2026-11-08-economie-design.md), qui modifie le compteur et le disjoncteur déjà
 livrés.*
-| 5 | 12, 13, 16 | Vivres et protection |
-| 6 | 25, 26, 17 | La vie de la ville |
-| 7 | 21, 22, 23, 24 | L'exploration et les outils de l'équipe du serveur |
 
 ## 7. Vérification
 
