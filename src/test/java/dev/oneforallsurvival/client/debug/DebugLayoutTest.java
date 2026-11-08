@@ -24,6 +24,26 @@ class DebugLayoutTest {
     }
 
     @Test
+    void laCarteDeDroiteLaisseLeViseurLibre() {
+        assertEquals(197, DebugLayout.normalMaxWidth(427, 220), "fenêtre par défaut et 720p");
+        assertEquals(220, DebugLayout.normalMaxWidth(472, 220), "à partir de là, le plafond reprend la main");
+        for (int gw = 240; gw <= 1300; gw++) {
+            int x = gw - DebugLayout.MARGIN - DebugLayout.normalMaxWidth(gw, 220);
+            assertTrue(x - gw / 2.0 > 10, "bras du repère recouvert à " + gw + " : x=" + x);
+        }
+    }
+
+    @Test
+    void laPastilleNeTientACoteDeLaBarreQueSiElleEstCourte() {
+        // À 427, la barre finit à 304 ; texte de 111 px au plus : fond à 306, au-delà de la barre.
+        assertTrue(DebugLayout.hintFitsBesideHotbar(427, 111));
+        assertFalse(DebugLayout.hintFitsBesideHotbar(427, 112));
+        // Le cas « Vue détaillée 1/4 » de la revue, à 480.
+        assertFalse(DebugLayout.hintFitsBesideHotbar(480, 146));
+        assertTrue(DebugLayout.hintFitsBesideHotbar(854, 146));
+    }
+
+    @Test
     void aucunChevauchement() {
         for (int gw = 100; gw <= 900; gw += 37) {
             for (int gh = 60; gh <= 500; gh += 29) {

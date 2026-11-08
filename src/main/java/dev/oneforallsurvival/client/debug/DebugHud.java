@@ -11,6 +11,7 @@ import dev.oneforallsurvival.client.debug.DebugLines.Classified;
 import dev.oneforallsurvival.client.debug.DebugLines.Line;
 import dev.oneforallsurvival.client.debug.DebugLines.Panel;
 import dev.oneforallsurvival.debug.IslandDebugInfo;
+import dev.oneforallsurvival.debug.IslandDebugResponse;
 import dev.oneforallsurvival.machine.ElectricMachineBlock;
 import dev.oneforallsurvival.machine.MachineState;
 import java.util.ArrayList;
@@ -66,7 +67,6 @@ public final class DebugHud {
     private static final int AVERAGE_FRAMES = 30;
     /** Une image très longue (fenêtre gelée) ne doit pas faire sauter les animations. */
     private static final double MAX_DT = 0.25;
-    private static final double TICK_MILLIS = 1000.0 / 20.0;
     private static final Map<Slot, Panel> PANELS = Map.of(
             Slot.POSITION, Panel.POSITION,
             Slot.WORLD, Panel.WORLD,
@@ -140,6 +140,10 @@ public final class DebugHud {
             String hint = view == 0
                     ? I18n.get(DebugFormat.key("hint.normal"), DebugKeys.shortcut())
                     : I18n.get(DebugFormat.key("hint.page"), view, pages, DebugKeys.shortcut());
+            // L'objet d'une case se dessine devant la pastille : à côté de la barre, elle ne doit pas la chevaucher.
+            if (!mc.options.renderFpsChart && !DebugLayout.hintFitsBesideHotbar(g.guiWidth(), DebugPanels.width(mc.font, hint))) {
+                hint = view == 0 ? DebugKeys.shortcut() : view + "/" + pages + DebugFormat.SEPARATOR + DebugKeys.shortcut();
+            }
             DebugPanels.hint(g, mc.font, hint, g.guiWidth() - DebugLayout.MARGIN, usable - 1);
         });
     }
@@ -298,7 +302,7 @@ public final class DebugHud {
                 DebugHud::targetName, extras.distance()));
         rows.put(Slot.ISLAND, island);
 
-        int maxW = Math.min(NORMAL_MAX_W, guiW / 2 - DebugLayout.MARGIN - DebugLayout.GAP);
+        int maxW = DebugLayout.normalMaxWidth(guiW, NORMAL_MAX_W);
         Map<Slot, Size> sizes = new EnumMap<>(Slot.class);
         rows.forEach((slot, list) -> {
             if (!list.isEmpty()) {
@@ -379,22 +383,19 @@ public final class DebugHud {
         return measured == 0 ? 0 : sum / (double) measured / 1_000_000.0;
     }
 
-    /** TPS en solo (serveur intégré), ping en multijoueur. */
+    /** TPS en solo (serveur intégré) ; ping et, tant que le serveur a répondu, TPS en multijoueur. */
     @Nullable
     private static Row footer(Minecraft mc, double dt) {
         MinecraftServer server = mc.getSingleplayerServer();
         if (server != null) {
-            double tps = TPS_SMOOTH.update(1000.0 / Math.max(TICK_MILLIS, server.getAverageTickTime()), dt);
-            return new Row("footer", List.of(new Segment(label(DebugFormat.key("label.server")), Tone.LABEL),
-                    new Segment(String.format(Locale.ROOT, " %.1f TPS", tps), Tone.VALUE)));
+            return DebugFormat.footerRow(TPS_SMOOTH.update(IslandDebugResponse.tps(server.getAverageTickTime()), dt), null,
+                    DebugHud::label);
         }
         ClientPacketListener connection = mc.getConnection();
         PlayerInfo info = connection == null || mc.player == null ? null : connection.getPlayerInfo(mc.player.getUUID());
-        if (info == null) {
-            return null;
-        }
-        return new Row("footer", List.of(new Segment(label(DebugFormat.key("label.ping")), Tone.LABEL),
-                new Segment(" " + info.getLatency() + " ms", Tone.VALUE)));
+        Float remote = IslandDebugCache.ageMillis() > STALE_MILLIS ? null : IslandDebugCache.serverTps();
+        return DebugFormat.footerRow(remote == null ? null : TPS_SMOOTH.update(remote, dt),
+                info == null ? null : info.getLatency(), DebugHud::label);
     }
 
     /** La vue détaillée d'une image : les textes découpés par carte et leurs pages. */

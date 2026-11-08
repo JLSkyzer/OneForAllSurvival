@@ -121,6 +121,14 @@ class DebugFormatTest {
     }
 
     @Test
+    void basDePerformancesSoloMultijoueurEtRien() {
+        assertEquals("label.server 19.8 TPS", DebugFormat.footerRow(19.84, null, SUFFIXES).text());
+        assertEquals("label.ping 32 ms", DebugFormat.footerRow(null, 32, SUFFIXES).text());
+        assertEquals("label.ping 32 ms · 20.0 TPS", DebugFormat.footerRow(20.0, 32, SUFFIXES).text());
+        assertNull(DebugFormat.footerRow(null, null, SUFFIXES));
+    }
+
+    @Test
     void leCentreDuBlocVientDeLaLigneDeCible() {
         assertEquals(new DebugFormat.Point(12.5, 63.5, -5.5), DebugFormat.blockCenter("§nTargeted Block: 12, 63, -6"));
         assertNull(DebugFormat.blockCenter("Targeted Block: ailleurs"));

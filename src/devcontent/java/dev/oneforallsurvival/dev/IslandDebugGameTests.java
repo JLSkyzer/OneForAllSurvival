@@ -203,6 +203,21 @@ public final class IslandDebugGameTests {
         helper.succeed();
     }
 
+    /** Valeur calculée sur le serveur à partir de ses temps de tick, relue dans les octets reçus par le client. */
+    @GameTest(template = "test/plancher")
+    public static void laReponseDonneLesTpsDuServeur(GameTestHelper helper) {
+        JoueurDeTest citoyen = joueur(helper, "f3_tps", false);
+        try {
+            float tps = demander(citoyen, null).serverTps();
+            float attendu = IslandDebugResponse.tps(helper.getLevel().getServer().getAverageTickTime());
+            verifier(Math.abs(tps - attendu) < 0.001f, "TPS attendus " + attendu + " : " + tps);
+            verifier(tps > 0f && tps <= 20f, "TPS hors bornes : " + tps);
+        } finally {
+            quitter(citoyen);
+        }
+        helper.succeed();
+    }
+
     @GameTest(template = "test/plancher")
     public static void leDisjoncteurEstVisibleDeTous(GameTestHelper helper) {
         helper.setBlock(COMPTEUR, GridRegistry.BREAKER.get().defaultBlockState()

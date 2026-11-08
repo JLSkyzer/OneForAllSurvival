@@ -216,6 +216,34 @@ public final class DebugFormat {
                 new Segment(" " + SmoothLines.format(blocks, 1) + " " + l.get(key("unit.blocks")), Tone.VALUE)));
     }
 
+    /**
+     * Le bas de la carte Performances. Seul : « Serveur 20.0 TPS » ou « Ping 32 ms » ; les deux : « Ping 32 ms · 20.0 TPS »,
+     * car la carte est trop étroite pour deux libellés.
+     *
+     * @return {@code null} si l'on ne connaît ni l'un ni l'autre
+     */
+    @Nullable
+    public static Row footerRow(@Nullable Double tps, @Nullable Integer pingMillis, Labels l) {
+        if (tps == null && pingMillis == null) {
+            return null;
+        }
+        List<Segment> segments = new ArrayList<>();
+        if (pingMillis != null) {
+            segments.add(label(l, "label.ping"));
+            segments.add(new Segment(" " + pingMillis + " ms", Tone.VALUE));
+        }
+        if (tps != null) {
+            if (pingMillis == null) {
+                segments.add(label(l, "label.server"));
+                segments.add(new Segment(" ", Tone.VALUE));
+            } else {
+                segments.add(new Segment(SEPARATOR, Tone.LABEL));
+            }
+            segments.add(new Segment(SmoothLines.format(tps, 1) + " TPS", Tone.VALUE));
+        }
+        return new Row("footer", segments);
+    }
+
     public static double distance(Point a, Point b) {
         double dx = a.x() - b.x();
         double dy = a.y() - b.y();

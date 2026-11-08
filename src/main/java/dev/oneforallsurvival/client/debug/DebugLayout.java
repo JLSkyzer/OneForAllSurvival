@@ -21,8 +21,24 @@ public final class DebugLayout {
     public static final int MARGIN = 4;
     /** Écart entre deux panneaux, en pixels d'interface. */
     public static final int GAP = 4;
+    /** Dégagement d'une carte au centre de l'écran : le repère 3D du F3 a des bras de 10 px autour du viseur. */
+    public static final int CROSSHAIR_CLEARANCE = 12;
+    /** La barre d'objets s'étend de cette distance de part et d'autre du centre de l'écran. */
+    private static final int HOTBAR_HALF_W = 91;
+    /** Fond de la pastille (6 px) et écart de 2 px avec la barre d'objets. */
+    private static final int HINT_CHROME = 8;
 
     private DebugLayout() {}
+
+    /** Largeur maximale d'une carte de la vue normale : la colonne de droite s'arrête avant le viseur. */
+    public static int normalMaxWidth(int guiW, int cap) {
+        return Math.min(cap, guiW / 2 - MARGIN - CROSSHAIR_CLEARANCE);
+    }
+
+    /** Vrai si la pastille de vue, de texte large de {@code textW}, tient à droite de la barre d'objets. */
+    public static boolean hintFitsBesideHotbar(int guiW, int textW) {
+        return textW <= guiW - MARGIN - (guiW / 2 + HOTBAR_HALF_W) - HINT_CHROME;
+    }
 
     /**
      * Emplacements de mise en page. Distinct de {@link DebugLines.Panel} car Lost Island n'y figure pas

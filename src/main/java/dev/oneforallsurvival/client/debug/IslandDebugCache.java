@@ -73,6 +73,12 @@ public final class IslandDebugCache {
         return last == null ? null : last.target();
     }
 
+    /** Les TPS du serveur à la dernière réponse, ou {@code null} s'il n'y en a pas. */
+    @Nullable
+    public static Float serverTps() {
+        return last == null ? null : last.serverTps();
+    }
+
     /** L'âge des dernières données en millisecondes, {@link Long#MAX_VALUE} s'il n'y en a pas. */
     public static long ageMillis() {
         return last == null ? Long.MAX_VALUE : Util.getMillis() - receivedAt;

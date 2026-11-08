@@ -30,19 +30,21 @@ public record IslandDebugRequest(@Nullable BlockPos target) {
     /** Sur le thread du serveur : un client n'est jamais cru sur parole. */
     public static void handle(IslandDebugRequest packet, Supplier<NetworkEvent.Context> context) {
         ServerPlayer sender = context.get().getSender();
-        if (sender == null || !LIMITER.allow(sender.getUUID(), sender.server.getTickCount())) {
+        // Déjà parti : la requête arrive après onLogout et recréerait une entrée que plus rien n'oublierait.
+        if (sender == null || sender.hasDisconnected() || !LIMITER.allow(sender.getUUID(), sender.server.getTickCount())) {
             return;
         }
         BenchNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> sender), answer(sender, packet.target()));
     }
 
-    /** Sous {@code reducedDebugInfo}, rien : comme dans vanilla, la règle vaut pour tous, opérateurs compris. */
+    /** Sous {@code reducedDebugInfo}, rien qui situe le joueur (les TPS ne le situent pas) : comme dans vanilla, la règle vaut pour tous, opérateurs compris. */
     private static IslandDebugResponse answer(ServerPlayer sender, @Nullable BlockPos requested) {
+        float tps = IslandDebugResponse.tps(sender.server.getAverageTickTime());
         if (sender.serverLevel().getGameRules().getBoolean(GameRules.RULE_REDUCEDDEBUGINFO)) {
-            return new IslandDebugResponse(null, IslandDebugInfo.EMPTY);
+            return new IslandDebugResponse(null, IslandDebugInfo.EMPTY, tps);
         }
         BlockPos target = IslandDebugInfo.acceptedTarget(sender, requested);
-        return new IslandDebugResponse(target, IslandDebugInfo.collect(sender, target));
+        return new IslandDebugResponse(target, IslandDebugInfo.collect(sender, target), tps);
     }
 
     public static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
