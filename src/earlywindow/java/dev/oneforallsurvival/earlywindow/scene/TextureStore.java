@@ -38,6 +38,12 @@ public final class TextureStore implements AutoCloseable {
     public static final String SEA_FRAMES = "sea/frames";
     /** Texture vanilla des nuages : facultative (sans elle, pas de nuages voxel). */
     public static final String CLOUDS = "minecraft:textures/environment/clouds.png";
+    /**
+     * Flammes vanilla (bandes 16x512, 32 images 16x16 empilées) : lues dans le jar du client comme les nuages,
+     * jamais copiées dans le nôtre (licence). Facultatives : sans jar du client, pas de flammes.
+     */
+    public static final List<String> FIRE_STRIPS = List.of(
+            "minecraft:textures/block/fire_0.png", "minecraft:textures/block/fire_1.png");
 
     private static final long UPLOAD_BUDGET_NANOS = 6_000_000L;
 
@@ -107,8 +113,8 @@ public final class TextureStore implements AutoCloseable {
         remaining.merge(FX, 1, Integer::sum);
         add(FX, "fx/moon_rays.png", 4, false);
         // Images des effets (tâche 4) : facultatives. Si l'une manque, seul l'effet qui la lit se retire.
-        for (int i = 0; i < 2; i++) {
-            addOptional(FX, "fx/fire_" + i + "_strip.png", 4, false);
+        for (String strip : FIRE_STRIPS) {
+            addOptional(FX, strip, 4, false);
         }
         for (int i = 0; i < 6; i++) {
             addOptional(FX, "fx/smoke_" + i + ".png", 4, true);

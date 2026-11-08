@@ -518,6 +518,9 @@ tasks.named('processEarlywindowResources', ProcessResources).configure {
     dependsOn verifierCalques
     from(calquesEcran) {
         into 'lostisland/loading'
+        // Copies des flammes vanilla (bake_fx.py) : la scène les lit dans le jar du client, on ne livre aucun
+        // fichier de Mojang dans le nôtre (licence).
+        exclude 'fx/fire_*_strip.png'
     }
 }
 

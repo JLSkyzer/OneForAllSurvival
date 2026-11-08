@@ -1,5 +1,5 @@
 #version 150
-// Flamme (draw_fires) : une image 16x16 de la bande fire_*_strip.png, agrandie en bilinéaire sans déborder sur
+// Flamme (draw_fires) : une image 16x16 de la bande vanilla block/fire_*.png (jar du client), agrandie en bilinéaire sans déborder sur
 // les images voisines de la bande (resized de compose.py), puis blit_over (uAlpha) et blit_add de uAdd
 // (uAddAlpha) en un seul tracé : sortie = rgb * a + uAdd * alpha * uAddAlpha, alpha a.
 

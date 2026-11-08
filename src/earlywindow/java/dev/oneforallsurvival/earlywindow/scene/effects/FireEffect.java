@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Feux de l'épave : port de {@code draw_fires} (flammes animées des bandes {@code fx/fire_*_strip.png}, aux
+ * Feux de l'épave : port de {@code draw_fires} (flammes animées des bandes vanilla {@code block/fire_*.png}, lues dans le jar du client, aux
  * positions, tailles et déphasages du manifeste) et de la lueur des plaques {@code *_fire} ({@code fire_plate}),
  * ajoutée au décor du milieu et au premier plan.
  *
@@ -108,8 +108,8 @@ public final class FireEffect implements SceneEffect {
         if (list.isEmpty()) {
             return;
         }
-        int[] strips = {EffectProgram.texture(textures, "fx/fire_0_strip.png"),
-                EffectProgram.texture(textures, "fx/fire_1_strip.png")};
+        int[] strips = {EffectProgram.texture(textures, TextureStore.FIRE_STRIPS.get(0)),
+                EffectProgram.texture(textures, TextureStore.FIRE_STRIPS.get(1))};
         flames.use(view, manifest);
         glActiveTexture(GL_TEXTURE0);
         glUniform1i(flames.loc("uStrip"), 0);
