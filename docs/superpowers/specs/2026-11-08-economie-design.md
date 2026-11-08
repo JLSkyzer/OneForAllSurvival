@@ -193,6 +193,42 @@ La numérotation prolonge celle du policier. Toutes les valeurs chiffrées sont 
 - Le relevé de compte se recopie en objet.
 - Un compte ne produit **aucun intérêt**.
 
+**81. Distributeur (ATM).**
+Demandé par Killian le 2026-11-08.
+- C'est un bloc **fabriqué par l'ingénieur** à son établi et posé où il veut : en ville, au port, dans un
+  commerce.
+- Il se branche au réseau électrique. **Chaque opération consomme de l'énergie** (réglable, en FE par
+  opération). Sans courant, il est hors service et l'écran le dit.
+- Il fait ce que fait un distributeur, sur les **mêmes comptes que le guichet** (feature 76) :
+  - consulter le solde et les dernières opérations ;
+  - retirer et déposer des pièces ;
+  - virer une somme à un autre compte ;
+  - payer une facture.
+- Il sert aussi à **créer des cartes bancaires** (feature 82), une ou plusieurs par compte (3 au plus au
+  départ, réglable), et à faire **opposition** sur une carte perdue ou volée.
+- Il **ne crée aucun argent**. Un retrait est pris sur le compte, un dépôt y est ajouté. Chaque
+  opération s'inscrit au registre, avec le distributeur, la carte et le joueur qui l'a utilisée.
+- Seuls son poseur, un ingénieur muni de l'outil de maintenance et l'équipe du serveur peuvent le casser
+  ou le régler.
+
+**82. Carte bancaire.**
+Demandé par Killian le 2026-11-08.
+- C'est un **objet** lié à un compte, créé au distributeur. Elle porte le nom du titulaire et les quatre
+  derniers chiffres de son numéro. Son titulaire choisit un **code** à quatre chiffres à la création.
+- Elle sert :
+  - au distributeur, où un **retrait demande le code** ;
+  - dans le **téléphone**, où on l'enregistre pour **payer l'abonnement réseau** à son opérateur.
+    L'abonnement est prélevé chaque semaine sur le compte de la carte.
+- **Elle peut être perdue ou volée** comme tout objet, fouillée et confisquée (feature 52 du policier).
+  Le compte, lui, ne se vole pas : un voleur sans le code ne retire rien, et un voleur qui l'a obtenu
+  reste limité par un **plafond de dépense par jour** (réglable).
+- L'**opposition** au distributeur ou au guichet désactive la carte aussitôt, partout. Une carte en
+  opposition est refusée et l'abonnement réseau qu'elle payait devient impayé.
+- Chaque usage s'inscrit au registre avec le joueur qui tenait la carte : le vol est possible, mais il
+  laisse des traces.
+- Un prélèvement refusé (solde insuffisant, carte en opposition) est signalé au titulaire et à
+  l'opérateur, qui décide de suspendre ou non la carte SIM.
+
 ### Gagner sa vie
 
 **78. Butin des mobs.**
@@ -303,10 +339,11 @@ Chaque branchement se fait au lot du métier concerné, une fois l'économie liv
 
 | Métier | Branchement |
 |---|---|
-| Ingénieur | Le **relevé de compteur** produit une **facture d'électricité** au tarif de la ville (par FE, réglable). Le paiement se fait au guichet. Impayée, la facture justifie un scellé en RP. Le matériel fabriqué à l'établi se vend à l'étal. |
+| Ingénieur | Le **relevé de compteur** produit une **facture d'électricité** au tarif de la ville (par FE, réglable). Le paiement se fait au guichet. Impayée, la facture justifie un scellé en RP. Le matériel fabriqué à l'établi se vend à l'étal. Il **fabrique et pose les distributeurs** (feature 81), qui consomment son électricité à chaque opération. |
 | Agriculteur | L'**étal** vend la production et rachète les récoltes. Le **grenier communal** peut **payer les dépôts** au prix fixé par la ville, sur le trésor : la ville achète ses réserves. |
 | Médecin | Le médecin émet une **facture de soins** depuis le dossier médical, avec les soins listés. Elle peut être réglée par le trésor si la ville rend certains soins gratuits (réglable par type de soin). |
 | Policier | Une **contravention** devient une facture publique : payée au guichet, elle est marquée payée au casier sans geste du policier. Une **caution** peut être versée au trésor pour sortir de cellule plus tôt (réglable). Les pièces se fouillent et se confisquent comme le reste. |
+| Communication | Le **téléphone** accepte une carte bancaire (feature 82) pour payer l'abonnement réseau. Un prélèvement refusé est signalé à l'opérateur. Ce branchement suit le lot du téléphone. |
 | Tous | Les **salaires publics**, la **taxe sur les ventes**, le **cambriolage** du trésor ou d'un étal. |
 
 Ces branchements modifient les cahiers des métiers : chaque lot de métier qui les livre met son cahier à
@@ -324,9 +361,11 @@ compris.
 | E3 | 73, 74, 75, 76 | La ville a des finances : elle encaisse, elle paie, elle peut manquer |
 | E4 | 78, 80 | On gagne sa vie en chassant, et l'équipe ouvre un comptoir |
 | E5 | 79 | Des objectifs renouvelés chaque jour et chaque semaine |
+| E6 | 81, 82 | Les comptes s'utilisent loin du guichet, et une carte volée ne vide pas un compte |
 
 Le lot E4 peut passer avant E2 si la ville a besoin de premiers revenus plus tôt : le butin des mobs
-répond en partie à la question « d'où vient le premier argent ». Les quêtes de métier (feature 79)
+répond en partie à la question « d'où vient le premier argent ». Le lot E6 vient après E3, puisqu'il
+utilise les comptes, et a besoin du réseau électrique de l'ingénieur. Les quêtes de métier (feature 79)
 arrivent avec chaque métier. Les branchements de la section 6 suivent chacun le lot de leur métier. Celui de l'ingénieur peut se faire
 dès le lot 4 (compteurs), qui est en cours.
 
@@ -351,7 +390,11 @@ dès le lot 4 (compteurs), qui est en cours.
   - un bloc posé puis cassé ne fait avancer aucune quête ;
   - une quête de métier n'est pas proposée à un autre rôle ;
   - le PNJ refuse une offre épuisée ;
-  - l'alerte se déclenche quand une offre d'achat dépasse l'offre de vente.
+  - l'alerte se déclenche quand une offre d'achat dépasse l'offre de vente ;
+  - un distributeur sans courant refuse toute opération, et chaque opération consomme l'énergie réglée ;
+  - un retrait au distributeur ne change pas la masse totale (compte moins, pièces plus) ;
+  - un retrait sans le bon code est refusé, et le plafond par jour tient ;
+  - une carte en opposition est refusée au distributeur et au prélèvement de l'abonnement.
 - **Scénario d'acceptation** : l'équipe désigne un trésorier ; il frappe ; il verse un salaire ; le policier
   achète du pain à l'étal de l'agriculteur absent ; l'agriculteur récupère ses recettes ; on relance le
   serveur ; on lit le tableau de bord, et chaque pièce a une origine.
@@ -380,7 +423,10 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 - les quêtes se renouvellent sur le calendrier réel, avec une relance par jour, et expirent sans
   pénalité ;
 - les quêtes de métier ne sont proposées qu'au rôle concerné ;
-- le PNJ ne vend ni nourriture préparée, ni matériel d'ingénieur, ni remèdes par défaut.
+- le PNJ ne vend ni nourriture préparée, ni matériel d'ingénieur, ni remèdes par défaut ;
+- le distributeur n'a pas de réserve de pièces : il puise dans les comptes, il n'y a donc rien à y
+  cambrioler ;
+- une carte bancaire demande un code pour retirer et a un plafond par jour.
 
 ## 10. Questions ouvertes
 
@@ -392,4 +438,6 @@ Elles décident de l'équilibre général et sont à trancher avant le lot E1 :
 - **Le rubis** se frappe-t-il comme les autres, ou est-il réservé à l'équipe du serveur, par exemple pour
   des récompenses d'événement ?
 - **Faut-il les comptes** (feature 76) dès le lot E3, ou une monnaie uniquement physique suffit-elle au
-  début ?
+  début ? Les distributeurs et les cartes (81, 82) en dépendent.
+- **La carte bancaire paie-t-elle aussi aux étals** (feature 71), ou seulement au distributeur et dans
+  le téléphone ?
