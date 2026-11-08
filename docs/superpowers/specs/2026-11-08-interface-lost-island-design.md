@@ -88,8 +88,7 @@ Non suivies par git (`art/` et `docs/assets/` ne sont jamais ajoutés au dépôt
   jar de service : c'est la seule façon de dessiner avant que le jeu existe. L'écran titre le
   réutilise (chantier 2).
 - **Les calques sont copiés** de `art/loading-screen/assets/` vers les ressources du jar de
-  service, au besoin recompressés ; `art/` reste hors du dépôt. Le poids du jar est mesuré et
-  rapporté.
+  service, sans les retoucher ; `art/` reste hors du dépôt.
 - **Chargement progressif** : le ciel et le décor d'abord (premier affichage en moins d'une
   seconde visé, mesuré et rapporté, pas promis), la mer et les effets ensuite, sans gel de
   l'image.
@@ -101,12 +100,14 @@ Non suivies par git (`art/` et `docs/assets/` ne sont jamais ajoutés au dépôt
   la scène Blender, et à une légère déformation au vent dans le rendu. Ce masque est un calque
   nouveau, à fabriquer.
 - Après 100 %, la barre s'efface et l'écran titre prend la suite sur la même image.
+- **Calques copiés au build** : la construction du jar de service les lit dans `art/` (non
+  suivi par git) ; le dépôt ne les contient pas.
 - **OpenGL visé** : le même que la fenêtre de Forge (3.2 core). Si l'initialisation du moteur
   échoue (contexte, shader, texture), retour en bloc à l'écran de Forge ; si un seul effet
   échoue (feuillage, pluie…), il est retiré et le reste s'affiche.
-- **Poids** : objectif 25 Mo pour le jar de service. Pour y tenir, dans cet ordre : recompression
-  sans perte visible, mer à résolution réduite (elle l'est déjà, `scale` 2), puis moins
-  d'images de mer avec fondu entre elles. Le poids final et ce qui a été sacrifié sont rapportés.
+- **Poids (décision de Killian)** : aucune limite de taille et aucune recompression. Les calques
+  sont livrés tels quels, en pleine qualité, les 48 images de mer comprises. Le poids final est
+  seulement rapporté.
 - **Partage de la barre** : parts fixes par phase, tirées des durées mesurées sur un vrai
   démarrage avec le pack, puis lissage pour qu'elle avance sans à-coups et ne recule jamais.
 - **Masque du feuillage** : produit depuis la scène Blender (Blender est disponible par MCP sur
