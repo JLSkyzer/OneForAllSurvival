@@ -1,5 +1,6 @@
 package dev.oneforallsurvival.earlywindow;
 
+import dev.oneforallsurvival.earlywindow.scene.ProgressModel;
 import dev.oneforallsurvival.earlywindow.scene.ProgressModel.Phase;
 import dev.oneforallsurvival.earlywindow.scene.StatusMessages;
 import dev.oneforallsurvival.earlywindow.scene.StatusMessages.Status;
@@ -22,7 +23,8 @@ import java.util.List;
  * </ul>
  * La phase ne recule jamais. Dans une phase dont la barre a des étapes (« Mod Gather » 9/18, « Minecraft Progress »
  * 40/100), l'avancement est le rapport des étapes ; sans étapes (découverte, registres), il suit le temps écoulé
- * rapporté à la durée relevée en tâche 0, plafonné à {@link #CREEP_MAX} pour ne jamais annoncer la fin d'une phase
+ * rapporté à la durée attendue ({@link ProgressModel#expectedSeconds}, étalonnée en tâche 9), plafonné à
+ * {@link #CREEP_MAX} pour ne jamais annoncer la fin d'une phase
  * qui dure plus que prévu.
  */
 public final class ProgressTracker {
@@ -40,9 +42,6 @@ public final class ProgressTracker {
     public static final float CREEP_MAX = 0.9f;
 
     private static final String EARLY_MODS_LABEL = "Loading mods";
-    // Durées relevées en tâche 0 (s), dans l'ordre de Phase : fenêtre, découverte et préparation du jeu, mods,
-    // registres, ressources. Elles ne servent qu'aux phases sans étapes.
-    private static final double[] EXPECTED = {0.7, 19.8, 8.4, 1.0, 14.0};
 
     private Phase phase = Phase.FORGE_START;
     private double phaseStart;
@@ -81,7 +80,8 @@ public final class ProgressTracker {
         } else if (detail != null && detail.steps() > 0) {
             fraction = Math.max(0f, Math.min(1f, (float) detail.current() / detail.steps()));
         } else {
-            fraction = (float) Math.min(CREEP_MAX, Math.max(0.0, now - phaseStart) / EXPECTED[phase.ordinal()]);
+            fraction = (float) Math.min(CREEP_MAX,
+                    Math.max(0.0, now - phaseStart) / ProgressModel.expectedSeconds(phase));
         }
         Status status = detail == null
                 ? StatusMessages.of(phase, "", 0, 0)

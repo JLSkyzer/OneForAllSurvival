@@ -41,6 +41,15 @@ import org.lwjgl.opengl.GL32C;
 public final class LostIslandLoadingOverlay extends LoadingOverlay {
     /** Durée du fondu de la barre et du texte, rechargement fini (ruling 20). */
     static final long UI_FADE_MS = 1000L;
+    /**
+     * Essai du repli (ruling 28) : {@code -Dlostisland.overlay.fail=first} fait échouer la première image, l'overlay
+     * de Forge (avec le pont de la fenêtre anticipée) prend alors la main. Développement seulement
+     * ({@code -PoverlayFail=first} au lancement de Gradle).
+     */
+    private static final String FAIL_MODE = System.getProperty("lostisland.overlay.fail");
+    private static final String FAIL_FIRST = "first";
+    /** Relevé de l'avancement une fois par seconde au journal : mise au point seulement. */
+    private static final boolean TRACE = Boolean.getBoolean("lostisland.progress.trace");
 
     private final Minecraft minecraft;
     private final ReloadInstance reload;
@@ -110,7 +119,8 @@ public final class LostIslandLoadingOverlay extends LoadingOverlay {
         }
 
         if (fadeOutStart >= 0L && fade >= 1f) {
-            // Comme Forge, mais sans retirer un overlay qui aurait remplacé celui-ci (rechargement de secours).
+            // Garde défensive : un overlay remplacé n'est plus rendu, cette branche ne s'atteint donc qu'avec
+            // getOverlay() == this ; la vérification évite seulement de retirer un overlay qui ne serait pas le nôtre.
             if (minecraft.getOverlay() == this) {
                 minecraft.setOverlay(null);
             }
@@ -151,14 +161,18 @@ public final class LostIslandLoadingOverlay extends LoadingOverlay {
         target.bindWrite(true);
         GlStateGuard state = GlStateGuard.save();
         try {
+            if (firstFrame && FAIL_FIRST.equals(FAIL_MODE)) {
+                throw new IllegalStateException("échec demandé par -Dlostisland.overlay.fail=" + FAIL_FIRST);
+            }
             GL32C.glViewport(0, 0, target.width, target.height);
             float actual = reload.getActualProgress();
             scene.renderResources(target.width, target.height, actual, done, uiAlpha);
             long now = Util.getMillis();
-            if (!done && now - lastProgressLog >= 1000L) {
-                // Relevé de l'avancement réel du rechargement de Minecraft, une fois par seconde.
+            if (TRACE && !done && now - lastProgressLog >= 1000L) {
+                // Relevé de mise au point (-Dlostisland.progress.trace=true) : avancement réel et barre montrée.
                 lastProgressLog = now;
-                scene.log(String.format(Locale.ROOT, "overlay du mod : rechargement à %.3f", actual));
+                scene.log(String.format(Locale.ROOT, "overlay du mod : rechargement à %.3f, barre à %.3f", actual,
+                        scene.lastState() == null ? 0f : scene.lastState().progress()));
             }
             if (firstFrame) {
                 firstFrame = false;

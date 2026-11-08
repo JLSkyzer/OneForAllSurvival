@@ -67,6 +67,7 @@ public final class EarlyScene implements AutoCloseable {
     private double lastReal;
     private double storyStart = Double.NaN;
     private double seaStart = Double.NaN;
+    private double resourcesStart = Double.NaN;
     private Phase loggedPhase;
     private int frames;
     private SceneState last;
@@ -142,6 +143,7 @@ public final class EarlyScene implements AutoCloseable {
     /**
      * Image de la phase des ressources de Minecraft, dessinée par l'overlay du mod dans le framebuffer lié : la
      * barre suit le rechargement de Minecraft ({@code reloadProgress}, de 0 à 1) au lieu des barres de Forge,
+     * sans jamais devancer le temps écoulé rapporté à la durée attendue ({@link ProgressModel#resourcesFraction}),
      * puis, le rechargement fini ({@code done}), passe à la fin. {@code uiAlpha} estompe la barre et le texte
      * (le logo reste). La barre ne recule pas au passage de la phase Forge à celle-ci ({@link ProgressModel}).
      *
@@ -149,7 +151,11 @@ public final class EarlyScene implements AutoCloseable {
      */
     public void renderResources(int fbWidth, int fbHeight, float reloadProgress, boolean done, float uiAlpha) {
         Phase phase = done ? Phase.DONE : Phase.RESOURCES;
-        float fraction = done ? 1f : Math.max(0f, Math.min(1f, reloadProgress));
+        if (Double.isNaN(resourcesStart)) {
+            resourcesStart = realTime();
+        }
+        // L'avancement réel de Minecraft court devant le temps : lissé par la durée attendue (ruling 26).
+        float fraction = done ? 1f : ProgressModel.resourcesFraction(reloadProgress, realTime() - resourcesStart);
         renderFrame(fbWidth, fbHeight, new ProgressTracker.Reading(phase, fraction,
                 StatusMessages.of(phase, "", 0, 0)), uiAlpha);
     }

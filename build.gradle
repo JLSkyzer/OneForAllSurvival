@@ -127,6 +127,14 @@ minecraft {
             if (project.hasProperty('reloadAfterTitle')) {
                 property 'lostisland.reloadAfterTitle', 'true'
             }
+            // `-PoverlayFail=first` : la première image de l'overlay du mod échoue, celui de Forge prend la main.
+            // `-PprogressTrace` : relevé de l'avancement des ressources une fois par seconde au journal de la scène.
+            if (project.hasProperty('overlayFail')) {
+                property 'lostisland.overlay.fail', project.overlayFail ?: 'first'
+            }
+            if (project.hasProperty('progressTrace')) {
+                property 'lostisland.progress.trace', 'true'
+            }
         }
 
         // Second joueur pour essayer le multijoueur et les rôles : se connecte au client

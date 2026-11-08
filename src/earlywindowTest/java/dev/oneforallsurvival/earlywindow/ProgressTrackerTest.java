@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.oneforallsurvival.earlywindow.ProgressTracker.Meter;
 import dev.oneforallsurvival.earlywindow.ProgressTracker.Reading;
+import dev.oneforallsurvival.earlywindow.scene.ProgressModel;
 import dev.oneforallsurvival.earlywindow.scene.ProgressModel.Phase;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -41,7 +42,7 @@ class ProgressTrackerTest {
     void laDecouverteAvanceAuTempsSansJamaisAnnoncerSaFin() {
         ProgressTracker t = new ProgressTracker();
         t.update(0.0, List.of(), List.of("Forge loading 47.4.28"));
-        float mid = t.update(9.9, List.of(), List.of()).fraction();
+        float mid = t.update(ProgressModel.expectedSeconds(Phase.MOD_DISCOVERY) / 2, List.of(), List.of()).fraction();
         assertEquals(0.5f, mid, 0.01f);
         assertEquals(ProgressTracker.CREEP_MAX, t.update(300.0, List.of(), List.of()).fraction(), 1e-6f);
     }
