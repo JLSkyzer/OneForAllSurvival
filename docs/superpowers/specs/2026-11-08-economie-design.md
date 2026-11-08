@@ -274,6 +274,14 @@ Demandé par Killian le 2026-11-08.
   le contenu est gardé par le serveur et le bloc cassé redevient le trésor unique, avec son contenu et
   son registre, là où on le repose. Il ne peut pas exister deux trésors, et le déplacement s'inscrit au
   registre.
+- **En créatif**, casser un bloc ne rend pas d'objet. L'équipe casse donc le trésor (accroupie, pour
+  éviter un accident), puis en pose un neuf pris dans l'onglet créatif du mod : il reprend aussitôt le
+  trésor unique, avec son contenu et son registre. Poser un trésor alors qu'il en existe déjà un est
+  refusé.
+- **Sans emplacement**, entre la casse et la repose, le trésor continue de fonctionner : prélèvements,
+  salaires et impôt passent, puisque son contenu est gardé par le serveur. Seuls l'ouverture et le
+  crochetage sont impossibles.
+- La même règle vaut pour le **bureau du maire**.
 - Son solde est public, affiché sur un **tableau de la mairie**. Le maire peut poser ce tableau en
   plusieurs exemplaires dans la ville ; il affiche aussi les annonces et le registre des décisions
   (cahier du maire). La ville montre ses comptes.

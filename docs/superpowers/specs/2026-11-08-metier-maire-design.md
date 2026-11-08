@@ -82,6 +82,8 @@ La numérotation prolonge celle du cahier du téléphone.
 - Un ingénieur (avec son outil de maintenance), le maire ou l'équipe peut le **casser pour le reposer
   ailleurs** (choix de Killian). Rien ne se perd : il reste le bureau unique, avec ses réglages, et les
   tableaux de la mairie se déplacent de la même façon.
+- En créatif, l'équipe le casse accroupie puis pose un bureau neuf depuis l'onglet créatif : il reprend
+  les réglages du bureau unique (même règle que le trésor, cahier de l'économie, feature 73).
 - Son interface a cinq onglets :
 
   | Onglet | Contenu |
