@@ -120,6 +120,12 @@ Demandé par Killian. C'est le seul endroit où fabriquer le matériel du métie
   Advanced Electricity ou de ce mod sont **retirées de la table de craft, pour tout le monde**, y compris
   pour les assembleurs mécaniques de Create qui les réutilisent. La liste des mods est configurable.
 - Le retrait s'applique aussi au tailleur de pierre et à la table de forgeron pour ces mêmes résultats.
+- *Ajout du 2026-11-08* : l'agriculteur, le médecin et le policier ont chacun leur établi, sur ce modèle
+  (voir leurs cahiers). « Ce mod » désigne alors les objets du mod **qui ne sont attribués à aucun autre
+  métier** : chaque objet du mod porte un tag de métier, et un objet sans tag revient à l'ingénieur. Le
+  matériel électrique des autres métiers (serre, coffret médical, autoclave, défibrillateur, taser, lampe
+  UV, transmetteur d'alarme, enregistreur) reste chez l'ingénieur. Si deux métiers revendiquent le même
+  mod, le tag de l'objet tranche, puis l'ordre de la config ; le conflit est signalé en journal.
 - **Restent hors de cette règle**, sur décision de Killian : les fours et cuissons, et les machines de
   Create (presse, mélangeur, assemblage séquencé).
 - L'établi lui-même se fabrique sur une table de craft normale, avec des matériaux vanilla, pour que le

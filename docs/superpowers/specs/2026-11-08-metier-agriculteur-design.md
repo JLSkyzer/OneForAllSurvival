@@ -63,9 +63,8 @@ Il ne fournit ni faucille, ni fromage, ni vinaigre, ni fermentation.
 ### Intégration
 - Recettes, durées, listes d'objets et d'animaux portées par des données (recettes JSON, tags, config),
   comme pour l'ingénieur.
-- Les outils et blocs **non électriques** de ce document se fabriquent sur une table de craft normale.
-  Le lot 1 retire de la table toutes les recettes de ce mod : ces objets doivent donc rejoindre la liste
-  `tableAllowedItems` de la config de l'établi.
+- Les outils et blocs **non électriques** de ce document se fabriquent à l'**établi d'agriculteur**
+  (section 4), comme le matériel de l'ingénieur à son établi.
 - La serre, machine électrique, passe par l'établi d'ingénieur comme toutes les machines.
 - Les produits conservés rejoignent les tags du lot 3 (`perishable`, `slow_perishable`,
   `non_perishable`), sans système de péremption parallèle.
@@ -90,6 +89,29 @@ même message clair et le même contournement pour l'équipe du serveur.
 
 Un citoyen garde donc tout ce qu'il faut pour se nourrir. L'agriculteur fait mieux, plus vite et plus
 longtemps, et c'est ce qu'il vend.
+
+### Établi d'agriculteur
+Demandé par Killian le 2026-11-08 : **exactement le même fonctionnement que l'établi d'ingénieur**
+(cahier de l'électricité, section 4). Le code de l'établi est généralisé à un établi par métier, pas
+recopié.
+- Les recettes de **table de craft**, de **tailleur de pierre** et de **table de forgeron** dont le résultat
+  relève de ce métier sont **retirées pour tout le monde**, assembleurs mécaniques de Create compris.
+- Seul un joueur au rôle Agriculteur peut utiliser cet établi, avec le contournement de l'équipe du serveur. Les
+  autres joueurs achètent ou reçoivent ses fabrications.
+- Même interface : catégories par mod, liste défilante, recherche, coût, temps, ce qui manque.
+- Même fonctionnement : prélèvement immédiat, file d'attente, annulation qui rend tout, stock sans
+  limite, file et stock liés au joueur, crafts qui avancent tant que le serveur tourne, lent à la main
+  et rapide sous courant.
+- L'établi lui-même se fabrique sur une table de craft normale, avec des matériaux vanilla.
+- Restent hors de la règle, comme pour l'ingénieur : les fours et cuissons, et les machines de Create.
+- **Recettes concernées** : les objets de ce mod qui portent le tag de l'agriculteur (faucille, faux,
+  mangeoire, abreuvoir, tonneau, presse à fromage, fumoir, grenier) et celles de **Farmer's Delight**. La
+  liste des mods est configurable.
+- **Conséquence à valider** : les recettes de table de Farmer's Delight comprennent ses couteaux, sa
+  marmite, sa planche à découper, ses caisses et ses plats assemblés à la table (sandwichs, salades). Ils
+  deviendraient tous réservés à l'agriculteur. La marmite et la planche à découper elles-mêmes restent
+  utilisables par tous une fois achetées. Un objet peut être rendu à la table par la liste
+  `tableAllowedItems`.
 
 ### Bonus de métier
 Entre les mains d'un agriculteur, la faucille et la faux ont une chance de donner une graine ou un
@@ -226,7 +248,7 @@ reste à fixer par Killian.
 
 | Lot | Contenu | Ce qu'il prouve |
 |---|---|---|
-| A | Généralisation des actions réservées ; 27, 32 | Le rôle Agriculteur a enfin des actions propres, et la ville partage ses vivres avec une trace |
+| A | Généralisation des actions réservées, établi d'agriculteur ; 27, 32 | Le rôle Agriculteur a enfin des actions propres, et la ville partage ses vivres avec une trace |
 | B | 28, 30 | L'élevage demande un soin régulier mais jamais punitif ; on conserve sans courant |
 | C | 29 | Le savoir-faire produit des biens d'échange qui durent |
 | D | 31 | Le courant de l'ingénieur nourrit aussi la ferme |
@@ -253,8 +275,8 @@ Le lot D dépend du socle machine (déjà livré) et peut se faire à tout momen
 ## 8. Choix faits par l'auteur du document
 
 Ces choix n'ont pas été validés par Killian et peuvent être contestés :
-- les outils et blocs non électriques se fabriquent sur une table normale, par tout le monde ; la valeur
-  du métier passe par les actions réservées, pas par la fabrication ;
+- l'établi d'agriculteur reprend Farmer's Delight en entier, par analogie avec l'ingénieur qui reprend ses
+  mods en entier ;
 - la faux est réservée, la faucille ouverte à tous ;
 - la fermentation et l'affinage sont réservés à l'agriculteur, mais le fumoir est ouvert à tous, parce
   qu'il répond à un besoin de survie ;
@@ -271,7 +293,7 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 
 ## 9. Questions ouvertes
 
-- Faut-il un **établi d'agriculteur**, sur le modèle de celui de l'ingénieur, plutôt que la table
-  normale ?
+- Faut-il rendre à la table certaines recettes de **Farmer's Delight** (plats assemblés, couteaux), pour
+  qu'un citoyen puisse se faire un sandwich ?
 - Le pack ajoutera-t-il **Serene Seasons** ? La serre prendrait alors tout son sens en hiver.
 - Les droits du grenier par rôle suffisent-ils, ou faut-il pouvoir nommer des joueurs ?

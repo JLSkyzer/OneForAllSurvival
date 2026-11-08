@@ -80,6 +80,28 @@ un message clair. L'équipe du serveur garde un contournement.
 
 La généralisation de `RoleGate` à tous les rôles est commune avec l'agriculteur et le médecin.
 
+### Établi de policier
+Demandé par Killian le 2026-11-08 : **exactement le même fonctionnement que l'établi d'ingénieur**
+(cahier de l'électricité, section 4). Le code de l'établi est généralisé à un établi par métier, pas
+recopié.
+- Les recettes de **table de craft**, de **tailleur de pierre** et de **table de forgeron** dont le résultat
+  relève de ce métier sont **retirées pour tout le monde**, assembleurs mécaniques de Create compris.
+- Seul un joueur au rôle Policier peut utiliser cet établi, avec le contournement de l'équipe du serveur. Les
+  autres joueurs achètent ou reçoivent ses fabrications.
+- Même interface : catégories par mod, liste défilante, recherche, coût, temps, ce qui manque.
+- Même fonctionnement : prélèvement immédiat, file d'attente, annulation qui rend tout, stock sans
+  limite, file et stock liés au joueur, crafts qui avancent tant que le serveur tourne, lent à la main
+  et rapide sous courant.
+- L'établi lui-même se fabrique sur une table de craft normale, avec des matériaux vanilla.
+- Restent hors de la règle, comme pour l'ingénieur : les fours et cuissons, et les machines de Create.
+- **Recettes concernées** : les objets de ce mod qui portent le tag du policier : menottes et leur clé,
+  matraque, écouvillon, sac de preuves, ruban de scène de crime, carnet de contraventions, porte de
+  cellule, affiche d'avis de recherche, sifflet, serrure et clé. Aucun mod externe n'est concerné.
+- **Exceptions**, gardées sur la table par `tableAllowedItems` :
+  - le **crochet**, outil de cambrioleur, que la police ne vend pas ;
+  - la **copie d'une clé** par son propriétaire (clé et pépite de fer).
+- Le taser, la lampe UV, le transmetteur d'alarme et l'enregistreur restent chez l'ingénieur.
+
 ### État étourdi
 C'est un effet du mod, partagé par la matraque et le taser : lenteur forte, ni sprint, ni attaque, ni
 usage d'objet, pendant quelques secondes. Un joueur étourdi peut être menotté.
@@ -224,7 +246,7 @@ La numérotation prolonge celle du médecin. Toutes les valeurs chiffrées sont 
 ### Alertes et sécurité
 
 **64. Appel à l'aide.**
-- Le **sifflet**, fabricable par tous, déclenche une **alerte avec repère** pour les policiers connectés :
+- Le **sifflet**, fabriqué à l'établi de policier et distribué ou vendu aux habitants, déclenche une **alerte avec repère** pour les policiers connectés :
   nom de l'appelant et distance.
 - Un délai entre deux appels évite les abus, et chaque appel s'inscrit au journal.
 - Le policier qui répond clôt l'alerte pour les autres.
@@ -270,7 +292,7 @@ M2 et M3 du médecin.
 
 | Lot | Contenu | Ce qu'il prouve |
 |---|---|---|
-| P1 | Rôles généralisés, état étourdi, journal, alerte avec repère ; 50, 51, 52, 56, 59 | On peut interpeller, fouiller et saisir, et tout se retrouve au casier |
+| P1 | Rôles généralisés, établi de policier, état étourdi, journal, alerte avec repère ; 50, 51, 52, 56, 59 | On peut interpeller, fouiller et saisir, et tout se retrouve au casier |
 | P2 | 53, 54, 60, 61 | La police a des moyens non létaux et des sanctions qui ne bloquent pas un joueur |
 | P3 | 67, 62, 58, 63 | Le vol devient possible et la loi aussi |
 | P4 | 55, 57 | Une agression laisse des preuves sans livrer le coupable |
@@ -315,7 +337,9 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 - l'enregistreur nomme les joueurs à visage découvert et note les autres « inconnu masqué » ;
 - une serrure empêche de casser le bloc verrouillé, mais pas les murs autour ;
 - le transmetteur d'alarme est sans usure, l'enregistreur s'use ;
-- un seul joueur escorté à la fois.
+- un seul joueur escorté à la fois ;
+- sifflets, serrures et clés viennent de l'établi de policier, mais le crochet et la copie de clé restent
+  sur la table.
 
 ## 9. Questions ouvertes
 

@@ -44,8 +44,6 @@ les premiers gestes, mais seul le médecin sait soigner vraiment.**
 - Un citoyen qui regarde quelqu'un saigner sans rien pouvoir faire.
 - Une blessure ou une infection qui tue directement, sans passer par l'état à terre.
 - Des soins si longs ou si compliqués que les joueurs évitent l'hôpital.
-- Les 150 blocs de décoration d'Hospitals réservés au médecin : un citoyen doit pouvoir carreler sa
-  cuisine.
 
 ### Règle de conception
 Reprise de l'ingénieur : quel besoin de survie ou de communauté la feature sert-elle ? Des survivants
@@ -111,12 +109,29 @@ L'équipe du serveur garde un contournement.
 travail : il ne doit être fait qu'une fois.
 
 ### Paillasse de médecin
-C'est le pendant de l'établi d'ingénieur, avec le **même fonctionnement** : catalogue par mod, recherche,
-coût affiché, file d'attente liée au joueur, annulation qui rend tout, stock, vitesse lente à la main et
-rapide sous courant. Le code de l'établi est réutilisé, pas recopié.
-- **Recettes concernées** : les objets de soin et de fabrication médicale d'Hospitals et de Medical
-  Remedies, désignés par un tag `oneforallsurvival:medical_crafts`. **Les blocs de décoration
-  d'Hospitals restent sur la table de craft, pour tout le monde.**
+C'est l'établi du médecin.
+Demandé par Killian le 2026-11-08 : **exactement le même fonctionnement que l'établi d'ingénieur**
+(cahier de l'électricité, section 4). Le code de l'établi est généralisé à un établi par métier, pas
+recopié.
+- Les recettes de **table de craft**, de **tailleur de pierre** et de **table de forgeron** dont le résultat
+  relève de ce métier sont **retirées pour tout le monde**, assembleurs mécaniques de Create compris.
+- Seul un joueur au rôle Médecin peut utiliser cet établi, avec le contournement de l'équipe du serveur. Les
+  autres joueurs achètent ou reçoivent ses fabrications.
+- Même interface : catégories par mod, liste défilante, recherche, coût, temps, ce qui manque.
+- Même fonctionnement : prélèvement immédiat, file d'attente, annulation qui rend tout, stock sans
+  limite, file et stock liés au joueur, crafts qui avancent tant que le serveur tourne, lent à la main
+  et rapide sous courant.
+- L'établi lui-même se fabrique sur une table de craft normale, avec des matériaux vanilla.
+- Restent hors de la règle, comme pour l'ingénieur : les fours et cuissons, et les machines de Create.
+- **Recettes concernées** : celles d'**Hospitals**, de **Medical Remedies** et de **First Aid**, et les objets
+  de ce mod qui portent le tag du médecin (attelle, plâtre médical, clichés, sacs). La liste des mods est
+  configurable.
+- **Conséquence** : les premiers secours (pansements de First Aid et de Medical Remedies, garrot) se
+  fabriquent aussi à la paillasse. Les citoyens les **achètent** au médecin et les utilisent librement :
+  c'est le même commerce qu'entre l'ingénieur et la ville.
+- **Conséquence à valider** : les quelque 150 blocs de décoration d'Hospitals (sols, murs, mobilier)
+  deviennent réservés au médecin, comme tout le mod. Ils peuvent être rendus à la table par la liste
+  `tableAllowedItems`.
 - **Alambic** : les recettes de Medical Remedies y sont enregistrées dans le code. Un non-médecin ne peut
   pas lancer une distillation qui produit un objet du tag. La méthode est à choisir au lot : refus à
   l'ouverture, ou résultat bloqué.
@@ -199,7 +214,7 @@ départ, à équilibrer.
   partie touchée. Une chance de fracture **ouverte** existe sur les coups les plus forts.
 - Tant que la fracture dure, les malus de First Aid de cette partie restent actifs, **même si la partie
   est soignée**.
-- **L'attelle** (premiers secours, fabricable par tous) atténue le malus sans guérir.
+- **L'attelle** (premiers secours, fabriquée à la paillasse et utilisable par tous) atténue le malus sans guérir.
 - **Le plâtre médical** (médecin) lance la **consolidation** : une durée sur le temps du monde (une
   session RP au départ), après laquelle la fracture disparaît. Les corticoïdes l'accélèrent.
 - Une fracture ouverte exige une opération avant le plâtre, et peut s'infecter.
@@ -384,8 +399,9 @@ Le lot M1 doit commencer par vérifier les trois points de la section 3, car tou
   lit d'hôpital, puis la consolidation, avec chaque étape visible dans le dossier médical.
 - **Scénario de panne** : couper le coffret pendant une opération et pendant une radiographie, rétablir le
   courant, rien n'est perdu.
-- **Compatibilité** : un objet de soin de Medical Remedies soigne la bonne partie de First Aid ; les blocs
-  de décoration d'Hospitals restent fabricables par un citoyen.
+- **Compatibilité** : un objet de soin de Medical Remedies soigne la bonne partie de First Aid ; aucune
+  recette d'Hospitals, de Medical Remedies ou de First Aid ne reste sur la table pour un citoyen, sauf
+  celles de `tableAllowedItems`.
 
 ## 9. Choix faits par l'auteur du document
 
@@ -402,7 +418,9 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 - les pilules sans famille utile restent sans effet ;
 - le dossier médical est invisible pour le patient ;
 - le défibrillateur se fabrique chez l'ingénieur ;
-- les pilules d'Hospitals ne viennent plus que de la chaîne de pharmacie.
+- les pilules d'Hospitals ne viennent plus que de la chaîne de pharmacie ;
+- les recettes `create:mixing` de Medical Remedies sont retirées, bien que les machines de Create restent
+  hors de la règle de l'établi : sinon n'importe qui fabriquerait de la morphine.
 
 ## 10. Questions ouvertes
 
@@ -410,3 +428,5 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
   son relevage ?
 - Faut-il un **cliché affiché** sur les négatoscopes d'Hospitals, ou une infobulle suffit-elle ?
 - Le **groupe sanguin** doit-il compter dans les transfusions, si Hospitals ne le fait pas déjà ?
+- Faut-il rendre à la table les **blocs de décoration** d'Hospitals, pour que tout le monde puisse en
+  construire ?
