@@ -7,6 +7,7 @@ import dev.oneforallsurvival.earlywindow.scene.ProgressModel.Phase;
 import dev.oneforallsurvival.earlywindow.scene.SceneManifest;
 import dev.oneforallsurvival.earlywindow.scene.SceneRenderer;
 import dev.oneforallsurvival.earlywindow.scene.SceneState;
+import dev.oneforallsurvival.earlywindow.scene.StatusMessages;
 import dev.oneforallsurvival.earlywindow.scene.StoryClock;
 import dev.oneforallsurvival.earlywindow.scene.TextureStore;
 import java.io.File;
@@ -135,6 +136,26 @@ public final class EarlyScene implements AutoCloseable {
      *                               tampon de la scène est incomplet : l'appelant retombe sur Forge
      */
     public void render(int fbWidth, int fbHeight) {
+        renderFrame(fbWidth, fbHeight, null, 1f);
+    }
+
+    /**
+     * Image de la phase des ressources de Minecraft, dessinée par l'overlay du mod dans le framebuffer lié : la
+     * barre suit le rechargement de Minecraft ({@code reloadProgress}, de 0 à 1) au lieu des barres de Forge,
+     * puis, le rechargement fini ({@code done}), passe à la fin. {@code uiAlpha} estompe la barre et le texte
+     * (le logo reste). La barre ne recule pas au passage de la phase Forge à celle-ci ({@link ProgressModel}).
+     *
+     * @throws IllegalStateException comme {@link #render(int, int)}
+     */
+    public void renderResources(int fbWidth, int fbHeight, float reloadProgress, boolean done, float uiAlpha) {
+        Phase phase = done ? Phase.DONE : Phase.RESOURCES;
+        float fraction = done ? 1f : Math.max(0f, Math.min(1f, reloadProgress));
+        renderFrame(fbWidth, fbHeight, new ProgressTracker.Reading(phase, fraction,
+                StatusMessages.of(phase, "", 0, 0)), uiAlpha);
+    }
+
+    /** {@code given} : avancement imposé par l'appelant ; {@code null} : lu dans les barres de Forge. */
+    private void renderFrame(int fbWidth, int fbHeight, ProgressTracker.Reading given, float uiAlpha) {
         double real = realTime();
         double dt = Math.max(0.0, real - lastReal);
         lastReal = real;
@@ -143,7 +164,15 @@ public final class EarlyScene implements AutoCloseable {
         if (failure != null) {
             throw new IllegalStateException("image obligatoire illisible : " + failure.getMessage(), failure);
         }
-        ProgressTracker.Reading reading = readProgress(real);
+        ProgressTracker.Reading reading;
+        if (given == null) {
+            reading = readProgress(real);
+        } else {
+            journal.run();
+            tracker.enter(given.phase(), real);
+            reading = given;
+            logPhase(reading);
+        }
         progress.report(reading.phase(), reading.fraction());
         float shown = progress.displayed(dt);
         if (Double.isNaN(storyStart) && textures.ready(TextureStore.SKY) && textures.ready(TextureStore.PLATES)
@@ -157,7 +186,7 @@ public final class EarlyScene implements AutoCloseable {
         }
         float story = Double.isNaN(storyStart) ? 0f : clock.storyTime(real - storyStart, reading.phase() == Phase.DONE);
         renderer.setSeaOpacity(Double.isNaN(seaStart) ? 0f : (float) Math.min(1.0, (real - seaStart) / SEA_FADE_SECONDS));
-        last = new SceneState(story, shown, reading.status(), 1f, real);
+        last = new SceneState(story, shown, reading.status(), Math.max(0f, Math.min(1f, uiAlpha)), real);
         renderer.render(fbWidth, fbHeight, last);
         if (recorder != null) {
             recorder.capture(fbWidth, fbHeight);
@@ -183,16 +212,25 @@ public final class EarlyScene implements AutoCloseable {
         }
         journal.run();
         ProgressTracker.Reading reading = tracker.update(real, meters, messages);
+        logPhase(reading);
+        return reading;
+    }
+
+    private void logPhase(ProgressTracker.Reading reading) {
         if (reading.phase() != loggedPhase) {
             loggedPhase = reading.phase();
             log.accept("phase " + reading.phase() + " : " + reading.status().line());
         }
-        return reading;
     }
 
     /** Fait passer la barre à une phase (overlay des ressources, fin), sans jamais reculer. */
     public void enter(Phase phase) {
         tracker.enter(phase, realTime());
+    }
+
+    /** Une ligne au journal de la fenêtre anticipée ({@code logs/lostisland-earlywindow.log}). */
+    public void log(String line) {
+        log.accept(line);
     }
 
     /** Secondes depuis l'ouverture de la fenêtre. */

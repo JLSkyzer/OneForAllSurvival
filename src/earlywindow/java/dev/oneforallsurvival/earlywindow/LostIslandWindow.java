@@ -51,8 +51,9 @@ import org.lwjgl.opengl.GLCapabilities;
  *       contexte et la fenêtre passent au jeu, comme chez Forge.</li>
  *   <li>{@link #periodicTick} (thread du jeu, pendant le chargement des mods seulement) : la scène est dessinée sur
  *       ce thread, l'état GL du jeu sauvegardé et rendu autour.</li>
- *   <li>{@link #loadingOverlay} : l'overlay du mod ({@code LostIslandLoadingOverlay}, tâche 8) s'il existe, sinon
- *       celui de Forge, qui dessine notre scène par {@link ForgeOverlayBridge}.</li>
+ *   <li>{@link #loadingOverlay} : l'overlay du mod ({@code LostIslandLoadingOverlay}), qui dessine la scène dans
+ *       le contexte du jeu ; s'il manque ou échoue, celui de Forge ({@link #forgeOverlay}), qui dessine notre scène
+ *       par {@link ForgeOverlayBridge}.</li>
  * </ol>
  *
  * <p><b>Repli sur Forge.</b> Si notre initialisation échoue (fenêtre, contexte, shader de base, catalogue, ou
@@ -414,6 +415,16 @@ public final class LostIslandWindow implements ImmediateWindowProvider {
                     ? ite.getCause() : t;
             write("sansLeModLOverlayDeForgePrendLaMain : " + cause);
         }
+        return forgeOverlay(mc, ri, ex);
+    }
+
+    /**
+     * L'overlay des ressources de Forge, qui dessine notre scène par {@link ForgeOverlayBridge} : repli quand
+     * l'overlay du mod manque, échoue à sa création, ou échoue à sa première image (il l'appelle alors lui-même,
+     * sur le thread du jeu, avec les mêmes arguments, et se remplace par lui).
+     */
+    @SuppressWarnings("unchecked")
+    public <T> Supplier<T> forgeOverlay(Supplier<?> mc, Supplier<?> ri, Consumer<Optional<Throwable>> ex) {
         if (forgeOverlay == null) {
             throw new IllegalStateException("ForgeLoadingOverlay introuvable : updateModuleReads n'a pas eu lieu");
         }
