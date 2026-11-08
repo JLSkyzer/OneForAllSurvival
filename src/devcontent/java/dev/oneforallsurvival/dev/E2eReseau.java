@@ -704,7 +704,8 @@ final class E2eReseau {
             long conso = Long.parseLong(i.getOrDefault("consumption", "-1"));
             return abonne.equals(i.get("subscriber")) && idx > 0 && i.containsKey("day")
                     && i.containsKey("date") && i.containsKey("no_anomaly")
-                    && conso > 0 && conso <= idx;
+                    // Le compteur a compté avant l'inscription : la consommation part de l'inscription, sous l'index.
+                    && conso >= 0 && conso < idx;
         }, () -> {
             Map<String, String> i = infobulle(dernierReleve());
             index1 = Long.parseLong(i.getOrDefault("index", "0"));

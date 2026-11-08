@@ -65,7 +65,7 @@ public record SubscriberNamePacket(BlockPos pos, String name) {
             sender.sendSystemMessage(Component.translatable(MESSAGE + "invalid", MeterLedger.MAX_NAME_LENGTH));
             return;
         }
-        holder.inscribe(packet.name().trim(), sender.server);
+        holder.inscribe(packet.name().trim(), sender);
         sender.sendSystemMessage(Component.translatable(MESSAGE + "set", holder.subscriber()));
     }
 

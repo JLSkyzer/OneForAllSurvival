@@ -1,6 +1,6 @@
 package dev.oneforallsurvival.grid;
 
-import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Un block entity qui porte le nom d'un abonné : le compteur, le disjoncteur. L'écran et le paquet d'inscription
@@ -15,10 +15,11 @@ public interface SubscriberHolder {
     void setSubscriber(String name);
 
     /**
-     * L'inscription par l'ingénieur ({@link SubscriberNamePacket}) : par défaut, {@link #setSubscriber}. Le compteur y
-     * ajoute la trace au registre, pour que la facture parte de l'inscription.
+     * L'inscription par l'ingénieur {@code engineer} ({@link SubscriberNamePacket}) : par défaut, {@link #setSubscriber}.
+     * Le compteur y ajoute la trace au registre, pour que la facture parte de l'inscription, et remet à l'ingénieur le
+     * relevé de clôture de l'ancien abonné.
      */
-    default void inscribe(String name, MinecraftServer server) {
+    default void inscribe(String name, ServerPlayer engineer) {
         setSubscriber(name);
     }
 }

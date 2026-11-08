@@ -20,8 +20,9 @@ import net.minecraft.world.level.saveddata.SavedData;
 
 /**
  * Le registre des abonnés, sauvegardé dans le monde principal : pour chaque abonné (nom normalisé), le dernier relevé
- * ou l'index d'inscription de chacun de ses compteurs, et les événements notés depuis (compteur déposé, scellé brisé,
- * compteur parti chez un autre abonné). La règle vit dans {@link MeterLedger}.
+ * ou l'index d'inscription de chacun de ses compteurs, et les événements notés depuis (compteur déposé, scellé brisé).
+ * Un événement d'un type inconnu (« renamed » d'une version de développement du lot 4) est ignoré à la relecture.
+ * La règle vit dans {@link MeterLedger}.
  */
 public final class SubscriberSavedData extends SavedData {
 
@@ -33,7 +34,7 @@ public final class SubscriberSavedData extends SavedData {
     private static final String TAG_PREVIOUS = "previous";
     private static final String TAG_METERS = "meters";
     private static final String TAG_BASELINE = "baseline";
-    private static final String TAG_CARRIED = "carried";
+    private static final String TAG_NOTIFIED = "notified";
     private static final String TAG_SERIAL = "serial";
     private static final String TAG_INDEX = "index";
     private static final String TAG_DAY = "day";
@@ -87,10 +88,12 @@ public final class SubscriberSavedData extends SavedData {
         setDirty();
     }
 
-    /** Inscription ou changement d'abonné d'un compteur : voir {@link MeterLedger#inscribe}. */
-    public void inscribe(String from, String to, UUID serial, long index, long day, String realDate) {
-        ledger.inscribe(from, to, serial, index, day, realDate);
+    /** Inscription ou changement d'abonné d'un compteur, avec son relevé de clôture : voir {@link MeterLedger#inscribe}. */
+    @Nullable
+    public Reading inscribe(String from, String to, UUID serial, long index, long day, String realDate) {
+        Reading closing = ledger.inscribe(from, to, serial, index, day, realDate);
         setDirty();
+        return closing;
     }
 
     /** Relève : voir {@link MeterLedger#take}. */
@@ -127,8 +130,8 @@ public final class SubscriberSavedData extends SavedData {
                 if (event.serial() != null) {
                     e.putUUID(TAG_SERIAL, event.serial());
                 }
-                if (event.carried() != 0) {
-                    e.putLong(TAG_CARRIED, event.carried());
+                if (event.notified()) {
+                    e.putBoolean(TAG_NOTIFIED, true);
                 }
                 events.add(e);
             }
@@ -166,7 +169,7 @@ public final class SubscriberSavedData extends SavedData {
                 EventKind kind = kindOf(e.getString(TAG_KIND));
                 if (kind != null) {
                     events.add(new Event(kind, e.getLong(TAG_DAY), e.hasUUID(TAG_SERIAL) ? e.getUUID(TAG_SERIAL) : null,
-                            e.getLong(TAG_CARRIED)));
+                            e.getBoolean(TAG_NOTIFIED)));
                 }
             }
             data.ledger.restore(account.getString(TAG_NAME), new MeterLedger.Account(meters, events));

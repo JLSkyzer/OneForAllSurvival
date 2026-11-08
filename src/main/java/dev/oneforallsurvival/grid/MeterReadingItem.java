@@ -19,7 +19,8 @@ import net.minecraft.world.level.Level;
 
 /**
  * Le relevé d'un compteur : un papier qui porte abonné, index, consommation depuis le relevé précédent, jour de jeu,
- * date réelle du serveur et anomalies. Tout est écrit par le serveur au relevé ; l'infobulle ne fait que lire.
+ * date réelle du serveur et anomalies ; un relevé de clôture (compteur passé à un autre abonné) le dit en tête. Tout
+ * est écrit par le serveur au relevé ; l'infobulle ne fait que lire.
  */
 public final class MeterReadingItem extends Item {
 
@@ -30,6 +31,7 @@ public final class MeterReadingItem extends Item {
     private static final String TAG_DAY = "day";
     private static final String TAG_DATE = "real_date";
     private static final String TAG_ANOMALIES = "anomalies";
+    private static final String TAG_CLOSING = "closing";
     private static final String TOOLTIP = "tooltip.oneforallsurvival.meter_reading.";
 
     public MeterReadingItem(Properties properties) {
@@ -49,6 +51,9 @@ public final class MeterReadingItem extends Item {
             anomalies.add(StringTag.valueOf(anomaly.name().toLowerCase(Locale.ROOT)));
         }
         tag.put(TAG_ANOMALIES, anomalies);
+        if (reading.closing()) {
+            tag.putBoolean(TAG_CLOSING, true);
+        }
         stack.getOrCreateTag().put(TAG_READING, tag);
         return stack;
     }
@@ -71,7 +76,7 @@ public final class MeterReadingItem extends Item {
             }
         }
         return new Reading(tag.getString(TAG_SUBSCRIBER), tag.getLong(TAG_INDEX), tag.getLong(TAG_CONSUMPTION),
-                tag.getLong(TAG_DAY), tag.getString(TAG_DATE), anomalies);
+                tag.getLong(TAG_DAY), tag.getString(TAG_DATE), anomalies, tag.getBoolean(TAG_CLOSING));
     }
 
     @Override
@@ -79,6 +84,9 @@ public final class MeterReadingItem extends Item {
         Reading reading = reading(stack);
         if (reading == null) {
             return;
+        }
+        if (reading.closing()) {
+            lines.add(Component.translatable(TOOLTIP + "closing").withStyle(ChatFormatting.GOLD));
         }
         lines.add(Component.translatable(TOOLTIP + "subscriber", reading.subscriber()).withStyle(ChatFormatting.GRAY));
         lines.add(Component.translatable(TOOLTIP + "index", reading.index()).withStyle(ChatFormatting.GRAY));

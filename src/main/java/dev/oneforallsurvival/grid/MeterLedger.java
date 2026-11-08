@@ -20,9 +20,8 @@ import javax.annotation.Nullable;
  * événements notés depuis. {@link SubscriberSavedData} le sauvegarde dans le monde.
  *
  * <p>Chaque FE compté par un compteur est facturé une fois, à un seul abonné : de l'index d'inscription
- * ({@link #inscribe}) au relevé, puis de relevé en relevé. Quand le compteur change d'abonné, ce que l'ancien n'a pas
- * encore payé reste à son compte (événement {@link EventKind#RENAMED}) et ressort à son relevé suivant ; le nouveau
- * part de l'index du changement.
+ * ({@link #inscribe}) au relevé, puis de relevé en relevé. Quand le compteur change d'abonné, l'ancien reçoit sur le
+ * champ un relevé de clôture jusqu'à l'index du changement, et le nouveau part de cet index.
  */
 public final class MeterLedger {
 
@@ -32,23 +31,20 @@ public final class MeterLedger {
     private static final long TICKS_PER_DAY = 24_000L;
 
     /** Ce qu'un relevé signale. L'ordre est celui de l'affichage. */
-    public enum Anomaly { METER_REMOVED, METER_CHANGED, METER_RENAMED, INDEX_DECREASED, SEAL_BROKEN }
+    public enum Anomaly { METER_REMOVED, METER_CHANGED, INDEX_DECREASED, SEAL_BROKEN }
+
+    /** Ce qu'un bloc note au registre d'un abonné entre deux relevés : un compteur déposé, un scellé brisé. */
+    public enum EventKind { REMOVED, SEAL_BROKEN }
 
     /**
-     * Ce qu'un bloc note au registre d'un abonné entre deux relevés : un compteur déposé, un scellé brisé, un compteur
-     * passé à un autre abonné (avec ce qu'il restait à facturer).
+     * Un événement noté au registre, avec le jour de jeu où il s'est produit et le compteur concerné ({@code null} s'il
+     * n'en concerne aucun, ou pour une sauvegarde ancienne). {@code notified} : déjà signalé sur un relevé, gardé
+     * seulement pour reconnaître un compteur neuf qui remplace le compteur déposé.
      */
-    public enum EventKind { REMOVED, SEAL_BROKEN, RENAMED }
-
-    /**
-     * Un événement noté au registre, avec le jour de jeu où il s'est produit, le compteur concerné ({@code null} s'il
-     * n'en concerne aucun, ou pour une sauvegarde ancienne) et, pour {@link EventKind#RENAMED}, les FE comptés depuis le
-     * dernier relevé de l'abonné jusqu'au changement, qui restent à lui facturer.
-     */
-    public record Event(EventKind kind, long day, @Nullable UUID serial, long carried) {
+    public record Event(EventKind kind, long day, @Nullable UUID serial, boolean notified) {
 
         public Event(EventKind kind, long day) {
-            this(kind, day, null, 0);
+            this(kind, day, null, false);
         }
     }
 
@@ -64,12 +60,21 @@ public final class MeterLedger {
         }
     }
 
-    /** Un relevé : ce que porte le papier remis à l'ingénieur. */
+    /**
+     * Un relevé : ce que porte le papier remis à l'ingénieur. {@code closing} : le relevé de clôture donné quand le
+     * compteur passe à un autre abonné.
+     */
     public record Reading(String subscriber, long index, long consumption, long day, String realDate,
-            List<Anomaly> anomalies) {
+            List<Anomaly> anomalies, boolean closing) {
 
         public Reading {
             anomalies = List.copyOf(anomalies);
+        }
+
+        /** Un relevé ordinaire. */
+        public Reading(String subscriber, long index, long consumption, long day, String realDate,
+                List<Anomaly> anomalies) {
+            this(subscriber, index, consumption, day, realDate, anomalies, false);
         }
     }
 
@@ -94,8 +99,8 @@ public final class MeterLedger {
      * Le relevé de {@code serial} à l'index {@code index}, depuis {@code previous}, le point de départ de ce compteur
      * pour cet abonné (relevé ou inscription). Sans point de départ, la consommation est l'index. Index en baisse :
      * rien n'est facturé (jamais de consommation négative) et l'anomalie le dit. Chaque événement donne son anomalie,
-     * une seule fois : la dépose d'un autre compteur dit aussi « compteur différent », un compteur parti chez un autre
-     * abonné ajoute à la consommation ce qui restait à facturer.
+     * une seule fois : une dépose pas encore signalée dit « compteur déposé » ; la dépose d'un autre compteur (numéro
+     * différent) dit aussi « compteur différent ».
      */
     public static Reading read(String subscriber, UUID serial, long index, long day, String realDate,
             @Nullable Previous previous, List<Event> events) {
@@ -112,16 +117,14 @@ public final class MeterLedger {
         for (Event event : events) {
             switch (event.kind()) {
                 case REMOVED -> {
-                    anomalies.add(Anomaly.METER_REMOVED);
+                    if (!event.notified()) {
+                        anomalies.add(Anomaly.METER_REMOVED);
+                    }
                     if (event.serial() != null && !event.serial().equals(serial)) {
                         anomalies.add(Anomaly.METER_CHANGED);
                     }
                 }
                 case SEAL_BROKEN -> anomalies.add(Anomaly.SEAL_BROKEN);
-                case RENAMED -> {
-                    anomalies.add(Anomaly.METER_RENAMED);
-                    consumption += event.carried();
-                }
             }
         }
         return new Reading(subscriber, index, consumption, day, realDate, new ArrayList<>(anomalies));
@@ -180,42 +183,48 @@ public final class MeterLedger {
 
     /** Note un événement concernant le compteur {@code serial} au registre de l'abonné. */
     public void record(String subscriber, EventKind kind, long day, @Nullable UUID serial) {
-        addEvent(normalize(subscriber), new Event(kind, day, serial, 0));
+        addEvent(normalize(subscriber), new Event(kind, day, serial, false));
     }
 
     /**
      * Le compteur {@code serial}, à l'index {@code index}, passe de l'abonné {@code from} (vide : aucun) à {@code to}.
-     * Le nouvel abonné part de cet index : il ne paie rien de ce qui a été compté avant. L'ancien perd le compteur et
-     * garde au registre ce qui restait à lui facturer depuis son dernier relevé ({@link EventKind#RENAMED}), repris à
-     * son relevé suivant. Même abonné (au nom normalisé près) : rien ne change.
+     * L'ancien abonné est relevé une dernière fois jusqu'à cet index, comme par {@link #take} : c'est le relevé de
+     * clôture, renvoyé pour être remis à l'ingénieur ; puis le compteur quitte son compte, où rien ne reste en attente
+     * pour lui. Le nouvel abonné part de cet index : il ne paie rien de ce qui a été compté avant.
+     *
+     * @return le relevé de clôture, ou {@code null} pour une première inscription ou le même abonné (au nom normalisé
+     *         près), qui ne changent rien
      */
-    public void inscribe(String from, String to, UUID serial, long index, long day, String realDate) {
+    @Nullable
+    public Reading inscribe(String from, String to, UUID serial, long index, long day, String realDate) {
         String oldKey = normalize(from);
         String newKey = normalize(to);
         if (oldKey.equals(newKey)) {
-            return;
+            return null;
         }
+        Reading closing = null;
         if (!oldKey.isEmpty()) {
+            Reading last = take(from, serial, index, day, realDate);
+            closing = new Reading(last.subscriber(), last.index(), last.consumption(), last.day(), last.realDate(),
+                    last.anomalies(), true);
             Account old = account(oldKey);
-            Previous left = old.meters().get(serial);
-            long carried = Math.max(0, index - (left == null ? 0 : left.index()));
             Map<UUID, Previous> meters = new LinkedHashMap<>(old.meters());
             meters.remove(serial);
-            List<Event> events = new ArrayList<>(old.events());
-            events.add(new Event(EventKind.RENAMED, day, serial, carried));
-            accounts.put(oldKey, new Account(meters, events));
+            accounts.put(oldKey, new Account(meters, old.events()));
         }
         Account account = account(newKey);
         Map<UUID, Previous> meters = new LinkedHashMap<>(account.meters());
         meters.put(serial, new Previous(serial, index, day, realDate, true));
         accounts.put(newKey, new Account(meters, account.events()));
+        return closing;
     }
 
     /**
      * Relève le compteur {@code serial} : calcule le relevé depuis son point de départ pour cet abonné, le retient comme
-     * nouveau point de départ et consomme les événements qu'il signale. La dépose d'un compteur n'est reprise qu'au
-     * relevé de ce compteur, ou au premier relevé d'un autre (compteur remplacé) ; un autre compteur de l'abonné déjà
-     * relevé ne la consomme pas. Scellé brisé et compteur parti valent pour l'abonné : repris au premier relevé venu.
+     * nouveau point de départ et traite les événements. Scellé brisé et dépose sont signalés au premier relevé venu,
+     * de n'importe quel compteur de l'abonné, une seule fois. La dépose d'un autre compteur reste ensuite au registre,
+     * marquée signalée, jusqu'au premier relevé d'un compteur neuf (« compteur différent » : il l'a remplacé) ou au
+     * relevé du compteur déposé s'il est reposé.
      */
     public Reading take(String subscriber, UUID serial, long index, long day, String realDate) {
         String key = normalize(subscriber);
@@ -231,10 +240,14 @@ public final class MeterLedger {
             if (!otherMeterRemoved) {
                 taken.add(event);
             } else if (firstReading && !replacementTaken) {
-                taken.add(event);
+                taken.add(event); // le compteur neuf remplace le compteur déposé
                 replacementTaken = true;
             } else {
-                kept.add(event);
+                if (!event.notified()) {
+                    // Signalée sur ce relevé, sans « compteur différent » : un numéro nul ne désigne aucun compteur.
+                    taken.add(new Event(EventKind.REMOVED, event.day(), null, false));
+                }
+                kept.add(new Event(event.kind(), event.day(), event.serial(), true));
             }
         }
         Reading reading = read(subscriber.trim(), serial, index, day, realDate, previous, taken);

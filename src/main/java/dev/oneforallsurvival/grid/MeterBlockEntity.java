@@ -53,14 +53,29 @@ public final class MeterBlockEntity extends InlineEnergyBlockEntity implements S
     }
 
     /**
-     * Inscrit ou change l'abonné, et le note au registre : le nouvel abonné ne paie qu'à partir de l'index actuel,
-     * l'ancien garde ce qu'il n'a pas encore payé (voir {@link MeterLedger#inscribe}).
+     * Inscrit ou change l'abonné, et le note au registre : le nouvel abonné ne paie qu'à partir de l'index actuel.
+     * S'il y avait un autre abonné, son relevé de clôture est remis à l'ingénieur (lâché à ses pieds si son inventaire
+     * est plein). Voir {@link MeterLedger#inscribe}.
      */
     @Override
-    public void inscribe(String name, MinecraftServer server) {
-        SubscriberSavedData.get(server).inscribe(subscriber, name, serial(), totalTransferred(),
+    public void inscribe(String name, ServerPlayer engineer) {
+        MinecraftServer server = engineer.server;
+        Reading closing = SubscriberSavedData.get(server).inscribe(subscriber, name, serial(), totalTransferred(),
                 SubscriberSavedData.today(server), MeterLedger.formatRealDate(Instant.now(), ZoneId.systemDefault()));
         setSubscriber(name);
+        if (closing != null) {
+            give(engineer, closing);
+            engineer.sendSystemMessage(Component.translatable(MESSAGE + "closing_done", closing.subscriber(),
+                    closing.consumption()));
+        }
+    }
+
+    /** Le papier du relevé dans l'inventaire de {@code player}, ou à ses pieds s'il est plein : jamais perdu. */
+    private static void give(ServerPlayer player, Reading reading) {
+        ItemStack paper = MeterReadingItem.create(reading);
+        if (!player.getInventory().add(paper)) {
+            player.drop(paper, false);
+        }
     }
 
     /** Un compteur qui n'a rien compté et n'a pas d'abonné : son objet reste nu et s'empile. */
@@ -84,10 +99,7 @@ public final class MeterBlockEntity extends InlineEnergyBlockEntity implements S
         String realDate = MeterLedger.formatRealDate(Instant.now(), ZoneId.systemDefault());
         Reading reading = SubscriberSavedData.get(server).take(subscriber, serial(), totalTransferred(),
                 SubscriberSavedData.today(server), realDate);
-        ItemStack paper = MeterReadingItem.create(reading);
-        if (!player.getInventory().add(paper)) {
-            player.drop(paper, false);
-        }
+        give(player, reading);
         player.sendSystemMessage(Component.translatable(MESSAGE + "reading_done", reading.subscriber(),
                 reading.consumption()));
     }

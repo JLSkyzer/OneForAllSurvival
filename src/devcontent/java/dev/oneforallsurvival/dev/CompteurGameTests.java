@@ -288,7 +288,8 @@ public final class CompteurGameTests {
 
     /**
      * Par le vrai paquet d'inscription : ce que le compteur a compté avant d'être inscrit n'est facturé à personne ;
-     * changer d'abonné laisse à l'ancien ce qu'il n'avait pas payé, et le nouveau part de l'index du changement.
+     * changer d'abonné remet à l'ingénieur le relevé de clôture de l'ancien, et le nouveau part de l'index du
+     * changement.
      */
     @GameTest(template = "test/plancher", batch = "compteur_inscription_index")
     public static void laFactureCommenceALInscriptionEtSuitLeChangementDAbonne(GameTestHelper helper) {
@@ -327,19 +328,99 @@ public final class CompteurGameTests {
         helper.runAfterDelay(6, () -> {
             try {
                 verifier("Moreau".equals(be.subscriber()), "le compteur devait passer à Moreau, vu " + be.subscriber());
+                Reading cloture = releve(ingenieur.joueur());
+                verifier(cloture.closing(), "l'ingénieur devait recevoir un relevé de clôture");
+                verifier("Lefevre".equals(cloture.subscriber()) && cloture.index() == 150 && cloture.consumption() == 20,
+                        "clôture de Lefevre jusqu'au changement : " + cloture.subscriber() + ", index " + cloture.index()
+                                + ", consommation " + cloture.consumption());
+                verifier(cloture.anomalies().isEmpty(), "anomalies de la clôture " + cloture.anomalies());
+                long jour = MeterLedger.gameDay(helper.getLevel().getDayTime());
+                verifier(cloture.day() == jour && cloture.realDate().matches("\\d{2}/\\d{2}/\\d{4} \\d{2}:\\d{2}"),
+                        "jour " + cloture.day() + ", date " + cloture.realDate());
+                verifier(ingenieur.messagesRecus().contains(MeterBlockEntity.MESSAGE + "closing_done"),
+                        "l'ingénieur devait être prévenu de la clôture");
                 SubscriberSavedData data = SubscriberSavedData.get(serveur(helper));
                 verifier(data.previous("Lefevre", numero) == null, "le compteur devait quitter le compte de Lefevre");
-                List<MeterLedger.Event> events = data.events("Lefevre");
-                verifier(events.size() == 1 && events.get(0).kind() == EventKind.RENAMED && events.get(0).carried() == 20
-                        && numero.equals(events.get(0).serial()),
-                        "Lefevre devait garder les 20 FE non relevés, vu " + events);
+                verifier(data.events("Lefevre").isEmpty(), "rien ne devait attendre au compte de Lefevre : "
+                        + data.events("Lefevre"));
                 pousser(be, 5);
                 tester(helper, ingenieur.joueur());
                 Reading r = releve(ingenieur.joueur());
                 verifier("Moreau".equals(r.subscriber()) && r.index() == 155 && r.consumption() == 5,
                         "Moreau ne paie que depuis le changement : " + r.subscriber() + ", index " + r.index()
                                 + ", consommation " + r.consumption());
-                verifier(r.anomalies().isEmpty(), "anomalies " + r.anomalies());
+                verifier(r.anomalies().isEmpty() && !r.closing(), "anomalies " + r.anomalies() + ", clôture " + r.closing());
+                helper.succeed();
+            } finally {
+                quitter(ingenieur);
+            }
+        });
+    }
+
+    /** Inventaire plein : le relevé de clôture est lâché aux pieds de l'ingénieur, jamais perdu. */
+    @GameTest(template = "test/plancher", batch = "compteur_cloture_plein")
+    public static void laClotureEstLacheeSiLInventaireEstPlein(GameTestHelper helper) {
+        poserMachine(helper);
+        MeterBlockEntity be = poserCompteur(helper);
+        be.setSubscriber("Roux");
+        pousser(be, 40);
+        BlockPos pos = helper.absolutePos(COMPTEUR);
+        JoueurDeTest ingenieur = joueur(helper, "Plein", true);
+        try {
+            for (int i = 0; i < ingenieur.joueur().getInventory().items.size(); i++) {
+                ingenieur.joueur().getInventory().items.set(i, new ItemStack(Blocks.DIRT, 64));
+            }
+            ingenieur.envoyer(new SubscriberNamePacket(pos, "Fabre"));
+        } catch (RuntimeException e) {
+            quitter(ingenieur);
+            throw e;
+        }
+        helper.runAfterDelay(4, () -> {
+            try {
+                verifier("Fabre".equals(be.subscriber()), "le compteur devait passer à Fabre, vu " + be.subscriber());
+                Reading cloture = null;
+                for (ItemEntity e : helper.getLevel().getEntitiesOfClass(ItemEntity.class,
+                        ingenieur.joueur().getBoundingBox().inflate(3.0))) {
+                    if (e.getItem().is(GridRegistry.METER_READING.get())) {
+                        cloture = MeterReadingItem.reading(e.getItem());
+                        e.discard();
+                    }
+                }
+                verifier(cloture != null, "le relevé de clôture devait être lâché aux pieds de l'ingénieur");
+                verifier(cloture.closing() && "Roux".equals(cloture.subscriber()) && cloture.consumption() == 40,
+                        "clôture " + cloture);
+                helper.succeed();
+            } finally {
+                quitter(ingenieur);
+            }
+        });
+    }
+
+    /** Une première inscription, puis le même nom autrement écrit : aucune clôture. */
+    @GameTest(template = "test/plancher", batch = "compteur_premiere_inscription")
+    public static void premiereInscriptionSansCloture(GameTestHelper helper) {
+        MeterBlockEntity be = poserCompteur(helper);
+        BlockPos pos = helper.absolutePos(COMPTEUR);
+        JoueurDeTest ingenieur = joueur(helper, "Premier", true);
+        try {
+            ingenieur.envoyer(new SubscriberNamePacket(pos, "Gauthier"));
+        } catch (RuntimeException e) {
+            quitter(ingenieur);
+            throw e;
+        }
+        helper.runAfterDelay(3, () -> {
+            try {
+                verifier("Gauthier".equals(be.subscriber()), "abonné " + be.subscriber());
+                verifier(releves(ingenieur.joueur()).isEmpty(), "une première inscription ne donne pas de clôture");
+                ingenieur.envoyer(new SubscriberNamePacket(pos, " GAUTHIER "));
+            } catch (RuntimeException e) {
+                quitter(ingenieur);
+                throw e;
+            }
+        });
+        helper.runAfterDelay(6, () -> {
+            try {
+                verifier(releves(ingenieur.joueur()).isEmpty(), "le même abonné ne donne pas de clôture");
                 helper.succeed();
             } finally {
                 quitter(ingenieur);

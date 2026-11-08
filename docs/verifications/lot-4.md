@@ -6,9 +6,17 @@ Relevés du 2026-11-08, sur la branche `lot-4`. Ce document couvre la tâche 7 (
 
 | Commande | Résultat lu |
 |---|---|
-| `./gradlew test --rerun` | 117 tests JUnit, 0 échec (somme des `build/test-results/test/*.xml`) |
-| `./gradlew runGameTestServer` (sans pack), 06:08 | « All 328 required tests passed » (`run-gametest/logs/latest.log`) |
-| `./gradlew runGameTestServer -PwithPack`, 06:13 | « All 328 required tests passed » |
+Dernière série, après les corrections de la revue de branche (facture par compteur, relevé de clôture, dépose signalée sur tout compteur, scellé et nom refusés sans abonné) :
+
+| Commande | Résultat lu |
+|---|---|
+| `./gradlew test` | 128 tests JUnit, 0 échec (somme des `build/test-results/test/*.xml`) |
+| `./gradlew runGameTestServer` (sans pack), 07:14 | « All 333 required tests passed » (`run-gametest/logs/latest.log`) |
+| `./gradlew runGameTestServer -PwithPack`, 07:16 | « All 333 required tests passed » |
+
+L'E2E et le film ci-dessous datent d'avant ces corrections. Ils ont été adaptés depuis (disjoncteur posé avec son abonné, premier relevé attendu sous l'index), mais **pas relancés**.
+
+Série d'avant les corrections, pour mémoire : 117 tests JUnit, « All 328 required tests passed » sans et avec le pack (06:08 et 06:13).
 
 ## Serveur dédié et vrai client
 
@@ -17,6 +25,8 @@ Relevés du 2026-11-08, sur la branche `lot-4`. Ce document couvre la tâche 7 (
 L'étape du réseau est `src/devcontent/java/dev/oneforallsurvival/dev/E2eReseau.java`. Son aire est une dalle de pierre en hauteur (y = 150), à 64 blocs du joueur, hors de la protection du point d'apparition. Le montage (moteur créatif de Create, alternateur de Crafts & Additions, tableau, compteur, disjoncteur, machines d'essai) est posé par `/setblock` avec son orientation ; tous les gestes du joueur sont de vrais clics.
 
 ### Première phase (journal client archivé `run-e2e/logs/2026-11-08-1.log.gz`, 05:39 à 05:45) : 93 lignes `PASS`, 0 `FAIL`, « bilan : TOUT PASSE »
+
+Passage d'avant les corrections de la revue : la ligne « premier releve : consommation = index » montre l'ancien comportement (tout l'index facturé au premier relevé, comptage d'avant l'inscription compris). Le code actuel ne facture que depuis l'inscription. L'E2E attend maintenant `0 ≤ consommation < index`, mais n'a pas été relancé.
 
 Lignes de l'étape du réseau, telles que le journal les écrit (les messages du serveur sont en anglais : le client d'essai est en `en_us`) :
 
@@ -92,7 +102,8 @@ Deux réglages de développement, annoncés dans les légendes : la source rédu
 - Les rangs du délesteur se perdent quand on le casse (seule l'usure voyage avec l'objet). Le testeur affiche « 0 / 0 FE » pour le délesteur, qui n'a pas de réserve.
 - Avec deux générateurs qui poussent dans le même tick, l'affichage « partielle » ou « alimentée » d'une sortie peut dépendre de l'ordre des poussées (la répartition, elle, reste juste).
 - Un disjoncteur reposé revient enclenché et sans scellé. Un compteur ou un disjoncteur cassé à la main sans pioche ne rend rien : l'abonné est perdu. Une explosion peut détruire l'objet compteur (l'anomalie reste visible au relevé suivant).
-- Corrigé après la revue de branche : le registre garde un point de départ par compteur et par abonné, noté à l'inscription. Deux compteurs au même nom sont facturés chacun pour soi, sans « compteur différent » ; un compteur ne facture que depuis son inscription ; renommé, il laisse à l'ancien abonné ce qu'il n'avait pas payé (repris à son relevé suivant, anomalie « compteur passé à un autre abonné ») et le nouveau part de l'index du changement. Prouvé en JUnit (`MeterLedgerTest`) et en GameTest (`compteur_inscription_index`). Reste : si l'ancien abonné n'a plus aucun compteur, ce reste attend au registre sans papier qui le montre. L'E2E a été adapté (consommation du premier relevé ≤ index) mais pas relancé.
+- Corrigé après la revue de branche : le registre garde un point de départ par compteur et par abonné, noté à l'inscription. Deux compteurs au même nom sont facturés chacun pour soi, sans « compteur différent » ; un compteur ne facture que depuis son inscription ; renommé (choix de Killian), il donne sur-le-champ à l'ingénieur un « Relevé de clôture » de l'ancien abonné jusqu'à l'index du changement (lâché à ses pieds si son inventaire est plein), rien ne reste en attente au compte de l'ancien, et le nouveau part de cet index. Un compteur déposé est signalé au relevé suivant de n'importe quel compteur de l'abonné, une fois ; un compteur neuf posé ensuite dit « compteur différent ». Prouvé en JUnit (`MeterLedgerTest`) et en GameTests (`compteur_inscription_index`, `compteur_cloture_plein`, `compteur_premiere_inscription`). L'E2E a été adapté (premier relevé : `0 ≤ consommation < index`) mais pas relancé.
+- Une dépose jamais suivie d'un compteur neuf reste au registre, marquée signalée : si l'abonné pose plus tard un compteur de plus (sans remplacement), son premier relevé dira « compteur différent ».
 - Un scellé ne se pose que sur un disjoncteur inscrit, et un disjoncteur scellé ne change pas d'abonné (GameTests `disjoncteur_sans_abonne`, `disjoncteur_scelle_nom`).
 - Pick-block créatif sur un compteur : copie son numéro et son index.
 - Visuels : l'objet station météo montre le cadran éteint ; le plomb du scellé est petit de loin (voir le film) ; la face « sans courant » du délesteur n'est jamais visible en jeu.
