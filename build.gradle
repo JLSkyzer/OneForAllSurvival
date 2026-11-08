@@ -474,6 +474,28 @@ tasks.named('processEarlywindowResources', ProcessResources).configure {
     }
 }
 
+// Rendus de contrôle de la scène, hors du jeu : fenêtre GLFW cachée, PNG dans build/scene-snapshots.
+// Les bibliothèques natives de LWJGL (version de Minecraft 1.20.1) viennent du cache Gradle.
+def lwjglNatives = { ->
+    def os = System.getProperty('os.name').toLowerCase(Locale.ROOT)
+    os.contains('win') ? 'natives-windows' : (os.contains('mac') ? 'natives-macos' : 'natives-linux')
+}()
+configurations { sceneSnapshotNatives }
+dependencies {
+    ['lwjgl', 'lwjgl-glfw', 'lwjgl-opengl', 'lwjgl-stb'].each {
+        sceneSnapshotNatives "org.lwjgl:${it}:3.3.1:${lwjglNatives}"
+    }
+}
+tasks.register('sceneSnapshot', JavaExec) {
+    group = 'verification'
+    description = 'Rend des images fixes de la scene de chargement (--args="--t 3,12 --size 1920x1080").'
+    classpath = sourceSets.earlywindowTest.runtimeClasspath + sourceSets.earlywindow.output +
+            configurations.sceneSnapshotNatives
+    mainClass = 'dev.oneforallsurvival.earlywindow.scene.SceneSnapshot'
+    workingDir = project.projectDir
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(17) }
+}
+
 // Essais en développement : le jar de service va dans run/mods, comme dans le dossier mods d'un vrai client.
 tasks.register('installEarlyWindow', Copy) {
     group = 'build'
