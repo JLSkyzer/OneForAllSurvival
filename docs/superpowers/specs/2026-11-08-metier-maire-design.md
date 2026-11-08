@@ -43,10 +43,12 @@ Toute décision du maire est **publique, motivée et bornée** : elle s'inscrit 
 
 ## 3. Contraintes techniques
 
-- Le rôle `maire` s'ajoute aux rôles codés en dur de `RoleBook` (médecin, ingénieur, policier,
-  agriculteur, citoyen), avec son libellé et sa couleur.
-- **Un seul maire à la fois.** Donner le grade à un joueur le retire à l'ancien maire.
-- Le grade se donne et se retire par la commande de rôle existante. **Le mandat n'a pas de durée** :
+- **Déjà dans le code** (relevé le 2026-11-08 dans `RoleBook`) : le maire est un **statut** qui
+  s'ajoute au métier, pas un métier à part. Un ingénieur ou un médecin peut donc être maire. Son
+  préfixe devient `[Maire] [Métier]`. Aucun geste ne l'utilise encore : ce cahier les ajoute.
+- **Un seul maire à la fois.** Nommer un joueur retire le statut à l'ancien maire.
+- Le statut se donne et se retire par commande, réservée aux opérateurs de niveau 2 :
+  `/role mayor set <joueur>`, `/role mayor remove`, et `/role mayor` pour savoir qui est maire. **Le mandat n'a pas de durée** :
   il s'arrête quand l'équipe du serveur le décide (choix de Killian).
 - Les actions réservées au maire passent par la généralisation de `RoleGate`, commune aux autres métiers.
   L'équipe du serveur garde un contournement pour tout.
@@ -182,7 +184,7 @@ Demandé par Killian le 2026-11-08.
 
 | Lot | Contenu | Ce qu'il prouve | Après |
 |---|---|---|---|
-| M1 | Rôle `maire`, 102 (onglets Trésor et Registre), 103, 104, salaire | Un maire tient la caisse de la ville, sous les yeux de tous | Lot E3 de l'économie |
+| M1 | Gestes du statut de maire, 102 (onglets Trésor et Registre), 103, 104, salaire | Un maire tient la caisse de la ville, sous les yeux de tous | Lot E3 de l'économie |
 | M2 | 105, 106 | Le maire règle les taxes et l'impôt, dans des bornes | Lots E2 et E6 |
 | M3 | 107 | Le maire arbitre les fournisseurs et les opérateurs | Lot E6, lot T2 du téléphone |
 | M4 | 108, 109 | La mairie parle à toute l'île, et le maire gère à distance | Lots T1 et T5 du téléphone |
