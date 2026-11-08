@@ -4,6 +4,7 @@ import com.mojang.authlib.GameProfile;
 import dev.oneforallsurvival.bench.BenchNetwork;
 import dev.oneforallsurvival.bench.QueuePacket;
 import dev.oneforallsurvival.bench.RecipeListPacket;
+import dev.oneforallsurvival.grid.SubscriberNamePacket;
 import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.util.AttributeKey;
 import java.nio.charset.StandardCharsets;
@@ -40,6 +41,8 @@ public final class JoueurDeTest {
     private final ServerPlayer joueur;
     private final List<RecipeListPacket> listes = new ArrayList<>();
     private final List<QueuePacket> files = new ArrayList<>();
+    /** Les ouvertures de l'écran d'inscription d'un abonné reçues. */
+    private final List<SubscriberNamePacket.Open> ecransAbonne = new ArrayList<>();
     /** Les paquets de synchronisation de menu (contenu, case, donnée), dans l'ordre d'envoi. */
     private final List<Packet<?>> menus = new ArrayList<>();
     /** Les fragments du catalogue que l'entrée en jeu elle-même a envoyés, avant qu'on ne les oublie. */
@@ -67,6 +70,7 @@ public final class JoueurDeTest {
         simule.listesALaConnexion.addAll(simule.listes);
         simule.listes.clear();
         simule.files.clear();
+        simule.ecransAbonne.clear();
         simule.menus.clear();
         return simule;
     }
@@ -110,6 +114,8 @@ public final class JoueurDeTest {
                     listes.add(RecipeListPacket.decode(donnees));
                 } else if (discriminant == BenchNetwork.ID_QUEUE) {
                     files.add(QueuePacket.decode(donnees));
+                } else if (discriminant == BenchNetwork.ID_SUBSCRIBER_SCREEN) {
+                    ecransAbonne.add(SubscriberNamePacket.Open.decode(donnees));
                 }
             } finally {
                 donnees.release();
@@ -130,6 +136,14 @@ public final class JoueurDeTest {
         lire();
         List<QueuePacket> out = new ArrayList<>(files);
         files.clear();
+        return out;
+    }
+
+    /** Les ouvertures de l'écran d'inscription d'un abonné reçues depuis le dernier appel, retirées. */
+    public List<SubscriberNamePacket.Open> ecransAbonneRecus() {
+        lire();
+        List<SubscriberNamePacket.Open> out = new ArrayList<>(ecransAbonne);
+        ecransAbonne.clear();
         return out;
     }
 

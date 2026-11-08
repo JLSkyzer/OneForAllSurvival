@@ -39,6 +39,17 @@ public final class GridRegistry {
     public static final RegistryObject<MenuType<LoadShedderMenu>> LOAD_SHEDDER_MENU =
             MENUS.register("load_shedder", () -> IForgeMenuType.create(LoadShedderMenu::fromNetwork));
 
+    public static final RegistryObject<Block> METER = BLOCKS.register("meter",
+            () -> new MeterBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL)
+                    .strength(3.0F).sound(SoundType.METAL).requiresCorrectToolForDrops()));
+    public static final RegistryObject<Item> METER_ITEM = ITEMS.register("meter",
+            () -> new BlockItem(METER.get(), new Item.Properties()));
+    public static final RegistryObject<BlockEntityType<MeterBlockEntity>> METER_BE =
+            BLOCK_ENTITIES.register("meter", () -> BlockEntityType.Builder
+                    .of(MeterBlockEntity::new, METER.get()).build(null));
+    public static final RegistryObject<Item> METER_READING = ITEMS.register("meter_reading",
+            () -> new MeterReadingItem(new Item.Properties().stacksTo(1)));
+
     private GridRegistry() {}
 
     public static void register(IEventBus modEventBus) {
@@ -50,6 +61,6 @@ public final class GridRegistry {
 
     /** Les objets que l'onglet créatif affiche, dans l'ordre. */
     public static List<RegistryObject<? extends Item>> tabItems() {
-        return List.of(LOAD_SHEDDER_ITEM);
+        return List.of(LOAD_SHEDDER_ITEM, METER_ITEM);
     }
 }

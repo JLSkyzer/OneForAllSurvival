@@ -10,6 +10,7 @@
     "oneforallsurvival:fridge",
     "oneforallsurvival:desalinator",
     "oneforallsurvival:dryer",
-    "oneforallsurvival:load_shedder"
+    "oneforallsurvival:load_shedder",
+    "oneforallsurvival:meter"
   ]
 }
