@@ -89,14 +89,6 @@ public final class GridConfig {
         return read(LIGHTNING_FUSE_CHANCE, DEFAULT_LIGHTNING_FUSE_CHANCE);
     }
 
-    /**
-     * Change le risque de fusible en mémoire, sans écrire le fichier : pour les essais, qui remettent l'ancienne
-     * valeur ensuite. Exige le fichier chargé.
-     */
-    public static void setLightningFuseChance(double chance) {
-        LIGHTNING_FUSE_CHANCE.set(chance);
-    }
-
     public static int arresterRadius() {
         return read(ARRESTER_RADIUS, DEFAULT_ARRESTER_RADIUS);
     }

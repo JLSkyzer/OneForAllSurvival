@@ -163,11 +163,18 @@ public abstract class ElectricMachineBlockEntity extends BlockEntity {
         if (fault != null || points <= 0) {
             return;
         }
-        condition = Math.max(0, condition - points);
+        loseCondition(points);
         setChanged();
+    }
+
+    /** Retire des points d'état ; à 0, panne de la pièce annoncée. Renvoie vrai si la machine vient de tomber en panne. */
+    private boolean loseCondition(double points) {
+        condition = Math.max(0, condition - points);
         if (condition <= 0) {
             breakDown(nextFault);
+            return true;
         }
+        return false;
     }
 
     /**
@@ -304,13 +311,10 @@ public abstract class ElectricMachineBlockEntity extends BlockEntity {
 
     /** Un tick d'usure ; à 0 la machine tombe en panne de la pièce annoncée, et peut s'enflammer. */
     private void wear() {
-        condition = Math.max(0, condition - MachineWear.wearPerTick(MachineConfig.lifetimeTicks(),
-                !isProtected && isCoastal(), isProtected, MachineConfig.coastalMultiplier()));
-        if (condition <= 0) {
-            breakDown(nextFault);
-            if (MachineConfig.flamesEnabled() && random.nextDouble() < MachineConfig.flameChance()) {
-                igniteFlames();
-            }
+        if (loseCondition(MachineWear.wearPerTick(MachineConfig.lifetimeTicks(),
+                !isProtected && isCoastal(), isProtected, MachineConfig.coastalMultiplier()))
+                && MachineConfig.flamesEnabled() && random.nextDouble() < MachineConfig.flameChance()) {
+            igniteFlames();
         }
     }
 
