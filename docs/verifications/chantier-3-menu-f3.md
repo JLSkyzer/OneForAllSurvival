@@ -16,6 +16,7 @@ s'est arrêté seul à la fin du scénario (code 0) ; aucune autre JVM n'a été
   "-PgameArgs=--width 2560 --height 1440"`, avec ffmpeg 9.0.2 lancé dès que la fenêtre existe (voir « Film »).
 - `./gradlew --offline test --rerun-tasks` : BUILD SUCCESSFUL ; XML : `test` 244 tests, `earlywindowTest` 90 tests,
   0 échec, 0 erreur, 0 ignoré. `./gradlew --offline runGameTestServer` : `All 345 required tests passed :)`.
+  Après les corrections de la revue finale : voir « Corrections de la revue finale ».
 
 ## `run/options.txt`
 
@@ -135,14 +136,41 @@ de la barre commence à 0,79 s du journal de la fenêtre et au tout début du fi
 de ce journal ; la fenêtre, elle, est créée à 0,33 s (noire). **≈ 0,2-0,3 s perdues**, toutes sur un écran noir ; la barre et
 le récit sont intégralement dans le film.
 
+## Corrections de la revue finale
+
+Faites sur `main` après les relevés ci-dessus (les images `frames-f3-fr`, `frames-f3` et le film sont **antérieurs**).
+
+- `./gradlew --offline test --rerun-tasks` : BUILD SUCCESSFUL ; XML : `test` 248 tests, `earlywindowTest` 90 tests, 0 échec,
+  0 erreur, 0 ignoré. `./gradlew --offline runGameTestServer` : `All 346 required tests passed :)`.
+- Lancement : `./gradlew --offline runTitleFr -PdebugShots=frames-f3-fix` (`run-titre/`, sans `-PwithPack`), `termine.json` : fin
+  normale, **0 échec, 26 contrôles, 22 images**, 0 ligne `GlDebug` ; client arrêté seul, code 0. `run/` n'a pas servi, et
+  `run/options.txt` reste à `012d88e5…`, relevée avant et après.
+- **Cible et viseur.** À 427 de large, la carte commençait à x = 218, sous le bras X du repère 3D (10 px autour du centre, 213,5).
+  `DebugLayout.normalMaxWidth` garde 12 px : `maxW` = 197, x = 226. Regardé : `02` et `24` de `frames-f3-fix`, le repère est entier
+  à gauche de la carte. Sans effet à partir de 472 de large ; l'identifiant y est coupé 8 px plus tôt. Testé de 240 à 1300 de large.
+- **Pastille et barre d'objets.** La pastille chevauchait la barre : 5,5 px en vue normale à 427, ≈ 33 px en page détaillée à 427,
+  ≈ 9 px à 480 (mesures de la revue sur les anciennes images). Quand elle ne tient pas à droite de la barre, hors graphes, elle se
+  réduit à « F3 + Tab » ou « 1/4 · F3 + Tab ». Regardé : `02`, `24` (« F3 + Tab »), `11` et `26` (« 1/4 · F3 + Tab »), à droite de
+  la barre, sans chevauchement ; `22` (graphes) : texte complet, remontée au-dessus des graphes comme avant.
+- **TPS en multijoueur.** `IslandDebugResponse` porte les TPS, calculés sur le serveur à partir de son temps de tick moyen
+  (`MinecraftServer.getAverageTickTime`, plafonné à 20 TPS) et le bas de Performances devient « Ping 32 ms · 20.0 TPS ». Solo
+  inchangé (« Serveur 20.0 TPS », vu sur `02`). Prouvé par tests (calcul, octets relus, ligne affichée) et par le GameTest
+  `laReponseDonneLesTpsDuServeur` (vrai joueur, vrais octets, sur la dist dédiée). **La ligne elle-même n'a jamais été vue à
+  l'écran** : elle n'existe qu'en multijoueur, et aucun client n'a été lancé contre un serveur. En mode réduit, le client ne
+  demande rien au serveur : le ping seul reste.
+- **Déploiement : le protocole réseau 3 impose de livrer client et serveur ensemble.** Un côté encore en protocole 2 est refusé à
+  la poignée de main (refus propre), et le jar reste en `0.1.0` : deux jars de même version peuvent être incompatibles.
+
 ## Constats à trancher (rien corrigé ici, consigne)
 
-1. **Pastille « Vue détaillée… » sur la barre d'objets, cosmétique.** En page détaillée, à 427 et 480 px d'interface
-   (`11-detail-page-1.png`, `26-echelle-4-detail.png`), la pastille déborde sur la dernière case (texte « Détaillée 1/4 »
-   mangé par le cadre). En vue normale, elle touche presque la case (`02`).
+1. **Pastille sur la barre d'objets : corrigée**, voir « Corrections de la revue finale ». Sur les images d'avant la correction, elle
+   la chevauchait aussi en vue normale (`02`, 5,5 px), et l'objet d'une case mangeait le texte en page détaillée (`11`, `26`).
 2. **Chat et toasts passent devant les cartes.** Vu au premier lancement : le chat couvre le bas de la carte Lost Island ;
    l'infobulle du tutoriel couvre le bas de Performances. Ordre des couches de Minecraft, pas comparé au F3 vanilla.
-3. **Graphes et barre** : voir M-5 plus haut (objets au-dessus, fond de cases couvert à l'échelle 2). Pas comparé au vanilla.
+3. **Graphes et barre** : voir M-5 plus haut (objets au-dessus, fond de cases couvert à l'échelle 2). Comparé au vanilla (javap de
+   `DebugScreenOverlay.drawChart` et `VanillaGuiOverlay`, jar mappé 47.4.28, lu à la revue finale) : vanilla dessine lui aussi ses
+   graphes par-dessus la barre, 60 px de haut, en cachant même les objets ; le chat passe devant dans les deux cas. Nos cartes font
+   90 px à cause du titre et du repère de 30 FPS. Laissé tel quel.
 4. Cible : l'identifiant du bloc est coupé (« … ») à 427 de largeur (`oneforallsurvival:de…`), l'identifiant complet est
    dans la vue détaillée (`14-detail-page-4.png`).
 
@@ -151,7 +179,7 @@ le récit sont intégralement dans le film.
 - **Plein écran réel** : la bascule s'est faite (log, 0 échec) mais aucun rendu vu. Fenêtre maximale 2560x1421 filmée à la place.
 - **Vraie frappe au clavier** : touches postées à la fenêtre (chemin GLFW réel), pas un clavier physique. Survol par le rappel GLFW.
 - **Client de production** (jar réobfusqué) : `f_90873_` utilisé en dev seulement ; repli F9 jamais exercé.
-- **Serveur dédié et multijoueur** : ligne de ping, Citoyen sur un vrai serveur, abonné/compteur avec un vrai flux, deux joueurs.
+- **Serveur dédié et multijoueur** : ligne de ping et de TPS (GameTests et tests seulement), Citoyen sur un vrai serveur, abonné/compteur avec un vrai flux, deux joueurs.
 - **Machine en panne, usure élevée, zone d'eau salée « oui », disjoncteur ouvert ou scellé, débit > 0** à l'écran (seules
   les valeurs ci-dessus ont été vues ; les autres couvertes par GameTests et tests de `IslandLines`).
 - **F3 + Shift (camembert), F3 + G et autres combinaisons** : pas essayées, sauf F3 + B et F3 + Alt. F3 + H et F3 + P : jamais
