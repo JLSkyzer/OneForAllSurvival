@@ -17,6 +17,14 @@ Chaque lot reçoit son plan détaillé au moment de démarrer : ce qu'un lot pro
 
 Les visuels finaux font partie de chaque lot qui ajoute un bloc ou un objet livré.
 
+## Interface Lost Island
+
+[Cahier des charges](../docs/superpowers/specs/2026-11-08-interface-lost-island-design.md) : moteur de scène et écran de chargement, écran titre, menu F3.
+
+- [x] **Chantier 1 : écran de chargement.** [Plan détaillé](../docs/superpowers/plans/2026-11-08-chantier-1-ecran-de-chargement.md). Fournisseur `lostisland` de fenêtre anticipée (jar de service `oneforallsurvival-earlywindow`, 57 Mio) et overlay du mod pour les ressources : la scène du crash et de l'aube tient de l'ouverture de la fenêtre à l'écran titre, barre étalonnée sur deux démarrages, replis sur Forge essayés en jeu. Voir [la vérification](../docs/verifications/chantier-1-chargement.md). Sur la branche `interface-chargement`, **non fusionné**. Reste ouvert : vieilles cartes graphiques, macOS et Linux, HiDPI, jar du client en installation réelle, ≈ 2 s de noir au départ, image figée au passage ramenée de ≈ 1,6 s à ≈ 0,2 s par le fil allégé de la tâche 10 (Windows, plus de 2 cœurs, réglage `config/lostisland-earlywindow.properties`), un seul pilote essayé, aucune fenêtre anticipée si le jar manque alors que `fml.toml` la demande, coût GPU non mesuré (liste complète dans le même document).
+- [ ] **Chantier 2 : écran titre.** À planifier ; reprend la scène que le chantier 1 libère aujourd'hui à la fin de l'overlay (`LostIslandLoadingOverlay.release`).
+- [ ] **Chantier 3 : menu F3.** À planifier.
+
 ## Idées pour plus tard
 
 - **Config des recettes de l'établi par mod** (demande de Killian, 2026-11-06) : cadrée le 2026-11-08, [cahier des charges](../docs/superpowers/specs/2026-11-08-etabli-types-de-recettes-design.md) et [plan](../docs/superpowers/plans/2026-11-08-etabli-types-de-recettes.md) écrits. À exécuter plus tard, à la demande de Killian : rien n'est construit.

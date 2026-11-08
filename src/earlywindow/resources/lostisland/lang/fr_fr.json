@@ -1,0 +1,16 @@
+{
+  "lostisland.loading.status.forge_start": "Les moteurs toussent…",
+  "lostisland.loading.detail.forge_start": "démarrage",
+  "lostisland.loading.status.mod_discovery": "Inventaire de la soute…",
+  "lostisland.loading.detail.mod_discovery": "recherche des mods",
+  "lostisland.loading.status.mod_loading": "Tri des caisses de l'épave…",
+  "lostisland.loading.detail.mods": "mods",
+  "lostisland.loading.status.registries": "Le camp s'organise…",
+  "lostisland.loading.detail.registries": "registres",
+  "lostisland.loading.status.resources": "Exploration du littoral…",
+  "lostisland.loading.detail.resources": "textures",
+  "lostisland.loading.status.done": "Bienvenue sur Lost Island.",
+  "lostisland.loading.ui.start": "LOST ISLAND RP",
+  "lostisland.loading.ui.end": "ÎLE INCONNUE",
+  "lostisland.loading.ui.motto": "Là où tout recommence."
+}
