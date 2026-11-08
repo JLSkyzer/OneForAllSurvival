@@ -1,0 +1,64 @@
+{
+  "variants": {
+    "closed=true,facing=north,sealed=true": {
+      "model": "oneforallsurvival:block/breaker_closed_sealed",
+      "y": 180
+    },
+    "closed=true,facing=north,sealed=false": {
+      "model": "oneforallsurvival:block/breaker_closed",
+      "y": 180
+    },
+    "closed=false,facing=north,sealed=true": {
+      "model": "oneforallsurvival:block/breaker_cut_sealed",
+      "y": 180
+    },
+    "closed=false,facing=north,sealed=false": {
+      "model": "oneforallsurvival:block/breaker_cut",
+      "y": 180
+    },
+    "closed=true,facing=east,sealed=true": {
+      "model": "oneforallsurvival:block/breaker_closed_sealed",
+      "y": 270
+    },
+    "closed=true,facing=east,sealed=false": {
+      "model": "oneforallsurvival:block/breaker_closed",
+      "y": 270
+    },
+    "closed=false,facing=east,sealed=true": {
+      "model": "oneforallsurvival:block/breaker_cut_sealed",
+      "y": 270
+    },
+    "closed=false,facing=east,sealed=false": {
+      "model": "oneforallsurvival:block/breaker_cut",
+      "y": 270
+    },
+    "closed=true,facing=south,sealed=true": {
+      "model": "oneforallsurvival:block/breaker_closed_sealed"
+    },
+    "closed=true,facing=south,sealed=false": {
+      "model": "oneforallsurvival:block/breaker_closed"
+    },
+    "closed=false,facing=south,sealed=true": {
+      "model": "oneforallsurvival:block/breaker_cut_sealed"
+    },
+    "closed=false,facing=south,sealed=false": {
+      "model": "oneforallsurvival:block/breaker_cut"
+    },
+    "closed=true,facing=west,sealed=true": {
+      "model": "oneforallsurvival:block/breaker_closed_sealed",
+      "y": 90
+    },
+    "closed=true,facing=west,sealed=false": {
+      "model": "oneforallsurvival:block/breaker_closed",
+      "y": 90
+    },
+    "closed=false,facing=west,sealed=true": {
+      "model": "oneforallsurvival:block/breaker_cut_sealed",
+      "y": 90
+    },
+    "closed=false,facing=west,sealed=false": {
+      "model": "oneforallsurvival:block/breaker_cut",
+      "y": 90
+    }
+  }
+}

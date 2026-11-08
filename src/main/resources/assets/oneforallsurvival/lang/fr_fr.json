@@ -231,5 +231,15 @@
   "tooltip.oneforallsurvival.meter_reading.anomaly.meter_removed": "Compteur déposé depuis le dernier relevé",
   "tooltip.oneforallsurvival.meter_reading.anomaly.meter_changed": "Compteur différent : remplacé depuis le dernier relevé",
   "tooltip.oneforallsurvival.meter_reading.anomaly.index_decreased": "Index en baisse depuis le dernier relevé",
-  "tooltip.oneforallsurvival.meter_reading.anomaly.seal_broken": "Scellé brisé"
+  "tooltip.oneforallsurvival.meter_reading.anomaly.seal_broken": "Scellé brisé",
+  "block.oneforallsurvival.breaker": "Disjoncteur d'abonné",
+  "item.oneforallsurvival.seal": "Scellé",
+  "tooltip.oneforallsurvival.seal": "Posé par un ingénieur sur un disjoncteur coupé : plus personne ne peut le réenclencher.",
+  "message.oneforallsurvival.breaker.closed": "Disjoncteur enclenché",
+  "message.oneforallsurvival.breaker.cut": "Disjoncteur coupé",
+  "message.oneforallsurvival.breaker.sealed": "Disjoncteur scellé : seul un ingénieur peut retirer le scellé (accroupi, main vide).",
+  "message.oneforallsurvival.breaker.seal_needs_cut": "On ne scelle qu'un disjoncteur coupé : coupez-le d'abord.",
+  "message.oneforallsurvival.breaker.already_sealed": "Ce disjoncteur est déjà scellé.",
+  "message.oneforallsurvival.breaker.seal_done": "Disjoncteur scellé.",
+  "message.oneforallsurvival.breaker.unsealed": "Scellé retiré et détruit."
 }

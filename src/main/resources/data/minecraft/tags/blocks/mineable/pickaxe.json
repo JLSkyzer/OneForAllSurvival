@@ -11,6 +11,7 @@
     "oneforallsurvival:desalinator",
     "oneforallsurvival:dryer",
     "oneforallsurvival:load_shedder",
-    "oneforallsurvival:meter"
+    "oneforallsurvival:meter",
+    "oneforallsurvival:breaker"
   ]
 }

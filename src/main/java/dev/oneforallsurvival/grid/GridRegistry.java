@@ -50,6 +50,17 @@ public final class GridRegistry {
     public static final RegistryObject<Item> METER_READING = ITEMS.register("meter_reading",
             () -> new MeterReadingItem(new Item.Properties().stacksTo(1)));
 
+    public static final RegistryObject<Block> BREAKER = BLOCKS.register("breaker",
+            () -> new BreakerBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL)
+                    .strength(3.0F).sound(SoundType.METAL).requiresCorrectToolForDrops()));
+    public static final RegistryObject<Item> BREAKER_ITEM = ITEMS.register("breaker",
+            () -> new BlockItem(BREAKER.get(), new Item.Properties()));
+    public static final RegistryObject<BlockEntityType<BreakerBlockEntity>> BREAKER_BE =
+            BLOCK_ENTITIES.register("breaker", () -> BlockEntityType.Builder
+                    .of(BreakerBlockEntity::new, BREAKER.get()).build(null));
+    public static final RegistryObject<Item> SEAL = ITEMS.register("seal",
+            () -> new SealItem(new Item.Properties().stacksTo(16)));
+
     private GridRegistry() {}
 
     public static void register(IEventBus modEventBus) {
@@ -61,6 +72,6 @@ public final class GridRegistry {
 
     /** Les objets que l'onglet créatif affiche, dans l'ordre. */
     public static List<RegistryObject<? extends Item>> tabItems() {
-        return List.of(LOAD_SHEDDER_ITEM, METER_ITEM);
+        return List.of(LOAD_SHEDDER_ITEM, METER_ITEM, BREAKER_ITEM, SEAL);
     }
 }
