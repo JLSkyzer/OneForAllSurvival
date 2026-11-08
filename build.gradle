@@ -22,12 +22,18 @@ sourceSets {
     // Fenêtre de chargement anticipée : jar de service à part (ImmediateWindowProvider « lostisland »),
     // chargé par FML avant le jeu. Aucune classe de Minecraft ici : il tourne avant que le jeu existe.
     earlywindow
+    // Tests unitaires du jar de service (JUnit seul, aucune classe de Minecraft).
+    earlywindowTest
 }
 
 configurations {
     devcontentImplementation.extendsFrom implementation
     // fmlloader, fmlearlydisplay, LWJGL et Gson, déjà résolus pour le mod, sans nouveau téléchargement.
     earlywindowCompileClasspath.extendsFrom compileClasspath
+    earlywindowTestImplementation.extendsFrom earlywindowImplementation
+    earlywindowTestCompileClasspath.extendsFrom earlywindowCompileClasspath
+    // Gson à l'exécution : le jar de service le trouve dans Minecraft, pas les tests.
+    earlywindowTestRuntimeClasspath.extendsFrom compileClasspath
 }
 
 println "Java: ${System.getProperty 'java.version'}, JVM: ${System.getProperty 'java.vm.version'} (${System.getProperty 'java.vendor'}), Arch: ${System.getProperty 'os.arch'}"
@@ -309,6 +315,10 @@ dependencies {
     // Tests unitaires
     testImplementation "org.junit.jupiter:junit-jupiter:${junit_version}"
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    earlywindowTestImplementation sourceSets.earlywindow.output
+    earlywindowTestImplementation "org.junit.jupiter:junit-jupiter:${junit_version}"
+    earlywindowTestRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 // Le pack de développement : les mods d'ingénierie et de santé que le mod sert.
@@ -335,6 +345,17 @@ if (project.hasProperty('withPack') || !gradle.startParameter.taskNames.any { it
 tasks.named('test', Test).configure {
     useJUnitPlatform()
 }
+
+// Tests du jar de service : `./gradlew test` les lance aussi, résultats sous build/test-results/earlywindowTest.
+def earlyWindowTest = tasks.register('earlywindowTest', Test) {
+    group = 'verification'
+    description = 'Lance les tests unitaires du jar de service de la fenêtre anticipée.'
+    testClassesDirs = sourceSets.earlywindowTest.output.classesDirs
+    classpath = sourceSets.earlywindowTest.runtimeClasspath
+    useJUnitPlatform()
+    workingDir = project.projectDir
+}
+tasks.named('test').configure { dependsOn earlyWindowTest }
 
 // ForgeGradle crée ses tâches run après l'évaluation du script : `tasks.named` échouerait ici,
 // `tasks.matching {}.configureEach` configure la tâche dès qu'elle apparaît.
@@ -429,6 +450,27 @@ def earlyWindowJar = tasks.register('earlyWindowJar', Jar) {
                 'Implementation-Version'  : mod_version,
                 'Implementation-Vendor'   : mod_authors,
         ])
+    }
+}
+
+// Les calques de la scène viennent de art/ (hors du dépôt) et sont copiés tels quels, sans recompression,
+// sous lostisland/loading/ dans le jar de service.
+def calquesEcran = project.file('art/loading-screen/assets')
+def verifierCalques = tasks.register('verifierCalquesEcran') {
+    group = 'verification'
+    description = "Echoue avec un message clair si les calques de l'ecran de chargement manquent."
+    doLast {
+        if (!new File(calquesEcran, 'manifest.json').isFile()) {
+            throw new GradleException("Calques de l'ecran de chargement introuvables : ${calquesEcran} " +
+                    "(manifest.json absent). Le dossier art/loading-screen/assets n'est pas dans le depot ; " +
+                    "il faut le poser a cet endroit avant de construire le jar de service.")
+        }
+    }
+}
+tasks.named('processEarlywindowResources', ProcessResources).configure {
+    dependsOn verifierCalques
+    from(calquesEcran) {
+        into 'lostisland/loading'
     }
 }
 
