@@ -9,7 +9,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import net.minecraft.client.Minecraft;
@@ -54,7 +53,8 @@ import org.lwjgl.glfw.GLFWCursorPosCallback;
  * <ol>
  *   <li>images à 0,5 / 2 / 6 / 30 s du titre, relevé de tous ses widgets (classe, position, origine) ;</li>
  *   <li>curseur sur « Rejoindre l'île » ({@code glfwSetCursorPos}, thread du jeu) et image de l'infobulle ;</li>
- *   <li>Options puis retour, liste des mods de Forge puis retour, une image de chaque écran ;</li>
+ *   <li>Options puis retour (seulement dans {@code run-titre} : fermer Options réécrit {@code options.txt}), liste des
+ *       mods de Forge puis retour, une image de chaque écran ;</li>
  *   <li>aller-retour dans un monde plat d'essai au nom fixe {@value #MONDE} (jamais un autre monde de
  *       {@code saves}), sortie par les appels de {@code PauseScreen.onDisconnect}, images au retour, relevé des états
  *       de {@link TitleScene} et du temps jusqu'à la première image de la scène recréée ;</li>
@@ -80,6 +80,10 @@ public final class TitleShots {
     private static final String CLE_REJOINDRE = NOTRE_CLE + "join";
     private static final String CLE_OPTIONS = NOTRE_CLE + "options";
     private static final double[] INSTANTS_S = {0.5, 2, 6, 30};
+    /** Seul dossier du jeu où Options est ouvert (son options.txt est généré par prepareTitleRun). */
+    private static final String DOSSIER_ESSAI = "run-titre";
+    /** Attente du joueur après la création ou l'ouverture du monde (l'action elle-même charge le monde). */
+    private static final double ATTENTE_JOUEUR_S = 60;
 
     /** Délai de garde de tout l'essai (chargement du pack compris) ; un fil à part arrête la JVM 40 s plus tard. */
     private static final double GARDE_S = 1800;
@@ -106,7 +110,6 @@ public final class TitleShots {
     private static final List<String> ETATS_SCENE = new ArrayList<>();
     private static SceneLifecycle.State dernierEtat;
     private static Screen titre;
-    private static byte[] optionsAvant;
     private static double[] cible;
     private static long retourMondeNs = -1L;
     private static long premiereImageMs = -1L;
@@ -155,6 +158,11 @@ public final class TitleShots {
             LOG.error("[titre-essai] exception à l'étape {}", etape, e);
             echec("exception-" + etape.name().toLowerCase(Locale.ROOT), e.toString());
             recuperer(mc, Etape.FIN);
+        } catch (Error e) {
+            // Le jeu va sans doute s'arrêter : termine.json d'abord.
+            echec("erreur-" + etape.name().toLowerCase(Locale.ROOT), e.toString());
+            ecrireTermine("erreur : " + e);
+            throw e;
         }
     }
 
@@ -214,11 +222,20 @@ public final class TitleShots {
                 }
             }
             case SURVOL -> survoler(mc, s);
-            case OPTIONS -> ouvrirPuisFermer(mc, s, CLE_OPTIONS, "06-options", "Options", Etape.OPTIONS_RETOUR);
-            case OPTIONS_RETOUR -> {
-                if (retourAuTitre(mc, s, "07-retour-options", "retour d'Options", Etape.MODS)) {
-                    protegerLesOptions(mc);
+            case OPTIONS -> {
+                // Fermer Options fait réécrire options.txt par Minecraft (OptionsScreen.removed -> Options.save, lu au
+                // javap) : jamais dans un autre dossier que run-titre, généré pour les essais.
+                if (!dossierDEssai(mc)) {
+                    journal("Options sauté (dossier de Killian) : " + mc.gameDirectory.toPath().toAbsolutePath().normalize()
+                            + " n'est pas " + DOSSIER_ESSAI + ", options.txt n'est jamais réécrit");
+                    pas("06-options", true, "sauté (dossier de Killian, pas " + DOSSIER_ESSAI + ")");
+                    passer(Etape.MODS);
+                    return;
                 }
+                ouvrirPuisFermer(mc, s, CLE_OPTIONS, "06-options", "Options", Etape.OPTIONS_RETOUR);
+            }
+            case OPTIONS_RETOUR -> {
+                retourAuTitre(mc, s, "07-retour-options", "retour d'Options", Etape.MODS);
             }
             case MODS -> ouvrirPuisFermer(mc, s, TitleWidgets.MODS_KEY, "08-mods", "liste des mods", Etape.MODS_RETOUR);
             case MODS_RETOUR -> retourAuTitre(mc, s, "09-retour-mods", "retour de la liste des mods", Etape.MONDE_ENTREE);
@@ -267,6 +284,15 @@ public final class TitleShots {
             case SERVEUR_CONNEXION -> {
                 if (SERVEUR.isEmpty()) {
                     journal("pas de serveur (propriété lostisland.titleShots.server absente) : preuve de la déconnexion sautée");
+                    passer(Etape.FIN);
+                    finir(mc);
+                    return;
+                }
+                // Premier serveur rejoint : Minecraft.tick met joinedFirstServer à vrai et appelle Options.save (lu au
+                // javap). Hors de run-titre, options.txt ne doit jamais être réécrit : étape sautée dans ce cas.
+                if (!fait && !dossierDEssai(mc) && !mc.options.joinedFirstServer) {
+                    journal("serveur sauté (dossier de Killian, joinedFirstServer faux : Minecraft réécrirait options.txt)");
+                    pas("deconnexion-serveur", true, "sauté (dossier de Killian, premier serveur jamais rejoint)");
                     passer(Etape.FIN);
                     finir(mc);
                     return;
@@ -391,9 +417,6 @@ public final class TitleShots {
                 passer(suite == Etape.OPTIONS_RETOUR ? Etape.MODS : Etape.MONDE_ENTREE);
                 return;
             }
-            if (cle.equals(CLE_OPTIONS)) {
-                optionsAvant = lireOptions(mc);
-            }
             fait = true;
             agir(mc, "clic sur « " + quoi + " »", () -> presser(bouton));
             return;
@@ -446,37 +469,6 @@ public final class TitleShots {
         return false;
     }
 
-    /**
-     * Fermer Options fait réécrire {@code options.txt} par Minecraft ({@code OptionsScreen.removed}, {@code Options.save}).
-     * L'essai ne change aucun réglage ; si le fichier a changé (ordre, clés), son contenu d'origine est remis.
-     */
-    private static void protegerLesOptions(Minecraft mc) {
-        if (optionsAvant == null) {
-            return;
-        }
-        byte[] apres = lireOptions(mc);
-        if (Arrays.equals(optionsAvant, apres)) {
-            journal("options.txt identique après Options");
-            return;
-        }
-        try {
-            Files.write(mc.gameDirectory.toPath().resolve("options.txt"), optionsAvant);
-            journal("options.txt réécrit par Minecraft à la fermeture d'Options : contenu d'origine remis ("
-                    + optionsAvant.length + " octets)");
-        } catch (IOException e) {
-            LOG.error("[titre-essai] options.txt d'origine non remis", e);
-        }
-    }
-
-    private static byte[] lireOptions(Minecraft mc) {
-        try {
-            Path p = mc.gameDirectory.toPath().resolve("options.txt");
-            return Files.exists(p) ? Files.readAllBytes(p) : null;
-        } catch (IOException e) {
-            return null;
-        }
-    }
-
     /** Crée le monde plat d'essai, ou l'ouvre s'il existe déjà (même nom) ; aucun autre monde n'est touché. */
     private static void entrerDansLeMonde(Minecraft mc, double s) {
         if (!fait) {
@@ -505,9 +497,10 @@ public final class TitleShots {
      */
     private static boolean dedans(Minecraft mc, double s, String image, String ou) {
         if (mc.player == null || mc.level == null) {
-            if (s > 300) {
-                capturer(mc, image + "-echec", ou + " : pas de joueur en 300 s");
-                echec(image, ou + " : joueur absent 300 s après la demande, écran " + nomEcran(mc.screen));
+            if (s > ATTENTE_JOUEUR_S) {
+                capturer(mc, image + "-echec", ou + " : pas de joueur en " + ATTENTE_JOUEUR_S + " s");
+                echec(image, ou + " : joueur absent " + ATTENTE_JOUEUR_S + " s après la fin du chargement demandé"
+                        + " (écran de confirmation ou chargement refusé ?), écran " + nomEcran(mc.screen));
                 recuperer(mc, etape == Etape.MONDE_DEDANS ? Etape.SERVEUR_CONNEXION : Etape.FIN);
             }
             return false;
@@ -571,8 +564,13 @@ public final class TitleShots {
         if (film != null) {
             film.attendre();
         }
-        long echecs = PAS.stream().filter(p -> !p.ok()).count();
-        journal("bilan : " + (echecs == 0 ? "TOUT PASSE" : echecs + " ECHEC(S)") + ", " + IMAGES.size() + " image(s)");
+        long echecs;
+        int images;
+        synchronized (TitleShots.class) {
+            echecs = PAS.stream().filter(p -> !p.ok()).count();
+            images = IMAGES.size();
+        }
+        journal("bilan : " + (echecs == 0 ? "TOUT PASSE" : echecs + " ECHEC(S)") + ", " + images + " image(s)");
         ecrireTermine("normale");
         journal("fin du client");
         mc.stop();
@@ -591,6 +589,11 @@ public final class TitleShots {
             } catch (RuntimeException e) {
                 LOG.error("[titre-essai] action « {} » en échec", quoi, e);
                 echec("action", quoi + " : " + e);
+            } catch (Error e) {
+                LOG.error("[titre-essai] action « {} » en erreur", quoi, e);
+                echec("action", quoi + " : " + e);
+                ecrireTermine("erreur pendant l'action « " + quoi + " » : " + e);
+                throw e;
             } finally {
                 actionEnCours = false;
                 actionFinie = true;
@@ -611,7 +614,9 @@ public final class TitleShots {
             return;
         }
         film.instantane(mc, nom);
-        IMAGES.add(nom + ".png");
+        synchronized (TitleShots.class) {
+            IMAGES.add(nom + ".png");
+        }
         journal("image " + nom + ".png : " + quoi);
     }
 
@@ -709,7 +714,9 @@ public final class TitleShots {
         if (etat != dernierEtat) {
             String ligne = String.format(Locale.ROOT, "%s -> %s", dernierEtat, etat);
             journal("scène : " + ligne + " (étape " + etape + ")");
-            ETATS_SCENE.add(String.format(Locale.ROOT, "%.3f %s", tempsTitre(), ligne));
+            synchronized (TitleShots.class) {
+                ETATS_SCENE.add(String.format(Locale.ROOT, "%.3f %s", tempsTitre(), ligne));
+            }
             dernierEtat = etat;
         }
     }
@@ -725,7 +732,9 @@ public final class TitleShots {
     }
 
     private static void pas(String nom, boolean ok, String detail) {
-        PAS.add(new Pas(nom, ok, tempsTitre(), detail));
+        synchronized (TitleShots.class) {
+            PAS.add(new Pas(nom, ok, tempsTitre(), detail));
+        }
         if (ok) {
             journal("PASS " + nom + " : " + detail);
         } else {
@@ -754,11 +763,20 @@ public final class TitleShots {
         return (System.nanoTime() - ns) / 1e9;
     }
 
+    /** Le jeu tourne dans run-titre, dossier d'essai généré (jamais run/ de Killian). */
+    private static boolean dossierDEssai(Minecraft mc) {
+        Path nom = mc.gameDirectory.toPath().toAbsolutePath().normalize().getFileName();
+        return nom != null && DOSSIER_ESSAI.equals(nom.toString());
+    }
+
     private static String nomEcran(Screen ecran) {
         return ecran == null ? "aucun" : ecran.getClass().getName();
     }
 
-    /** {@code termine.json} : pas faits, échecs, images, états de la scène ; une seule écriture. */
+    /**
+     * {@code termine.json} : pas faits, échecs, images, états de la scène ; une seule écriture. Appelé aussi par le fil
+     * de garde : les listes ne sont lues et modifiées que sous le verrou de la classe (celui de cette méthode).
+     */
     private static synchronized void ecrireTermine(String fin) {
         if (termineEcrit || DOSSIER == null) {
             return;
