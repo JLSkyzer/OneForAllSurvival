@@ -67,4 +67,9 @@ class FenceRulesTest {
         // Membre faible : le plancher des membres décide, malgré une vie haute.
         assertEquals(0.25f, FenceRules.damageForLimbs(15f, 1.25f, 1f, 4f, 1f));
     }
+
+    @Test
+    void sansLectureDesMembresPasDeDegats() {
+        assertEquals(0f, FenceRules.damageForLimbs(20f, Float.NaN, 1f, 4f, 1f));
+    }
 }

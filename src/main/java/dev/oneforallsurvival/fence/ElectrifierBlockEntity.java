@@ -210,10 +210,9 @@ public final class ElectrifierBlockEntity extends ElectricMachineBlockEntity {
         if (damage > 0 && !lethal && entity instanceof Player player && ModList.get().isLoaded("firstaid")) {
             // First Aid tue à tête ou torse nul, quelle que soit la vie totale : ces membres gardent un point.
             float limb = FirstAidLimbs.weakestCriticalLimb(player);
-            if (!Float.isNaN(limb)) {
-                damage = FenceRules.damageForLimbs(entity.getHealth(), limb, amount, (float) FenceConfig.safeHealth(),
-                        LIMB_MARGIN);
-            }
+            // Sans modèle de membres (NaN), la règle ne donne aucun dégât : repoussement seul.
+            damage = FenceRules.damageForLimbs(entity.getHealth(), limb, amount, (float) FenceConfig.safeHealth(),
+                    LIMB_MARGIN);
         }
         if (damage > 0) {
             DamageSource source = new DamageSource(
