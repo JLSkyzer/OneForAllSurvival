@@ -205,12 +205,25 @@ public final class ClotureGameTests {
     }
 
     /** Sous le plancher de 4 points, le joueur ne perd plus rien ; juste au-dessus, il descend au plancher. */
+    /**
+     * Avec First Aid (pack), les dégâts d'un ServerPlayer sont répartis sur ses membres et le joueur factice est rejeté :
+     * l'arithmétique de points de vie de ces essais n'y vaut pas. Sans le pack ils éprouvent le chemin de santé vanilla
+     * par un joueur factice, pas le chemin du joueur de production. Le saut est tracé, jamais silencieux : le plancher de
+     * vie du joueur réel est à prouver par l'E2E du lot 5.
+     */
+    private static boolean ignoreSousFirstAid(GameTestHelper helper, String test) {
+        if (!ModList.get().isLoaded("firstaid")) {
+            return false;
+        }
+        org.apache.logging.log4j.LogManager.getLogger("oneforallsurvival-cloture").warn(
+                "[SKIP] {} : firstaid chargé, plancher de vie prouvé par l'E2E du lot 5", test);
+        helper.succeed();
+        return true;
+    }
+
     @GameTest(template = "test/plancher", batch = "cloture_a", setupTicks = 20, timeoutTicks = 300)
     public static void unJoueurFaibleNeMeurtPas(GameTestHelper helper) {
-        if (ModList.get().isLoaded("firstaid")) {
-            // First Aid répartit les dégâts d'un ServerPlayer sur ses membres et rejette le joueur factice : l'arithmétique
-            // de points de vie vanilla de cet essai n'y vaut pas. Elle est éprouvée sans le pack.
-            helper.succeed();
+        if (ignoreSousFirstAid(helper, "unJoueurFaibleNeMeurtPas")) {
             return;
         }
         ElectrifierBlockEntity be = poser(helper, 4);
@@ -231,10 +244,7 @@ public final class ClotureGameTests {
 
     @GameTest(template = "test/plancher", batch = "cloture_a", setupTicks = 20, timeoutTicks = 300)
     public static void unJoueurEstBlesse(GameTestHelper helper) {
-        if (ModList.get().isLoaded("firstaid")) {
-            // First Aid répartit les dégâts d'un ServerPlayer sur ses membres et rejette le joueur factice : l'arithmétique
-            // de points de vie vanilla de cet essai n'y vaut pas. Elle est éprouvée sans le pack.
-            helper.succeed();
+        if (ignoreSousFirstAid(helper, "unJoueurEstBlesse")) {
             return;
         }
         ElectrifierBlockEntity be = poser(helper, 4);
