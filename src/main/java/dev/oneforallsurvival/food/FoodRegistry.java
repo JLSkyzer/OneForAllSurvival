@@ -27,7 +27,7 @@ import net.minecraftforge.registries.RegistryObject;
 
 /**
  * Les objets de la péremption (le déchet, ce qu'un aliment avarié devient, l'armoire frigorifique), ceux du
- * dessalinisateur (le sel, l'eau potable, sa bouteille, la machine) et ceux du séchoir (la machine, sa recette, les rations).
+ * dessalinisateur (le sel, l'eau potable, sa bouteille, la machine) et ceux du séchoir (la machine, sa recette, les rations) et la couveuse.
  */
 public final class FoodRegistry {
 
@@ -101,6 +101,16 @@ public final class FoodRegistry {
                     .of(DryerBlockEntity::new, DRYER.get()).build(null));
     public static final RegistryObject<MenuType<DryerMenu>> DRYER_MENU =
             MENUS.register("dryer", () -> IForgeMenuType.create(DryerMenu::fromNetwork));
+    public static final RegistryObject<Block> INCUBATOR = BLOCKS.register("incubator",
+            () -> new IncubatorBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL)
+                    .strength(3.0F).sound(SoundType.METAL).requiresCorrectToolForDrops()));
+    public static final RegistryObject<Item> INCUBATOR_ITEM = ITEMS.register("incubator",
+            () -> new BlockItem(INCUBATOR.get(), new Item.Properties()));
+    public static final RegistryObject<BlockEntityType<IncubatorBlockEntity>> INCUBATOR_BE =
+            BLOCK_ENTITIES.register("incubator", () -> BlockEntityType.Builder
+                    .of(IncubatorBlockEntity::new, INCUBATOR.get()).build(null));
+    public static final RegistryObject<MenuType<IncubatorMenu>> INCUBATOR_MENU =
+            MENUS.register("incubator", () -> IForgeMenuType.create(IncubatorMenu::fromNetwork));
     public static final RegistryObject<RecipeType<DryingRecipe>> DRYING_TYPE =
             RECIPE_TYPES.register("drying", () -> new RecipeType<>() {
                 @Override
@@ -151,7 +161,7 @@ public final class FoodRegistry {
 
     /** Les objets que l'onglet créatif affiche, dans l'ordre. */
     public static List<RegistryObject<? extends Item>> tabItems() {
-        return List.of(FRIDGE_ITEM, DESALINATOR_ITEM, DRYER_ITEM, SALT, POTABLE_WATER_BOTTLE,
+        return List.of(FRIDGE_ITEM, DESALINATOR_ITEM, DRYER_ITEM, INCUBATOR_ITEM, SALT, POTABLE_WATER_BOTTLE,
                 DRIED_MEAT, DRIED_FISH, DRIED_FRUIT, SALTED_MEAT, SALTED_FISH, SALTED_FRUIT, SPOILED_FOOD);
     }
 }

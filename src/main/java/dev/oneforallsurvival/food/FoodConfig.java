@@ -1,5 +1,6 @@
 package dev.oneforallsurvival.food;
 
+import java.util.List;
 import net.minecraftforge.common.ForgeConfigSpec;
 
 /**
@@ -25,6 +26,11 @@ public final class FoodConfig {
     private static final int DEFAULT_POTABLE_PER_CYCLE = 200;
     private static final int DEFAULT_CYCLES_PER_SALT = 4;
     private static final int DEFAULT_DRYER_ENERGY = 20;
+    private static final List<String> DEFAULT_INCUBATOR_EGGS =
+            List.of("minecraft:egg=minecraft:chicken", "minecraft:turtle_egg=minecraft:turtle");
+    private static final int DEFAULT_INCUBATOR_HATCH_MINUTES = 20;
+    private static final int DEFAULT_INCUBATOR_OUTAGE_SECONDS = 60;
+    private static final int DEFAULT_INCUBATOR_ENERGY = 8;
 
     public static final ForgeConfigSpec SPEC;
 
@@ -38,6 +44,10 @@ public final class FoodConfig {
     private static final ForgeConfigSpec.IntValue POTABLE_PER_CYCLE;
     private static final ForgeConfigSpec.IntValue CYCLES_PER_SALT;
     private static final ForgeConfigSpec.IntValue DRYER_ENERGY;
+    private static final ForgeConfigSpec.ConfigValue<List<? extends String>> INCUBATOR_EGGS;
+    private static final ForgeConfigSpec.IntValue INCUBATOR_HATCH_MINUTES;
+    private static final ForgeConfigSpec.IntValue INCUBATOR_OUTAGE_SECONDS;
+    private static final ForgeConfigSpec.IntValue INCUBATOR_ENERGY;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -75,6 +85,22 @@ public final class FoodConfig {
                 .comment("Énergie (FE) que le séchoir consomme à chaque tick de travail.",
                         "Bornée à ce que sa réserve reçoit par tick (100) : au-delà il ne pourrait plus tourner.")
                 .defineInRange("dryerEnergy", DEFAULT_DRYER_ENERGY, 1, DryerBlockEntity.MAX_RECEIVE);
+        INCUBATOR_EGGS = builder
+                .comment("Les œufs que la couveuse fait éclore, une entrée « objet=entité » chacune.",
+                        "L'animal naît petit. Une entrée mal formée ou inconnue est ignorée (et notée dans le journal).")
+                .defineList("incubatorEggs", DEFAULT_INCUBATOR_EGGS, entry -> entry instanceof String);
+        INCUBATOR_HATCH_MINUTES = builder
+                .comment("Minutes de marche (couveuse alimentée) qu'il faut à chaque œuf pour éclore.",
+                        "Bornée à 27 minutes : la durée voyage au menu dans un entier de 16 bits.")
+                .defineInRange("incubatorHatchMinutes", DEFAULT_INCUBATOR_HATCH_MINUTES, 1, 27);
+        INCUBATOR_OUTAGE_SECONDS = builder
+                .comment("Secondes sans courant (réserve de la couveuse vide) après lesquelles la couvée est perdue.",
+                        "La couveuse est la seule machine qu'une coupure prive de son contenu.")
+                .defineInRange("incubatorOutageSeconds", DEFAULT_INCUBATOR_OUTAGE_SECONDS, 1, 600);
+        INCUBATOR_ENERGY = builder
+                .comment("Énergie (FE) que la couveuse consomme à chaque tick de travail, quel que soit le nombre d'œufs.",
+                        "Bornée à ce que sa réserve reçoit par tick (40) : au-delà elle ne pourrait plus tourner.")
+                .defineInRange("incubatorEnergy", DEFAULT_INCUBATOR_ENERGY, 1, IncubatorBlockEntity.MAX_RECEIVE);
         SPEC = builder.build();
     }
 
@@ -118,6 +144,27 @@ public final class FoodConfig {
 
     public static int dryerEnergy() {
         return read(DRYER_ENERGY, DEFAULT_DRYER_ENERGY);
+    }
+
+    /** La liste de config telle quelle : {@link IncubatorEggs} s'appuie sur son identité pour son cache. */
+    public static List<? extends String> incubatorEggs() {
+        try {
+            return INCUBATOR_EGGS.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_INCUBATOR_EGGS;
+        }
+    }
+
+    public static int incubatorHatchTicks() {
+        return read(INCUBATOR_HATCH_MINUTES, DEFAULT_INCUBATOR_HATCH_MINUTES) * 60 * 20;
+    }
+
+    public static int incubatorOutageTicks() {
+        return read(INCUBATOR_OUTAGE_SECONDS, DEFAULT_INCUBATOR_OUTAGE_SECONDS) * 20;
+    }
+
+    public static int incubatorEnergy() {
+        return read(INCUBATOR_ENERGY, DEFAULT_INCUBATOR_ENERGY);
     }
 
     private static long ticks(double hours) {
