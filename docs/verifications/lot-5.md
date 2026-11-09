@@ -155,3 +155,7 @@ Le défaut du plancher mis à part, aucun défaut du code livré n'a été trouv
 7. **Passage complet : le joueur ne revenait pas chez lui.** L'aire du lot 5 est à 70 blocs : à la relance, le joueur se reconnectait loin des machines des lots 2 à 4, dont les clics échouaient. L'étape le ramène à son point de départ avant le `/stop`, et à la relance elle passe en premier (le compteur de coupure de la seconde couveuse court tant que le monde tourne : les étapes précédentes, longues, l'auraient fait dépasser 60 s).
 8. **Passage complet : les ragoûts de l'étape saturaient la barre d'action** (la plaque et la marmite en donnent quatre, de même date que celui des vivres, donc fondus en piles), si bien que le lot 4 n'y trouvait plus de case libre pour sa « main vide » et ne cliquait pas sur son disjoncteur. L'étape retire ses ragoûts à la fin (le nombre d'avant l'étape reste).
 9. Un joueur resté mort ou noyé par un essai interrompu laisse le passage suivant sans emplacement libre : le fichier du joueur du serveur d'essai (`run-server/world/playerdata`, hors dépôt) a été supprimé entre les essais.
+
+## Après la vérification
+
+Vue à travers les blocs voisins de l'électrificateur, signalée par Killian en jeu (modèle plein sur 11/16, bloc déclaré opaque) : corrigée par `noOcclusion()`. Prouvé par la capture `electrificateur_contre_un_mur.png` de `runDemoVisuels` (2026-11-10, mur de pierre entier derrière le bloc) et par 403 GameTests sans le pack relus après ce changement. Le passage complet avec le pack n'a pas été rejoué pour ce seul changement de rendu.
