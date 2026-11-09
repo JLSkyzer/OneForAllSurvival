@@ -1,6 +1,7 @@
 package dev.oneforallsurvival.bench;
 
 import dev.oneforallsurvival.OneForAllSurvival;
+import dev.oneforallsurvival.fence.FenceRegistry;
 import dev.oneforallsurvival.food.FoodRegistry;
 import dev.oneforallsurvival.grid.GridRegistry;
 import dev.oneforallsurvival.machine.ElectricMachineBlock;
@@ -68,6 +69,7 @@ public final class BenchRegistry {
                         SalvageRegistry.tabItems().forEach(item -> output.accept(item.get()));
                         FoodRegistry.tabItems().forEach(item -> output.accept(item.get()));
                         GridRegistry.tabItems().forEach(item -> output.accept(item.get()));
+                        FenceRegistry.tabItems().forEach(item -> output.accept(item.get()));
                     })
                     .build());
 

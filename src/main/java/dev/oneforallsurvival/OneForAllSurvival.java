@@ -9,6 +9,8 @@ import dev.oneforallsurvival.bench.BenchRegistry;
 import dev.oneforallsurvival.bench.WorkshopTicker;
 import dev.oneforallsurvival.coast.CoastCommands;
 import dev.oneforallsurvival.debug.IslandDebugRequest;
+import dev.oneforallsurvival.fence.FenceConfig;
+import dev.oneforallsurvival.fence.FenceRegistry;
 import dev.oneforallsurvival.food.FoodConfig;
 import dev.oneforallsurvival.food.FoodEvents;
 import dev.oneforallsurvival.food.FoodRegistry;
@@ -45,6 +47,7 @@ public final class OneForAllSurvival {
         SalvageRegistry.register(modEventBus);
         FoodRegistry.register(modEventBus);
         GridRegistry.register(modEventBus);
+        FenceRegistry.register(modEventBus);
         BenchNetwork.register();
         MinecraftForge.EVENT_BUS.register(new RoleEvents());
         MinecraftForge.EVENT_BUS.register(new RoleCommands());
@@ -57,6 +60,7 @@ public final class OneForAllSurvival {
         // SERVER : Forge synchronise ce fichier vers les clients, pour que l'infobulle suive le serveur.
         context.registerConfig(ModConfig.Type.SERVER, FoodConfig.SPEC, "oneforallsurvival-food.toml");
         context.registerConfig(ModConfig.Type.SERVER, GridConfig.SPEC, "oneforallsurvival-grid.toml");
+        context.registerConfig(ModConfig.Type.SERVER, FenceConfig.SPEC, "oneforallsurvival-fence.toml");
         MinecraftForge.EVENT_BUS.addListener(BenchCatalog::onAddReloadListener);
         MinecraftForge.EVENT_BUS.addListener(BenchOverrides::onAddReloadListener);
         MinecraftForge.EVENT_BUS.addListener(BenchCatalog::onTagsUpdated);
