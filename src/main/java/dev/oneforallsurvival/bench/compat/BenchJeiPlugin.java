@@ -41,6 +41,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import vectorwing.farmersdelight.integration.jei.FDRecipeTypes;
 
 /**
  * JEI : une catégorie « Établi d'ingénieur » bâtie sur le catalogue que le client a reçu, l'établi comme
@@ -114,6 +115,8 @@ public final class BenchJeiPlugin implements IModPlugin {
         registration.addRecipeCatalyst(new ItemStack(BenchRegistry.ENGINEER_BENCH_ITEM.get()), TYPE);
         registration.addRecipeCatalyst(new ItemStack(RepairRegistry.GALVANIC_BATH_ITEM.get()), GALVANIC_TYPE);
         registration.addRecipeCatalyst(new ItemStack(FoodRegistry.DRYER_ITEM.get()), DRYING_TYPE);
+        // La marmite de cantine cuit les recettes du Cooking Pot : elle s'ajoute à sa catégorie, sans en créer une.
+        registration.addRecipeCatalyst(new ItemStack(FoodRegistry.CANTEEN_POT_ITEM.get()), FDRecipeTypes.COOKING);
     }
 
     @Override

@@ -331,5 +331,13 @@
   "gui.oneforallsurvival.f3.value.rain": "rain",
   "gui.oneforallsurvival.f3.value.thunder": "thunder",
   "block.oneforallsurvival.hot_plate": "Hot Plate",
+  "block.oneforallsurvival.canteen_pot": "Canteen Pot",
+  "gui.oneforallsurvival.canteen_pot.state": "State: %s",
+  "gui.oneforallsurvival.canteen_pot.state.stopped": "Idle",
+  "gui.oneforallsurvival.canteen_pot.state.running": "Cooking",
+  "gui.oneforallsurvival.canteen_pot.state.no_power": "No power",
+  "gui.oneforallsurvival.canteen_pot.state.fault": "Broken down",
+  "gui.oneforallsurvival.canteen_pot.energy": "%s / %s FE",
+  "gui.oneforallsurvival.canteen_pot.containers": "Containers required: %s",
   "gui.oneforallsurvival.f3.unit.blocks": "blocks"
 }

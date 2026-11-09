@@ -331,5 +331,13 @@
   "gui.oneforallsurvival.f3.value.rain": "pluie",
   "gui.oneforallsurvival.f3.value.thunder": "orage",
   "block.oneforallsurvival.hot_plate": "Plaque électrique",
+  "block.oneforallsurvival.canteen_pot": "Marmite de cantine",
+  "gui.oneforallsurvival.canteen_pot.state": "État : %s",
+  "gui.oneforallsurvival.canteen_pot.state.stopped": "À l'arrêt",
+  "gui.oneforallsurvival.canteen_pot.state.running": "Cuit",
+  "gui.oneforallsurvival.canteen_pot.state.no_power": "Sans courant",
+  "gui.oneforallsurvival.canteen_pot.state.fault": "En panne",
+  "gui.oneforallsurvival.canteen_pot.energy": "%s / %s FE",
+  "gui.oneforallsurvival.canteen_pot.containers": "Récipients requis : %s",
   "gui.oneforallsurvival.f3.unit.blocks": "blocs"
 }

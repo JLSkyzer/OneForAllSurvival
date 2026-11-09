@@ -32,6 +32,8 @@ public final class FoodConfig {
     private static final int DEFAULT_INCUBATOR_OUTAGE_SECONDS = 60;
     private static final int DEFAULT_INCUBATOR_ENERGY = 8;
     private static final int DEFAULT_HOT_PLATE_ENERGY = 10;
+    private static final int DEFAULT_CANTEEN_POT_ENERGY = 30;
+    private static final int DEFAULT_CANTEEN_POT_PORTIONS = 3;
 
     public static final ForgeConfigSpec SPEC;
 
@@ -50,6 +52,8 @@ public final class FoodConfig {
     private static final ForgeConfigSpec.IntValue INCUBATOR_OUTAGE_SECONDS;
     private static final ForgeConfigSpec.IntValue INCUBATOR_ENERGY;
     private static final ForgeConfigSpec.IntValue HOT_PLATE_ENERGY;
+    private static final ForgeConfigSpec.IntValue CANTEEN_POT_ENERGY;
+    private static final ForgeConfigSpec.IntValue CANTEEN_POT_PORTIONS;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -107,6 +111,14 @@ public final class FoodConfig {
                 .comment("Énergie (FE) que la plaque électrique consomme à chaque tick où un ustensile est posé dessus.",
                         "Bornée à ce que sa réserve reçoit par tick (60) : au-delà elle ne pourrait plus tourner.")
                 .defineInRange("hotPlateEnergy", DEFAULT_HOT_PLATE_ENERGY, 1, HotPlateBlockEntity.MAX_RECEIVE);
+        CANTEEN_POT_ENERGY = builder
+                .comment("Énergie (FE) que la marmite de cantine consomme à chaque tick de cuisson.",
+                        "Bornée à ce que sa réserve reçoit par tick (200) : au-delà elle ne pourrait plus tourner.")
+                .defineInRange("canteenPotEnergy", DEFAULT_CANTEEN_POT_ENERGY, 1, CanteenPotBlockEntity.MAX_RECEIVE);
+        CANTEEN_POT_PORTIONS = builder
+                .comment("Combien de fois le résultat d'une recette la marmite de cantine donne, pour un seul jeu d'ingrédients.",
+                        "Chaque portion exige un récipient (un bol pour un ragoût), payé en fin de cuisson.")
+                .defineInRange("canteenPotPortions", DEFAULT_CANTEEN_POT_PORTIONS, 2, 16);
         SPEC = builder.build();
     }
 
@@ -175,6 +187,14 @@ public final class FoodConfig {
 
     public static int hotPlateEnergy() {
         return read(HOT_PLATE_ENERGY, DEFAULT_HOT_PLATE_ENERGY);
+    }
+
+    public static int canteenPotEnergy() {
+        return read(CANTEEN_POT_ENERGY, DEFAULT_CANTEEN_POT_ENERGY);
+    }
+
+    public static int canteenPotPortions() {
+        return read(CANTEEN_POT_PORTIONS, DEFAULT_CANTEEN_POT_PORTIONS);
     }
 
     private static long ticks(double hours) {

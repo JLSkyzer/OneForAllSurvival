@@ -18,7 +18,6 @@ import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.IItemHandlerModifiable;
 import net.minecraftforge.items.ItemStackHandler;
-import net.minecraftforge.items.wrapper.RangedWrapper;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -61,7 +60,7 @@ public final class DryerBlockEntity extends ElectricMachineBlockEntity {
         @Override
         public boolean isItemValid(int slot, @NotNull ItemStack stack) {
             return switch (slot) {
-                case SLOT_INPUT -> !isSpoiled(stack) && anyRecipe(r -> r.acceptsInput(stack));
+                case SLOT_INPUT -> !FoodOutput.isSpoiled(level, stack) && anyRecipe(r -> r.acceptsInput(stack));
                 case SLOT_SALT -> stack.is(FoodTags.SALT);
                 default -> false;
             };
@@ -104,9 +103,9 @@ public final class DryerBlockEntity extends ElectricMachineBlockEntity {
     };
 
     private LazyOptional<IItemHandler> allCap = LazyOptional.of(() -> items);
-    private LazyOptional<IItemHandler> topCap = LazyOptional.of(() -> new Face(items, SLOT_INPUT, true, false));
-    private LazyOptional<IItemHandler> sideCap = LazyOptional.of(() -> new Face(items, SLOT_SALT, true, false));
-    private LazyOptional<IItemHandler> bottomCap = LazyOptional.of(() -> new Face(items, SLOT_OUTPUT, false, true));
+    private LazyOptional<IItemHandler> topCap = LazyOptional.of(() -> new FacedSlots(items, SLOT_INPUT, SLOT_INPUT + 1, true, false));
+    private LazyOptional<IItemHandler> sideCap = LazyOptional.of(() -> new FacedSlots(items, SLOT_SALT, SLOT_SALT + 1, true, false));
+    private LazyOptional<IItemHandler> bottomCap = LazyOptional.of(() -> new FacedSlots(items, SLOT_OUTPUT, SLOT_OUTPUT + 1, false, true));
 
     /** Ticks de travail du séchage en cours. */
     private int progress;
@@ -140,14 +139,6 @@ public final class DryerBlockEntity extends ElectricMachineBlockEntity {
     // ---------------------------------------------------------------------------------------------
     // Recette
     // ---------------------------------------------------------------------------------------------
-
-    /** Un déchet, ou un aliment dont la date est passée : ce n'est plus une entrée. */
-    private boolean isSpoiled(ItemStack stack) {
-        if (stack.is(FoodRegistry.SPOILED_FOOD.get())) {
-            return true;
-        }
-        return level != null && FoodStamp.state(stack, FoodStamp.now(level)) == DecayState.SPOILED;
-    }
 
     private boolean anyRecipe(Predicate<DryingRecipe> test) {
         if (level == null) {
@@ -206,13 +197,6 @@ public final class DryerBlockEntity extends ElectricMachineBlockEntity {
         return !salt.isEmpty() && salt.is(FoodTags.SALT);
     }
 
-    private boolean outputFits(ItemStack result) {
-        ItemStack out = items.getStackInSlot(SLOT_OUTPUT);
-        // Sans la date : ouvrir le menu date la ration séchée de la sortie, le résultat neuf n'en a pas.
-        return out.isEmpty() || (FoodEvents.sameWithoutStamp(out, result)
-                && out.getCount() + result.getCount() <= out.getMaxStackSize());
-    }
-
     // ---------------------------------------------------------------------------------------------
     // Travail
     // ---------------------------------------------------------------------------------------------
@@ -220,10 +204,10 @@ public final class DryerBlockEntity extends ElectricMachineBlockEntity {
     @Override
     protected boolean wantsToWork() {
         DryingRecipe recipe = currentRecipe();
-        if (recipe == null || isSpoiled(items.getStackInSlot(SLOT_INPUT))) {
+        if (recipe == null || FoodOutput.isSpoiled(level, items.getStackInSlot(SLOT_INPUT))) {
             return false;
         }
-        return outputFits(recipe.resultFor(salted()));
+        return FoodOutput.fits(items.getStackInSlot(SLOT_OUTPUT), recipe.resultFor(salted()));
     }
 
     @Override
@@ -252,20 +236,7 @@ public final class DryerBlockEntity extends ElectricMachineBlockEntity {
         if (salted) {
             items.extractItem(SLOT_SALT, 1, false);
         }
-        ItemStack out = items.getStackInSlot(SLOT_OUTPUT);
-        if (out.isEmpty()) {
-            items.setStackInSlot(SLOT_OUTPUT, result);
-        } else {
-            ItemStack grown = out.copy();
-            if (FoodStamp.isStamped(grown)) {
-                // Sortie datée : le résultat neuf prend sa place dans la pile, à la date moyenne, comme deux piles qui se joignent.
-                FoodStamp.setStamp(result, FoodDecay.roundDown(FoodStamp.now(level)));
-                FoodEvents.merge(grown, result, grown.getMaxStackSize());
-            } else {
-                grown.grow(result.getCount());
-            }
-            items.setStackInSlot(SLOT_OUTPUT, grown);
-        }
+        FoodOutput.place(items, SLOT_OUTPUT, result, level);
         progress = 0;
     }
 
@@ -283,35 +254,6 @@ public final class DryerBlockEntity extends ElectricMachineBlockEntity {
     // ---------------------------------------------------------------------------------------------
     // Faces
     // ---------------------------------------------------------------------------------------------
-
-    /** Une face ne voit qu'une case : elle y insère, en extrait, ou les deux selon son rôle. */
-    private static final class Face extends RangedWrapper {
-        private final boolean canInsert;
-        private final boolean canExtract;
-
-        Face(IItemHandlerModifiable handler, int slot, boolean canInsert, boolean canExtract) {
-            super(handler, slot, slot + 1);
-            this.canInsert = canInsert;
-            this.canExtract = canExtract;
-        }
-
-        @NotNull
-        @Override
-        public ItemStack insertItem(int slot, @NotNull ItemStack stack, boolean simulate) {
-            return canInsert ? super.insertItem(slot, stack, simulate) : stack;
-        }
-
-        @NotNull
-        @Override
-        public ItemStack extractItem(int slot, int amount, boolean simulate) {
-            return canExtract ? super.extractItem(slot, amount, simulate) : ItemStack.EMPTY;
-        }
-
-        @Override
-        public boolean isItemValid(int slot, @NotNull ItemStack stack) {
-            return canInsert && super.isItemValid(slot, stack);
-        }
-    }
 
     @NotNull
     @Override
@@ -342,9 +284,9 @@ public final class DryerBlockEntity extends ElectricMachineBlockEntity {
     public void reviveCaps() {
         super.reviveCaps();
         allCap = LazyOptional.of(() -> items);
-        topCap = LazyOptional.of(() -> new Face(items, SLOT_INPUT, true, false));
-        sideCap = LazyOptional.of(() -> new Face(items, SLOT_SALT, true, false));
-        bottomCap = LazyOptional.of(() -> new Face(items, SLOT_OUTPUT, false, true));
+        topCap = LazyOptional.of(() -> new FacedSlots(items, SLOT_INPUT, SLOT_INPUT + 1, true, false));
+        sideCap = LazyOptional.of(() -> new FacedSlots(items, SLOT_SALT, SLOT_SALT + 1, true, false));
+        bottomCap = LazyOptional.of(() -> new FacedSlots(items, SLOT_OUTPUT, SLOT_OUTPUT + 1, false, true));
     }
 
     // ---------------------------------------------------------------------------------------------

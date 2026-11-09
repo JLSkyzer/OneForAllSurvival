@@ -68,7 +68,7 @@ public final class FoodClient {
         return bar;
     }
 
-    /** Les écrans de l'armoire, du dessalinisateur, du séchoir et de la couveuse s'enregistrent sur le bus du mod, au démarrage du client. */
+    /** Les écrans de l'armoire, du dessalinisateur, du séchoir, de la couveuse et de la marmite de cantine s'enregistrent sur le bus du mod, au démarrage du client. */
     @Mod.EventBusSubscriber(modid = OneForAllSurvival.MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
     public static final class ModBus {
 
@@ -81,6 +81,7 @@ public final class FoodClient {
                 MenuScreens.register(FoodRegistry.DESALINATOR_MENU.get(), DesalinatorScreen::new);
                 MenuScreens.register(FoodRegistry.DRYER_MENU.get(), DryerScreen::new);
                 MenuScreens.register(FoodRegistry.INCUBATOR_MENU.get(), IncubatorScreen::new);
+                MenuScreens.register(FoodRegistry.CANTEEN_POT_MENU.get(), CanteenPotScreen::new);
             });
         }
     }

@@ -27,7 +27,7 @@ import net.minecraftforge.registries.RegistryObject;
 
 /**
  * Les objets de la péremption (le déchet, ce qu'un aliment avarié devient, l'armoire frigorifique), ceux du
- * dessalinisateur (le sel, l'eau potable, sa bouteille, la machine) et ceux du séchoir (la machine, sa recette, les rations) la couveuse et la plaque électrique.
+ * dessalinisateur (le sel, l'eau potable, sa bouteille, la machine) et ceux du séchoir (la machine, sa recette, les rations) la couveuse, la plaque électrique et la marmite de cantine.
  */
 public final class FoodRegistry {
 
@@ -119,6 +119,16 @@ public final class FoodRegistry {
     public static final RegistryObject<BlockEntityType<HotPlateBlockEntity>> HOT_PLATE_BE =
             BLOCK_ENTITIES.register("hot_plate", () -> BlockEntityType.Builder
                     .of(HotPlateBlockEntity::new, HOT_PLATE.get()).build(null));
+    public static final RegistryObject<Block> CANTEEN_POT = BLOCKS.register("canteen_pot",
+            () -> new CanteenPotBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL)
+                    .strength(3.0F).sound(SoundType.METAL).requiresCorrectToolForDrops()));
+    public static final RegistryObject<Item> CANTEEN_POT_ITEM = ITEMS.register("canteen_pot",
+            () -> new BlockItem(CANTEEN_POT.get(), new Item.Properties()));
+    public static final RegistryObject<BlockEntityType<CanteenPotBlockEntity>> CANTEEN_POT_BE =
+            BLOCK_ENTITIES.register("canteen_pot", () -> BlockEntityType.Builder
+                    .of(CanteenPotBlockEntity::new, CANTEEN_POT.get()).build(null));
+    public static final RegistryObject<MenuType<CanteenPotMenu>> CANTEEN_POT_MENU =
+            MENUS.register("canteen_pot", () -> IForgeMenuType.create(CanteenPotMenu::fromNetwork));
     public static final RegistryObject<RecipeType<DryingRecipe>> DRYING_TYPE =
             RECIPE_TYPES.register("drying", () -> new RecipeType<>() {
                 @Override
@@ -169,7 +179,7 @@ public final class FoodRegistry {
 
     /** Les objets que l'onglet créatif affiche, dans l'ordre. */
     public static List<RegistryObject<? extends Item>> tabItems() {
-        return List.of(FRIDGE_ITEM, DESALINATOR_ITEM, DRYER_ITEM, INCUBATOR_ITEM, HOT_PLATE_ITEM, SALT, POTABLE_WATER_BOTTLE,
+        return List.of(FRIDGE_ITEM, DESALINATOR_ITEM, DRYER_ITEM, INCUBATOR_ITEM, HOT_PLATE_ITEM, CANTEEN_POT_ITEM, SALT, POTABLE_WATER_BOTTLE,
                 DRIED_MEAT, DRIED_FISH, DRIED_FRUIT, SALTED_MEAT, SALTED_FISH, SALTED_FRUIT, SPOILED_FOOD);
     }
 }
