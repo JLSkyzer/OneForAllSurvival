@@ -21,6 +21,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraftforge.fml.ModList;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -42,6 +43,8 @@ public final class ElectrifierBlockEntity extends ElectricMachineBlockEntity {
     private static final int SPARK_PERIOD = 20;
     /** Marge dont on gonfle la boîte d'un vivant pour juger qu'il touche une clôture. */
     private static final double CONTACT_MARGIN = 0.08;
+    /** Points de membre que la tête et le torse d'un joueur gardent sous First Aid. */
+    private static final float LIMB_MARGIN = 1.0f;
     /** Le dernier tick de jeu où chaque vivant a été choqué, par n'importe quel électrificateur (thread serveur seul). */
     private static final Map<Entity, Long> LAST_SHOCK = new WeakHashMap<>();
 
@@ -204,6 +207,14 @@ public final class ElectrifierBlockEntity extends ElectricMachineBlockEntity {
             lethal = false;
         }
         float damage = FenceRules.damageFor(entity.getHealth(), amount, (float) FenceConfig.safeHealth(), lethal);
+        if (damage > 0 && !lethal && entity instanceof Player player && ModList.get().isLoaded("firstaid")) {
+            // First Aid tue à tête ou torse nul, quelle que soit la vie totale : ces membres gardent un point.
+            float limb = FirstAidLimbs.weakestCriticalLimb(player);
+            if (!Float.isNaN(limb)) {
+                damage = FenceRules.damageForLimbs(entity.getHealth(), limb, amount, (float) FenceConfig.safeHealth(),
+                        LIMB_MARGIN);
+            }
+        }
         if (damage > 0) {
             DamageSource source = new DamageSource(
                     serverLevel.registryAccess().registryOrThrow(Registries.DAMAGE_TYPE).getHolderOrThrow(FenceRegistry.DAMAGE_TYPE));

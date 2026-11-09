@@ -48,4 +48,23 @@ class FenceRulesTest {
     void ceQuiPeutTuerIgnoreLePlancher() {
         assertEquals(1f, FenceRules.damageFor(1f, 1f, 4f, true));
     }
+
+    @Test
+    void lesMembresCritiquesGardentUnePointDeMarge() {
+        // Vie vanilla haute, tête à 3 : au plus 2 points, la tête garde 1.
+        assertEquals(1f, FenceRules.damageForLimbs(20f, 3f, 1f, 4f, 1f));
+        assertEquals(0.5f, FenceRules.damageForLimbs(20f, 1.5f, 1f, 4f, 1f));
+        // La marge atteinte : plus rien, la tête presque vide ne reçoit aucun choc.
+        assertEquals(0f, FenceRules.damageForLimbs(20f, 1f, 1f, 4f, 1f));
+        assertEquals(0f, FenceRules.damageForLimbs(20f, 0.0035f, 1f, 4f, 1f));
+    }
+
+    @Test
+    void leMoinsPermissifDesDeuxPlanchersGagne() {
+        // Membres sains : le plancher vanilla décide.
+        assertEquals(0.5f, FenceRules.damageForLimbs(4.5f, 4f, 1f, 4f, 1f));
+        assertEquals(0f, FenceRules.damageForLimbs(4f, 6f, 1f, 4f, 1f));
+        // Membre faible : le plancher des membres décide, malgré une vie haute.
+        assertEquals(0.25f, FenceRules.damageForLimbs(15f, 1.25f, 1f, 4f, 1f));
+    }
 }
