@@ -45,7 +45,7 @@ public final class FenceRegistry {
 
     public static final RegistryObject<Block> ELECTRIFIER = BLOCKS.register("electrifier",
             () -> new ElectrifierBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL)
-                    .strength(3.0F).sound(SoundType.METAL).requiresCorrectToolForDrops()));
+                    .strength(3.0F).sound(SoundType.METAL).requiresCorrectToolForDrops().noOcclusion()));
     public static final RegistryObject<Item> ELECTRIFIER_ITEM = ITEMS.register("electrifier",
             () -> new BlockItem(ELECTRIFIER.get(), new Item.Properties()));
     public static final RegistryObject<BlockEntityType<ElectrifierBlockEntity>> ELECTRIFIER_BE =

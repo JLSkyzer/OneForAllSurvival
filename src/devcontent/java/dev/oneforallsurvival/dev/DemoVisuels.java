@@ -370,6 +370,13 @@ public final class DemoVisuels {
         }
         monde.setBlock(debut.offset(7, 0, 0), Blocks.OAK_FENCE.defaultBlockState(), 3);
         ALIMENTES.add(debut);
+        // Contre un mur : son modèle n'est plein que sur 11/16, les faces voisines doivent rester dessinées.
+        BlockPos contreMur = LOT5_BLOCS[2][0].offset(-5, 0, 0);
+        monde.setBlock(contreMur, FenceRegistry.ELECTRIFIER.get().defaultBlockState(), 3);
+        for (BlockPos mur : List.of(contreMur.north(), contreMur.west())) {
+            monde.setBlock(mur, Blocks.STONE.defaultBlockState(), 3);
+            monde.setBlock(mur.above(), Blocks.STONE.defaultBlockState(), 3);
+        }
         lot5Pose = true;
     }
 
@@ -831,6 +838,7 @@ public final class DemoVisuels {
         }
         vue(mc, "electrificateur_les_quatre.png", LOT5_BLOCS[2][1].offset(2, 0, 0), new Vec3(0.0, 2.2, 6.5), false);
         vue(mc, "electrificateur_dessus.png", LOT5_BLOCS[2][0], new Vec3(0.4, 1.9, 0.7), false);
+        vue(mc, "electrificateur_contre_un_mur.png", LOT5_BLOCS[2][0].offset(-5, 0, 0), new Vec3(1.1, 1.3, 1.6), false);
         vue(mc, "cloture_ligne.png", cloture.offset(3, 0, -1), new Vec3(3.0, 3.0, 8.0), false);
         vue(mc, "cloture_poteau.png", cloture.offset(3, 0, 0), new Vec3(1.2, 0.9, 2.0), false);
         vue(mc, "cloture_coude_dessus.png", cloture.offset(6, 0, -1), new Vec3(1.0, 4.5, 3.0), false);
