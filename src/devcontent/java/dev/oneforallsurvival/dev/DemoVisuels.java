@@ -4,12 +4,17 @@ import com.mojang.blaze3d.platform.NativeImage;
 import dev.oneforallsurvival.bench.BenchRegistry;
 import dev.oneforallsurvival.bench.client.EngineerBenchScreen;
 import dev.oneforallsurvival.food.DesalinatorBlockEntity;
+import dev.oneforallsurvival.fence.FenceRegistry;
+import dev.oneforallsurvival.food.CanteenPotBlockEntity;
 import dev.oneforallsurvival.food.DryerBlockEntity;
 import dev.oneforallsurvival.food.FoodRegistry;
 import dev.oneforallsurvival.food.FridgeBlockEntity;
+import dev.oneforallsurvival.food.IncubatorBlockEntity;
+import dev.oneforallsurvival.food.client.CanteenPotScreen;
 import dev.oneforallsurvival.food.client.DesalinatorScreen;
 import dev.oneforallsurvival.food.client.DryerScreen;
 import dev.oneforallsurvival.food.client.FridgeScreen;
+import dev.oneforallsurvival.food.client.IncubatorScreen;
 import dev.oneforallsurvival.grid.BreakerBlock;
 import dev.oneforallsurvival.grid.GridRegistry;
 import dev.oneforallsurvival.grid.LoadShedderBlockEntity;
@@ -79,11 +84,12 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 /**
- * Capture de contrôle des visuels des lots 2, 3 et 4 (développement seulement, jamais empaqueté). Un client qui se
+ * Capture de contrôle des visuels des lots 2 à 5 (développement seulement, jamais empaqueté). Un client qui se
  * pilote seul : il monte le bain, l'armoire, le dessalinisateur et le séchoir dans leurs quatre états réels, les
  * cinq débris, un mur de cadres avec tous les objets, une grille des objets du lot 3 à côté d'un steak, le matériel
- * du réseau (délesteurs, disjoncteurs, compteur, parafoudres, stations sous trois temps), puis ouvre les écrans des
- * machines, du délesteur et de l'abonné, l'établi et les catégories JEI, et écrit une image par vue dans
+ * du réseau (délesteurs, disjoncteurs, compteur, parafoudres, stations sous trois temps), le matériel du lot 5
+ * (couveuse, marmite de cantine, électrificateur et plaque dans leurs quatre états, une ligne de clôture), puis ouvre
+ * les écrans des machines, du délesteur et de l'abonné, l'établi et les catégories JEI, et écrit une image par vue dans
  * {@code visuels-captures}. Activé par {@code -Doneforallsurvival.demo.visuels}.
  */
 @Mod.EventBusSubscriber(modid = "oneforallsurvival", bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
@@ -119,6 +125,16 @@ public final class DemoVisuels {
     private static BlockPos parafoudrePanne;
     private static BlockPos station;
     private static BlockPos stationEteinte;
+
+    /** Le matériel du lot 5, à côté de ce qui lui ressemble dans Minecraft, pour juger la lisibilité. */
+    private static final String[] LOT5 = {"incubator", "hot_plate", "canteen_pot", "electrifier", "electric_fence",
+        "minecraft:egg", "minecraft:furnace", "farmersdelight:cooking_pot", "minecraft:iron_bars", "minecraft:oak_fence",
+        "minecraft:cauldron", "minecraft:redstone_lamp"};
+    /** Une rangée par machine du lot 5 (couveuse, marmite, électrificateur, plaque), un bloc par état. */
+    private static final BlockPos[][] LOT5_BLOCS = new BlockPos[4][4];
+    private static BlockPos origine;
+    private static BlockPos cloture;
+    private static volatile boolean lot5Pose;
 
     private enum Phase { TITRE, ATTENTE_MONDE, PREPARATION, SCENARIO, FIN }
 
@@ -294,7 +310,67 @@ public final class DemoVisuels {
             dryer.inventory().setStackInSlot(DryerBlockEntity.SLOT_INPUT, new ItemStack(Items.BEEF, 8));
             dryer.inventory().setStackInSlot(DryerBlockEntity.SLOT_SALT, new ItemStack(FoodRegistry.SALT.get(), 4));
             dryer.inventory().setStackInSlot(DryerBlockEntity.SLOT_OUTPUT, new ItemStack(FoodRegistry.SALTED_MEAT.get(), 3));
+        } else if (be instanceof IncubatorBlockEntity couveuse) {
+            for (int i = 0; i < IncubatorBlockEntity.SLOTS; i++) {
+                couveuse.inventory().setStackInSlot(i, new ItemStack(Items.EGG));
+            }
+        } else if (be instanceof CanteenPotBlockEntity marmite) {
+            marmite.inventory().setStackInSlot(0, new ItemStack(Items.BEEF, 2));
+            marmite.inventory().setStackInSlot(1, new ItemStack(Items.CARROT, 2));
+            marmite.inventory().setStackInSlot(2, new ItemStack(Items.POTATO, 2));
+            marmite.inventory().setStackInSlot(CanteenPotBlockEntity.SLOT_CONTAINER, new ItemStack(Items.BOWL, 6));
         }
+    }
+
+    /**
+     * Le lot 5, posé au moment où ses vues commencent (et non avec le reste) : une couveuse sans courant perd sa
+     * couvée au bout d'une minute, et son état changerait avant la capture. Une rangée par machine, quatre états :
+     * vide, alimentée, sans courant, en panne. La plaque a son ustensile de Farmer's Delight dessus, l'électrificateur
+     * sa clôture, sans quoi aucun des deux ne travaille.
+     */
+    private static void preparerLot5(MinecraftServer serveur) {
+        ServerLevel monde = serveur.overworld();
+        Block marmite = ForgeRegistries.BLOCKS.getValue(new ResourceLocation("farmersdelight", "cooking_pot"));
+        List<Block> blocs = List.of(FoodRegistry.INCUBATOR.get(), FoodRegistry.CANTEEN_POT.get(),
+                FenceRegistry.ELECTRIFIER.get(), FoodRegistry.HOT_PLATE.get());
+        for (int m = 0; m < 4; m++) {
+            for (int e = 0; e < 4; e++) {
+                BlockPos p = LOT5_BLOCS[m][e];
+                var etat = blocs.get(m).defaultBlockState();
+                if (m < 2) {
+                    etat = etat.setValue(HorizontalDirectionalBlock.FACING, Direction.SOUTH);
+                }
+                monde.setBlock(p, etat, 3);
+                var be = (ElectricMachineBlockEntity) monde.getBlockEntity(p);
+                if (e != 0) {
+                    garnirMachine(be);
+                    if (m == 2) {
+                        monde.setBlock(p.east(), FenceRegistry.ELECTRIC_FENCE.get().defaultBlockState(), 3);
+                        monde.setBlock(p.east(2), FenceRegistry.ELECTRIC_FENCE.get().defaultBlockState(), 3);
+                    } else if (m == 3) {
+                        monde.setBlock(p.above(), marmite.defaultBlockState(), 3);
+                    }
+                }
+                if (e == 1) {
+                    ALIMENTES.add(p);
+                } else if (e == 3) {
+                    be.breakDown(FaultType.FUSE);
+                }
+            }
+        }
+        // Une ligne de clôture : l'électrificateur, six clôtures, un coude, et une clôture en bois au bout (elle ne se
+        // raccorde pas : ce n'est pas la même clôture).
+        BlockPos debut = cloture;
+        monde.setBlock(debut, FenceRegistry.ELECTRIFIER.get().defaultBlockState(), 3);
+        for (int i = 1; i <= 6; i++) {
+            monde.setBlock(debut.offset(i, 0, 0), FenceRegistry.ELECTRIC_FENCE.get().defaultBlockState(), 3);
+        }
+        for (int i = 1; i <= 3; i++) {
+            monde.setBlock(debut.offset(6, 0, -i), FenceRegistry.ELECTRIC_FENCE.get().defaultBlockState(), 3);
+        }
+        monde.setBlock(debut.offset(7, 0, 0), Blocks.OAK_FENCE.defaultBlockState(), 3);
+        ALIMENTES.add(debut);
+        lot5Pose = true;
     }
 
     private static GalvanicBathBlockEntity poserBain(ServerLevel monde, BlockPos p) {
@@ -315,6 +391,15 @@ public final class DemoVisuels {
         BlockPos ici = joueur.blockPosition();
         int y = monde.getHeight(Heightmap.Types.MOTION_BLOCKING, ici.getX(), ici.getZ());
         BlockPos o = new BlockPos(ici.getX(), y, ici.getZ());
+        origine = o;
+        // Les positions du lot 5 sont connues d'avance (les vues les lisent à la construction du scénario) ; les blocs,
+        // eux, ne sont posés qu'à l'étape « pose du lot 5 ».
+        for (int m = 0; m < 4; m++) {
+            for (int e = 0; e < 4; e++) {
+                LOT5_BLOCS[m][e] = o.offset(4 * e, 0, -46 - 6 * m);
+            }
+        }
+        cloture = o.offset(0, 0, -76);
 
         // Les quatre états, par les vrais chemins du bloc : vide, alimenté, sans courant, en panne.
         for (int i = 0; i < 4; i++) {
@@ -627,12 +712,15 @@ public final class DemoVisuels {
         meteo(mc, null, false, false, WeatherForecast.Trend.STABLE);
         vue(mc, "parafoudres_stations.png", parafoudre.offset(5, 0, 0), new Vec3(0.0, 2.2, 6.5), false);
 
+        construireLot5(mc, sudEst);
+
         etape("grille", () -> {
             mc.options.hideGui = false;
             mc.setScreen(new Grille(OBJETS, 4));
         }, () -> true, 800, "objets_grille.png");
         etape("grille vivres", () -> mc.setScreen(new Grille(VIVRES, 3)), () -> true, 800, "vivres_grille.png");
         etape("grille reseau", () -> mc.setScreen(new Grille(RESEAU, 2)), () -> true, 800, "reseau_grille.png");
+        etape("grille lot 5", () -> mc.setScreen(new Grille(LOT5, 2)), () -> true, 800, "lot5_grille.png");
         // En survie : en créatif, ce même écran s'ouvre sur les onglets et cache l'inventaire.
         etape("inventaire", () -> mc.getSingleplayerServer().execute(() -> mc.getSingleplayerServer().getPlayerList()
                 .getPlayers().get(0).setGameMode(GameType.SURVIVAL)), () -> !mc.player.getAbilities().instabuild, 500, null);
@@ -663,6 +751,10 @@ public final class DemoVisuels {
                 new ResourceLocation("oneforallsurvival", "load_shedder")), () -> true, 800, "etabli_delesteur.png");
         etape("etabli scelle", () -> ((EngineerBenchScreen) mc.screen).selectById(
                 new ResourceLocation("oneforallsurvival", "seal")), () -> true, 800, "etabli_scelle.png");
+        etape("etabli couveuse", () -> ((EngineerBenchScreen) mc.screen).selectById(
+                new ResourceLocation("oneforallsurvival", "incubator")), () -> true, 800, "etabli_couveuse.png");
+        etape("etabli cloture", () -> ((EngineerBenchScreen) mc.screen).selectById(
+                new ResourceLocation("oneforallsurvival", "electric_fence")), () -> true, 800, "etabli_cloture.png");
         Class<?>[] ecrans = {FridgeScreen.class, DesalinatorScreen.class, DryerScreen.class};
         for (int m = 0; m < 3; m++) {
             int n = m;
@@ -695,6 +787,62 @@ public final class DemoVisuels {
             fermer(mc);
             montrerDansJei(mc, "GALVANIC_TYPE");
         }, () -> ecranJei(mc), 1500, "jei_bain.png");
+    }
+
+    /**
+     * Le lot 5 : chaque machine dans ses quatre états, de jour, face au sud, la couveuse d'abord (ses écrans suivent
+     * tout de suite, avant que la couvée sans courant ne soit perdue), puis la marmite, la plaque, l'électrificateur
+     * et la ligne de clôture.
+     */
+    private static void construireLot5(Minecraft mc, Vec3 sudEst) {
+        etape("pose du lot 5", () -> {
+            MinecraftServer serveur = mc.getSingleplayerServer();
+            serveur.execute(() -> preparerLot5(serveur));
+        }, () -> lot5Pose, 2500, null);
+        Vec3 arriereDessus = new Vec3(-1.5, 1.6, -1.7);
+        for (int e = 0; e < 4; e++) {
+            int k = e;
+            etape("vue couveuse " + ETATS[k], () -> regarder(mc, LOT5_BLOCS[0][k], sudEst, false), () -> true, 1500,
+                    "couveuse_" + ETATS[k] + "_jour.png");
+        }
+        for (int e : new int[] {1, 2, 3}) {
+            int k = e;
+            etape("ecran couveuse " + ETATS[k], () -> {
+                fermer(mc);
+                ouvrir(mc, LOT5_BLOCS[0][k]);
+            }, () -> mc.screen instanceof IncubatorScreen, 1500, "ecran_couveuse_" + ETATS[k] + ".png");
+        }
+        vue(mc, "couveuse_les_quatre.png", LOT5_BLOCS[0][1].offset(2, 0, 0), new Vec3(0.0, 2.2, 5.5), false);
+        vue(mc, "couveuse_arriere_dessus.png", LOT5_BLOCS[0][1], arriereDessus, false);
+        vue(mc, "couveuse_marche_nuit.png", LOT5_BLOCS[0][1], sudEst, true);
+        for (int e = 0; e < 4; e++) {
+            vue(mc, "marmite_" + ETATS[e] + "_jour.png", LOT5_BLOCS[1][e], sudEst, false);
+        }
+        vue(mc, "marmite_les_quatre.png", LOT5_BLOCS[1][1].offset(2, 0, 0), new Vec3(0.0, 2.2, 5.5), false);
+        vue(mc, "marmite_arriere_dessus.png", LOT5_BLOCS[1][1], arriereDessus, false);
+        for (int e = 0; e < 4; e++) {
+            vue(mc, "plaque_" + ETATS[e] + "_jour.png", LOT5_BLOCS[3][e], sudEst.add(0, 0.3, 0), false);
+        }
+        vue(mc, "plaque_les_quatre.png", LOT5_BLOCS[3][1].offset(2, 0, 0), new Vec3(0.0, 2.6, 5.5), false);
+        vue(mc, "plaque_allumee_nuit.png", LOT5_BLOCS[3][1], sudEst.add(0, 0.3, 0), true);
+        vue(mc, "plaque_allumee_dessus.png", LOT5_BLOCS[3][1].above(), new Vec3(0.4, 2.0, 0.9), true);
+        for (int e = 0; e < 4; e++) {
+            vue(mc, "electrificateur_" + ETATS[e] + "_jour.png", LOT5_BLOCS[2][e], sudEst, false);
+        }
+        vue(mc, "electrificateur_les_quatre.png", LOT5_BLOCS[2][1].offset(2, 0, 0), new Vec3(0.0, 2.2, 6.5), false);
+        vue(mc, "electrificateur_dessus.png", LOT5_BLOCS[2][0], new Vec3(0.4, 1.9, 0.7), false);
+        vue(mc, "cloture_ligne.png", cloture.offset(3, 0, -1), new Vec3(3.0, 3.0, 8.0), false);
+        vue(mc, "cloture_poteau.png", cloture.offset(3, 0, 0), new Vec3(1.2, 0.9, 2.0), false);
+        vue(mc, "cloture_coude_dessus.png", cloture.offset(6, 0, -1), new Vec3(1.0, 4.5, 3.0), false);
+        vue(mc, "cloture_et_bois.png", cloture.offset(7, 0, 0), new Vec3(1.6, 1.2, 2.6), false);
+        for (int e : new int[] {1, 2, 3}) {
+            int k = e;
+            etape("ecran marmite " + ETATS[k], () -> {
+                fermer(mc);
+                ouvrir(mc, LOT5_BLOCS[1][k]);
+            }, () -> mc.screen instanceof CanteenPotScreen, 1500, "ecran_marmite_" + ETATS[k] + ".png");
+        }
+        etape("fin du lot 5", () -> fermer(mc), () -> true, 300, null);
     }
 
     private static void souris(Minecraft mc) {

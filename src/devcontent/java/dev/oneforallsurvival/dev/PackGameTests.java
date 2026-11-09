@@ -144,7 +144,13 @@ public final class PackGameTests {
                 new Materiel("breaker", 5, 1, true, false),
                 new Materiel("seal", 3, 4, false, false),
                 new Materiel("surge_arrester", 6, 1, true, false),
-                new Materiel("weather_station", 6, 1, true, false))) {
+                new Materiel("weather_station", 6, 1, true, false),
+                // Lot 5 : vivres et protection. La clôture demande le fil barbelé de Crafts & Additions et en donne huit.
+                new Materiel("incubator", 7, 1, true, false),
+                new Materiel("hot_plate", 5, 1, true, false),
+                new Materiel("canteen_pot", 6, 1, true, false),
+                new Materiel("electrifier", 6, 1, true, false),
+                new Materiel("electric_fence", 5, 8, true, true))) {
             Item item = objet("oneforallsurvival", m.nom());
             // Aucune recette d'aucun type : l'établi (le catalogue) est la seule voie.
             List<ResourceLocation> autres = recettesDonnant(helper, item);
@@ -347,5 +353,32 @@ public final class PackGameTests {
                     "[reseau] delesteur | RESULTAT OK au tick {} : progression {}, sortie avant {} a {} FE, journal {}",
                     helper.getTick(), m.progress(), etat, t.lastDelivered(devant), journal);
         });
+    }
+
+    /**
+     * Les cinq blocs du lot 5 se cassent à la pioche et rendent leur objet : un butin et l'étiquette de pioche pour
+     * chacun. Sans eux la machine ne tomberait pas, ou resterait indestructible avec un pic. Aucun mod tiers requis.
+     */
+    @GameTest(template = "test/plancher", batch = "pack_materiel")
+    public static void lesCinqBlocsDuLot5TombentALaPioche(GameTestHelper helper) {
+        var level = helper.getLevel();
+        BlockPos pos = new BlockPos(1, 1, 1);
+        BlockPos absolue = helper.absolutePos(pos);
+        ItemStack pioche = new ItemStack(net.minecraft.world.item.Items.IRON_PICKAXE);
+        var lootContext = new net.minecraft.world.level.storage.loot.LootParams.Builder(level);
+        for (String nom : new String[] {"incubator", "hot_plate", "canteen_pot", "electrifier", "electric_fence"}) {
+            Block bloc = ForgeRegistries.BLOCKS.getValue(new ResourceLocation("oneforallsurvival", nom));
+            helper.assertTrue(bloc != null && bloc != Blocks.AIR, "bloc absent : " + nom);
+            BlockState etat = bloc.defaultBlockState();
+            helper.assertTrue(etat.is(net.minecraft.tags.BlockTags.MINEABLE_WITH_PICKAXE),
+                    nom + " ne porte pas l'étiquette mineable/pickaxe");
+            var drops = etat.getDrops(lootContext
+                    .withParameter(net.minecraft.world.level.storage.loot.parameters.LootContextParams.ORIGIN,
+                            net.minecraft.world.phys.Vec3.atCenterOf(absolue))
+                    .withParameter(net.minecraft.world.level.storage.loot.parameters.LootContextParams.TOOL, pioche));
+            helper.assertTrue(drops.size() == 1 && drops.get(0).is(objet("oneforallsurvival", nom))
+                    && drops.get(0).getCount() == 1, nom + " devait rendre un exemplaire de lui-même, vu " + drops);
+        }
+        helper.succeed();
     }
 }

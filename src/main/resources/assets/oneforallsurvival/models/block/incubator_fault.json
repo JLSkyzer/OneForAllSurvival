@@ -1,0 +1,9 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "particle": "oneforallsurvival:block/incubator_side",
+    "front": "oneforallsurvival:block/incubator_front_fault",
+    "side": "oneforallsurvival:block/incubator_side",
+    "top": "oneforallsurvival:block/incubator_top"
+  }
+}

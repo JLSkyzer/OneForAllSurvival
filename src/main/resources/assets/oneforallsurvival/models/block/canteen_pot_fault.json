@@ -1,0 +1,9 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "particle": "oneforallsurvival:block/canteen_pot_side",
+    "front": "oneforallsurvival:block/canteen_pot_front_fault",
+    "side": "oneforallsurvival:block/canteen_pot_side",
+    "top": "oneforallsurvival:block/canteen_pot_top"
+  }
+}

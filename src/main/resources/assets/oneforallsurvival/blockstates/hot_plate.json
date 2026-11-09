@@ -1,0 +1,28 @@
+{
+  "variants": {
+    "lit=false,state=stopped": {
+      "model": "oneforallsurvival:block/hot_plate_stopped_off"
+    },
+    "lit=true,state=stopped": {
+      "model": "oneforallsurvival:block/hot_plate_stopped_lit"
+    },
+    "lit=false,state=running": {
+      "model": "oneforallsurvival:block/hot_plate_running_off"
+    },
+    "lit=true,state=running": {
+      "model": "oneforallsurvival:block/hot_plate_running_lit"
+    },
+    "lit=false,state=no_power": {
+      "model": "oneforallsurvival:block/hot_plate_no_power_off"
+    },
+    "lit=true,state=no_power": {
+      "model": "oneforallsurvival:block/hot_plate_no_power_lit"
+    },
+    "lit=false,state=fault": {
+      "model": "oneforallsurvival:block/hot_plate_fault_off"
+    },
+    "lit=true,state=fault": {
+      "model": "oneforallsurvival:block/hot_plate_fault_lit"
+    }
+  }
+}

@@ -14,6 +14,11 @@
     "oneforallsurvival:meter",
     "oneforallsurvival:breaker",
     "oneforallsurvival:surge_arrester",
-    "oneforallsurvival:weather_station"
+    "oneforallsurvival:weather_station",
+    "oneforallsurvival:incubator",
+    "oneforallsurvival:hot_plate",
+    "oneforallsurvival:canteen_pot",
+    "oneforallsurvival:electrifier",
+    "oneforallsurvival:electric_fence"
   ]
 }

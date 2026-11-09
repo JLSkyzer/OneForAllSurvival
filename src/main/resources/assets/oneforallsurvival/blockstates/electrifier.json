@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "state=stopped": {
+      "model": "oneforallsurvival:block/electrifier_stopped"
+    },
+    "state=running": {
+      "model": "oneforallsurvival:block/electrifier_running"
+    },
+    "state=no_power": {
+      "model": "oneforallsurvival:block/electrifier_no_power"
+    },
+    "state=fault": {
+      "model": "oneforallsurvival:block/electrifier_fault"
+    }
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "variants": {
+    "facing=north,state=stopped": {
+      "model": "oneforallsurvival:block/canteen_pot_stopped"
+    },
+    "facing=north,state=running": {
+      "model": "oneforallsurvival:block/canteen_pot_running"
+    },
+    "facing=north,state=no_power": {
+      "model": "oneforallsurvival:block/canteen_pot_no_power"
+    },
+    "facing=north,state=fault": {
+      "model": "oneforallsurvival:block/canteen_pot_fault"
+    },
+    "facing=east,state=stopped": {
+      "model": "oneforallsurvival:block/canteen_pot_stopped",
+      "y": 90
+    },
+    "facing=east,state=running": {
+      "model": "oneforallsurvival:block/canteen_pot_running",
+      "y": 90
+    },
+    "facing=east,state=no_power": {
+      "model": "oneforallsurvival:block/canteen_pot_no_power",
+      "y": 90
+    },
+    "facing=east,state=fault": {
+      "model": "oneforallsurvival:block/canteen_pot_fault",
+      "y": 90
+    },
+    "facing=south,state=stopped": {
+      "model": "oneforallsurvival:block/canteen_pot_stopped",
+      "y": 180
+    },
+    "facing=south,state=running": {
+      "model": "oneforallsurvival:block/canteen_pot_running",
+      "y": 180
+    },
+    "facing=south,state=no_power": {
+      "model": "oneforallsurvival:block/canteen_pot_no_power",
+      "y": 180
+    },
+    "facing=south,state=fault": {
+      "model": "oneforallsurvival:block/canteen_pot_fault",
+      "y": 180
+    },
+    "facing=west,state=stopped": {
+      "model": "oneforallsurvival:block/canteen_pot_stopped",
+      "y": 270
+    },
+    "facing=west,state=running": {
+      "model": "oneforallsurvival:block/canteen_pot_running",
+      "y": 270
+    },
+    "facing=west,state=no_power": {
+      "model": "oneforallsurvival:block/canteen_pot_no_power",
+      "y": 270
+    },
+    "facing=west,state=fault": {
+      "model": "oneforallsurvival:block/canteen_pot_fault",
+      "y": 270
+    }
+  }
+}

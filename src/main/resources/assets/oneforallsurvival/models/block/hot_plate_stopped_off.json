@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "particle": "oneforallsurvival:block/hot_plate_side_stopped",
+    "down": "oneforallsurvival:block/hot_plate_bottom",
+    "up": "oneforallsurvival:block/hot_plate_top",
+    "north": "oneforallsurvival:block/hot_plate_side_stopped",
+    "south": "oneforallsurvival:block/hot_plate_side_stopped",
+    "east": "oneforallsurvival:block/hot_plate_side_stopped",
+    "west": "oneforallsurvival:block/hot_plate_side_stopped"
+  }
+}

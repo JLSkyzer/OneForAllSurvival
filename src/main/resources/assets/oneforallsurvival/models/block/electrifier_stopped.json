@@ -1,0 +1,9 @@
+{
+  "parent": "oneforallsurvival:block/electrifier_base",
+  "textures": {
+    "side": "oneforallsurvival:block/electrifier_side_stopped",
+    "top": "oneforallsurvival:block/electrifier_top",
+    "bottom": "oneforallsurvival:block/electrifier_bottom",
+    "insulator": "oneforallsurvival:block/electrifier_insulator"
+  }
+}

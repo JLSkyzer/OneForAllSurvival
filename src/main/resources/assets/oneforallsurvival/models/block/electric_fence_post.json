@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/fence_post",
+  "textures": {
+    "texture": "oneforallsurvival:block/electric_fence"
+  }
+}
