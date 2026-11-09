@@ -297,6 +297,7 @@ public final class CouveuseGameTests {
     public static void uneCoupureCourteNePerdRien(GameTestHelper helper) {
         IncubatorBlockEntity be = poser(helper);
         poserOeufs(be, Items.EGG, Items.TURTLE_EGG, Items.EGG, Items.TURTLE_EGG);
+        fixerProgressions(be, 100, 100, 100, 100); // la coupure ne court que pour une couvée qui a déjà chauffé
         fixerCoupure(be, 59 * 20);
         helper.runAfterDelay(6, () -> {
             helper.assertTrue(be.state() == MachineState.NO_POWER, "NO_POWER attendu, vu " + be.state());
@@ -355,6 +356,7 @@ public final class CouveuseGameTests {
     public static void laCoupureSurvitAuRechargement(GameTestHelper helper) {
         IncubatorBlockEntity be = poser(helper);
         poserOeufs(be, Items.EGG);
+        fixerProgressions(be, 100);
         fixerCoupure(be, 400);
         helper.runAfterDelay(8, () -> {
             int vu = be.outageTicks();
@@ -419,6 +421,100 @@ public final class CouveuseGameTests {
         helper.runAfterDelay(100, () -> {
             helper.assertTrue(vus.size() == 1, "l'œuf ne devait éclore qu'une fois, vus " + vus.size());
             helper.assertTrue(!vus.get(0).isRemoved(), "le poussin devait être encore là");
+            reussirEtNettoyer(helper);
+        });
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Revue finale : place du petit, machine jamais alimentée, essais d'un œuf mûr (lot c)
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * Couveuse sous une pierre (la face d'insertion d'une trémie) et murée de trois côtés : seul l'est reste libre. Le
+     * gabarit a de la pierre au nord : on pose chaque voisin explicitement.
+     */
+    private static void couvrirEtMurer(GameTestHelper helper) {
+        for (BlockPos voisin : new BlockPos[] {POS.above(), POS.north(), POS.south(), POS.west()}) {
+            helper.setBlock(voisin, Blocks.STONE);
+        }
+        helper.setBlock(POS.east(), Blocks.AIR);
+    }
+
+    @GameTest(template = "test/plancher", batch = "couveuse_c", setupTicks = 20, timeoutTicks = 200)
+    public static void uneTortueEclotContreUnMurSousUneTremie(GameTestHelper helper) {
+        IncubatorBlockEntity be = poser(helper);
+        couvrirEtMurer(helper);
+        poserOeufs(be, Items.TURTLE_EGG);
+        alimenter(be);
+        presqueMurs(be, 1);
+        helper.runAfterDelay(8, () -> {
+            var tortues = animaux(helper, EntityType.TURTLE);
+            helper.assertTrue(tortues.size() == 1, "une tortue attendue sur le côté libre, vues " + tortues.size());
+            helper.assertTrue(tortues.get(0).isBaby(), "la tortue devait être un bébé");
+            helper.assertTrue(be.inventory().getStackInSlot(0).isEmpty(), "l'œuf devait être consommé");
+            reussirEtNettoyer(helper);
+        });
+    }
+
+    @GameTest(template = "test/plancher", batch = "couveuse_c", setupTicks = 20, timeoutTicks = 200)
+    public static void unPoussinSortParLeCoteSousUnePierre(GameTestHelper helper) {
+        IncubatorBlockEntity be = poser(helper);
+        couvrirEtMurer(helper);
+        poserOeufs(be, Items.EGG);
+        alimenter(be);
+        presqueMurs(be, 1);
+        helper.runAfterDelay(8, () -> {
+            var poussins = animaux(helper, EntityType.CHICKEN);
+            helper.assertTrue(poussins.size() == 1, "un poussin attendu sur le côté libre, vus " + poussins.size());
+            helper.assertTrue(be.inventory().getStackInSlot(0).isEmpty(), "l'œuf devait être consommé");
+            reussirEtNettoyer(helper);
+        });
+    }
+
+    /** Machine jamais alimentée, œufs sans progression : aucune coupure, même au-delà de la tolérance. */
+    @GameTest(template = "test/plancher", batch = "couveuse_c", setupTicks = 20, timeoutTicks = 300)
+    public static void uneMachineJamaisAlimenteeNePerdRien(GameTestHelper helper) {
+        IncubatorBlockEntity be = poser(helper);
+        poserOeufs(be, Items.EGG, Items.TURTLE_EGG, Items.EGG, Items.TURTLE_EGG);
+        // Le compteur est écrit au-delà du seuil dans la sauvegarde : une machine sans acquis le remet à zéro.
+        fixerCoupure(be, FoodConfig.incubatorOutageTicks() + 100);
+        helper.runAfterDelay(20, () -> {
+            helper.assertTrue(be.state() == MachineState.NO_POWER, "NO_POWER attendu, vu " + be.state());
+            helper.assertTrue(oeufsPresents(be) == 4, "les quatre œufs devaient être là, vus " + oeufsPresents(be));
+            helper.assertTrue(be.outageTicks() == 0, "aucune coupure sans progression, vu " + be.outageTicks());
+            alimenter(be);
+        });
+        helper.runAfterDelay(40, () -> {
+            helper.assertTrue(be.state() == MachineState.RUNNING, "RUNNING attendu, vu " + be.state());
+            helper.assertTrue(be.progress(0) > 0 && be.progress(3) > 0, "la couvée devait progresser une fois le courant là");
+            helper.assertTrue(oeufsPresents(be) == 4, "les quatre œufs devaient rester, vus " + oeufsPresents(be));
+            helper.succeed();
+        });
+    }
+
+    /** Sous 50 % d'état (efficacité réduite), un œuf mûr réessaie quand même : la cadence ne suit pas le temps de jeu. */
+    @GameTest(template = "test/plancher", batch = "couveuse_c", setupTicks = 20, timeoutTicks = 300)
+    public static void unOeufMurReessaieAEfficaciteReduite(GameTestHelper helper) {
+        IncubatorBlockEntity be = poser(helper);
+        BlockPos dessus = POS.above();
+        for (BlockPos voisin : new BlockPos[] {dessus, POS.north(), POS.south(), POS.east(), POS.west()}) {
+            helper.setBlock(voisin, Blocks.STONE);
+        }
+        poserOeufs(be, Items.EGG);
+        alimenter(be);
+        CompoundTag tag = be.saveWithoutMetadata();
+        tag.putDouble("condition", 30.0);
+        be.load(tag);
+        presqueMurs(be, 1);
+        helper.runAfterDelay(30, () -> {
+            helper.assertTrue(be.efficiency() < 1.0, "l'efficacité devait être réduite, vue " + be.efficiency());
+            helper.assertTrue(be.progress(0) >= FoodConfig.incubatorHatchTicks(), "l'œuf devait être mûr, vu " + be.progress(0));
+            helper.assertTrue(!be.inventory().getStackInSlot(0).isEmpty(), "l'œuf devait attendre");
+            alimenter(be);
+            helper.setBlock(dessus, Blocks.AIR);
+        });
+        helper.runAfterDelay(120, () -> {
+            helper.assertTrue(be.inventory().getStackInSlot(0).isEmpty(), "l'œuf mûr devait avoir réessayé et éclos");
             reussirEtNettoyer(helper);
         });
     }

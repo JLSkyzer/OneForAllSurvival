@@ -39,7 +39,8 @@ import org.jetbrains.annotations.Nullable;
  * l'œuf reste mûr dans sa case et la machine réessaie toutes les {@value #RETRY_PERIOD} ticks : il n'est jamais perdu.
  *
  * <p>C'est la seule machine du mod qu'une coupure prive de son contenu. Le compteur de coupure monte à chaque tick passé
- * sans courant (réserve vide), retombe à zéro dès que la machine tourne, et reste figé en panne : une machine en panne ne
+ * sans courant (réserve vide) tant qu'un œuf au moins a déjà de la progression (une machine qui n'a jamais chauffé la
+ * couvée n'est pas en coupure : rien à perdre), retombe à zéro dès que la machine tourne, et reste figé en panne : une machine en panne ne
  * perd rien. Au-delà du seuil, la couvée est détruite, avec fumée et son d'extinction. Un monde éteint ou une zone
  * déchargée ne comptent pas : rien ne tourne alors. Progressions et compteur sont sauvegardés.
  *
@@ -119,6 +120,8 @@ public final class IncubatorBlockEntity extends ElectricMachineBlockEntity {
     private LazyOptional<IItemHandler> allCap = LazyOptional.of(() -> items);
     private LazyOptional<IItemHandler> topCap = LazyOptional.of(() -> new TopFace(items));
 
+    /** Ticks de travail de la machine modulo {@link #RETRY_PERIOD} : cadence des essais d'un œuf mûr sans place. */
+    private int retryClock;
     /** Ticks de travail de chaque œuf. */
     private final int[] progress = new int[SLOTS];
     /** L'objet de chaque case à la dernière lecture : sert à voir qu'une case a été vidée ou changée. */
@@ -202,6 +205,9 @@ public final class IncubatorBlockEntity extends ElectricMachineBlockEntity {
     @Override
     protected void workTick() {
         int total = FoodConfig.incubatorHatchTicks();
+        // Un compteur propre à la machine : le temps de jeu saute des ticks sous 50 % d'état (efficacité réduite) et peut
+        // ne jamais tomber sur un multiple de la période.
+        retryClock = (retryClock + 1) % RETRY_PERIOD;
         for (int slot = 0; slot < SLOTS; slot++) {
             if (!hasEgg(slot)) {
                 continue;
@@ -212,7 +218,7 @@ public final class IncubatorBlockEntity extends ElectricMachineBlockEntity {
                 if (progress[slot] < total) {
                     continue;
                 }
-            } else if (level.getGameTime() % RETRY_PERIOD != 0) {
+            } else if (retryClock != 0) {
                 continue; // mûr, sans place : on réessaie de temps en temps seulement
             }
             hatch(slot);
@@ -226,15 +232,20 @@ public final class IncubatorBlockEntity extends ElectricMachineBlockEntity {
         }
         EntityType<?> type = IncubatorEggs.entityFor(items.getStackInSlot(slot));
         Entity animal = type == null ? null : type.create(server);
-        if (animal == null || !placeAnimal(server, animal)) {
+        if (animal == null) {
+            return;
+        }
+        // Petit avant de chercher une place : la boîte de collision d'une tortue adulte (1,2 x 0,4) ne passe pas contre
+        // un mur ; celle du bébé oui. setBaby rafraîchit les dimensions.
+        if (animal instanceof AgeableMob ageable) {
+            ageable.setBaby(true);
+        }
+        if (!placeAnimal(server, animal)) {
             return;
         }
         if (animal instanceof Mob mob) {
             mob.setPersistenceRequired(); // une couvée ne s'évapore pas en s'éloignant du joueur
             mob.finalizeSpawn(server, server.getCurrentDifficultyAt(mob.blockPosition()), MobSpawnType.BREEDING, null, null);
-        }
-        if (animal instanceof AgeableMob ageable) {
-            ageable.setBaby(true);
         }
         if (!server.addFreshEntity(animal)) {
             return;
@@ -268,13 +279,24 @@ public final class IncubatorBlockEntity extends ElectricMachineBlockEntity {
     // Coupure
     // ---------------------------------------------------------------------------------------------
 
+    /** Un œuf au moins a déjà chauffé : la couvée a un acquis que la coupure peut détruire. */
+    private boolean anyProgress() {
+        for (int slot = 0; slot < SLOTS; slot++) {
+            if (progress[slot] > 0 && hasEgg(slot)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     protected void afterTick(Level world, MachineState tickState) {
         int before = outage;
         if (!anyEgg()) {
             outage = 0;
         } else if (tickState == MachineState.NO_POWER) {
-            outage++;
+            // Une machine qui n'a jamais chauffé cette couvée (neuve, reposée, à 0 FE) n'est pas en coupure.
+            outage = anyProgress() ? outage + 1 : 0;
         } else if (tickState == MachineState.RUNNING) {
             outage = 0;
         } // en panne : le compteur reste tel quel
