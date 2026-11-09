@@ -116,6 +116,7 @@ final class E2eProtection {
     private static Vec3 departZombie;
     private static boolean zombieVu;
     private static boolean zombieMort;
+    private static double derniereVieZombie = 20;
     private static double zombiePlusProche;
     private static double zombieRepousse;
     private static int essaisZombie;
@@ -766,6 +767,7 @@ final class E2eProtection {
         pasC("Un zombie casqué dans l'enclos, au sud de la clôture, le joueur au nord", () -> {
             zombieVu = false;
             zombieMort = false;
+            derniereVieZombie = 20;
             vieZombieMin = 1000;
             zombieRepousse = 0;
             zombiePlusProche = 1000;
@@ -783,26 +785,34 @@ final class E2eProtection {
         pasD(40, "Le zombie marche vers le joueur, bute contre la clôture : blessé et repoussé", () -> {},
                 () -> {
                     Zombie z = zombieProche(elec1);
-                    if (z == null) {
-                        zombieMort = zombieVu;
-                    } else {
+                    if (z != null) {
+                        zombieVu = true;
+                        derniereVieZombie = z.getHealth();
                         vieZombieMin = Math.min(vieZombieMin, z.getHealth());
                         mesurerZombie(z);
+                    } else if (zombieVu && derniereVieZombie <= 2.0) {
+                        zombieMort = true; // sa propre mort : vu à 2 points ou moins, puis disparu
                     }
                     // Avec son IA, un zombie peut s'éloigner de la barre avant le premier choc : un autre est posé, jusqu'à 3 fois.
+                    // Chaque essai repart de zéro : une clôture qui ne choque jamais échoue à chacun.
                     if (!zombieMort && vieZombieMin >= 20 && ecoule() > 8 * (1 + essaisZombie) && essaisZombie < 3) {
                         essaisZombie++;
-                        LOG.info("[e2e] zombie jamais touche en {} s : nouvel essai {}", (int) ecoule(), essaisZombie);
+                        LOG.info("[e2e] zombie jamais touche en {} s : nouvel essai {}", (int) ecoule(), essaisZombie + 1);
                         commande("kill @e[type=minecraft:zombie,distance=..60]");
                         commande(invoquerZombie(false));
+                        zombieVu = false;
+                        zombieMort = false;
+                        derniereVieZombie = 20;
+                        vieZombieMin = 1000;
                         zombiePlusProche = 1000;
                         zombieRepousse = 0;
                     }
-                    return (zombieMort || vieZombieMin < 20) && zombieRepousse >= 0.35;
+                    // De vrais dégâts, toujours : un zombie qui n'a jamais perdu un point ne passe pas.
+                    return vieZombieMin < 20 && zombieRepousse >= 0.35;
                 },
                 () -> "vie minimale vue " + vieZombieMin + ", repoussement maximal " + zombieRepousse + ", mort " + zombieMort + ", plus pres de la cloture z="
                         + zombiePlusProche,
-                () -> "zombie contre la cloture : vie minimale vue " + vieZombieMin + "/20 (hostile : il peut en mourir : " + zombieMort + "), repousse de "
+                () -> "zombie contre la cloture (essai " + (essaisZombie + 1) + ") : vie minimale vue " + vieZombieMin + "/20 (hostile : il peut en mourir : " + zombieMort + "), repousse de "
                         + String.format("%.2f", zombieRepousse) + " bloc apres avoir touche la barre (z le plus proche " + String.format("%.2f", zombiePlusProche)
                         + ", barre en z=" + (elec1.getZ() + 0.5));
         pas("Zombies retirés, courant coupé : source retirée, réserve vidée", () -> {
