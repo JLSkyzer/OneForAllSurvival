@@ -330,5 +330,6 @@
   "gui.oneforallsurvival.f3.value.clear": "clair",
   "gui.oneforallsurvival.f3.value.rain": "pluie",
   "gui.oneforallsurvival.f3.value.thunder": "orage",
+  "block.oneforallsurvival.hot_plate": "Plaque électrique",
   "gui.oneforallsurvival.f3.unit.blocks": "blocs"
 }

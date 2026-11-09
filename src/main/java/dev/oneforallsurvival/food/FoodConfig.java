@@ -31,6 +31,7 @@ public final class FoodConfig {
     private static final int DEFAULT_INCUBATOR_HATCH_MINUTES = 20;
     private static final int DEFAULT_INCUBATOR_OUTAGE_SECONDS = 60;
     private static final int DEFAULT_INCUBATOR_ENERGY = 8;
+    private static final int DEFAULT_HOT_PLATE_ENERGY = 10;
 
     public static final ForgeConfigSpec SPEC;
 
@@ -48,6 +49,7 @@ public final class FoodConfig {
     private static final ForgeConfigSpec.IntValue INCUBATOR_HATCH_MINUTES;
     private static final ForgeConfigSpec.IntValue INCUBATOR_OUTAGE_SECONDS;
     private static final ForgeConfigSpec.IntValue INCUBATOR_ENERGY;
+    private static final ForgeConfigSpec.IntValue HOT_PLATE_ENERGY;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -101,6 +103,10 @@ public final class FoodConfig {
                 .comment("Énergie (FE) que la couveuse consomme à chaque tick de travail, quel que soit le nombre d'œufs.",
                         "Bornée à ce que sa réserve reçoit par tick (40) : au-delà elle ne pourrait plus tourner.")
                 .defineInRange("incubatorEnergy", DEFAULT_INCUBATOR_ENERGY, 1, IncubatorBlockEntity.MAX_RECEIVE);
+        HOT_PLATE_ENERGY = builder
+                .comment("Énergie (FE) que la plaque électrique consomme à chaque tick où un ustensile est posé dessus.",
+                        "Bornée à ce que sa réserve reçoit par tick (60) : au-delà elle ne pourrait plus tourner.")
+                .defineInRange("hotPlateEnergy", DEFAULT_HOT_PLATE_ENERGY, 1, HotPlateBlockEntity.MAX_RECEIVE);
         SPEC = builder.build();
     }
 
@@ -165,6 +171,10 @@ public final class FoodConfig {
 
     public static int incubatorEnergy() {
         return read(INCUBATOR_ENERGY, DEFAULT_INCUBATOR_ENERGY);
+    }
+
+    public static int hotPlateEnergy() {
+        return read(HOT_PLATE_ENERGY, DEFAULT_HOT_PLATE_ENERGY);
     }
 
     private static long ticks(double hours) {
