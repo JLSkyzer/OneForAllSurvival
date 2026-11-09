@@ -8,7 +8,7 @@
 
 **Tech Stack:** Forge 1.20.1-47.4.28 (fmlloader, fmlearlydisplay), LWJGL 3 (GLFW, OpenGL 3.2 core, STB image), Gson, Java 17, ForgeGradle 6, JUnit 5.
 
-**Spec:** `docs/superpowers/specs/2026-11-08-interface-lost-island-design.md`, section « Chantier 1 ». Référence du rendu : `art/loading-screen/tools/compose.py` et `art/loading-screen/preview/lost-island-chargement.mp4`.
+**Spec:** `docs/superpowers/specs/archive/2026-11-08-interface-lost-island-design.md`, section « Chantier 1 ». Référence du rendu : `art/loading-screen/tools/compose.py` et `art/loading-screen/preview/lost-island-chargement.mp4`.
 
 ## Global Constraints
 

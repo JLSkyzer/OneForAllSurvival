@@ -1,7 +1,7 @@
 # Vérifications du chantier 1 : écran de chargement Lost Island
 
 Relevés du 2026-11-08, sur la branche `interface-chargement` (non fusionnée). Spec :
-`docs/superpowers/specs/2026-11-08-interface-lost-island-design.md` (chantier 1) ; plan :
+`docs/superpowers/specs/archive/2026-11-08-interface-lost-island-design.md` (chantier 1) ; plan :
 `docs/superpowers/plans/archive/2026-11-08-chantier-1-ecran-de-chargement.md`.
 
 Poste de tous les lancements : celui de Killian, Windows 11, NVIDIA GeForce RTX 4060 (pilote 621.14, GL 4.6),

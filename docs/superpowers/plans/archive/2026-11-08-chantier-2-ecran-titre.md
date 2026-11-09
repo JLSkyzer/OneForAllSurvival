@@ -8,7 +8,7 @@
 
 **Tech Stack:** Forge 1.20.1-47.4.28, Java 17, ForgeGradle 6, JUnit 5, jar de service `earlywindow` du chantier 1.
 
-**Spec:** `docs/superpowers/specs/2026-11-08-interface-lost-island-design.md`, section « Chantier 2 ». État du chantier 1 : `docs/verifications/chantier-1-chargement.md`.
+**Spec:** `docs/superpowers/specs/archive/2026-11-08-interface-lost-island-design.md`, section « Chantier 2 ». État du chantier 1 : `docs/verifications/chantier-1-chargement.md`.
 
 ## Global Constraints
 

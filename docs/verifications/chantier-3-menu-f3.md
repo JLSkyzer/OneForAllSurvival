@@ -1,6 +1,6 @@
 # Vérifications du chantier 3 : menu F3 Lost Island
 
-Relevés du 2026-11-08, sur `main`. Spec : `docs/superpowers/specs/2026-11-08-interface-lost-island-design.md`
+Relevés du 2026-11-08, sur `main`. Spec : `docs/superpowers/specs/archive/2026-11-08-interface-lost-island-design.md`
 (chantier 3) ; plan : `docs/superpowers/plans/archive/2026-11-08-chantier-3-menu-f3.md`.
 
 Poste de tous les lancements : celui de Killian, Windows 11, RTX 4060, pack complet (`-PwithPack`), Forge 47.4.28.

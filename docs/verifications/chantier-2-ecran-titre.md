@@ -1,6 +1,6 @@
 # Vérifications du chantier 2 : écran titre Lost Island
 
-Relevés du 2026-11-08, sur `main`. Spec : `docs/superpowers/specs/2026-11-08-interface-lost-island-design.md`
+Relevés du 2026-11-08, sur `main`. Spec : `docs/superpowers/specs/archive/2026-11-08-interface-lost-island-design.md`
 (chantier 2) ; plan : `docs/superpowers/plans/archive/2026-11-08-chantier-2-ecran-titre.md`.
 
 Poste de tous les lancements : celui de Killian, Windows 11, RTX 4060, pack complet (`-PwithPack`), Forge 47.4.28,

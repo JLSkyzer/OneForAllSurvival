@@ -8,7 +8,7 @@
 
 **Tech Stack:** Forge 1.20.1-47.4.28, Java 17, ForgeGradle 6, JUnit 5, GameTests, canal réseau du mod (`BenchNetwork.CHANNEL`).
 
-**Spec:** `docs/superpowers/specs/2026-11-08-interface-lost-island-design.md`, section « Chantier 3 » (décisions de Killian du 2026-11-08 comprises). Recherche préalable (pipeline du F3 en 1.20.1, données côté client) : résumée ci-dessous dans « Faits établis ».
+**Spec:** `docs/superpowers/specs/archive/2026-11-08-interface-lost-island-design.md`, section « Chantier 3 » (décisions de Killian du 2026-11-08 comprises). Recherche préalable (pipeline du F3 en 1.20.1, données côté client) : résumée ci-dessous dans « Faits établis ».
 
 ## Faits établis (lus par javap le 2026-11-08, non essayés en jeu)
 

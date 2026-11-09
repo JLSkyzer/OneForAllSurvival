@@ -1,6 +1,6 @@
 # Interface Lost Island : écran de chargement, écran titre, menu F3
 
-Statut : brouillon, en attente de l'accord de Killian. Cadré avec lui le 2026-11-08.
+Statut : terminé, les trois chantiers sont sur `main` (2026-11-08). Ce qui n'a pas pu être essayé est listé dans `docs/verifications/chantier-*.md`. Cadré avec Killian le 2026-11-08.
 
 ## Intention
 
