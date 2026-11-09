@@ -168,10 +168,11 @@ public final class ElectrifierBlockEntity extends ElectricMachineBlockEntity {
     private Vec3 touchedWire(ServerLevel serverLevel, LivingEntity entity) {
         AABB body = entity.getBoundingBox().inflate(CONTACT_MARGIN);
         for (BlockPos pos : line) {
-            BlockState state = serverLevel.getBlockState(pos);
-            if (!state.is(FenceRegistry.ELECTRIC_FENCE.get())) {
+            // La ligne a jusqu'à 40 ticks : un chunk déchargé depuis ne doit pas être rechargé par cette lecture.
+            if (!isFence(serverLevel, pos)) {
                 continue;
             }
+            BlockState state = serverLevel.getBlockState(pos);
             VoxelShape shape = state.getCollisionShape(serverLevel, pos);
             for (AABB part : shape.toAabbs()) {
                 if (part.move(pos).intersects(body)) {
