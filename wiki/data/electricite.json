@@ -959,34 +959,159 @@
       "num": 12,
       "name": "Couveuse",
       "kind": "machine",
-      "status": "prevu",
+      "status": "dispo",
       "lot": "Lot 5",
-      "image": null,
-      "what": "Fait éclore à coup sûr jusqu'à 4 œufs ; une coupure peut perdre la couvée.",
+      "image": {
+        "type": "block",
+        "top": "incubator_top.png",
+        "side": "incubator_side.png",
+        "front": "incubator_front_running.png"
+      },
+      "what": "Fait éclore à coup sûr jusqu'à 4 œufs ; une coupure trop longue perd la couvée.",
       "who": {
         "fabrique": "Ingénieur",
-        "utilise": "Tous"
-      }
+        "pose": "Tous",
+        "utilise": "Tous",
+        "casse": "Tous, à la pioche"
+      },
+      "steps": [
+        "Un œuf par place (4), par le menu ou par le dessus.",
+        "Compter 20 min de marche, œuf par œuf.",
+        "L'animal naît petit au-dessus ; sans place, l'œuf attend."
+      ],
+      "flow": [
+        "Œuf + courant",
+        "Couveuse",
+        "Poussin ou jeune animal"
+      ],
+      "numbers": [
+        {
+          "k": "Places",
+          "v": "4"
+        },
+        {
+          "k": "Incubation",
+          "v": "20 min"
+        },
+        {
+          "k": "Énergie",
+          "v": "8 FE/t"
+        },
+        {
+          "k": "Coupure tolérée",
+          "v": "60 s"
+        }
+      ],
+      "staff": [
+        "Config oneforallsurvival-food.toml : incubatorEggs, incubatorHatchMinutes, incubatorOutageSeconds, incubatorEnergy.",
+        "Le compteur de coupure part quand la réserve (2 000 FE) est vide ; il est sauvegardé, un arrêt du serveur ne le remet pas à zéro.",
+        "Seule machine du mod dont une coupure détruit le contenu ; une panne ou une zone déchargée ne perd rien."
+      ]
     },
     {
       "id": "cuisine-cantine",
       "num": 13,
       "name": "Cuisine de cantine",
       "kind": "machine",
-      "status": "prevu",
+      "status": "dispo",
       "lot": "Lot 5",
-      "image": null,
-      "what": "Marmite électrique pour Farmer's Delight en grande quantité, et plaque électrique."
+      "image": {
+        "type": "block",
+        "top": "canteen_pot_top.png",
+        "side": "canteen_pot_side.png",
+        "front": "canteen_pot_front_running.png"
+      },
+      "what": "Marmite électrique pour Farmer's Delight en grande quantité, et plaque électrique.",
+      "who": {
+        "fabrique": "Ingénieur",
+        "pose": "Tous",
+        "utilise": "Tous",
+        "casse": "Tous, à la pioche"
+      },
+      "steps": [
+        "Ingrédients d'une recette du Cooking Pot, et un bol par portion.",
+        "La marmite cuit sans feu, en 10 s pour un ragoût.",
+        "Une fournée : 3 portions pour un seul jeu d'ingrédients.",
+        "La plaque, sous un ustensile de Farmer's Delight, le chauffe."
+      ],
+      "flow": [
+        "Ingrédients + bols",
+        "Marmite de cantine",
+        "3 portions"
+      ],
+      "numbers": [
+        {
+          "k": "Portions",
+          "v": "3 par fournée"
+        },
+        {
+          "k": "Marmite",
+          "v": "30 FE/t"
+        },
+        {
+          "k": "Plaque",
+          "v": "10 FE/t"
+        }
+      ],
+      "staff": [
+        "Config oneforallsurvival-food.toml : canteenPotEnergy, canteenPotPortions, hotPlateEnergy.",
+        "La plaque consomme et s'use dès qu'un ustensile est posé dessus, même vide ; sans ustensile, elle est à l'arrêt.",
+        "La marmite ne donne pas d'expérience ; JEI la montre comme catalyseur de la catégorie Cuisson."
+      ]
     },
     {
       "id": "cloture-electrique",
       "num": 16,
       "name": "Clôture électrique",
       "kind": "machine",
-      "status": "prevu",
+      "status": "dispo",
       "lot": "Lot 5",
-      "image": null,
-      "what": "Un électrificateur alimente 64 blocs de clôture qui repoussent et blessent les mobs."
+      "image": {
+        "type": "block",
+        "top": "electrifier_top.png",
+        "side": "electrifier_side_running.png",
+        "front": "electrifier_side_running.png"
+      },
+      "what": "Un électrificateur alimente 64 blocs de clôture qui repoussent et blessent les mobs.",
+      "who": {
+        "fabrique": "Ingénieur",
+        "pose": "Tous",
+        "utilise": "Tous",
+        "casse": "Tous, à la pioche"
+      },
+      "steps": [
+        "Poser l'électrificateur contre une clôture électrique, avec du courant.",
+        "Les clôtures contiguës (64 au plus) sont électrifiées.",
+        "Un contact blesse et repousse ; sans courant, plus rien."
+      ],
+      "flow": [
+        "Courant",
+        "Électrificateur",
+        "Clôture qui repousse"
+      ],
+      "numbers": [
+        {
+          "k": "Portée",
+          "v": "64 clôtures"
+        },
+        {
+          "k": "Énergie",
+          "v": "2 + 0,25 par clôture FE/t"
+        },
+        {
+          "k": "Dégâts",
+          "v": "2 (mob), 1 (joueur)"
+        },
+        {
+          "k": "Orage",
+          "v": "consommation ×2"
+        }
+      ],
+      "staff": [
+        "Config oneforallsurvival-fence.toml : maxLength, baseEnergy, perFenceEnergy, perVegetationEnergy, stormMultiplier, mobDamage, playerDamage, safeHealth, lethalForPlayers, knockback.",
+        "Les hostiles peuvent en mourir ; joueurs et animaux s'arrêtent à safeHealth (4 points de vie vanilla). Sous First Aid, la tête et le torse d'un joueur gardent en plus 1 point de membre, car First Aid tue à zéro quelle que soit la vie totale : le choc est alors réduit ou nul.",
+        "La végétation (tag fence_vegetation) contre la ligne coûte 1 FE/t par bloc."
+      ]
     },
     {
       "id": "phare-projecteurs",
