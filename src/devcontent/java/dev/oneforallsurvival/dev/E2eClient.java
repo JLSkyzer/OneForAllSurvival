@@ -37,7 +37,7 @@ import org.apache.logging.log4j.Logger;
  * client se connecte à {@code -Doneforallsurvival.e2e=<hôte>}, se fait Ingénieur par la vraie commande
  * {@code /role}, pose un établi, l'ouvre par un vrai clic droit, commande un craft court, attend le stock,
  * le retire, joue le métier de réparation ({@link E2eReparation}), les vivres ({@link E2eVivres}) et le réseau
- * ({@link E2eReseau}), puis arrête le serveur par {@code /stop}.
+ * ({@link E2eReseau}) et la protection du lot 5 ({@link E2eProtection}), puis arrête le serveur par {@code /stop}.
  * Avec {@code -Doneforallsurvival.e2e.relance}, après une vraie relance du serveur, il relit ce que la première
  * phase a laissé. Chaque contrôle écrit une ligne {@code PASS} ou {@code FAIL} dans le journal ; le client
  * quitte à la fin.
@@ -49,6 +49,7 @@ public final class E2eClient {
     private static final String HOTE = System.getProperty("oneforallsurvival.e2e");
     private static final boolean ACTIF = HOTE != null && !HOTE.isEmpty();
     private static final boolean RELANCE = System.getProperty("oneforallsurvival.e2e.relance") != null;
+    private static final boolean SEULE_PROTECTION = System.getenv("E2E_PROTECTION_SEULE") != null;
     private static final int COPIES = 2;
     /**
      * Une connexion réussie prend environ 8 s avec le pack (7,5 à 10,5 s sur 11 relevés du 2026-11-06, de la
@@ -57,7 +58,7 @@ public final class E2eClient {
     private static final double DIAGNOSTIC_CONNEXION_S = 17;
 
     private enum Phase { TITRE, CONNEXION, CATALOGUE, PROVISIONS, POSER, OUVRIR, COMMANDER, STOCK, OUVRIR_STOCK, PRENDRE,
-        REPARATION, VIVRES, RESEAU, ARRET, FIN }
+        REPARATION, VIVRES, RESEAU, PROTECTION, ARRET, FIN }
 
     private static Phase phase = Phase.TITRE;
     private static long debutPhase = System.nanoTime();
@@ -119,6 +120,7 @@ public final class E2eClient {
             case REPARATION -> E2eReparation.legende();
             case VIVRES -> E2eVivres.legende();
             case RESEAU -> E2eReseau.legende();
+            case PROTECTION -> E2eProtection.legende();
             case ARRET -> "Arrêt du serveur par /stop";
             default -> "Fin";
         };
@@ -174,6 +176,7 @@ public final class E2eClient {
             E2eReparation.recevoir(event.getMessage());
             E2eVivres.recevoir(event.getMessage());
             E2eReseau.recevoir(event.getMessage());
+            E2eProtection.recevoir(event.getMessage());
         }
     }
 
@@ -244,7 +247,7 @@ public final class E2eClient {
         }
         // La réparation a ses propres délais, pas par pas.
         if (phase != Phase.TITRE && phase != Phase.FIN && phase != Phase.ARRET && phase != Phase.REPARATION && phase != Phase.VIVRES
-                && phase != Phase.RESEAU && secondes() > 180) {
+                && phase != Phase.RESEAU && phase != Phase.PROTECTION && secondes() > 180) {
             fail("delai depasse en phase " + phase);
         }
     }
@@ -313,9 +316,18 @@ public final class E2eClient {
                 if (!BenchClientState.catalog().isEmpty()) {
                     pass("catalogue recu par le reseau a la connexion : " + BenchClientState.catalog().size()
                             + " recettes, generation " + BenchClientState.generation() + ", apres " + String.format("%.1f", secondes()) + " s");
-                    if (RELANCE) {
-                        E2eReparation.relance();
-                        passer(Phase.REPARATION);
+                    if (SEULE_PROTECTION) {
+                        // Essai de mise au point de l'étape du lot 5 seule (variable d'environnement E2E_PROTECTION_SEULE).
+                        if (RELANCE) {
+                            E2eProtection.relance();
+                        } else {
+                            E2eProtection.premierePhase();
+                        }
+                        passer(Phase.PROTECTION);
+                    } else if (RELANCE) {
+                        // L'étape du lot 5 d'abord : le compteur de coupure de la couveuse court tant que le monde tourne.
+                        E2eProtection.relance();
+                        passer(Phase.PROTECTION);
                     } else {
                         passer(Phase.PROVISIONS);
                     }
@@ -569,7 +581,22 @@ public final class E2eClient {
             }
             case RESEAU -> {
                 if (E2eReseau.avancer(mc) && phase == Phase.RESEAU) {
-                    passer(Phase.ARRET);
+                    if (RELANCE) {
+                        passer(Phase.ARRET);
+                    } else {
+                        E2eProtection.premierePhase();
+                        passer(Phase.PROTECTION);
+                    }
+                }
+            }
+            case PROTECTION -> {
+                if (E2eProtection.avancer(mc) && phase == Phase.PROTECTION) {
+                    if (RELANCE && !SEULE_PROTECTION) {
+                        E2eReparation.relance();
+                        passer(Phase.REPARATION);
+                    } else {
+                        passer(Phase.ARRET);
+                    }
                 }
             }
             case ARRET -> {
@@ -578,6 +605,8 @@ public final class E2eClient {
                     mc.options.keyShift.setDown(false);
                     if (mc.player != null) {
                         mc.setScreen(null);
+                        // D'abord : le joueur doit être opérateur pour que les commandes de rangement et /stop passent.
+                        E2eProtection.rangerAvantArret(mc);
                         E2eVivres.rangerAvantArret(mc);
                         E2eReseau.rangerAvantArret(mc);
                         mc.player.connection.sendCommand("stop");

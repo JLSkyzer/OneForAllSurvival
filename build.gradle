@@ -294,6 +294,16 @@ minecraft {
             args '--width', '1280', '--height', '656'
         }
 
+        // Film du lot 5 (dev seulement) : un client qui se pilote seul et enregistre ses images dans
+        // run-demo/frames-protection, un bandeau de légende en dessous. Voir FilmProtection (devcontent).
+        demoProtectionFilm {
+            parent minecraft.runs.client
+            workingDirectory project.file('run-demo')
+            property 'oneforallsurvival.demo.protection', 'true'
+            jvmArgs '-Xmx3G'
+            args '--width', '1280', '--height', '656'
+        }
+
         server {
             // Un dossier à part : un client lancé en même temps tourne dans `run`.
             workingDirectory project.file('run-server')
@@ -477,6 +487,13 @@ tasks.matching { it.name == 'runDemoReseauFilm' }.configureEach {
     doFirst {
         delete project.file('run-demo/saves/film_reseau')
         delete project.file('run-demo/frames-reseau')
+    }
+}
+
+tasks.matching { it.name == 'runDemoProtectionFilm' }.configureEach {
+    doFirst {
+        delete project.file('run-demo/saves/film_protection')
+        delete project.file('run-demo/frames-protection')
     }
 }
 

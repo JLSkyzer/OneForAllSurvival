@@ -466,7 +466,7 @@ final class E2eReseau {
      * {@code run-server/server.properties}, jamais écrit ici. Renvoie la réponse de la console.
      */
     static String rcon(String commandeConsole) {
-        Path proprietes = mc.gameDirectory.toPath().resolve("../run-server/server.properties").normalize();
+        Path proprietes = Minecraft.getInstance().gameDirectory.toPath().resolve("../run-server/server.properties").normalize();
         Properties p = new Properties();
         try (InputStream in = Files.newInputStream(proprietes)) {
             p.load(in);
@@ -882,6 +882,11 @@ final class E2eReseau {
                     break;
                 }
             }
+            StringBuilder barre = new StringBuilder();
+            for (int i = 0; i < 9; i++) {
+                barre.append(i).append('=').append(mc.player.getInventory().getItem(i)).append(' ');
+            }
+            LOG.info("[e2e] relance du reseau : main vide {}, barre d'action {}", hVide, barre);
             tp();
         }, () -> mc.player.blockPosition().equals(joueur) && etat(tableau).is(GridRegistry.LOAD_SHEDDER.get())
                 && etat(compteur).is(GridRegistry.METER.get()) && etat(disjoncteur).is(GridRegistry.BREAKER.get()),
