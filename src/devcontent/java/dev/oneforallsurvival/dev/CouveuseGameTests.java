@@ -13,8 +13,10 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
+import java.util.ArrayList;
 import net.minecraft.world.entity.AgeableMob;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.animal.Chicken;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
@@ -406,14 +408,17 @@ public final class CouveuseGameTests {
             helper.assertTrue(be.progress(0) >= FoodConfig.incubatorHatchTicks(), "l'œuf devait rester mûr, vu " + be.progress(0));
             helper.setBlock(dessus, Blocks.AIR);
         });
+        // Le poussin n'est pas retenu : il se promène et peut sortir du rayon de quatre blocs en quelques secondes. On suit
+        // donc chaque poussin vu près de la couveuse, au lieu de recompter ceux qui sont encore autour.
+        List<Chicken> vus = new ArrayList<>();
+        helper.onEachTick(() -> animaux(helper, EntityType.CHICKEN).stream().filter(c -> !vus.contains(c)).forEach(vus::add));
         helper.runAfterDelay(60, () -> {
-            helper.assertTrue(animaux(helper, EntityType.CHICKEN).size() == 1,
-                    "un poussin attendu une fois la place libérée, vus " + animaux(helper, EntityType.CHICKEN).size());
+            helper.assertTrue(vus.size() == 1, "un poussin attendu une fois la place libérée, vus " + vus.size());
             helper.assertTrue(be.inventory().getStackInSlot(0).isEmpty(), "l'œuf devait être parti");
         });
         helper.runAfterDelay(100, () -> {
-            helper.assertTrue(animaux(helper, EntityType.CHICKEN).size() == 1,
-                    "l'œuf ne devait éclore qu'une fois, vus " + animaux(helper, EntityType.CHICKEN).size());
+            helper.assertTrue(vus.size() == 1, "l'œuf ne devait éclore qu'une fois, vus " + vus.size());
+            helper.assertTrue(!vus.get(0).isRemoved(), "le poussin devait être encore là");
             reussirEtNettoyer(helper);
         });
     }
