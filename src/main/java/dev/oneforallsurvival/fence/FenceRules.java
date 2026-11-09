@@ -32,8 +32,9 @@ public final class FenceRules {
     /**
      * Dégâts d'un choc sur un joueur non létal sous First Aid : le plus petit de la règle de la vie vanilla et de celle de
      * la tête ou du torse le plus faible (NaN : membres illisibles, aucun dégât), qui garde {@code limbMargin} point de membre. First Aid tue dès qu'un de ces
-     * membres tombe à zéro, quelle que soit la vie totale ; le montant entier étant au plus {@code weakest - margin}, aucun
-     * membre ne peut descendre sous la marge, où que la répartition de First Aid le porte.
+     * membres tombe à zéro, quelle que soit la vie totale ; le montant entier étant au plus {@code weakest - margin}, ni la
+     * tête ni le torse ne peuvent descendre sous la marge, où que la répartition de First Aid le porte. Les autres membres
+     * (jambes, bras, pieds) ne sont pas protégés : ils peuvent tomber à 0 sans tuer.
      */
     public static float damageForLimbs(float vanillaHealth, float weakestCriticalLimb, float amount, float floor,
             float limbMargin) {

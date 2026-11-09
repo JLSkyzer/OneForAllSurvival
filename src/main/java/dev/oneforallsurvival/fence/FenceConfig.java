@@ -21,6 +21,10 @@ public final class FenceConfig {
     private static final boolean DEFAULT_LETHAL_FOR_PLAYERS = false;
     private static final double DEFAULT_KNOCKBACK = 0.6;
     private static final double MAX_ENERGY_FACTOR = 1000.0;
+    /** Au moins 1 FE par tick de base : à 0 (avec le reste à 0) la clôture tournerait sans courant. */
+    static final double MIN_BASE_ENERGY = 1.0;
+    /** Au moins un demi-point : à 0, le choc « non mortel » deviendrait mortel (il laisserait 0 point de vie). */
+    static final double MIN_SAFE_HEALTH = 0.5;
 
     public static final ForgeConfigSpec SPEC;
 
@@ -41,8 +45,8 @@ public final class FenceConfig {
                 .comment("Nombre maximal de clôtures qu'un électrificateur alimente : les plus proches de lui.")
                 .defineInRange("maxLength", DEFAULT_MAX_LENGTH, 1, MAX_LENGTH_LIMIT);
         BASE_ENERGY = builder
-                .comment("Énergie (FE) par tick que coûte un électrificateur dont la ligne n'est pas vide.")
-                .defineInRange("baseEnergy", DEFAULT_BASE_ENERGY, 0.0, MAX_ENERGY_FACTOR);
+                .comment("Énergie (FE) par tick que coûte un électrificateur dont la ligne n'est pas vide (au moins 1).")
+                .defineInRange("baseEnergy", DEFAULT_BASE_ENERGY, MIN_BASE_ENERGY, MAX_ENERGY_FACTOR);
         PER_FENCE_ENERGY = builder
                 .comment("Énergie (FE) par tick que coûte chaque clôture de la ligne.")
                 .defineInRange("perFenceEnergy", DEFAULT_PER_FENCE_ENERGY, 0.0, MAX_ENERGY_FACTOR);
@@ -63,7 +67,7 @@ public final class FenceConfig {
         SAFE_HEALTH = builder
                 .comment("Points de vie sous lesquels un choc n'achève pas ce qui ne doit pas mourir de la clôture",
                         "(joueurs si lethalForPlayers est faux, animaux et autres vivants non hostiles).")
-                .defineInRange("safeHealth", DEFAULT_SAFE_HEALTH, 0.0, 1000.0);
+                .defineInRange("safeHealth", DEFAULT_SAFE_HEALTH, MIN_SAFE_HEALTH, 1000.0);
         LETHAL_FOR_PLAYERS = builder
                 .comment("Vrai : un joueur peut mourir de la clôture.")
                 .define("lethalForPlayers", DEFAULT_LETHAL_FOR_PLAYERS);
