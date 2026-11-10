@@ -514,9 +514,29 @@ public final class CouveuseGameTests {
             helper.setBlock(dessus, Blocks.AIR);
         });
         helper.runAfterDelay(120, () -> {
-            helper.assertTrue(be.inventory().getStackInSlot(0).isEmpty(), "l'œuf mûr devait avoir réessayé et éclos");
+            helper.assertTrue(be.inventory().getStackInSlot(0).isEmpty(), "l'œuf mûr devait avoir réessayé et éclos : "
+                    + diagnostic(helper, be, dessus));
             reussirEtNettoyer(helper);
         });
+    }
+
+    private static String nom(GameTestHelper helper, BlockPos pos) {
+        return net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(helper.getBlockState(pos).getBlock()).getPath();
+    }
+
+    /** Ce qui explique un œuf mûr resté en case : le bloc au-dessus, chaque voisin, la progression, l'état et le courant. */
+    private static String diagnostic(GameTestHelper helper, IncubatorBlockEntity be, BlockPos dessus) {
+        StringBuilder voisins = new StringBuilder();
+        for (Direction cote : Direction.values()) {
+            voisins.append(cote.getName()).append('=')
+                    .append(nom(helper, POS.relative(cote)))
+                    .append(' ');
+        }
+        return "au-dessus=" + nom(helper, dessus)
+                + ", à 2 au-dessus=" + nom(helper, dessus.above())
+                + ", voisins : " + voisins + "progression=" + be.progress(0) + "/" + FoodConfig.incubatorHatchTicks()
+                + ", efficacité=" + be.efficiency() + ", état=" + be.state() + ", énergie=" + be.energy().getEnergyStored()
+                + ", poussins alentour=" + animaux(helper, EntityType.CHICKEN).size();
     }
 
     // ---------------------------------------------------------------------------------------------
