@@ -19,10 +19,11 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Le chauffe-eau. Deux cuves de {@value #TANK_CAPACITY} mB : l'eau potable qui entre, l'eau chaude qui sort.
  *
- * <p>Il ne travaille que s'il a au moins {@link TownConfig#heaterMbPerTick()} mB d'eau potable et autant de place en
- * eau chaude. Chaque tick de travail change {@code heaterMbPerTick × rendement} mB (arrondi au plus bas, au moins 1)
- * d'eau potable en eau chaude, à {@link TownConfig#heaterEnergy()} FE par tick. Sans courant, à l'arrêt ou en
- * panne, il ne touche à rien : rien ne se perd.
+ * <p>Il ne travaille que s'il a au moins 1 mB d'eau potable et 1 mB de place en eau chaude. Chaque tick de travail
+ * change {@link TownConfig#heaterMbPerTick()} mB d'eau potable en eau chaude (moins si la cuve source ou la place
+ * manque : le dernier pas peut être partiel), à {@link TownConfig#heaterEnergy()} FE par tick. L'usure n'agit qu'une
+ * fois : la classe de base espace déjà les ticks de travail selon le rendement. Sans courant, à l'arrêt ou en panne,
+ * il ne touche à rien : rien ne se perd.
  *
  * <p>Vers l'extérieur, une seule capability de fluides, sur toutes les faces : elle ne remplit que de l'eau potable
  * du mod (ni eau vanilla, ni lave) et ne vide que l'eau chaude. Casser la machine perd les cuves.
@@ -155,8 +156,7 @@ public final class WaterHeaterBlockEntity extends ElectricMachineBlockEntity {
 
     @Override
     protected boolean wantsToWork() {
-        int step = TownConfig.heaterMbPerTick();
-        return potable.getFluidAmount() >= step && TANK_CAPACITY - hot.getFluidAmount() >= step;
+        return potable.getFluidAmount() > 0 && hot.getFluidAmount() < TANK_CAPACITY;
     }
 
     @Override
@@ -166,9 +166,8 @@ public final class WaterHeaterBlockEntity extends ElectricMachineBlockEntity {
 
     @Override
     protected void workTick() {
-        int wanted = Math.max(1, (int) Math.floor(TownConfig.heaterMbPerTick() * efficiency()));
-        // wantsToWork a promis de la matière et de la place pour le pas complet, donc pour wanted aussi.
-        int moved = Math.min(wanted, Math.min(potable.getFluidAmount(), TANK_CAPACITY - hot.getFluidAmount()));
+        int moved = Math.min(TownConfig.heaterMbPerTick(),
+                Math.min(potable.getFluidAmount(), TANK_CAPACITY - hot.getFluidAmount()));
         if (moved <= 0) {
             return;
         }

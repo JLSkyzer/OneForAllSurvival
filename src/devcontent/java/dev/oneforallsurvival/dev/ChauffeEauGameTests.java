@@ -11,6 +11,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraftforge.fluids.FluidStack;
@@ -29,6 +30,7 @@ public final class ChauffeEauGameTests {
 
     private static final BlockPos POS = new BlockPos(1, 1, 1);
     private static final String LOT = "chauffe_eau";
+    private static final String LOT_USURE = "chauffe_eau_usure";
 
     private ChauffeEauGameTests() {}
 
@@ -217,5 +219,75 @@ public final class ChauffeEauGameTests {
             helper.assertTrue(copie.energy().getEnergyStored() == be.energy().getEnergyStored(), "énergie perdue");
             helper.succeed();
         });
+    }
+
+    /** Usée (rendement 0,75), la machine paie chaque tick mais ne travaille que 3 ticks sur 4 : le pas reste entier. */
+    @GameTest(template = "test/plancher", batch = LOT_USURE, setupTicks = 20, timeoutTicks = 200)
+    public static void usureCompteeUneSeuleFois(GameTestHelper helper) {
+        WaterHeaterBlockEntity be = poser(helper);
+        be.takeDamage(60);
+        helper.assertTrue(be.efficiency() < 1.0, "rendement réduit attendu, vu " + be.efficiency());
+        alimenter(be);
+        int avant = be.energy().getEnergyStored();
+        potable(be, WaterHeaterBlockEntity.TANK_CAPACITY);
+        helper.runAfterDelay(40, () -> {
+            int consomme = avant - be.energy().getEnergyStored();
+            int energie = TownConfig.heaterEnergy();
+            helper.assertTrue(consomme > 0 && consomme % energie == 0, "FE consommés multiples de " + energie + " : " + consomme);
+            int ticks = consomme / energie;
+            int travail = (int) Math.floor(ticks * be.efficiency() + 1e-9);
+            int attendu = TownConfig.heaterMbPerTick() * travail;
+            helper.assertTrue(be.hot().getFluidAmount() == attendu,
+                    attendu + " mB attendus (" + travail + " ticks de travail sur " + ticks + "), vus "
+                            + be.hot().getFluidAmount());
+            helper.assertTrue(be.potable().getFluidAmount() + be.hot().getFluidAmount() == WaterHeaterBlockEntity.TANK_CAPACITY,
+                    "rien ne devait se perdre");
+            helper.succeed();
+        });
+    }
+
+    /** Le dernier pas peut être partiel : 3 mB ne restent pas coincés. */
+    @GameTest(template = "test/plancher", batch = LOT_USURE, setupTicks = 20, timeoutTicks = 200)
+    public static void unResteInferieurAuPasSEcoule(GameTestHelper helper) {
+        WaterHeaterBlockEntity be = poser(helper);
+        alimenter(be);
+        potable(be, 3);
+        chaude(be, WaterHeaterBlockEntity.TANK_CAPACITY - 2);
+        helper.runAfterDelay(30, () -> {
+            helper.assertTrue(be.hot().getFluidAmount() == WaterHeaterBlockEntity.TANK_CAPACITY
+                            && be.potable().getFluidAmount() == 1,
+                    "2 mB passés (place limitée), 1 mB resté : vus " + be.hot().getFluidAmount() + "/"
+                            + be.potable().getFluidAmount());
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_USURE, setupTicks = 20, timeoutTicks = 200)
+    public static void unPetitResteDEauPotableSEcoule(GameTestHelper helper) {
+        WaterHeaterBlockEntity be = poser(helper);
+        alimenter(be);
+        potable(be, 3);
+        helper.runAfterDelay(30, () -> {
+            helper.assertTrue(be.potable().isEmpty() && be.hot().getFluidAmount() == 3,
+                    "3 mB d'eau chaude attendus, vus " + be.hot().getFluidAmount() + " (potable "
+                            + be.potable().getFluidAmount() + ")");
+            helper.succeed();
+        });
+    }
+
+    /** L'eau chaude n'a ni seau ni bloc ; l'eau potable courante entre, l'eau vanilla courante non. */
+    @GameTest(template = "test/plancher", batch = LOT_USURE)
+    public static void leFluideNAPasDeSeauNiDeBloc(GameTestHelper helper) {
+        WaterHeaterBlockEntity be = poser(helper);
+        Fluid chaude = TownRegistry.HOT_WATER.get();
+        helper.assertTrue(chaude.getBucket() == Items.AIR, "pas de seau d'eau chaude, vu " + chaude.getBucket());
+        helper.assertTrue(chaude.defaultFluidState().createLegacyBlock().isAir(),
+                "pas de bloc d'eau chaude, vu " + chaude.defaultFluidState().createLegacyBlock());
+        helper.assertTrue(TownRegistry.HOT_WATER_FLOWING.get().getBucket() == Items.AIR, "pas de seau pour l'eau chaude courante");
+        helper.assertTrue(be.fluids().fill(new FluidStack(Fluids.FLOWING_WATER, 100), FluidAction.EXECUTE) == 0,
+                "l'eau vanilla courante est refusée");
+        int pris = be.fluids().fill(new FluidStack(FoodRegistry.POTABLE_WATER_FLOWING.get(), 100), FluidAction.EXECUTE);
+        helper.assertTrue(pris == 100, "l'eau potable courante est acceptée, prise " + pris);
+        helper.succeed();
     }
 }
