@@ -16,6 +16,13 @@ class ShowerRulesTest {
         return new AABB(x - 0.3, y, 0.2, x + 0.3, y + 1.8, 0.8);
     }
 
+    /** Un joueur décalé de ({@code dx}, {@code dz}) par rapport à l'axe de la pomme. */
+    private static AABB joueurDecale(double dx, double dz, double y) {
+        double x = TETE.x + dx;
+        double z = TETE.z + dz;
+        return new AABB(x - 0.3, y, z - 0.3, x + 0.3, y + 1.8, z + 0.3);
+    }
+
     @Test
     void sousLaPommeAUnBloc() {
         assertTrue(ShowerRules.isUnder(TETE, joueur(0.5, 9.0)));
@@ -35,6 +42,14 @@ class ShowerRulesTest {
     void pasAColeDeLAxe() {
         assertTrue(ShowerRules.isUnder(TETE, joueur(1.0, 8.0)));
         assertFalse(ShowerRules.isUnder(TETE, joueur(1.2, 8.0)));
+    }
+
+    /** Le seuil est un disque, pas un carré : 0,4 de chaque côté (0,57 en diagonale) passe, 0,5 (0,71) non. */
+    @Test
+    void enDiagonaleLeSeuilEstUnDisque() {
+        assertTrue(ShowerRules.isUnder(TETE, joueurDecale(0.4, 0.4, 8.0)));
+        assertFalse(ShowerRules.isUnder(TETE, joueurDecale(0.5, 0.5, 8.0)));
+        assertFalse(ShowerRules.isUnder(TETE, joueurDecale(-0.5, 0.5, 8.0)));
     }
 
     @Test

@@ -148,16 +148,23 @@ public final class ShowerHeadBlockEntity extends BlockEntity {
                 && ShowerRules.isUnder(head, player.getBoundingBox()) && clearAbove(level, pos, player));
     }
 
-    /** Rien de plein entre la pomme et le haut du joueur. */
+    /**
+     * Rien de plein entre la pomme et le haut du joueur, dans la colonne de la pomme et dans celle du joueur (décalé
+     * de la pomme de 0,6 bloc au plus, il peut se tenir dans la colonne voisine).
+     */
     private static boolean clearAbove(Level level, BlockPos pos, Player player) {
-        int top = BlockPos.containing(player.getX(), player.getBoundingBox().maxY - 1.0E-3, player.getZ()).getY();
-        for (int y = pos.getY() - 1; y >= top; y--) {
-            BlockPos at = new BlockPos(pos.getX(), y, pos.getZ());
-            if (level.getBlockState(at).isCollisionShapeFullBlock(level, at)) {
+        BlockPos top = BlockPos.containing(player.getX(), player.getBoundingBox().maxY - 1.0E-3, player.getZ());
+        for (int y = pos.getY() - 1; y >= top.getY(); y--) {
+            if (isFull(level, new BlockPos(pos.getX(), y, pos.getZ()))
+                    || isFull(level, new BlockPos(top.getX(), y, top.getZ()))) {
                 return false;
             }
         }
         return true;
+    }
+
+    private static boolean isFull(Level level, BlockPos at) {
+        return level.getBlockState(at).isCollisionShapeFullBlock(level, at);
     }
 
     // ---------------------------------------------------------------------------------------------

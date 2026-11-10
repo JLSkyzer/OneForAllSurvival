@@ -20,13 +20,16 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.Fluids;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.event.ForgeEventFactory;
@@ -64,16 +67,37 @@ public final class DoucheGameTests {
     // Aides
     // ---------------------------------------------------------------------------------------------
 
-    /** Dégage l'espace d'essai et le couvre (voir {@code ClotureGameTests.degager} pour la cause). */
+    /**
+     * Dégage l'espace d'essai, le couvre (voir {@code ClotureGameTests.degager} pour le gravier) et le ferme.
+     * Cause établie par un enregistreur par tick sur 6 passes de 8 copies de {@code pasDeCumulAuDela} : un joueur
+     * perdait sa place sous la pomme parce qu'un creeper (explosion), un zombie villageois ou un squelette (flèche)
+     * entrait dans la zone, ou qu'une eau courante d'un test voisin l'y poussait (le compteur retombait à zéro à bon
+     * droit). Le pourtour (colonnes de bord, de 0 à 3 de haut) arrête eau, flèches et visiteurs ; un bloc lumineux
+     * au plafond interdit les apparitions dans la boîte fermée (la lumière de bloc doit être nulle pour qu'un monstre
+     * y apparaisse) ; les entités laissées là par un test précédent sont retirées. On joue donc entre les colonnes
+     * 1 et 6.
+     */
     private static void degager(GameTestHelper helper) {
+        AABB boite = new AABB(helper.absolutePos(new BlockPos(0, 0, 0)).getX(), helper.absolutePos(new BlockPos(0, 0, 0)).getY(),
+                helper.absolutePos(new BlockPos(0, 0, 0)).getZ(), helper.absolutePos(new BlockPos(8, 6, 8)).getX(),
+                helper.absolutePos(new BlockPos(8, 6, 8)).getY(), helper.absolutePos(new BlockPos(8, 6, 8)).getZ());
+        for (Entity reste : helper.getLevel().getEntities((Entity) null, boite, e -> !(e instanceof Player))) {
+            reste.discard();
+        }
         for (int x = 0; x <= 7; x++) {
             for (int z = 0; z <= 7; z++) {
-                for (int y = 1; y < PLAFOND; y++) {
-                    helper.setBlock(new BlockPos(x, y, z), Blocks.AIR);
+                boolean bord = x == 0 || x == 7 || z == 0 || z == 7;
+                for (int y = 0; y < PLAFOND; y++) {
+                    if (bord) {
+                        helper.setBlock(new BlockPos(x, y, z), Blocks.STONE);
+                    } else if (y >= 1) {
+                        helper.setBlock(new BlockPos(x, y, z), Blocks.AIR);
+                    }
                 }
                 helper.setBlock(new BlockPos(x, PLAFOND, z), Blocks.STONE);
             }
         }
+        helper.setBlock(new BlockPos(4, PLAFOND, 4), Blocks.GLOWSTONE);
         helper.setBlock(new BlockPos(3, 12, 1), Blocks.GRAVEL);
     }
 
@@ -279,6 +303,44 @@ public final class DoucheGameTests {
         });
     }
 
+    /**
+     * Un bloc plein entre la pomme et le haut du joueur arrête la douche, puis, une fois retiré, elle reprend. Le joueur
+     * est en créatif (aucun dégât d'étouffement) et décalé de 0,55 de l'axe (0,6 est la limite : l'arrondi des flottants la franchit) : il déborde sur la colonne voisine, que la
+     * pomme doit aussi regarder.
+     */
+    private static void bloqueDabord(GameTestHelper helper, String nom, BlockPos bloc) {
+        ShowerHeadBlockEntity be = poser(helper, 1000);
+        JoueurDeTest j = debout(helper, nom, 4.05);
+        j.joueur().gameMode.changeGameModeForPlayer(GameType.CREATIVE);
+        helper.setBlock(bloc, Blocks.STONE);
+        helper.runAfterDelay(110, () -> {
+            helper.assertTrue(be.secondsUnder(j.uuid()) == 0, "un bloc plein arrête la douche, vu "
+                    + be.secondsUnder(j.uuid()) + " s");
+            helper.assertTrue(bienEtre(j) == null, "pas de Bien-être derrière un bloc plein");
+            helper.assertTrue(be.tank().getFluidAmount() == 1000, "aucune eau ne devait couler");
+            helper.setBlock(bloc, Blocks.AIR);
+        });
+        // Contrôle : le bloc retiré, cinq relevés neufs (120 à 200) donnent l'effet ; le montage n'était pas muet.
+        helper.runAfterDelay(235, () -> {
+            try {
+                helper.assertTrue(bienEtre(j) != null, "le bloc retiré, la douche devait reprendre");
+            } finally {
+                j.quitter();
+            }
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_B, setupTicks = 20, timeoutTicks = 400)
+    public static void unBlocSousLaPommeArreteLaDouche(GameTestHelper helper) {
+        bloqueDabord(helper, "douche_bloc_pomme", new BlockPos(3, 1, 1));
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_B, setupTicks = 20, timeoutTicks = 400)
+    public static void unBlocDansLaColonneDuJoueurArreteLaDouche(GameTestHelper helper) {
+        bloqueDabord(helper, "douche_bloc_joueur", new BlockPos(4, 1, 1));
+    }
+
     // ---------------------------------------------------------------------------------------------
     // Le Bien-être
     // ---------------------------------------------------------------------------------------------
@@ -328,17 +390,42 @@ public final class DoucheGameTests {
     /** Deux douches à la suite : la durée est renouvelée, jamais additionnée. */
     @GameTest(template = "test/plancher", batch = LOT_B, setupTicks = 20, timeoutTicks = 400)
     public static void pasDeCumulAuDela(GameTestHelper helper) {
-        poser(helper, 1000);
+        ShowerHeadBlockEntity be = poser(helper, 1000);
         JoueurDeTest j = debout(helper, "douche_deux", 3.5);
-        helper.runAfterDelay(230, () -> {
+        // Enregistreur : un relevé perdu se lit dans le message d'échec (tick, secondes, cuve, durée, place, vie).
+        StringBuilder trace = new StringBuilder();
+        int[] dernier = {-1, -1, -1};
+        helper.onEachTick(() -> {
+            MobEffectInstance e = bienEtre(j);
+            int secondes = be.secondsUnder(j.uuid());
+            int cuve = be.tank().getFluidAmount();
+            int duree = e == null ? -1 : e.getDuration();
+            if (secondes != dernier[0] || cuve != dernier[1] || duree > dernier[2]) {
+                trace.append("[t=").append(helper.getTick()).append(" s=").append(secondes).append(" cuve=")
+                        .append(cuve).append(" duree=").append(duree).append(" pos=").append(j.joueur().position())
+                        .append(" pv=").append(j.joueur().getHealth()).append(" dmg=")
+                        .append(j.joueur().getLastDamageSource()).append("] ");
+            }
+            dernier[0] = secondes;
+            dernier[1] = cuve;
+            dernier[2] = duree;
+        });
+        // Les octrois tombent sur les relevés (un par seconde, compteur remis à zéro à chacun) : le premier au
+        // relevé showerSeconds, le second au relevé 2 × showerSeconds. Au contrôle, la durée est celle du second
+        // octroi moins le temps écoulé depuis lui ; un relevé perdu (second octroi manqué) donnerait showerSeconds × 20
+        // ticks de plus d'écart.
+        int octroi2 = 2 * TownConfig.showerSeconds() * 20;
+        int controle = octroi2 + 10;
+        helper.runAfterDelay(controle, () -> {
             try {
-                // Deux octrois (ticks 100 et 200, contrôle à 230) : la durée repart de showerWellBeingMinutes, elle ne s'additionne pas.
                 MobEffectInstance effet = bienEtre(j);
-                helper.assertTrue(effet != null, "le Bien-être était attendu");
+                helper.assertTrue(effet != null, "le Bien-être était attendu TRACE " + trace);
+                int attendu = dureeMax() - (controle - octroi2);
                 helper.assertTrue(effet.getDuration() <= dureeMax(), "durée ≤ " + dureeMax() + " attendue, vue "
-                        + effet.getDuration());
-                helper.assertTrue(effet.getDuration() > dureeMax() - 40, "durée renouvelée attendue, vue "
-                        + effet.getDuration());
+                        + effet.getDuration() + " TRACE " + trace);
+                helper.assertTrue(Math.abs(effet.getDuration() - attendu) <= 2, "durée " + attendu
+                        + " ± 2 attendue (second octroi au tick " + octroi2 + "), vue " + effet.getDuration()
+                        + " TRACE " + trace);
                 helper.assertTrue(effet.getAmplifier() == 0, "toujours le niveau 0, vu " + effet.getAmplifier());
             } finally {
                 j.quitter();
