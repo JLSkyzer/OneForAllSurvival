@@ -8,6 +8,7 @@ import dev.oneforallsurvival.machine.ElectricMachineBlock;
 import dev.oneforallsurvival.machine.MachineState;
 import dev.oneforallsurvival.repair.RepairRegistry;
 import dev.oneforallsurvival.salvage.SalvageRegistry;
+import dev.oneforallsurvival.town.TownRegistry;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.MenuType;
@@ -70,6 +71,7 @@ public final class BenchRegistry {
                         FoodRegistry.tabItems().forEach(item -> output.accept(item.get()));
                         GridRegistry.tabItems().forEach(item -> output.accept(item.get()));
                         FenceRegistry.tabItems().forEach(item -> output.accept(item.get()));
+                        TownRegistry.tabItems().forEach(item -> output.accept(item.get()));
                     })
                     .build());
 

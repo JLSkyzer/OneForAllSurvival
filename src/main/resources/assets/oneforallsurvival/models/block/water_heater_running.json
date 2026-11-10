@@ -1,0 +1,9 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "particle": "oneforallsurvival:block/water_heater_side",
+    "front": "oneforallsurvival:block/water_heater_front_running",
+    "side": "oneforallsurvival:block/water_heater_side",
+    "top": "oneforallsurvival:block/water_heater_top"
+  }
+}

@@ -342,5 +342,16 @@
   "gui.oneforallsurvival.canteen_pot.state.fault": "En panne",
   "gui.oneforallsurvival.canteen_pot.energy": "%s / %s FE",
   "gui.oneforallsurvival.canteen_pot.containers": "Récipients requis : %s",
-  "gui.oneforallsurvival.f3.unit.blocks": "blocs"
+  "gui.oneforallsurvival.f3.unit.blocks": "blocs",
+  "block.oneforallsurvival.water_heater": "Chauffe-eau",
+  "fluid_type.oneforallsurvival.hot_water": "Eau chaude",
+  "gui.oneforallsurvival.water_heater.state": "État : %s",
+  "gui.oneforallsurvival.water_heater.state.stopped": "À l'arrêt",
+  "gui.oneforallsurvival.water_heater.state.running": "Chauffe",
+  "gui.oneforallsurvival.water_heater.state.no_power": "Sans courant",
+  "gui.oneforallsurvival.water_heater.state.fault": "En panne",
+  "gui.oneforallsurvival.water_heater.energy": "%s / %s FE",
+  "gui.oneforallsurvival.water_heater.energy.short": "%s FE",
+  "gui.oneforallsurvival.water_heater.potable": "Eau potable : %s / %s mB",
+  "gui.oneforallsurvival.water_heater.hot": "Eau chaude : %s / %s mB"
 }
