@@ -2,6 +2,7 @@ package dev.oneforallsurvival.town;
 
 import dev.oneforallsurvival.OneForAllSurvival;
 import java.util.List;
+import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
@@ -30,6 +31,8 @@ public final class TownRegistry {
             DeferredRegister.create(ForgeRegistries.BLOCK_ENTITY_TYPES, OneForAllSurvival.MODID);
     private static final DeferredRegister<MenuType<?>> MENUS =
             DeferredRegister.create(ForgeRegistries.MENU_TYPES, OneForAllSurvival.MODID);
+    private static final DeferredRegister<MobEffect> EFFECTS =
+            DeferredRegister.create(ForgeRegistries.MOB_EFFECTS, OneForAllSurvival.MODID);
     private static final DeferredRegister<Fluid> FLUIDS =
             DeferredRegister.create(ForgeRegistries.FLUIDS, OneForAllSurvival.MODID);
     private static final DeferredRegister<FluidType> FLUID_TYPES =
@@ -56,6 +59,18 @@ public final class TownRegistry {
     public static final RegistryObject<MenuType<WaterHeaterMenu>> WATER_HEATER_MENU =
             MENUS.register("water_heater", () -> IForgeMenuType.create(WaterHeaterMenu::fromNetwork));
 
+    /** Le Bien-être : l'effet d'une douche chaude. Il ne soigne jamais. */
+    public static final RegistryObject<MobEffect> WELL_BEING = EFFECTS.register("well_being", WellBeingEffect::new);
+
+    public static final RegistryObject<Block> SHOWER_HEAD = BLOCKS.register("shower_head",
+            () -> new ShowerHeadBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL)
+                    .strength(2.0F).sound(SoundType.METAL).requiresCorrectToolForDrops().noOcclusion()));
+    public static final RegistryObject<Item> SHOWER_HEAD_ITEM = ITEMS.register("shower_head",
+            () -> new BlockItem(SHOWER_HEAD.get(), new Item.Properties()));
+    public static final RegistryObject<BlockEntityType<ShowerHeadBlockEntity>> SHOWER_HEAD_BE =
+            BLOCK_ENTITIES.register("shower_head", () -> BlockEntityType.Builder
+                    .of(ShowerHeadBlockEntity::new, SHOWER_HEAD.get()).build(null));
+
     private TownRegistry() {}
 
     private static ForgeFlowingFluid.Properties hotWaterProperties() {
@@ -67,12 +82,13 @@ public final class TownRegistry {
         ITEMS.register(modEventBus);
         BLOCK_ENTITIES.register(modEventBus);
         MENUS.register(modEventBus);
+        EFFECTS.register(modEventBus);
         FLUID_TYPES.register(modEventBus);
         FLUIDS.register(modEventBus);
     }
 
     /** Les objets que l'onglet créatif affiche, dans l'ordre. */
     public static List<RegistryObject<? extends Item>> tabItems() {
-        return List.of(WATER_HEATER_ITEM);
+        return List.of(WATER_HEATER_ITEM, SHOWER_HEAD_ITEM);
     }
 }

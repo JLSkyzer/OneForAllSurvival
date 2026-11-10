@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "active=false": {
+      "model": "oneforallsurvival:block/shower_head"
+    },
+    "active=true": {
+      "model": "oneforallsurvival:block/shower_head_active"
+    }
+  }
+}

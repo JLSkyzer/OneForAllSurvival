@@ -353,5 +353,7 @@
   "gui.oneforallsurvival.water_heater.energy": "%s / %s FE",
   "gui.oneforallsurvival.water_heater.energy.short": "%s FE",
   "gui.oneforallsurvival.water_heater.potable": "Eau potable : %s / %s mB",
-  "gui.oneforallsurvival.water_heater.hot": "Eau chaude : %s / %s mB"
+  "gui.oneforallsurvival.water_heater.hot": "Eau chaude : %s / %s mB",
+  "block.oneforallsurvival.shower_head": "Pomme de douche",
+  "effect.oneforallsurvival.well_being": "Bien-être"
 }
