@@ -84,7 +84,7 @@
   - `TownConfig` : `heaterMbPerTick()` 5 (1 à 100), `heaterEnergy()` 40, et les valeurs des tâches 2 et 3.
   - `WaterHeaterBlockEntity` : `CAPACITY = 8000`, `MAX_RECEIVE = 200`, `TANK_CAPACITY = 4000`, `potable() : FluidTank`, `hot() : FluidTank`, `fluids() : IFluidHandler` (remplir n'accepte que `POTABLE_WATER`, vider ne rend que `HOT_WATER`, toutes faces).
 
-Règles : `wantsToWork` : au moins `heaterMbPerTick` d'eau potable et autant de place en eau chaude. Chaque `workTick` transfère `heaterMbPerTick × efficiency()` arrondi au plus bas, au moins 1. Sans courant ni en panne : rien ne se perd. Sauvegarde des deux cuves. Écran : deux jauges, énergie, état. Eau chaude dessinée avec les textures de l'eau, teinte orangée.
+Règles : `wantsToWork` : au moins 1 mB d'eau potable et 1 mB de place en eau chaude. Chaque `workTick` transfère `heaterMbPerTick`, ou moins pour le dernier pas : l'usure espace déjà les ticks de travail dans `ElectricMachineBlockEntity`, elle ne réduit pas le débit une seconde fois. Sans courant ni en panne : rien ne se perd. Sauvegarde des deux cuves. Écran : deux jauges, énergie, état. Eau chaude dessinée avec les textures de l'eau, teinte orangée.
 
 - [ ] **Step 1: Écrire `ChauffeEauGameTests`** : `lEauPotableDevientChaude`, `lEauVanillaEstRefusee`, `laLaveEstRefusee`, `seuleLEauChaudeSort` (vider ne rend jamais d'eau potable), `sansCourantRienNeSePerd`, `enPanneRienNeSePerd`, `cuvePleineIlSArrete` (état `STOPPED`, aucune consommation), `lesCuvesSurviventAuRechargement`.
 - [ ] **Step 2: Lancer, constater l'échec.**
