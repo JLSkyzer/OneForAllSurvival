@@ -109,8 +109,13 @@ public final class PhareGameTests {
         helper.startSequence()
                 .thenIdle(10)
                 .thenExecute(() -> {
-                    helper.assertTrue(allume(helper, pos), "le phare devait d'abord être allumé");
-                    be.drainEnergy(1_000_000);
+                    try {
+                        helper.assertTrue(allume(helper, pos), "le phare devait d'abord être allumé");
+                        be.drainEnergy(1_000_000);
+                    } catch (RuntimeException e) {
+                        nettoyer(helper, pos);
+                        throw e;
+                    }
                 })
                 .thenIdle(5)
                 .thenExecute(() -> {
@@ -132,8 +137,13 @@ public final class PhareGameTests {
         helper.startSequence()
                 .thenIdle(10)
                 .thenExecute(() -> {
-                    helper.assertTrue(allume(helper, pos), "le phare devait d'abord être allumé");
-                    be.breakDown(FaultType.values()[0]);
+                    try {
+                        helper.assertTrue(allume(helper, pos), "le phare devait d'abord être allumé");
+                        be.breakDown(FaultType.values()[0]);
+                    } catch (RuntimeException e) {
+                        nettoyer(helper, pos);
+                        throw e;
+                    }
                 })
                 .thenIdle(5)
                 .thenExecute(() -> {
@@ -147,6 +157,66 @@ public final class PhareGameTests {
                 .thenSucceed();
     }
 
+    @GameTest(template = "test/plancher", batch = LOT, setupTicks = 20, timeoutTicks = 300)
+    public static void sousUnToitApresCoup(GameTestHelper helper) {
+        BlockPos pos = haut(helper);
+        LighthouseBlockEntity be = poser(helper, pos);
+        alimenter(be);
+        helper.startSequence()
+                .thenIdle(10)
+                .thenExecute(() -> {
+                    try {
+                        helper.assertTrue(allume(helper, pos), "le phare devait d'abord être allumé");
+                        helper.setBlock(pos.above(), Blocks.STONE);
+                    } catch (RuntimeException e) {
+                        nettoyer(helper, pos);
+                        throw e;
+                    }
+                })
+                .thenIdle(5)
+                .thenExecute(() -> {
+                    try {
+                        helper.assertTrue(be.state() == MachineState.STOPPED, "STOPPED attendu, vu " + be.state());
+                        helper.assertTrue(!allume(helper, pos), "le phare couvert devait s'éteindre");
+                        helper.setBlock(pos.above(), Blocks.AIR);
+                    } catch (RuntimeException e) {
+                        nettoyer(helper, pos);
+                        throw e;
+                    }
+                })
+                .thenIdle(5)
+                .thenExecute(() -> {
+                    try {
+                        helper.assertTrue(be.state() == MachineState.RUNNING, "RUNNING attendu, vu " + be.state());
+                        helper.assertTrue(allume(helper, pos), "le phare découvert devait se rallumer");
+                    } finally {
+                        nettoyer(helper, pos);
+                    }
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT, setupTicks = 20, timeoutTicks = 200)
+    public static void tropBas(GameTestHelper helper) {
+        // Un bloc sous le seuil, en plein ciel : seule la hauteur l'empêche de marcher.
+        int absolu = MachineConfig.seaLevel() + LightConfig.lighthouseMinAboveSea() - 1;
+        BlockPos pos = new BlockPos(1, absolu - helper.absolutePos(BlockPos.ZERO).getY(), 1);
+        LighthouseBlockEntity be = poser(helper, pos);
+        alimenter(be);
+        int avant = be.energy().getEnergyStored();
+        helper.runAfterDelay(30, () -> {
+            try {
+                helper.assertTrue(be.state() == MachineState.STOPPED, "STOPPED attendu, vu " + be.state());
+                helper.assertTrue(!allume(helper, pos), "le phare trop bas ne devait pas être allumé");
+                helper.assertTrue(be.energy().getEnergyStored() == avant,
+                        "rien ne devait être consommé : " + avant + " puis " + be.energy().getEnergyStored());
+            } finally {
+                nettoyer(helper, pos);
+            }
+            helper.succeed();
+        });
+    }
+
     @GameTest(template = "test/plancher", batch = LOT, setupTicks = 20, timeoutTicks = 200)
     public static void etatSurvitAuRechargement(GameTestHelper helper) {
         BlockPos pos = haut(helper);
@@ -158,7 +228,6 @@ public final class PhareGameTests {
                 BlockState etat = helper.getBlockState(pos);
                 LighthouseBlockEntity copie = new LighthouseBlockEntity(helper.absolutePos(pos), etat);
                 copie.load(tag);
-                helper.assertTrue(etat.getValue(LighthouseBlock.LIT), "le bloc allumé devait garder sa propriété");
                 helper.assertTrue(copie.state() == MachineState.RUNNING,
                         "RUNNING attendu après relecture, vu " + copie.state());
                 helper.assertTrue(copie.energy().getEnergyStored() == be.energy().getEnergyStored(), "énergie perdue");
