@@ -20,7 +20,7 @@ public final class LightRules {
      * tick du monde avant l'avance de l'heure, d'après l'heure du jour, la pluie et l'orage : un changement d'heure se
      * voit donc au tick suivant. Sous la pluie seule (facteur 11/16), le plein jour reste du jour ({@code skyDarken} 3) ; sous un
      * orage plein (pluie et orage à 1), il fait nuit même à midi ({@code skyDarken} 5 : calcul à la main d'après le
-     * code, relevé en jeu seulement par l'essai), ce qui allume le phare, souhaitable pour un phare. Dans une dimension à heure fixe (Nether, End), {@code isNight()} est
+     * code, jamais relevé en jeu ni en GameTest), ce qui allume le phare, souhaitable pour un phare. Dans une dimension à heure fixe (Nether, End), {@code isNight()} est
      * toujours faux : le phare ne s'y allume jamais.
      */
     public static boolean shouldShine(boolean freeTower, boolean night) {
