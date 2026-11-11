@@ -1,6 +1,7 @@
 {
   "replace": false,
   "values": [
-    "oneforallsurvival:engineer_bench"
+    "oneforallsurvival:engineer_bench",
+    "oneforallsurvival:buried_cache"
   ]
 }

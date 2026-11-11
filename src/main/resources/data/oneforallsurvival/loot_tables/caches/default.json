@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "rolls": { "type": "minecraft:uniform", "min": 2.0, "max": 3.0 },
+      "bonus_rolls": 0.0,
+      "entries": [
+        { "type": "minecraft:item", "name": "oneforallsurvival:scrap_metal", "weight": 5,
+          "functions": [ { "function": "minecraft:set_count", "count": { "type": "minecraft:uniform", "min": 2.0, "max": 5.0 } } ] },
+        { "type": "minecraft:item", "name": "oneforallsurvival:aviation_wire", "weight": 4,
+          "functions": [ { "function": "minecraft:set_count", "count": { "type": "minecraft:uniform", "min": 1.0, "max": 3.0 } } ] },
+        { "type": "minecraft:item", "name": "minecraft:iron_nugget", "weight": 4,
+          "functions": [ { "function": "minecraft:set_count", "count": { "type": "minecraft:uniform", "min": 3.0, "max": 8.0 } } ] },
+        { "type": "minecraft:item", "name": "oneforallsurvival:instrument_core", "weight": 1 },
+        { "type": "minecraft:item", "name": "oneforallsurvival:battery_cell", "weight": 1 }
+      ]
+    }
+  ]
+}

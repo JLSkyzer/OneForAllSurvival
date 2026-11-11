@@ -4,6 +4,7 @@ import dev.oneforallsurvival.OneForAllSurvival;
 import dev.oneforallsurvival.fence.FenceRegistry;
 import dev.oneforallsurvival.food.FoodRegistry;
 import dev.oneforallsurvival.grid.GridRegistry;
+import dev.oneforallsurvival.explore.ExploreRegistry;
 import dev.oneforallsurvival.light.LightRegistry;
 import dev.oneforallsurvival.machine.ElectricMachineBlock;
 import dev.oneforallsurvival.machine.MachineState;
@@ -74,6 +75,7 @@ public final class BenchRegistry {
                         FenceRegistry.tabItems().forEach(item -> output.accept(item.get()));
                         TownRegistry.tabItems().forEach(item -> output.accept(item.get()));
                         LightRegistry.tabItems().forEach(item -> output.accept(item.get()));
+                        ExploreRegistry.tabItems().forEach(item -> output.accept(item.get()));
                     })
                     .build());
 

@@ -357,5 +357,12 @@
   "block.oneforallsurvival.shower_head": "Pomme de douche",
   "effect.oneforallsurvival.well_being": "Bien-être",
   "block.oneforallsurvival.lighthouse": "Phare",
-  "message.oneforallsurvival.lighthouse.needs_sky": "Le phare doit voir le ciel, à %s blocs au moins au-dessus de la mer"
+  "message.oneforallsurvival.lighthouse.needs_sky": "Le phare doit voir le ciel, à %s blocs au moins au-dessus de la mer",
+  "block.oneforallsurvival.buried_cache": "Cache enfouie",
+  "command.oneforallsurvival.cache.not_a_cache": "Il n'y a pas de cache en %s",
+  "command.oneforallsurvival.cache.unknown_table": "Table de butin inconnue : %s",
+  "command.oneforallsurvival.cache.loot.set": "Cache en %s : table de butin réglée sur %s",
+  "command.oneforallsurvival.cache.list.empty": "Aucune cache dans cette dimension",
+  "command.oneforallsurvival.cache.list.header": "%s cache(s) dans %s :",
+  "command.oneforallsurvival.cache.list.entry": "- %s"
 }

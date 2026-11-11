@@ -357,5 +357,12 @@
   "block.oneforallsurvival.shower_head": "Shower Head",
   "effect.oneforallsurvival.well_being": "Well-Being",
   "block.oneforallsurvival.lighthouse": "Lighthouse",
-  "message.oneforallsurvival.lighthouse.needs_sky": "The lighthouse must see the sky, at least %s blocks above sea level"
+  "message.oneforallsurvival.lighthouse.needs_sky": "The lighthouse must see the sky, at least %s blocks above sea level",
+  "block.oneforallsurvival.buried_cache": "Buried Cache",
+  "command.oneforallsurvival.cache.not_a_cache": "There is no cache at %s",
+  "command.oneforallsurvival.cache.unknown_table": "Unknown loot table: %s",
+  "command.oneforallsurvival.cache.loot.set": "Cache at %s: loot table set to %s",
+  "command.oneforallsurvival.cache.list.empty": "No cache in this dimension",
+  "command.oneforallsurvival.cache.list.header": "%s cache(s) in %s:",
+  "command.oneforallsurvival.cache.list.entry": "- %s"
 }
