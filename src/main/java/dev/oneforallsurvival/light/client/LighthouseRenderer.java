@@ -27,10 +27,11 @@ public final class LighthouseRenderer implements BlockEntityRenderer<LighthouseB
     static final float LENGTH = 96.0F;
     private static final float START_HALF_WIDTH = 0.12F;
     private static final float END_HALF_WIDTH = 2.5F;
-    private static final float START_ALPHA = 0.55F;
+    private static final float START_ALPHA = 0.85F;
     /** La lampe, vers le haut du bloc. */
     private static final float LAMP_HEIGHT = 0.75F;
-    private static final ResourceLocation BEAM = new ResourceLocation("textures/entity/beacon_beam.png");
+    /** Blanc-jaune chaud, comme la lampe d'un phare : la couleur est dans la texture du mod, pas teintée sur celle de la balise. */
+    private static final ResourceLocation BEAM = new ResourceLocation("oneforallsurvival", "textures/misc/lighthouse_beam.png");
 
     public LighthouseRenderer(BlockEntityRendererProvider.Context context) {}
 
@@ -78,7 +79,7 @@ public final class LighthouseRenderer implements BlockEntityRenderer<LighthouseB
     private static void vertex(VertexConsumer c, Matrix4f m, Matrix3f n, float x, float spread, boolean vertical,
             float alpha, float u, float v, float ny, float nz) {
         c.vertex(m, x, vertical ? spread : 0, vertical ? 0 : spread)
-                .color(1.0F, 0.94F, 0.72F, alpha)
+                .color(1.0F, 1.0F, 1.0F, alpha)
                 .uv(u, v)
                 .overlayCoords(OverlayTexture.NO_OVERLAY)
                 .uv2(LightTexture.FULL_BRIGHT)

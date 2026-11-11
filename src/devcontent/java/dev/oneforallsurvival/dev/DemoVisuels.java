@@ -33,6 +33,10 @@ import dev.oneforallsurvival.repair.client.GalvanicBathScreen;
 import dev.oneforallsurvival.role.RoleBook;
 import dev.oneforallsurvival.role.RoleSavedData;
 import dev.oneforallsurvival.salvage.SalvageRegistry;
+import dev.oneforallsurvival.town.ShowerHeadBlock;
+import dev.oneforallsurvival.town.ShowerHeadBlockEntity;
+import dev.oneforallsurvival.town.TownRegistry;
+import dev.oneforallsurvival.town.WaterHeaterBlockEntity;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -141,6 +145,13 @@ public final class DemoVisuels {
     /** Le phare du lot 6, posé en tour libre au moment de ses vues ; la tour est de pierre. */
     private static BlockPos phare;
     private static volatile boolean pharePose;
+    /** Le matériel de la ville (lot 6) : chauffe-eau dans leurs quatre états, douches, et chaque bloc contre un mur. */
+    private static final BlockPos[] CHAUFFE_EAU = new BlockPos[4];
+    private static BlockPos chauffeEauMur;
+    private static final BlockPos[] douches = new BlockPos[2];
+    private static BlockPos doucheMur;
+    private static BlockPos phareMur;
+    private static volatile boolean villePose;
 
     private enum Phase { TITRE, ATTENTE_MONDE, PREPARATION, SCENARIO, FIN }
 
@@ -212,6 +223,17 @@ public final class DemoVisuels {
         for (BlockPos p : ALIMENTES) {
             if (event.getServer().overworld().getBlockEntity(p) instanceof ElectricMachineBlockEntity machine) {
                 machine.energy().receiveEnergy(100, false);
+            }
+        }
+        // La douche « en marche » n'a personne dessous : son état actif est reposé à chaque tic pour la capture.
+        if (douches[1] != null) {
+            var monde = event.getServer().overworld();
+            if (monde.getBlockEntity(douches[1]) instanceof ShowerHeadBlockEntity douche) {
+                douche.tank().fill(new FluidStack(TownRegistry.HOT_WATER.get(), 1000), IFluidHandler.FluidAction.EXECUTE);
+                var etat = monde.getBlockState(douches[1]);
+                if (etat.is(TownRegistry.SHOWER_HEAD.get()) && !etat.getValue(ShowerHeadBlock.ACTIVE)) {
+                    monde.setBlock(douches[1], etat.setValue(ShowerHeadBlock.ACTIVE, true), 3);
+                }
             }
         }
         // 15 FE par tick dans l'entrée (au nord) du délesteur en marche : devant rien, gauche servie, droite en
@@ -316,6 +338,9 @@ public final class DemoVisuels {
             dryer.inventory().setStackInSlot(DryerBlockEntity.SLOT_INPUT, new ItemStack(Items.BEEF, 8));
             dryer.inventory().setStackInSlot(DryerBlockEntity.SLOT_SALT, new ItemStack(FoodRegistry.SALT.get(), 4));
             dryer.inventory().setStackInSlot(DryerBlockEntity.SLOT_OUTPUT, new ItemStack(FoodRegistry.SALTED_MEAT.get(), 3));
+        } else if (be instanceof WaterHeaterBlockEntity chauffeEau) {
+            chauffeEau.potable().fill(new FluidStack(FoodRegistry.POTABLE_WATER.get(), 3000), IFluidHandler.FluidAction.EXECUTE);
+            chauffeEau.hot().fill(new FluidStack(TownRegistry.HOT_WATER.get(), 1000), IFluidHandler.FluidAction.EXECUTE);
         } else if (be instanceof IncubatorBlockEntity couveuse) {
             for (int i = 0; i < IncubatorBlockEntity.SLOTS; i++) {
                 couveuse.inventory().setStackInSlot(i, new ItemStack(Items.EGG));
@@ -726,6 +751,7 @@ public final class DemoVisuels {
         vue(mc, "parafoudres_stations.png", parafoudre.offset(5, 0, 0), new Vec3(0.0, 2.2, 6.5), false);
 
         construirePhare(mc);
+        construireVille(mc, sudEst);
         construireLot5(mc, sudEst);
 
         etape("grille", () -> {
@@ -891,7 +917,99 @@ public final class DemoVisuels {
 
     /** Une vue du phare : sa position n'est connue qu'après la pose, elle est donc lue au moment de la vue. */
     private static void vuePhare(Minecraft mc, String fichier, Vec3 d) {
-        etape("vue " + fichier, () -> regarder(mc, phare, d, true), () -> true, 1500, fichier);
+        vuePhare(mc, fichier, d, true);
+    }
+
+    private static void vuePhare(Minecraft mc, String fichier, Vec3 d, boolean nuit) {
+        etape("vue " + fichier, () -> regarder(mc, phare, d, nuit), () -> true, 1500, fichier);
+    }
+
+    /**
+     * Le lot 6 : le chauffe-eau dans ses quatre états, la douche à sec puis en marche, et chaque bloc contre un mur
+     * (leurs modèles ne sont pas des cubes pleins : les faces voisines doivent rester dessinées). Le phare de jour,
+     * allumé en haut de sa tour, puis éteint contre un mur.
+     */
+    private static void construireVille(Minecraft mc, Vec3 sudEst) {
+        etape("pose de la ville", () -> {
+            MinecraftServer serveur = mc.getSingleplayerServer();
+            serveur.execute(() -> preparerVille(serveur));
+        }, () -> villePose, 2500, null);
+        for (int e = 0; e < 4; e++) {
+            int k = e;
+            etape("vue chauffe-eau " + ETATS[k], () -> regarder(mc, CHAUFFE_EAU[k], sudEst, false), () -> true, 1500,
+                    "chauffe_eau_" + ETATS[k] + "_jour.png");
+        }
+        etape("vue chauffe-eau les quatre", () -> regarder(mc, CHAUFFE_EAU[1].offset(2, 0, 0), new Vec3(0.0, 2.2, 5.5),
+                false), () -> true, 1500, "chauffe_eau_les_quatre.png");
+        etape("vue chauffe-eau nuit", () -> regarder(mc, CHAUFFE_EAU[1], sudEst, true), () -> true, 1500,
+                "chauffe_eau_marche_nuit.png");
+        etape("vue chauffe-eau arriere", () -> regarder(mc, CHAUFFE_EAU[1], new Vec3(-1.5, 1.6, -1.7), false),
+                () -> true, 1500, "chauffe_eau_arriere_dessus.png");
+        etape("vue chauffe-eau mur", () -> regarder(mc, chauffeEauMur, new Vec3(1.1, 1.3, 1.6), false), () -> true,
+                1500, "chauffe_eau_contre_un_mur.png");
+        etape("vue douche a sec", () -> regarder(mc, douches[0], new Vec3(1.0, 0.5, 1.6), false), () -> true, 1500,
+                "douche_a_sec_jour.png");
+        etape("vue douche en marche", () -> regarder(mc, douches[1], new Vec3(1.0, 0.3, 1.6), false), () -> true, 1500,
+                "douche_en_marche_jour.png");
+        etape("vue douche en marche nuit", () -> regarder(mc, douches[1], new Vec3(1.0, 0.3, 1.6), true), () -> true,
+                1500, "douche_en_marche_nuit.png");
+        etape("vue douche dessous", () -> regarder(mc, douches[0], new Vec3(0.6, -1.3, 0.8), false), () -> true, 1500,
+                "douche_dessous.png");
+        etape("vue douche mur", () -> regarder(mc, doucheMur, new Vec3(1.1, 0.5, 1.6), false), () -> true, 1500,
+                "douche_contre_un_mur.png");
+        etape("vue douche mur dessus", () -> regarder(mc, doucheMur, new Vec3(1.1, 1.4, 1.4), false), () -> true, 1500,
+                "douche_contre_un_mur_dessus.png");
+        vuePhare(mc, "phare_jour.png", new Vec3(5.0, -1.0, 6.0), false);
+        vuePhare(mc, "phare_de_pres_jour.png", new Vec3(2.2, 1.0, 3.0), false);
+        etape("vue phare mur", () -> regarder(mc, phareMur, new Vec3(1.1, 1.1, 1.8), false), () -> true, 1500,
+                "phare_contre_un_mur.png");
+    }
+
+    private static void preparerVille(MinecraftServer serveur) {
+        ServerLevel monde = serveur.overworld();
+        BlockPos v = origine.offset(30, 0, -10);
+        for (int e = 0; e < 4; e++) {
+            BlockPos p = v.offset(4 * e, 0, 0);
+            CHAUFFE_EAU[e] = p;
+            monde.setBlock(p, TownRegistry.WATER_HEATER.get().defaultBlockState()
+                    .setValue(HorizontalDirectionalBlock.FACING, Direction.SOUTH), 3);
+            var be = (ElectricMachineBlockEntity) monde.getBlockEntity(p);
+            if (e != 0) {
+                garnirMachine(be);
+            }
+            if (e == 1) {
+                ALIMENTES.add(p);
+            } else if (e == 3) {
+                be.breakDown(FaultType.FUSE);
+            }
+        }
+        chauffeEauMur = v.offset(0, 0, -6);
+        monde.setBlock(chauffeEauMur, TownRegistry.WATER_HEATER.get().defaultBlockState()
+                .setValue(HorizontalDirectionalBlock.FACING, Direction.SOUTH), 3);
+        entourer(monde, chauffeEauMur);
+        // Une pomme pend sous un plafond : un bloc de pierre au-dessus de chacune.
+        for (int i = 0; i < 2; i++) {
+            BlockPos p = v.offset(4 * i, 0, -12);
+            douches[i] = p;
+            monde.setBlock(p.above(), Blocks.STONE.defaultBlockState(), 3);
+            monde.setBlock(p, TownRegistry.SHOWER_HEAD.get().defaultBlockState(), 3);
+        }
+        doucheMur = v.offset(8, 0, -12);
+        monde.setBlock(doucheMur.above(), Blocks.STONE.defaultBlockState(), 3);
+        monde.setBlock(doucheMur, TownRegistry.SHOWER_HEAD.get().defaultBlockState(), 3);
+        entourer(monde, doucheMur);
+        phareMur = v.offset(12, 0, -12);
+        monde.setBlock(phareMur, LightRegistry.LIGHTHOUSE.get().defaultBlockState(), 3);
+        entourer(monde, phareMur);
+        villePose = true;
+    }
+
+    /** Deux murs de pierre de deux blocs, au nord et à l'ouest du bloc, qui le touchent. */
+    private static void entourer(ServerLevel monde, BlockPos p) {
+        for (BlockPos mur : List.of(p.north(), p.west())) {
+            monde.setBlock(mur, Blocks.STONE.defaultBlockState(), 3);
+            monde.setBlock(mur.above(), Blocks.STONE.defaultBlockState(), 3);
+        }
     }
 
     private static void souris(Minecraft mc) {

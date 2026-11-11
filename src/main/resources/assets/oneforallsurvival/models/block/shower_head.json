@@ -1,8 +1,7 @@
 {
   "textures": {
-    "particle": "oneforallsurvival:block/water_heater_side",
-    "0": "oneforallsurvival:block/water_heater_side",
-    "1": "oneforallsurvival:block/water_heater_top"
+    "particle": "oneforallsurvival:block/shower_head",
+    "0": "oneforallsurvival:block/shower_head"
   },
   "elements": [
     {
@@ -21,8 +20,8 @@
           "uv": [
             0,
             0,
-            4,
-            8
+            2,
+            5
           ],
           "texture": "#0"
         },
@@ -30,8 +29,8 @@
           "uv": [
             0,
             0,
-            4,
-            8
+            2,
+            5
           ],
           "texture": "#0"
         },
@@ -39,8 +38,8 @@
           "uv": [
             0,
             0,
-            4,
-            8
+            2,
+            5
           ],
           "texture": "#0"
         },
@@ -48,26 +47,8 @@
           "uv": [
             0,
             0,
-            4,
-            8
-          ],
-          "texture": "#0"
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            4,
-            8
-          ],
-          "texture": "#0"
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            4,
-            8
+            2,
+            5
           ],
           "texture": "#0"
         }
@@ -88,56 +69,56 @@
         "north": {
           "uv": [
             0,
-            0,
+            6,
             8,
-            4
+            8
           ],
           "texture": "#0"
         },
         "east": {
           "uv": [
             0,
-            0,
+            6,
             8,
-            4
+            8
           ],
           "texture": "#0"
         },
         "south": {
           "uv": [
             0,
-            0,
+            6,
             8,
-            4
+            8
           ],
           "texture": "#0"
         },
         "west": {
           "uv": [
             0,
-            0,
+            6,
             8,
-            4
+            8
           ],
           "texture": "#0"
         },
         "up": {
           "uv": [
-            0,
-            0,
             8,
+            0,
+            16,
             8
           ],
-          "texture": "#1"
+          "texture": "#0"
         },
         "down": {
           "uv": [
-            0,
-            0,
             8,
-            8
+            8,
+            16,
+            16
           ],
-          "texture": "#1"
+          "texture": "#0"
         }
       }
     }

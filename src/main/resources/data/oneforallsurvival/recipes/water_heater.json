@@ -9,7 +9,7 @@
   "category": "misc",
   "ingredients": [
     {
-      "item": "minecraft:cauldron"
+      "item": "create:fluid_tank"
     },
     {
       "item": "oneforallsurvival:coil"
@@ -25,6 +25,9 @@
     },
     {
       "item": "create:fluid_pipe"
+    },
+    {
+      "tag": "oneforallsurvival:wire"
     }
   ],
   "result": {
