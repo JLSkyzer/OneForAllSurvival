@@ -1,7 +1,7 @@
 {
  "id": "substances",
  "title": "Substances",
- "intro": "Tabac, alcool et drogues : tout le monde peut les produire, le maire décide de ce qui est interdit, la police dépiste. Les effets passent, sans dépendance ni overdose.",
+ "intro": "Tabac, alcool et drogues : tout le monde peut les produire, la police dépiste, le médecin dégrise. Ce qui est interdit se décide en RP : le jeu n'interdit rien.",
  "diagrams": [
   {
    "title": "Du champ à la fumée",
@@ -10,15 +10,6 @@
     "Graines, culture",
     "Séchage",
     "Cigarette, cigare, pipe"
-   ]
-  },
-  {
-   "title": "De la loi au procès-verbal",
-   "steps": [
-    "Le maire interdit",
-    "Minuit : en vigueur",
-    "Fouille ou dépistage",
-    "Confiscation, amende"
    ]
   }
  ],
@@ -169,9 +160,6 @@
      "k": "Durée",
      "v": "3 min, 10 au plus"
     }
-   ],
-   "staff": [
-    "Interdite au départ."
    ]
   },
   {
@@ -193,28 +181,7 @@
     "Une 2e dose n'ajoute rien pendant la montée."
    ],
    "staff": [
-    "Interdite au départ, labo compris.",
     "Recette fictive : rien de réel."
-   ]
-  },
-  {
-   "status": "prevu",
-   "id": "loi-locale",
-   "num": 136,
-   "name": "Loi locale",
-   "kind": "systeme",
-   "lot": "Lot S4",
-   "what": "Le maire décide, famille par famille, de ce qui est légal ou interdit.",
-   "who": {
-    "gere": "Maire"
-   },
-   "steps": [
-    "Onglet Lois du bureau du maire.",
-    "En vigueur le lendemain à minuit, annoncé à tous.",
-    "Interdit : confiscation, amende, étal refusé."
-   ],
-   "staff": [
-    "Départ : tabac et alcool légaux, drogues interdites."
    ]
   },
   {
@@ -233,6 +200,24 @@
     "Viser un joueur à moins de 2 blocs.",
     "Il peut refuser : c'est noté au casier.",
     "Le résultat devient un procès-verbal."
+   ]
+  },
+  {
+   "id": "charbon-actif",
+   "num": 138,
+   "name": "Charbon actif",
+   "kind": "objet",
+   "status": "prevu",
+   "lot": "Lot S4",
+   "what": "Le soin du médecin qui dégrise et coupe une descente.",
+   "who": {
+    "fabrique": "Médecin",
+    "utilise": "Médecin"
+   },
+   "steps": [
+    "Ivresse remise à zéro.",
+    "Descente de poussière d'épave coupée.",
+    "Inscrit au dossier médical."
    ]
   }
  ]

@@ -13,12 +13,11 @@ ruines, et ne décrivent aucune fabrication réelle.
 
 Une ville vivante a ses bars, ses fumeurs et son marché noir. Ces produits donnent :
 - du commerce entre joueurs ;
-- un sujet politique au maire, qui décide de ce qui est interdit ;
+- un sujet politique, décidé en RP : qu'est-ce qu'on tolère en ville ?
 - du travail à la police : saisir, dépister, remonter une filière.
 
 **Critère de réussite : un joueur cultive, transforme et vend un produit ; un autre le consomme et en
-sent les effets ; si le maire l'a interdit, un policier peut le dépister, le saisir et dresser une
-contravention.**
+sent les effets ; un policier peut le dépister, le saisir et dresser une contravention.**
 
 ## 2. Objectifs et limites
 
@@ -27,8 +26,8 @@ contravention.**
 - Une **production par tout le monde** (choix de Killian) : cultiver, sécher, brasser, distiller,
   cuisiner au labo.
 - Des **effets passagers** seulement (choix de Killian) : ni dépendance, ni manque, ni overdose.
-- Une **loi locale** : le maire décide, famille par famille, de ce qui est légal ou interdit (choix de
-  Killian).
+- **Aucune loi codée** (choix de Killian) : ce qui est interdit se décide en RP. Le mod donne les
+  outils, pas les règles.
 - Des **outils de police** pour dépister et saisir.
 
 ### Hors périmètre
@@ -39,12 +38,10 @@ contravention.**
 ### Ce qui serait un échec, même si tout fonctionne
 - Un effet qui tue, ou qui bloque le joueur sans issue.
 - Un produit si fort qu'il devient obligatoire pour jouer : la drogue dure se paie par sa descente.
-- Une interdiction que le jeu applique sans que les joueurs le sachent.
 - Un dépistage qui accuse un joueur qui n'a rien pris.
 
 ### Règle de conception
-Le jeu donne les produits, les effets et les outils. **La loi est celle du maire**, et sa sanction est
-du RP, appuyé par la police.
+Le jeu donne les produits, les effets et les outils. **La loi se fait en RP** : le jeu n'interdit rien.
 
 ## 3. Contraintes techniques
 
@@ -52,7 +49,7 @@ du RP, appuyé par la police.
   l'inventaire avec leur durée, et levés par le lait. Les effets visuels (vue trouble, couleurs) sont
   des effets d'écran chez le joueur concerné seulement.
 - Le serveur garde, pour chaque joueur, ce qu'il a consommé dans la dernière heure, pour le dépistage
-  (feature 136). Rien n'est gardé au-delà.
+  (feature 137). Rien n'est gardé au-delà.
 - Les recettes de séchage, de brassage, de distillation et du labo sont des **données JSON**, comme les
   recettes du tonneau de l'agriculteur.
 - La fumée suit le même rendu que celle de la chicha (cahier de la chicha, feature 127).
@@ -184,25 +181,17 @@ La numérotation prolonge celle du cahier de la chicha.
   mais allonge la descente qui suit de 3 minutes. On ne peut pas éviter la descente.
 - Aucune dose ne tue et ne met à terre (choix de Killian : effets seulement).
 
-### Loi et police
+### Police et médecin
 
-**136. Loi locale, réglée par le maire.**
-- Un **sixième onglet** du bureau du maire, **Lois**, montre les quatre familles. Pour chacune, le maire
-  choisit **légal** ou **interdit** (choix de Killian).
-- Valeurs de départ, réglables par l'équipe : tabac et alcool **légaux**, drogue douce et drogue dure
-  **interdites**.
-- Comme les taxes (feature 105 du maire) : un changement prend effet **le lendemain à minuit**, est
-  annoncé à tous et s'inscrit au **registre public**, avec un motif.
-- Ce qu'« interdit » change dans le jeu :
-  - l'infobulle des produits de cette famille l'indique : « Interdit dans la ville » ;
-  - la **police peut les confisquer** lors d'une fouille (feature 52 du policier) ;
-  - **posséder** et **consommer** deviennent deux motifs du carnet de contraventions, dont le maire
-    fixe le montant au barème ;
-  - un **étal refuse** de mettre en vente un produit interdit : le commerce passe de la main à la main
-    (choix de l'auteur) ;
-  - pour la drogue dure, le **labo clandestin** est lui aussi interdit et se confisque.
-- Interdire n'empêche **rien** de lui-même : cultiver, produire et consommer restent possibles. Seuls
-  la police et le RP font respecter la loi.
+**136. Pas de loi codée.**
+Décision de Killian du 2026-11-11 : **le jeu ne code aucune loi**. Ce qui est légal ou interdit se décide
+en RP, par le maire, les joueurs et l'équipe. Le mod ne fournit que les **outils** :
+- les produits, leurs effets et leurs traces ;
+- le dépistage de la police (feature 137) ;
+- la fouille et la confiscation du policier (feature 52 du policier), qui marchent déjà sur tout objet ;
+- le carnet de contraventions, où le policier écrit le motif (feature 60 du policier).
+
+Aucun produit n'est marqué « interdit », aucun étal ne refuse un produit, aucune zone n'a de licence.
 
 **137. Dépistage.**
 - Deux outils, fabriqués à l'**établi de policier** et utilisés par un policier seulement :
@@ -214,16 +203,25 @@ La numérotation prolonge celle du cahier de la chicha.
 - Le résultat devient un **procès-verbal**, preuve qui se joint au casier.
 - Le test ne se trompe jamais : il lit ce que le serveur a noté.
 
+**138. Charbon actif.**
+Choix de Killian du 2026-11-11.
+- Un soin médical, fabriqué à la paillasse du médecin et utilisé par un **médecin** seulement
+  ([cahier du médecin](2026-11-08-metier-medecin-design.md)).
+- Donné à un joueur, il **remet l'ivresse à zéro** et **coupe la descente** de la poussière d'épave. Il
+  arrête aussi les effets de l'herbe-songe.
+- Il ne prévient pas : pris avant de boire, il n'empêche pas l'ivresse.
+- Il s'inscrit au dossier médical du patient.
+
 ## 6. Branchements
 
 | Avec | Branchement |
 |---|---|
 | Chicha | Son tabac vient d'ici : le tabac à chicha (131). Le seuil d'excès est commun. |
-| Maire | Sixième onglet **Lois** au bureau (136). Deux motifs de plus au barème des amendes. |
-| Policier | Éthylotest et test salivaire à l'établi de policier (137). Les produits interdits se confisquent à la fouille. |
+| Maire | Aucun : la loi se décide en RP (136). |
+| Policier | Éthylotest et test salivaire à l'établi de policier (137). Les produits se confisquent à la fouille, comme tout objet. |
 | Agriculteur | Nouvelles recettes du tonneau (133). Les nouvelles plantes poussent sous la serre. |
-| Économie | L'étal refuse les produits interdits (136). Tout le reste se vend comme d'habitude. |
-| Médecin | Aucun pour l'instant. Voir les questions ouvertes. |
+| Économie | Aucun : tout se vend comme d'habitude, à l'étal ou de la main à la main. |
+| Médecin | Charbon actif, qui dégrise et coupe une descente (138). |
 | Wiki | Une fiche par feature, chapitre « Substances ». |
 
 ## 7. Découpage conseillé
@@ -233,7 +231,7 @@ La numérotation prolonge celle du cahier de la chicha.
 | S1 | 129, 130, 131 | On cultive le tabac, on le sèche, on fume, et la chicha a sa charge | Lot CH1 de la chicha |
 | S2 | 132, 133 | On brasse, on distille, on boit, et l'ivresse monte et redescend | Le tonneau de l'agriculteur |
 | S3 | 134, 135 | Les deux drogues ont leurs effets, et le labo se voit de loin | S1 |
-| S4 | 136, 137 | Le maire interdit, la police dépiste et confisque | S1 à S3, lot M1 du maire, lot P1 du policier |
+| S4 | 137, 138 | La police dépiste, et le médecin dégrise | S1 à S3, lot P1 du policier, lots du médecin |
 
 ## 8. Vérification
 
@@ -249,8 +247,7 @@ La numérotation prolonge celle du cahier de la chicha.
   - une seconde dose de poussière d'épave pendant la montée n'ajoute rien, et pendant la descente
     allonge la descente ;
   - le labo produit 4 doses et émet sa fumée pendant tout le travail ;
-  - une interdiction prend effet le lendemain à minuit et s'inscrit au registre ;
-  - un étal refuse un produit interdit, et l'accepte de nouveau une fois la famille rendue légale ;
+  - le charbon actif remet l'ivresse à zéro et coupe une descente, et seul un médecin le donne ;
   - le test salivaire est positif dans l'heure, négatif après, et toujours négatif pour un joueur qui n'a
     rien pris ;
   - un refus de dépistage s'inscrit au casier, et un joueur menotté ne peut pas refuser.
@@ -261,7 +258,10 @@ La numérotation prolonge celle du cahier de la chicha.
 
 ### Décisions de Killian (2026-11-11)
 - Le cahier couvre le **tabac**, l'**alcool**, une **drogue douce** et une **drogue dure**.
-- Le **maire** décide de ce qui est interdit.
+- **Aucune loi codée** : le RP décide de ce qui est interdit, le mod ne fait que les outils
+  (2026-11-11, remplace « le maire décide »).
+- Le **médecin** dégrise et coupe une descente, avec du **charbon actif**.
+- **Pas de véhicule** sur le serveur : pas d'ivresse au volant.
 - **Tout le monde** peut produire.
 - **Effets seulement** : ni dépendance, ni overdose.
 
@@ -275,14 +275,9 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 - le café pour dessoûler, à ajouter ;
 - la montée de 60 secondes et la descente de 3 minutes de la poussière d'épave ;
 - la fumée visible du labo clandestin ;
-- tabac et alcool légaux, drogues interdites au départ ;
-- l'étal qui refuse les produits interdits ;
 - le dépistage refusable, refus noté au casier ;
 - le mégot qui reste après une cigarette.
 
 ## 10. Questions ouvertes
 
-- Le **médecin** doit-il pouvoir dégriser ou couper une descente, par exemple avec du charbon actif ?
-- Faut-il des **lieux** où une famille interdite est tolérée (un bar, un coffee-shop), réglés par le
-  maire ?
-- L'**ivresse au volant** : faut-il la brancher sur les véhicules s'ils arrivent sur le serveur ?
+Aucune pour l'instant.

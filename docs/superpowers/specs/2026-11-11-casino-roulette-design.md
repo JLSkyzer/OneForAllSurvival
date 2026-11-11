@@ -107,6 +107,10 @@ La numérotation prolonge celle du cahier du maire.
 **111. Jeton de casino.**
 - C'est un **objet**, qui s'empile par 64. Il ne se fabrique pas : il s'achète au PNJ vendeur (112).
 - Son **prix** est de **1 pièce d'argent** (10 cuivres), choix de Killian, réglable en config.
+- **Trois valeurs** (choix de Killian du 2026-11-11) : jetons de **1**, **5** et **25**, de couleurs
+  différentes, valant 1, 5 et 25 pièces d'argent. Le PNJ vendeur rend la monnaie en jetons, et le PNJ
+  racheteur reprend toutes les valeurs. Aux jeux, on mise en mélangeant les valeurs, et les gains sont
+  payés avec le moins de jetons possible.
 - Ce n'est **pas de l'argent** : on le range partout, dans un coffre ou un sac, et il se vole comme
   tout objet (choix de Killian).
 - Un même jeton vaut dans tous les casinos du serveur.
@@ -418,13 +422,14 @@ Demandé par Killian le 2026-11-11 : la police doit pouvoir contrôler qu'un jeu
 - Les jetons se **rangent partout**.
 - Un joueur au statut casino est **relié à un coffre** ; ce qu'il pose s'y relie seul. Un membre de
   l'équipe sans statut fait **accroupi + clic droit sur le coffre** avant de poser.
+- Rachat **au prix de vente, sans frais** (2026-11-11).
+- Jetons de **1, 5 et 25** (2026-11-11).
 - Trois jeux en plus : **blackjack** à croupier automatique, **duel de dés** avec une petite commission,
   **machine à sous** à jackpot progressif et taux de retour de 92 %.
 
 ### Choix faits par l'auteur du document
 Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 - roulette européenne à un seul 0, et mises simples perdues sur le 0 ;
-- rachat au prix de vente, sans frais ;
 - table de 3 × 2 blocs ;
 - compte à rebours de 30 s et lancer de 12 s ;
 - un même jeton pour tous les casinos ;
@@ -438,5 +443,4 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 
 ## 10. Questions ouvertes
 
-- **Une seule valeur de jeton**, ou plusieurs (1, 5, 25) pour les grosses mises ?
-- Le **rachat** doit-il prendre des frais, au profit du casino ?
+Aucune pour l'instant.

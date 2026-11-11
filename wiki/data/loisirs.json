@@ -51,6 +51,32 @@
    ]
   },
   {
+   "id": "grande-chicha",
+   "num": 139,
+   "name": "Grande chicha",
+   "kind": "bloc",
+   "status": "prevu",
+   "lot": "Lot CH2",
+   "what": "Quatre tuyaux, quatre fumeurs en même temps.",
+   "who": {
+    "fabrique": "Tout le monde, table de craft",
+    "utilise": "Jusqu'à 4 joueurs"
+   },
+   "numbers": [
+    {
+     "k": "Charge",
+     "v": "100 bouffées"
+    },
+    {
+     "k": "Hauteur",
+     "v": "≈ 1,5 bloc"
+    }
+   ],
+   "staff": [
+    "Recette : petite chicha, 3 cuirs, 3 ficelles, 2 lingots de cuivre."
+   ]
+  },
+  {
    "id": "trop-fumer",
    "num": 128,
    "name": "Trop fumer",

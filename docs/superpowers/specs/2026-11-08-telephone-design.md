@@ -318,5 +318,5 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 
 ## 10. Questions ouvertes
 
-- **Les Mac à puce Apple** : à tester avant le lot T1. Si MCEF n'y marche pas, l'écran de repli
-  suffit-il ?
+- **Les Mac à puce Apple** : à tester avant le lot T1. Si MCEF n'y marche pas, l'**écran de repli**
+  suffit (choix de Killian du 2026-11-11) : mêmes fonctions, en interface Minecraft classique.

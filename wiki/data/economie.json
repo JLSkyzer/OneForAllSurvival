@@ -147,7 +147,7 @@
       "flow": ["Coffre-fort", "Impôt de minuit", "Trésor"],
       "numbers": [
         {"k": "Exemplaires", "v": "1 par joueur"},
-        {"k": "Impôt", "v": "0 à 35 %"}
+        {"k": "Impôt", "v": "0 à 5 % par jour"}
       ],
       "staff": [
         "Contenu gardé par le serveur, même zone déchargée.",
@@ -449,7 +449,7 @@
         "Peut modifier ou supprimer un fournisseur ou opérateur."
       ],
       "numbers": [
-        {"k": "Impôt sur les coffres", "v": "0 à 35 %"}
+        {"k": "Impôt", "v": "0 à 5 % par jour"}
       ],
       "staff": [
         "Nommer : /role mayor set <joueur>.",

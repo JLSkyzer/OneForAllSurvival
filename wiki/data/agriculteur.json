@@ -60,7 +60,7 @@
       ],
       "staff": [
         "Recettes de table retirées : objets agriculteur et tout Farmer's Delight.",
-        "Piège : couteaux, marmite, planche, sandwichs réservés ; rendables via tableAllowedItems.",
+        "Les plats simples (sandwichs, salades) restent à la table ; couteaux, marmite et planche à l'agriculteur.",
         "Fours, cuissons et machines de Create restent hors de la règle.",
         "Marmite et planche restent utilisables par tous une fois achetées."
       ]
@@ -221,7 +221,7 @@
       "staff": [
         "Tag des objets acceptés et capacité configurables.",
         "Entrées automatiques notées ; sorties automatiques refusées.",
-        "Droits par rôle, pas par joueur ; contournement staff.",
+        "Droits par rôle, plus des joueurs nommés ; contournement staff.",
         "Rachat des dépôts : relève du cahier de l'économie."
       ]
     }

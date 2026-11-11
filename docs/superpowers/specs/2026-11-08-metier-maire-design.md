@@ -95,7 +95,7 @@ La numérotation prolonge celle du cahier du téléphone.
   | Réseaux | Fournisseurs d'électricité et opérateurs du téléphone, plafond du prix de l'électricité (feature 107) |
   | Annonces | Rédiger et publier une annonce officielle, voir les précédentes (feature 108) |
   | Registre | Toutes les décisions, les siennes et celles de ses prédécesseurs (feature 103) |
-| Lois | Tabac, alcool, drogue douce, drogue dure : légal ou interdit ([cahier des substances](2026-11-11-substances-design.md), feature 136) |
+| Mandats | Délivrer un mandat de perquisition à la police, voir ceux en cours (policier, feature 62) |
 
 - Chaque décision demande un **motif** court, et une **confirmation** quand elle est lourde (supprimer
   un opérateur, monter un taux).
@@ -133,15 +133,23 @@ La numérotation prolonge celle du cahier du téléphone.
 
 **106. Impôt sur les coffres-forts.**
 Demandé par Killian le 2026-11-08.
-- Le maire fixe un taux **entre 0 % et 35 %** (choix de Killian). L'équipe peut abaisser ce maximum
-  en config.
-- Chaque jour à minuit, le taux est appliqué au contenu de chaque **coffre-fort** (économie,
-  feature 85), et les pièces vont au trésor.
-- L'impôt est arrondi au cuivre inférieur. Un coffre vide ne paie rien.
+- Le maire fixe un taux **entre 0 % et 5 %** par jour (choix de Killian du 2026-11-11, qui remplace
+  le maximum de 35 % : prélevé chaque jour, 35 % vidait un coffre en une semaine). L'équipe peut
+  abaisser ce maximum en config.
+- Chaque jour à minuit, le taux est appliqué aux pièces de chaque joueur : son **coffre-fort**
+  (économie, feature 85) **et les pièces qu'il porte sur lui**, bourse comprise (choix de Killian : sinon
+  tout le monde viderait son coffre-fort pour échapper à l'impôt). Les pièces vont au trésor.
+- Un joueur déconnecté à minuit paie la part de ses pièces portées à sa prochaine connexion ; son
+  coffre-fort, lui, paie à minuit.
+- **Seuil d'exemption** (choix de Killian) : les **500 premiers cuivres** de chaque joueur, coffre-fort
+  et pièces portées réunis, ne sont pas imposés. Réglable par l'équipe.
+- L'impôt est arrondi au cuivre inférieur. Un joueur sous le seuil ne paie rien.
+- Les pièces d'un étal, du trésor et des caisses des fournisseurs et des opérateurs ne sont pas
+  imposées.
 - Chaque joueur imposé reçoit une notification avec le montant, et le prélèvement s'inscrit au registre
   du coffre-fort.
 - Le tableau de bord de l'équipe (économie, feature 77) montre le total prélevé chaque jour et
-  l'évolution de la masse dans les coffres-forts. **Voir la question ouverte sur la fréquence**.
+  l'évolution de la masse dans les coffres-forts.
 
 **107. Réseaux.**
 - Le maire voit la liste des **fournisseurs d'électricité** et des **opérateurs** : fondateur, nombre de
@@ -178,7 +186,7 @@ Demandé par Killian le 2026-11-08.
 |---|---|
 | Économie | Trésor (73), salaires (75), taxes des étals (71) et de l'électricité (83), plafond du prix de l'électricité, impôt sur les coffres-forts (85, 106), tableau de bord (77). |
 | Téléphone | Suppression d'un opérateur, antennes, compte officiel sur Écho, appli Mairie. |
-| Policier | Barème des amendes du carnet de contraventions (60). |
+| Policier | Barème des amendes du carnet de contraventions (60). Le maire délivre les mandats de perquisition (62), depuis l'onglet Mandats. |
 | Ingénieur | Le maire peut ouvrir et casser les postes, compteurs, disjoncteurs et antennes qu'il pose. |
 
 ## 7. Découpage conseillé
@@ -201,8 +209,10 @@ Demandé par Killian le 2026-11-08.
   - l'appli Mairie refuse une dépense ;
   - un taux hors des bornes est refusé ;
   - un changement de taxe ne s'applique qu'au lendemain minuit, et produit son annonce ;
-  - l'impôt prélève le bon pourcentage de chaque coffre-fort à minuit, arrondi au cuivre inférieur, et
-    le verse au trésor ;
+  - l'impôt prélève le bon pourcentage du coffre-fort et des pièces portées au-delà de 500 cuivres,
+    arrondi au cuivre inférieur, et le verse au trésor ; un joueur déconnecté paie ses pièces portées à
+    sa connexion ;
+  - un mandat délivré par le maire ouvre les serrures visées et s'inscrit au registre ;
   - un fournisseur au-dessus d'un nouveau plafond y est ramené à minuit ;
   - la suppression d'un opérateur désactive ses cartes SIM et prévient ses clients ;
   - la limite d'annonces par jour tient ;
@@ -224,7 +234,10 @@ Demandé par Killian le 2026-11-08.
 - **Pas d'adjoints.**
 - Il touche un **salaire** sur le trésor.
 - Il peut **dépenser** le trésor librement, mais chaque dépense est **publique**.
-- Il fixe un **impôt sur les coffres-forts**, entre **0 % et 35 %**.
+- Il fixe un **impôt sur les coffres-forts**, entre **0 % et 35 %**. Le 2026-11-11, Killian l'a
+  ramené à **5 % par jour au plus**, étendu aux **pièces portées sur soi**, avec une **exemption des
+  500 premiers cuivres**.
+- Le maire **délivre les mandats de perquisition** (2026-11-11).
 - **Tout le monde** lit le registre de ses décisions.
 
 ### Choix faits par l'auteur du document
@@ -232,17 +245,13 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 - un seul bureau, posé par l'équipe ;
 - une dépense ne se fait qu'au bureau, pas depuis l'appli ;
 - les changements de taxe prennent effet le lendemain à minuit et sont annoncés automatiquement ;
-- l'impôt est prélevé chaque jour, arrondi au cuivre inférieur ;
+- l'impôt est arrondi au cuivre inférieur, et un joueur déconnecté paie ses pièces portées à sa
+  connexion ;
+- les pièces des étals, du trésor et des caisses ne sont pas imposées ;
 - 3 annonces officielles par jour au plus ;
 - une version en lecture seule de l'appli Mairie pour tous ;
 - l'équipe est prévenue d'une dépense au-delà d'un seuil.
 
 ## 10. Questions ouvertes
 
-- **La fréquence de l'impôt.** Prélevé chaque jour, un taux de 35 % laisse environ 5 % d'un coffre au
-  bout d'une semaine (0,65 puissance 7). Faut-il un prélèvement **par semaine** plutôt que par jour,
-  ou un maximum plus bas en usage courant ?
-- **L'évitement de l'impôt.** Les pièces gardées dans l'inventaire, la bourse ou un étal ne sont pas
-  imposées. Avec un taux élevé, les joueurs videront leur coffre-fort, au risque de se faire voler.
-  Est-ce un effet voulu ?
-- **Un seuil d'exemption** pour les petits coffres-forts (par exemple, rien en dessous de 500 cuivres) ?
+Aucune pour l'instant.

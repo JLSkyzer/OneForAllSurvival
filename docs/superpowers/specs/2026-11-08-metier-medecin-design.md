@@ -138,9 +138,10 @@ recopié.
 - **Conséquence** : les premiers secours (pansements de First Aid et de Medical Remedies, garrot) se
   fabriquent aussi à la paillasse. Les citoyens les **achètent** au médecin et les utilisent librement :
   c'est le même commerce qu'entre l'ingénieur et la ville.
-- **Conséquence à valider** : les quelque 150 blocs de décoration d'Hospitals (sols, murs, mobilier)
-  deviennent réservés au médecin, comme tout le mod. Ils peuvent être rendus à la table par la liste
-  `tableAllowedItems`.
+- **Les blocs de décoration d'Hospitals** (sols, murs, mobilier, environ 150) sont **rendus à la table**
+  pour tout le monde (choix de Killian du 2026-11-11), par la liste `tableAllowedItems`. Les instruments,
+  les machines et les soins restent au médecin. La liste exacte se dresse au lot, depuis les recettes
+  du jar.
 - **Alambic** : les recettes de Medical Remedies y sont enregistrées dans le code. Un non-médecin ne peut
   pas lancer une distillation qui produit un objet du tag. La méthode est à choisir au lot : refus à
   l'ouverture, ou résultat bloqué.
@@ -246,7 +247,16 @@ départ, à équilibrer.
 - **Garde-fou**, demandé par Killian : au bout de **5 minutes** (réglable), le joueur se relève seul,
   **avec très peu de vie** sur chaque partie et l'effet de convalescence (feature 45).
 - Se déconnecter à terre ne sert à rien : on revient à terre, avec le temps restant.
-- Les mobs perdent leur cible quand un joueur tombe à terre.
+- Les mobs perdent leur cible quand un joueur tombe à terre, et **ne lui font plus de dégâts** tant qu'il
+  y est.
+- **Achever** (choix de Killian du 2026-11-11) : un autre joueur peut frapper un joueur à terre pour
+  l'achever. Le coup laisse une **trace** pour la police (policier, feature 57), mais le joueur **ne
+  meurt pas et ne réapparaît pas** : il reste à terre, jusqu'à ce qu'un médecin le relève ou que le
+  garde-fou des 5 minutes le relève. Achever ne rallonge pas le temps à terre (choix de l'auteur), pour
+  qu'on ne puisse pas garder quelqu'un au sol sans fin.
+- **Protection après le relevage** (demande de Killian) : un joueur relevé ne prend **aucun dégât des
+  mobs** pendant **5 minutes**, ou jusqu'à ce qu'il ait retrouvé **toute sa vie**, au premier des deux
+  termes. Les dégâts des joueurs, eux, comptent.
 - Certaines morts restent immédiates : vide, `/kill`, et les types de dégâts listés en config.
 
 **39. Défibrillateur.**
@@ -281,8 +291,8 @@ départ, à équilibrer.
   devant le **support de radiographie** (`X-RAY Bucky Stand`).
 - Elle produit un **cliché**, un objet du mod qui montre la silhouette du patient, le nom, la date et les
   fractures marquées, cachées comprises.
-- Poser un cliché sur un négatoscope d'Hospitals l'affiche, si c'est faisable sans trop de travail. Sinon,
-  le cliché s'affiche dans son infobulle ou dans un écran.
+- Poser un cliché sur un **négatoscope** d'Hospitals **l'affiche en image**, rétroéclairé (choix de
+  Killian du 2026-11-11). Le cliché garde aussi son infobulle.
 - Le cliché s'ajoute au dossier médical.
 
 ### Évolution
@@ -412,7 +422,18 @@ Le lot M1 doit commencer par vérifier les trois points de la section 3, car tou
   recette d'Hospitals, de Medical Remedies ou de First Aid ne reste sur la table pour un citoyen, sauf
   celles de `tableAllowedItems`.
 
-## 9. Choix faits par l'auteur du document
+## 9. Décisions et choix
+
+### Décisions de Killian (2026-11-11)
+- Un joueur à terre peut être **achevé**, avec une trace, mais il ne meurt pas : il attend un médecin ou
+  le garde-fou des 5 minutes.
+- Après un relevage, **aucun dégât des mobs** pendant 5 minutes ou jusqu'à la vie pleine.
+- Le **cliché** s'affiche sur le négatoscope.
+- Les **blocs de décoration** d'Hospitals se fabriquent à la table par tout le monde.
+- Le **charbon actif** du médecin dégrise et coupe une descente
+  ([cahier des substances](2026-11-11-substances-design.md), feature 138).
+
+### Choix faits par l'auteur du document
 
 Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 - les objets de soins médicaux sont réservés au médecin **même sur lui-même** ; seules les pilules
@@ -433,9 +454,5 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 
 ## 10. Questions ouvertes
 
-- Un joueur à terre peut-il être **achevé** par un autre joueur (RP criminel), ou est-il protégé jusqu'à
-  son relevage ?
-- Faut-il un **cliché affiché** sur les négatoscopes d'Hospitals, ou une infobulle suffit-elle ?
-- Le **groupe sanguin** doit-il compter dans les transfusions, si Hospitals ne le fait pas déjà ?
-- Faut-il rendre à la table les **blocs de décoration** d'Hospitals, pour que tout le monde puisse en
-  construire ?
+- Le **groupe sanguin** compte-t-il dans les transfusions ? Killian ne l'a pas retenu le 2026-11-11 :
+  on garde le comportement d'Hospitals, à relever au lot.

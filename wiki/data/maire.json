@@ -51,7 +51,7 @@
         "Réseaux : fournisseurs, opérateurs, plafond du prix.",
         "Annonces : rédiger, publier, revoir les précédentes.",
         "Registre : toutes les décisions, d'hier et d'aujourd'hui.",
-        "Lois : tabac, alcool, drogues, légal ou interdit."
+        "Mandats : délivrer un mandat de perquisition à la police."
       ],
       "staff": [
         "Chaque décision exige un motif court.",
@@ -119,18 +119,19 @@
     {
       "id": "impot-coffres-forts", "num": 106, "name": "Impôt sur les coffres-forts", "kind": "systeme", "status": "prevu", "lot": "Lot M2",
       "image": null,
-      "what": "Chaque nuit, un pourcentage de chaque coffre-fort part au trésor.",
+      "what": "Chaque nuit, un pourcentage des pièces de chaque joueur part au trésor.",
       "who": {"utilise": "Maire"},
       "steps": [
         "Le maire fixe le taux.",
-        "Prélevé à minuit, arrondi au cuivre inférieur.",
+        "Prélevé à minuit sur le coffre-fort et les pièces portées.",
+        "Les 500 premiers cuivres ne sont pas imposés.",
         "L'imposé reçoit une notification du montant."
       ],
-      "flow": ["Coffre-fort", "Minuit", "Trésor"],
-      "numbers": [{"k": "Taux", "v": "0 à 35 %"}, {"k": "Fréquence", "v": "Chaque jour"}],
+      "flow": ["Coffre-fort + pièces sur soi", "Minuit", "Trésor"],
+      "numbers": [{"k": "Taux", "v": "0 à 5 %"}, {"k": "Fréquence", "v": "Chaque jour"}, {"k": "Exemption", "v": "500 cuivres"}],
       "staff": [
-        "Piège : à 35 % par jour, il reste ≈ 5 % en une semaine.",
-        "Inventaire, bourse et étals ne sont pas imposés.",
+        "Déconnecté à minuit : ses pièces portées paient à la connexion.",
+        "Étals, trésor et caisses ne sont pas imposés.",
         "L'équipe peut abaisser le maximum en config."
       ]
     },

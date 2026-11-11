@@ -56,7 +56,7 @@
         "Recettes de table d'Hospitals, Medical Remedies et First Aid retirées pour tous.",
         "Pilules d'Hospitals : uniquement par la chaîne de pharmacie (48).",
         "Alambic : un non-médecin ne distille aucun objet médical.",
-        "Piège : ~150 blocs déco d'Hospitals réservés ; rendables via tableAllowedItems."
+        "Les ~150 blocs déco d'Hospitals restent à la table pour tous."
       ]
     },
     {
@@ -221,7 +221,9 @@
       "steps": [
         "À terre : on rampe, on parle, ni objet ni attaque.",
         "Les médecins reçoivent le nom et la distance du blessé.",
-        "Sans médecin : relevé seul après 5 min, très faible."
+        "Sans médecin : relevé seul après 5 min, très faible.",
+        "Achevé par un joueur : trace pour la police, mais pas de mort.",
+        "Relevé : aucun dégât des mobs pendant 5 min ou jusqu'à la vie pleine."
       ],
       "flow": ["Blessé", "À terre", "Médecin prévenu", "Relevé"],
       "numbers": [
@@ -318,7 +320,7 @@
       ],
       "flow": ["Patient au support", "Machine alimentée", "Cliché", "Dossier médical"],
       "staff": [
-        "Affichage sur le négatoscope : question ouverte.",
+        "Le cliché s'affiche en image sur le négatoscope.",
         "Sinon, cliché lisible en infobulle ou dans un écran."
       ]
     },

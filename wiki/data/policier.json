@@ -211,7 +211,7 @@
       "id": "mandat-perquisition", "num": 62, "name": "Mandat de perquisition", "kind": "systeme", "status": "prevu", "lot": "Lot P3",
       "image": null,
       "what": "Ouvrir des serrures sans crochet, pour un temps limité.",
-      "who": {"fabrique": "Équipe ou rôle autorisé", "utilise": "Policier"},
+      "who": {"fabrique": "Maire (ou équipe)", "utilise": "Policier"},
       "steps": [
         "Vise une zone ou les serrures d'un joueur.",
         "Le porteur ouvre et fouille les conteneurs visés.",

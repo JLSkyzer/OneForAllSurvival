@@ -26,8 +26,7 @@ qu'un citoyen soit privé de son potager.**
 
 ### Hors périmètre
 - **Le soin des animaux** (vétérinaire) : il chevaucherait le médecin.
-- **Les saisons** : non prévues. Si le pack ajoute Serene Seasons, la serre devra s'y brancher plutôt
-  que les recréer.
+- **Les saisons** : pas de Serene Seasons dans le pack (choix de Killian du 2026-11-11).
 - **De nouvelles cultures** : aucune n'est ajoutée ici.
 - **La monnaie** : traitée par le [cahier de l'économie](2026-11-08-economie-design.md), qui prévoit l'étal de marché et le rachat
   des dépôts du grenier.
@@ -116,11 +115,11 @@ recopié.
 - **Recettes concernées** : les objets de ce mod qui portent le tag de l'agriculteur (faucille, faux,
   mangeoire, abreuvoir, tonneau, presse à fromage, fumoir, grenier) et celles de **Farmer's Delight**. La
   liste des mods est configurable.
-- **Conséquence à valider** : les recettes de table de Farmer's Delight comprennent ses couteaux, sa
-  marmite, sa planche à découper, ses caisses et ses plats assemblés à la table (sandwichs, salades). Ils
-  deviendraient tous réservés à l'agriculteur. La marmite et la planche à découper elles-mêmes restent
-  utilisables par tous une fois achetées. Un objet peut être rendu à la table par la liste
-  `tableAllowedItems`.
+- Les recettes de table de Farmer's Delight comprennent ses couteaux, sa marmite, sa planche à
+  découper, ses caisses et ses plats assemblés à la table. Les **plats simples** assemblés à la main
+  (sandwichs, salades, wraps) sont **rendus à la table** pour tout le monde (choix de Killian du
+  2026-11-11), par la liste `tableAllowedItems`. Les couteaux, la marmite, la planche et les caisses
+  restent à l'agriculteur ; la marmite et la planche restent utilisables par tous une fois achetées.
 
 ### Bonus de métier
 Entre les mains d'un agriculteur, la faucille et la faux ont une chance de donner une graine ou un
@@ -244,7 +243,8 @@ valeurs de départ, à équilibrer.
   d'abord.
 - **Déposer** est ouvert à tous.
 - **Retirer** dépend des droits fixés par un agriculteur, par rôle : chaque rôle peut être autorisé ou
-  non. L'équipe du serveur garde un contournement.
+  non. En plus, des **joueurs nommés** peuvent être autorisés un par un (choix de Killian du 2026-11-11),
+  par un agriculteur ou par le maire. L'équipe du serveur garde un contournement.
 - Les entrées automatiques (trémie, entonnoir) sont acceptées et notées « automatique ». Les sorties
   automatiques sont refusées, sinon le registre serait contourné.
 - Le grenier **ne se casse qu'une fois vide**, pour qu'aucun stock ne parte sans passer par le registre.
@@ -281,7 +281,14 @@ Le lot D dépend du socle machine (déjà livré) et peut se faire à tout momen
 - **Compatibilité** : faucille sur les cultures de Farmer's Delight ; mangeoire remplie par un entonnoir
   de Create ; déployeur tenant une faucille.
 
-## 8. Choix faits par l'auteur du document
+## 8. Décisions et choix
+
+### Décisions de Killian (2026-11-11)
+- Les **plats simples** de Farmer's Delight reviennent à la table pour tout le monde.
+- **Pas de saisons** dans le pack.
+- Au grenier, des **joueurs nommés** s'ajoutent aux droits par rôle.
+
+### Choix faits par l'auteur du document
 
 Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 - l'établi d'agriculteur reprend Farmer's Delight en entier, par analogie avec l'ingénieur qui reprend ses
@@ -297,12 +304,10 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 - la serre s'arrose à l'eau potable, ce qui renforce le rôle du dessalinisateur ;
 - le grenier n'accepte que des produits agricoles et alimentaires, refuse les sorties automatiques, ne se
   casse qu'une fois vide, et ne protège pas de la péremption ;
-- les droits de retrait se règlent par rôle, pas par joueur ;
+- les joueurs nommés au grenier le sont par un agriculteur ou par le maire ;
 - aucune nouvelle culture, aucune saison.
 
 ## 9. Questions ouvertes
 
-- Faut-il rendre à la table certaines recettes de **Farmer's Delight** (plats assemblés, couteaux), pour
-  qu'un citoyen puisse se faire un sandwich ?
-- Le pack ajoutera-t-il **Serene Seasons** ? La serre prendrait alors tout son sens en hiver.
-- Les droits du grenier par rôle suffisent-ils, ou faut-il pouvoir nommer des joueurs ?
+- La **liste exacte** des plats simples de Farmer's Delight rendus à la table, à dresser au lot depuis
+  ses recettes.

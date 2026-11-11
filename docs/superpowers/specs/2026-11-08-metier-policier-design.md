@@ -203,6 +203,8 @@ La numérotation prolonge celle du médecin. Toutes les valeurs chiffrées sont 
   et l'heure. Il est remis sous forme d'objet et s'inscrit au dossier médical. **Le nom de l'agresseur n'y
   figure jamais.**
 - Seule l'équipe du serveur peut lire l'agresseur, par commande, pour arbitrer un litige RP.
+- Un joueur **achevé** à terre (médecin, feature 38) laisse une seconde trace, distincte : le constat
+  dit « mis à terre » ou « achevé à terre », pour que la police sache s'il y a eu acharnement.
 
 **58. Bande de scène de crime.**
 - C'est un ruban qui se pose entre deux blocs, et qu'on peut traverser.
@@ -240,8 +242,9 @@ La numérotation prolonge celle du médecin. Toutes les valeurs chiffrées sont 
 - Une relance du serveur ne perd rien. L'équipe du serveur peut libérer à tout moment.
 
 **62. Mandat de perquisition.**
-- Il est délivré par l'équipe du serveur, ou par un rôle autorisé en config. Les rôles dynamiques
-  permettent de créer un rôle de juge ou de maire.
+- Il est délivré par le **maire** (choix de Killian du 2026-11-11), depuis l'onglet Mandats de son
+  bureau ([cahier du maire](2026-11-08-metier-maire-design.md), feature 102), avec un motif inscrit au
+  registre public. L'équipe du serveur peut aussi en délivrer.
 - Il vise une **zone** (position et rayon) ou les **serrures d'un joueur**, pour une **durée** limitée (une
   session au départ).
 - Un policier porteur d'un mandat valide **ouvre les serrures** visées sans crochetage, et fouille les
@@ -336,7 +339,14 @@ M2 et M3 du médecin.
 - **Scénario de cambriolage** : une coupure de courant, un crochetage, l'enregistreur qui montre le trou,
   la serrure forcée constatée.
 
-## 8. Choix faits par l'auteur du document
+## 8. Décisions et choix
+
+### Décisions de Killian (2026-11-11)
+- Le **maire** délivre les mandats de perquisition.
+- Un joueur à terre peut être **achevé**, ce qui laisse une trace, mais il ne meurt pas (médecin,
+  feature 38).
+
+### Choix faits par l'auteur du document
 
 Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 - les contraintes (menottes, cellule) se comptent en temps connecté, avec un délai et un plafond ;
@@ -346,7 +356,7 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 - le taser et la lampe UV se fabriquent chez l'ingénieur ;
 - un échantillon de sang donne un groupe sanguin, jamais un nom ;
 - le constat d'agression ne nomme jamais l'agresseur ; seule l'équipe du serveur le lit ;
-- les mandats viennent de l'équipe du serveur ou d'un rôle autorisé en config ;
+- le constat distingue une mise à terre d'un joueur achevé à terre ;
 - l'enregistreur nomme les joueurs à visage découvert et note les autres « inconnu masqué » ;
 - une serrure empêche de casser le bloc verrouillé, mais pas les murs autour ;
 - le transmetteur d'alarme est sans usure, l'enregistreur s'use ;
@@ -356,9 +366,4 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 
 ## 9. Questions ouvertes
 
-- **Achever un joueur à terre** (question ouverte du médecin) : si c'est permis, le rapport d'agression
-  doit-il distinguer une mise à terre d'une mort ?
-- Faut-il créer un rôle de **juge** ou de **maire** pour délivrer les mandats, ou l'équipe du serveur
-  suffit-elle ?
-- Les **amendes** doivent-elles un jour se payer en pièces de monnaie, si le mod finit par gérer une
-  monnaie ?
+Aucune pour l'instant. Les amendes se paient en pièces depuis le [cahier de l'économie](2026-11-08-economie-design.md).

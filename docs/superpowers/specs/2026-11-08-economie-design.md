@@ -126,7 +126,7 @@ Valeurs de départ, réglables :
   [cahier](2026-11-08-metier-maire-design.md).
 - Il est **élu en RP**, puis l'équipe du serveur lui donne le grade par commande.
 - Dans l'économie, il tient le trésor de la ville (73), y dépense publiquement, règle les taxes et
-  l'**impôt sur les coffres-forts** (0 à 35 %), plafonne le prix de l'électricité, et peut modifier
+  l'**impôt** sur les coffres-forts et les pièces portées (0 à 5 % par jour, au-delà de 500 cuivres), plafonne le prix de l'électricité, et peut modifier
   ou supprimer un fournisseur (83). Le cahier du téléphone lui donne les mêmes pouvoirs sur les
   opérateurs.
 - Tant qu'aucun maire n'est désigné, seule l'équipe du serveur fait ces gestes.

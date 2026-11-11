@@ -25,7 +25,6 @@ une bouffée et souffle un nuage que les joueurs autour voient aussi.**
 
 ### Hors périmètre
 - Tout bonus durable : la chicha ne soigne pas et ne rend pas plus fort.
-- Plusieurs tuyaux sur une même chicha : un seul au départ.
 - Une monnaie ou une vente intégrée : le tabac se vend entre joueurs, comme tout objet.
 
 ### Ce qui serait un échec, même si tout fonctionne
@@ -115,6 +114,17 @@ La numérotation prolonge celle du cahier du casino.
   la main de celui qui fume. Il ne peut donc pas se dupliquer.
 - On passe le tuyau à quelqu'un d'autre en le rendant (il revient au bloc), puis l'autre le prend.
 
+**139. Grande chicha à quatre tuyaux.**
+Demandée par Killian le 2026-11-11, **en plus** de la petite.
+- Un second bloc, de 1 × 1 au sol mais plus haut que la petite (environ 1,5 bloc) : un vase plus large et
+  **quatre prises**, une par face.
+- **Quatre joueurs** fument en même temps, chacun avec son tuyau et son fil, selon les mêmes règles que
+  la petite (feature 126) : chaque tuyau revient seul, aucun ne se range.
+- Une charge partagée : 2 tabacs à chicha et 1 charbon donnent **100 bouffées**, prises par tous.
+- Recette : une petite chicha, 3 cuirs, 3 ficelles et 2 lingots de cuivre, à la table de craft.
+- Elle dépasse le cube : sa forme de collision couvre 1,5 bloc, et elle reçoit `noOcclusion()`.
+- Son modèle Blender reste à faire, dans `art/chicha/`, avec le même script.
+
 **127. Fumer.**
 - Tuyau en main, **maintenir clic droit** : le joueur aspire, comme quand il boit une potion. On entend
   l'eau bouillonner et le charbon rougit plus fort.
@@ -145,6 +155,7 @@ La numérotation prolonge celle du cahier du casino.
 | Lot | Contenu | Ce qu'il prouve | Après |
 |---|---|---|---|
 | CH1 | 124 à 128 | On charge, on prend le tuyau relié par un fil, on fume, et trop fumer donne la nausée | Le modèle Blender |
+| CH2 | 139 | Quatre joueurs fument ensemble à la grande chicha | CH1 et son modèle Blender |
 
 ## 8. Vérification
 
@@ -175,9 +186,9 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 - 30 bouffées par charge ;
 - un tuyau qui revient au-delà de 4 blocs ;
 - la nausée à 8 bouffées en 2 minutes, plafonnée à 30 secondes ;
-- un seul tuyau par chicha ;
+- quatre tuyaux et 100 bouffées pour la grande chicha ;
 - un vase en verre vert.
 
 ## 10. Questions ouvertes
 
-- Faut-il **plusieurs tuyaux** pour fumer à deux ou à quatre sur la même chicha ?
+Aucune pour l'instant.
