@@ -1,11 +1,13 @@
-# Cahier des charges : le casino et la roulette
+# Cahier des charges : le casino
 
 Date : 2026-11-11. Statut : en attente de validation par Killian.
 
 Killian a demandé le 2026-11-11 une grande table de roulette de casino, avec une roue et une bille animées
 qui tombent sur le vrai résultat. Il a fixé le fonctionnement de l'argent : des jetons achetés à un PNJ,
 un coffre du casino qui garde les pièces, un PNJ qui rachète les jetons, et un statut casino donné par
-commande. Ses réponses sont regroupées en section 9.
+commande. Le même jour, il a ajouté une table de blackjack, un duel de dés et une machine à sous
+(features 118 à 120), et la liaison des blocs au coffre par la pose. Ses réponses sont regroupées en
+section 9.
 
 L'argent passe par le [cahier de l'économie](2026-11-08-economie-design.md), qui reçoit ici deux
 exceptions : le coffre du casino comme rangement de pièces, et les PNJ du casino.
@@ -29,7 +31,7 @@ coffre du casino.**
   jetons en sort.
 
 ### Hors périmètre
-- **Les autres jeux** (blackjack, machines à sous, poker) : un autre cahier, plus tard.
+- **Le poker et les autres jeux** : plus tard.
 - **La fabrication** des tables : elles ne se fabriquent pas.
 - **Les mises en pièces** à la table : on ne mise qu'en jetons.
 
@@ -65,6 +67,19 @@ casino, payée par le coffre au rachat.
 - L'équipe du serveur le donne et le retire par commande. Exemple de syntaxe, à confirmer au lot :
   `/casino statut add <joueur> <casino>` et `/casino statut remove <joueur> <casino>`.
 - Il donne accès au **coffre** de son casino et le droit de régler les **mises** de ses tables.
+
+### Relier un bloc à son coffre
+Chaque bloc de jeu (table de roulette, de blackjack, de dés, machine à sous) travaille avec **un** coffre
+de casino. La liaison se fait **à la pose**, sans commande (demande de Killian) :
+- **Un joueur au statut casino** pose le bloc : il est relié directement au coffre de son statut.
+- **Un membre de l'équipe sans statut** (opérateur, créatif) fait d'abord **accroupi + clic droit sur le
+  coffre** : le coffre est retenu (« Coffre sélectionné : Casino du Port »). Le prochain bloc de jeu qu'il
+  pose y est relié. La sélection dure jusqu'à la déconnexion ou une nouvelle sélection.
+- Sans statut ni coffre sélectionné, la pose est **refusée** avec un message qui explique quoi faire.
+- Le bloc affiche le nom de son casino dans son infobulle. Seule l'équipe peut le relier à un autre
+  coffre, en le cassant puis en le reposant.
+- Les PNJ suivent la même règle : la commande d'apparition prend le coffre sélectionné si aucun casino
+  n'est donné.
 
 ### Le circuit de l'argent
 
@@ -117,8 +132,8 @@ La numérotation prolonge celle du cahier du maire.
 **114. Table de roulette.**
 - C'est une **grande table** d'environ 3 × 2 blocs : un bloc principal dont le modèle déborde, entouré de
   blocs de collision invisibles. Le modèle vient de Blender (feature 116).
-- Elle **ne se fabrique pas**. L'équipe la donne à un joueur après un paiement en RP (choix de Killian),
-  puis la **relie à un coffre de casino** à la pose. Seule l'équipe la casse.
+- Elle **ne se fabrique pas**. L'équipe la donne après un paiement en RP (choix de Killian). Elle est
+  **reliée à un coffre de casino à la pose** (voir « Relier un bloc à son coffre »). Seule l'équipe la casse.
 - Plusieurs joueurs jouent en même temps à la même table.
 - **Mises** : le joueur ouvre le tapis et pose des jetons sur les cases. Les jetons misés quittent son
   inventaire tout de suite. Mises proposées :
@@ -176,6 +191,47 @@ Trois objets séparés, exportés en OBJ, avec une seule texture :
   ce que la table a gagné ou perdu. Elle voit aussi la **valeur des jetons en circulation**, comparée au
   coffre : si elle dépasse le coffre, le casino ne pourra pas tout racheter.
 
+**118. Table de blackjack.**
+Demandé par Killian le 2026-11-11.
+- Une table de 2 × 1 blocs, jusqu'à **5 joueurs** contre la **banque**, tenue par un **croupier
+  automatique** (choix de Killian). Donnée par l'équipe, reliée au coffre à la pose, cassée par l'équipe.
+- Une main :
+  1. chaque joueur mise en jetons pendant un compte à rebours (20 s, réglable) ;
+  2. la table distribue deux cartes à chacun et à la banque, dont une cachée ;
+  3. chacun **tire**, **reste**, **double** (une carte de plus, mise doublée) ou **partage** une paire ;
+  4. la banque retourne sa carte et **tire jusqu'à 17**, puis reste ;
+  5. les gains sont payés en jetons.
+- Gains : main gagnante **1 contre 1**, **blackjack** (as + figure ou 10 d'entrée) **3 contre 2**,
+  égalité rendue. Pas d'assurance.
+- Un **sabot de 6 jeux**, mélangé par le serveur et remélangé aux trois quarts. Les cartes sont tirées
+  par le serveur ; les joueurs ne voient que les cartes retournées.
+- Un joueur qui ne joue pas son tour dans le temps (15 s) **reste** automatiquement.
+- Les cartes posées sur la table s'animent à la distribution, comme la bille de la roulette.
+
+**119. Duel de dés.**
+Demandé par Killian le 2026-11-11.
+- Une table de dés, donnée par l'équipe et reliée au coffre à la pose. Deux joueurs s'affrontent
+  **en 1 contre 1**.
+- Le premier joueur pose sa mise ; le second doit mettre **la même mise** pour accepter le duel.
+- Chacun lance **deux dés** ; le **plus grand total gagne** le pot. En cas d'égalité, on relance.
+- Le casino prend une **commission** sur le pot (choix de Killian) : 5 % au départ, réglée par le statut
+  casino dans des bornes de l'équipe. Elle va au coffre du casino ; le gagnant reçoit le reste.
+- Les dés sont tirés par le serveur ; leur roulé sur la table s'anime pour tomber sur les faces tirées.
+- Un duel accepté puis abandonné (déconnexion, 60 s sans lancer) est perdu par celui qui n'a pas lancé.
+
+**120. Machine à sous.**
+Demandé par Killian le 2026-11-11.
+- Un bloc de 1 × 2 blocs de haut, donné par l'équipe et relié au coffre à la pose.
+- Le joueur mise un nombre de jetons (bornes réglées par le statut casino) et tire le levier. **Trois
+  rouleaux** tournent puis s'arrêtent un par un sur les symboles tirés par le serveur.
+- Une table de gains en données associe chaque combinaison de symboles à un multiple de la mise.
+- **Taux de retour moyen : 92 %** (choix de Killian, réglable par l'équipe). Le serveur pondère les
+  symboles pour l'atteindre ; un test le vérifie sur un grand nombre de tirages.
+- **Jackpot progressif** (choix de Killian) : une petite part de chaque mise (2 % au départ) alimente un
+  jackpot affiché sur la machine, gagné par la combinaison la plus rare. Il repart d'un montant de départ
+  réglable. Le jackpot est une **réserve en jetons de la machine**, comptée dans le suivi (feature 117).
+- Les rouleaux s'animent et s'arrêtent sur le résultat déjà tiré.
+
 ## 6. Branchements
 
 | Avec | Branchement |
@@ -192,6 +248,9 @@ Trois objets séparés, exportés en OBJ, avec une seule texture :
 | C1 | 110, 111, 112, 113, statut casino, 117 (registre) | On achète et revend des jetons, et le coffre garde l'argent | Lot E1 de l'économie |
 | C2 | 114 sans animation (résultat affiché) | On mise, on gagne, on perd, et les comptes tombent juste | C1 |
 | C3 | 115, 116 | La bille tombe sur le bon numéro, pour tous les joueurs | C2 et les modèles Blender |
+| C4 | 118 | On joue au blackjack contre une banque automatique | C2 |
+| C5 | 119 | Deux joueurs se défient aux dés, et le casino prend sa part | C1 |
+| C6 | 120 | La machine à sous rend 92 % en moyenne et son jackpot grossit | C1 |
 
 ## 8. Vérification
 
@@ -206,7 +265,13 @@ Trois objets séparés, exportés en OBJ, avec une seule texture :
   - chaque type de mise paie le bon multiple, et le 0 fait perdre les mises simples ;
   - une mise hors bornes est refusée et ses jetons rendus ;
   - sur 100 000 lancers simulés, chaque numéro sort environ une fois sur 37 ;
-  - le numéro dessiné en fin d'animation est toujours le numéro tiré, pour toute graine.
+  - le numéro dessiné en fin d'animation est toujours le numéro tiré, pour toute graine ;
+  - un bloc posé par un joueur au statut casino est relié à son coffre ; un opérateur sans statut doit
+    d'abord sélectionner un coffre ; sans coffre, la pose est refusée ;
+  - au blackjack, la banque tire jusqu'à 17, un blackjack paie 3 contre 2, et une égalité est rendue ;
+  - aux dés, le pot est payé au plus grand total moins la commission, versée au coffre ; une égalité
+    relance ;
+  - sur 1 000 000 de tirages simulés, la machine à sous rend 92 % à un point près, jackpot compris.
 - **Scénario d'acceptation** : l'équipe pose le coffre, y met des pièces, fait apparaître les deux PNJ et
   donne une table ; deux joueurs achètent des jetons, misent, regardent le même lancer, et l'un gagne ;
   ils revendent leurs jetons ; le coffre a exactement changé de la différence entre jetons vendus et
@@ -227,6 +292,10 @@ Trois objets séparés, exportés en OBJ, avec une seule texture :
 - Les **mises minimum et maximum** sont réglées par le statut casino.
 - Un rachat que le coffre ne peut pas payer est **refusé**.
 - Les jetons se **rangent partout**.
+- Un joueur au statut casino est **relié à un coffre** ; ce qu'il pose s'y relie seul. Un membre de
+  l'équipe sans statut fait **accroupi + clic droit sur le coffre** avant de poser.
+- Trois jeux en plus : **blackjack** à croupier automatique, **duel de dés** avec une petite commission,
+  **machine à sous** à jackpot progressif et taux de retour de 92 %.
 
 ### Choix faits par l'auteur du document
 Ces choix n'ont pas été validés par Killian et peuvent être contestés :

@@ -1,57 +1,391 @@
 {
-  "id": "casino",
-  "title": "Casino",
-  "intro": "On achète des jetons, on joue à la roulette, on revend ses jetons. Le casino ne crée jamais d'argent.",
-  "diagrams": [
-    {"title": "Le circuit de l'argent", "steps": ["Pièces du joueur", "PNJ vendeur", "Coffre du casino", "PNJ racheteur", "Pièces du joueur"]},
-    {"title": "Un tour de roulette", "steps": ["Mises en jetons", "Compte à rebours 30 s", "Serveur tire le numéro", "Bille tombe dessus", "Gains en jetons"]},
-    {"title": "Installer un casino", "steps": ["Poser le coffre", "Faire apparaître les PNJ", "Donner une table", "Donner le statut casino"]}
-  ],
-  "cards": [
-    {"id": "statut-casino", "name": "Statut casino", "kind": "role", "status": "prevu", "lot": "Lot C1",
-     "what": "Statut ajouté au métier : ouvre le coffre de son casino et règle les mises.",
-     "who": {"fabrique": "Staff, par commande"},
-     "steps": ["Plusieurs joueurs peuvent l'avoir.", "Chacun est rattaché à un casino précis."],
-     "staff": ["Syntaxe à confirmer : `/casino statut add <joueur> <casino>`.", "Retrait : `/casino statut remove <joueur> <casino>`."]},
-    {"id": "coffre-casino", "num": 110, "name": "Coffre du casino", "kind": "bloc", "status": "prevu", "lot": "Lot C1",
-     "what": "Garde les pièces du casino. Les PNJ y versent et y puisent.",
-     "who": {"pose": "Staff", "utilise": "Statut casino", "casse": "Staff seulement"},
-     "steps": ["Il porte le nom du casino.", "Ne contient que des pièces.", "Chaque mouvement est noté au registre."],
-     "staff": ["À poser avant les PNJ et les tables.", "Plusieurs casinos possibles, un coffre chacun."]},
-    {"id": "jeton-casino", "num": 111, "name": "Jeton de casino", "kind": "objet", "status": "prevu", "lot": "Lot C1",
-     "what": "La monnaie de jeu. Ce n'est pas de l'argent : il se range et se vole partout.",
-     "who": {"fabrique": "Personne : s'achète"},
-     "numbers": [{"k": "Prix", "v": "1 pièce d'argent"}, {"k": "Pile", "v": "64"}],
-     "staff": ["Prix réglable en config (10 cuivres au départ).", "Un même jeton vaut dans tous les casinos."]},
-    {"id": "pnj-vendeur", "num": 112, "name": "PNJ vendeur de jetons", "kind": "systeme", "status": "prevu", "lot": "Lot C1",
-     "what": "Vend des jetons contre des pièces, versées aussitôt dans le coffre.",
-     "who": {"pose": "Staff, relié au coffre"},
-     "flow": ["Pièces", "PNJ vendeur", "Coffre", "Jetons au joueur"],
-     "steps": ["Choisir un nombre de jetons.", "Le PNJ prend les pièces et rend la monnaie.", "Tout ou rien : pièces manquantes, rien n'est pris."],
-     "staff": ["Exemple : `/casino pnj vendeur <casino>`.", "Invulnérable et immobile."]},
-    {"id": "pnj-racheteur", "num": 113, "name": "PNJ racheteur de jetons", "kind": "systeme", "status": "prevu", "lot": "Lot C1",
-     "what": "Rachète les jetons au prix de vente, payés depuis le coffre.",
-     "who": {"pose": "Staff, relié au coffre"},
-     "flow": ["Jetons", "PNJ racheteur", "Coffre", "Pièces au joueur"],
-     "steps": ["Coffre trop vide : rachat refusé en entier.", "Le joueur garde ses jetons.", "Le statut casino et le staff sont prévenus."],
-     "staff": ["Exemple : `/casino pnj racheteur <casino>`."]},
-    {"id": "table-roulette", "num": 114, "name": "Table de roulette", "kind": "bloc", "status": "prevu", "lot": "Lot C2",
-     "what": "Grande table de roulette européenne, jouable à plusieurs, en jetons.",
-     "who": {"fabrique": "Personne : donnée", "pose": "Staff, reliée au coffre", "utilise": "Tous", "casse": "Staff seulement"},
-     "steps": ["Poser ses jetons sur le tapis.", "Le lancer part seul après 30 s.", "Les gains arrivent en jetons."],
-     "numbers": [{"k": "Plein", "v": "35 contre 1"}, {"k": "Douzaine", "v": "2 contre 1"}, {"k": "Rouge / noir", "v": "1 contre 1"}, {"k": "Taille", "v": "3 × 2 blocs"}],
-     "staff": ["Donnée après un paiement en RP.", "Mises min et max : réglées par le statut casino.", "Sur le 0, les mises simples sont perdues."]},
-    {"id": "animation-roulette", "num": 115, "name": "Bille synchronisée", "kind": "systeme", "status": "prevu", "lot": "Lot C3",
-     "what": "La bille tombe toujours sur le numéro tiré, et tout le monde voit le même lancer.",
-     "flow": ["Serveur tire le numéro", "Envoie numéro + départ", "Chaque jeu calcule", "Même lancer pour tous"],
-     "steps": ["Le résultat est tiré avant l'animation.", "Les gains suivent le serveur, pas l'écran.", "Arriver en cours : on reprend au bon moment."],
-     "numbers": [{"k": "Durée", "v": "≈ 12 s"}]},
-    {"id": "modeles-blender", "num": 116, "name": "Modèles Blender", "kind": "objet", "status": "prevu", "lot": "Lot C3",
-     "what": "Trois OBJ séparés : la table fixe, la roue et la bille, animées par le code.",
-     "steps": ["Roue : origine sur l'axe, case 0 vers l'avant.", "Bille : origine au centre.", "1 unité Blender = 1 bloc."],
-     "staff": ["L'OBJ ne contient pas d'animation.", "Une seule texture pour les trois."]},
-    {"id": "registre-casino", "num": 117, "name": "Registre du casino", "kind": "systeme", "status": "prevu", "lot": "Lot C1",
-     "what": "Note les ventes, rachats, mouvements du coffre et chaque lancer.",
-     "staff": ["Par commande : coffre, jetons vendus et rachetés.", "Alerte : jetons en circulation au-delà du coffre."]}
-  ]
+ "id": "casino",
+ "title": "Casino",
+ "intro": "On achète des jetons, on joue à la roulette, au blackjack, aux dés ou à la machine à sous, puis on revend ses jetons. Le casino ne crée jamais d'argent.",
+ "diagrams": [
+  {
+   "title": "Le circuit de l'argent",
+   "steps": [
+    "Pièces du joueur",
+    "PNJ vendeur",
+    "Coffre du casino",
+    "PNJ racheteur",
+    "Pièces du joueur"
+   ]
+  },
+  {
+   "title": "Un tour de roulette",
+   "steps": [
+    "Mises en jetons",
+    "Compte à rebours 30 s",
+    "Serveur tire le numéro",
+    "Bille tombe dessus",
+    "Gains en jetons"
+   ]
+  },
+  {
+   "title": "Installer un casino",
+   "steps": [
+    "Poser le coffre",
+    "Donner le statut casino (relié au coffre)",
+    "Le joueur pose ses jeux : reliés seuls",
+    "Faire apparaître les PNJ"
+   ]
+  }
+ ],
+ "cards": [
+  {
+   "id": "statut-casino",
+   "name": "Statut casino",
+   "kind": "role",
+   "status": "prevu",
+   "lot": "Lot C1",
+   "what": "Statut ajouté au métier, relié à un coffre : l'ouvre et règle les mises.",
+   "who": {
+    "fabrique": "Staff, par commande"
+   },
+   "steps": [
+    "Plusieurs joueurs peuvent l'avoir.",
+    "Chacun est rattaché à un casino précis."
+   ],
+   "staff": [
+    "Syntaxe à confirmer : `/casino statut add <joueur> <casino>`.",
+    "Retrait : `/casino statut remove <joueur> <casino>`."
+   ]
+  },
+  {
+   "id": "relier-coffre",
+   "name": "Relier un jeu à son coffre",
+   "kind": "systeme",
+   "status": "prevu",
+   "lot": "Lot C1",
+   "what": "Un jeu posé se relie seul au coffre de celui qui le pose.",
+   "steps": [
+    "Statut casino : on pose, c'est relié.",
+    "Staff sans statut : accroupi + clic droit sur le coffre.",
+    "Puis on pose le jeu : il est relié."
+   ],
+   "staff": [
+    "Sans statut ni coffre choisi, la pose est refusée.",
+    "Changer de coffre : casser puis reposer."
+   ]
+  },
+  {
+   "id": "coffre-casino",
+   "num": 110,
+   "name": "Coffre du casino",
+   "kind": "bloc",
+   "status": "prevu",
+   "lot": "Lot C1",
+   "what": "Garde les pièces du casino. Les PNJ y versent et y puisent.",
+   "who": {
+    "pose": "Staff",
+    "utilise": "Statut casino",
+    "casse": "Staff seulement"
+   },
+   "steps": [
+    "Il porte le nom du casino.",
+    "Ne contient que des pièces.",
+    "Chaque mouvement est noté au registre."
+   ],
+   "staff": [
+    "À poser avant les PNJ et les tables.",
+    "Plusieurs casinos possibles, un coffre chacun."
+   ]
+  },
+  {
+   "id": "jeton-casino",
+   "num": 111,
+   "name": "Jeton de casino",
+   "kind": "objet",
+   "status": "prevu",
+   "lot": "Lot C1",
+   "what": "La monnaie de jeu. Ce n'est pas de l'argent : il se range et se vole partout.",
+   "who": {
+    "fabrique": "Personne : s'achète"
+   },
+   "numbers": [
+    {
+     "k": "Prix",
+     "v": "1 pièce d'argent"
+    },
+    {
+     "k": "Pile",
+     "v": "64"
+    }
+   ],
+   "staff": [
+    "Prix réglable en config (10 cuivres au départ).",
+    "Un même jeton vaut dans tous les casinos."
+   ]
+  },
+  {
+   "id": "pnj-vendeur",
+   "num": 112,
+   "name": "PNJ vendeur de jetons",
+   "kind": "systeme",
+   "status": "prevu",
+   "lot": "Lot C1",
+   "what": "Vend des jetons contre des pièces, versées aussitôt dans le coffre.",
+   "who": {
+    "pose": "Staff, relié au coffre"
+   },
+   "flow": [
+    "Pièces",
+    "PNJ vendeur",
+    "Coffre",
+    "Jetons au joueur"
+   ],
+   "steps": [
+    "Choisir un nombre de jetons.",
+    "Le PNJ prend les pièces et rend la monnaie.",
+    "Tout ou rien : pièces manquantes, rien n'est pris."
+   ],
+   "staff": [
+    "Exemple : `/casino pnj vendeur <casino>`.",
+    "Invulnérable et immobile."
+   ]
+  },
+  {
+   "id": "pnj-racheteur",
+   "num": 113,
+   "name": "PNJ racheteur de jetons",
+   "kind": "systeme",
+   "status": "prevu",
+   "lot": "Lot C1",
+   "what": "Rachète les jetons au prix de vente, payés depuis le coffre.",
+   "who": {
+    "pose": "Staff, relié au coffre"
+   },
+   "flow": [
+    "Jetons",
+    "PNJ racheteur",
+    "Coffre",
+    "Pièces au joueur"
+   ],
+   "steps": [
+    "Coffre trop vide : rachat refusé en entier.",
+    "Le joueur garde ses jetons.",
+    "Le statut casino et le staff sont prévenus."
+   ],
+   "staff": [
+    "Exemple : `/casino pnj racheteur <casino>`."
+   ]
+  },
+  {
+   "id": "table-roulette",
+   "num": 114,
+   "name": "Table de roulette",
+   "kind": "bloc",
+   "status": "prevu",
+   "lot": "Lot C2",
+   "what": "Grande table de roulette européenne, jouable à plusieurs, en jetons.",
+   "who": {
+    "fabrique": "Personne : donnée",
+    "pose": "Statut casino ou staff",
+    "utilise": "Tous",
+    "casse": "Staff seulement"
+   },
+   "steps": [
+    "Poser ses jetons sur le tapis.",
+    "Le lancer part seul après 30 s.",
+    "Les gains arrivent en jetons."
+   ],
+   "numbers": [
+    {
+     "k": "Plein",
+     "v": "35 contre 1"
+    },
+    {
+     "k": "Douzaine",
+     "v": "2 contre 1"
+    },
+    {
+     "k": "Rouge / noir",
+     "v": "1 contre 1"
+    },
+    {
+     "k": "Taille",
+     "v": "3 × 2 blocs"
+    }
+   ],
+   "staff": [
+    "Donnée après un paiement en RP.",
+    "Mises min et max : réglées par le statut casino.",
+    "Sur le 0, les mises simples sont perdues."
+   ]
+  },
+  {
+   "id": "animation-roulette",
+   "num": 115,
+   "name": "Bille synchronisée",
+   "kind": "systeme",
+   "status": "prevu",
+   "lot": "Lot C3",
+   "what": "La bille tombe toujours sur le numéro tiré, et tout le monde voit le même lancer.",
+   "flow": [
+    "Serveur tire le numéro",
+    "Envoie numéro + départ",
+    "Chaque jeu calcule",
+    "Même lancer pour tous"
+   ],
+   "steps": [
+    "Le résultat est tiré avant l'animation.",
+    "Les gains suivent le serveur, pas l'écran.",
+    "Arriver en cours : on reprend au bon moment."
+   ],
+   "numbers": [
+    {
+     "k": "Durée",
+     "v": "≈ 12 s"
+    }
+   ]
+  },
+  {
+   "id": "modeles-blender",
+   "num": 116,
+   "name": "Modèles Blender",
+   "kind": "objet",
+   "status": "prevu",
+   "lot": "Lot C3",
+   "what": "Trois OBJ séparés : la table fixe, la roue et la bille, animées par le code.",
+   "steps": [
+    "Roue : origine sur l'axe, case 0 vers l'avant.",
+    "Bille : origine au centre.",
+    "1 unité Blender = 1 bloc."
+   ],
+   "staff": [
+    "L'OBJ ne contient pas d'animation.",
+    "Une seule texture pour les trois."
+   ]
+  },
+  {
+   "id": "registre-casino",
+   "num": 117,
+   "name": "Registre du casino",
+   "kind": "systeme",
+   "status": "prevu",
+   "lot": "Lot C1",
+   "what": "Note les ventes, rachats, mouvements du coffre et chaque lancer.",
+   "staff": [
+    "Par commande : coffre, jetons vendus et rachetés.",
+    "Alerte : jetons en circulation au-delà du coffre."
+   ]
+  },
+  {
+   "id": "blackjack",
+   "num": 118,
+   "name": "Table de blackjack",
+   "kind": "bloc",
+   "status": "prevu",
+   "lot": "Lot C4",
+   "what": "Jusqu'à 5 joueurs contre une banque automatique.",
+   "who": {
+    "fabrique": "Personne : donnée",
+    "pose": "Statut casino ou staff",
+    "utilise": "Tous",
+    "casse": "Staff seulement"
+   },
+   "flow": [
+    "Mise",
+    "2 cartes",
+    "Tirer / rester",
+    "Banque tire jusqu'à 17",
+    "Gains"
+   ],
+   "numbers": [
+    {
+     "k": "Gagné",
+     "v": "1 contre 1"
+    },
+    {
+     "k": "Blackjack",
+     "v": "3 contre 2"
+    },
+    {
+     "k": "Égalité",
+     "v": "rendue"
+    },
+    {
+     "k": "Sabot",
+     "v": "6 jeux"
+    }
+   ],
+   "staff": [
+    "Tour non joué en 15 s : le joueur reste.",
+    "Cartes tirées par le serveur."
+   ]
+  },
+  {
+   "id": "duel-des",
+   "num": 119,
+   "name": "Duel de dés",
+   "kind": "bloc",
+   "status": "prevu",
+   "lot": "Lot C5",
+   "what": "Deux joueurs, même mise, deux dés chacun : le plus grand total gagne.",
+   "who": {
+    "fabrique": "Personne : donnée",
+    "pose": "Statut casino ou staff",
+    "utilise": "Deux joueurs"
+   },
+   "flow": [
+    "Mise posée",
+    "Même mise acceptée",
+    "Deux dés chacun",
+    "Plus grand total gagne"
+   ],
+   "steps": [
+    "Égalité : on relance.",
+    "Abandon après 60 s : perdu."
+   ],
+   "numbers": [
+    {
+     "k": "Commission",
+     "v": "5 % au casino"
+    }
+   ],
+   "staff": [
+    "Commission réglée par le statut casino."
+   ]
+  },
+  {
+   "id": "machine-a-sous",
+   "num": 120,
+   "name": "Machine à sous",
+   "kind": "machine",
+   "status": "prevu",
+   "lot": "Lot C6",
+   "what": "Trois rouleaux, un levier, un jackpot qui grossit.",
+   "who": {
+    "fabrique": "Personne : donnée",
+    "pose": "Statut casino ou staff",
+    "utilise": "Tous"
+   },
+   "flow": [
+    "Mise",
+    "Levier",
+    "3 rouleaux",
+    "Gain ou jackpot"
+   ],
+   "numbers": [
+    {
+     "k": "Retour moyen",
+     "v": "92 %"
+    },
+    {
+     "k": "Vers le jackpot",
+     "v": "2 % de la mise"
+    },
+    {
+     "k": "Taille",
+     "v": "1 × 2 blocs"
+    }
+   ],
+   "staff": [
+    "Table des gains en données.",
+    "Taux de retour réglable par le staff."
+   ]
+  }
+ ]
 }
