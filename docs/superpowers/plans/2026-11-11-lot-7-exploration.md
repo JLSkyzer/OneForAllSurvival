@@ -16,7 +16,7 @@ Celles du lot 6 restent valables, telles quelles : `docs/superpowers/plans/archi
 
 - **Le mod n'embarque aucun message, aucun texte de lore, aucune explication du mystère** (feature 23). Les seuls textes sont ceux de l'interface et des commandes.
 - **Récepteur et mécanisme ancien ne s'usent pas et ne tombent jamais en panne** (section 4).
-- **Caches, récepteurs et mécanismes ne s'obtiennent que par l'équipe** : créatif ou `/give`, sans recette. Détecteur, lampe et récepteur se fabriquent à l'établi d'ingénieur.
+- **Caches et mécanismes ne s'obtiennent que par l'équipe** : créatif ou `/give`, sans recette. Détecteur, lampe et récepteur se fabriquent à l'établi d'ingénieur.
 - **Une commande de l'équipe exige le niveau de permission 2**, comme `RoleCommands`.
 - **Tout client lancé passe une propriété JVM `oneforallsurvival.*`**, pour que `dev/SourisLibre` rende la souris. Vérifier « [souris] rendue » dans le journal du client.
 
