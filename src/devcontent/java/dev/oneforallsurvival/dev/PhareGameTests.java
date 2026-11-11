@@ -157,6 +157,13 @@ public final class PhareGameTests {
                 .thenSucceed();
     }
 
+    /**
+     * Le toit posé ou retiré après coup : le phare suit. « Voir le ciel » est la lumière du ciel au-dessus du phare
+     * ({@code Level.canSeeSky}), que le moteur de lumière met à jour de façon asynchrone : relevé au 2026-11-11, elle
+     * passe de 15 à 0 deux ticks après la pose du toit, et visiblement plus de cinq sur deux passages de la suite complète (le
+     * test a échoué deux fois de suite à « STOPPED attendu, vu RUNNING » avec un délai fixe de cinq ticks). Le test
+     * attend donc les états (jusqu'à {@code timeoutTicks}) au lieu d'un délai fixe ; il exige les mêmes états finals.
+     */
     @GameTest(template = "test/plancher", batch = LOT, setupTicks = 20, timeoutTicks = 300)
     public static void sousUnToitApresCoup(GameTestHelper helper) {
         BlockPos pos = haut(helper);
@@ -173,10 +180,9 @@ public final class PhareGameTests {
                         throw e;
                     }
                 })
-                .thenIdle(5)
+                .thenWaitUntil(() -> helper.assertTrue(be.state() == MachineState.STOPPED, "STOPPED attendu, vu " + be.state()))
                 .thenExecute(() -> {
                     try {
-                        helper.assertTrue(be.state() == MachineState.STOPPED, "STOPPED attendu, vu " + be.state());
                         helper.assertTrue(!allume(helper, pos), "le phare couvert devait s'éteindre");
                         helper.setBlock(pos.above(), Blocks.AIR);
                     } catch (RuntimeException e) {
@@ -184,10 +190,9 @@ public final class PhareGameTests {
                         throw e;
                     }
                 })
-                .thenIdle(5)
+                .thenWaitUntil(() -> helper.assertTrue(be.state() == MachineState.RUNNING, "RUNNING attendu, vu " + be.state()))
                 .thenExecute(() -> {
                     try {
-                        helper.assertTrue(be.state() == MachineState.RUNNING, "RUNNING attendu, vu " + be.state());
                         helper.assertTrue(allume(helper, pos), "le phare découvert devait se rallumer");
                     } finally {
                         nettoyer(helper, pos);
