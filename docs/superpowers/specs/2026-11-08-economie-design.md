@@ -369,11 +369,17 @@ Demandé par Killian le 2026-11-08, sur le modèle des opérateurs du téléphon
   | Courants (zombie, squelette, araignée, creeper, noyé…) | 1 sur 3 | 1 à 3 cuivres |
   | Dangereux (sorcière, enderman, creeper chargé, vindicateur, blaze…) | 1 sur 2 | 1 à 2 argent |
   | Boss (Wither, dragon, gardien ancien) | toujours | 5 or |
+  | Animaux sauvages (vache, cochon, mouton, poulet, lapin…) | 1 sur 4 | 1 cuivre |
 
   Les métiers restent la vraie source de revenus ; la chasse en est un complément.
-- Les **animaux** ne donnent rien : élever ne doit pas devenir une planche à billets.
-- **Pas de plafond** (choix de Killian) : seuls les mobs hostiles donnent des pièces, et chaque mob
-  tué peut en donner.
+- Les **animaux** donnent aussi, mais **seulement hors élevage** (choix de Killian du 2026-11-11) :
+  - un animal **apparu dans la nature** (génération du monde, apparition naturelle) peut donner des
+    pièces ;
+  - un animal **né d'un élevage** (deux parents nourris) ne donne rien, ni ses descendants : élever ne
+    doit pas devenir une planche à billets ;
+  - le serveur marque chaque animal né d'un élevage à sa naissance, et la marque reste sur lui.
+- **Pas de plafond** (choix de Killian) : les mobs hostiles et les animaux sauvages donnent des pièces,
+  et chaque mob tué peut en donner.
 - **Seul garde-fou contre les fermes automatiques** : rien pour un mob tué sans joueur, ou apparu par un
   générateur (spawner) ou par un œuf d'apparition.
 - Le butin passe par un modificateur de butin global de Forge : les mobs des autres mods sont couverts par
@@ -534,7 +540,8 @@ leur métier. Celui de l'ingénieur vient avec le lot E6.
   - le total créé moins le total détruit est juste après une pièce jetée dans la lave ;
   - la somme de départ n'est donnée qu'une fois par joueur ;
   - une injection de l'équipe est notée au registre et au tableau de bord ;
-  - un mob de générateur ou d'œuf ne donne rien, un animal ne donne rien ;
+  - un mob de générateur ou d'œuf ne donne rien ; un animal sauvage peut donner, un animal né d'un
+    élevage et ses petits jamais ;
   - trois journalières différentes sont générées, et une relance en donne une autre ;
   - un bloc posé puis cassé ne fait avancer aucune quête ;
   - une quête de métier n'est pas proposée à un autre rôle ;
@@ -574,7 +581,8 @@ leur métier. Celui de l'ingénieur vient avec le lot E6.
 - Plus de **presse à monnaie** : l'argent vient des quêtes, du butin des mobs, de la somme de départ et
   des injections de l'équipe du serveur.
 - Le **PNJ ne fait que le change** de coupures : pas de boutique, ni achat ni vente.
-- Le **butin des mobs** n'a pas de plafond : seuls les mobs hostiles donnent des pièces.
+- Le **butin des mobs** n'a pas de plafond : les mobs hostiles donnent des pièces, et les animaux aussi
+  s'ils ne viennent pas d'un élevage (2026-11-11).
 - Les quêtes ne récompensent **qu'en pièces**.
 - Le **rubis** n'est donné que par l'équipe du serveur.
 - Une **somme de départ** de 500 cuivres pour chaque nouveau joueur.
@@ -602,7 +610,7 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 - la taxe sur les ventes et celle sur l'électricité sont à 0 % au départ ;
 - les salaires sont payés sur le trésor, jamais créés à partir de rien ;
 - le solde du trésor est public ;
-- seuls les mobs hostiles donnent des pièces, jamais ceux des générateurs ;
+- rien pour un mob de générateur ; 1 cuivre, 1 fois sur 4, pour un animal sauvage ;
 - les quêtes se renouvellent sur le calendrier réel, avec une relance par jour, et expirent sans
   pénalité ;
 - les quêtes de métier ne sont proposées qu'au rôle concerné ;

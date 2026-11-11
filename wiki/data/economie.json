@@ -103,7 +103,7 @@
       "image": null,
       "what": "Seules quatre sources créent de l'argent ; aucun joueur ne frappe monnaie.",
       "steps": [
-        "Butin des mobs hostiles.",
+        "Butin des mobs hostiles et des animaux sauvages.",
         "Récompenses de quêtes.",
         "Somme de départ et injection de l'équipe."
       ],
@@ -321,7 +321,7 @@
       "status": "prevu",
       "lot": "Lot E4",
       "image": null,
-      "what": "Un mob hostile tué par un joueur peut lâcher des pièces.",
+      "what": "Un mob hostile ou un animal sauvage tué par un joueur peut lâcher des pièces.",
       "who": {"utilise": "Tous"},
       "steps": [
         "Mob courant (zombie, araignée…) : 1 chance sur 3.",
@@ -332,12 +332,13 @@
       "numbers": [
         {"k": "Mob courant", "v": "1 à 3 cuivres"},
         {"k": "Mob dangereux", "v": "1 à 2 argent"},
-        {"k": "Boss", "v": "5 or"}
+        {"k": "Boss", "v": "5 or"},
+        {"k": "Animal sauvage", "v": "1 cuivre, 1 fois sur 4"}
       ],
       "staff": [
         "Table de chance et montant par mob, en données.",
         "Rien pour un mob de générateur, d'œuf ou sans joueur.",
-        "Les animaux ne donnent rien."
+        "Un animal né d'un élevage ne donne rien, ni ses petits."
       ]
     },
     {
