@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Textures provisoires du lot 7 : la cache enfouie (une caisse de tole rouillee), le detecteur de metaux et la lampe frontale (objet et couche portee), 16 x 16, dessinee ici pixel par pixel.
+"""Textures provisoires du lot 7 : la cache enfouie (une caisse de tole rouillee), le detecteur de metaux la lampe frontale (objet et couche portee) et le recepteur de signaux (trois etats), 16 x 16, dessinee ici pixel par pixel.
 Les visuels finaux arrivent a la tache 6 du lot.
 
     python tools/gen_textures_lot7.py
@@ -87,6 +87,30 @@ def lampe_portee():
     return img
 
 
+def recepteur(led):
+    """Un coffret de tole sombre avec une antenne et un voyant dont la couleur change selon l'etat (provisoire)."""
+    rnd = random.Random(23)
+    img = Image.new("RGBA", (16, 16))
+    p = img.load()
+    for y in range(16):
+        for x in range(16):
+            v = rnd.choice((58, 62, 66, 70))
+            p[x, y] = (v, v + 3, v + 7, 255)
+    for i in range(16):
+        for (x, y) in ((i, 0), (i, 15), (0, i), (15, i)):
+            p[x, y] = (34, 36, 40, 255)
+    for y in range(4, 9):  # haut-parleur
+        for x in range(3, 10):
+            p[x, y] = (30, 32, 35, 255) if (x + y) % 2 else (44, 46, 50, 255)
+    for (x, y) in ((12, 4), (12, 5), (12, 6), (11, 4), (13, 4)):  # antenne
+        p[x, y] = (150, 150, 146, 255)
+    for (x, y) in ((11, 10), (12, 10), (11, 11), (12, 11)):  # voyant
+        p[x, y] = led
+    for x in range(3, 13):  # cadran
+        p[x, 13] = (92, 90, 84, 255)
+    return img
+
+
 if __name__ == "__main__":
     OUT.mkdir(parents=True, exist_ok=True)
     cache().save(OUT / "buried_cache.png")
@@ -99,3 +123,6 @@ if __name__ == "__main__":
     (ASSETS / "models" / "armor").mkdir(parents=True, exist_ok=True)
     lampe_portee().save(ASSETS / "models" / "armor" / "headlamp_layer_1.png")
     print("ecrit", ASSETS / "models" / "armor" / "headlamp_layer_1.png")
+    for suffix, led in (("", (70, 70, 72, 255)), ("_on", (96, 214, 96, 255)), ("_unread", (244, 190, 60, 255))):
+        recepteur(led).save(OUT / ("signal_receiver" + suffix + ".png"))
+        print("ecrit", OUT / ("signal_receiver" + suffix + ".png"))

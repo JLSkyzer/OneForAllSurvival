@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "listening=false,unread=false": { "model": "oneforallsurvival:block/signal_receiver" },
+    "listening=true,unread=false": { "model": "oneforallsurvival:block/signal_receiver_on" },
+    "listening=false,unread=true": { "model": "oneforallsurvival:block/signal_receiver_unread" },
+    "listening=true,unread=true": { "model": "oneforallsurvival:block/signal_receiver_unread" }
+  }
+}

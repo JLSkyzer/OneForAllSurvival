@@ -18,6 +18,7 @@ public final class ExploreConfig {
     private static final int DEFAULT_HEADLAMP_CAPACITY = 36000;
     private static final int DEFAULT_HEADLAMP_ENERGY = 2;
     private static final int DEFAULT_HEADLAMP_LIGHT = 14;
+    private static final int DEFAULT_RECEIVER_ENERGY = 4;
 
     private static final ForgeConfigSpec.IntValue CACHE_LIST_MAX;
     private static final ForgeConfigSpec.IntValue DETECTOR_CAPACITY;
@@ -26,6 +27,7 @@ public final class ExploreConfig {
     private static final ForgeConfigSpec.IntValue HEADLAMP_CAPACITY;
     private static final ForgeConfigSpec.IntValue HEADLAMP_ENERGY;
     private static final ForgeConfigSpec.IntValue HEADLAMP_LIGHT;
+    private static final ForgeConfigSpec.IntValue RECEIVER_ENERGY;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -50,6 +52,9 @@ public final class ExploreConfig {
         HEADLAMP_LIGHT = builder
                 .comment("Niveau de lumière du bloc invisible qui suit la tête du porteur (1 à 15).")
                 .defineInRange("headlampLight", DEFAULT_HEADLAMP_LIGHT, 1, 15);
+        RECEIVER_ENERGY = builder
+                .comment("FE que le récepteur de signaux consomme à chaque tick pour écouter (sa réserve en tient 2000).")
+                .defineInRange("receiverEnergy", DEFAULT_RECEIVER_ENERGY, 1, 2000);
         SPEC = builder.build();
     }
 
@@ -108,6 +113,14 @@ public final class ExploreConfig {
             return HEADLAMP_LIGHT.get();
         } catch (IllegalStateException e) {
             return DEFAULT_HEADLAMP_LIGHT;
+        }
+    }
+
+    public static int receiverEnergy() {
+        try {
+            return RECEIVER_ENERGY.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_RECEIVER_ENERGY;
         }
     }
 }

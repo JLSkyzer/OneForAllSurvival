@@ -5,6 +5,7 @@ import dev.oneforallsurvival.OneForAllSurvival;
 import dev.oneforallsurvival.bench.client.BenchClientState;
 import dev.oneforallsurvival.debug.IslandDebugRequest;
 import dev.oneforallsurvival.debug.IslandDebugResponse;
+import dev.oneforallsurvival.explore.ReceiverFrequencyPacket;
 import dev.oneforallsurvival.grid.SubscriberNamePacket;
 import java.util.Locale;
 import java.util.Map;
@@ -52,6 +53,8 @@ public final class BenchNetwork {
     /** Le F3 : demande des données Lost Island, et réponse filtrée selon le rôle. */
     public static final int ID_ISLAND_DEBUG_REQUEST = 8;
     public static final int ID_ISLAND_DEBUG_RESPONSE = 9;
+    /** Le récepteur de signaux : régler sa fréquence. */
+    public static final int ID_RECEIVER_FREQUENCY = 10;
 
     /** Clé de traduction d'un refus : {@code message.oneforallsurvival.bench.refused.<résultat>}. */
     public static final String REFUSED_KEY = "message.oneforallsurvival.bench.refused.";
@@ -94,6 +97,9 @@ public final class BenchNetwork {
         CHANNEL.messageBuilder(IslandDebugResponse.class, ID_ISLAND_DEBUG_RESPONSE, NetworkDirection.PLAY_TO_CLIENT)
                 .encoder(IslandDebugResponse::encode).decoder(IslandDebugResponse::decode)
                 .consumerMainThread(IslandDebugResponse::handle).add();
+        CHANNEL.messageBuilder(ReceiverFrequencyPacket.class, ID_RECEIVER_FREQUENCY, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(ReceiverFrequencyPacket::encode).decoder(ReceiverFrequencyPacket::decode)
+                .consumerMainThread(ReceiverFrequencyPacket::handle).add();
     }
 
     // --- Serveur vers client -----------------------------------------------------------------

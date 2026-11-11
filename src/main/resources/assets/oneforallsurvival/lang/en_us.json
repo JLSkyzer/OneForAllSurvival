@@ -374,5 +374,15 @@
   "tooltip.oneforallsurvival.headlamp.energy": "Battery: %s / %s FE",
   "tooltip.oneforallsurvival.headlamp.usage": "Worn on the head, it lights the area around you while charged. Held in hand, right-click an energy block: recharge.",
   "message.oneforallsurvival.headlamp.charged": "Headlamp recharged: +%s FE",
-  "message.oneforallsurvival.headlamp.not_charged": "Nothing to draw from this block."
+  "message.oneforallsurvival.headlamp.not_charged": "Nothing to draw from this block.",
+  "block.oneforallsurvival.signal_receiver": "Signal Receiver",
+  "gui.oneforallsurvival.receiver.frequency": "Frequency",
+  "gui.oneforallsurvival.receiver.set": "Set",
+  "gui.oneforallsurvival.receiver.listening": "Listening",
+  "gui.oneforallsurvival.receiver.no_power": "No power",
+  "gui.oneforallsurvival.receiver.energy": "%s / %s FE",
+  "gui.oneforallsurvival.receiver.empty": "No message received.",
+  "gui.oneforallsurvival.receiver.entry": "Day %s, %s:%s - frequency %s",
+  "message.oneforallsurvival.receiver.out_of_range": "The frequency must be between %s and %s.",
+  "command.oneforallsurvival.signal.sent": "Message received by %s receiver(s)"
 }
