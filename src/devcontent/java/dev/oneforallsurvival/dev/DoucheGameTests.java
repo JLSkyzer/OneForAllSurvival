@@ -345,6 +345,9 @@ public final class DoucheGameTests {
     // Le Bien-être
     // ---------------------------------------------------------------------------------------------
 
+    /** Ticks laissés à la vie pour se poser après `setHealth` (First Aid la recalcule depuis les membres). */
+    private static final int DEPART_SOIN = 60;
+
     /** Un joueur blessé, 30 s d'effet : ni vie, ni absorption, ni effet de soin. */
     @GameTest(template = "test/plancher", batch = LOT_B, setupTicks = 20, timeoutTicks = 900)
     public static void leBienEtreNeSoignePas(GameTestHelper helper) {
@@ -355,25 +358,35 @@ public final class DoucheGameTests {
         // Sous 18 de faim, la régénération naturelle du jeu ne joue pas : seule la vie du Bien-être est en cause.
         j.joueur().getFoodData().setFoodLevel(6);
         j.joueur().setHealth(10.0F);
-        float vie = j.joueur().getHealth();
-        float absorption = j.joueur().getAbsorptionAmount();
-        Set<MobEffect> avant = j.joueur().getActiveEffects().stream().map(MobEffectInstance::getEffect)
-                .collect(Collectors.toSet());
-        WellBeing.grant(j.joueur(), 1500);
         helper.onEachTick(() -> j.joueur().getFoodData().setFoodLevel(6));
-        helper.runAfterDelay(620, () -> {
+        // Avec First Aid, la vie vanilla suit les membres et ne vaut pas encore 10 juste après `setHealth` : le
+        // départ se mesure une fois la vie posée, et le joueur doit alors être encore blessé, sinon rien n'est prouvé.
+        float[] depart = new float[2];
+        Set<MobEffect> avant = new java.util.HashSet<>();
+        helper.runAfterDelay(DEPART_SOIN, () -> {
+            depart[0] = j.joueur().getHealth();
+            depart[1] = j.joueur().getAbsorptionAmount();
+            j.joueur().getActiveEffects().forEach(e -> avant.add(e.getEffect()));
+            WellBeing.grant(j.joueur(), 1500);
+        });
+        helper.runAfterDelay(DEPART_SOIN + 600, () -> {
             try {
                 MobEffectInstance effet = bienEtre(j);
-                helper.assertTrue(effet != null && effet.getDuration() < 1500 - 600,
+                helper.assertTrue(effet != null && effet.getDuration() <= 1500 - 600,
                         "l'effet devait avoir tourné 30 s, vu " + effet);
-                helper.assertTrue(j.joueur().getHealth() == vie, "la vie devait rester à " + vie + ", vue "
+                helper.assertTrue(depart[0] < j.joueur().getMaxHealth(),
+                        "le joueur devait être blessé au départ, vie " + depart[0] + " sur " + j.joueur().getMaxHealth());
+                helper.assertTrue(j.joueur().getHealth() == depart[0], "la vie devait rester à " + depart[0] + ", vue "
                         + j.joueur().getHealth());
-                helper.assertTrue(j.joueur().getAbsorptionAmount() == absorption, "l'absorption devait rester à "
-                        + absorption + ", vue " + j.joueur().getAbsorptionAmount());
+                helper.assertTrue(j.joueur().getAbsorptionAmount() == depart[1], "l'absorption devait rester à "
+                        + depart[1] + ", vue " + j.joueur().getAbsorptionAmount());
                 Set<MobEffect> apres = j.joueur().getActiveEffects().stream().map(MobEffectInstance::getEffect)
                         .collect(Collectors.toSet());
                 apres.remove(TownRegistry.WELL_BEING.get());
-                helper.assertTrue(apres.equals(avant), "aucun autre effet ne devait apparaître, vus " + apres);
+                // Un effet du départ peut expirer entre-temps ; aucun ne doit apparaître.
+                apres.removeAll(avant);
+                helper.assertTrue(apres.isEmpty(), "aucun autre effet ne devait apparaître, vus en plus " + apres
+                        + " (au départ " + avant + ")");
                 // L'effet n'a aucun tic : rien de ce qui soigne n'est surchargé.
                 for (String methode : new String[] {"applyEffectTick", "isDurationEffectTick", "applyInstantenousEffect"}) {
                     for (var m : WellBeingEffect.class.getDeclaredMethods()) {
