@@ -364,5 +364,10 @@
   "command.oneforallsurvival.cache.loot.set": "Cache en %s : table de butin réglée sur %s",
   "command.oneforallsurvival.cache.list.empty": "Aucune cache dans cette dimension",
   "command.oneforallsurvival.cache.list.header": "%s cache(s) dans %s :",
-  "command.oneforallsurvival.cache.list.entry": "- %s"
+  "command.oneforallsurvival.cache.list.entry": "- %s",
+  "item.oneforallsurvival.metal_detector": "Détecteur de métaux",
+  "tooltip.oneforallsurvival.detector.energy": "Batterie : %s / %s FE",
+  "tooltip.oneforallsurvival.detector.usage": "Tenu en main, il bipe de plus en plus vite près d'une cache enfouie. Clic droit sur un bloc à FE : recharge.",
+  "message.oneforallsurvival.detector.charged": "Détecteur rechargé : +%s FE",
+  "message.oneforallsurvival.detector.not_charged": "Rien à récupérer sur ce bloc."
 }

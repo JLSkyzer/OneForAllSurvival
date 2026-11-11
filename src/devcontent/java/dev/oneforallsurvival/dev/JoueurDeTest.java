@@ -23,6 +23,7 @@ import net.minecraft.network.protocol.game.ClientboundContainerSetContentPacket;
 import net.minecraft.network.protocol.game.ClientboundContainerSetDataPacket;
 import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
 import net.minecraft.network.protocol.game.ClientboundCustomPayloadPacket;
+import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -50,6 +51,8 @@ public final class JoueurDeTest {
     private final List<IslandDebugResponse> reponsesDebug = new ArrayList<>();
     /** Les clés des messages (chat ou barre d'action) reçus, dans l'ordre ; un texte brut est gardé tel quel. */
     private final List<String> messages = new ArrayList<>();
+    /** Les hauteurs des sons joués au joueur (paquets de son), dans l'ordre. */
+    private final List<Float> sons = new ArrayList<>();
     /** Les paquets de synchronisation de menu (contenu, case, donnée), dans l'ordre d'envoi. */
     private final List<Packet<?>> menus = new ArrayList<>();
     /** Les fragments du catalogue que l'entrée en jeu elle-même a envoyés, avant qu'on ne les oublie. */
@@ -112,6 +115,8 @@ public final class JoueurDeTest {
         } else if (message instanceof ClientboundSystemChatPacket chat) {
             messages.add(chat.content().getContents() instanceof TranslatableContents t ? t.getKey()
                     : chat.content().getString());
+        } else if (message instanceof ClientboundSoundPacket son) {
+            sons.add(son.getPitch());
         } else if (message instanceof ClientboundContainerSetContentPacket
                 || message instanceof ClientboundContainerSetSlotPacket
                 || message instanceof ClientboundContainerSetDataPacket) {
@@ -134,6 +139,14 @@ public final class JoueurDeTest {
                 donnees.release();
             }
         }
+    }
+
+    /** Les hauteurs des sons reçus depuis le dernier appel, retirées. */
+    public List<Float> sonsRecus() {
+        lire();
+        List<Float> out = new ArrayList<>(sons);
+        sons.clear();
+        return out;
     }
 
     /** Les clés des messages reçus depuis le dernier appel, retirées. */

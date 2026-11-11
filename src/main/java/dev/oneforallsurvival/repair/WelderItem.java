@@ -65,7 +65,7 @@ public class WelderItem extends Item {
 
     @Override
     public ICapabilityProvider initCapabilities(ItemStack stack, @Nullable CompoundTag nbt) {
-        return new WelderEnergy(stack);
+        return WelderEnergy.provider(stack);
     }
 
     @Override

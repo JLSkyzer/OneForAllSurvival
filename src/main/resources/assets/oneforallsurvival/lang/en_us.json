@@ -364,5 +364,10 @@
   "command.oneforallsurvival.cache.loot.set": "Cache at %s: loot table set to %s",
   "command.oneforallsurvival.cache.list.empty": "No cache in this dimension",
   "command.oneforallsurvival.cache.list.header": "%s cache(s) in %s:",
-  "command.oneforallsurvival.cache.list.entry": "- %s"
+  "command.oneforallsurvival.cache.list.entry": "- %s",
+  "item.oneforallsurvival.metal_detector": "Metal Detector",
+  "tooltip.oneforallsurvival.detector.energy": "Battery: %s / %s FE",
+  "tooltip.oneforallsurvival.detector.usage": "Held in hand, it beeps faster near a buried cache. Right-click an energy block: recharge.",
+  "message.oneforallsurvival.detector.charged": "Detector recharged: +%s FE",
+  "message.oneforallsurvival.detector.not_charged": "Nothing to draw from this block."
 }

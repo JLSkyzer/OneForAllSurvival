@@ -1,6 +1,7 @@
 package dev.oneforallsurvival.repair;
 
 import dev.oneforallsurvival.machine.ElectricMachineBlockEntity;
+import dev.oneforallsurvival.machine.ItemBattery;
 import dev.oneforallsurvival.machine.MachineConfig;
 import dev.oneforallsurvival.machine.RepairOutcome;
 import dev.oneforallsurvival.role.RoleGate;
@@ -16,8 +17,6 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraftforge.common.capabilities.ForgeCapabilities;
-import net.minecraftforge.energy.IEnergyStorage;
 import org.jetbrains.annotations.Nullable;
 
 /** Les gestes du dépanneur : réparer avec le poste à souder et une pièce, recharger le poste. */
@@ -105,21 +104,6 @@ public final class RepairActions {
      * est vidée directement dans sa réserve.
      */
     public static int charge(ItemStack welder, BlockEntity source, @Nullable Direction side) {
-        int room = MachineConfig.welderCapacity() - WelderEnergy.stored(welder);
-        if (room <= 0) {
-            return 0;
-        }
-        IEnergyStorage supplier = source.getCapability(ForgeCapabilities.ENERGY, side).orElse(null);
-        int received;
-        if (supplier != null && supplier.canExtract()) {
-            int offered = supplier.extractEnergy(room, true);
-            received = supplier.extractEnergy(offered, false);
-        } else if (source instanceof ElectricMachineBlockEntity machine) {
-            received = machine.drainEnergy(room);
-        } else {
-            return 0;
-        }
-        WelderEnergy.store(welder, WelderEnergy.stored(welder) + received);
-        return received;
+        return ItemBattery.chargeFrom(welder, source, side, MachineConfig.welderCapacity());
     }
 }
