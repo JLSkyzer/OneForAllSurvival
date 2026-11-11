@@ -49,8 +49,10 @@ l'argent qui circule a toujours une origine connue.**
   2026-11-08. L'argent n'existe qu'en pièces.
 - **Bourse des valeurs, prêts à intérêt, actions** : trop modernes pour une ville naissante, et sources
   d'abus. (À ne pas confondre avec la bourse de la feature 69, le porte-monnaie.)
-- **Les villageois vanilla** gardent leurs émeraudes et n'acceptent pas les pièces. Le seul PNJ qui
-  manie la monnaie est le changeur (feature 80), placé par l'équipe du serveur.
+- **Les villageois vanilla** gardent leurs émeraudes et n'acceptent pas les pièces. Les seuls PNJ qui
+  manient la monnaie sont le changeur (feature 80) et les deux PNJ du casino, qui vendent et rachètent
+  des jetons contre des pièces du coffre du casino ([cahier du casino](2026-11-11-casino-roulette-design.md)).
+  Tous sont placés par l'équipe du serveur.
 - **Fixer les prix** : ils relèvent des joueurs, sauf les tarifs publics (amendes) que la ville règle.
   Le prix de l'électricité est fixé par chaque fournisseur, sous un plafond fixé par le maire
   (feature 83).
@@ -140,6 +142,8 @@ Valeurs de départ, réglables :
 | Tableau de la mairie (73) | — | le maire, plusieurs ; déplaçable par un ingénieur, le maire ou l'équipe | affichage seul | — |
 | Poste de fournisseur (83) | l'ingénieur | n'importe quel joueur | le fournisseur | non, sa caisse se vide par le fournisseur |
 | PNJ changeur (80) | — | l'équipe, par commande | — | non, invulnérable |
+| Coffre du casino (cahier du casino) | — | l'équipe, incassable | le statut casino | non |
+| PNJ vendeur et racheteur de jetons (cahier du casino) | — | l'équipe, reliés au coffre | — | non, invulnérables |
 | Bureau du maire (cahier du maire) | — | l'équipe, un seul ; déplaçable par un ingénieur, le maire ou l'équipe | le maire | non |
 
 ### Registre
@@ -166,7 +170,8 @@ Demandé par Killian le 2026-11-08.
   - la caisse d'un **étal de marché** (71) ;
   - le **trésor de la ville** (73) ;
   - la caisse d'un **poste de fournisseur** (83) ou d'une **antenne** d'opérateur (cahier du
-    téléphone), qui reçoivent les prélèvements.
+    téléphone), qui reçoivent les prélèvements ;
+  - le **coffre d'un casino** ([cahier du casino](2026-11-11-casino-roulette-design.md), feature 110).
 - **Partout ailleurs, elle est refusée** : coffres, tonneaux, boîtes de Shulker, coffre de l'Ender,
   sacs et stockages des autres mods, cadres, porte-armures.
   - Dans un **écran de stockage**, la case refuse la pièce. Tous les écrans du jeu et des mods

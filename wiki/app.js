@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const CHAPTERS = ["electricite", "economie", "telephone", "interface", "medecin", "agriculteur", "policier", "maire"];
+  const CHAPTERS = ["electricite", "economie", "telephone", "interface", "medecin", "agriculteur", "policier", "maire", "casino"];
   const main = document.getElementById("main");
   const tabs = document.getElementById("tabs");
   const q = document.getElementById("q");
