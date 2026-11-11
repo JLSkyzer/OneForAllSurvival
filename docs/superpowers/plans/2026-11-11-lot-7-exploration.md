@@ -28,13 +28,13 @@ Celles du lot 6 restent valables, telles quelles : `docs/superpowers/plans/archi
 4. **Le mécanisme ancien** ne se casse pas en survie, ne saute pas à l'explosion et ne se pousse pas au piston. Testé en tâche 5.
 5. **Une cache cassée en survie donne son butin une seule fois** et sort de l'index, si bien que le détecteur se tait. Cassée en créatif, elle ne donne rien. Testé en tâches 1 et 2.
 
-## Décisions prises par ce plan (à valider par Killian)
+## Décisions prises par ce plan
 
 | Sujet | Décision | Pourquoi |
 |---|---|---|
-| **Lumière de la lampe** (à valider) | Côté serveur, un bloc `minecraft:light` invisible, niveau 14, suit la tête du joueur. Il n'est posé que dans l'air ou dans l'eau (en version imbibée). Chaque bloc posé est noté, pour être retiré dès que le joueur change de bloc, et nettoyé au chargement du chunk après un plantage. | « Lisible et légère sur serveur » : tous les joueurs voient la même lumière, sans mixin dans le moteur de lumière et sans mod client en plus. Le pack n'a aucun mod de lumière dynamique. |
-| **Mécanisme une fois actionné** (à valider) | Il reste actif, avec un signal de redstone 15, jusqu'à ce que l'équipe le remette à zéro par `/mechanism reset`. Une coupure avant la fin de la durée remet la progression à zéro. | Une ruine ouverte reste ouverte. L'autre choix serait « actif seulement tant qu'il est alimenté ». |
-| **Récepteur hors service** (à valider) | Un récepteur sans courant ou dans un chunk déchargé manque le message, sans file d'attente. La commande dit combien de récepteurs l'ont reçu. | Fidèle à une radio. L'équipe sait tout de suite si son message est passé. |
+| **Lumière de la lampe** (validé par Killian le 2026-11-11) | Côté serveur, un bloc `minecraft:light` invisible, niveau 14, suit la tête du joueur. Il n'est posé que dans l'air ou dans l'eau (en version imbibée). Chaque bloc posé est noté, pour être retiré dès que le joueur change de bloc, et nettoyé au chargement du chunk après un plantage. | « Lisible et légère sur serveur » : tous les joueurs voient la même lumière, sans mixin dans le moteur de lumière et sans mod client en plus. Le pack n'a aucun mod de lumière dynamique. |
+| **Mécanisme une fois actionné** (validé par Killian le 2026-11-11) | Il reste actif, avec un signal de redstone 15, jusqu'à ce que l'équipe le remette à zéro par `/mechanism reset`. Une coupure avant la fin de la durée remet la progression à zéro. | Une ruine ouverte reste ouverte. L'autre choix serait « actif seulement tant qu'il est alimenté ». |
+| **Récepteur hors service** (validé par Killian le 2026-11-11) | Un récepteur sans courant ou dans un chunk déchargé manque le message, sans file d'attente. La commande dit combien de récepteurs l'ont reçu. | Fidèle à une radio. L'équipe sait tout de suite si son message est passé. |
 | Détecteur | Batterie de 24 000 FE. Il consomme 2 FE par tick, tenu dans une main, soit environ 10 min d'usage. Portée de 24 blocs, en distance réelle. Un bip toutes les 40 ticks au bord de la portée, puis toutes les 2 ticks au contact. Seul le porteur l'entend, et la hauteur du son monte en approchant. | « Son de plus en plus rapide » |
 | Lampe | Emplacement du casque, protection 1, aucune durabilité. Batterie de 36 000 FE, 2 FE par tick quand elle est portée, soit environ 15 min. Allumée dès qu'elle est portée et chargée. | « Choisir entre protection et lumière » |
 | Recharge | Les deux objets se rechargent par un clic droit sur un bloc qui fournit des FE, comme le poste à souder. | Même geste partout |
