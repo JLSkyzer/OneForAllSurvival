@@ -138,7 +138,7 @@ public final class MechanismBlockEntity extends BlockEntity {
         syncState(server, pos, state);
     }
 
-    /** Aligne l'état du bloc sur la progression et prévient les voisins quand le signal change. */
+    /** Aligne l'état du bloc sur la progression et, quand le signal change, prévient les voisins des voisins. */
     private void syncState(ServerLevel server, BlockPos pos, BlockState state) {
         int stage = MechanismRules.stage(progress, durationTicks);
         if (state.getValue(MechanismBlock.STAGE) == stage && state.getValue(MechanismBlock.ACTIVE) == active) {
@@ -147,7 +147,10 @@ public final class MechanismBlockEntity extends BlockEntity {
         boolean signalChanged = state.getValue(MechanismBlock.ACTIVE) != active;
         server.setBlock(pos, state.setValue(MechanismBlock.STAGE, stage).setValue(MechanismBlock.ACTIVE, active), 3);
         if (signalChanged) {
-            server.updateNeighborsAt(pos, state.getBlock());
+            // Source forte (comme le levier) : les voisins des voisins, pour la poudre posée sur un bloc adjacent.
+            for (Direction direction : Direction.values()) {
+                server.updateNeighborsAt(pos.relative(direction), state.getBlock());
+            }
         }
     }
 

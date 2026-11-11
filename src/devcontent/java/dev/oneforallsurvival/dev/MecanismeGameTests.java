@@ -11,10 +11,12 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.RedStoneWireBlock;
 import net.minecraft.world.level.block.RedstoneLampBlock;
 import net.minecraft.world.level.block.piston.PistonBaseBlock;
 import net.minecraft.world.phys.AABB;
@@ -290,6 +292,58 @@ public final class MecanismeGameTests {
     }
 
     @GameTest(template = "test/plancher", batch = LOT_B)
+    public static void immuniseContreLesBoss(GameTestHelper helper) {
+        var etat = ExploreRegistry.MECHANISM.get().defaultBlockState();
+        helper.assertTrue(etat.is(BlockTags.WITHER_IMMUNE), "le mécanisme doit résister au wither");
+        helper.assertTrue(etat.is(BlockTags.DRAGON_IMMUNE), "le mécanisme doit résister au dragon");
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_B, timeoutTicks = 200)
+    public static void uneRafaleDeDeuxFoisLeSeuilNeSeReporteJamais(GameTestHelper helper) {
+        MechanismBlockEntity be = poser(helper, 10, 60);
+        int[] tick = {0};
+        int[] maximum = {0};
+        helper.onEachTick(() -> {
+            tick[0]++;
+            if (tick[0] == 3) {
+                int v = be.getCapability(ForgeCapabilities.ENERGY, Direction.UP).map(e -> e.receiveEnergy(1000, false)).orElse(-1);
+                helper.assertTrue(v == 20, "la rafale devait être plafonnée à 2 x seuil, vu " + v);
+            }
+            maximum[0] = Math.max(maximum[0], be.progress());
+        });
+        helper.startSequence()
+                .thenIdle(25)
+                .thenExecute(() -> {
+                    helper.assertTrue(maximum[0] <= 1, "la rafale ne vaut qu'un tick, progression max " + maximum[0]);
+                    helper.assertTrue(be.progress() == 0, "rien ne doit se reporter : progression " + be.progress());
+                    int v = be.getCapability(ForgeCapabilities.ENERGY, Direction.UP).map(e -> e.receiveEnergy(1000, true)).orElse(-1);
+                    helper.assertTrue(v == 20, "la fenêtre suivante repart de zéro, vu " + v);
+                    vider(helper, MECA, LAMPE);
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_B, timeoutTicks = 200)
+    public static void laPoudreSurUnBlocVoisinSAllume(GameTestHelper helper) {
+        MechanismBlockEntity be = poser(helper, 10, 10);
+        BlockPos pierre = LAMPE;
+        BlockPos poudre = LAMPE.above();
+        vider(helper, poudre);
+        helper.setBlock(pierre, Blocks.STONE);
+        helper.setBlock(poudre, Blocks.REDSTONE_WIRE);
+        helper.assertTrue(helper.getBlockState(poudre).getValue(RedStoneWireBlock.POWER) == 0, "poudre éteinte au départ");
+        boolean[] marche = {true};
+        source(helper, be, marche, 10);
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(be.active(), "actif attendu"))
+                .thenWaitUntil(() -> helper.assertTrue(helper.getBlockState(poudre).getValue(RedStoneWireBlock.POWER) > 0,
+                        "la poudre sur le bloc voisin devait s'allumer, vu " + helper.getBlockState(poudre)))
+                .thenExecute(() -> vider(helper, MECA, pierre, poudre))
+                .thenSucceed();
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_B)
     public static void lesCommandesReglentEtDisent(GameTestHelper helper) throws CommandSyntaxException {
         MechanismBlockEntity be = poser(helper, 10, 20);
         int r = commande(helper, "mechanism set " + coords(helper) + " 55 4");
@@ -342,18 +396,38 @@ public final class MecanismeGameTests {
 
     @GameTest(template = "test/plancher", batch = LOT_C)
     public static void ilResisteALExplosion(GameTestHelper helper) {
-        BlockPos meca = new BlockPos(2, 1, 3);
         BlockPos temoin = new BlockPos(1, 1, 3);
-        vider(helper, meca, temoin);
+        BlockPos centreCase = new BlockPos(2, 1, 3);
+        BlockPos meca = new BlockPos(3, 1, 3);
+        vider(helper, temoin, centreCase, meca);
         helper.setBlock(meca, ExploreRegistry.MECHANISM.get());
-        helper.setBlock(temoin, Blocks.DIRT); // témoin : l'explosion détruit bien un bloc ordinaire, centrée dessus
-        Vec3 centre = helper.absoluteVec(Vec3.atCenterOf(temoin));
+        helper.setBlock(temoin, Blocks.DIRT); // témoin symétrique : prouve que les rayons atteignent le côté du mécanisme
+        Vec3 centre = helper.absoluteVec(Vec3.atCenterOf(centreCase));
         helper.getLevel().explode(null, centre.x, centre.y, centre.z, 3.0F, Level.ExplosionInteraction.BLOCK);
         helper.assertTrue(helper.getBlockState(temoin).isAir(),
                 "le témoin (terre) devait sauter : l'explosion a eu lieu, vu " + helper.getBlockState(temoin));
         helper.assertTrue(helper.getBlockState(meca).is(ExploreRegistry.MECHANISM.get()), "le mécanisme devait résister");
         helper.assertTrue(helper.getBlockEntity(meca) instanceof MechanismBlockEntity, "son bloc d'entité devait tenir");
         vider(helper, meca);
+        helper.succeed();
+    }
+
+    /** Centrée dans la case du mécanisme, l'explosion ne casse rien autour : chaque rayon s'éteint dès son premier pas. */
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void uneExplosionDansLeMecanismeNeCasseRien(GameTestHelper helper) {
+        BlockPos meca = new BlockPos(2, 1, 3);
+        BlockPos g = new BlockPos(1, 1, 3);
+        BlockPos d = new BlockPos(3, 1, 3);
+        vider(helper, meca, g, d);
+        helper.setBlock(meca, ExploreRegistry.MECHANISM.get());
+        helper.setBlock(g, Blocks.DIRT);
+        helper.setBlock(d, Blocks.DIRT);
+        Vec3 centre = helper.absoluteVec(Vec3.atCenterOf(meca));
+        helper.getLevel().explode(null, centre.x, centre.y, centre.z, 3.0F, Level.ExplosionInteraction.BLOCK);
+        helper.assertTrue(helper.getBlockState(meca).is(ExploreRegistry.MECHANISM.get()), "le mécanisme devait résister");
+        helper.assertTrue(helper.getBlockState(g).is(Blocks.DIRT) && helper.getBlockState(d).is(Blocks.DIRT),
+                "les voisins devaient rester : vu " + helper.getBlockState(g) + " et " + helper.getBlockState(d));
+        vider(helper, meca, g, d);
         helper.succeed();
     }
 

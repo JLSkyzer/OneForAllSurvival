@@ -179,6 +179,11 @@ public final class ExploreCommands {
         return 1;
     }
 
+    /** Des ticks en secondes : entières si possible, sinon une décimale. */
+    private static String seconds(int ticks) {
+        return ticks % 20 == 0 ? String.valueOf(ticks / 20) : String.format(java.util.Locale.ROOT, "%.1f", ticks / 20.0);
+    }
+
     private static int mechanismInfo(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         BlockPos pos = BlockPosArgument.getLoadedBlockPos(ctx, "pos");
         MechanismBlockEntity mechanism = mechanismAt(ctx, pos);
@@ -186,8 +191,8 @@ public final class ExploreCommands {
             return 0;
         }
         ctx.getSource().sendSuccess(() -> Component.translatable("command.oneforallsurvival.mechanism.info",
-                pos.toShortString(), mechanism.threshold(), mechanism.durationTicks() / 20.0,
-                mechanism.progress() / 20.0, Component.translatable(mechanism.active()
+                pos.toShortString(), mechanism.threshold(), seconds(mechanism.durationTicks()),
+                seconds(mechanism.progress()), Component.translatable(mechanism.active()
                         ? "command.oneforallsurvival.mechanism.state.active"
                         : "command.oneforallsurvival.mechanism.state.idle")), false);
         return 1;
