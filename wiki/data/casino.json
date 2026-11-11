@@ -164,9 +164,9 @@
     "Pièces au joueur"
    ],
    "steps": [
-    "Coffre trop vide : rachat refusé en entier.",
-    "Le joueur garde ses jetons.",
-    "Le statut casino et le staff sont prévenus."
+    "Coffre trop vide : rachat annulé en entier.",
+    "Le joueur garde ses jetons et revient plus tard.",
+    "Une alerte de trésorerie part."
    ],
    "staff": [
     "Exemple : `/casino pnj racheteur <casino>`."
@@ -270,6 +270,38 @@
    "staff": [
     "Par commande : coffre, jetons vendus et rachetés.",
     "Alerte : jetons en circulation au-delà du coffre."
+   ]
+  },
+  {
+   "id": "alerte-tresorerie",
+   "num": 121,
+   "name": "Alerte de trésorerie",
+   "kind": "systeme",
+   "status": "prevu",
+   "lot": "Lot C1",
+   "what": "Quand le casino ne peut plus payer, ses gérants, le maire et le staff sont prévenus.",
+   "flow": [
+    "Rachat impossible",
+    "Transaction annulée",
+    "Alerte",
+    "Action RP"
+   ],
+   "steps": [
+    "Message en jeu, ou à la connexion.",
+    "Notification sur le téléphone.",
+    "Inscrite au registre du coffre."
+   ],
+   "numbers": [
+    {
+     "k": "Rappel",
+     "v": "toutes les 10 min"
+    }
+   ],
+   "staff": [
+    "Alerte aussi quand les jetons en circulation dépassent le coffre.",
+    "Bonus, lot C7 : envoi sur Discord par un webhook.",
+    "Adresse dans `config/oneforall/alertes-discord.json`, côté serveur seulement.",
+    "Essai : `/casino alertes test`."
    ]
   },
   {

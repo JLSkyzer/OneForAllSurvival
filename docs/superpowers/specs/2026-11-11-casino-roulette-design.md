@@ -6,8 +6,8 @@ Killian a demandé le 2026-11-11 une grande table de roulette de casino, avec un
 qui tombent sur le vrai résultat. Il a fixé le fonctionnement de l'argent : des jetons achetés à un PNJ,
 un coffre du casino qui garde les pièces, un PNJ qui rachète les jetons, et un statut casino donné par
 commande. Le même jour, il a ajouté une table de blackjack, un duel de dés et une machine à sous
-(features 118 à 120), et la liaison des blocs au coffre par la pose. Ses réponses sont regroupées en
-section 9.
+(features 118 à 120), la liaison des blocs au coffre par la pose, et une alerte de trésorerie avec
+envoi sur Discord (feature 121). Ses réponses sont regroupées en section 9.
 
 L'argent passe par le [cahier de l'économie](2026-11-08-economie-design.md), qui reçoit ici deux
 exceptions : le coffre du casino comme rangement de pièces, et les PNJ du casino.
@@ -124,9 +124,11 @@ La numérotation prolonge celle du cahier du maire.
 - Même apparition, reliée au même coffre : `/casino pnj racheteur <casino>`.
 - Il rachète les jetons **au prix de vente**. Les pièces sortent du coffre relié et vont dans
   l'inventaire du joueur.
-- **Si le coffre ne peut pas payer**, le rachat est **refusé** en entier (choix de Killian) : « Le casino
-  ne peut pas payer pour l'instant. » Le joueur garde ses jetons. Les joueurs au statut casino et
-  l'équipe sont prévenus.
+- **Si le coffre ne peut pas payer**, la transaction est **annulée** en entier (choix de Killian) : aucune
+  pièce ne sort du coffre et aucun jeton n'est pris. Le joueur lit « Le casino ne peut pas payer pour
+  l'instant. », garde ses jetons et pourra revenir plus tard. Une **alerte de trésorerie** part
+  (feature 121).
+- Pas de rachat partiel : on ne paie pas la moitié des jetons avec ce qui reste dans le coffre.
 - Chaque rachat s'inscrit au registre du coffre.
 
 **114. Table de roulette.**
@@ -232,25 +234,78 @@ Demandé par Killian le 2026-11-11.
   réglable. Le jackpot est une **réserve en jetons de la machine**, comptée dans le suivi (feature 117).
 - Les rouleaux s'animent et s'arrêtent sur le résultat déjà tiré.
 
+**121. Alerte de trésorerie.**
+Demandé par Killian le 2026-11-11, pour que l'équipe et les gérants puissent réagir en RP.
+- **Ce qui la déclenche** :
+  1. un rachat annulé parce que le coffre ne peut pas payer (feature 113) ;
+  2. la valeur des jetons en circulation qui dépasse le contenu du coffre (feature 117) : c'est une
+     alerte **préventive**, avant qu'un joueur soit bloqué (choix de l'auteur).
+- **Qui est prévenu** :
+  - les joueurs au **statut casino** de ce casino, qui le gèrent ;
+  - le **maire** ;
+  - l'**équipe** du serveur (opérateurs de niveau 2 et plus).
+- **Comment** :
+  - un joueur connecté reçoit un message en jeu, et une notification sur son téléphone s'il en a un ;
+  - un joueur déconnecté la lit à sa prochaine connexion ;
+  - l'alerte s'inscrit au **registre** du coffre, et la commande de suivi de l'équipe la montre.
+- **Ce qu'elle dit** : le casino, ce qui manquait pour payer, le contenu du coffre, la valeur des jetons
+  en circulation, le joueur refusé et l'heure. Exemple : « Casino du Port : rachat de 40 jetons refusé à
+  Léo. Il manque 120 cuivres. Coffre : 280 cuivres, jetons en circulation : 1 900 cuivres. »
+- **Pas d'avalanche** : pour un même casino, la première alerte part tout de suite. Les suivantes sont
+  regroupées dans un rappel toutes les 10 minutes (réglable) tant que le coffre reste à court. Quand le
+  coffre couvre de nouveau un rachat, un dernier message annonce « Trésorerie rétablie ».
+
+**Bonus : envoi sur Discord.**
+- L'équipe peut recevoir les mêmes alertes sur un salon Discord, par un **webhook** (demande de Killian).
+- L'adresse du webhook est rangée dans un **fichier du serveur seulement**, par exemple
+  `config/oneforall/alertes-discord.json`. Exemple de contenu :
+
+  ```json
+  {
+    "actif": true,
+    "url": "",
+    "mention": "",
+    "evenements": ["rachat_refuse", "jetons_au_dessus_du_coffre", "tresorerie_retablie"]
+  }
+  ```
+
+  - `url` vide : rien n'est envoyé. Le fichier est créé vide au premier lancement.
+  - `mention` : un rôle Discord à mentionner, facultatif.
+- **Ce n'est pas une config Forge de type serveur** : Forge envoie ces configs aux joueurs à la
+  connexion, et l'adresse fuiterait. Le fichier n'est lu que par le serveur, n'est jamais envoyé aux
+  joueurs et n'est jamais écrit dans les journaux. À vérifier au lot : le comportement exact de la
+  synchronisation des configs de Forge 1.20.1.
+- L'adresse d'un webhook permet à n'importe qui de poster sur le salon : elle ne va **jamais** dans le
+  dépôt Git, qui est public.
+- L'envoi se fait **hors du fil principal du serveur**, avec un délai maximal court : Discord lent ou en
+  panne ne fait jamais ramer le jeu. Un échec est noté une fois dans le journal du serveur, sans
+  l'adresse, et l'alerte en jeu part quand même. Les limites de débit de Discord sont respectées.
+- Le message reprend le contenu de l'alerte en jeu, avec la position du coffre.
+- Une commande de l'équipe envoie un message d'essai, et une autre relit le fichier sans redémarrer.
+  Exemple : `/casino alertes test` et `/casino alertes recharger`.
+- Le même fichier pourra servir plus tard à d'autres alertes du serveur.
+
 ## 6. Branchements
 
 | Avec | Branchement |
 |---|---|
 | Économie | Le coffre du casino s'ajoute aux rangements de pièces autorisés (feature 84). Les deux PNJ du casino s'ajoutent au PNJ changeur (feature 80) comme seuls PNJ qui manient des pièces. Le casino ne crée ni ne détruit de pièces. |
 | Policier | Les jetons se fouillent et se confisquent comme tout objet. |
-| Maire | Non branché. Une taxe sur le casino pourra s'ajouter plus tard. |
+| Maire | Prévenu des alertes de trésorerie (feature 121). Une taxe sur le casino pourra s'ajouter plus tard. |
+| Téléphone | Les alertes de trésorerie arrivent en notification sur le téléphone des gérants et du maire. |
 | Wiki | Une fiche par feature, chapitre « Casino ». |
 
 ## 7. Découpage conseillé
 
 | Lot | Contenu | Ce qu'il prouve | Après |
 |---|---|---|---|
-| C1 | 110, 111, 112, 113, statut casino, 117 (registre) | On achète et revend des jetons, et le coffre garde l'argent | Lot E1 de l'économie |
+| C1 | 110, 111, 112, 113, statut casino, 117 (registre), 121 (alerte en jeu) | On achète et revend des jetons, et le coffre garde l'argent | Lot E1 de l'économie |
 | C2 | 114 sans animation (résultat affiché) | On mise, on gagne, on perd, et les comptes tombent juste | C1 |
 | C3 | 115, 116 | La bille tombe sur le bon numéro, pour tous les joueurs | C2 et les modèles Blender |
 | C4 | 118 | On joue au blackjack contre une banque automatique | C2 |
 | C5 | 119 | Deux joueurs se défient aux dés, et le casino prend sa part | C1 |
 | C6 | 120 | La machine à sous rend 92 % en moyenne et son jackpot grossit | C1 |
+| C7 | 121 (envoi sur Discord) | L'équipe reçoit les alertes de trésorerie sur Discord | C1 |
 
 ## 8. Vérification
 
@@ -259,7 +314,14 @@ Demandé par Killian le 2026-11-11.
   - acheter des jetons verse exactement leur prix au coffre, et le registre le note ;
   - un achat sans assez de pièces ne prend rien ;
   - un rachat paie depuis le coffre au prix de vente ;
-  - un rachat que le coffre ne peut pas payer est refusé en entier, et prévient le statut casino ;
+  - un rachat que le coffre ne peut pas payer est annulé en entier : le coffre et les jetons du joueur
+    n'ont pas bougé ;
+  - ce rachat annulé prévient les gérants, le maire et l'équipe, et un gérant déconnecté le lit à sa
+    connexion ;
+  - dix rachats refusés de suite ne donnent qu'une alerte, puis un rappel regroupé ;
+  - avec une adresse de webhook vide, rien n'est envoyé ; avec une adresse injoignable, le jeu ne ralentit
+    pas et l'alerte en jeu part quand même ;
+  - l'adresse du webhook n'apparaît ni dans les journaux, ni dans ce qui est envoyé aux joueurs ;
   - un joueur sans statut casino ne peut pas ouvrir le coffre, et personne ne le casse sauf l'équipe ;
   - un PNJ ne peut pas apparaître sans coffre relié ;
   - chaque type de mise paie le bon multiple, et le 0 fait perdre les mises simples ;
@@ -290,7 +352,9 @@ Demandé par Killian le 2026-11-11.
 - Un **autre PNJ rachète** les jetons.
 - Le lancer est **automatique**.
 - Les **mises minimum et maximum** sont réglées par le statut casino.
-- Un rachat que le coffre ne peut pas payer est **refusé**.
+- Un rachat que le coffre ne peut pas payer est **annulé**, et les gérants, le maire et l'équipe sont
+  prévenus.
+- En bonus, l'équipe reçoit ces alertes sur **Discord** par un webhook réglé dans un fichier du serveur.
 - Les jetons se **rangent partout**.
 - Un joueur au statut casino est **relié à un coffre** ; ce qu'il pose s'y relie seul. Un membre de
   l'équipe sans statut fait **accroupi + clic droit sur le coffre** avant de poser.
@@ -304,7 +368,9 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 - table de 3 × 2 blocs ;
 - compte à rebours de 30 s et lancer de 12 s ;
 - un même jeton pour tous les casinos ;
-- plusieurs casinos possibles, chacun avec son coffre.
+- plusieurs casinos possibles, chacun avec son coffre ;
+- une alerte préventive quand les jetons en circulation dépassent le coffre ;
+- un rappel regroupé toutes les 10 minutes plutôt qu'une alerte par rachat refusé.
 
 ## 10. Questions ouvertes
 
