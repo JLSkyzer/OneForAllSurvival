@@ -56,7 +56,7 @@
         "Recettes de table d'Hospitals, Medical Remedies et First Aid retirées pour tous.",
         "Pilules d'Hospitals : uniquement par la chaîne de pharmacie (48).",
         "Alambic : un non-médecin ne distille aucun objet médical.",
-        "Les ~150 blocs déco d'Hospitals restent à la table pour tous."
+        "Blocs sans fonction d'Hospitals (sols, murs, mobilier) à la table pour tous."
       ]
     },
     {
@@ -475,7 +475,7 @@
       "staff": [
         "Nombre de lignes par dossier plafonné.",
         "Consultation staff par une commande (nom non précisé).",
-        "Groupe sanguin lu dans la variable blood_type d'Hospitals."
+        "Pas de groupe sanguin : transfusion universelle."
       ]
     }
   ]

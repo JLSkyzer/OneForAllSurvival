@@ -361,10 +361,16 @@ Demandé par Killian le 2026-11-08, sur le modèle des opérateurs du téléphon
 
 **78. Butin des mobs.**
 - Tuer un mob **hostile** donne une **chance** de faire tomber des pièces. Une table par type de mob, en
-  données, fixe la chance et le montant. Au départ :
-  - quelques cuivres sur un zombie ou une araignée ;
-  - de l'argent sur un mob plus dangereux (sorcière, creeper chargé) ;
-  - davantage sur un boss.
+  données, fixe la chance et le montant. Valeurs de départ, niveau **modeste** (choix de Killian du
+  2026-11-11) :
+
+  | Mobs | Chance | Montant |
+  |---|---|---|
+  | Courants (zombie, squelette, araignée, creeper, noyé…) | 1 sur 3 | 1 à 3 cuivres |
+  | Dangereux (sorcière, enderman, creeper chargé, vindicateur, blaze…) | 1 sur 2 | 1 à 2 argent |
+  | Boss (Wither, dragon, gardien ancien) | toujours | 5 or |
+
+  Les métiers restent la vraie source de revenus ; la chasse en est un complément.
 - Les **animaux** ne donnent rien : élever ne doit pas devenir une planche à billets.
 - **Pas de plafond** (choix de Killian) : seuls les mobs hostiles donnent des pièces, et chaque mob
   tué peut en donner.
@@ -392,7 +398,8 @@ Demandé par Killian le 2026-11-08, sur le modèle des opérateurs du téléphon
 - Un **écran de quêtes** (touche réglable) montre la progression. Une notification discrète annonce une
   quête terminée. La récompense se **réclame** dans l'écran et arrive dans la bourse ou l'inventaire.
 - **Récompenses** : des **pièces seulement**, comptées comme source au tableau de bord, avec un plafond
-  hebdomadaire par joueur.
+  de **1 000 cuivres par semaine** et par joueur (choix de Killian du 2026-11-11), réglable. Au-delà, une
+  quête terminée ne rapporte plus rien jusqu'au lundi, et l'écran de quêtes le dit.
 
 Catégories demandées par Killian :
 
@@ -606,5 +613,5 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 
 ## 10. Questions ouvertes
 
-- **La table du butin** (pièces par mob) et le **plafond par semaine des quêtes**, à régler aux
-  premiers essais.
+Aucune pour l'instant. La table du butin et le plafond des quêtes ont leurs valeurs de départ ; ils
+se règlent ensuite aux essais.

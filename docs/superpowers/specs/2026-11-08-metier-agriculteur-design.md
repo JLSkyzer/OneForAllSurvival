@@ -116,9 +116,9 @@ recopié.
   mangeoire, abreuvoir, tonneau, presse à fromage, fumoir, grenier) et celles de **Farmer's Delight**. La
   liste des mods est configurable.
 - Les recettes de table de Farmer's Delight comprennent ses couteaux, sa marmite, sa planche à
-  découper, ses caisses et ses plats assemblés à la table. Les **plats simples** assemblés à la main
-  (sandwichs, salades, wraps) sont **rendus à la table** pour tout le monde (choix de Killian du
-  2026-11-11), par la liste `tableAllowedItems`. Les couteaux, la marmite, la planche et les caisses
+  découper, ses caisses et ses plats assemblés à la table. **Tout ce qui se mange** et s'assemble à la
+  table (sandwichs, salades, wraps, tartes…) est **rendu à la table** pour tout le monde (choix de Killian
+  du 2026-11-11), par la liste `tableAllowedItems`. Les couteaux, la marmite, la planche et les caisses
   restent à l'agriculteur ; la marmite et la planche restent utilisables par tous une fois achetées.
 
 ### Bonus de métier
@@ -284,7 +284,7 @@ Le lot D dépend du socle machine (déjà livré) et peut se faire à tout momen
 ## 8. Décisions et choix
 
 ### Décisions de Killian (2026-11-11)
-- Les **plats simples** de Farmer's Delight reviennent à la table pour tout le monde.
+- **Tout ce qui se mange** chez Farmer's Delight revient à la table pour tout le monde.
 - **Pas de saisons** dans le pack.
 - Au grenier, des **joueurs nommés** s'ajoutent aux droits par rôle.
 
@@ -309,5 +309,5 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 
 ## 9. Questions ouvertes
 
-- La **liste exacte** des plats simples de Farmer's Delight rendus à la table, à dresser au lot depuis
-  ses recettes.
+Aucune pour l'instant. La liste exacte des aliments de Farmer's Delight rendus à la table se dresse au
+lot depuis ses recettes, avec la règle « tout ce qui se mange ».

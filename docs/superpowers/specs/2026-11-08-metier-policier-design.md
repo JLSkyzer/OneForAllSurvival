@@ -183,8 +183,10 @@ La numérotation prolonge celle du médecin. Toutes les valeurs chiffrées sont 
 - La **lampe UV**, objet à batterie FE fabriqué à l'établi d'ingénieur, révèle les taches dans un rayon
   de 12 blocs, pour celui qui la tient seulement.
 - Le policier **prélève** une tache avec un écouvillon. Il obtient un **échantillon** qui indique l'heure
-  approximative et le **groupe sanguin** (variable d'Hospitals), **jamais un nom**. Faire le lien avec une
-  personne passe par l'enquête, par exemple en comparant avec un dossier médical obtenu par réquisition.
+  approximative, **jamais un nom** ni un groupe sanguin (il n'y en a pas, choix de Killian du
+  2026-11-11). La trace sert à **suivre** un blessé, de tache en tache, et à dater les faits ; faire le
+  lien avec une personne passe par l'enquête, par exemple un blessé soigné à la même heure dans un
+  dossier médical obtenu par réquisition.
 
 **56. Sac de preuves et chaîne de garde.**
 - Un sac contient une pile d'objets. Une fois **scellé** par un policier, il porte un **numéro d'affaire**,
@@ -343,6 +345,7 @@ M2 et M3 du médecin.
 
 ### Décisions de Killian (2026-11-11)
 - Le **maire** délivre les mandats de perquisition.
+- **Pas de groupe sanguin** : une trace de sang donne seulement son heure.
 - Un joueur à terre peut être **achevé**, ce qui laisse une trace, mais il ne meurt pas (médecin,
   feature 38).
 
@@ -354,7 +357,7 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
   retenue comme feature à part ;
 - la matraque ne met jamais à terre, elle étourdit ;
 - le taser et la lampe UV se fabriquent chez l'ingénieur ;
-- un échantillon de sang donne un groupe sanguin, jamais un nom ;
+- un échantillon de sang donne une heure, jamais un nom ;
 - le constat d'agression ne nomme jamais l'agresseur ; seule l'équipe du serveur le lit ;
 - le constat distingue une mise à terre d'un joueur achevé à terre ;
 - l'enregistreur nomme les joueurs à visage découvert et note les autres « inconnu masqué » ;

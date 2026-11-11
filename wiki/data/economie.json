@@ -324,11 +324,16 @@
       "what": "Un mob hostile tué par un joueur peut lâcher des pièces.",
       "who": {"utilise": "Tous"},
       "steps": [
-        "Zombie ou araignée : quelques cuivres.",
-        "Sorcière ou creeper chargé : de l'argent.",
-        "Boss : davantage, sans plafond."
+        "Mob courant (zombie, araignée…) : 1 chance sur 3.",
+        "Mob dangereux (sorcière, enderman…) : 1 chance sur 2.",
+        "Boss : toujours."
       ],
       "flow": ["Mob tué", "Pièces au sol", "Inventaire"],
+      "numbers": [
+        {"k": "Mob courant", "v": "1 à 3 cuivres"},
+        {"k": "Mob dangereux", "v": "1 à 2 argent"},
+        {"k": "Boss", "v": "5 or"}
+      ],
       "staff": [
         "Table de chance et montant par mob, en données.",
         "Rien pour un mob de générateur, d'œuf ou sans joueur.",
@@ -353,11 +358,12 @@
       "numbers": [
         {"k": "Par jour", "v": "3 quêtes"},
         {"k": "Par semaine", "v": "5 quêtes, lundi"},
-        {"k": "Relance", "v": "1 par jour"}
+        {"k": "Relance", "v": "1 par jour"},
+        {"k": "Plafond", "v": "1 000 cuivres / semaine"}
       ],
       "staff": [
         "Modèles en données, tirage pondéré.",
-        "Plafond de récompense hebdomadaire par joueur.",
+        "Au-delà du plafond, plus rien jusqu'au lundi.",
         "Un bloc posé par un joueur ne compte pas en casse.",
         "Quêtes d'événement lancées par commande prévue."
       ]

@@ -69,7 +69,9 @@ Le lot 0 a constaté qu'Hospitals se charge sur Forge 47.4.28 malgré sa recomma
 **À vérifier au premier lot :**
 - l'annulation de `FirstAidLivingDamageEvent` ;
 - ce que First Aid fait d'un soin vanilla (`LivingHealEvent`) donné par Medical Remedies ;
-- si Hospitals contrôle déjà la compatibilité des groupes sanguins (`SelfbloodcomparebagrightclickProcedure`).
+- comment **neutraliser le groupe sanguin** d'Hospitals (variable `blood_type`, contrôle
+  `SelfbloodcomparebagrightclickProcedure`) : Killian n'en veut pas (2026-11-11). Toute poche de sang
+  convient à tout patient, et aucun écran ne montre de groupe.
 
 ### Intégration
 - Aucun de ces mods n'est modifié. Leurs objets et leurs blocs reçoivent un comportement par
@@ -138,10 +140,11 @@ recopié.
 - **Conséquence** : les premiers secours (pansements de First Aid et de Medical Remedies, garrot) se
   fabriquent aussi à la paillasse. Les citoyens les **achètent** au médecin et les utilisent librement :
   c'est le même commerce qu'entre l'ingénieur et la ville.
-- **Les blocs de décoration d'Hospitals** (sols, murs, mobilier, environ 150) sont **rendus à la table**
-  pour tout le monde (choix de Killian du 2026-11-11), par la liste `tableAllowedItems`. Les instruments,
-  les machines et les soins restent au médecin. La liste exacte se dresse au lot, depuis les recettes
-  du jar.
+- **Les blocs sans fonction d'Hospitals** (sols, murs, carrelages, rideaux, mobilier, panneaux,
+  environ 150) sont **rendus à la table** pour tout le monde (choix de Killian du 2026-11-11), par la
+  liste `tableAllowedItems`. Restent au médecin tout ce qui soigne ou fonctionne : lits d'hôpital,
+  machines, instruments, poches et soins. La liste exacte se dresse au lot, depuis les recettes du jar,
+  avec cette règle.
 - **Alambic** : les recettes de Medical Remedies y sont enregistrées dans le code. Un non-médecin ne peut
   pas lancer une distillation qui produit un objet du tag. La méthode est à choisir au lot : refus à
   l'ouverture, ou résultat bloqué.
@@ -362,8 +365,7 @@ départ, à équilibrer.
 
 **49. Dossier médical.**
 - Chaque joueur a un dossier, conservé par le serveur.
-- Il s'enrichit **automatiquement** : groupe sanguin (lu dans la variable d'Hospitals une fois testé),
-  soins reçus, fractures, opérations, clichés, infections, passages à terre. Chaque ligne porte la date
+- Il s'enrichit **automatiquement** : soins reçus, fractures, opérations, clichés, infections, passages à terre. Chaque ligne porte la date
   et le nom du médecin.
 - **Seuls les médecins** le consultent, en utilisant le dossier ou le porte-bloc d'Hospitals sur le
   patient. Ils peuvent y ajouter une note libre.
@@ -430,6 +432,8 @@ Le lot M1 doit commencer par vérifier les trois points de la section 3, car tou
 - Après un relevage, **aucun dégât des mobs** pendant 5 minutes ou jusqu'à la vie pleine.
 - Le **cliché** s'affiche sur le négatoscope.
 - Les **blocs de décoration** d'Hospitals se fabriquent à la table par tout le monde.
+- **Pas de groupe sanguin**, nulle part : transfusion universelle, dossier et traces de sang sans
+  groupe.
 - Le **charbon actif** du médecin dégrise et coupe une descente
   ([cahier des substances](2026-11-11-substances-design.md), feature 138).
 
@@ -454,5 +458,4 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 
 ## 10. Questions ouvertes
 
-- Le **groupe sanguin** compte-t-il dans les transfusions ? Killian ne l'a pas retenu le 2026-11-11 :
-  on garde le comportement d'Hospitals, à relever au lot.
+Aucune pour l'instant.

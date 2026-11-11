@@ -4,7 +4,7 @@
   "intro": "Il répond aux alertes, interpelle, enquête et sanctionne, sans arme létale ; le mod ne désigne jamais le coupable.",
   "diagrams": [
     {"title": "De l'alerte à la cellule", "steps": ["Sifflet ou alarme", "Alerte avec repère", "Étourdi", "Menotté", "Escorté", "Cellule"]},
-    {"title": "De la trace au suspect", "steps": ["Tache de sang", "Lampe UV", "Écouvillon", "Groupe sanguin", "Enquête", "Suspect"]},
+    {"title": "De la trace au suspect", "steps": ["Tache de sang", "Lampe UV", "Écouvillon", "Heure", "Enquête", "Suspect"]},
     {"title": "Une preuve sous scellés", "steps": ["Fouille", "Confiscation", "Sac scellé", "Chaîne de garde", "Casier"]}
   ],
   "cards": [
@@ -114,11 +114,11 @@
     {
       "id": "traces-de-sang", "num": 55, "name": "Traces de sang", "kind": "systeme", "status": "prevu", "lot": "Lot P4",
       "image": null,
-      "what": "Un blessé laisse des taches invisibles ; jamais un nom, seulement un groupe sanguin.",
+      "what": "Un blessé laisse des taches invisibles : on le suit et on date les faits, jamais un nom.",
       "who": {"fabrique": "Écouvillon : établi policier", "utilise": "Policier"},
       "steps": [
         "La lampe UV révèle les taches à son porteur.",
-        "L'écouvillon prélève un échantillon : heure et groupe sanguin.",
+        "L'écouvillon prélève un échantillon : son heure.",
         "Le lien avec une personne vient de l'enquête."
       ],
       "flow": ["Tache", "Lampe UV", "Échantillon", "Enquête"],
