@@ -41,7 +41,7 @@
 | Durée du Bien-être | 6 minutes après une douche ; une nouvelle douche remet la durée au maximum des deux, sans cumul | À équilibrer |
 | Eau chaude | Un fluide du mod, `hot_water`, transporté par les tuyaux de Create entre le chauffe-eau et la douche ; pas de seau, pas de bloc d'eau chaude | « Par tuyau Create » ; une douche peut être à l'étage |
 | Chauffe-eau | 5 mB d'eau potable par tick deviennent 5 mB d'eau chaude, 40 FE par tick, deux cuves de 4 000 mB | À équilibrer ; débouché pour le dessalinisateur |
-| Douche | Pomme de douche sans courant ni usure, cuve de 1 000 mB ; 2 mB par tick tant qu'un joueur est dessous ; effet après 5 s continues, de 1 à 3 blocs sous la pomme | « Quelques secondes sous l'eau chaude » |
+| Douche | Pomme de douche sans courant ni usure, cuve de 1 000 mB ; 2 mB par tick tant qu'un joueur est dessous ; effet après 5 s continues, pieds de 2 à 3 blocs sous le dessous de la pomme (corrigé le 2026-11-11 : « 1 à 3 » mesuré au centre du bloc ne laissait qu'une hauteur jouable) | « Quelques secondes sous l'eau chaude » |
 | Phare | Marche seulement s'il voit le ciel au-dessus et se trouve à 8 blocs au moins au-dessus du niveau de la mer ; 32 FE par tick ; deux faisceaux opposés, un tour en 8 s, 96 blocs de long | « Au sommet d'une tour libre » ; « visible de loin » |
 | Consommation des lumières | Le phare consomme au moins le double de la plus forte lampe relevée dans les jars de Crafts & Additions, New Age et Advanced Electricity ; les valeurs de départ sont relevées si ce n'est pas le cas | « Consomment plus que les lampes des autres mods » |
 
@@ -93,7 +93,7 @@ Règles : `wantsToWork` : au moins 1 mB d'eau potable et 1 mB de place en eau ch
   - `WellBeingEffect` : `MobEffectCategory.BENEFICIAL`, couleur `0xF2B45A`, modificateur de vitesse de marche `MULTIPLY_TOTAL` lu dans la config ; vitesse de minage par `PlayerEvent.BreakSpeed` ; ne surcharge ni `applyEffectTick` ni `isDurationEffectTick` pour soigner.
   - `WellBeing.grant(LivingEntity entity, int ticks) : void` : niveau 0 toujours ; si l'effet est déjà là, durée = max(restante, `ticks`).
   - `WellBeing.newDuration(int remaining, int granted) : int` (pure).
-  - `ShowerRules.isUnder(Vec3 head, AABB player) : boolean` : pieds de 1 à 3 blocs sous la pomme, centre à 0,6 bloc au plus de son axe vertical.
+  - `ShowerRules.isUnder(Vec3 head, AABB player) : boolean` : pieds de 2 à 3 blocs sous le dessous du bloc de la pomme, centre à 0,6 bloc au plus de son axe vertical.
   - `TownConfig` : `wellBeingSpeedBonus()` 0.05, `wellBeingMiningBonus()` 0.10, `showerSeconds()` 5, `showerMbPerTick()` 2, `showerWellBeingMinutes()` 6.
   - `ShowerHeadBlockEntity` : `TANK_CAPACITY = 1000`, `tank() : FluidTank` (remplir n'accepte que `HOT_WATER`, aucune face ne vide), `secondsUnder(UUID) : int`.
 
