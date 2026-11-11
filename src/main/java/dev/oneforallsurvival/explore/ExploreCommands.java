@@ -28,6 +28,9 @@ public final class ExploreCommands {
 
     /** Rayon horizontal maximal de {@code /signal send}, en blocs. */
     public static final int MAX_SIGNAL_RADIUS = 30000;
+    /** Bornes de {@code /mechanism set}. */
+    public static final int MAX_MECHANISM_FE = 1_000_000;
+    public static final int MAX_MECHANISM_SECONDS = 86400;
 
     @SubscribeEvent
     public void onRegisterCommands(RegisterCommandsEvent event) {
@@ -37,6 +40,7 @@ public final class ExploreCommands {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(cache());
         dispatcher.register(signal());
+        dispatcher.register(mechanism());
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> cache() {
@@ -123,5 +127,69 @@ public final class ExploreCommands {
         int count = received;
         source.sendSuccess(() -> Component.translatable("command.oneforallsurvival.signal.sent", count), true);
         return count;
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> mechanism() {
+        return Commands.literal("mechanism").requires(s -> s.hasPermission(2))
+                .then(Commands.literal("set")
+                        .then(Commands.argument("pos", BlockPosArgument.blockPos())
+                                .then(Commands.argument("fe_per_tick", IntegerArgumentType.integer(1, MAX_MECHANISM_FE))
+                                        .then(Commands.argument("seconds", IntegerArgumentType.integer(1, MAX_MECHANISM_SECONDS))
+                                                .executes(ExploreCommands::mechanismSet)))))
+                .then(Commands.literal("reset")
+                        .then(Commands.argument("pos", BlockPosArgument.blockPos())
+                                .executes(ExploreCommands::mechanismReset)))
+                .then(Commands.literal("info")
+                        .then(Commands.argument("pos", BlockPosArgument.blockPos())
+                                .executes(ExploreCommands::mechanismInfo)));
+    }
+
+    private static MechanismBlockEntity mechanismAt(CommandContext<CommandSourceStack> ctx, BlockPos pos) {
+        if (ctx.getSource().getLevel().getBlockEntity(pos) instanceof MechanismBlockEntity mechanism) {
+            return mechanism;
+        }
+        ctx.getSource().sendFailure(
+                Component.translatable("command.oneforallsurvival.mechanism.not_a_mechanism", pos.toShortString()));
+        return null;
+    }
+
+    private static int mechanismSet(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        BlockPos pos = BlockPosArgument.getLoadedBlockPos(ctx, "pos");
+        MechanismBlockEntity mechanism = mechanismAt(ctx, pos);
+        if (mechanism == null) {
+            return 0;
+        }
+        int fe = IntegerArgumentType.getInteger(ctx, "fe_per_tick");
+        int seconds = IntegerArgumentType.getInteger(ctx, "seconds");
+        mechanism.setSettings(fe, seconds * 20);
+        ctx.getSource().sendSuccess(() -> Component.translatable("command.oneforallsurvival.mechanism.set",
+                pos.toShortString(), fe, seconds), true);
+        return 1;
+    }
+
+    private static int mechanismReset(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        BlockPos pos = BlockPosArgument.getLoadedBlockPos(ctx, "pos");
+        MechanismBlockEntity mechanism = mechanismAt(ctx, pos);
+        if (mechanism == null) {
+            return 0;
+        }
+        mechanism.reset();
+        ctx.getSource().sendSuccess(
+                () -> Component.translatable("command.oneforallsurvival.mechanism.reset", pos.toShortString()), true);
+        return 1;
+    }
+
+    private static int mechanismInfo(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        BlockPos pos = BlockPosArgument.getLoadedBlockPos(ctx, "pos");
+        MechanismBlockEntity mechanism = mechanismAt(ctx, pos);
+        if (mechanism == null) {
+            return 0;
+        }
+        ctx.getSource().sendSuccess(() -> Component.translatable("command.oneforallsurvival.mechanism.info",
+                pos.toShortString(), mechanism.threshold(), mechanism.durationTicks() / 20.0,
+                mechanism.progress() / 20.0, Component.translatable(mechanism.active()
+                        ? "command.oneforallsurvival.mechanism.state.active"
+                        : "command.oneforallsurvival.mechanism.state.idle")), false);
+        return 1;
     }
 }

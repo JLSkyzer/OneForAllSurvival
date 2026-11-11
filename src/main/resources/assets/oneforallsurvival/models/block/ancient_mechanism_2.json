@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "oneforallsurvival:block/ancient_mechanism_2"
+  }
+}

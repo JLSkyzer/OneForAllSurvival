@@ -10,6 +10,7 @@ import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
+import net.minecraft.world.level.material.PushReaction;
 import net.minecraftforge.common.extensions.IForgeMenuType;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.registries.DeferredRegister;
@@ -52,6 +53,17 @@ public final class ExploreRegistry {
     public static final RegistryObject<MenuType<ReceiverMenu>> RECEIVER_MENU =
             MENUS.register("signal_receiver", () -> IForgeMenuType.create(ReceiverMenu::fromNetwork));
 
+    /** Dureté -1 : ni la main ni un outil ne l'entament en survie ; la résistance maximale le garde des explosions. */
+    public static final RegistryObject<Block> MECHANISM = BLOCKS.register("ancient_mechanism",
+            () -> new MechanismBlock(BlockBehaviour.Properties.of().mapColor(MapColor.STONE)
+                    .strength(-1.0F, 3600000.0F).sound(SoundType.STONE).pushReaction(PushReaction.BLOCK)
+                    .noLootTable()));
+    public static final RegistryObject<Item> MECHANISM_ITEM = ITEMS.register("ancient_mechanism",
+            () -> new BlockItem(MECHANISM.get(), new Item.Properties()));
+    public static final RegistryObject<BlockEntityType<MechanismBlockEntity>> MECHANISM_BE =
+            BLOCK_ENTITIES.register("ancient_mechanism", () -> BlockEntityType.Builder
+                    .of(MechanismBlockEntity::new, MECHANISM.get()).build(null));
+
     private ExploreRegistry() {}
 
     public static void register(IEventBus modEventBus) {
@@ -63,6 +75,6 @@ public final class ExploreRegistry {
 
     /** Les objets que l'onglet créatif affiche, dans l'ordre. */
     public static List<RegistryObject<? extends Item>> tabItems() {
-        return List.of(CACHE_ITEM, METAL_DETECTOR, HEADLAMP, RECEIVER_ITEM);
+        return List.of(CACHE_ITEM, METAL_DETECTOR, HEADLAMP, RECEIVER_ITEM, MECHANISM_ITEM);
     }
 }

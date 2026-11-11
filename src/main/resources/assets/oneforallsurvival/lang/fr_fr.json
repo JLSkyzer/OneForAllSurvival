@@ -384,5 +384,12 @@
   "gui.oneforallsurvival.receiver.empty": "Aucun message reçu.",
   "gui.oneforallsurvival.receiver.entry": "Jour %s, %s:%s - fréquence %s",
   "message.oneforallsurvival.receiver.out_of_range": "La fréquence doit être comprise entre %s et %s.",
-  "command.oneforallsurvival.signal.sent": "Message reçu par %s récepteur(s)"
+  "command.oneforallsurvival.signal.sent": "Message reçu par %s récepteur(s)",
+  "block.oneforallsurvival.ancient_mechanism": "Mécanisme ancien",
+  "command.oneforallsurvival.mechanism.not_a_mechanism": "Il n'y a pas de mécanisme ancien en %s",
+  "command.oneforallsurvival.mechanism.set": "Mécanisme en %s : %s FE par tick pendant %s s",
+  "command.oneforallsurvival.mechanism.reset": "Mécanisme en %s remis à zéro",
+  "command.oneforallsurvival.mechanism.info": "Mécanisme en %s : seuil %s FE par tick, durée %s s, progression %s s, %s",
+  "command.oneforallsurvival.mechanism.state.active": "actif",
+  "command.oneforallsurvival.mechanism.state.idle": "au repos"
 }

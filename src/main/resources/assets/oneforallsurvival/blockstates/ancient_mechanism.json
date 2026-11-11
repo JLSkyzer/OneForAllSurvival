@@ -1,0 +1,28 @@
+{
+  "variants": {
+    "active=false,stage=0": {
+      "model": "oneforallsurvival:block/ancient_mechanism_0"
+    },
+    "active=false,stage=1": {
+      "model": "oneforallsurvival:block/ancient_mechanism_1"
+    },
+    "active=false,stage=2": {
+      "model": "oneforallsurvival:block/ancient_mechanism_2"
+    },
+    "active=false,stage=3": {
+      "model": "oneforallsurvival:block/ancient_mechanism_3"
+    },
+    "active=true,stage=0": {
+      "model": "oneforallsurvival:block/ancient_mechanism_active"
+    },
+    "active=true,stage=1": {
+      "model": "oneforallsurvival:block/ancient_mechanism_active"
+    },
+    "active=true,stage=2": {
+      "model": "oneforallsurvival:block/ancient_mechanism_active"
+    },
+    "active=true,stage=3": {
+      "model": "oneforallsurvival:block/ancient_mechanism_active"
+    }
+  }
+}
