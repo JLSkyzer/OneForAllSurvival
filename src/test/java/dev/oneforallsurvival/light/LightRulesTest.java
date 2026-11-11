@@ -32,4 +32,13 @@ class LightRulesTest {
         assertFalse(LightRules.isFreeTower(true, MER, MER, MIN));
         assertFalse(LightRules.isFreeTower(true, 20, MER, MIN));
     }
+
+    /** Le phare veut briller seulement quand la tour est libre ET qu'il fait nuit : les quatre cas. */
+    @Test
+    void brilleSeulementLaNuitEnTourLibre() {
+        assertTrue(LightRules.shouldShine(true, true));
+        assertFalse(LightRules.shouldShine(true, false));
+        assertFalse(LightRules.shouldShine(false, true));
+        assertFalse(LightRules.shouldShine(false, false));
+    }
 }

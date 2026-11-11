@@ -927,7 +927,7 @@ public final class DemoVisuels {
     /**
      * Le lot 6 : le chauffe-eau dans ses quatre états, la douche à sec puis en marche, et chaque bloc contre un mur
      * (leurs modèles ne sont pas des cubes pleins : les faces voisines doivent rester dessinées). Le phare de jour,
-     * allumé en haut de sa tour, puis éteint contre un mur.
+     * éteint en haut de sa tour (il ne marche que la nuit), puis contre un mur.
      */
     private static void construireVille(Minecraft mc, Vec3 sudEst) {
         etape("pose de la ville", () -> {
@@ -959,8 +959,8 @@ public final class DemoVisuels {
                 "douche_contre_un_mur.png");
         etape("vue douche mur dessus", () -> regarder(mc, doucheMur, new Vec3(1.1, 1.4, 1.4), false), () -> true, 1500,
                 "douche_contre_un_mur_dessus.png");
-        vuePhare(mc, "phare_jour.png", new Vec3(5.0, -1.0, 6.0), false);
-        vuePhare(mc, "phare_de_pres_jour.png", new Vec3(2.2, 1.0, 3.0), false);
+        vuePhare(mc, "phare_eteint_jour.png", new Vec3(5.0, -1.0, 6.0), false);
+        vuePhare(mc, "phare_de_pres_eteint_jour.png", new Vec3(2.2, 1.0, 3.0), false);
         etape("vue phare mur", () -> regarder(mc, phareMur, new Vec3(1.1, 1.1, 1.8), false), () -> true, 1500,
                 "phare_contre_un_mur.png");
     }

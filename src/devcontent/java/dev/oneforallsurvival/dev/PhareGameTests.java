@@ -8,9 +8,12 @@ import dev.oneforallsurvival.machine.FaultType;
 import dev.oneforallsurvival.machine.MachineConfig;
 import dev.oneforallsurvival.machine.MachineState;
 import net.minecraft.core.BlockPos;
+import net.minecraft.gametest.framework.AfterBatch;
+import net.minecraft.gametest.framework.BeforeBatch;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.gametest.GameTestHolder;
@@ -20,14 +23,71 @@ import net.minecraftforge.gametest.PrefixGameTestTemplate;
  * Le phare. Le monde d'essai est plat et bas : le phare est posé à une hauteur absolue au-dessus du niveau de la mer
  * ({@link MachineConfig#seaLevel()} plus la marge de {@link LightConfig}), dans le ciel libre au-dessus du gabarit, et
  * chaque test le retire à la fin. Tout GameTest qui exige que la machine ait tourné porte {@code setupTicks = 20}.
+ *
+ * <p>Le phare ne marche que la nuit et l'heure est globale (les tests d'un lot tournent ensemble, les lots l'un après
+ * l'autre) : le lot {@value #LOT} (les huit tests qui supposent un phare allumé) est mis à la nuit par son
+ * {@link BeforeBatch}, le test de jour et celui de l'aube ont chacun le leur ; chaque {@link AfterBatch} rend l'heure
+ * d'avant. {@code skyDarken} (qui fait la nuit pour {@code Level.isNight}) se recalcule au tick qui suit le changement
+ * d'heure : les tests ont {@code setupTicks = 20} et l'aube attend l'état.
  */
 @GameTestHolder("oneforallsurvival")
 @PrefixGameTestTemplate(false)
 public final class PhareGameTests {
 
     private static final String LOT = "phare";
+    private static final String LOT_JOUR = "phare_jour";
+    private static final String LOT_AUBE = "phare_aube";
+    private static final long NUIT = 18_000L;
+    private static final long JOUR = 6_000L;
+
+    /** L'heure d'avant le lot en cours, rendue par l'{@link AfterBatch} ; {@code null} si rien n'a été réglé. */
+    private static Long heureAvant;
 
     private PhareGameTests() {}
+
+    private static void regler(ServerLevel level, long heure) {
+        if (heureAvant == null) {
+            heureAvant = level.getDayTime();
+        }
+        level.setDayTime(heure);
+    }
+
+    private static void rendre(ServerLevel level) {
+        if (heureAvant != null) {
+            level.setDayTime(heureAvant);
+            heureAvant = null;
+        }
+    }
+
+    @BeforeBatch(batch = LOT)
+    public static void nuitPourLeLot(ServerLevel level) {
+        regler(level, NUIT);
+    }
+
+    @AfterBatch(batch = LOT)
+    public static void apresLeLot(ServerLevel level) {
+        rendre(level);
+    }
+
+    @BeforeBatch(batch = LOT_JOUR)
+    public static void jourPourLeLotDeJour(ServerLevel level) {
+        regler(level, JOUR);
+    }
+
+    @AfterBatch(batch = LOT_JOUR)
+    public static void apresLeLotDeJour(ServerLevel level) {
+        rendre(level);
+    }
+
+    @BeforeBatch(batch = LOT_AUBE)
+    public static void nuitPourLAube(ServerLevel level) {
+        regler(level, NUIT);
+    }
+
+    @AfterBatch(batch = LOT_AUBE)
+    public static void apresLAube(ServerLevel level) {
+        rendre(level);
+    }
 
     /** La position (relative au gabarit) du phare : assez haut pour être en tour libre. */
     private static BlockPos haut(GameTestHelper helper) {
@@ -60,6 +120,8 @@ public final class PhareGameTests {
 
     @GameTest(template = "test/plancher", batch = LOT, setupTicks = 20, timeoutTicks = 200)
     public static void libreIlSAllume(GameTestHelper helper) {
+        helper.assertTrue(helper.getLevel().isNight(), "le lot devait être de nuit (skyDarken "
+                + helper.getLevel().getSkyDarken() + ")");
         BlockPos pos = haut(helper);
         LighthouseBlockEntity be = poser(helper, pos);
         alimenter(be);
@@ -272,5 +334,58 @@ public final class PhareGameTests {
             }
             helper.succeed();
         });
+    }
+
+    /** De jour, la tour est libre et la source alimente : le phare ne veut pas travailler, ne consomme et ne s'use pas. */
+    @GameTest(template = "test/plancher", batch = LOT_JOUR, setupTicks = 20, timeoutTicks = 200)
+    public static void deJourIlResteEteint(GameTestHelper helper) {
+        BlockPos pos = haut(helper);
+        LighthouseBlockEntity be = poser(helper, pos);
+        alimenter(be);
+        int avant = be.energy().getEnergyStored();
+        double usure = be.condition();
+        helper.runAfterDelay(60, () -> {
+            try {
+                helper.assertTrue(helper.getLevel().isDay(), "le lot devait être de jour (skyDarken "
+                        + helper.getLevel().getSkyDarken() + ")");
+                helper.assertTrue(LighthouseBlock.isFreeTower(helper.getLevel(), helper.absolutePos(pos)),
+                        "la tour devait être libre");
+                helper.assertTrue(be.state() == MachineState.STOPPED, "STOPPED attendu, vu " + be.state());
+                helper.assertTrue(!allume(helper, pos), "le phare ne devait pas être allumé de jour");
+                helper.assertTrue(be.energy().getEnergyStored() == avant,
+                        "rien ne devait être consommé : " + avant + " puis " + be.energy().getEnergyStored());
+                helper.assertTrue(be.condition() == usure, "il ne devait pas s'user : " + usure + " puis " + be.condition());
+            } finally {
+                nettoyer(helper, pos);
+            }
+            helper.succeed();
+        });
+    }
+
+    /**
+     * Allumé de nuit, il s'éteint à l'aube : tout de suite, sans l'hystérésis de {@value LighthouseBlockEntity#LIT_HOLD_TICKS}
+     * ticks (le jour qui se lève est un refus de travailler, comme un toit). Cinq ticks après le changement d'heure
+     * (un pour que {@code skyDarken} se recalcule, un pour le phare) il doit être éteint.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_AUBE, setupTicks = 20, timeoutTicks = 300)
+    public static void alAubeIlSEteintToutDeSuite(GameTestHelper helper) {
+        BlockPos pos = haut(helper);
+        LighthouseBlockEntity be = poser(helper, pos);
+        alimenter(be);
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(allume(helper, pos), "le phare devait d'abord s'allumer de nuit"))
+                .thenExecute(() -> helper.getLevel().setDayTime(JOUR))
+                .thenIdle(5)
+                .thenExecute(() -> {
+                    try {
+                        helper.assertTrue(helper.getLevel().isDay(), "il devait faire jour (skyDarken "
+                                + helper.getLevel().getSkyDarken() + ")");
+                        helper.assertTrue(!allume(helper, pos), "le phare devait être éteint 5 ticks après l'aube");
+                        helper.assertTrue(be.state() == MachineState.STOPPED, "STOPPED attendu, vu " + be.state());
+                    } finally {
+                        nettoyer(helper, pos);
+                    }
+                })
+                .thenSucceed();
     }
 }

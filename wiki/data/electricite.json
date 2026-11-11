@@ -1163,7 +1163,7 @@
         "side": "lighthouse_lamp_lit.png",
         "front": "lighthouse_lamp_lit.png"
       },
-      "what": "Faisceau tournant au sommet d'une tour libre, repère et symbole de la ville.",
+      "what": "Faisceau tournant au sommet d'une tour libre, allumé la nuit seulement, repère et symbole de la ville.",
       "who": {
         "fabrique": "Ingénieur",
         "pose": "Tous",
@@ -1172,19 +1172,19 @@
       },
       "steps": [
         "Poser le phare au sommet d'une tour, à ciel libre et à 8 blocs au moins au-dessus de la mer.",
-        "Lui donner du courant : deux faisceaux opposés tournent.",
-        "Sous un toit ou trop bas, il reste éteint."
+        "Lui donner du courant : la nuit, deux faisceaux opposés tournent.",
+        "De jour, sous un toit ou trop bas, il reste éteint et ne consomme rien."
       ],
       "flow": [
         "Courant",
         "Phare",
-        "Tour libre ?",
+        "Tour libre et nuit ?",
         "Faisceaux"
       ],
       "numbers": [
         {
           "k": "Énergie",
-          "v": "32 FE/t"
+          "v": "32 FE/t, la nuit seulement"
         },
         {
           "k": "Hauteur",
@@ -1202,7 +1202,8 @@
       "staff": [
         "Config oneforallsurvival-light.toml : lighthouseEnergy, lighthouseMinAboveSea.",
         "Consomme au moins le double de la plus forte lampe relevée dans Crafts & Additions, New Age et Advanced Electricity (15 FE/t au maximum) : à relever si un serveur monte leurs réglages.",
-        "Le niveau de la mer est celui de la détection côtière (63 par défaut)."
+        "Le niveau de la mer est celui de la détection côtière (63 par défaut).",
+        "« Nuit » est le jugement du jeu (Level.isNight, côté serveur) : un orage compte comme nuit, une dimension à heure fixe (Nether, End) jamais."
       ]
     },
     {

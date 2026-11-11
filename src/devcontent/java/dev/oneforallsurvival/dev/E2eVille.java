@@ -42,11 +42,11 @@ import org.apache.logging.log4j.Logger;
  * joueur qui n'est <b>pas opérateur</b> (console RCON : {@code deop}) se tient sous une pomme sèche (rien), puis sous la
  * pomme reliée : le Bien-être n'arrive qu'après cinq secondes d'eau chaude continues, sans rendre un point de vie (vie
  * vanilla et membres de First Aid relevés avant et après), sans autre effet bénéfique, et une douche de plus ne
- * dépasse pas la durée maximale. Le phare, sur une tour de pierre, s'allume, s'éteint sous un toit, se rallume.
+ * dépasse pas la durée maximale. Le phare, sur une tour de pierre, est éteint de jour, s'allume la nuit, s'éteint sous un toit, se rallume, puis s'éteint à l'aube.
  *
  * <p>Avant l'arrêt du serveur, courant et moteurs sont retirés, les cuves du chauffe-eau et de la douche sont relevées
  * et écrites dans un fichier ; à la relance le même client les relit (écran du chauffe-eau, console RCON) et rejoue le
- * phare. Rien n'est abrégé : le temps du monde n'est jamais accéléré.
+ * phare. Rien n'est abrégé : on règle l'heure du monde (le phare ne marche que la nuit), on ne l'accélère jamais.
  *
  * <p>L'aire est une dalle à 70 blocs à l'ouest et 60 au sud du joueur, en hauteur, loin des aires des lots précédents.
  */
@@ -297,6 +297,11 @@ final class E2eVille {
     private static MachineState etat(BlockPos pos) {
         var s = mc.level.getBlockState(pos);
         return s.hasProperty(ElectricMachineBlock.STATE) ? s.getValue(ElectricMachineBlock.STATE) : null;
+    }
+
+    /** L'heure du jour reçue par le client est dans la moitié claire (le serveur la lui renvoie à peu près chaque seconde). */
+    private static boolean jourClient() {
+        return mc.level.getDayTime() % 24000L < 12000L;
     }
 
     private static boolean phareAllume() {
@@ -650,14 +655,20 @@ final class E2eVille {
     // ---------------------------------------------------------------------------------------------- phare
 
     /**
-     * Allumé en tour libre, éteint sous un toit, rallumé sans toit. {@code prefixe} distingue la relance dans les lignes.
+     * Éteint de jour, allumé la nuit en tour libre, éteint sous un toit, rallumé sans toit, éteint à l'aube. L'heure est
+     * réglée par {@code /time set} (le cycle du jour tourne sur ce serveur, mais une nuit dure bien plus que le cycle).
+     * {@code prefixe} distingue la relance dans les lignes.
      */
     private static void phareCycle(String prefixe) {
         pasC(prefixe + "Le joueur regarde le phare, de nuit ou de jour", () -> {
             placerJoueur(o.getX() + 14.5, o.getZ() + 5.5, 180, -10);
         }, () -> pres(o.getX() + 14.5, o.getZ() + 5.5) && ecoule() >= 1.5, () -> "joueur en " + mc.player.position(), null);
-        pasCD(20, prefixe + "Le phare est allumé en tour libre (ciel libre, bien au-dessus de la mer)", () -> {},
-                () -> phareAllume() && etat(phare()) == MachineState.RUNNING,
+        pasCD(20, prefixe + "De jour (/time set day), le phare alimenté en tour libre reste éteint", () -> commande("time set day"),
+                () -> jourClient() && !phareAllume() && etat(phare()) == MachineState.STOPPED && mc.level.getBlockState(toit()).isAir(),
+                () -> "bloc " + mc.level.getBlockState(phare()) + ", etat " + etat(phare()),
+                () -> "de jour : lit faux, etat " + etat(phare()) + " (source creative presente, ciel libre, y = " + phare().getY() + " : il ne veut pas travailler)");
+        pasCD(20, prefixe + "La nuit (/time set night), le phare est allumé en tour libre (ciel libre, bien au-dessus de la mer)", () -> commande("time set night"),
+                () -> !jourClient() && phareAllume() && etat(phare()) == MachineState.RUNNING,
                 () -> "bloc " + mc.level.getBlockState(phare()),
                 () -> "phare allume en tour libre : y = " + phare().getY() + " (mer a 63), etat " + etat(phare()) + ", lit vrai, lumiere "
                         + mc.level.getBlockState(phare()).getLightEmission());
@@ -669,6 +680,10 @@ final class E2eVille {
                 () -> phareAllume() && etat(phare()) == MachineState.RUNNING && mc.level.getBlockState(toit()).isAir(),
                 () -> "bloc " + mc.level.getBlockState(phare()),
                 () -> "toit retire : phare rallume, etat " + etat(phare()) + ", lit vrai");
+        pasCD(20, prefixe + "L'aube (/time set day) : le phare s'éteint", () -> commande("time set day"),
+                () -> jourClient() && !phareAllume() && etat(phare()) == MachineState.STOPPED,
+                () -> "bloc " + mc.level.getBlockState(phare()) + ", etat " + etat(phare()),
+                () -> "a l'aube : phare eteint, etat " + etat(phare()) + ", lit faux");
     }
 
     // ---------------------------------------------------------------------------------------------- persistance

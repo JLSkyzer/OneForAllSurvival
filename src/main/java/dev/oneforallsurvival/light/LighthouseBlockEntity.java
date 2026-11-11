@@ -8,8 +8,8 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 
 /**
- * Le phare. Il veut travailler seulement en tour libre ({@link LightRules#isFreeTower}) : sous un toit ou trop bas il
- * ne consomme rien. Il n'a pas de travail à produire : sa lumière et ses faisceaux (côté client) suivent son état.
+ * Le phare. Il veut travailler seulement en tour libre ({@link LightRules#isFreeTower}) et la nuit
+ * ({@link LightRules#shouldShine}) : sous un toit, trop bas ou de jour il ne consomme rien et ne s'use pas. Il n'a pas de travail à produire : sa lumière et ses faisceaux (côté client) suivent son état.
  */
 public final class LighthouseBlockEntity extends ElectricMachineBlockEntity {
 
@@ -27,7 +27,7 @@ public final class LighthouseBlockEntity extends ElectricMachineBlockEntity {
 
     @Override
     protected boolean wantsToWork() {
-        return level != null && LighthouseBlock.isFreeTower(level, worldPosition);
+        return level != null && LightRules.shouldShine(LighthouseBlock.isFreeTower(level, worldPosition), level.isNight());
     }
 
     @Override
@@ -42,8 +42,8 @@ public final class LighthouseBlockEntity extends ElectricMachineBlockEntity {
      * Allume le bloc quand la machine tourne, l'éteint sinon, avec de l'hystérésis : {@code lit} ne change qu'après
      * {@value #LIT_HOLD_TICKS} ticks consécutifs de l'état contraire (RUNNING pour s'allumer, tout autre état pour
      * s'éteindre). Une source plus faible que le besoin alterne RUNNING et NO_POWER à chaque tick : sans cela le bloc
-     * clignoterait et la lumière se recalculerait à chaque tick. Exception : la tour n'est plus libre (toit, ou trop
-     * bas), ce qui n'est pas un souci d'alimentation, et le phare s'éteint tout de suite. Le compteur n'est pas
+     * clignoterait et la lumière se recalculerait à chaque tick. Exception : le phare ne veut plus travailler (toit, trop
+     * bas, ou le jour qui se lève), ce qui n'est pas un souci d'alimentation, et il s'éteint tout de suite. Le compteur n'est pas
      * sauvegardé ; le changement part avec celui de {@code STATE} en un seul {@code setBlock}.
      */
     @Override
