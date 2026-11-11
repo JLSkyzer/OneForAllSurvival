@@ -532,7 +532,8 @@ tasks.matching { it.name == 'runGameTestServer' }.configureEach {
 
         // Le serveur de GameTest de Forge construit son monde à partir de server.properties (non versionné) :
         // on l'écrit ici pour que le monde d'essai soit toujours le même. Un terrain plat au biome vide, sans
-        // structure (donc sans village), et rien qui apparaisse. Les règles de jeu sont posées par MondeDEssai.
+        // structure (donc sans village). Les apparitions sont coupées par la règle doMobSpawning, posée avec les autres
+        // règles par MondeDEssai ; les clés spawn-* ne jouent pas sur un serveur de GameTest, elles restent pour la forme.
         def fichier = project.file('run-gametest/server.properties')
         def proprietes = new Properties()
         if (fichier.isFile()) {

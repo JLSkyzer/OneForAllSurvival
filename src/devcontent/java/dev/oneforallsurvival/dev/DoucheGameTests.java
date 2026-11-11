@@ -7,6 +7,7 @@ import dev.oneforallsurvival.town.TownConfig;
 import dev.oneforallsurvival.town.TownRegistry;
 import dev.oneforallsurvival.town.WellBeing;
 import dev.oneforallsurvival.town.WellBeingEffect;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -19,6 +20,7 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectCategory;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
@@ -345,11 +347,15 @@ public final class DoucheGameTests {
     // Le Bien-être
     // ---------------------------------------------------------------------------------------------
 
-    /** Ticks laissés à la vie pour se poser après `setHealth` (First Aid la recalcule depuis les membres). */
-    private static final int DEPART_SOIN = 60;
+    /** Ticks d'affilée sans changement de vie avant de prendre le départ (avec First Aid, la vie met du temps à se poser). */
+    private static final int VIE_STABLE = 20;
+    /** Au-delà, la vie ne s'est jamais posée : l'essai ne prouverait rien. */
+    private static final int DEPART_MAX = 200;
+    /** Durée d'effet observée après le départ. */
+    private static final int DUREE_OBSERVEE = 600;
 
-    /** Un joueur blessé, 30 s d'effet : ni vie, ni absorption, ni effet de soin. */
-    @GameTest(template = "test/plancher", batch = LOT_B, setupTicks = 20, timeoutTicks = 900)
+    /** Un joueur blessé, 30 s d'effet : ni vie, ni absorption, ni effet bénéfique nouveau. */
+    @GameTest(template = "test/plancher", batch = LOT_B, setupTicks = 20, timeoutTicks = 1000)
     public static void leBienEtreNeSoignePas(GameTestHelper helper) {
         degager(helper);
         helper.assertTrue(helper.getLevel().getDifficulty() != Difficulty.PEACEFUL,
@@ -358,21 +364,40 @@ public final class DoucheGameTests {
         // Sous 18 de faim, la régénération naturelle du jeu ne joue pas : seule la vie du Bien-être est en cause.
         j.joueur().getFoodData().setFoodLevel(6);
         j.joueur().setHealth(10.0F);
-        helper.onEachTick(() -> j.joueur().getFoodData().setFoodLevel(6));
-        // Avec First Aid, la vie vanilla suit les membres et ne vaut pas encore 10 juste après `setHealth` : le
-        // départ se mesure une fois la vie posée, et le joueur doit alors être encore blessé, sinon rien n'est prouvé.
-        float[] depart = new float[2];
-        Set<MobEffect> avant = new java.util.HashSet<>();
-        helper.runAfterDelay(DEPART_SOIN, () -> {
-            depart[0] = j.joueur().getHealth();
-            depart[1] = j.joueur().getAbsorptionAmount();
-            j.joueur().getActiveEffects().forEach(e -> avant.add(e.getEffect()));
-            WellBeing.grant(j.joueur(), 1500);
-        });
-        helper.runAfterDelay(DEPART_SOIN + 600, () -> {
+        // Avec le pack, la vie lue juste après `setHealth` n'est pas encore celle qui reste (observé : 20, puis
+        // 14,1). Le départ se prend quand la vie n'a pas bougé pendant VIE_STABLE ticks ; le joueur doit alors être
+        // encore blessé, sinon rien n'est prouvé. Une seule échéance par tick, posée au début (tasks/lessons.md).
+        float[] vie = {Float.NaN, 0f, 0f}; // dernière vie lue, vie au départ, absorption au départ
+        int[] t = {0, 0, -1}; // tick, ticks de vie stable, tick du départ
+        Set<MobEffect> avant = new HashSet<>();
+        helper.onEachTick(() -> {
+            j.joueur().getFoodData().setFoodLevel(6);
+            t[0]++;
+            if (t[2] < 0) {
+                float lue = j.joueur().getHealth();
+                t[1] = lue == vie[0] ? t[1] + 1 : 0;
+                vie[0] = lue;
+                if (t[1] >= VIE_STABLE) {
+                    vie[1] = lue;
+                    vie[2] = j.joueur().getAbsorptionAmount();
+                    j.joueur().getActiveEffects().forEach(e -> avant.add(e.getEffect()));
+                    WellBeing.grant(j.joueur(), 1500);
+                    t[2] = t[0];
+                } else if (t[0] > DEPART_MAX) {
+                    j.quitter();
+                    helper.fail("la vie ne s'est pas posée en " + DEPART_MAX + " ticks, dernière " + lue);
+                }
+                return;
+            }
+            if (t[0] != t[2] + DUREE_OBSERVEE) {
+                return;
+            }
+            float[] depart = {vie[1], vie[2]};
             try {
                 MobEffectInstance effet = bienEtre(j);
-                helper.assertTrue(effet != null && effet.getDuration() <= 1500 - 600,
+                // Le joueur d'essai est avancé par son pilote, avant ou après ce contrôle dans le même tick : un tick
+                // d'écart selon l'ordre (observé : 901 restants au lieu de 900).
+                helper.assertTrue(effet != null && effet.getDuration() <= 1500 - DUREE_OBSERVEE + 1,
                         "l'effet devait avoir tourné 30 s, vu " + effet);
                 helper.assertTrue(depart[0] < j.joueur().getMaxHealth(),
                         "le joueur devait être blessé au départ, vie " + depart[0] + " sur " + j.joueur().getMaxHealth());
@@ -383,9 +408,11 @@ public final class DoucheGameTests {
                 Set<MobEffect> apres = j.joueur().getActiveEffects().stream().map(MobEffectInstance::getEffect)
                         .collect(Collectors.toSet());
                 apres.remove(TownRegistry.WELL_BEING.get());
-                // Un effet du départ peut expirer entre-temps ; aucun ne doit apparaître.
+                // Seul un effet bénéfique nouveau pourrait soigner ; les malus que First Aid pose sur des membres
+                // blessés et les effets du départ qui expirent ne disent rien du Bien-être.
                 apres.removeAll(avant);
-                helper.assertTrue(apres.isEmpty(), "aucun autre effet ne devait apparaître, vus en plus " + apres
+                apres.removeIf(e -> e.getCategory() != MobEffectCategory.BENEFICIAL);
+                helper.assertTrue(apres.isEmpty(), "aucun effet bénéfique ne devait apparaître, vus en plus " + apres
                         + " (au départ " + avant + ")");
                 // L'effet n'a aucun tic : rien de ce qui soigne n'est surchargé.
                 for (String methode : new String[] {"applyEffectTick", "isDurationEffectTick", "applyInstantenousEffect"}) {
