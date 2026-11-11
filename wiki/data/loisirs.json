@@ -1,0 +1,77 @@
+{
+ "id": "loisirs",
+ "title": "Loisirs",
+ "intro": "Ce qui sert à se détendre en ville : un bar, une terrasse, un salon.",
+ "diagrams": [
+  {
+   "title": "Fumer la chicha",
+   "steps": [
+    "Charger tabac + charbon",
+    "Prendre le tuyau",
+    "Maintenir clic droit",
+    "Relâcher : nuage"
+   ]
+  }
+ ],
+ "cards": [
+  {
+   "id": "chicha",
+   "num": 124,
+   "name": "Chicha",
+   "kind": "bloc",
+   "status": "prevu",
+   "lot": "Lot CH1",
+   "what": "Un bloc de 1 × 1 dont on prend le tuyau, relié par un fil comme une canne à pêche.",
+   "who": {
+    "fabrique": "Tout le monde, table de craft",
+    "utilise": "Un joueur à la fois"
+   },
+   "steps": [
+    "Charger : tabac puis charbon de bois.",
+    "Clic droit main vide : prendre le tuyau.",
+    "Maintenir clic droit : aspirer. Relâcher : souffler."
+   ],
+   "numbers": [
+    {
+     "k": "Charge",
+     "v": "30 bouffées"
+    },
+    {
+     "k": "Portée du tuyau",
+     "v": "4 blocs"
+    },
+    {
+     "k": "Taille",
+     "v": "1 × 1"
+    }
+   ],
+   "staff": [
+    "Recette proposée : 3 verres, 2 lingots de cuivre, 1 brique, 1 cuir, 1 ficelle.",
+    "Le tuyau revient seul au bloc : trop loin, objet changé, déconnexion, mort."
+   ]
+  },
+  {
+   "id": "trop-fumer",
+   "num": 128,
+   "name": "Trop fumer",
+   "kind": "systeme",
+   "status": "prevu",
+   "lot": "Lot CH1",
+   "what": "Fumer trop d'affilée donne la nausée, sans aucun dégât.",
+   "numbers": [
+    {
+     "k": "Seuil",
+     "v": "8 bouffées en 2 min"
+    },
+    {
+     "k": "Nausée",
+     "v": "8 s, 30 s au plus"
+    }
+   ],
+   "steps": [
+    "Chaque bouffée de plus allonge la nausée.",
+    "Le lait l'arrête."
+   ]
+  }
+ ]
+}
