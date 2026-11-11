@@ -529,6 +529,25 @@ tasks.matching { it.name == 'runGameTestServer' }.configureEach {
     doFirst {
         // Les GameTests partent d'un monde neuf.
         delete project.file('run-gametest/world')
+
+        // Le serveur de GameTest de Forge construit son monde à partir de server.properties (non versionné) :
+        // on l'écrit ici pour que le monde d'essai soit toujours le même. Un terrain plat au biome vide, sans
+        // structure (donc sans village), et rien qui apparaisse. Les règles de jeu sont posées par MondeDEssai.
+        def fichier = project.file('run-gametest/server.properties')
+        def proprietes = new Properties()
+        if (fichier.isFile()) {
+            fichier.withInputStream { proprietes.load(it) }
+        }
+        proprietes.setProperty('level-type', 'minecraft:flat')
+        proprietes.setProperty('generator-settings', '{"biome":"minecraft:the_void","features":false,"lakes":false,'
+                + '"layers":[{"block":"minecraft:bedrock","height":1},{"block":"minecraft:stone","height":3}],'
+                + '"structure_overrides":[]}')
+        proprietes.setProperty('generate-structures', 'false')
+        proprietes.setProperty('spawn-monsters', 'false')
+        proprietes.setProperty('spawn-animals', 'false')
+        proprietes.setProperty('spawn-npcs', 'false')
+        fichier.parentFile.mkdirs()
+        fichier.withOutputStream { proprietes.store(it, 'Reecrit par build.gradle pour les GameTests') }
     }
 }
 
