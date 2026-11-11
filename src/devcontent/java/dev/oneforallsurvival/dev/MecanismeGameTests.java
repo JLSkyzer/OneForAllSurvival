@@ -291,6 +291,33 @@ public final class MecanismeGameTests {
                 .thenSucceed();
     }
 
+    /** Un rechargement (sauvegarde puis chargement du bloc posé) ne coûte rien : le premier tick ne juge pas. */
+    @GameTest(template = "test/plancher", batch = LOT_B, timeoutTicks = 200)
+    public static void rechargeNePerdPasLaProgression(GameTestHelper helper) {
+        MechanismBlockEntity be = poser(helper, 10, 60);
+        boolean[] marche = {true};
+        source(helper, be, marche, 10);
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(be.progress() >= 5 && !be.active(), "progression " + be.progress()))
+                .thenExecute(() -> {
+                    marche[0] = false;
+                    int p = be.progress();
+                    BlockPos abs = helper.absolutePos(MECA);
+                    be.load(be.saveWithoutMetadata()); // le bloc posé lui-même, pas une copie
+                    // Les ticks sont appelés ici, dans le même tick de jeu : le monde n'en intercale aucun.
+                    be.serverTick(helper.getLevel(), abs, helper.getBlockState(MECA));
+                    helper.assertTrue(be.progress() == p, "le tick de grâce ne devait pas juger : " + p + " puis " + be.progress());
+                    be.getCapability(ForgeCapabilities.ENERGY, Direction.UP).ifPresent(e -> e.receiveEnergy(10, false));
+                    be.serverTick(helper.getLevel(), abs, helper.getBlockState(MECA));
+                    helper.assertTrue(be.progress() == p + 1, "il devait reprendre de " + p + ", vu " + be.progress());
+                    // Une vraie coupure, hors rechargement, remet toujours à zéro.
+                    be.serverTick(helper.getLevel(), abs, helper.getBlockState(MECA));
+                    helper.assertTrue(be.progress() == 0, "une coupure devait remettre à zéro, vu " + be.progress());
+                    vider(helper, MECA, LAMPE);
+                })
+                .thenSucceed();
+    }
+
     @GameTest(template = "test/plancher", batch = LOT_B)
     public static void immuniseContreLesBoss(GameTestHelper helper) {
         var etat = ExploreRegistry.MECHANISM.get().defaultBlockState();

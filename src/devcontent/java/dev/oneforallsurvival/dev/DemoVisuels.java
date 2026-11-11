@@ -1057,8 +1057,8 @@ public final class DemoVisuels {
             MinecraftServer serveur = mc.getSingleplayerServer();
             serveur.execute(() -> preparerExploration(serveur));
         }, () -> explorationPosee, 2500, null);
-        // Le premier tick d'un mécanisme qui vient de se charger ne reçoit rien et remet sa progression à zéro : les
-        // étages se règlent une fois le joueur sur place et la zone en marche, avec un FE versé dans le même tick.
+        // Les étages se règlent une fois le joueur sur place et la zone en marche ; le courant d'un FE par tick vient de
+        // la liste EXPLORATION_ALIMENTEE.
         etape("approche des mecanismes", () -> regarder(mc, MECANISMES[2], new Vec3(0.0, 2.6, 8.5), false), () -> true,
                 2500, null);
         etape("reglage des etages", () -> {
@@ -1151,7 +1151,6 @@ public final class DemoVisuels {
                 tag.putInt("Progress", i * 33_400);
                 tag.putBoolean("Active", false);
                 be.load(tag);
-                be.getCapability(ForgeCapabilities.ENERGY, null).ifPresent(e -> e.receiveEnergy(1, false));
             }
         }
     }

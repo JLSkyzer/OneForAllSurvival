@@ -16,7 +16,8 @@ import org.jetbrains.annotations.NotNull;
  * Le mécanisme ancien : il demande {@code threshold} FE à chaque tick pendant {@code durationTicks} ticks de suite, puis
  * s'active et le reste jusqu'à {@link #reset()}. Une coupure d'un tick remet la progression à zéro. Il ne stocke aucune
  * énergie, ne s'use pas et ne tombe pas en panne (ce n'est donc pas une machine électrique du mod). Dans un chunk
- * déchargé il ne tique pas : rien n'avance, rien ne se perd.
+ * déchargé il ne tique pas : rien n'avance, rien ne se perd, et le premier tick après un rechargement ne juge pas
+ * (voir {@link #graceTick}).
  *
  * <p>Ordre des ticks. Un câble peut verser du courant avant ou après le tick de ce bloc dans le même tick de jeu. La règle
  * est donc : {@link #serverTick} juge ce qui est arrivé depuis son tick précédent, puis remet le compte à zéro. Une
@@ -82,6 +83,14 @@ public final class MechanismBlockEntity extends BlockEntity {
     private boolean active;
     /** Ce qui est arrivé depuis le dernier tick du bloc ; jamais sauvegardé. */
     private int receivedSinceTick;
+    /**
+     * Vrai de {@link #load} jusqu'au premier tick qui suit : ce tick ne juge pas (ni progression ni remise à zéro). Au
+     * rechargement, rien n'a pu arriver depuis un tick précédent qui n'existe pas encore ; juger tout de suite ferait
+     * perdre la progression à chaque rechargement de chunk ou redémarrage. Un seul tick suffit : dès le suivant, la
+     * fenêtre « depuis le dernier tick » couvre un tick complet de la source, avant ou après le bloc dans l'ordre du tick.
+     * Une vraie coupure, hors rechargement, remet toujours à zéro. Jamais sauvegardé.
+     */
+    private boolean graceTick;
 
     public MechanismBlockEntity(BlockPos pos, BlockState state) {
         super(ExploreRegistry.MECHANISM_BE.get(), pos, state);
@@ -125,6 +134,11 @@ public final class MechanismBlockEntity extends BlockEntity {
     public void serverTick(ServerLevel server, BlockPos pos, BlockState state) {
         int received = receivedSinceTick;
         receivedSinceTick = 0;
+        if (graceTick) {
+            graceTick = false;
+            syncState(server, pos, state);
+            return;
+        }
         if (!active) {
             int before = progress;
             progress = MechanismRules.next(progress, received, threshold, durationTicks);
@@ -192,5 +206,6 @@ public final class MechanismBlockEntity extends BlockEntity {
         progress = Math.max(0, Math.min(tag.getInt(TAG_PROGRESS), durationTicks));
         active = tag.getBoolean(TAG_ACTIVE);
         receivedSinceTick = 0;
+        graceTick = true;
     }
 }
