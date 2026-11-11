@@ -33,6 +33,7 @@ lot2.PALETTE.update({
     "1": (255, 250, 214),  # cœur de la lampe allumée
     "2": (255, 226, 140),  # lampe allumée
     "3": (214, 150, 52),  # lampe allumée, bord
+    "J": (150, 208, 244),  # filet d'eau, bleu clair
 })
 
 # L'icône du Bien-être (18 x 18, comme les effets de Minecraft).
@@ -71,18 +72,21 @@ def goutte():
 # cuivre sort en bas à gauche, une soupape de laiton coiffe le dessus.
 # ---------------------------------------------------------------------------------------------------
 def ballon():
-    """Le ballon vu de côté : tôle cintrée (sombre aux bords, claire au milieu) et deux cerclages de fer rivetés."""
-    t = toile("i")
-    rect(t, 0, 0, 15, 15, "K")
-    for x0, x1, c in ((1, 2, "d"), (3, 4, "i"), (5, 7, "l"), (8, 11, "i"), (12, 14, "d")):
-        rect(t, x0, 1, x1, 14, c)
-    px(t, 6, 5, "w")
-    px(t, 6, 6, "w")
-    for y in (2, 12):  # un cerclage : une bande sombre, un liseré clair au-dessus
-        rect(t, 1, y, 14, y + 1, "d")
-        rect(t, 1, y, 14, y, "x")
-        for x in (3, 7, 11):
-            px(t, x, y + 1, "l")
+    """Le ballon vu de côté, sans cadre : tôle de zinc rivetée, bords ombrés et bande claire verticale qui l'arrondit,
+    trois cerclages de cuivre sur toute la largeur. Les faces se raccordent d'un côté à l'autre du bloc."""
+    t = toile("Z")
+    for x0, x1, c in ((0, 1, "z"), (2, 3, "Z"), (4, 5, "q"), (6, 7, "q"), (8, 9, "Z"), (10, 13, "Z"), (14, 15, "z")):
+        rect(t, x0, 0, x1, 15, c)
+    rect(t, 5, 0, 6, 15, "q")
+    for y in (4, 10):  # les rivets de la tôle, entre les cerclages
+        px(t, 3, y, "z")
+        px(t, 12, y, "z")
+    for y in (1, 7, 13):  # un cerclage : liseré clair, cuivre, ombre, rivets de laiton
+        rect(t, 0, y, 15, y, "e")
+        rect(t, 0, y + 1, 15, y + 1, "C")
+        rect(t, 0, y + 2, 15, y + 2, "c")
+        for x in (2, 8, 13):
+            px(t, x, y + 1, "y")
     return t
 
 
@@ -94,64 +98,67 @@ CADRAN = (  # le manomètre (6 x 6) : « K » le boîtier, « f » le cadran
     "KffffK",
     ".KKKK.",
 )
-AIGUILLES = {  # pixels de l'aiguille, dans le cadran posé en (3, 4) ; le pivot est en (5, 8)
-    "stopped": ((4, 8), (4, 7)),
-    "no_power": ((4, 8), (4, 7)),
-    "running": ((6, 7), (7, 6)),
-    "fault": ((5, 7), (5, 6), (5, 5)),
+AIGUILLES = {  # pixels de l'aiguille, dans le cadran posé en (3, 5) ; le pivot est en (5, 9)
+    "stopped": ((4, 9), (4, 8)),
+    "no_power": ((4, 9), (4, 8)),
+    "running": ((6, 8), (7, 7)),
+    "fault": ((5, 8), (5, 7), (5, 6)),
 }
 
 
 def chauffe_eau_face(voyant, etat):
     t = ballon()
-    # Le manomètre : zone rouge à gauche, zone verte à droite, l'aiguille de l'état sur le pivot.
+    # Le manomètre, posé sur le cerclage du milieu : zone rouge à gauche, verte à droite, l'aiguille de l'état.
     for dy, ligne in enumerate(CADRAN):
         for dx, c in enumerate(ligne):
             if c != ".":
-                px(t, 3 + dx, 4 + dy, c)
-    px(t, 4, 5, "X")
-    px(t, 7, 5, "G")
+                px(t, 3 + dx, 5 + dy, c)
+    px(t, 4, 6, "X")
     px(t, 7, 6, "G")
+    px(t, 7, 7, "G")
     for x, y in AIGUILLES[etat]:
         px(t, x, y, "X" if etat == "fault" else "K")
-    px(t, 5, 8, "K")
+    px(t, 5, 9, "K")
     # Le voyant, serti à droite du manomètre.
-    lampe(t, 11, 5, voyant)
-    # Le tuyau de cuivre qui sort du ballon, sous le manomètre, et sa bride de laiton.
-    rect(t, 1, 10, 10, 10, "e")
-    rect(t, 1, 11, 10, 11, "c")
-    rect(t, 11, 10, 12, 11, "K")
-    px(t, 11, 10, "B")
-    px(t, 11, 11, "b")
+    lampe(t, 11, 7, voyant)
+    # Le tuyau de cuivre qui sort du ballon, sous le manomètre.
+    rect(t, 0, 11, 9, 11, "e")
+    rect(t, 0, 12, 9, 12, "c")
+    rect(t, 10, 11, 11, 12, "K")
+    px(t, 10, 11, "B")
+    px(t, 10, 12, "b")
     return t
 
 
 def chauffe_eau_cote():
     t = ballon()
-    # Une plaque de tôle rapportée et rivetée entre les cerclages, une trace de rouille qui coule du cerclage du haut.
-    rect(t, 3, 5, 12, 10, "K")
-    rect(t, 4, 6, 11, 9, "l")
-    rect(t, 4, 9, 11, 9, "d")
-    for x, y in ((4, 6), (11, 6), (4, 9), (11, 9)):
-        px(t, x, y, "K")
-    for y, c in ((4, "o"), (5, "R")):
-        px(t, 3, y, c)
-    px(t, 12, 11, "R")
+    # Une plaque de réparation rivetée entre les deux cerclages du haut, une trace de rouille sous le cerclage du milieu.
+    rect(t, 9, 3, 13, 5, "K")
+    rect(t, 10, 4, 12, 4, "l")
+    px(t, 10, 3, "K")
+    px(t, 3, 10, "R")
+    px(t, 3, 11, "r")
     return t
 
 
 def chauffe_eau_dessus():
-    t = caisson("l", "i", "d", "w")
-    rivets(t)
-    # Le couvercle du ballon : un disque cerclé, la soupape de laiton au centre, le départ du tuyau de cuivre.
-    rect(t, 4, 4, 11, 11, "K")
-    rect(t, 5, 5, 10, 10, "d")
-    rect(t, 5, 5, 10, 5, "l")
+    t = toile("Z")
+    rect(t, 0, 0, 15, 0, "q")
+    rect(t, 0, 0, 0, 15, "q")
+    rect(t, 15, 0, 15, 15, "z")
+    rect(t, 0, 15, 15, 15, "z")
+    # Le couvercle : un cerclage de cuivre carré, la soupape de laiton au centre, le départ du tuyau.
+    rect(t, 2, 2, 13, 13, "c")
+    rect(t, 3, 3, 12, 12, "C")
+    rect(t, 4, 4, 11, 11, "Z")
+    rect(t, 4, 4, 11, 4, "q")
     rect(t, 6, 6, 9, 9, "b")
     rect(t, 7, 7, 8, 8, "B")
     px(t, 7, 7, "y")
     rect(t, 11, 7, 13, 8, "C")
     px(t, 12, 7, "e")
+    for x, y in ((1, 1), (14, 1), (1, 14), (14, 14)):
+        px(t, x, y, "K")
     return t
 
 
@@ -200,15 +207,14 @@ def pomme():
 
 
 def filets():
-    """Des filets d'eau (6 x 9) : trois jets continus aux colonnes 1, 3 et 5 (clairs, avec quelques trous) et quelques
-    gouttes entre eux ; le reste est transparent (rendu en découpe)."""
+    """Des filets d'eau (6 x 9) : fond transparent (rendu en découpe), des traits verticaux d'un pixel, d'un seul bleu
+    clair, décalés d'une colonne à l'autre, et quelques gouttes blanches."""
     t = [["." for _ in range(16)] for _ in range(16)]
-    for x in (1, 3, 5):
-        for y in range(0, 9):
-            if (y + x) % 5 != 4:
-                px(t, x, y, "a" if y % 3 == 0 else "6")
-    for x, y in ((0, 2), (2, 6), (4, 3), (4, 7), (0, 7), (2, 1)):
-        px(t, x, y, "6")
+    for x, haut, bas in ((1, 0, 8), (3, 2, 7), (5, 0, 5)):
+        for y in range(haut, bas + 1):
+            px(t, x, y, "J")
+    for x, y in ((0, 4), (2, 8), (4, 3), (4, 8), (5, 7)):
+        px(t, x, y, "w")
     return t
 
 

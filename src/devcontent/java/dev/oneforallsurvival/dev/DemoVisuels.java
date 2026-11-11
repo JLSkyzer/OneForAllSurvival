@@ -148,7 +148,7 @@ public final class DemoVisuels {
     /** Le matériel de la ville (lot 6) : chauffe-eau dans leurs quatre états, douches, et chaque bloc contre un mur. */
     private static final BlockPos[] CHAUFFE_EAU = new BlockPos[4];
     private static BlockPos chauffeEauMur;
-    private static final BlockPos[] douches = new BlockPos[2];
+    private static final BlockPos[] DOUCHES = new BlockPos[2];
     private static BlockPos doucheMur;
     private static BlockPos phareMur;
     private static volatile boolean villePose;
@@ -226,13 +226,13 @@ public final class DemoVisuels {
             }
         }
         // La douche « en marche » n'a personne dessous : son état actif est reposé à chaque tic pour la capture.
-        if (douches[1] != null) {
+        if (DOUCHES[1] != null) {
             var monde = event.getServer().overworld();
-            if (monde.getBlockEntity(douches[1]) instanceof ShowerHeadBlockEntity douche) {
+            if (monde.getBlockEntity(DOUCHES[1]) instanceof ShowerHeadBlockEntity douche) {
                 douche.tank().fill(new FluidStack(TownRegistry.HOT_WATER.get(), 1000), IFluidHandler.FluidAction.EXECUTE);
-                var etat = monde.getBlockState(douches[1]);
+                var etat = monde.getBlockState(DOUCHES[1]);
                 if (etat.is(TownRegistry.SHOWER_HEAD.get()) && !etat.getValue(ShowerHeadBlock.ACTIVE)) {
-                    monde.setBlock(douches[1], etat.setValue(ShowerHeadBlock.ACTIVE, true), 3);
+                    monde.setBlock(DOUCHES[1], etat.setValue(ShowerHeadBlock.ACTIVE, true), 3);
                 }
             }
         }
@@ -947,13 +947,13 @@ public final class DemoVisuels {
                 () -> true, 1500, "chauffe_eau_arriere_dessus.png");
         etape("vue chauffe-eau mur", () -> regarder(mc, chauffeEauMur, new Vec3(1.1, 1.3, 1.6), false), () -> true,
                 1500, "chauffe_eau_contre_un_mur.png");
-        etape("vue douche a sec", () -> regarder(mc, douches[0], new Vec3(1.0, 0.5, 1.6), false), () -> true, 1500,
+        etape("vue douche a sec", () -> regarder(mc, DOUCHES[0], new Vec3(1.0, 0.5, 1.6), false), () -> true, 1500,
                 "douche_a_sec_jour.png");
-        etape("vue douche en marche", () -> regarder(mc, douches[1], new Vec3(1.0, 0.3, 1.6), false), () -> true, 1500,
+        etape("vue douche en marche", () -> regarder(mc, DOUCHES[1], new Vec3(1.0, 0.3, 1.6), false), () -> true, 1500,
                 "douche_en_marche_jour.png");
-        etape("vue douche en marche nuit", () -> regarder(mc, douches[1], new Vec3(1.0, 0.3, 1.6), true), () -> true,
+        etape("vue douche en marche nuit", () -> regarder(mc, DOUCHES[1], new Vec3(1.0, 0.3, 1.6), true), () -> true,
                 1500, "douche_en_marche_nuit.png");
-        etape("vue douche dessous", () -> regarder(mc, douches[0], new Vec3(0.6, -1.3, 0.8), false), () -> true, 1500,
+        etape("vue douche dessous", () -> regarder(mc, DOUCHES[0], new Vec3(0.6, -1.3, 0.8), false), () -> true, 1500,
                 "douche_dessous.png");
         etape("vue douche mur", () -> regarder(mc, doucheMur, new Vec3(1.1, 0.5, 1.6), false), () -> true, 1500,
                 "douche_contre_un_mur.png");
@@ -967,7 +967,9 @@ public final class DemoVisuels {
 
     private static void preparerVille(MinecraftServer serveur) {
         ServerLevel monde = serveur.overworld();
-        BlockPos v = origine.offset(30, 0, -10);
+        // Loin à l'est (au-delà de la distance d'affichage de 6 chunks) : les vues regardent vers le nord-ouest, et le bloc
+        // d'essai magenta et noir du lot 4 ne doit pas apparaître derrière.
+        BlockPos v = origine.offset(110, 0, -10);
         for (int e = 0; e < 4; e++) {
             BlockPos p = v.offset(4 * e, 0, 0);
             CHAUFFE_EAU[e] = p;
@@ -990,7 +992,7 @@ public final class DemoVisuels {
         // Une pomme pend sous un plafond : un bloc de pierre au-dessus de chacune.
         for (int i = 0; i < 2; i++) {
             BlockPos p = v.offset(4 * i, 0, -12);
-            douches[i] = p;
+            DOUCHES[i] = p;
             monde.setBlock(p.above(), Blocks.STONE.defaultBlockState(), 3);
             monde.setBlock(p, TownRegistry.SHOWER_HEAD.get().defaultBlockState(), 3);
         }

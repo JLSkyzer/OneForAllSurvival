@@ -176,6 +176,14 @@ public final class PackGameTests {
                         id + " a un ingrédient sans objet : " + ingredient.toJson());
             }
         }
+        // Lot 6 : le chauffe-eau demande du fil (étiquette wire), le phare du verre ; le phare n'a pas besoin de fil.
+        if (create) {
+            var catalogue = BenchCatalog.current();
+            helper.assertTrue(accepte(catalogue, "water_heater", new ItemStack(objet("oneforallsurvival", "aviation_wire"))),
+                    "le chauffe-eau n'a aucun ingrédient qui accepte l'étiquette wire");
+            helper.assertTrue(accepte(catalogue, "lighthouse", new ItemStack(net.minecraft.world.item.Items.GLASS)),
+                    "le phare n'a aucun ingrédient qui accepte le verre");
+        }
         // Les étiquettes s'élargissent aux objets du pack.
         helper.assertTrue(porte(objet("oneforallsurvival", "aviation_wire"), "wire"),
                 "le fil d'aviation doit porter l'étiquette wire");
@@ -359,44 +367,36 @@ public final class PackGameTests {
         });
     }
 
+    /** Vrai si un ingrédient de la recette de l'établi de ce nom accepte cet objet. */
+    private static boolean accepte(BenchCatalog catalogue, String nom, ItemStack pile) {
+        BenchRecipe recette = catalogue.byId(new ResourceLocation("oneforallsurvival", nom)).orElse(null);
+        return recette != null && recette.ingredients().stream().anyMatch(ingredient -> ingredient.test(pile));
+    }
+
     /**
      * Les cinq blocs du lot 5 se cassent à la pioche et rendent leur objet : un butin et l'étiquette de pioche pour
      * chacun. Sans eux la machine ne tomberait pas, ou resterait indestructible avec un pic. Aucun mod tiers requis.
      */
     @GameTest(template = "test/plancher", batch = "pack_materiel")
     public static void lesCinqBlocsDuLot5TombentALaPioche(GameTestHelper helper) {
-        var level = helper.getLevel();
-        BlockPos pos = new BlockPos(1, 1, 1);
-        BlockPos absolue = helper.absolutePos(pos);
-        ItemStack pioche = new ItemStack(net.minecraft.world.item.Items.IRON_PICKAXE);
-        var lootContext = new net.minecraft.world.level.storage.loot.LootParams.Builder(level);
-        for (String nom : new String[] {"incubator", "hot_plate", "canteen_pot", "electrifier", "electric_fence"}) {
-            Block bloc = ForgeRegistries.BLOCKS.getValue(new ResourceLocation("oneforallsurvival", nom));
-            helper.assertTrue(bloc != null && bloc != Blocks.AIR, "bloc absent : " + nom);
-            BlockState etat = bloc.defaultBlockState();
-            helper.assertTrue(etat.is(net.minecraft.tags.BlockTags.MINEABLE_WITH_PICKAXE),
-                    nom + " ne porte pas l'étiquette mineable/pickaxe");
-            var drops = etat.getDrops(lootContext
-                    .withParameter(net.minecraft.world.level.storage.loot.parameters.LootContextParams.ORIGIN,
-                            net.minecraft.world.phys.Vec3.atCenterOf(absolue))
-                    .withParameter(net.minecraft.world.level.storage.loot.parameters.LootContextParams.TOOL, pioche));
-            helper.assertTrue(drops.size() == 1 && drops.get(0).is(objet("oneforallsurvival", nom))
-                    && drops.get(0).getCount() == 1, nom + " devait rendre un exemplaire de lui-même, vu " + drops);
-        }
+        tombentALaPioche(helper, "incubator", "hot_plate", "canteen_pot", "electrifier", "electric_fence");
         helper.succeed();
     }
 
-    /**
-     * Les trois blocs du lot 6 (chauffe-eau, pomme de douche, phare) se cassent à la pioche et rendent leur objet : un
-     * butin et l'étiquette de pioche pour chacun. Aucun mod tiers requis.
-     */
+    /** Les trois blocs du lot 6 (chauffe-eau, pomme de douche, phare) : même garde-fou que le lot 5. */
     @GameTest(template = "test/plancher", batch = "pack_materiel")
     public static void lesTroisBlocsDuLot6TombentALaPioche(GameTestHelper helper) {
+        tombentALaPioche(helper, "water_heater", "shower_head", "lighthouse");
+        helper.succeed();
+    }
+
+    /** Chaque bloc nommé porte l'étiquette mineable/pickaxe et, cassé à la pioche de fer, rend un exemplaire de lui-même. */
+    private static void tombentALaPioche(GameTestHelper helper, String... noms) {
         var level = helper.getLevel();
         BlockPos absolue = helper.absolutePos(new BlockPos(1, 1, 1));
         ItemStack pioche = new ItemStack(net.minecraft.world.item.Items.IRON_PICKAXE);
         var lootContext = new net.minecraft.world.level.storage.loot.LootParams.Builder(level);
-        for (String nom : new String[] {"water_heater", "shower_head", "lighthouse"}) {
+        for (String nom : noms) {
             Block bloc = ForgeRegistries.BLOCKS.getValue(new ResourceLocation("oneforallsurvival", nom));
             helper.assertTrue(bloc != null && bloc != Blocks.AIR, "bloc absent : " + nom);
             BlockState etat = bloc.defaultBlockState();
@@ -409,6 +409,5 @@ public final class PackGameTests {
             helper.assertTrue(drops.size() == 1 && drops.get(0).is(objet("oneforallsurvival", nom))
                     && drops.get(0).getCount() == 1, nom + " devait rendre un exemplaire de lui-même, vu " + drops);
         }
-        helper.succeed();
     }
 }
