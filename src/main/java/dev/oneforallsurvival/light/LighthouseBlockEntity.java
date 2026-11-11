@@ -4,7 +4,6 @@ import dev.oneforallsurvival.machine.ElectricMachineBlockEntity;
 import dev.oneforallsurvival.machine.MachineState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 
@@ -15,7 +14,12 @@ import net.minecraft.world.phys.AABB;
 public final class LighthouseBlockEntity extends ElectricMachineBlockEntity {
 
     public static final int CAPACITY = 4000;
-    public static final int MAX_RECEIVE = LightConfig.MAX_MACHINE_RECEIVE;
+    public static final int MAX_RECEIVE = TOWN_MAX_RECEIVE;
+    /** Ticks consécutifs dans l'autre état avant que {@code lit} ne change. */
+    public static final int LIT_HOLD_TICKS = 20;
+
+    /** Ticks consécutifs où l'état voulu pour {@code lit} diffère de l'actuel ; non sauvegardé. */
+    private int contrary;
 
     public LighthouseBlockEntity(BlockPos pos, BlockState state) {
         super(LightRegistry.LIGHTHOUSE_BE.get(), pos, state, CAPACITY, MAX_RECEIVE);
@@ -34,14 +38,33 @@ public final class LighthouseBlockEntity extends ElectricMachineBlockEntity {
     @Override
     protected void workTick() {}
 
-    /** Allume le bloc quand la machine tourne, l'éteint sinon (arrêt, manque de courant, panne). */
+    /**
+     * Allume le bloc quand la machine tourne, l'éteint sinon, avec de l'hystérésis : {@code lit} ne change qu'après
+     * {@value #LIT_HOLD_TICKS} ticks consécutifs de l'état contraire (RUNNING pour s'allumer, tout autre état pour
+     * s'éteindre). Une source plus faible que le besoin alterne RUNNING et NO_POWER à chaque tick : sans cela le bloc
+     * clignoterait et la lumière se recalculerait à chaque tick. Exception : la tour n'est plus libre (toit, ou trop
+     * bas), ce qui n'est pas un souci d'alimentation, et le phare s'éteint tout de suite. Le compteur n'est pas
+     * sauvegardé ; le changement part avec celui de {@code STATE} en un seul {@code setBlock}.
+     */
     @Override
-    protected void afterTick(Level level, MachineState tickState) {
-        BlockState current = level.getBlockState(worldPosition);
-        boolean lit = tickState == MachineState.RUNNING;
-        if (current.is(LightRegistry.LIGHTHOUSE.get()) && current.getValue(LighthouseBlock.LIT) != lit) {
-            level.setBlock(worldPosition, current.setValue(LighthouseBlock.LIT, lit), Block.UPDATE_ALL);
+    protected BlockState adjustState(Level level, BlockState target, MachineState tickState) {
+        if (!target.is(LightRegistry.LIGHTHOUSE.get())) {
+            return target;
         }
+        boolean lit = target.getValue(LighthouseBlock.LIT);
+        if (!wantsToWork()) {
+            contrary = 0;
+            return lit ? target.setValue(LighthouseBlock.LIT, false) : target;
+        }
+        if ((tickState == MachineState.RUNNING) == lit) {
+            contrary = 0;
+            return target;
+        }
+        if (++contrary < LIT_HOLD_TICKS) {
+            return target;
+        }
+        contrary = 0;
+        return target.setValue(LighthouseBlock.LIT, !lit);
     }
 
     /** Les faisceaux portent à 96 blocs : le bloc se dessine tant que le monde l'est, où qu'il soit à l'écran. */

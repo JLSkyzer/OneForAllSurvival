@@ -34,6 +34,12 @@ import org.jetbrains.annotations.Nullable;
  */
 public abstract class ElectricMachineBlockEntity extends BlockEntity {
 
+    /**
+     * Ce que la réserve d'une machine de la ville (chauffe-eau, phare) reçoit par tick ; la consommation réglable
+     * ({@code heaterEnergy}, {@code lighthouseEnergy}) ne peut pas la dépasser.
+     */
+    public static final int TOWN_MAX_RECEIVE = 200;
+
     private static final String TAG_ENERGY = "energy";
     private static final String TAG_CONDITION = "condition";
     private static final String TAG_FAULT_TYPE = "fault_type";
@@ -297,10 +303,20 @@ public abstract class ElectricMachineBlockEntity extends BlockEntity {
                 && level.getGameTime() % SMOKE_PERIOD == 0) {
             spawnParticles(level, pos, true);
         }
-        if (blockState.getValue(ElectricMachineBlock.STATE) != next) {
-            level.setBlock(pos, blockState.setValue(ElectricMachineBlock.STATE, next), Block.UPDATE_CLIENTS);
+        BlockState target = adjustState(level, blockState.setValue(ElectricMachineBlock.STATE, next), next);
+        if (target != blockState) {
+            level.setBlock(pos, target, Block.UPDATE_CLIENTS);
         }
         afterTick(level, next);
+    }
+
+    /**
+     * L'état de bloc à écrire à la fin du tick : {@code target} porte déjà le nouvel {@code STATE}. Une sous-classe qui
+     * tient une autre propriété y règle la sienne, pour qu'un seul {@code setBlock} suive les deux changements. Appelé à
+     * chaque tick ; ne fait rien par défaut.
+     */
+    protected BlockState adjustState(Level level, BlockState target, MachineState tickState) {
+        return target;
     }
 
     /**

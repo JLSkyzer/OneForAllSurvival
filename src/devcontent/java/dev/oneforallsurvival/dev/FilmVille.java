@@ -511,8 +511,8 @@ public final class FilmVille {
             });
             regarder(mc, depuis(phare, 0, 0, 0), depuis(plateforme, 0, 2.62, 0));
         }, () -> instantane.phareAllume(), 3000, FilmVille::phareValeurs);
-        etape("p_tour", "Deux faisceaux opposés, un tour en 8 s, visibles de loin", () -> {}, () -> true, 14000, FilmVille::phareValeurs);
-        etape("p_toit", "Un toit de pierre : le phare s'éteint, il ne consomme plus",
+        etape("p_tour", "Deux faisceaux opposés, un tour en 8 s", () -> {}, () -> true, 14000, FilmVille::phareValeurs);
+        etape("p_toit", "Un toit de pierre : le phare s'éteint",
                 () -> sur(mc, () -> poser(mc.getSingleplayerServer().overworld(), phare.above(2), Blocks.STONE_BRICKS)),
                 () -> !instantane.phareAllume(), 4000, FilmVille::phareValeurs);
         etape("p_rallume", "Le toit est retiré : le phare se rallume",

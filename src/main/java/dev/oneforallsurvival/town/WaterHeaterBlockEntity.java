@@ -32,7 +32,7 @@ public final class WaterHeaterBlockEntity extends ElectricMachineBlockEntity {
 
     /** Quelques secondes de marche : la réserve reçoit jusqu'à 200 FE par tick. */
     public static final int CAPACITY = 8000;
-    public static final int MAX_RECEIVE = 200;
+    public static final int MAX_RECEIVE = TOWN_MAX_RECEIVE;
     public static final int TANK_CAPACITY = 4000;
 
     private static final String TAG_POTABLE = "potable";

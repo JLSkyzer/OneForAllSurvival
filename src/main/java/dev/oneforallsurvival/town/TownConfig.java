@@ -1,5 +1,6 @@
 package dev.oneforallsurvival.town;
 
+import dev.oneforallsurvival.machine.ElectricMachineBlockEntity;
 import net.minecraftforge.common.ForgeConfigSpec;
 
 /**
@@ -36,7 +37,7 @@ public final class TownConfig {
         HEATER_ENERGY = builder
                 .comment("Énergie (FE) que le chauffe-eau consomme à chaque tick de travail.",
                         "Bornée à ce que sa réserve reçoit par tick (200) : au-delà il ne pourrait plus tourner.")
-                .defineInRange("heaterEnergy", DEFAULT_HEATER_ENERGY, 1, WaterHeaterBlockEntity.MAX_RECEIVE);
+                .defineInRange("heaterEnergy", DEFAULT_HEATER_ENERGY, 1, ElectricMachineBlockEntity.TOWN_MAX_RECEIVE);
         WELL_BEING_SPEED = builder
                 .comment("Bonus de vitesse de marche du Bien-être (0,05 = +5 %).")
                 .defineInRange("wellBeingSpeedBonus", DEFAULT_WELL_BEING_SPEED, 0.0, 1.0);

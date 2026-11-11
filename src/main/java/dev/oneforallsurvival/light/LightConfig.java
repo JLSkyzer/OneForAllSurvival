@@ -1,5 +1,6 @@
 package dev.oneforallsurvival.light;
 
+import dev.oneforallsurvival.machine.ElectricMachineBlockEntity;
 import net.minecraftforge.common.ForgeConfigSpec;
 
 /**
@@ -8,8 +9,6 @@ import net.minecraftforge.common.ForgeConfigSpec;
  */
 public final class LightConfig {
 
-    /** Ce que la réserve d'une machine du paquet reçoit par tick : la consommation ne peut pas la dépasser. */
-    public static final int MAX_MACHINE_RECEIVE = 200;
     private static final int DEFAULT_LIGHTHOUSE_ENERGY = 32;
     private static final int DEFAULT_LIGHTHOUSE_MIN_ABOVE_SEA = 8;
 
@@ -23,7 +22,7 @@ public final class LightConfig {
         LIGHTHOUSE_ENERGY = builder
                 .comment("Énergie (FE) que le phare consomme à chaque tick de travail.",
                         "Bornée à ce que sa réserve reçoit par tick (200) : au-delà il ne pourrait plus tourner.")
-                .defineInRange("lighthouseEnergy", DEFAULT_LIGHTHOUSE_ENERGY, 1, MAX_MACHINE_RECEIVE);
+                .defineInRange("lighthouseEnergy", DEFAULT_LIGHTHOUSE_ENERGY, 1, ElectricMachineBlockEntity.TOWN_MAX_RECEIVE);
         LIGHTHOUSE_MIN_ABOVE_SEA = builder
                 .comment("Hauteur minimale (blocs) du phare au-dessus du niveau de la mer",
                         "(oneforallsurvival-machines.toml, seaLevel) pour qu'il marche ; il doit aussi voir le ciel.")

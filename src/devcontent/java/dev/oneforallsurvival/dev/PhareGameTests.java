@@ -64,7 +64,8 @@ public final class PhareGameTests {
         LighthouseBlockEntity be = poser(helper, pos);
         alimenter(be);
         int avant = be.energy().getEnergyStored();
-        helper.runAfterDelay(30, () -> {
+        // Le bloc ne s'allume qu'après LIT_HOLD_TICKS ticks de marche : 40 laisse de la marge.
+        helper.runAfterDelay(40, () -> {
             try {
                 helper.assertTrue(be.state() == MachineState.RUNNING, "RUNNING attendu, vu " + be.state());
                 helper.assertTrue(allume(helper, pos), "le phare devait être allumé");
@@ -107,21 +108,13 @@ public final class PhareGameTests {
         LighthouseBlockEntity be = poser(helper, pos);
         alimenter(be);
         helper.startSequence()
-                .thenIdle(10)
-                .thenExecute(() -> {
-                    try {
-                        helper.assertTrue(allume(helper, pos), "le phare devait d'abord être allumé");
-                        be.drainEnergy(1_000_000);
-                    } catch (RuntimeException e) {
-                        nettoyer(helper, pos);
-                        throw e;
-                    }
-                })
-                .thenIdle(5)
+                .thenWaitUntil(() -> helper.assertTrue(allume(helper, pos), "le phare devait d'abord s'allumer"))
+                .thenExecute(() -> be.drainEnergy(1_000_000))
+                // Sans courant il s'éteint après LIT_HOLD_TICKS ticks (hystérésis), pas tout de suite.
+                .thenWaitUntil(() -> helper.assertTrue(!allume(helper, pos), "le phare sans courant devait s'éteindre"))
                 .thenExecute(() -> {
                     try {
                         helper.assertTrue(be.state() == MachineState.NO_POWER, "NO_POWER attendu, vu " + be.state());
-                        helper.assertTrue(!allume(helper, pos), "le phare sans courant devait s'éteindre");
                     } finally {
                         nettoyer(helper, pos);
                     }
@@ -135,21 +128,12 @@ public final class PhareGameTests {
         LighthouseBlockEntity be = poser(helper, pos);
         alimenter(be);
         helper.startSequence()
-                .thenIdle(10)
-                .thenExecute(() -> {
-                    try {
-                        helper.assertTrue(allume(helper, pos), "le phare devait d'abord être allumé");
-                        be.breakDown(FaultType.values()[0]);
-                    } catch (RuntimeException e) {
-                        nettoyer(helper, pos);
-                        throw e;
-                    }
-                })
-                .thenIdle(5)
+                .thenWaitUntil(() -> helper.assertTrue(allume(helper, pos), "le phare devait d'abord s'allumer"))
+                .thenExecute(() -> be.breakDown(FaultType.values()[0]))
+                .thenWaitUntil(() -> helper.assertTrue(!allume(helper, pos), "le phare en panne devait s'éteindre"))
                 .thenExecute(() -> {
                     try {
                         helper.assertTrue(be.state() == MachineState.FAULT, "FAULT attendu, vu " + be.state());
-                        helper.assertTrue(!allume(helper, pos), "le phare en panne devait s'éteindre");
                     } finally {
                         nettoyer(helper, pos);
                     }
@@ -160,20 +144,19 @@ public final class PhareGameTests {
     /**
      * Le toit posé ou retiré après coup : le phare suit. « Voir le ciel » est la lumière du ciel au-dessus du phare
      * ({@code Level.canSeeSky}), que le moteur de lumière met à jour de façon asynchrone : relevé au 2026-11-11, elle
-     * passe de 15 à 0 deux ticks après la pose du toit, et visiblement plus de cinq sur deux passages de la suite complète (le
-     * test a échoué deux fois de suite à « STOPPED attendu, vu RUNNING » avec un délai fixe de cinq ticks). Le test
-     * attend donc les états (jusqu'à {@code timeoutTicks}) au lieu d'un délai fixe ; il exige les mêmes états finals.
+     * passe de 15 à 0 deux ticks après la pose du toit. Le test a échoué deux fois de suite à « STOPPED attendu, vu
+     * RUNNING » avec un délai fixe de cinq ticks ; qu'elle dépasse cinq ticks sous la charge de la suite complète est
+     * une hypothèse non mesurée. Le test attend donc les états (jusqu'à {@code timeoutTicks}) au lieu d'un délai fixe ; il exige les mêmes états finals.
      */
-    @GameTest(template = "test/plancher", batch = LOT, setupTicks = 20, timeoutTicks = 300)
+    @GameTest(template = "test/plancher", batch = LOT, setupTicks = 20, timeoutTicks = 400)
     public static void sousUnToitApresCoup(GameTestHelper helper) {
         BlockPos pos = haut(helper);
         LighthouseBlockEntity be = poser(helper, pos);
         alimenter(be);
         helper.startSequence()
-                .thenIdle(10)
+                .thenWaitUntil(() -> helper.assertTrue(allume(helper, pos), "le phare devait d'abord s'allumer"))
                 .thenExecute(() -> {
                     try {
-                        helper.assertTrue(allume(helper, pos), "le phare devait d'abord être allumé");
                         helper.setBlock(pos.above(), Blocks.STONE);
                     } catch (RuntimeException e) {
                         nettoyer(helper, pos);
@@ -183,6 +166,7 @@ public final class PhareGameTests {
                 .thenWaitUntil(() -> helper.assertTrue(be.state() == MachineState.STOPPED, "STOPPED attendu, vu " + be.state()))
                 .thenExecute(() -> {
                     try {
+                        // Pas d'hystérésis ici : la tour n'est plus libre, le phare s'éteint tout de suite.
                         helper.assertTrue(!allume(helper, pos), "le phare couvert devait s'éteindre");
                         helper.setBlock(pos.above(), Blocks.AIR);
                     } catch (RuntimeException e) {
@@ -191,9 +175,55 @@ public final class PhareGameTests {
                     }
                 })
                 .thenWaitUntil(() -> helper.assertTrue(be.state() == MachineState.RUNNING, "RUNNING attendu, vu " + be.state()))
+                // Le rallumage attend LIT_HOLD_TICKS ticks de marche : état attendu, délai borné par timeoutTicks.
+                .thenWaitUntil(() -> helper.assertTrue(allume(helper, pos), "le phare découvert devait se rallumer"))
+                .thenExecute(() -> nettoyer(helper, pos))
+                .thenSucceed();
+    }
+
+    /**
+     * Une source plus faible que le besoin (20 FE par tick pour 32) fait alterner RUNNING et NO_POWER : le bloc ne doit
+     * pas clignoter. Le phare s'allume d'abord sur sa réserve pleine, qu'on vide, puis le test injecte 20 FE à chaque
+     * tick pendant 100 ticks et compte les changements de {@code lit} (au plus un) et les états vus (la preuve que la
+     * source alternait bien). L'injection et le relevé sont posés d'emblée (pas d'{@code onEachTick} dans un rappel).
+     */
+    @GameTest(template = "test/plancher", batch = LOT, setupTicks = 20, timeoutTicks = 400)
+    public static void sousAlimenteIlNeClignotePas(GameTestHelper helper) {
+        BlockPos pos = haut(helper);
+        LighthouseBlockEntity be = poser(helper, pos);
+        alimenter(be);
+        boolean[] mesure = {false};
+        boolean[] dernier = {false};
+        int[] changements = {0};
+        boolean[] vus = new boolean[MachineState.values().length];
+        helper.onEachTick(() -> {
+            if (!mesure[0]) {
+                return;
+            }
+            be.energy().receiveEnergy(20, false);
+            boolean maintenant = allume(helper, pos);
+            if (maintenant != dernier[0]) {
+                changements[0]++;
+                dernier[0] = maintenant;
+            }
+            vus[be.state().ordinal()] = true;
+        });
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(allume(helper, pos), "le phare devait d'abord s'allumer"))
+                .thenExecute(() -> {
+                    be.drainEnergy(1_000_000);
+                    dernier[0] = allume(helper, pos);
+                    mesure[0] = true;
+                })
+                .thenIdle(100)
                 .thenExecute(() -> {
                     try {
-                        helper.assertTrue(allume(helper, pos), "le phare découvert devait se rallumer");
+                        helper.assertTrue(20 < LightConfig.lighthouseEnergy(),
+                                "le montage suppose une source plus faible que le besoin");
+                        helper.assertTrue(vus[MachineState.RUNNING.ordinal()] && vus[MachineState.NO_POWER.ordinal()],
+                                "la source devait faire alterner RUNNING et NO_POWER");
+                        helper.assertTrue(changements[0] <= 1,
+                                "lit ne devait pas changer plus d'une fois sur 100 ticks, vu " + changements[0]);
                     } finally {
                         nettoyer(helper, pos);
                     }

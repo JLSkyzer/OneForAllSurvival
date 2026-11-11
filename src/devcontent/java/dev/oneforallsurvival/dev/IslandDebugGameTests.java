@@ -260,7 +260,11 @@ public final class IslandDebugGameTests {
     public static void uneCibleDansUnChunkNonChargeEstIgnoree(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         Vec3 depart = helper.absoluteVec(Vec3.atBottomCenterOf(JOUEUR));
-        BlockPos cible = helper.absolutePos(MACHINE).offset(1_000_000, 0, 0);
+        // La cible est la dernière rangée de son chunk : le joueur, placé 2 blocs au sud, est dans le chunk d'à côté.
+        // Au même chunk que la cible, sa seule présence le charge (observé : la position du gabarit change avec le
+        // nombre de GameTests, et le test échouait dès que cible et joueur tombaient dans le même chunk).
+        BlockPos brute = helper.absolutePos(MACHINE).offset(1_000_000, 0, 0);
+        BlockPos cible = new BlockPos(brute.getX(), brute.getY(), (brute.getZ() >> 4 << 4) + 15);
         verifier(level.getChunkSource().getChunkNow(cible.getX() >> 4, cible.getZ() >> 4) == null,
                 "le chunk lointain devait être non chargé");
         JoueurDeTest ingenieur = joueur(helper, "f3_chunk", true);
