@@ -7,7 +7,7 @@ import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
-/** L'octroi du Bien-être (douche, cinéma) et son effet sur la vitesse de minage. */
+/** L'octroi du Bien-être (douche) et son effet sur la vitesse de minage. */
 @Mod.EventBusSubscriber(modid = OneForAllSurvival.MODID)
 public final class WellBeing {
 

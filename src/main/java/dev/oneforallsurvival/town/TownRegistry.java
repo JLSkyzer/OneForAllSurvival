@@ -20,7 +20,7 @@ import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
 
-/** Ce que la vie de la ville enregistre : l'eau chaude et son chauffe-eau (puis, plus tard, douche, cinéma, phare). */
+/** Ce que la vie de la ville enregistre : l'eau chaude, son chauffe-eau et la pomme de douche. */
 public final class TownRegistry {
 
     private static final DeferredRegister<Item> ITEMS =

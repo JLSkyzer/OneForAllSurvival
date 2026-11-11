@@ -44,9 +44,9 @@ Ce que chaque ligne mesure, et ses limites :
 
 - **Rien sans moteur, tout avec** : avant les moteurs, les cuves d'aval restent à 0 (la pompe est donc le seul chemin) ; après, l'eau arrive au dessalinisateur, puis au chauffe-eau (l'écran, ouvert par un vrai clic droit, montre eau potable, eau chaude et énergie lues par le client), puis à la pomme.
 - **Joueur non opérateur** : `deop` par la console RCON, `hasPermissions(2)` faux côté client, survie. Tous les déplacements du joueur passent par `/tp` de la console. Sa vie est abaissée par `/damage` (starve) ; la régénération naturelle est coupée (`gamerule naturalRegeneration false`).
-- **Cinq secondes continues** : sous la pomme **sans tuyau** (cuve vide), 8 s sans aucun effet (plus que les 5 s exigées) ; sous la pomme reliée, le Bien-être arrive entre 4,2 et 4,8 s après la téléportation sur les quatre passages (4,4 s au passage final). Cette durée est mesurée côté client à partir de l'ordre de téléportation : le seuil de 5 s du serveur compte des relevés d'une seconde dont la phase est inconnue, d'où un écart sous 5 s. L'essai échoue si l'effet vient avant 3,8 s.
+- **Cinq secondes continues** : sous la pomme **sans tuyau** (cuve vide), 8 s sans aucun effet (plus que les 5 s exigées) ; sous la pomme reliée, le Bien-être est **observé** arrivant entre 4,2 et 4,8 s après la téléportation sur les quatre passages (4,4 s au passage final) ; la borne haute (4,8 s) est une observation sur quatre passages, pas une garantie. Cette durée est mesurée côté client à partir de l'ordre de téléportation : le seuil de 5 s du serveur compte des relevés d'une seconde dont la phase est inconnue, d'où un écart sous 5 s. L'essai échoue si l'effet vient avant 3,8 s.
 - **Pas de soin** : vie vanilla du client et du serveur, somme des huit membres de First Aid (relevée par `data get entity ... ForgeCaps."firstaid:cap_adv_dmg_mdl"`) identiques avant et après l'effet, et le seul effet bénéfique du joueur est le Bien-être. C'est la preuve du « jamais de soin » en jeu sous First Aid.
-- **Pas de cumul** : sept secondes de plus sous la pomme, la durée vue ne dépasse jamais 7199 (plafond 7200 = 6 min) et retombe à 7200 au second octroi (minimale vue 7100 : le second octroi a bien eu lieu).
+- **Pas de cumul** : sept secondes de plus sous la pomme, la durée vue ne dépasse jamais 7199 (plafond 7200 = 6 min) et retombe à 7200 au second octroi (minimale vue 7100 : le second octroi est **observé** : la durée est remontée à 7200).
 
 ### Ce qui passe : le phare
 
@@ -75,22 +75,22 @@ Les deux cuves du chauffe-eau (eau potable 184 mB, eau chaude 400 mB, valeurs **
 
 ## Film
 
-`./gradlew runDemoVilleFilm -PwithPack` (`FilmVille`, 18:35 à 18:37) : monde intégré plat, une passe réussie, 646 images, `termine.json` sans échec, encodé en `run-demo/film-lot6-ville.mp4` (1 min 4 s, 1280 x 720, 10 images par seconde ; `ffmpeg` déjà installé sur la machine, rien de téléchargé). **Le temps du monde n'est jamais accéléré** ; une seule durée est abrégée, en mémoire, et la légende le dit à l'écran (« ABRÉGÉ (film) : 800 mB d'eau potable déjà produits » : le dessalinisateur reçoit 800 mB d'avance au lieu de les produire en 20 s). Capture des images du jeu lui-même (`FilmCapture`) : aucune autre fenêtre ne peut y figurer. Images extraites du mp4 (par `ffmpeg`) et ouvertes :
+`./gradlew runDemoVilleFilm -PwithPack` (`FilmVille`, 18:35 à 18:37) : monde intégré plat, une passe réussie, 646 images, `termine.json` sans échec, encodé en `run-demo/film-lot6-ville.mp4` (1 min 4 s, 1280 x 720, 10 images par seconde ; `ffmpeg` déjà installé sur la machine, rien de téléchargé). **Le temps du monde n'est jamais accéléré** ; une seule durée est abrégée, en mémoire, et la légende le dit à l'écran (« ABRÉGÉ (film) : 800 mB d'eau potable déjà produits » : le dessalinisateur reçoit 800 mB d'avance au lieu de les produire en 20 s). Capture des images du jeu lui-même (`FilmCapture`) : aucune autre fenêtre ne peut y figurer. Images extraites du mp4 (par `ffmpeg`) et ouvertes ; les horodatages sont approximatifs :
 
-- 0:02 : le monde de jour ; de gauche à droite le puits de pierre, la pompe, le dessalinisateur, la pompe, le chauffe-eau ; au-dessus, la pompe qui monte et le tuyau coudé jusqu'à la pomme de douche. Le bandeau annonce « pas encore de moteur » et des cuves à 0.
-- 0:08 : les trois moteurs (cubes violets) et leurs engrenages tournent ; la légende annonce l'abrègement ; le bandeau donne des cuves qui se remplissent (dessalinisateur potable 512 mB, chauffe-eau chaude 180 mB).
-- 0:12 : près du chauffe-eau (zinc riveté, cerclages de cuivre), le tuyau montant au-dessus de lui.
-- 0:16 : l'écran du chauffe-eau (clic droit) : « État : Chauffe », 8000 FE ; le bandeau donne eau potable et eau chaude en mB.
-- 0:20 : la pomme de douche au bout du tuyau, vue de côté, avec le bandeau « pomme 516 mB ».
-- 0:24 : le joueur (vue de face) sous la pomme, les jets en filets bleus tombent sur lui ; le bandeau compte 2/5 secondes, « Bien-être : aucun ».
-- 0:28 : l'icône du Bien-être est dans le coin haut droit, « Bien-être : oui, 358 s restantes », le compteur est reparti à 1/5 (l'effet est donné, le compteur de la pomme retombe à zéro), vie 20/20.
-- 0:31 : vue à la première personne, regard vers la pomme, l'icône du Bien-être en haut à droite.
-- 0:35 : la nuit tombe ; le phare au sommet de sa tour, vu depuis une plateforme plus basse : deux faisceaux opposés, blanc-jaune sur fond noir, d'abord en diagonale ; le bandeau donne « RUNNING | allumé ».
-- 0:38 à 0:46 : les faisceaux ont tourné et sont à plat ; un motif brun passe devant la caméra à 0:38 et 0:46 (particule du jeu, non identifiée).
-- 0:50 : le même motif brun, grand, devant la caméra ; les faisceaux sont toujours là (la légende est encore « Deux faisceaux opposés »).
-- 0:54 : sous le toit de pierre le phare est éteint, **les faisceaux ont disparu** ; le bandeau donne « STOPPED | éteint ».
-- 0:58 : le toit est retiré, le phare est rallumé, les faisceaux sont revenus (« RUNNING | allumé »).
-- 1:03 : dernière image, « Fin du lot 6 » : un faisceau en diagonale, le phare allumé.
+- environ 0:02 : le monde de jour ; de gauche à droite le puits de pierre, la pompe, le dessalinisateur, la pompe, le chauffe-eau ; au-dessus, la pompe qui monte et le tuyau coudé jusqu'à la pomme de douche. Le bandeau annonce « pas encore de moteur » et des cuves à 0.
+- environ 0:08 : les trois moteurs (cubes violets) et leurs engrenages tournent ; la légende annonce l'abrègement ; le bandeau donne des cuves qui se remplissent (dessalinisateur potable 512 mB, chauffe-eau chaude 180 mB).
+- environ 0:12 : près du chauffe-eau (zinc riveté, cerclages de cuivre), le tuyau montant au-dessus de lui.
+- environ 0:16 : l'écran du chauffe-eau (clic droit) : « État : Chauffe », 8000 FE ; le bandeau donne eau potable et eau chaude en mB.
+- environ 0:20 : la pomme de douche au bout du tuyau, vue de côté, avec le bandeau « pomme 516 mB ».
+- environ 0:24 : le joueur (vue de face) sous la pomme, les jets en filets bleus tombent sur lui ; le bandeau compte 2/5 secondes, « Bien-être : aucun ».
+- environ 0:28 : l'icône du Bien-être est dans le coin haut droit, « Bien-être : oui, 358 s restantes », le compteur est reparti à 1/5 (l'effet est donné, le compteur de la pomme retombe à zéro), vie 20/20.
+- environ 0:31 : vue à la première personne, regard vers la pomme, l'icône du Bien-être en haut à droite.
+- environ 0:35 : la nuit tombe ; le phare au sommet de sa tour, vu depuis une plateforme plus basse : deux faisceaux opposés, blanc-jaune sur fond noir, d'abord en diagonale ; le bandeau donne « RUNNING | allumé ».
+- environ 0:38 à 0:46 : les faisceaux ont tourné et sont à plat ; un motif brun passe devant la caméra vers 0:38 et 0:46 (particule du jeu, non identifiée).
+- environ 0:50 : le même motif brun, grand, devant la caméra ; les faisceaux sont toujours là (la légende est encore « Deux faisceaux opposés »).
+- environ 0:54 : sous le toit de pierre le phare est éteint, **les faisceaux ont disparu** ; le bandeau donne « STOPPED | éteint ».
+- environ 0:58 : le toit est retiré, le phare est rallumé, les faisceaux sont revenus (« RUNNING | allumé »).
+- environ 1:03 : dernière image, « Fin du lot 6 » : un faisceau en diagonale, le phare allumé.
 
 Dans le film, le joueur est à 20/20 : le « aucun soin » n'y est pas démontré (le bandeau le montre sans le prouver) ; la preuve est l'essai de bout en bout.
 
@@ -107,6 +107,7 @@ Dans le film, le joueur est à 20/20 : le « aucun soin » n'y est pas démontr�
 - **Consommation du phare en vrai** : l'état STOPPED sous un toit est vu, pas la consommation (source créative).
 - **Pompes de Create** : l'essai ne cherche pas à expliquer le sens de rotation (vitesses lues -16, -16 et 16 tr/min, toutes trois dans le bon sens). Un puits à **une seule source** ne donne que 1 000 mB (la pompe la vide) : l'essai et le film utilisent un puits de quatre sources, qui se refait.
 - **Rendu du Bien-être** : l'icône et le nom en jeu ne sont vus que dans le film (français) ; l'essai de bout en bout est en `en_us`.
+- **Phare jour et nuit** : le phare tourne et s'use jour et nuit, sans interrupteur ; question de jeu ouverte, ni tranchée ni éprouvée ici.
 - **Son** : aucun son de la douche ni du phare n'est vérifié (images seulement).
 
 ## Incidents de l'essai lui-même
@@ -118,4 +119,4 @@ Aucun défaut du code livré n'a été trouvé. Les échecs venaient du banc (ou
 3. Un joueur qui n'est plus opérateur est expulsé « pour spam » s'il envoie une dizaine de commandes d'affilée : après un échec sous la douche, les commandes de rangement des autres étapes l'ont expulsé et `/stop` n'est jamais parti (le serveur est resté ouvert, arrêté proprement par la console RCON). `E2eClient` rend désormais l'opérateur au joueur en premier, avant toute commande de rangement.
 4. L'étape du lot 6 posée **après** celle du lot 5 a allongé de plusieurs minutes l'attente avant l'arrêt du serveur : la seconde couveuse du lot 5, qui doit être coupée depuis moins de 60 s à l'arrêt, avait perdu son œuf (relance : « compteur 0, état STOPPED », 1 échec). L'étape du lot 6 passe maintenant avant celle du lot 5 au premier passage, et après celles des lots 2 à 5 à la relance.
 5. Dans le film, un clic juste après la téléportation de la caméra tombait hors de portée du chauffe-eau (le clic « réussissait » côté client, le menu ne s'ouvrait jamais) : une étape de placement les sépare. Les légendes trop longues recouvraient le titre : elles tiennent désormais en 60 caractères.
-6. **Un GameTest de la tâche 5 échouait** : `PhareGameTests.sousUnToitApresCoup`, « STOPPED attendu, vu RUNNING », aux deux passages de 18:40 et 18:41 (il passait aux passages de la tâche 7, et à 17:36). « Voir le ciel » est la lumière du ciel au-dessus du phare (`Level.canSeeSky`), que le moteur de lumière met à jour de façon asynchrone : un relevé tick par tick (GameTest temporaire, retiré) montre l'état RUNNING pendant deux ticks après la pose du toit, puis STOPPED. Le test attendait cinq ticks fixes ; il attend maintenant l'état (`thenWaitUntil`, jusqu'à son délai de 300 ticks) et exige les mêmes états finals. **Hypothèse non vérifiée** : le délai de la lumière dépasse cinq ticks sous la charge de la suite complète. L'asynchronisme est lu dans le code et relevé sur deux ticks ; que le moteur de lumière dépasse cinq ticks lors des échecs n'a pas été mesuré.
+6. **Un GameTest de la tâche 5 échouait** : `PhareGameTests.sousUnToitApresCoup`, « STOPPED attendu, vu RUNNING », aux deux passages de 18:40 et 18:41 (il passait aux passages de la tâche 7, et à 17:36). « Voir le ciel » est la lumière du ciel au-dessus du phare (`Level.canSeeSky`), que le moteur de lumière met à jour de façon asynchrone : un relevé tick par tick (GameTest temporaire, retiré) montre l'état RUNNING pendant deux ticks après la pose du toit, puis STOPPED. Le test attendait cinq ticks fixes ; il attend maintenant l'état (`thenWaitUntil`, jusqu'à son délai de 300 ticks) et exige les mêmes états finals. **Hypothèse non mesurée** : le délai de la lumière dépasse cinq ticks sous la charge de la suite complète. L'asynchronisme est lu dans le code et relevé sur deux ticks ; que le moteur de lumière dépasse cinq ticks lors des échecs n'a pas été mesuré.

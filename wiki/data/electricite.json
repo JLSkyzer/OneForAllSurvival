@@ -1151,7 +1151,7 @@
       ]
     },
     {
-      "id": "phare-projecteurs",
+      "id": "phare",
       "num": 17,
       "name": "Phare",
       "kind": "machine",
@@ -1172,8 +1172,8 @@
       },
       "steps": [
         "Poser le phare au sommet d'une tour, à ciel libre et à 8 blocs au moins au-dessus de la mer.",
-        "Lui donner du courant : deux faisceaux opposés tournent, visibles de loin.",
-        "Sous un toit ou trop bas, il reste éteint et ne consomme rien."
+        "Lui donner du courant : deux faisceaux opposés tournent.",
+        "Sous un toit ou trop bas, il reste éteint."
       ],
       "flow": [
         "Courant",
@@ -1272,7 +1272,7 @@
       "steps": [
         "Relier un dessalinisateur au chauffe-eau par des tuyaux et une pompe de Create, avec du courant.",
         "Relier le chauffe-eau à la pomme de douche de la même façon (elle peut être à l'étage).",
-        "Se tenir de 1 à 3 blocs sous la pomme : 5 secondes continues d'eau chaude donnent le Bien-être."
+        "Poser la pomme 2 ou 3 blocs au-dessus du sol et se tenir dessous : 5 secondes continues d'eau chaude donnent le Bien-être."
       ],
       "flow": [
         "Dessalinisateur",

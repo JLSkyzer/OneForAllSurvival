@@ -52,7 +52,7 @@ public final class DoucheGameTests {
 
     /**
      * Le plancher du gabarit est sous le niveau 0 : un joueur que le tic complet soumet à la gravité se pose à y = 0
-     * (observé : y absolu -60 pour un origine à -60), donc la pomme est à 2,5 de ses pieds.
+     * (observé : y absolu -60 pour un origine à -60), donc le dessous de la pomme (y = 2) est à 2 de ses pieds.
      */
     private static final BlockPos TETE = new BlockPos(3, 2, 1);
     /** Hauteur du plafond posé par {@link #degager}. */
@@ -105,9 +105,14 @@ public final class DoucheGameTests {
 
     /** Une pomme pleine d'eau chaude en {@link #TETE}. */
     private static ShowerHeadBlockEntity poser(GameTestHelper helper, int mb) {
+        return poser(helper, mb, TETE);
+    }
+
+    /** Une pomme pleine d'eau chaude à la position donnée. */
+    private static ShowerHeadBlockEntity poser(GameTestHelper helper, int mb, BlockPos tete) {
         degager(helper);
-        helper.setBlock(TETE, TownRegistry.SHOWER_HEAD.get());
-        ShowerHeadBlockEntity be = (ShowerHeadBlockEntity) helper.getBlockEntity(TETE);
+        helper.setBlock(tete, TownRegistry.SHOWER_HEAD.get());
+        ShowerHeadBlockEntity be = (ShowerHeadBlockEntity) helper.getBlockEntity(tete);
         helper.assertTrue(be != null, "pas de block entity de la pomme de douche");
         be.tank().setFluid(mb == 0 ? FluidStack.EMPTY : new FluidStack(TownRegistry.HOT_WATER.get(), mb));
         return be;
@@ -166,6 +171,31 @@ public final class DoucheGameTests {
                 helper.assertTrue(be.tank().getFluidAmount() == 1000 - 5 * TownConfig.showerMbPerTick() * 20,
                         "5 secondes d'eau consommées attendues, reste " + be.tank().getFluidAmount());
                 helper.assertTrue(helper.getBlockState(TETE).getValue(ShowerHeadBlock.ACTIVE),
+                        "la pomme devait couler (active)");
+            } finally {
+                j.quitter();
+            }
+            helper.succeed();
+        });
+    }
+
+    /**
+     * La pomme posée 3 blocs au-dessus du sol (la plus haute des deux hauteurs acceptées), un bloc d'air entre la tête
+     * du joueur (1,8) et le dessous de la pomme : la même douche qu'à 2 blocs, avec le Bien-être au bout.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_A, setupTicks = 20, timeoutTicks = 300)
+    public static void aTroisBlocsAuDessusDuSol(GameTestHelper helper) {
+        BlockPos tete = new BlockPos(3, 3, 1);
+        ShowerHeadBlockEntity be = poser(helper, 1000, tete);
+        JoueurDeTest j = debout(helper, "douche_trois", 3.5);
+        helper.runAfterDelay(110, () -> {
+            try {
+                helper.assertTrue(helper.getBlockState(tete.below()).isAir(),
+                        "un bloc d'air attendu sous la pomme");
+                helper.assertTrue(bienEtre(j) != null, "le Bien-être était attendu avec la pomme à 3 blocs");
+                helper.assertTrue(be.secondsUnder(j.uuid()) == 0, "le compteur devait retomber à zéro, vu "
+                        + be.secondsUnder(j.uuid()));
+                helper.assertTrue(helper.getBlockState(tete).getValue(ShowerHeadBlock.ACTIVE),
                         "la pomme devait couler (active)");
             } finally {
                 j.quitter();

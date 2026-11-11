@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 
 class ShowerRulesTest {
 
+    /** Le dessous du bloc de la pomme (y entier), comme le calcule la pomme : pas le centre du bloc. */
     private static final Vec3 TETE = new Vec3(0.5, 10.0, 0.5);
 
     /** Un joueur de 0,6 x 1,8 dont les pieds sont en {@code y}, centré en ({@code x}, 0,5). */
@@ -23,14 +24,27 @@ class ShowerRulesTest {
         return new AABB(x - 0.3, y, z - 0.3, x + 0.3, y + 1.8, z + 0.3);
     }
 
+    /** La pomme à 2 blocs au-dessus du sol : la tête (1,8) touche presque le dessous. */
     @Test
-    void sousLaPommeAUnBloc() {
-        assertTrue(ShowerRules.isUnder(TETE, joueur(0.5, 9.0)));
+    void aDeuxBlocsLaTeteSousLaPomme() {
+        assertTrue(ShowerRules.isUnder(TETE, joueur(0.5, 8.0)));
+    }
+
+    /** La pomme à 3 blocs au-dessus du sol : un bloc d'air entre la tête et la pomme. */
+    @Test
+    void aTroisBlocsUnBlocDAir() {
+        assertTrue(ShowerRules.isUnder(TETE, joueur(0.5, 7.0)));
     }
 
     @Test
-    void aTroisBlocs() {
-        assertTrue(ShowerRules.isUnder(TETE, joueur(0.5, 7.0)));
+    void pasAUnBloc() {
+        assertFalse(ShowerRules.isUnder(TETE, joueur(0.5, 9.0)));
+    }
+
+    @Test
+    void justeAuxBornes() {
+        assertFalse(ShowerRules.isUnder(TETE, joueur(0.5, 8.1)), "1,9 sous la pomme : trop haut");
+        assertFalse(ShowerRules.isUnder(TETE, joueur(0.5, 6.9)), "3,1 sous la pomme : trop bas");
     }
 
     @Test
@@ -40,16 +54,16 @@ class ShowerRulesTest {
 
     @Test
     void pasAColeDeLAxe() {
-        assertTrue(ShowerRules.isUnder(TETE, joueur(1.0, 8.0)));
-        assertFalse(ShowerRules.isUnder(TETE, joueur(1.2, 8.0)));
+        assertTrue(ShowerRules.isUnder(TETE, joueur(1.0, 7.5)));
+        assertFalse(ShowerRules.isUnder(TETE, joueur(1.2, 7.5)));
     }
 
     /** Le seuil est un disque, pas un carré : 0,4 de chaque côté (0,57 en diagonale) passe, 0,5 (0,71) non. */
     @Test
     void enDiagonaleLeSeuilEstUnDisque() {
-        assertTrue(ShowerRules.isUnder(TETE, joueurDecale(0.4, 0.4, 8.0)));
-        assertFalse(ShowerRules.isUnder(TETE, joueurDecale(0.5, 0.5, 8.0)));
-        assertFalse(ShowerRules.isUnder(TETE, joueurDecale(-0.5, 0.5, 8.0)));
+        assertTrue(ShowerRules.isUnder(TETE, joueurDecale(0.4, 0.4, 7.5)));
+        assertFalse(ShowerRules.isUnder(TETE, joueurDecale(0.5, 0.5, 7.5)));
+        assertFalse(ShowerRules.isUnder(TETE, joueurDecale(-0.5, 0.5, 7.5)));
     }
 
     @Test

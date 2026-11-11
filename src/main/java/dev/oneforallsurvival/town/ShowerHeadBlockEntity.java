@@ -25,7 +25,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * La pomme de douche. Une cuve de {@value #TANK_CAPACITY} mB qui n'accepte que l'eau chaude et que rien ne vide.
  *
- * <p>Toutes les 20 ticks, côté serveur : elle relève les joueurs dessous ({@link ShowerRules#isUnder}, rien de plein
+ * <p>Toutes les 20 ticks, côté serveur : elle relève les joueurs dessous ({@link ShowerRules#isUnder}, depuis le dessous du
+ * bloc de la pomme, pieds à 2 ou 3 blocs plus bas ; rien de plein
  * entre la pomme et eux, spectateurs exclus). S'il y en a au moins un et que la cuve a de quoi couler une seconde
  * ({@code showerMbPerTick × 20} mB), elle les consomme et chacun gagne une seconde de douche ; sinon tous les
  * compteurs repartent à zéro. Un joueur qui n'est plus dessous repart de zéro aussi. À {@code showerSeconds} le
@@ -90,6 +91,8 @@ public final class ShowerHeadBlockEntity extends BlockEntity {
     private LazyOptional<IFluidHandler> fluidCap = LazyOptional.of(() -> pipes);
     private final Map<UUID, Integer> seconds = new HashMap<>();
     private int cooldown;
+    /** Vrai jusqu'au premier tick serveur après le chargement : les compteurs ne sont pas sauvegardés. */
+    private boolean justLoaded = true;
 
     public ShowerHeadBlockEntity(BlockPos pos, BlockState state) {
         super(TownRegistry.SHOWER_HEAD_BE.get(), pos, state);
@@ -111,6 +114,14 @@ public final class ShowerHeadBlockEntity extends BlockEntity {
     }
 
     public static void serverTick(Level level, BlockPos pos, BlockState state, ShowerHeadBlockEntity be) {
+        if (be.justLoaded) {
+            // Après un rechargement, la pomme ne doit pas goutter à tort : plus personne n'est compté dessous.
+            be.justLoaded = false;
+            if (state.getValue(ShowerHeadBlock.ACTIVE)) {
+                state = state.setValue(ShowerHeadBlock.ACTIVE, false);
+                level.setBlock(pos, state, 3);
+            }
+        }
         if (++be.cooldown < PERIOD) {
             return;
         }
@@ -141,7 +152,8 @@ public final class ShowerHeadBlockEntity extends BlockEntity {
     }
 
     private List<Player> playersUnder(Level level, BlockPos pos) {
-        Vec3 head = Vec3.atCenterOf(pos);
+        // Le dessous du bloc, pas son centre : voir ShowerRules.
+        Vec3 head = new Vec3(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5);
         AABB zone = new AABB(head.x - 1.0, head.y - ShowerRules.MAX_BELOW, head.z - 1.0,
                 head.x + 1.0, head.y - ShowerRules.MIN_BELOW + 2.0, head.z + 1.0);
         return level.getEntitiesOfClass(Player.class, zone, player -> player.isAlive() && !player.isSpectator()
