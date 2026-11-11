@@ -1116,12 +1116,12 @@
     {
       "id": "phare-projecteurs",
       "num": 17,
-      "name": "Phare et projecteurs",
+      "name": "Phare",
       "kind": "machine",
       "status": "prevu",
       "lot": "Lot 6",
       "image": null,
-      "what": "Faisceau tournant, symbole de la ville, et projecteur orientable."
+      "what": "Faisceau tournant au sommet d'une tour libre, repère et symbole de la ville."
     },
     {
       "id": "detecteur-metaux",

@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ajouter l'effet Bien-être, le chauffe-eau et la douche, le phare et le projecteur, pour que le courant serve aussi au confort et aux repères de la ville.
+**Goal:** Ajouter l'effet Bien-être, le chauffe-eau et la douche, et le phare, pour que le courant serve aussi au confort et aux repères de la ville.
 
-**Architecture:** Chauffe-eau, phare et projecteur héritent de `ElectricMachineBlockEntity`, donc de l'usure, des pannes et du testeur. La douche est un simple bloc de plomberie sans courant. L'eau chaude est un fluide du mod, transporté par les tuyaux de Create comme l'eau potable du dessalinisateur. Les règles chiffrées (rayon du projecteur, tour libre) sont de la logique pure testée en JUnit. Aucun mixin.
+**Architecture:** Chauffe-eau et phare héritent de `ElectricMachineBlockEntity`, donc de l'usure, des pannes et du testeur. La douche est un simple bloc de plomberie sans courant. L'eau chaude est un fluide du mod, transporté par les tuyaux de Create comme l'eau potable du dessalinisateur. Les règles chiffrées (tour libre) sont de la logique pure testée en JUnit. Aucun mixin.
 
 **Tech Stack:** Forge 1.20.1-47.4.28, Java 17, ForgeGradle 6, JUnit 5, GameTests, Farmer's Delight 1.20.1-1.3.4 (`implementation`), API JEI en `compileOnly`, Create en `-PwithPack` pour les tuyaux.
 
@@ -29,10 +29,9 @@
 
 ## Review Focus
 
-1. Projecteur : aucun bloc de lumière orphelin quand il est cassé, coupé, réorienté, en panne, déchargé ou à l'arrêt du serveur ; jamais un bloc écrasé, jamais une lumière d'autrui retirée. Testé en tâche 6.
-2. Douche : deux joueurs, un joueur qui sort puis revient, l'eau chaude qui manque en pleine douche : l'effet seulement après 5 s continues d'eau chaude, pour chacun. Testé en tâche 2.
-3. Bien-être : ne soigne jamais, ne se cumule pas au-delà de sa durée, ne dépasse pas son niveau. Testé en tâche 2.
-4. Chauffe-eau : n'accepte que l'eau potable du mod (ni eau vanilla, ni lave), ne rend que l'eau chaude, ne perd rien sans courant. Testé en tâche 1.
+1. Douche : deux joueurs, un joueur qui sort puis revient, l'eau chaude qui manque en pleine douche : l'effet seulement après 5 s continues d'eau chaude, pour chacun. Testé en tâche 2.
+2. Bien-être : ne soigne jamais, ne se cumule pas au-delà de sa durée, ne dépasse pas son niveau. Testé en tâche 2.
+3. Chauffe-eau : n'accepte que l'eau potable du mod (ni eau vanilla, ni lave), ne rend que l'eau chaude, ne perd rien sans courant. Testé en tâche 1.
 
 ## Décisions prises par ce plan (à signaler à Killian)
 
@@ -44,8 +43,7 @@
 | Chauffe-eau | 5 mB d'eau potable par tick deviennent 5 mB d'eau chaude, 40 FE par tick, deux cuves de 4 000 mB | À équilibrer ; débouché pour le dessalinisateur |
 | Douche | Pomme de douche sans courant ni usure, cuve de 1 000 mB ; 2 mB par tick tant qu'un joueur est dessous ; effet après 5 s continues, de 1 à 3 blocs sous la pomme | « Quelques secondes sous l'eau chaude » |
 | Phare | Marche seulement s'il voit le ciel au-dessus et se trouve à 8 blocs au moins au-dessus du niveau de la mer ; 32 FE par tick ; deux faisceaux opposés, un tour en 8 s, 96 blocs de long | « Au sommet d'une tour libre » ; « visible de loin » |
-| Projecteur | Orienté par le regard du joueur qui le pose ou qui le clique main vide ; portée 48 blocs ; un bloc `minecraft:light` de niveau 15 au point visé ; les mobs à 1,5 bloc de l'axe reçoivent Surbrillance 2 s ; 16 FE par tick | « S'oriente, éclaire le point visé, fait ressortir les mobs » |
-| Consommation des lumières | Phare et projecteur consomment au moins le double de la plus forte lampe relevée dans les jars de Crafts & Additions, New Age et Advanced Electricity ; les valeurs de départ sont relevées si ce n'est pas le cas | « Consomment plus que les lampes des autres mods » |
+| Consommation des lumières | Le phare consomme au moins le double de la plus forte lampe relevée dans les jars de Crafts & Additions, New Age et Advanced Electricity ; les valeurs de départ sont relevées si ce n'est pas le cas | « Consomment plus que les lampes des autres mods » |
 
 ## Fichiers
 
@@ -57,8 +55,7 @@
 | `town/ShowerHeadBlock.java`, `town/ShowerHeadBlockEntity.java`, `town/ShowerRules.java` | Douche |
 | `light/LightRegistry.java`, `light/LightConfig.java`, `light/LightRules.java` | Registres, config `oneforallsurvival-light.toml`, règles pures |
 | `light/LighthouseBlock.java`, `light/LighthouseBlockEntity.java`, `light/client/LighthouseRenderer.java` | Phare |
-| `light/SearchlightBlock.java`, `light/SearchlightBlockEntity.java`, `light/client/SearchlightRenderer.java` | Projecteur |
-| `src/devcontent/.../{ChauffeEau,Douche,Phare,Projecteur}GameTests.java`, `E2eVille.java`, `FilmVille.java` | Preuves |
+| `src/devcontent/.../{ChauffeEau,Douche,Phare}GameTests.java`, `E2eVille.java`, `FilmVille.java` | Preuves |
 | `tools/gen_textures_lot6.py` | Textures et icône de l'effet |
 
 ---
@@ -123,13 +120,13 @@ Retirées le 2026-11-11 à la demande de Killian : la salle de projection (featu
 **Interfaces:**
 - Produces :
   - `LightRules.isFreeTower(boolean seesSky, int y, int seaLevel, int minAboveSea) : boolean`.
-  - `LightConfig` : `lighthouseEnergy()` 32, `lighthouseMinAboveSea()` 8, `searchlightEnergy()` 16, `searchlightRange()` 48, `searchlightGlowRadius()` 1.5.
-  - `LightRegistry.LIGHTHOUSE`, `SEARCHLIGHT`, objets, `LIGHTHOUSE_BE`, `SEARCHLIGHT_BE`, `tabItems()`.
+  - `LightConfig` : `lighthouseEnergy()` 32, `lighthouseMinAboveSea()` 8.
+  - `LightRegistry.LIGHTHOUSE`, son objet, `LIGHTHOUSE_BE`, `tabItems()`.
   - `LighthouseBlock` : propriété `lit`, lumière 15 quand `lit`.
 
 Règles : `wantsToWork` : `isFreeTower(level.canSeeSky(pos.above()), …)`. `lit` suit l'état `RUNNING`. Posé par un joueur hors d'une tour libre : message « Le phare doit voir le ciel, à 8 blocs au moins au-dessus de la mer ». Rendu : deux faisceaux opposés, un tour en 8 s calé sur le temps de jeu (tous les clients voient le même angle), 96 blocs, translucides, seulement si `lit` ; boîte de rendu infinie, distance de vue maximale.
 
-Avant d'écrire les valeurs : relever dans les jars en cache la consommation des lampes de Crafts & Additions (`small_light_connector`), New Age (`lamp_post`, `street_light`) et Advanced Electricity (`alarm_lamp` et autres lampes) ; si `lighthouseEnergy` ou `searchlightEnergy` n'atteint pas le double de la plus forte, les relever et le dire dans le rapport.
+Avant d'écrire les valeurs : relever dans les jars en cache la consommation des lampes de Crafts & Additions (`small_light_connector`), New Age (`lamp_post`, `street_light`) et Advanced Electricity (`alarm_lamp` et autres lampes) ; si `lighthouseEnergy` n'atteint pas le double de la plus forte, le relever et le dire dans le rapport.
 
 - [ ] **Step 1: Écrire `LightRulesTest`** : `tourLibre`, `sousUnToitNon`, `tropBasNon`.
 - [ ] **Step 2: Écrire `PhareGameTests`** : `libreIlSAllume`, `sousUnToitIlNeConsommeRien`, `sansCourantIlSEteint`, `enPanneIlSEteint`, `etatSurvitAuRechargement`.
@@ -138,35 +135,19 @@ Avant d'écrire les valeurs : relever dans les jars en cache la consommation des
 - [ ] **Step 5: Lancer, lire** « All N required tests passed » ; capture de nuit du faisceau dans `DemoVisuels`, regardée.
 - [ ] **Step 6: Commit** `feat(light): phare`.
 
-### Task 6: Projecteur
+### Task 6 : retirée
 
-**Files:**
-- Create: `light/SearchlightBlock.java`, `SearchlightBlockEntity.java`, `client/SearchlightRenderer.java`, `src/devcontent/.../ProjecteurGameTests.java`.
-- Modify: `LightRegistry.java`, `LightRules.java`, `LightConfig.java`, langues.
-
-**Interfaces:**
-- Produces :
-  - `LightRules.lightSpot(Vec3 from, Vec3 hit) : Vec3` (le point 0,5 bloc avant l'impact, vers la source) ; `LightRules.nearAxis(Vec3 from, Vec3 to, Vec3 point, double radius) : boolean` (distance au segment).
-  - `SearchlightBlockEntity` : `yaw()`, `pitch()`, `aim(float yaw, float pitch)`, `lightPos() : @Nullable BlockPos`, `beamLength() : float`.
-
-Règles : posé, il prend le regard du joueur ; un clic main vide le réoriente (ouvert à tous). Toutes les 10 ticks en marche : rayon `ClipContext.Block.COLLIDER` sur `searchlightRange`, sans traverser de chunk non chargé. Au point `lightSpot`, si le bloc est de l'air (ou notre lumière précédente) : y poser `minecraft:light` niveau 15 ; l'ancienne lumière n'est retirée que si elle est encore un bloc `minecraft:light` à la position suivie. Aucune lumière si le rayon ne touche rien ou si le point n'est pas de l'air. `LivingEntity` non joueurs à `searchlightGlowRadius` de l'axe : Surbrillance 40 ticks. Arrêt, coupure, panne, réorientation, casse, déchargement du chunk, `setRemoved` : lumière retirée. Position suivie sauvegardée, pour la retirer après une relance. Rendu : la tête tournée selon `yaw`/`pitch`, un faisceau translucide jusqu'à `beamLength`, synchronisés par `getUpdateTag`.
-
-- [ ] **Step 1: Compléter `LightRulesTest`** : `lumiereAvantLImpact`, `surLAxe`, `horsDeLAxe`, `auDelaDuSegmentNon`.
-- [ ] **Step 2: Écrire `ProjecteurGameTests`** : `ilEclaireLePointVise`, `reorienteLAncienneLumiereDisparait`, `casseRienNeReste`, `coupureRienNeReste`, `enPanneRienNeReste`, `jamaisUnBlocEcrase` (vitre au point visé : intacte, pas de lumière), `uneLumiereDAutruiReste` (lumière posée à la main hors du point suivi : intacte), `unZombieDansLAxeBrille`, `horsDeLAxeNon`, `rechargeLaLumiereSuivieEstRetiree` (relue après `saveWithoutMetadata`/`load`, puis arrêt). Lots de 8 au plus.
-- [ ] **Step 3: Lancer, constater l'échec.**
-- [ ] **Step 4: Implémenter.**
-- [ ] **Step 5: Lancer, lire** « All N required tests passed ».
-- [ ] **Step 6: Commit** `feat(light): projecteur`.
+Retirée le 2026-11-11 à la demande de Killian : le projecteur orientable de la feature 17 est abandonné ; seul le phare reste. Les tâches suivantes gardent leur numéro.
 
 ### Task 7: Recettes du matériel et visuels finaux
 
 **Files:**
-- Create: recettes de table `water_heater`, `shower_head`, `lighthouse`, `searchlight` (conditions `forge:mod_loaded`, comme `dryer.json`) ; tables de butin ; états de blocs, modèles, textures ; icône d'effet `textures/mob_effect/well_being.png` ; `tools/gen_textures_lot6.py` complété.
+- Create: recettes de table `water_heater`, `shower_head`, `lighthouse` (conditions `forge:mod_loaded`, comme `dryer.json`) ; tables de butin ; états de blocs, modèles, textures ; icône d'effet `textures/mob_effect/well_being.png` ; `tools/gen_textures_lot6.py` complété.
 - Modify: `DemoVisuels`, `PackGameTests`, langues, tag `mineable/pickaxe`.
 
-Les quatre objets se fabriquent à l'établi d'ingénieur : `PackGameTests` vérifie qu'aucune recette de table ne les donne une fois le pack chargé et que les quatre blocs tombent à la pioche. Ingrédients : plaques, tubes et réservoir de fluide de Create, pièces du lot 2 (bobine, fusible, tag `oneforallsurvival:wire`), verre pour le phare et le projecteur.
+Les trois objets se fabriquent à l'établi d'ingénieur : `PackGameTests` vérifie qu'aucune recette de table ne les donne une fois le pack chargé et que les trois blocs tombent à la pioche. Ingrédients : plaques, tubes et réservoir de fluide de Create, pièces du lot 2 (bobine, fusible, tag `oneforallsurvival:wire`), verre pour le phare.
 
-Visuels, style bricolage et récupération, palette cohérente avec les lots 2 à 5, en 16 x 16, script Python/PIL reproductible, aucun fichier téléchargé : quatre états de lampe pour chaque machine ; chauffe-eau en ballon de tôle cerclé, manomètre ; pomme de douche en arrosoir de récupération (modèle partiel, `noOcclusion`) ; phare en lanterne à lentille sous dôme ; projecteur en tambour sur fourche. Captures : chaque bloc seul, collé à un mur, de jour et de nuit pour les lumières.
+Visuels, style bricolage et récupération, palette cohérente avec les lots 2 à 5, en 16 x 16, script Python/PIL reproductible, aucun fichier téléchargé : quatre états de lampe pour chaque machine ; chauffe-eau en ballon de tôle cerclé, manomètre ; pomme de douche en arrosoir de récupération (modèle partiel, `noOcclusion`) ; phare en lanterne à lentille sous dôme. Captures : chaque bloc seul, collé à un mur, de jour et de nuit pour les lumières.
 
 - [ ] **Step 1: Écrire les tests de `PackGameTests`.**
 - [ ] **Step 2: Lancer avec `-PwithPack`, constater l'échec.**
@@ -181,9 +162,9 @@ Visuels, style bricolage et récupération, palette cohérente avec les lots 2 �
 - Create: `dev/E2eVille.java`, `dev/FilmVille.java`, `docs/verifications/lot-6.md`.
 - Modify: `dev/E2eClient.java`, `build.gradle` (`runDemoVilleFilm`), `wiki/data/electricite.json` (entrées `bien-etre`, `chauffe-eau-douche`, `phare-projecteurs` au statut et au format de l'entrée `cloture-electrique`), `tasks/todo.md`.
 
-**E2E sur serveur dédié, avec le pack, en un seul passage puis relance :** dessalinisateur relié au chauffe-eau, puis le chauffe-eau à la douche, par de vrais tuyaux et une pompe de Create ; un joueur non opérateur sous la douche reçoit le Bien-être après 5 s, sans gain de vie ; sans eau chaude, rien ; `/stop`, relance : les cuves du chauffe-eau sont relues et la lumière suivie du projecteur est retirée à son arrêt ; phare allumé sur une tour, éteint sous un toit ; projecteur : lumière posée, retirée après casse, zombie en Surbrillance. Le script ferme son client quel que soit l'écran atteint et se termine par `/stop`.
+**E2E sur serveur dédié, avec le pack, en un seul passage puis relance :** dessalinisateur relié au chauffe-eau, puis le chauffe-eau à la douche, par de vrais tuyaux et une pompe de Create ; un joueur non opérateur sous la douche reçoit le Bien-être après 5 s, sans gain de vie ; sans eau chaude, rien ; `/stop`, relance : les cuves du chauffe-eau sont relues ; phare allumé sur une tour, éteint sous un toit, rallumé après la relance. Le script ferme son client quel que soit l'écran atteint et se termine par `/stop`.
 
-**Film**, monde intégré, durées raccourcies en mémoire et annoncées à l'écran : une douche, le phare de nuit, le projecteur qui suit un zombie. Filmer avec `FrameRecorder`/`FilmCapture` ou `gfxcapture`, jamais `ddagrab`.
+**Film**, monde intégré, durées raccourcies en mémoire et annoncées à l'écran : une douche, le phare de nuit. Filmer avec `FrameRecorder`/`FilmCapture` ou `gfxcapture`, jamais `ddagrab`.
 
 - [ ] **Step 1: Écrire E2E et film, lancer.** Lire `[e2e] bilan : TOUT PASSE` dans le journal, passage complet et relance.
 - [ ] **Step 2: Rouvrir le film en images**, vérifier chaque scène.

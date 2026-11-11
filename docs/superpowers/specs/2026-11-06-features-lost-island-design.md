@@ -305,11 +305,10 @@ au plus). Le contact repousse et blesse légèrement les mobs. Pour les joueurs,
 par défaut. Végétation touchant la clôture ou orage : consommation accrue. Sans courant, c'est une
 barrière ordinaire. Crafts & Additions a un objet `barbed_wire`, à réutiliser comme ingrédient.
 
-**17. Phare et projecteurs.**
+**17. Phare.** *Le projecteur orientable a été retiré le 2026-11-11 à la demande de Killian.*
 - **Le phare**, un bloc lanterne au sommet d'une tour libre, projette un faisceau tournant visible de
   loin. C'est un repère et un symbole pour la ville.
-- **Le projecteur** s'oriente, éclaire le point visé et fait ressortir les mobs dans son axe.
-- Ces deux blocs consomment plus que les lampes des autres mods, pour que leur usage reste un choix.
+- Il consomme plus que les lampes des autres mods, pour que son usage reste un choix.
 
 ### Exploration et mystère
 
