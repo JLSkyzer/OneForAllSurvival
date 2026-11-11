@@ -952,7 +952,7 @@
       "status": "prevu",
       "lot": "Lot 6",
       "image": null,
-      "what": "Léger bonus d'activité, sans soin, donné par la douche chaude et le cinéma."
+      "what": "Léger bonus d'activité, sans soin, donné par la douche chaude."
     },
     {
       "id": "couveuse",
@@ -1176,16 +1176,6 @@
       "lot": "Lot 6",
       "image": null,
       "what": "Chauffe l'eau potable au courant ; quelques secondes de douche donnent Bien-être."
-    },
-    {
-      "id": "salle-projection",
-      "num": 26,
-      "name": "Salle de projection",
-      "kind": "machine",
-      "status": "prevu",
-      "lot": "Lot 6",
-      "image": null,
-      "what": "Projecteur à bobines et écran multi-bloc ; une séance complète donne Bien-être."
     }
   ]
 }

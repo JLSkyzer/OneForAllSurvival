@@ -183,7 +183,7 @@ médecin.
 
 ## 5. Features
 
-Les numéros reprennent ceux de la liste validée. Les 14, 15, 18, 19 et 20 ont été retirés.
+Les numéros reprennent ceux de la liste validée. Les 14, 15, 18, 19 et 20 ont été retirés, puis la 26 le 2026-11-11.
 Toutes les valeurs chiffrées sont des valeurs de départ, à équilibrer.
 
 ### Le métier d'ingénieur
@@ -339,10 +339,8 @@ Technique d'éclairage à valider au lot concerné : elle doit rester lisible et
 Après quelques secondes sous l'eau chaude, le joueur reçoit l'effet **Bien-être**. Sans eau chaude, pas
 d'effet.
 
-**26. Salle de projection.**
-- Un **projecteur de cinéma** affiche une suite d'images sur un écran multi-bloc, à partir de **bobines**.
-- Le contenu vient des ressources du mod ou du pack : **aucun téléchargement depuis Internet**.
-- Pas de son intégré. Une séance complète donne l'effet **Bien-être** aux spectateurs présents.
+**26. Salle de projection.** *Retirée le 2026-11-11 à la demande de Killian : le serveur aura le mod
+WaterFrames pour afficher images et vidéos.*
 
 ## 6. Découpage conseillé
 
@@ -356,7 +354,7 @@ Chaque lot produit quelque chose de jouable et peut être livré seul, **visuels
 | 3 | 9, 10, 11 | L'électricité devient vitale |
 | 4 | 7, 8, 5, 6 | La gestion du réseau et ses arbitrages |
 | 5 | 12, 13, 16 | Vivres et protection |
-| 6 | 25, 26, 17 | La vie de la ville |
+| 6 | 25, 17 | La vie de la ville |
 | 7 | 21, 22, 23, 24 | L'exploration et les outils de l'équipe du serveur |
 
 *Le lot 4 est livré. Les changements apportés le 2026-11-08 à la feature 8 (fournisseurs, jumelage,
