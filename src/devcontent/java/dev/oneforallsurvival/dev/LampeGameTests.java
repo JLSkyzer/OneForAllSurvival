@@ -4,30 +4,35 @@ import dev.oneforallsurvival.explore.ExploreConfig;
 import dev.oneforallsurvival.explore.ExploreRegistry;
 import dev.oneforallsurvival.explore.HeadlampItem;
 import dev.oneforallsurvival.explore.HeadlampLightData;
+import dev.oneforallsurvival.explore.HeadlampLights;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.AfterBatch;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.LightBlock;
 import net.minecraft.world.level.block.LiquidBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.ChunkStatus;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
-import net.minecraftforge.event.level.ChunkEvent;
+import net.minecraftforge.event.level.ChunkDataEvent;
+import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
@@ -35,7 +40,7 @@ import net.minecraftforge.gametest.PrefixGameTestTemplate;
  * La lampe frontale : un bloc de lumière suit la tête du porteur et ne reste jamais derrière lui. Les joueurs sont de
  * vrais {@link JoueurDeTest}. Le niveau ne les anime pas : chaque test publie à chaque tick l'évènement de tick de
  * joueur de Forge ({@link #pulser}), ce qui exerce l'abonnement de la lampe et non un appel direct. Chaque test joue
- * dans une boîte fermée (pourtour et plafond), par lots de six tests au plus. Un joueur d'essai n'a pas de client :
+ * dans une boîte fermée (pourtour et plafond), par lots de huit tests au plus. Un joueur d'essai n'a pas de client :
  * il ne tombe pas, il reste où le test le met. Les deux lots rendent les joueurs restés connectés après un échec.
  */
 @GameTestHolder("oneforallsurvival")
@@ -44,6 +49,8 @@ public final class LampeGameTests {
 
     private static final String LOT_A = "lampe_a";
     private static final String LOT_B = "lampe_b";
+    private static final String LOT_C = "lampe_c";
+    private static final String LOT_D = "lampe_d";
     private static final int PLAFOND = 4;
     /** Debout au centre de la boîte : les yeux sont dans la case (3, 2, 3). */
     private static final Vec3 CENTRE = new Vec3(3.5, 1, 3.5);
@@ -65,6 +72,16 @@ public final class LampeGameTests {
 
     @AfterBatch(batch = LOT_B)
     public static void apresLeLotB(ServerLevel level) {
+        rendreLesJoueurs();
+    }
+
+    @AfterBatch(batch = LOT_C)
+    public static void apresLeLotC(ServerLevel level) {
+        rendreLesJoueurs();
+    }
+
+    @AfterBatch(batch = LOT_D)
+    public static void apresLeLotD(ServerLevel level) {
         rendreLesJoueurs();
     }
 
@@ -483,11 +500,194 @@ public final class LampeGameTests {
         // Les deux cases sont dans le même chunk que la case orpheline, pour le même balayage.
         LevelChunk chunk = helper.getLevel().getChunkAt(orphelinAbs);
         helper.assertTrue(chunk == helper.getLevel().getChunkAt(equipeAbs), "les deux cases devaient partager un chunk");
-        MinecraftForge.EVENT_BUS.post(new ChunkEvent.Load(chunk, false));
+        MinecraftForge.EVENT_BUS.post(new ChunkDataEvent.Load(chunk, new CompoundTag(), ChunkStatus.ChunkType.LEVELCHUNK));
         assertSansLumiere(helper, orphelinAbs);
         helper.assertTrue(!notes(helper).isOurs(orphelinAbs), "la note orpheline devait être effacée");
         helper.assertTrue(etat(helper, equipeAbs).is(Blocks.LIGHT), "le bloc de lumière de l'équipe devait rester");
         helper.setBlock(equipe, Blocks.AIR);
         helper.succeed();
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Tour 1 de revue
+    // ---------------------------------------------------------------------------------------------
+
+    /** L'énergie part par blocs d'une seconde : la pile ne change qu'une fois par seconde. */
+    @GameTest(template = "test/plancher", batch = LOT_A)
+    public static void laChargeSeDepenseParBlocsDUneSeconde(GameTestHelper helper) {
+        enclos(helper);
+        JoueurDeTest j = joueur(helper, "LampeBlocs", CHARGE);
+        ServerPlayer p = j.joueur();
+        pulser(helper, j);
+        List<Integer> vus = new ArrayList<>();
+        helper.onEachTick(() -> vus.add(HeadlampItem.stored(lampePortee(p))));
+        helper.startSequence()
+                .thenExecuteAfter(45, () -> {
+                    int bloc = ExploreConfig.headlampEnergy() * HeadlampLights.PERIOD;
+                    int changements = 0;
+                    for (int i = 1; i < vus.size(); i++) {
+                        if (!vus.get(i).equals(vus.get(i - 1))) {
+                            changements++;
+                        }
+                    }
+                    int depense = CHARGE - HeadlampItem.stored(lampePortee(p));
+                    helper.assertTrue(depense == 3 * bloc,
+                            "3 blocs de " + bloc + " FE attendus en 45 ticks (ticks 1, 21 et 41), dépensé " + depense);
+                    helper.assertTrue(changements <= 3,
+                            "la pile ne devait changer qu'une fois par seconde, " + changements + " changements en "
+                                    + vus.size() + " ticks");
+                    quitter(j);
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_B)
+    public static void blocRemplaceNettoieLaNote(GameTestHelper helper) {
+        enclos(helper);
+        JoueurDeTest j = joueur(helper, "LampeRemplace", CHARGE);
+        ServerPlayer p = j.joueur();
+        pulser(helper, j);
+        BlockPos[] cible = new BlockPos[1];
+        helper.startSequence()
+                .thenWaitUntil(() -> assertLumiere(helper, oeil(p)))
+                .thenExecute(() -> {
+                    cible[0] = oeil(p);
+                    helper.getLevel().setBlock(cible[0], Blocks.GLASS.defaultBlockState(), 3);
+                })
+                .thenWaitUntil(() -> helper.assertTrue(!notes(helper).isOurs(cible[0]), "la note devait être effacée"))
+                .thenExecuteAfter(3, () -> {
+                    helper.assertTrue(etat(helper, cible[0]).is(Blocks.GLASS),
+                            "le verre devait rester, vu " + etat(helper, cible[0]));
+                    quitter(j);
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void orphelineGardeeSiUneLampeLaVise(GameTestHelper helper) {
+        enclos(helper);
+        JoueurDeTest j = joueur(helper, "LampeVisee", CHARGE);
+        ServerPlayer p = j.joueur();
+        pulser(helper, j);
+        helper.startSequence()
+                .thenWaitUntil(() -> assertLumiere(helper, oeil(p)))
+                .thenExecute(() -> {
+                    BlockPos cible = oeil(p);
+                    // Les données du chunk (forgées) notent aussi cette position, comme après un plantage.
+                    CompoundTag donnees = new CompoundTag();
+                    HeadlampLightData.writeNotes(List.of(new HeadlampLightData.Note(cible, 1)), donnees);
+                    MinecraftForge.EVENT_BUS.post(new ChunkDataEvent.Load(helper.getLevel().getChunkAt(cible), donnees,
+                            ChunkStatus.ChunkType.LEVELCHUNK));
+                    assertLumiere(helper, cible);
+                    helper.assertTrue(notes(helper).isOurs(cible), "la note d'une lampe active devait rester");
+                    quitter(j);
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void laLumiereDeLEquipeQuiRemplaceLaNotreResteSansNote(GameTestHelper helper) {
+        enclos(helper);
+        JoueurDeTest j = joueur(helper, "LampeEchange", CHARGE);
+        ServerPlayer p = j.joueur();
+        pulser(helper, j);
+        BlockPos[] cible = new BlockPos[1];
+        BlockState equipe = Blocks.LIGHT.defaultBlockState().setValue(LightBlock.LEVEL, 15);
+        helper.startSequence()
+                .thenWaitUntil(() -> assertLumiere(helper, oeil(p)))
+                .thenExecute(() -> {
+                    cible[0] = oeil(p);
+                    helper.getLevel().setBlock(cible[0], equipe, 3);
+                })
+                .thenWaitUntil(() -> helper.assertTrue(!notes(helper).isOurs(cible[0]), "la note devait être effacée"))
+                .thenExecute(() -> p.setItemSlot(EquipmentSlot.HEAD, ItemStack.EMPTY))
+                .thenExecuteAfter(5, () -> {
+                    helper.assertTrue(etat(helper, cible[0]) == equipe,
+                            "la lumière de l'équipe (niveau 15) devait rester, vu " + etat(helper, cible[0]));
+                    quitter(j);
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void lesNotesFontLeTourDeLaSerialisation(GameTestHelper helper) {
+        BlockPos pos = helper.absolutePos(new BlockPos(2, 2, 2));
+        HeadlampLightData avant = new HeadlampLightData();
+        avant.placed(pos);
+        avant.placed(pos);
+        CompoundTag donnees = new CompoundTag();
+        HeadlampLightData.writeNotes(avant.notedIn(new ChunkPos(pos)), donnees);
+        helper.assertTrue(donnees.contains(HeadlampLightData.CHUNK_KEY), "les notes devaient être écrites sous leur clé");
+        List<HeadlampLightData.Note> relues = HeadlampLightData.readNotes(donnees);
+        helper.assertTrue(relues.size() == 1 && relues.get(0).pos().equals(pos) && relues.get(0).count() == 2,
+                "une note de compte 2 attendue, relu " + relues);
+        HeadlampLightData apres = new HeadlampLightData();
+        relues.forEach(apres::put);
+        helper.assertTrue(apres.isOurs(pos), "la position relue devait être à nous");
+        helper.assertTrue(!apres.released(pos), "premier départ : le bloc ne part pas encore");
+        helper.assertTrue(apres.isOurs(pos), "un compte de 1 restait");
+        helper.assertTrue(apres.released(pos), "second départ : le dernier");
+        helper.assertTrue(!apres.isOurs(pos), "la note devait être éteinte");
+        helper.assertTrue(HeadlampLightData.readNotes(new CompoundTag()).isEmpty(), "pas de donnée, pas de note");
+        CompoundTag vide = new CompoundTag();
+        HeadlampLightData.writeNotes(List.of(), vide);
+        helper.assertTrue(vide.isEmpty(), "sans note, le chunk ne reçoit rien");
+        helper.succeed();
+    }
+
+    /** La sauvegarde du chunk écrit ses notes, et seulement les siennes. */
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void laSauvegardeDuChunkEcritSesNotes(GameTestHelper helper) {
+        BlockPos pos = helper.absolutePos(new BlockPos(2, 2, 2));
+        BlockPos loin = pos.offset(160, 0, 0);
+        HeadlampLightData data = notes(helper);
+        data.placed(pos);
+        data.placed(loin);
+        CompoundTag donnees = new CompoundTag();
+        MinecraftForge.EVENT_BUS.post(new ChunkDataEvent.Save(helper.getLevel().getChunkAt(pos), helper.getLevel(), donnees));
+        List<HeadlampLightData.Note> ecrites = HeadlampLightData.readNotes(donnees);
+        data.forget(pos);
+        data.forget(loin);
+        helper.assertTrue(ecrites.size() == 1 && ecrites.get(0).pos().equals(pos),
+                "seule la note de ce chunk devait être écrite, vu " + ecrites);
+        helper.succeed();
+    }
+
+    /** Une note lue dans les données du chunk (forgées), sans note en mémoire : le bloc part. */
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void orphelineLueDansLesDonneesDuChunk(GameTestHelper helper) {
+        enclos(helper);
+        BlockPos pos = new BlockPos(3, 2, 3);
+        BlockPos abs = helper.absolutePos(pos);
+        helper.setBlock(pos, Blocks.LIGHT.defaultBlockState().setValue(LightBlock.LEVEL, ExploreConfig.headlampLight()));
+        helper.assertTrue(!notes(helper).isOurs(abs), "rien en mémoire : le plantage a tout emporté");
+        CompoundTag donnees = new CompoundTag();
+        HeadlampLightData.writeNotes(List.of(new HeadlampLightData.Note(abs, 1)), donnees);
+        MinecraftForge.EVENT_BUS.post(new ChunkDataEvent.Load(helper.getLevel().getChunkAt(abs), donnees,
+                ChunkStatus.ChunkType.LEVELCHUNK));
+        assertSansLumiere(helper, abs);
+        helper.succeed();
+    }
+
+    /** Seul dans son lot : l'arrêt rend la lumière de toutes les lampes allumées, y compris celles d'autres tests. */
+    @GameTest(template = "test/plancher", batch = LOT_D)
+    public static void arretDuServeurNettoie(GameTestHelper helper) {
+        enclos(helper);
+        JoueurDeTest j = joueur(helper, "LampeArret", CHARGE);
+        ServerPlayer p = j.joueur();
+        pulser(helper, j);
+        helper.startSequence()
+                .thenWaitUntil(() -> assertLumiere(helper, oeil(p)))
+                .thenExecute(() -> {
+                    BlockPos cible = oeil(p);
+                    // L'évènement n'est pas publié sur le bus (les autres mods arrêteraient leurs services) : le
+                    // gestionnaire de la lampe reçoit le sien.
+                    HeadlampLights.onServerStopping(new ServerStoppingEvent(helper.getLevel().getServer()));
+                    assertSansLumiere(helper, cible);
+                    helper.assertTrue(!notes(helper).isOurs(cible), "la note devait être effacée");
+                    p.setItemSlot(EquipmentSlot.HEAD, ItemStack.EMPTY);
+                    quitter(j);
+                })
+                .thenSucceed();
     }
 }
