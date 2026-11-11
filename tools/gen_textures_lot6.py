@@ -42,7 +42,28 @@ def goutte():
     return img
 
 
+BLOCS = Path(__file__).resolve().parent.parent / "src/main/resources/assets/oneforallsurvival/textures/block"
+
+
+def phare(nom, fond, motif, clair=None):
+    """Texture 16 x 16 du phare : tôle sombre rivetée ; la lampe porte en plus des lames de verre."""
+    img = Image.new("RGBA", (16, 16), fond)
+    px = img.load()
+    for y in range(16):
+        for x in range(16):
+            if (x + y) % 8 == 0 or x in (0, 15) or y in (0, 15):
+                px[x, y] = motif
+            if clair and 3 <= x <= 12 and 3 <= y <= 12 and (x % 4 != 0):
+                px[x, y] = clair
+    img.save(BLOCS / nom)
+    print("écrit", BLOCS / nom)
+
+
 if __name__ == "__main__":
     SORTIE.mkdir(parents=True, exist_ok=True)
     goutte().save(SORTIE / "well_being.png")
     print("écrit", SORTIE / "well_being.png")
+    BLOCS.mkdir(parents=True, exist_ok=True)
+    phare("lighthouse_base.png", (84, 90, 98, 255), (58, 62, 70, 255))
+    phare("lighthouse_lamp.png", (120, 128, 136, 255), (58, 62, 70, 255), (168, 184, 190, 255))
+    phare("lighthouse_lamp_lit.png", (240, 214, 120, 255), (150, 120, 50, 255), (255, 250, 200, 255))

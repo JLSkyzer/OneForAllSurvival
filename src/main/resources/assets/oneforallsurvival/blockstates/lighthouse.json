@@ -1,0 +1,20 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "oneforallsurvival:block/lighthouse"
+      },
+      "when": {
+        "lit": "false"
+      }
+    },
+    {
+      "apply": {
+        "model": "oneforallsurvival:block/lighthouse_lit"
+      },
+      "when": {
+        "lit": "true"
+      }
+    }
+  ]
+}

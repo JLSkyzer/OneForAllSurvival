@@ -17,6 +17,8 @@ import dev.oneforallsurvival.food.FoodRegistry;
 import dev.oneforallsurvival.grid.GridConfig;
 import dev.oneforallsurvival.grid.GridRegistry;
 import dev.oneforallsurvival.grid.LightningEvents;
+import dev.oneforallsurvival.light.LightConfig;
+import dev.oneforallsurvival.light.LightRegistry;
 import dev.oneforallsurvival.machine.MachineConfig;
 import dev.oneforallsurvival.repair.RepairRegistry;
 import dev.oneforallsurvival.role.RoleCommands;
@@ -51,6 +53,7 @@ public final class OneForAllSurvival {
         GridRegistry.register(modEventBus);
         FenceRegistry.register(modEventBus);
         TownRegistry.register(modEventBus);
+        LightRegistry.register(modEventBus);
         BenchNetwork.register();
         MinecraftForge.EVENT_BUS.register(new RoleEvents());
         MinecraftForge.EVENT_BUS.register(new RoleCommands());
@@ -65,6 +68,7 @@ public final class OneForAllSurvival {
         context.registerConfig(ModConfig.Type.SERVER, GridConfig.SPEC, "oneforallsurvival-grid.toml");
         context.registerConfig(ModConfig.Type.SERVER, FenceConfig.SPEC, "oneforallsurvival-fence.toml");
         context.registerConfig(ModConfig.Type.SERVER, TownConfig.SPEC, "oneforallsurvival-town.toml");
+        context.registerConfig(ModConfig.Type.SERVER, LightConfig.SPEC, "oneforallsurvival-light.toml");
         MinecraftForge.EVENT_BUS.addListener(BenchCatalog::onAddReloadListener);
         MinecraftForge.EVENT_BUS.addListener(BenchOverrides::onAddReloadListener);
         MinecraftForge.EVENT_BUS.addListener(BenchCatalog::onTagsUpdated);

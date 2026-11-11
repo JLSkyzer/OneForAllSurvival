@@ -355,5 +355,7 @@
   "gui.oneforallsurvival.water_heater.potable": "Eau potable : %s / %s mB",
   "gui.oneforallsurvival.water_heater.hot": "Eau chaude : %s / %s mB",
   "block.oneforallsurvival.shower_head": "Pomme de douche",
-  "effect.oneforallsurvival.well_being": "Bien-être"
+  "effect.oneforallsurvival.well_being": "Bien-être",
+  "block.oneforallsurvival.lighthouse": "Phare",
+  "message.oneforallsurvival.lighthouse.needs_sky": "Le phare doit voir le ciel, à %s blocs au moins au-dessus de la mer"
 }

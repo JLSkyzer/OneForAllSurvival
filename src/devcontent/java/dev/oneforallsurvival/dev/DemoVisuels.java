@@ -22,8 +22,11 @@ import dev.oneforallsurvival.grid.WeatherForecast;
 import dev.oneforallsurvival.grid.WeatherStationBlock;
 import dev.oneforallsurvival.grid.client.LoadShedderScreen;
 import dev.oneforallsurvival.grid.client.SubscriberNameScreen;
+import dev.oneforallsurvival.light.LightConfig;
+import dev.oneforallsurvival.light.LightRegistry;
 import dev.oneforallsurvival.machine.ElectricMachineBlockEntity;
 import dev.oneforallsurvival.machine.FaultType;
+import dev.oneforallsurvival.machine.MachineConfig;
 import dev.oneforallsurvival.repair.GalvanicBathBlockEntity;
 import dev.oneforallsurvival.repair.RepairRegistry;
 import dev.oneforallsurvival.repair.client.GalvanicBathScreen;
@@ -135,6 +138,9 @@ public final class DemoVisuels {
     private static BlockPos origine;
     private static BlockPos cloture;
     private static volatile boolean lot5Pose;
+    /** Le phare du lot 6, posé en tour libre au moment de ses vues ; la tour est de pierre. */
+    private static BlockPos phare;
+    private static volatile boolean pharePose;
 
     private enum Phase { TITRE, ATTENTE_MONDE, PREPARATION, SCENARIO, FIN }
 
@@ -719,6 +725,7 @@ public final class DemoVisuels {
         meteo(mc, null, false, false, WeatherForecast.Trend.STABLE);
         vue(mc, "parafoudres_stations.png", parafoudre.offset(5, 0, 0), new Vec3(0.0, 2.2, 6.5), false);
 
+        construirePhare(mc);
         construireLot5(mc, sudEst);
 
         etape("grille", () -> {
@@ -851,6 +858,40 @@ public final class DemoVisuels {
             }, () -> mc.screen instanceof CanteenPotScreen, 1500, "ecran_marmite_" + ETATS[k] + ".png");
         }
         etape("fin du lot 5", () -> fermer(mc), () -> true, 300, null);
+    }
+
+    /**
+     * Le phare, de nuit : posé au sommet d'une tour de pierre, assez haut pour être en tour libre (au moins 8 blocs
+     * au-dessus de la mer), alimenté par le tick serveur. Les faisceaux tournent : trois vues à des instants différents,
+     * puis le phare de près.
+     */
+    private static void construirePhare(Minecraft mc) {
+        etape("pose du phare", () -> {
+            MinecraftServer serveur = mc.getSingleplayerServer();
+            serveur.execute(() -> {
+                ServerLevel monde = serveur.overworld();
+                int sommet = Math.max(origine.getY() + 8, MachineConfig.seaLevel() + LightConfig.lighthouseMinAboveSea() + 2);
+                phare = origine.offset(12, 0, 24).atY(sommet);
+                for (int y = origine.getY(); y < sommet; y++) {
+                    monde.setBlock(phare.atY(y), Blocks.STONE_BRICKS.defaultBlockState(), 3);
+                }
+                monde.setBlock(phare, LightRegistry.LIGHTHOUSE.get().defaultBlockState(), 3);
+                garnirMachine((ElectricMachineBlockEntity) monde.getBlockEntity(phare));
+                ALIMENTES.add(phare);
+                pharePose = true;
+            });
+        }, () -> pharePose, 2500, null);
+        vuePhare(mc, "phare_nuit_1.png", new Vec3(16.0, -1.0, 16.0));
+        etape("attente faisceau", () -> {}, () -> true, 1300, null);
+        vuePhare(mc, "phare_nuit_2.png", new Vec3(16.0, -1.0, 16.0));
+        etape("attente faisceau 2", () -> {}, () -> true, 1700, null);
+        vuePhare(mc, "phare_nuit_3.png", new Vec3(-10.0, -3.0, 22.0));
+        vuePhare(mc, "phare_de_pres_nuit.png", new Vec3(2.2, 1.0, 3.0));
+    }
+
+    /** Une vue du phare : sa position n'est connue qu'après la pose, elle est donc lue au moment de la vue. */
+    private static void vuePhare(Minecraft mc, String fichier, Vec3 d) {
+        etape("vue " + fichier, () -> regarder(mc, phare, d, true), () -> true, 1500, fichier);
     }
 
     private static void souris(Minecraft mc) {

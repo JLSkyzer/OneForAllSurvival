@@ -6,6 +6,7 @@ import dev.oneforallsurvival.food.FoodRegistry;
 import dev.oneforallsurvival.grid.GridRegistry;
 import dev.oneforallsurvival.machine.ElectricMachineBlock;
 import dev.oneforallsurvival.machine.MachineState;
+import dev.oneforallsurvival.light.LightRegistry;
 import dev.oneforallsurvival.repair.RepairRegistry;
 import dev.oneforallsurvival.salvage.SalvageRegistry;
 import dev.oneforallsurvival.town.TownRegistry;
@@ -72,6 +73,7 @@ public final class BenchRegistry {
                         GridRegistry.tabItems().forEach(item -> output.accept(item.get()));
                         FenceRegistry.tabItems().forEach(item -> output.accept(item.get()));
                         TownRegistry.tabItems().forEach(item -> output.accept(item.get()));
+                        LightRegistry.tabItems().forEach(item -> output.accept(item.get()));
                     })
                     .build());
 

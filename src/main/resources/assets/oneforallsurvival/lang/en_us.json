@@ -355,5 +355,7 @@
   "gui.oneforallsurvival.water_heater.potable": "Potable water: %s / %s mB",
   "gui.oneforallsurvival.water_heater.hot": "Hot water: %s / %s mB",
   "block.oneforallsurvival.shower_head": "Shower Head",
-  "effect.oneforallsurvival.well_being": "Well-Being"
+  "effect.oneforallsurvival.well_being": "Well-Being",
+  "block.oneforallsurvival.lighthouse": "Lighthouse",
+  "message.oneforallsurvival.lighthouse.needs_sky": "The lighthouse must see the sky, at least %s blocks above sea level"
 }
