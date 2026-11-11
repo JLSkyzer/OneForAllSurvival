@@ -309,6 +309,8 @@ barrière ordinaire. Crafts & Additions a un objet `barbed_wire`, à réutiliser
 - **Le phare**, un bloc lanterne au sommet d'une tour libre, projette un faisceau tournant visible de
   loin. C'est un repère et un symbole pour la ville.
 - Il consomme plus que les lampes des autres mods, pour que son usage reste un choix.
+- Il ne marche que la nuit. Le jour, il est éteint : il ne consomme rien et ne s'use pas. Décision de Killian du
+  2026-11-11.
 
 ### Exploration et mystère
 
