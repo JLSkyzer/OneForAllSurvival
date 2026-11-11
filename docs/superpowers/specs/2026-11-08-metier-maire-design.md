@@ -86,7 +86,7 @@ La numérotation prolonge celle du cahier du téléphone.
   tableaux de la mairie se déplacent de la même façon.
 - En créatif, l'équipe le casse accroupie puis pose un bureau neuf depuis l'onglet créatif : il reprend
   les réglages du bureau unique (même règle que le trésor, cahier de l'économie, feature 73).
-- Son interface a cinq onglets :
+- Son interface a six onglets :
 
   | Onglet | Contenu |
   |---|---|
@@ -95,6 +95,7 @@ La numérotation prolonge celle du cahier du téléphone.
   | Réseaux | Fournisseurs d'électricité et opérateurs du téléphone, plafond du prix de l'électricité (feature 107) |
   | Annonces | Rédiger et publier une annonce officielle, voir les précédentes (feature 108) |
   | Registre | Toutes les décisions, les siennes et celles de ses prédécesseurs (feature 103) |
+| Lois | Tabac, alcool, drogue douce, drogue dure : légal ou interdit ([cahier des substances](2026-11-11-substances-design.md), feature 136) |
 
 - Chaque décision demande un **motif** court, et une **confirmation** quand elle est lourde (supprimer
   un opérateur, monter un taux).

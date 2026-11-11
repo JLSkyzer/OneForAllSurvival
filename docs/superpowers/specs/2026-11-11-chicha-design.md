@@ -95,9 +95,8 @@ La numérotation prolonge celle du cahier du casino.
   **charbon de bois**. Le contenu se voit sur le modèle : le charbon rougeoie dans le foyer.
 - Une charge donne **30 bouffées** (choix de l'auteur). À la fin, le foyer s'éteint et il faut
   recharger.
-- Le **tabac** est un nouvel objet : des feuilles de tabac séchées. Proposition à valider : une plante
-  de tabac trouvée à l'état sauvage sur l'île, qui se cultive comme le blé ; ses feuilles se sèchent au
-  four et donnent le tabac. Voir les questions ouvertes.
+- La charge est du **tabac à chicha**, décrit dans le [cahier des substances](2026-11-11-substances-design.md)
+  (feature 131) : du tabac cultivé par tout le monde, séché, puis mélangé à du sucre.
 - Accroupi + clic droit main vide : la chicha rend le tabac et le charbon qu'elle contient, si aucune
   bouffée n'a été prise de cette charge.
 
@@ -137,7 +136,7 @@ La numérotation prolonge celle du cahier du casino.
 | Avec | Branchement |
 |---|---|
 | Économie | Aucun. Le tabac se vend entre joueurs comme tout objet. |
-| Agriculteur | Possible : réserver la culture du tabac à l'agriculteur. Voir les questions ouvertes. |
+| Substances | Le tabac à chicha vient du cahier des substances (131). Le seuil d'excès (128) sert aussi au tabac et à la drogue douce. |
 | Policier | Aucun. Le tabac n'est pas interdit. |
 | Wiki | Une fiche par feature, chapitre « Loisirs ». |
 
@@ -181,6 +180,4 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 
 ## 10. Questions ouvertes
 
-- **D'où vient le tabac ?** Une plante sauvage cultivable par tous, ou une culture réservée à
-  l'agriculteur ?
 - Faut-il **plusieurs tuyaux** pour fumer à deux ou à quatre sur la même chicha ?

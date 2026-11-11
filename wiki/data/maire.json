@@ -43,14 +43,15 @@
     {
       "id": "bureau-du-maire", "num": 102, "name": "Bureau du maire", "kind": "bloc", "status": "prevu", "lot": "Lot M1",
       "image": null,
-      "what": "Bloc unique à la mairie : tout se gère en cinq onglets.",
+      "what": "Bloc unique à la mairie : tout se gère en six onglets.",
       "who": {"pose": "Équipe", "utilise": "Maire et équipe"},
       "steps": [
         "Trésor : solde, entrées, sorties, salaires dus, dépenses.",
         "Taxes : ventes, électricité, impôt, barème des amendes.",
         "Réseaux : fournisseurs, opérateurs, plafond du prix.",
         "Annonces : rédiger, publier, revoir les précédentes.",
-        "Registre : toutes les décisions, d'hier et d'aujourd'hui."
+        "Registre : toutes les décisions, d'hier et d'aujourd'hui.",
+        "Lois : tabac, alcool, drogues, légal ou interdit."
       ],
       "staff": [
         "Chaque décision exige un motif court.",

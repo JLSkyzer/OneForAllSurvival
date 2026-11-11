@@ -1,0 +1,225 @@
+{
+ "id": "substances",
+ "title": "Substances",
+ "intro": "Tabac, alcool et drogues : tout le monde peut les produire, le maire décide de ce qui est interdit, la police dépiste. Les effets passent, sans dépendance ni overdose.",
+ "diagrams": [
+  {
+   "title": "Du champ à la fumée",
+   "steps": [
+    "Plante sauvage",
+    "Graines, culture",
+    "Séchage",
+    "Cigarette, cigare, pipe"
+   ]
+  },
+  {
+   "title": "De la loi au procès-verbal",
+   "steps": [
+    "Le maire interdit",
+    "Minuit : en vigueur",
+    "Fouille ou dépistage",
+    "Confiscation, amende"
+   ]
+  }
+ ],
+ "cards": [
+  {
+   "status": "prevu",
+   "id": "plantes-ile",
+   "num": 129,
+   "name": "Trois plantes de l'île",
+   "kind": "systeme",
+   "lot": "Lot S1",
+   "what": "Tabac, herbe-songe et champignon des ruines, trouvés sauvages puis cultivés par tous.",
+   "steps": [
+    "Tabac : plaines et savanes.",
+    "Herbe-songe : près des rivières, rare.",
+    "Champignon des ruines : à l'ombre des ruines."
+   ]
+  },
+  {
+   "status": "prevu",
+   "id": "sechage",
+   "num": 130,
+   "name": "Séchage",
+   "kind": "systeme",
+   "lot": "Lot S1",
+   "what": "Une feuille se sèche avant d'être fumée.",
+   "steps": [
+    "Au four : lent.",
+    "Au séchoir électrique : rapide.",
+    "Feuille fraîche : ne donne rien."
+   ]
+  },
+  {
+   "status": "prevu",
+   "id": "tabac",
+   "num": 131,
+   "name": "Tabac",
+   "kind": "objet",
+   "lot": "Lot S1",
+   "what": "Cigarette, cigare, pipe et tabac à chicha.",
+   "who": {
+    "fabrique": "Tout le monde"
+   },
+   "numbers": [
+    {
+     "k": "Cigarette",
+     "v": "5 bouffées"
+    },
+    {
+     "k": "Cigare",
+     "v": "12 bouffées"
+    },
+    {
+     "k": "Pipe",
+     "v": "8 par charge"
+    }
+   ],
+   "steps": [
+    "Allumer au briquet ou près d'un feu.",
+    "Maintenir clic droit, puis relâcher.",
+    "Trop d'un coup : nausée."
+   ]
+  },
+  {
+   "status": "prevu",
+   "id": "ivresse",
+   "num": 132,
+   "name": "Ivresse",
+   "kind": "systeme",
+   "lot": "Lot S2",
+   "what": "Chaque verre fait monter un palier, de 0 à 5. Elle redescend seule.",
+   "steps": [
+    "2 : vue trouble.",
+    "3 : marche qui tangue.",
+    "4 : nausée. 5 : malaise court."
+   ],
+   "numbers": [
+    {
+     "k": "Redescend",
+     "v": "1 palier / 2 min"
+    },
+    {
+     "k": "Dégâts",
+     "v": "aucun"
+    }
+   ],
+   "staff": [
+    "Le lait remet à zéro, le café baisse d'un palier."
+   ]
+  },
+  {
+   "status": "prevu",
+   "id": "boissons",
+   "num": 133,
+   "name": "Bière, cidre, rhum",
+   "kind": "machine",
+   "lot": "Lot S2",
+   "what": "On brasse au tonneau, on distille à l'alambic.",
+   "who": {
+    "fabrique": "Tout le monde (alambic)"
+   },
+   "flow": [
+    "Céréale ou fruit",
+    "Tonneau",
+    "Boisson",
+    "Alambic",
+    "Alcool fort"
+   ],
+   "numbers": [
+    {
+     "k": "Bière, cidre, vin",
+     "v": "+1 palier"
+    },
+    {
+     "k": "Rhum, eau-de-vie",
+     "v": "+2 paliers"
+    }
+   ]
+  },
+  {
+   "status": "prevu",
+   "id": "herbe-songe",
+   "num": 134,
+   "name": "Herbe-songe",
+   "kind": "objet",
+   "lot": "Lot S3",
+   "what": "La drogue douce : couleurs, lenteur et petite faim.",
+   "steps": [
+    "Roulé : se fume.",
+    "Gâteau : effet après 1 min, deux fois plus long."
+   ],
+   "numbers": [
+    {
+     "k": "Durée",
+     "v": "3 min, 10 au plus"
+    }
+   ],
+   "staff": [
+    "Interdite au départ."
+   ]
+  },
+  {
+   "status": "prevu",
+   "id": "poussiere-epave",
+   "num": 135,
+   "name": "Poussière d'épave",
+   "kind": "objet",
+   "lot": "Lot S3",
+   "what": "La drogue dure : une montée forte, puis une descente qu'on ne peut pas éviter.",
+   "flow": [
+    "Labo clandestin",
+    "4 doses",
+    "Montée 60 s",
+    "Descente 3 min"
+   ],
+   "steps": [
+    "Le labo fume vert pendant qu'il travaille.",
+    "Une 2e dose n'ajoute rien pendant la montée."
+   ],
+   "staff": [
+    "Interdite au départ, labo compris.",
+    "Recette fictive : rien de réel."
+   ]
+  },
+  {
+   "status": "prevu",
+   "id": "loi-locale",
+   "num": 136,
+   "name": "Loi locale",
+   "kind": "systeme",
+   "lot": "Lot S4",
+   "what": "Le maire décide, famille par famille, de ce qui est légal ou interdit.",
+   "who": {
+    "gere": "Maire"
+   },
+   "steps": [
+    "Onglet Lois du bureau du maire.",
+    "En vigueur le lendemain à minuit, annoncé à tous.",
+    "Interdit : confiscation, amende, étal refusé."
+   ],
+   "staff": [
+    "Départ : tabac et alcool légaux, drogues interdites."
+   ]
+  },
+  {
+   "status": "prevu",
+   "id": "depistage",
+   "num": 137,
+   "name": "Éthylotest et test salivaire",
+   "kind": "objet",
+   "lot": "Lot S4",
+   "what": "La police mesure l'ivresse et dépiste les drogues prises dans l'heure.",
+   "who": {
+    "fabrique": "Policier, à son établi",
+    "utilise": "Policier"
+   },
+   "steps": [
+    "Viser un joueur à moins de 2 blocs.",
+    "Il peut refuser : c'est noté au casier.",
+    "Le résultat devient un procès-verbal."
+   ]
+  }
+ ]
+}
