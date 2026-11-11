@@ -418,6 +418,55 @@
     "Table des gains en données.",
     "Taux de retour réglable par le staff."
    ]
+  },
+  {
+   "id": "triche-jeux",
+   "num": 122,
+   "name": "Jeu truqué",
+   "kind": "systeme",
+   "status": "prevu",
+   "lot": "Lot C8",
+   "what": "Un gérant peut truquer ses jeux en secret, pour le casino ou pour un complice.",
+   "who": {
+    "gere": "Gérant du casino seulement"
+   },
+   "steps": [
+    "Réglage caché, trois forces.",
+    "Rien ne se voit à l'écran.",
+    "Chaque changement laisse une trace."
+   ],
+   "staff": [
+    "Trace lisible par commande, et annulable.",
+    "Machine à sous truquée : 70 % au plus bas."
+   ]
+  },
+  {
+   "id": "controleur-equite",
+   "num": 123,
+   "name": "Contrôleur d'équité",
+   "kind": "objet",
+   "status": "prevu",
+   "lot": "Lot C8",
+   "what": "L'outil du policier pour prouver qu'un jeu est truqué.",
+   "who": {
+    "fabrique": "Policier, à son établi",
+    "utilise": "Policier"
+   },
+   "flow": [
+    "Clic droit sur le jeu",
+    "Réglage révélé",
+    "Chiffres comparés",
+    "Procès-verbal"
+   ],
+   "steps": [
+    "Montre le réglage et son historique.",
+    "Compare les 500 dernières parties à la normale.",
+    "Repère les joueurs qui gagnent trop."
+   ],
+   "staff": [
+    "Chaque contrôle va au journal de police.",
+    "Les gérants savent qu'un contrôle a eu lieu."
+   ]
   }
  ]
 }

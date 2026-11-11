@@ -7,7 +7,8 @@ qui tombent sur le vrai résultat. Il a fixé le fonctionnement de l'argent : de
 un coffre du casino qui garde les pièces, un PNJ qui rachète les jetons, et un statut casino donné par
 commande. Le même jour, il a ajouté une table de blackjack, un duel de dés et une machine à sous
 (features 118 à 120), la liaison des blocs au coffre par la pose, et une alerte de trésorerie avec
-envoi sur Discord (feature 121). Ses réponses sont regroupées en section 9.
+envoi sur Discord (feature 121), puis la triche des jeux et son contrôle par la police (features 122
+et 123). Ses réponses sont regroupées en section 9.
 
 L'argent passe par le [cahier de l'économie](2026-11-08-economie-design.md), qui reçoit ici deux
 exceptions : le coffre du casino comme rangement de pièces, et les PNJ du casino.
@@ -285,12 +286,60 @@ Demandé par Killian le 2026-11-11, pour que l'équipe et les gérants puissent 
   Exemple : `/casino alertes test` et `/casino alertes recharger`.
 - Le même fichier pourra servir plus tard à d'autres alertes du serveur.
 
+**122. Triche des jeux.**
+Idée d'un joueur, retenue par Killian le 2026-11-11, à condition que la police puisse la détecter
+(feature 123).
+- **Seul un gérant** (statut casino) peut truquer, et seulement les jeux reliés à son casino (choix de
+  Killian). L'équipe du serveur le voit et l'annule par commande.
+- C'est un **réglage secret** (choix de Killian), sans objet à poser : un onglet caché du menu de réglage
+  du jeu, que seuls les gérants de ce casino voient.
+- **Au choix du tricheur** (choix de Killian), le réglage favorise :
+  - **le casino** : la maison gagne plus souvent ;
+  - **un joueur désigné** : ce joueur gagne plus souvent, par exemple un complice.
+- **La force** se règle sur trois niveaux : léger, moyen, fort (choix de l'auteur). Un jeu truqué
+  léger est difficile à repérer, un jeu truqué fort se voit vite dans les chiffres.
+- Ce que le réglage change, jeu par jeu :
+
+  | Jeu | En faveur du casino | En faveur d'un joueur |
+  |---|---|---|
+  | Roulette | Le tirage évite plus souvent les numéros qui paient le plus | Les mises du joueur tombent plus souvent |
+  | Blackjack | La banque reçoit de meilleures cartes | Le joueur reçoit de meilleures cartes |
+  | Duel de dés | Sans objet : le casino ne joue pas | Le joueur fait de plus gros totaux |
+  | Machine à sous | Le taux de retour baisse (jusqu'à 70 % en fort) | Le joueur gagne plus souvent |
+
+- Le résultat reste **tiré par le serveur avant l'animation**, et l'animation tombe toujours dessus. Rien ne
+  se voit à l'écran : seule la répartition des résultats change.
+- **Chaque changement du réglage laisse une trace** que le gérant ne peut pas effacer : qui, quand, quel
+  sens, quelle force. L'équipe la lit par commande, et le contrôleur d'équité la révèle (feature 123).
+- Remettre le jeu en normal juste avant un contrôle ne suffit pas : la trace reste, et les chiffres des
+  parties passées aussi.
+
+**123. Contrôleur d'équité.**
+Demandé par Killian le 2026-11-11 : la police doit pouvoir contrôler qu'un jeu n'est pas truqué.
+- C'est un **outil** fabriqué à l'**établi de policier**. Seul un policier s'en sert, avec le
+  contournement de l'équipe du serveur.
+- Clic droit sur un jeu du casino : le contrôle dure quelques secondes, puis un rapport s'affiche
+  (choix de Killian : outil et statistiques) :
+  1. **Le réglage** : normal, ou truqué, avec le sens, la force, le gérant qui l'a changé et la date.
+     L'historique des changements des 30 derniers jours est listé, même si le jeu est revenu en normal.
+  2. **Les chiffres** : le taux de retour réel du jeu sur ses 500 dernières parties, comparé au taux
+     normal, avec un verdict : « dans la normale », « écart suspect » ou « écart anormal ». Le seuil est
+     calculé pour qu'un jeu honnête ne soit presque jamais déclaré anormal par malchance.
+  3. **Les joueurs qui gagnent trop** : ceux dont les gains sur ce jeu sortent nettement de la normale,
+     pour repérer un complice.
+- Le rapport peut être **remis en preuve** : il devient un objet, un procès-verbal, qui se range au
+  dossier et se joint au casier comme les autres preuves du policier.
+- Chaque contrôle s'inscrit au **journal des actions de police**. Les gérants du casino sont prévenus
+  qu'un contrôle a eu lieu, sans voir le rapport.
+- Le contrôle ne change rien au jeu : il ne remet pas le réglage en normal. Les suites sont du RP :
+  amende, retrait du statut casino par l'équipe, fermeture.
+
 ## 6. Branchements
 
 | Avec | Branchement |
 |---|---|
 | Économie | Le coffre du casino s'ajoute aux rangements de pièces autorisés (feature 84). Les deux PNJ du casino s'ajoutent au PNJ changeur (feature 80) comme seuls PNJ qui manient des pièces. Le casino ne crée ni ne détruit de pièces. |
-| Policier | Les jetons se fouillent et se confisquent comme tout objet. |
+| Policier | Les jetons se fouillent et se confisquent comme tout objet. Le contrôleur d'équité (123) s'ajoute aux recettes de l'établi de policier, et son procès-verbal aux preuves. |
 | Maire | Prévenu des alertes de trésorerie (feature 121). Une taxe sur le casino pourra s'ajouter plus tard. |
 | Téléphone | Les alertes de trésorerie arrivent en notification sur le téléphone des gérants et du maire. |
 | Wiki | Une fiche par feature, chapitre « Casino ». |
@@ -306,6 +355,7 @@ Demandé par Killian le 2026-11-11, pour que l'équipe et les gérants puissent 
 | C5 | 119 | Deux joueurs se défient aux dés, et le casino prend sa part | C1 |
 | C6 | 120 | La machine à sous rend 92 % en moyenne et son jackpot grossit | C1 |
 | C7 | 121 (envoi sur Discord) | L'équipe reçoit les alertes de trésorerie sur Discord | C1 |
+| C8 | 122, 123 | Un gérant truque un jeu, et un policier le prouve | C2 à C6 pour les jeux concernés, lot P1 du policier |
 
 ## 8. Vérification
 
@@ -333,7 +383,14 @@ Demandé par Killian le 2026-11-11, pour que l'équipe et les gérants puissent 
   - au blackjack, la banque tire jusqu'à 17, un blackjack paie 3 contre 2, et une égalité est rendue ;
   - aux dés, le pot est payé au plus grand total moins la commission, versée au coffre ; une égalité
     relance ;
-  - sur 1 000 000 de tirages simulés, la machine à sous rend 92 % à un point près, jackpot compris.
+  - sur 1 000 000 de tirages simulés, la machine à sous rend 92 % à un point près, jackpot compris ;
+  - un joueur sans statut casino, ou gérant d'un autre casino, ne voit pas le réglage secret ;
+  - sur un grand nombre de tirages simulés, chaque sens et chaque force de triche donne l'écart prévu, et
+    l'animation tombe toujours sur le résultat tiré ;
+  - le contrôleur d'équité révèle un réglage truqué, et l'historique d'un jeu remis en normal ;
+  - sur 1 000 jeux honnêtes simulés, presque aucun n'est déclaré « écart anormal » ; un jeu truqué
+    moyen l'est sur ses 500 dernières parties ;
+  - seul un policier se sert du contrôleur, et chaque contrôle s'inscrit au journal de police.
 - **Scénario d'acceptation** : l'équipe pose le coffre, y met des pièces, fait apparaître les deux PNJ et
   donne une table ; deux joueurs achètent des jetons, misent, regardent le même lancer, et l'un gagne ;
   ils revendent leurs jetons ; le coffre a exactement changé de la différence entre jetons vendus et
@@ -355,6 +412,9 @@ Demandé par Killian le 2026-11-11, pour que l'équipe et les gérants puissent 
 - Un rachat que le coffre ne peut pas payer est **annulé**, et les gérants, le maire et l'équipe sont
   prévenus.
 - En bonus, l'équipe reçoit ces alertes sur **Discord** par un webhook réglé dans un fichier du serveur.
+- Les jeux **peuvent être truqués**, par le **gérant seulement**, par un **réglage secret**, en faveur du
+  casino ou d'un joueur au choix. La police contrôle avec un **outil** qui révèle le réglage et compare
+  les **statistiques** du jeu à la normale.
 - Les jetons se **rangent partout**.
 - Un joueur au statut casino est **relié à un coffre** ; ce qu'il pose s'y relie seul. Un membre de
   l'équipe sans statut fait **accroupi + clic droit sur le coffre** avant de poser.
@@ -370,7 +430,11 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 - un même jeton pour tous les casinos ;
 - plusieurs casinos possibles, chacun avec son coffre ;
 - une alerte préventive quand les jetons en circulation dépassent le coffre ;
-- un rappel regroupé toutes les 10 minutes plutôt qu'une alerte par rachat refusé.
+- un rappel regroupé toutes les 10 minutes plutôt qu'une alerte par rachat refusé ;
+- trois forces de triche, et un plancher de 70 % pour la machine à sous truquée ;
+- une trace ineffaçable des changements du réglage secret, gardée 30 jours ;
+- un contrôle sur les 500 dernières parties, et un procès-verbal remis en preuve ;
+- les gérants prévenus d'un contrôle, sans voir le rapport.
 
 ## 10. Questions ouvertes
 

@@ -105,7 +105,8 @@ recopié.
 - Restent hors de la règle, comme pour l'ingénieur : les fours et cuissons, et les machines de Create.
 - **Recettes concernées** : les objets de ce mod qui portent le tag du policier : menottes et leur clé,
   matraque, écouvillon, sac de preuves, ruban de scène de crime, carnet de contraventions, porte de
-  cellule, affiche d'avis de recherche, sifflet, serrure et clé. Aucun mod externe n'est concerné.
+  cellule, affiche d'avis de recherche, sifflet, serrure et clé, et le contrôleur d'équité des jeux du
+  casino (cahier du casino, feature 123). Aucun mod externe n'est concerné.
 - **Exceptions**, gardées sur la table par `tableAllowedItems` :
   - le **crochet**, outil de cambrioleur, que la police ne vend pas ;
   - la **copie d'une clé** par son propriétaire (clé et pépite de fer).
