@@ -27,6 +27,14 @@ public final class MechanismBlock extends Block implements EntityBlock {
     public static final IntegerProperty STAGE = IntegerProperty.create("stage", 0, MechanismRules.MAX_STAGE);
     public static final BooleanProperty ACTIVE = BooleanProperty.create("active");
 
+    /** Lumière émise : les veines éclairent de plus en plus (0, 3, 5, 7 selon l'étage), 10 une fois actif. */
+    public static int lightLevel(BlockState state) {
+        if (state.getValue(ACTIVE)) {
+            return 10;
+        }
+        return new int[] {0, 3, 5, 7}[state.getValue(STAGE)];
+    }
+
     public MechanismBlock(Properties properties) {
         super(properties);
         registerDefaultState(stateDefinition.any().setValue(STAGE, 0).setValue(ACTIVE, false));

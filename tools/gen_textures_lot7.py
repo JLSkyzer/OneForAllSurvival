@@ -112,7 +112,7 @@ def lampe_portee():
     return img
 
 
-def recepteur(led, dial):
+def recepteur(led, dial, band=None):
     """Un poste de radio de recuperation : coffret de tole, haut-parleur, cadran, bouton, voyant, poignee de ficelle."""
     rnd = random.Random(23)
     img = Image.new("RGBA", (16, 16))
@@ -136,9 +136,14 @@ def recepteur(led, dial):
         p[x, y] = (226, 150, 84, 255) if (x, y) == (9, 7) else (176, 96, 44, 255)
     for (x, y) in ((12, 7), (13, 7), (12, 8), (13, 8)):  # voyant
         p[x, y] = led
-    for x in range(3, 13):  # poignee de ficelle
-        p[x, 12] = (120, 82, 50, 255)
-        p[x, 13] = (86, 58, 36, 255)
+    if band:  # message non lu : bandeaux de couleur en haut et en bas, lisibles de loin
+        for x in range(1, 15):
+            for y in (1, 2, 13, 14):
+                p[x, y] = band
+    if not band:
+        for x in range(3, 13):  # poignee de ficelle
+            p[x, 12] = (120, 82, 50, 255)
+            p[x, 13] = (86, 58, 36, 255)
     return img
 
 
@@ -175,9 +180,21 @@ def mecanisme(stage, active=False):
     for branch in VEINES:
         for k, (x, y) in enumerate(branch):
             if active:
-                p[x, y] = COPPER_HOT if k % 2 == 0 else COPPER_ON
+                # actif : veines de deux points d'epaisseur, coeur blanc-jaune, halo orange autour du coeur
+                for (dx, dy) in ((0, 0), (1, 0), (0, 1)):
+                    if 0 < x + dx < 15 and 0 < y + dy < 15:
+                        p[x + dx, y + dy] = COPPER_HOT if k % 2 == 0 else COPPER_ON
             else:
                 p[x, y] = COPPER_ON if k < lit else COPPER_OFF
+    if active:
+        for y in range(5, 11):
+            for x in range(5, 11):
+                p[x, y] = COPPER_ON
+        for y in range(6, 10):
+            for x in range(6, 10):
+                p[x, y] = COPPER_HOT
+        for (x, y) in ((7, 7), (8, 8), (7, 8), (8, 7)):
+            p[x, y] = (255, 255, 235, 255)
     core = COPPER_HOT if active else (COPPER_ON if stage >= 3 else COPPER_OFF)
     for (x, y) in ((7, 7), (8, 8)):
         p[x, y] = core
@@ -198,8 +215,8 @@ if __name__ == "__main__":
     print("ecrit", ASSETS / "models" / "armor" / "headlamp_layer_1.png")
     for suffix, led, dial in (("", (70, 70, 72, 255), (38, 40, 44, 255)),
                               ("_on", (96, 214, 96, 255), (150, 190, 120, 255)),
-                              ("_unread", (244, 190, 60, 255), (150, 190, 120, 255))):
-        recepteur(led, dial).save(OUT / ("signal_receiver" + suffix + ".png"))
+                              ("_unread", (255, 200, 40, 255), (255, 176, 40, 255))):
+        recepteur(led, dial, (240, 160, 30, 255) if suffix == "_unread" else None).save(OUT / ("signal_receiver" + suffix + ".png"))
         print("ecrit", OUT / ("signal_receiver" + suffix + ".png"))
     for stage in range(4):
         mecanisme(stage).save(OUT / ("ancient_mechanism_%d.png" % stage))

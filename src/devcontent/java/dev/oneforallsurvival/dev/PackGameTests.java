@@ -116,6 +116,8 @@ public final class PackGameTests {
      * Un objet du matériel du métier : son nombre d'ingrédients, le nombre fabriqué et les mods qu'il lui faut.
      * La plaque de zinc vient de Crafts &amp; Additions, le reste de Create ; fusible et bobinage restent vanilla.
      */
+    private static final List<String> LOT7 = List.of("metal_detector", "headlamp", "signal_receiver");
+
     private record Materiel(String nom, int ingredients, int resultat, boolean create, boolean additions) {}
 
     /**
@@ -165,6 +167,12 @@ public final class PackGameTests {
             helper.assertTrue(autres.isEmpty(), m.nom() + " a encore des recettes hors établi : " + autres);
             ResourceLocation id = new ResourceLocation("oneforallsurvival", m.nom());
             BenchRecipe recette = BenchCatalog.current().byId(id).orElse(null);
+            if (LOT7.contains(m.nom())) {
+                // Le matériel du lot 7 n'a qu'une seule recette au catalogue, la sienne, sous quelque identifiant que ce soit.
+                long auCatalogue = BenchCatalog.current().recipes().stream().filter(r -> r.result().is(item)).count();
+                helper.assertTrue(auCatalogue == ((m.create() && !create) ? 0 : 1),
+                        m.nom() + " : " + auCatalogue + " recettes au catalogue de l'établi");
+            }
             if ((m.create() && !create) || (m.additions() && !additions)) {
                 helper.assertTrue(recette == null, m.nom() + " ne devrait pas exister sans son mod");
                 continue;
@@ -188,21 +196,35 @@ public final class PackGameTests {
             helper.assertTrue(accepte(catalogue, "lighthouse", new ItemStack(net.minecraft.world.item.Items.GLASS)),
                     "le phare n'a aucun ingrédient qui accepte le verre");
         }
-        // Lot 7 : le détecteur a un manche de tuyau, la lampe une sangle de cuir et du verre, le récepteur une antenne.
+        // Lot 7 : chaque ingrédient clé est exigé, et en bon nombre (échanger un ingrédient doit faire échouer).
         if (create) {
             var catalogue = BenchCatalog.current();
+            ItemStack bobine = new ItemStack(objet("oneforallsurvival", "coil"));
+            ItemStack fusible = new ItemStack(objet("oneforallsurvival", "fuse"));
+            ItemStack fil = new ItemStack(objet("oneforallsurvival", "aviation_wire"));
+            ItemStack plaqueFer = new ItemStack(objet("create", "iron_sheet"));
+            ItemStack plaqueLaiton = new ItemStack(objet("create", "brass_sheet"));
+            for (String nom : LOT7) {
+                helper.assertTrue(nombreAcceptant(catalogue, nom, fusible) >= 1, nom + " : le fusible n'est pas exigé");
+                helper.assertTrue(nombreAcceptant(catalogue, nom, fil) >= 1, nom + " : l'étiquette wire n'est pas exigée");
+                helper.assertTrue(nombreAcceptant(catalogue, nom, plaqueFer) >= 1,
+                        nom + " : la plaque de fer n'est pas exigée");
+            }
+            helper.assertTrue(nombreAcceptant(catalogue, "signal_receiver", plaqueLaiton) >= 1,
+                    "le récepteur n'exige pas de plaque de laiton");
+            helper.assertTrue(nombreAcceptant(catalogue, "metal_detector", bobine) == 2,
+                    "le détecteur demande deux bobines");
+            helper.assertTrue(nombreAcceptant(catalogue, "headlamp", bobine) == 1, "la lampe demande une bobine");
+            helper.assertTrue(nombreAcceptant(catalogue, "signal_receiver", bobine) == 2,
+                    "le récepteur demande deux bobines");
             helper.assertTrue(accepte(catalogue, "metal_detector", new ItemStack(objet("create", "fluid_pipe"))),
                     "le détecteur n'a aucun ingrédient qui accepte le tuyau de Create");
-            helper.assertTrue(accepte(catalogue, "metal_detector", new ItemStack(objet("oneforallsurvival", "aviation_wire"))),
-                    "le détecteur n'a aucun ingrédient qui accepte l'étiquette wire");
             helper.assertTrue(accepte(catalogue, "headlamp", new ItemStack(net.minecraft.world.item.Items.LEATHER)),
                     "la lampe n'a aucun ingrédient qui accepte le cuir");
             helper.assertTrue(accepte(catalogue, "headlamp", new ItemStack(net.minecraft.world.item.Items.GLASS)),
                     "la lampe n'a aucun ingrédient qui accepte le verre");
             helper.assertTrue(accepte(catalogue, "signal_receiver", new ItemStack(net.minecraft.world.item.Items.IRON_BARS)),
                     "le récepteur n'a aucun ingrédient qui accepte les barreaux de fer");
-            helper.assertTrue(accepte(catalogue, "signal_receiver", new ItemStack(objet("oneforallsurvival", "coil"))),
-                    "le récepteur n'a aucun ingrédient qui accepte la bobine");
         }
         // Les étiquettes s'élargissent aux objets du pack.
         helper.assertTrue(porte(objet("oneforallsurvival", "aviation_wire"), "wire"),
@@ -387,6 +409,12 @@ public final class PackGameTests {
         });
     }
 
+    /** Combien d'ingrédients de la recette de l'établi de ce nom acceptent cet objet. */
+    private static long nombreAcceptant(BenchCatalog catalogue, String nom, ItemStack pile) {
+        BenchRecipe recette = catalogue.byId(new ResourceLocation("oneforallsurvival", nom)).orElse(null);
+        return recette == null ? 0 : recette.ingredients().stream().filter(ingredient -> ingredient.test(pile)).count();
+    }
+
     /** Vrai si un ingrédient de la recette de l'établi de ce nom accepte cet objet. */
     private static boolean accepte(BenchCatalog catalogue, String nom, ItemStack pile) {
         BenchRecipe recette = catalogue.byId(new ResourceLocation("oneforallsurvival", nom)).orElse(null);
@@ -444,6 +472,10 @@ public final class PackGameTests {
             helper.assertTrue(recettes.isEmpty(), nom + " ne devrait avoir aucune recette, vu " + recettes);
             helper.assertTrue(BenchCatalog.current().byId(new ResourceLocation("oneforallsurvival", nom)).isEmpty(),
                     nom + " ne devrait pas figurer au catalogue de l'établi");
+            // Quel que soit l'identifiant : aucune recette de l'établi ne les donne.
+            List<ResourceLocation> aLEtabli = BenchCatalog.current().recipes().stream()
+                    .filter(r -> r.result().is(item)).map(BenchRecipe::id).toList();
+            helper.assertTrue(aLEtabli.isEmpty(), nom + " ne devrait avoir aucune recette d'établi, vu " + aLEtabli);
         }
         helper.succeed();
     }
