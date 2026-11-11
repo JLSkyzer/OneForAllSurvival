@@ -369,5 +369,10 @@
   "tooltip.oneforallsurvival.detector.energy": "Batterie : %s / %s FE",
   "tooltip.oneforallsurvival.detector.usage": "Tenu en main, il bipe de plus en plus vite près d'une cache enfouie. Clic droit sur un bloc à FE : recharge.",
   "message.oneforallsurvival.detector.charged": "Détecteur rechargé : +%s FE",
-  "message.oneforallsurvival.detector.not_charged": "Rien à récupérer sur ce bloc."
+  "message.oneforallsurvival.detector.not_charged": "Rien à récupérer sur ce bloc.",
+  "item.oneforallsurvival.headlamp": "Lampe frontale",
+  "tooltip.oneforallsurvival.headlamp.energy": "Batterie : %s / %s FE",
+  "tooltip.oneforallsurvival.headlamp.usage": "Portée sur la tête, elle éclaire autour de vous tant qu'elle est chargée. Tenue en main, clic droit sur un bloc à FE : recharge.",
+  "message.oneforallsurvival.headlamp.charged": "Lampe frontale rechargée : +%s FE",
+  "message.oneforallsurvival.headlamp.not_charged": "Rien à récupérer sur ce bloc."
 }

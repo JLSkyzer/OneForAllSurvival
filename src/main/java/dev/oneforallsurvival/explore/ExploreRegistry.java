@@ -31,6 +31,8 @@ public final class ExploreRegistry {
             () -> new BlockItem(CACHE.get(), new Item.Properties()));
     public static final RegistryObject<Item> METAL_DETECTOR = ITEMS.register("metal_detector",
             () -> new DetectorItem(new Item.Properties().stacksTo(1)));
+    public static final RegistryObject<Item> HEADLAMP = ITEMS.register("headlamp",
+            () -> new HeadlampItem(new Item.Properties().stacksTo(1)));
     public static final RegistryObject<BlockEntityType<CacheBlockEntity>> CACHE_BE =
             BLOCK_ENTITIES.register("buried_cache", () -> BlockEntityType.Builder
                     .of(CacheBlockEntity::new, CACHE.get()).build(null));
@@ -45,6 +47,6 @@ public final class ExploreRegistry {
 
     /** Les objets que l'onglet créatif affiche, dans l'ordre. */
     public static List<RegistryObject<? extends Item>> tabItems() {
-        return List.of(CACHE_ITEM, METAL_DETECTOR);
+        return List.of(CACHE_ITEM, METAL_DETECTOR, HEADLAMP);
     }
 }

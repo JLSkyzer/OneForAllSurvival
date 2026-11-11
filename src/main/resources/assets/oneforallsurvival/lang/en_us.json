@@ -369,5 +369,10 @@
   "tooltip.oneforallsurvival.detector.energy": "Battery: %s / %s FE",
   "tooltip.oneforallsurvival.detector.usage": "Held in hand, it beeps faster near a buried cache. Right-click an energy block: recharge.",
   "message.oneforallsurvival.detector.charged": "Detector recharged: +%s FE",
-  "message.oneforallsurvival.detector.not_charged": "Nothing to draw from this block."
+  "message.oneforallsurvival.detector.not_charged": "Nothing to draw from this block.",
+  "item.oneforallsurvival.headlamp": "Headlamp",
+  "tooltip.oneforallsurvival.headlamp.energy": "Battery: %s / %s FE",
+  "tooltip.oneforallsurvival.headlamp.usage": "Worn on the head, it lights the area around you while charged. Held in hand, right-click an energy block: recharge.",
+  "message.oneforallsurvival.headlamp.charged": "Headlamp recharged: +%s FE",
+  "message.oneforallsurvival.headlamp.not_charged": "Nothing to draw from this block."
 }
