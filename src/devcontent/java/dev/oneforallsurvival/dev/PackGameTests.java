@@ -154,7 +154,11 @@ public final class PackGameTests {
                 // Lot 6 : vie de la ville. Le chauffe-eau et le phare demandent des pièces du lot 2 en plus de Create.
                 new Materiel("water_heater", 7, 1, true, false),
                 new Materiel("shower_head", 3, 1, true, false),
-                new Materiel("lighthouse", 7, 1, true, false))) {
+                new Materiel("lighthouse", 7, 1, true, false),
+                // Lot 7 : l'exploration. Le détecteur, la lampe frontale et le récepteur se fabriquent à l'établi.
+                new Materiel("metal_detector", 6, 1, true, false),
+                new Materiel("headlamp", 6, 1, true, false),
+                new Materiel("signal_receiver", 7, 1, true, false))) {
             Item item = objet("oneforallsurvival", m.nom());
             // Aucune recette d'aucun type : l'établi (le catalogue) est la seule voie.
             List<ResourceLocation> autres = recettesDonnant(helper, item);
@@ -183,6 +187,22 @@ public final class PackGameTests {
                     "le chauffe-eau n'a aucun ingrédient qui accepte l'étiquette wire");
             helper.assertTrue(accepte(catalogue, "lighthouse", new ItemStack(net.minecraft.world.item.Items.GLASS)),
                     "le phare n'a aucun ingrédient qui accepte le verre");
+        }
+        // Lot 7 : le détecteur a un manche de tuyau, la lampe une sangle de cuir et du verre, le récepteur une antenne.
+        if (create) {
+            var catalogue = BenchCatalog.current();
+            helper.assertTrue(accepte(catalogue, "metal_detector", new ItemStack(objet("create", "fluid_pipe"))),
+                    "le détecteur n'a aucun ingrédient qui accepte le tuyau de Create");
+            helper.assertTrue(accepte(catalogue, "metal_detector", new ItemStack(objet("oneforallsurvival", "aviation_wire"))),
+                    "le détecteur n'a aucun ingrédient qui accepte l'étiquette wire");
+            helper.assertTrue(accepte(catalogue, "headlamp", new ItemStack(net.minecraft.world.item.Items.LEATHER)),
+                    "la lampe n'a aucun ingrédient qui accepte le cuir");
+            helper.assertTrue(accepte(catalogue, "headlamp", new ItemStack(net.minecraft.world.item.Items.GLASS)),
+                    "la lampe n'a aucun ingrédient qui accepte le verre");
+            helper.assertTrue(accepte(catalogue, "signal_receiver", new ItemStack(net.minecraft.world.item.Items.IRON_BARS)),
+                    "le récepteur n'a aucun ingrédient qui accepte les barreaux de fer");
+            helper.assertTrue(accepte(catalogue, "signal_receiver", new ItemStack(objet("oneforallsurvival", "coil"))),
+                    "le récepteur n'a aucun ingrédient qui accepte la bobine");
         }
         // Les étiquettes s'élargissent aux objets du pack.
         helper.assertTrue(porte(objet("oneforallsurvival", "aviation_wire"), "wire"),
@@ -409,5 +429,41 @@ public final class PackGameTests {
             helper.assertTrue(drops.size() == 1 && drops.get(0).is(objet("oneforallsurvival", nom))
                     && drops.get(0).getCount() == 1, nom + " devait rendre un exemplaire de lui-même, vu " + drops);
         }
+    }
+
+    /**
+     * Lot 7 : la cache enfouie et le mécanisme ancien ne s'obtiennent que par l'équipe. Aucune recette d'aucun type
+     * ne les donne, ni à la table ni à l'établi ; seul le matériel (détecteur, lampe, récepteur) se fabrique.
+     */
+    @GameTest(template = "test/plancher", batch = "pack_materiel")
+    public static void cacheEtMecanismeSontSansRecette(GameTestHelper helper) {
+        for (String nom : List.of("buried_cache", "ancient_mechanism")) {
+            Item item = objet("oneforallsurvival", nom);
+            helper.assertTrue(item != null && item != net.minecraft.world.item.Items.AIR, "objet absent : " + nom);
+            List<ResourceLocation> recettes = recettesDonnant(helper, item);
+            helper.assertTrue(recettes.isEmpty(), nom + " ne devrait avoir aucune recette, vu " + recettes);
+            helper.assertTrue(BenchCatalog.current().byId(new ResourceLocation("oneforallsurvival", nom)).isEmpty(),
+                    nom + " ne devrait pas figurer au catalogue de l'établi");
+        }
+        helper.succeed();
+    }
+
+    /**
+     * Lot 7 : le récepteur tombe à la pioche et rend son objet ; la cache se casse à la hache (étiquette mineable/axe,
+     * butin tiré de sa table) ; le mécanisme ne se mine pas et ne rend rien.
+     */
+    @GameTest(template = "test/plancher", batch = "pack_materiel")
+    public static void lesBlocsDuLot7SeCassentCommeVoulu(GameTestHelper helper) {
+        tombentALaPioche(helper, "signal_receiver");
+        Block cache = ForgeRegistries.BLOCKS.getValue(new ResourceLocation("oneforallsurvival", "buried_cache"));
+        helper.assertTrue(cache.defaultBlockState().is(net.minecraft.tags.BlockTags.MINEABLE_WITH_AXE),
+                "la cache ne porte pas l'étiquette mineable/axe");
+        Block mecanisme = ForgeRegistries.BLOCKS.getValue(new ResourceLocation("oneforallsurvival", "ancient_mechanism"));
+        BlockState etat = mecanisme.defaultBlockState();
+        helper.assertTrue(!etat.is(net.minecraft.tags.BlockTags.MINEABLE_WITH_PICKAXE)
+                && !etat.is(net.minecraft.tags.BlockTags.MINEABLE_WITH_AXE), "le mécanisme ne devrait pas se miner");
+        helper.assertTrue(etat.getDestroySpeed(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1))) < 0,
+                "le mécanisme devrait être incassable (dureté -1)");
+        helper.succeed();
     }
 }

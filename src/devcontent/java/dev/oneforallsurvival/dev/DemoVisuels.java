@@ -4,6 +4,14 @@ import com.mojang.blaze3d.platform.NativeImage;
 import dev.oneforallsurvival.bench.BenchRegistry;
 import dev.oneforallsurvival.bench.client.EngineerBenchScreen;
 import dev.oneforallsurvival.food.DesalinatorBlockEntity;
+import dev.oneforallsurvival.explore.DetectorItem;
+import dev.oneforallsurvival.explore.ExploreConfig;
+import dev.oneforallsurvival.explore.ExploreRegistry;
+import dev.oneforallsurvival.explore.HeadlampItem;
+import dev.oneforallsurvival.explore.MechanismBlockEntity;
+import dev.oneforallsurvival.explore.ReceiverBlockEntity;
+import dev.oneforallsurvival.explore.SignalMessage;
+import dev.oneforallsurvival.explore.client.ReceiverScreen;
 import dev.oneforallsurvival.fence.FenceRegistry;
 import dev.oneforallsurvival.food.CanteenPotBlockEntity;
 import dev.oneforallsurvival.food.DryerBlockEntity;
@@ -46,6 +54,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BooleanSupplier;
 import javax.imageio.ImageIO;
+import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.GuiGraphics;
@@ -60,7 +69,9 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.decoration.ItemFrame;
 import net.minecraft.world.item.Item;
@@ -117,6 +128,10 @@ public final class DemoVisuels {
         "minecraft:glass_bottle", "potable_water_bottle", "salt", "spoiled_food", "fridge", "desalinator", "dryer"};
     private static final String[] MACHINES = {"armoire", "dessalinisateur", "sechoir"};
 
+    /** Les objets du lot 7, à côté de ce qui leur ressemble dans Minecraft : boussole, casque de fer, tonneau. */
+    private static final String[] LOT7 = {"metal_detector", "minecraft:compass", "headlamp", "minecraft:iron_helmet",
+        "buried_cache", "signal_receiver", "ancient_mechanism", "minecraft:barrel", "minecraft:note_block"};
+
     /** Le matériel du lot 4, à côté de ce qui lui ressemble dans Minecraft, pour juger la lisibilité. */
     private static final String[] RESEAU = {"load_shedder", "meter", "breaker", "seal", "meter_reading", "surge_arrester",
         "weather_station", "minecraft:lever", "minecraft:paper", "minecraft:lightning_rod", "minecraft:compass",
@@ -152,6 +167,16 @@ public final class DemoVisuels {
     private static BlockPos doucheMur;
     private static BlockPos phareMur;
     private static volatile boolean villePose;
+    /** Le matériel du lot 7, loin à l'ouest (au-delà des 6 chunks affichés) : cache, récepteurs, mécanismes, grotte. */
+    private static BlockPos exploration;
+    private static BlockPos cacheMur;
+    private static BlockPos recepteurMur;
+    private static BlockPos mecanismeMur;
+    private static final BlockPos[] RECEPTEURS = new BlockPos[4];
+    private static final BlockPos[] MECANISMES = new BlockPos[5];
+    private static BlockPos grotte;
+    private static final List<BlockPos> EXPLORATION_ALIMENTEE = new ArrayList<>();
+    private static volatile boolean explorationPosee;
 
     private enum Phase { TITRE, ATTENTE_MONDE, PREPARATION, SCENARIO, FIN }
 
@@ -223,6 +248,15 @@ public final class DemoVisuels {
         for (BlockPos p : ALIMENTES) {
             if (event.getServer().overworld().getBlockEntity(p) instanceof ElectricMachineBlockEntity machine) {
                 machine.energy().receiveEnergy(100, false);
+            }
+        }
+        // Lot 7 : récepteurs sous tension et mécanismes tenus à leur étage par 1 FE par tick (seuil réglé à 1).
+        for (BlockPos p : EXPLORATION_ALIMENTEE) {
+            var monde = event.getServer().overworld();
+            if (monde.isLoaded(p) && monde.getBlockEntity(p) != null) {
+                boolean recepteur = monde.getBlockEntity(p) instanceof ReceiverBlockEntity;
+                monde.getBlockEntity(p).getCapability(ForgeCapabilities.ENERGY, null)
+                        .ifPresent(e -> e.receiveEnergy(recepteur ? 200 : 1, false));
             }
         }
         // La douche « en marche » n'a personne dessous : son état actif est reposé à chaque tic pour la capture.
@@ -589,6 +623,11 @@ public final class DemoVisuels {
                 int x = (i % colonnes) * cw;
                 int y = (i / colonnes) * ch;
                 ItemStack pile = new ItemStack(objet(noms[i]));
+                if (pile.getItem() instanceof DetectorItem) {
+                    DetectorItem.store(pile, ExploreConfig.detectorCapacity() * 3 / 4);
+                } else if (pile.getItem() instanceof HeadlampItem) {
+                    HeadlampItem.store(pile, ExploreConfig.headlampCapacity() / 2);
+                }
                 g.pose().pushPose();
                 g.pose().translate(x + cw / 2F - 16, y + 2, 0);
                 g.pose().scale(2, 2, 1);
@@ -752,12 +791,14 @@ public final class DemoVisuels {
 
         construirePhare(mc);
         construireVille(mc, sudEst);
+        construireExploration(mc, sudEst);
         construireLot5(mc, sudEst);
 
         etape("grille", () -> {
             mc.options.hideGui = false;
             mc.setScreen(new Grille(OBJETS, 4));
         }, () -> true, 800, "objets_grille.png");
+        etape("grille lot 7", () -> mc.setScreen(new Grille(LOT7, 2)), () -> true, 800, "lot7_grille.png");
         etape("grille vivres", () -> mc.setScreen(new Grille(VIVRES, 3)), () -> true, 800, "vivres_grille.png");
         etape("grille reseau", () -> mc.setScreen(new Grille(RESEAU, 2)), () -> true, 800, "reseau_grille.png");
         etape("grille lot 5", () -> mc.setScreen(new Grille(LOT5, 2)), () -> true, 800, "lot5_grille.png");
@@ -1004,6 +1045,179 @@ public final class DemoVisuels {
         monde.setBlock(phareMur, LightRegistry.LIGHTHOUSE.get().defaultBlockState(), 3);
         entourer(monde, phareMur);
         villePose = true;
+    }
+
+    /**
+     * Le lot 7, loin à l'ouest : la cache, les récepteurs (sans courant, à l'écoute, message non lu, celui de l'écran),
+     * les mécanismes (étages 0 à 3, puis actif avec une lampe de redstone à côté), chacun contre un mur, l'écran du
+     * récepteur à deux messages, puis la lampe frontale portée de nuit dans une grotte close.
+     */
+    private static void construireExploration(Minecraft mc, Vec3 sudEst) {
+        etape("pose de l'exploration", () -> {
+            MinecraftServer serveur = mc.getSingleplayerServer();
+            serveur.execute(() -> preparerExploration(serveur));
+        }, () -> explorationPosee, 2500, null);
+        // Le premier tick d'un mécanisme qui vient de se charger ne reçoit rien et remet sa progression à zéro : les
+        // étages se règlent une fois le joueur sur place et la zone en marche, avec un FE versé dans le même tick.
+        etape("approche des mecanismes", () -> regarder(mc, MECANISMES[2], new Vec3(0.0, 2.6, 8.5), false), () -> true,
+                2500, null);
+        etape("reglage des etages", () -> {
+            MinecraftServer serveur = mc.getSingleplayerServer();
+            serveur.execute(() -> reglerLesEtages(serveur.overworld()));
+        }, () -> true, 1500, null);
+        etape("vue cache", () -> regarder(mc, exploration, sudEst, false), () -> true, 1500, "cache_seule.png");
+        etape("vue cache dessus", () -> regarder(mc, exploration, new Vec3(0.4, 1.9, 0.7), false), () -> true, 1500,
+                "cache_dessus.png");
+        String[] etatsRecepteur = {"sans_courant", "ecoute", "message"};
+        for (int i = 0; i < 3; i++) {
+            int k = i;
+            etape("vue recepteur " + etatsRecepteur[k], () -> regarder(mc, RECEPTEURS[k], sudEst, false), () -> true,
+                    1500, "recepteur_" + etatsRecepteur[k] + ".png");
+        }
+        etape("vue recepteurs les trois", () -> regarder(mc, RECEPTEURS[1], new Vec3(0.0, 2.2, 5.5), false),
+                () -> true, 1500, "recepteurs_les_trois.png");
+        for (int i = 0; i < 4; i++) {
+            int k = i;
+            etape("vue mecanisme " + k, () -> regarder(mc, MECANISMES[k], sudEst, false), () -> true, 1500,
+                    "mecanisme_etage_" + k + ".png");
+        }
+        etape("vue mecanisme actif", () -> regarder(mc, MECANISMES[4], new Vec3(2.4, 1.3, 3.0), false), () -> true,
+                2500, "mecanisme_actif_et_lampe.png");
+        etape("vue mecanisme actif nuit", () -> regarder(mc, MECANISMES[4], new Vec3(2.4, 1.3, 3.0), true),
+                () -> true, 2500, "mecanisme_actif_et_lampe_nuit.png");
+        etape("vue mecanismes les cinq", () -> regarder(mc, MECANISMES[2], new Vec3(0.0, 2.6, 8.5), false),
+                () -> true, 1500, "mecanismes_les_cinq.png");
+        etape("vue mecanismes les cinq nuit", () -> regarder(mc, MECANISMES[2], new Vec3(0.0, 2.6, 8.5), true),
+                () -> true, 1500, "mecanismes_les_cinq_nuit.png");
+        etape("vue cache mur", () -> regarder(mc, cacheMur, new Vec3(1.1, 1.3, 1.6), false), () -> true, 1500,
+                "cache_contre_un_mur.png");
+        etape("vue recepteur mur", () -> regarder(mc, recepteurMur, new Vec3(1.1, 1.3, 1.6), false), () -> true,
+                1500, "recepteur_contre_un_mur.png");
+        etape("vue mecanisme mur", () -> regarder(mc, mecanismeMur, new Vec3(1.1, 1.3, 1.6), false), () -> true,
+                1500, "mecanisme_contre_un_mur.png");
+        etape("ecran recepteur", () -> {
+            fermer(mc);
+            ouvrir(mc, RECEPTEURS[3]);
+        }, () -> mc.screen instanceof ReceiverScreen, 1500, "ecran_recepteur.png");
+        etape("fin de l'ecran", () -> fermer(mc), () -> true, 300, null);
+        // La grotte : sans lampe, puis avec, de face, de dos et à la première personne.
+        etape("grotte sans lampe", () -> regarderGrotte(mc, false, CameraType.THIRD_PERSON_FRONT), () -> true, 2500,
+                "grotte_sans_lampe_face.png");
+        etape("grotte lampe face", () -> regarderGrotte(mc, true, CameraType.THIRD_PERSON_FRONT), () -> true, 3000,
+                "grotte_lampe_portee_face.png");
+        etape("grotte lampe dos", () -> regarderGrotte(mc, true, CameraType.THIRD_PERSON_BACK), () -> true, 3000,
+                "grotte_lampe_portee_dos.png");
+        etape("grotte lampe premiere personne", () -> regarderGrotte(mc, true, CameraType.FIRST_PERSON), () -> true,
+                3000, "grotte_lampe_premiere_personne.png");
+        etape("fin de la grotte", () -> {
+            mc.options.setCameraType(CameraType.FIRST_PERSON);
+            MinecraftServer serveur = mc.getSingleplayerServer();
+            serveur.execute(() -> serveur.getPlayerList().getPlayers().get(0).setItemSlot(EquipmentSlot.HEAD,
+                    ItemStack.EMPTY));
+        }, () -> true, 800, null);
+    }
+
+    /** Le joueur au centre de la grotte, de nuit, la lampe chargée sur la tête ou non, vu par la caméra demandée. */
+    private static void regarderGrotte(Minecraft mc, boolean lampe, CameraType camera) {
+        MinecraftServer serveur = mc.getSingleplayerServer();
+        mc.setScreen(null);
+        mc.options.hideGui = true;
+        mc.gameRenderer.setRenderHand(false);
+        mc.options.setCameraType(camera);
+        float yaw = camera == CameraType.THIRD_PERSON_FRONT ? 0F : 180F;
+        BlockPos c = grotte;
+        serveur.execute(() -> {
+            ServerLevel monde = serveur.overworld();
+            ServerPlayer joueur = serveur.getPlayerList().getPlayers().get(0);
+            monde.setDayTime(18000);
+            ItemStack casque = ItemStack.EMPTY;
+            if (lampe) {
+                casque = new ItemStack(ExploreRegistry.HEADLAMP.get());
+                HeadlampItem.store(casque, ExploreConfig.headlampCapacity());
+            }
+            joueur.setItemSlot(EquipmentSlot.HEAD, casque);
+            joueur.setNoGravity(true);
+            joueur.teleportTo(monde, c.getX() + 4.5, c.getY(), c.getZ() + 4.5, yaw, 0F);
+        });
+    }
+
+    /** Étages 1 à 3 : progression d'un tiers, deux tiers, la fin de la dernière marche ; seuil de 1 FE, durée immense. */
+    private static void reglerLesEtages(ServerLevel monde) {
+        for (int i = 1; i < 4; i++) {
+            if (monde.getBlockEntity(MECANISMES[i]) instanceof MechanismBlockEntity be) {
+                CompoundTag tag = new CompoundTag();
+                tag.putInt("Threshold", 1);
+                tag.putInt("Duration", 100_000);
+                tag.putInt("Progress", i * 33_400);
+                tag.putBoolean("Active", false);
+                be.load(tag);
+                be.getCapability(ForgeCapabilities.ENERGY, null).ifPresent(e -> e.receiveEnergy(1, false));
+            }
+        }
+    }
+
+    private static void preparerExploration(MinecraftServer serveur) {
+        ServerLevel monde = serveur.overworld();
+        // Loin à l'ouest, au-delà des 6 chunks affichés autour de tout ce que posent les lots 2 à 6 (le lot 6 est à
+        // l'est) : aucune capture d'un lot précédent ne voit celui-ci, ni l'inverse.
+        BlockPos e = origine.offset(-110, 0, -10);
+        exploration = e;
+        monde.setBlock(e, ExploreRegistry.CACHE.get().defaultBlockState(), 3);
+        for (int i = 0; i < 4; i++) {
+            BlockPos p = e.offset(4 * i, 0, -6);
+            RECEPTEURS[i] = p;
+            monde.setBlock(p, ExploreRegistry.RECEIVER.get().defaultBlockState(), 3);
+            if (i != 0 && monde.getBlockEntity(p) instanceof ReceiverBlockEntity be) {
+                be.energy().receiveEnergy(200, false);
+                EXPLORATION_ALIMENTEE.add(p);
+                if (i >= 2) {
+                    be.deliver(new SignalMessage(1000L, 1, "Essai de reception, un deux, un deux."));
+                    be.deliver(new SignalMessage(7300L, 1,
+                            "Second essai, plus long : la ligne doit passer a la suivante sans deborder du cadre."));
+                }
+                if (i == 1) {
+                    be.markRead();
+                }
+            }
+        }
+        for (int i = 0; i < 5; i++) {
+            BlockPos p = e.offset(4 * i, 0, -12);
+            MECANISMES[i] = p;
+            monde.setBlock(p, ExploreRegistry.MECHANISM.get().defaultBlockState(), 3);
+            if (monde.getBlockEntity(p) instanceof MechanismBlockEntity be) {
+                CompoundTag tag = new CompoundTag();
+                tag.putInt("Threshold", 1);
+                tag.putInt("Duration", 100_000);
+                tag.putBoolean("Active", i == 4);
+                be.load(tag);
+                be.setChanged();
+                if (i >= 1 && i < 4) {
+                    EXPLORATION_ALIMENTEE.add(p);
+                }
+            }
+        }
+        monde.setBlock(MECANISMES[4].east(), Blocks.REDSTONE_LAMP.defaultBlockState(), 3);
+        cacheMur = e.offset(0, 0, -18);
+        monde.setBlock(cacheMur, ExploreRegistry.CACHE.get().defaultBlockState(), 3);
+        entourer(monde, cacheMur);
+        recepteurMur = e.offset(4, 0, -18);
+        monde.setBlock(recepteurMur, ExploreRegistry.RECEIVER.get().defaultBlockState(), 3);
+        entourer(monde, recepteurMur);
+        mecanismeMur = e.offset(8, 0, -18);
+        monde.setBlock(mecanismeMur, ExploreRegistry.MECHANISM.get().defaultBlockState(), 3);
+        entourer(monde, mecanismeMur);
+        // La grotte : neuf blocs de côté, close de pierre de toutes parts, rien qui éclaire.
+        grotte = e.offset(0, 0, 14);
+        for (int x = -1; x <= 9; x++) {
+            for (int y = -1; y <= 5; y++) {
+                for (int z = -1; z <= 9; z++) {
+                    boolean interieur = x >= 0 && x <= 8 && y >= 0 && y <= 4 && z >= 0 && z <= 8;
+                    monde.setBlock(grotte.offset(x, y, z),
+                            interieur ? Blocks.AIR.defaultBlockState() : Blocks.STONE.defaultBlockState(), 3);
+                }
+            }
+        }
+        explorationPosee = true;
     }
 
     /** Deux murs de pierre de deux blocs, au nord et à l'ouest du bloc, qui le touchent. */

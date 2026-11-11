@@ -1,0 +1,33 @@
+{
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "create"
+    }
+  ],
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "minecraft:leather"
+    },
+    {
+      "item": "minecraft:glass"
+    },
+    {
+      "item": "oneforallsurvival:coil"
+    },
+    {
+      "item": "oneforallsurvival:fuse"
+    },
+    {
+      "tag": "forge:plates/iron"
+    },
+    {
+      "tag": "oneforallsurvival:wire"
+    }
+  ],
+  "result": {
+    "item": "oneforallsurvival:headlamp"
+  }
+}

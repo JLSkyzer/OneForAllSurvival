@@ -1,0 +1,33 @@
+{
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "create"
+    }
+  ],
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "create:fluid_pipe"
+    },
+    {
+      "item": "oneforallsurvival:coil"
+    },
+    {
+      "item": "oneforallsurvival:coil"
+    },
+    {
+      "item": "oneforallsurvival:fuse"
+    },
+    {
+      "tag": "forge:plates/iron"
+    },
+    {
+      "tag": "oneforallsurvival:wire"
+    }
+  ],
+  "result": {
+    "item": "oneforallsurvival:metal_detector"
+  }
+}

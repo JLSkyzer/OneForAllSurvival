@@ -1,0 +1,36 @@
+{
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "create"
+    }
+  ],
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "minecraft:iron_bars"
+    },
+    {
+      "item": "oneforallsurvival:coil"
+    },
+    {
+      "item": "oneforallsurvival:coil"
+    },
+    {
+      "item": "oneforallsurvival:fuse"
+    },
+    {
+      "tag": "forge:plates/iron"
+    },
+    {
+      "tag": "forge:plates/brass"
+    },
+    {
+      "tag": "oneforallsurvival:wire"
+    }
+  ],
+  "result": {
+    "item": "oneforallsurvival:signal_receiver"
+  }
+}
