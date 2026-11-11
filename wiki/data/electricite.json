@@ -949,10 +949,47 @@
       "id": "bien-etre",
       "name": "Effet Bien-être",
       "kind": "systeme",
-      "status": "prevu",
+      "status": "dispo",
       "lot": "Lot 6",
       "image": null,
-      "what": "Léger bonus d'activité, sans soin, donné par la douche chaude."
+      "what": "Léger bonus d'activité, sans soin, donné par la douche chaude.",
+      "who": {
+        "utilise": "Tous"
+      },
+      "steps": [
+        "Rester 5 secondes continues sous une pomme de douche alimentée en eau chaude.",
+        "L'effet dure 6 minutes ; une douche de plus remet la durée au maximum, sans cumul.",
+        "Il ne rend aucun point de vie, ni par régénération, ni par soin."
+      ],
+      "flow": [
+        "Eau chaude",
+        "Pomme de douche",
+        "5 s dessous",
+        "Bien-être"
+      ],
+      "numbers": [
+        {
+          "k": "Marche",
+          "v": "+5 %"
+        },
+        {
+          "k": "Minage",
+          "v": "+10 %"
+        },
+        {
+          "k": "Durée",
+          "v": "6 min"
+        },
+        {
+          "k": "Niveau",
+          "v": "un seul"
+        }
+      ],
+      "staff": [
+        "Config oneforallsurvival-town.toml : wellBeingSpeedBonus, wellBeingMiningBonus, showerWellBeingMinutes.",
+        "Ne réutilise aucun effet de Farmer's Delight et ne touche pas aux points de vie, y compris sous First Aid.",
+        "Équilibrage en jeu pas encore fait."
+      ]
     },
     {
       "id": "couveuse",
@@ -1118,10 +1155,55 @@
       "num": 17,
       "name": "Phare",
       "kind": "machine",
-      "status": "prevu",
+      "status": "dispo",
       "lot": "Lot 6",
-      "image": null,
-      "what": "Faisceau tournant au sommet d'une tour libre, repère et symbole de la ville."
+      "image": {
+        "type": "block",
+        "top": "lighthouse_base.png",
+        "side": "lighthouse_lamp_lit.png",
+        "front": "lighthouse_lamp_lit.png"
+      },
+      "what": "Faisceau tournant au sommet d'une tour libre, repère et symbole de la ville.",
+      "who": {
+        "fabrique": "Ingénieur",
+        "pose": "Tous",
+        "utilise": "Tous",
+        "casse": "Tous, à la pioche"
+      },
+      "steps": [
+        "Poser le phare au sommet d'une tour, à ciel libre et à 8 blocs au moins au-dessus de la mer.",
+        "Lui donner du courant : deux faisceaux opposés tournent, visibles de loin.",
+        "Sous un toit ou trop bas, il reste éteint et ne consomme rien."
+      ],
+      "flow": [
+        "Courant",
+        "Phare",
+        "Tour libre ?",
+        "Faisceaux"
+      ],
+      "numbers": [
+        {
+          "k": "Énergie",
+          "v": "32 FE/t"
+        },
+        {
+          "k": "Hauteur",
+          "v": "8 blocs au-dessus de la mer"
+        },
+        {
+          "k": "Faisceaux",
+          "v": "2, un tour en 8 s"
+        },
+        {
+          "k": "Longueur",
+          "v": "96 blocs"
+        }
+      ],
+      "staff": [
+        "Config oneforallsurvival-light.toml : lighthouseEnergy, lighthouseMinAboveSea.",
+        "Consomme au moins le double de la plus forte lampe relevée dans Crafts & Additions, New Age et Advanced Electricity (15 FE/t au maximum) : à relever si un serveur monte leurs réglages.",
+        "Le niveau de la mer est celui de la détection côtière (63 par défaut)."
+      ]
     },
     {
       "id": "detecteur-metaux",
@@ -1172,10 +1254,56 @@
       "num": 25,
       "name": "Chauffe-eau et douche",
       "kind": "machine",
-      "status": "prevu",
+      "status": "dispo",
       "lot": "Lot 6",
-      "image": null,
-      "what": "Chauffe l'eau potable au courant ; quelques secondes de douche donnent Bien-être."
+      "image": {
+        "type": "block",
+        "top": "water_heater_top.png",
+        "side": "water_heater_side.png",
+        "front": "water_heater_front_running.png"
+      },
+      "what": "Chauffe l'eau potable au courant ; quelques secondes sous la pomme de douche donnent le Bien-être.",
+      "who": {
+        "fabrique": "Ingénieur",
+        "pose": "Tous",
+        "utilise": "Tous",
+        "casse": "Tous, à la pioche"
+      },
+      "steps": [
+        "Relier un dessalinisateur au chauffe-eau par des tuyaux et une pompe de Create, avec du courant.",
+        "Relier le chauffe-eau à la pomme de douche de la même façon (elle peut être à l'étage).",
+        "Se tenir de 1 à 3 blocs sous la pomme : 5 secondes continues d'eau chaude donnent le Bien-être."
+      ],
+      "flow": [
+        "Dessalinisateur",
+        "Chauffe-eau",
+        "Pomme de douche",
+        "Bien-être"
+      ],
+      "numbers": [
+        {
+          "k": "Chauffe-eau",
+          "v": "5 mB/t, 40 FE/t"
+        },
+        {
+          "k": "Cuves du chauffe-eau",
+          "v": "2 × 4 000 mB"
+        },
+        {
+          "k": "Pomme de douche",
+          "v": "1 000 mB, 2 mB/t dessous"
+        },
+        {
+          "k": "Douche",
+          "v": "5 s continues"
+        }
+      ],
+      "staff": [
+        "Config oneforallsurvival-town.toml : heaterMbPerTick, heaterEnergy, showerSeconds, showerMbPerTick.",
+        "Le chauffe-eau n'accepte que l'eau potable du mod (ni eau vanilla, ni lave) et ne rend que l'eau chaude (fluide hot_water, ni seau ni bloc).",
+        "La pomme n'a ni courant ni usure et ne se vide pas par les tuyaux. Casser le chauffe-eau perd ses cuves.",
+        "Une zone déchargée n'est pas une coupure : la machine se fige sans rien perdre."
+      ]
     }
   ]
 }
