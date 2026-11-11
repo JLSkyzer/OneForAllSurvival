@@ -90,7 +90,7 @@ La numérotation prolonge celle du cahier du maire.
 
 **111. Jeton de casino.**
 - C'est un **objet**, qui s'empile par 64. Il ne se fabrique pas : il s'achète au PNJ vendeur (112).
-- Son **prix** en pièces est réglé en config par l'équipe. Il reste à fixer (question ouverte).
+- Son **prix** est de **1 pièce d'argent** (10 cuivres), choix de Killian, réglable en config.
 - Ce n'est **pas de l'argent** : on le range partout, dans un coffre ou un sac, et il se vole comme
   tout objet (choix de Killian).
 - Un même jeton vaut dans tous les casinos du serveur.
@@ -215,6 +215,7 @@ Trois objets séparés, exportés en OBJ, avec une seule texture :
 ## 9. Décisions et choix
 
 ### Décisions de Killian (2026-11-11)
+- Un jeton coûte **1 pièce d'argent**.
 - Les **tables ne se fabriquent pas** : l'équipe les donne après un paiement en RP.
 - On joue avec des **jetons de casino**, achetés à un **PNJ**.
 - Un **coffre du casino**, posé par l'équipe et **incassable**, garde l'argent.
@@ -238,6 +239,5 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 
 ## 10. Questions ouvertes
 
-- **Le prix d'un jeton**, en pièces.
 - **Une seule valeur de jeton**, ou plusieurs (1, 5, 25) pour les grosses mises ?
 - Le **rachat** doit-il prendre des frais, au profit du casino ?
