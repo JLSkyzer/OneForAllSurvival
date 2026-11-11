@@ -86,6 +86,18 @@ La numérotation prolonge celle du cahier de la chicha.
   ruines mystérieuses de l'île. Il se replante dans le noir, comme les champignons de Minecraft.
 - Les deux plantes donnent des **graines** à la récolte et se cultivent comme le blé, par **tout le
   monde** (choix de Killian). Elles poussent sous la serre de l'agriculteur comme les autres cultures.
+- **Graines dans l'herbe** (demande de Killian) : casser de l'herbe haute ou de la grande herbe peut
+  donner une graine, comme les graines de blé de Minecraft :
+  - graine de tabac : **1 chance sur 20** ;
+  - graine d'herbe-songe : **1 chance sur 50**.
+  Les chances sont réglables en config. Le mod les ajoute par un modificateur de butin global de Forge,
+  sans toucher aux tables de butin de Minecraft.
+- **Poudre d'os** (demande de Killian) : sur un bloc d'herbe, elle fait pousser autour, en plus des fleurs
+  et des herbes habituelles, un **plant sauvage** de tabac (1 chance sur 15 par plante qui pousse) ou
+  d'herbe-songe (1 chance sur 40). Un plant sauvage se récolte comme une culture mûre et donne feuilles
+  et graines. Chances réglables en config.
+- Le champignon des ruines ne vient ni de l'herbe ni de la poudre d'os : on le trouve près des ruines,
+  puis on le replante.
 
 **130. Séchage.**
 - Les feuilles de tabac et d'herbe-songe se **sèchent** avant usage : au **four** (lent) ou au **séchoir
@@ -228,6 +240,8 @@ La numérotation prolonge celle du cahier de la chicha.
 - **Lancement réel obligatoire à chaque lot**, avec deux clients aux lots S3 et S4.
 - **GameTests** pour les règles :
   - une feuille fraîche ne se fume pas, une feuille séchée oui ;
+  - sur 10 000 herbes cassées, les graines tombent à peu près aux chances réglées ; la poudre d'os sur
+    l'herbe fait parfois pousser un plant sauvage ;
   - une cigarette donne 5 bouffées, un cigare 12, une charge de pipe 8 ;
   - l'ivresse monte du bon nombre de paliers selon la boisson, redescend d'un palier toutes les
     2 minutes, et le lait la remet à zéro ;
@@ -254,6 +268,8 @@ La numérotation prolonge celle du cahier de la chicha.
 ### Choix faits par l'auteur du document
 Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 - les noms et la nature fictive des drogues : herbe-songe, champignon des ruines, poussière d'épave ;
+- les chances : graine de tabac 1 sur 20 et d'herbe-songe 1 sur 50 dans l'herbe ; plant sauvage 1 sur 15
+  et 1 sur 40 à la poudre d'os ;
 - les quantités : 5 bouffées par cigarette, 12 par cigare, 8 par pipe, 4 doses par fournée de labo ;
 - l'ivresse en cinq paliers, qui redescend toutes les 2 minutes ;
 - le café pour dessoûler, à ajouter ;

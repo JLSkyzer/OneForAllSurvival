@@ -32,9 +32,23 @@
    "lot": "Lot S1",
    "what": "Tabac, herbe-songe et champignon des ruines, trouvés sauvages puis cultivés par tous.",
    "steps": [
-    "Tabac : plaines et savanes.",
-    "Herbe-songe : près des rivières, rare.",
+    "Casser de l'herbe : parfois une graine.",
+    "Poudre d'os sur l'herbe : parfois un plant sauvage.",
     "Champignon des ruines : à l'ombre des ruines."
+   ],
+   "numbers": [
+    {
+     "k": "Graine de tabac",
+     "v": "1 sur 20"
+    },
+    {
+     "k": "Graine d'herbe-songe",
+     "v": "1 sur 50"
+    }
+   ],
+   "staff": [
+    "Chances réglables en config.",
+    "Poudre d'os : plant sauvage 1 sur 15 (tabac), 1 sur 40 (herbe-songe)."
    ]
   },
   {
