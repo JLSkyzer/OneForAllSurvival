@@ -144,9 +144,10 @@ public final class PurseScreen extends AbstractContainerScreen<PurseMenu> {
             Coin coin = coinOfRow(row);
             long count = menu.count(coin);
             BenchTheme.item(g, font, new ItemStack(coin.item()), leftPos + PAD + 3, rowY(row) + 2, 1.0F, false);
-            g.drawString(font, count + " " + Component.translatable(coin.unitKey()).getString(), leftPos + PAD + 24,
+            g.drawString(font, count + " " + Component.translatable(coin.unitKey(count)).getString(), leftPos + PAD + 24,
                     rowY(row) + 2, count > 0 ? BenchTheme.TEXT : BenchTheme.TEXT_DIM, false);
-            g.drawString(font, Component.translatable(GUI + "worth", CoinMath.valueOf(coin, count)), leftPos + PAD + 24,
+            g.drawString(font, Component.translatable(GUI + "worth", CoinMath.valueOf(coin, count),
+                    Component.translatable(Coin.COPPER.unitKey(CoinMath.valueOf(coin, count)))), leftPos + PAD + 24,
                     rowY(row) + 11, BenchTheme.TEXT_DIM, false);
             for (int i = 0; i < SafeActionPacket.WITHDRAW_AMOUNTS.length; i++) {
                 int amount = SafeActionPacket.WITHDRAW_AMOUNTS[i];

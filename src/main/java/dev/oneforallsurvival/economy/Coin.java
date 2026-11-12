@@ -41,6 +41,14 @@ public enum Coin {
         return "economy.oneforallsurvival.unit." + name;
     }
 
+    /**
+     * Clé de langue du nom de la coupure pour {@code n} pièces : le pluriel au-delà de 1 (en français 0 et 1 sont au
+     * singulier), le singulier sinon.
+     */
+    public String unitKey(long n) {
+        return n > 1L ? unitKey() + ".plural" : unitKey();
+    }
+
     public static Optional<Coin> fromItem(Item item) {
         for (Coin coin : values()) {
             if (coin.item() == item) {

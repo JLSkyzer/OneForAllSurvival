@@ -550,6 +550,8 @@ public final class PackGameTests {
                 }
             }
         }
+        // Le coffre-fort se mine à la pioche (plus vite qu'à la main) et rend son objet ; qui le casse reste réglé par le bloc.
+        tombentALaPioche(helper, "safe");
         // La bourse et les pièces ne sont l'ingrédient d'aucune recette, d'aucun type.
         for (Recipe<?> recette : manager.getRecipes()) {
             for (Ingredient ingredient : recette.getIngredients()) {

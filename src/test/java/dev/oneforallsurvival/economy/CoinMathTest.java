@@ -51,6 +51,22 @@ class CoinMathTest {
     }
 
     @Test
+    void pluriel() {
+        for (Coin c : Coin.values()) {
+            assertEquals(c.unitKey(), c.unitKey(0));
+            assertEquals(c.unitKey(), c.unitKey(1));
+            assertEquals(c.unitKey() + ".plural", c.unitKey(2));
+            assertEquals(c.unitKey() + ".plural", c.unitKey(1_000_000));
+        }
+        String texte = CoinMath.format(2_203).getString();
+        assertTrue(texte.contains("2 " + Coin.EMERALD.unitKey() + ".plural"), texte);
+        assertTrue(texte.contains("2 " + Coin.GOLD.unitKey() + ".plural"), texte);
+        assertTrue(texte.contains("3 " + Coin.COPPER.unitKey() + ".plural"), texte);
+        String un = CoinMath.format(1_001).getString();
+        assertTrue(un.contains("1 " + Coin.EMERALD.unitKey()) && !un.contains(".plural"), un);
+    }
+
+    @Test
     void monnaieExacte() {
         // 12 cuivres pour un prix de 7 : on prend exactement 7 cuivres, rien à rendre.
         CoinMath.Payment p = CoinMath.makeChange(coins(Coin.COPPER, 12), 7).orElseThrow();

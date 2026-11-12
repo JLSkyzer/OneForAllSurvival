@@ -120,7 +120,7 @@ public final class CoinMath {
                 out.append(" ");
             }
             first = false;
-            out.append(count + " ").append(Component.translatable(coins[i].unitKey()));
+            out.append(count + " ").append(Component.translatable(coins[i].unitKey(count)));
         }
         return out;
     }

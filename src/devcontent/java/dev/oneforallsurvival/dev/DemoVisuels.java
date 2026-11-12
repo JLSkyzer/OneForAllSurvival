@@ -1002,8 +1002,14 @@ public final class DemoVisuels {
                 () -> true, 2500, "monnaie_pieces_au_sol.png");
         etape("vue pieces au sol nuit", () -> regarder(mc, monnaie.offset(-12, 0, 0), new Vec3(0.0, 2.2, 4.6), true),
                 () -> true, 1500, "monnaie_pieces_au_sol_nuit.png");
-        etape("vue pile et bourse au sol", () -> regarder(mc, monnaie.offset(-3, 0, 0), new Vec3(0.3, 1.6, 2.6), false),
+        // La bourse tourne sur elle-même comme les pièces, et de chant elle disparaît : plusieurs prises, de plus près et
+        // de plus haut, espacées de façon que l'une au moins la montre de face.
+        etape("vue pile et bourse au sol", () -> regarder(mc, monnaie.offset(-3, 0, 0), new Vec3(0.0, 1.3, 2.2), false),
                 () -> true, 1500, "monnaie_pile_et_bourse_au_sol.png");
+        for (int i = 2; i <= 4; i++) {
+            etape("vue pile et bourse au sol " + i, () -> {}, () -> true, 450 + 170 * i,
+                    "monnaie_pile_et_bourse_au_sol_" + i + ".png");
+        }
         // En main : les cases 0 à 4 sont les pièces, la 5 la bourse, la 6 le coffre-fort.
         String[] noms = {"cuivre", "argent", "or", "emeraude", "rubis", "bourse", "coffre_fort"};
         for (int i = 0; i < noms.length; i++) {
