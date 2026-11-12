@@ -10,6 +10,8 @@ Relevés du 2026-11-12 (nuit du 11 au 12), sur `main` (le travail est fait direc
 |---|---|
 | `./gradlew --offline test runGameTestServer` (sans pack, 01:38 à 01:39) | « All 508 required tests passed » (`run-gametest/logs/latest.log`) ; JUnit : 311 tests, 0 échec, 0 erreur (somme des `build/test-results/test/*.xml`) |
 | `./gradlew --offline runGameTestServer -PwithPack` (01:40 à 01:42) | « All 508 required tests passed » |
+| Après les corrections de la revue finale : `./gradlew --offline test runGameTestServer` | « All 513 required tests passed » ; JUnit : 311 tests, 0 échec, 0 erreur |
+| Après les corrections de la revue finale : `./gradlew --offline runGameTestServer -PwithPack` | « All 513 required tests passed » |
 
 ## Serveur dédié et vrai client
 
@@ -94,7 +96,7 @@ Avant l'arrêt le joueur retourne à son point de départ (la zone se décharge)
 
 ## Film
 
-`./gradlew runDemoExplorationFilm -PwithPack` (`FilmExploration`, 01:36 à 01:37) : monde intégré plat, une passe réussie, 841 images, `termine.json` sans échec, encodé en **`run-demo/film-lot7-exploration.mp4`** (1 min 24 s, 1280 x 720, 10 images par seconde ; `ffmpeg` déjà installé sur la machine, rien de téléchargé). Capture des images du jeu lui-même (`FilmCapture`). **Le temps du monde n'est jamais accéléré, aucune durée n'est abrégée** (le détecteur et la lampe sont donnés chargés : leur recharge est dans l'essai de bout en bout). Images rouvertes une à une ; les horodatages sont ceux de l'incrustation, approximatifs :
+`./gradlew runDemoExplorationFilm -PwithPack` (`FilmExploration`, 01:36 à 01:37) : monde intégré plat, une passe réussie, 841 images, `termine.json` sans échec, encodé en **`run-demo/film-lot7-exploration.mp4`** (1 min 24 s, 1280 x 720, 10 images par seconde ; `ffmpeg` déjà installé sur la machine, rien de téléchargé). Capture des images du jeu lui-même (`FilmCapture`). **L'heure est réglée, le temps ne s'écoule jamais plus vite ; le mécanisme est réglé à 8 s** (le détecteur et la lampe sont donnés chargés : leur recharge est dans l'essai de bout en bout). Images rouvertes une à une ; les horodatages sont ceux de l'incrustation, approximatifs :
 
 - 0:08 à 0:20 : la recherche d'une cache au détecteur, vue à la première personne : « À 8 blocs : encore plus vite », la caisse rouillée au loin ; le bandeau annonce chaque bip (« BIP », intervalle en ticks, hauteur, nombre de bips reçus) puisque le son ne se filme pas.
 - 0:20 à 0:25 : la cache est cassée à la main, le butin tombe autour du joueur et est ramassé ; l'index passe à 0 cache et le bandeau n'annonce plus de bip.
@@ -116,7 +118,7 @@ La lumière de la lampe à 4 blocs des murs reste modeste (niveau 14 moins la di
 
 - **Équilibrage réel** : batterie du détecteur (24 000 FE, environ 10 min), de la lampe (36 000 FE, environ 15 min), 4 FE par tick du récepteur, seuil et durée du mécanisme : jamais vécus en partie, seulement en essai court.
 - **Multijoueur** : un seul client à la fois. Ni le bip entendu par un autre joueur, ni deux porteurs de lampe qui partagent un bloc de lumière ne sont vus en vrai (GameTests de la tâche 3 seulement).
-- **Coût serveur des lampes** : jamais mesuré (un bloc de lumière posé et retiré par seconde et par porteur ; aucun chronométrage de tick avec plusieurs lampes).
+- **Coût serveur des lampes** : jamais mesuré (un bloc de lumière posé et un bloc retiré par bloc traversé, et non par seconde ; aucun chronométrage de tick avec plusieurs lampes).
 - **Lumière de la lampe vue par un second client** : non vue ; seul le client de l'essai a lu le bloc `minecraft:light`.
 - **FE d'un autre mod** : seule Create Crafts & Additions a servi (source créative pour la recharge et l'alimentation, connecteurs et fil de cuivre pour le mécanisme) ; ni New Age ni Advanced Electricity.
 - **Arrêt brutal du serveur** : le plantage réel n'est pas essayé ; le `/stop` ordinaire l'est, avec la lampe portée. Le déchargement et le rechargement réels d'un chunk en cours de partie n'ont pas été observés.
@@ -139,3 +141,16 @@ Aucun défaut du code livré n'a été trouvé. Les échecs venaient du banc, ch
 7. **Plus de case libre dans la barre d'action** : détecteur, lampe et butin occupaient les cases que l'étape du lot 4 de la relance cherche vides (le clic droit sur le disjoncteur se faisait avec une bouteille d'eau en main). L'étape retire détecteur, butin et lampe dès qu'ils ne servent plus.
 8. **Serveur démarré trop lentement** : deux lancements successifs se sont chevauchés (le script d'essai abandonnait au bout de 5 min) ; un serveur resté ouvert après un client planté a été arrêté par la console RCON (`stop`), jamais tué.
 9. **Passage « seule »** : l'étape a été mise au point seule par la variable d'environnement `E2E_EXPLORATION_SEULE`, qui saute les lots 1 à 6.
+
+## Corrections après la revue finale
+
+La revue finale du lot a trouvé quatre défauts importants, corrigés ensuite. **L'essai de bout en bout et le film n'ont pas été rejoués après ces corrections** ; seuls les GameTests (sans puis avec le pack) et les tests JUnit ont été relancés (voir `.superpowers/sdd/2026-11-11-lot-7-exploration/final-fix-report.md` pour les lignes lues). L'étape de l'essai de bout en bout a été adaptée (le joueur s'accroupit avant de recharger) mais pas exécutée.
+
+| Défaut | Correction | Ce qui le prouve |
+|---|---|---|
+| **I1.** Le clic droit du détecteur ou de la lampe rechargeait sur n'importe quel bloc à énergie : il vidait les machines du mod et empêchait d'ouvrir le récepteur | Recharge accroupi seulement (`ItemBattery.useOnSource`), comme le poste à souder ; debout le clic passe | GameTests `deboutSurUnRecepteurIlNeVideRien`, `deboutSurUneMachineDuModIlNePrendRien`, `accroupiSurUneMachineDuModLaRechargeALieu`, `ilSeRechargeAccroupiSurUneSource` |
+| **I2.** Le détecteur changeait sa NBT à chaque tick (envoyée à tous ceux qui le voient) | Énergie payée par blocs de 20 ticks (`ItemBattery.Prepaid`, partagé avec la lampe) ; compteur de bips dans une table serveur par joueur, vidée à la déconnexion | GameTests `laPileNeChangeQuUneFoisParSeconde`, `lePasDeMainEnMainGardeLeRythme`, `tenuPresDUneCacheIlBipe`, `dansLeSacIlNeDepenseRien` |
+| **I3.** Le wiki affirmait une preuve inexistante pour le mécanisme | Texte ramené à ce qui est prouvé : état actif gardé après un redémarrage (serveur dédié), progression gardée au rechargement (GameTest) | Relecture de `wiki/data/electricite.json` |
+| **I4.** Le balayage des lumières orphelines tournait pendant `ChunkDataEvent.Load`, avant l'inscription du chunk au monde | Le chargement ne fait que noter les positions ; le nettoyage a lieu à la fin du tick de serveur suivant, mise à jour complète | GameTests `orphelineNettoyeeAuChargement`, `orphelineLueDansLesDonneesDuChunk`, `orphelineGardeeSiUneLampeLaVise` et le nouveau `orphelineImbibeeRedevientUneSourceDEau` |
+
+Mineurs corrigés dans le même passage : `receiverEnergy` borné de 1 à 200 ; coût d'une période borné à la capacité avec avertissement au chargement de la config ; la lampe ne note une position que si la pose a réussi ; le mécanisme ne juge pas un tick sans courant quand un de ses voisins est dans un chunk qui ne tique pas (non couvert par un GameTest : le gabarit n'a pas de chunk voisin qui ne tique pas, pas simulable proprement) ; Javadoc du récepteur ; image du mécanisme dans le wiki ; note de `headlampLight` dans le wiki.

@@ -1225,7 +1225,7 @@
         "casse": "-"
       },
       "steps": [
-        "Le recharger par un clic droit sur un bloc qui donne des FE (source d'un autre mod comprise).",
+        "Le recharger : accroupi, clic droit sur une source (machine du mod, ou bloc d'un autre mod qui donne des FE).",
         "Le tenir dans une main : un bip toutes les 40 ticks à 24 blocs, toutes les 2 ticks au contact. Seul le porteur l'entend.",
         "Casser la cache (à la hache ou à la main) : le butin tombe une fois, la cache sort de la liste et le détecteur se tait."
       ],
@@ -1278,7 +1278,7 @@
         "casse": "-"
       },
       "steps": [
-        "La recharger par un clic droit sur un bloc qui donne des FE.",
+        "La recharger : en main, accroupi, clic droit sur une source (machine du mod, ou bloc d'un autre mod qui donne des FE).",
         "La mettre sur la tête (clic droit) : une lumière invisible suit le joueur.",
         "La retirer, la vider ou quitter : la lumière disparaît."
       ],
@@ -1309,7 +1309,8 @@
       "staff": [
         "Config oneforallsurvival-explore.toml : headlampCapacity, headlampEnergy, headlampLight.",
         "La lumière est un bloc minecraft:light posé seulement dans l'air ou l'eau, noté dans les données du chunk et retiré à la déconnexion, la mort, le changement de dimension et l'arrêt du serveur.",
-        "Le coût sur un serveur chargé n'est pas mesuré."
+        "Le coût sur un serveur chargé n'est pas mesuré.",
+        "Changer headlampLight pendant que des lampes sont allumées laisse leurs blocs de lumière."
       ]
     },
     {
@@ -1372,8 +1373,8 @@
       "lot": "Lot 7",
       "image": {
         "type": "block",
-        "top": "ancient_mechanism_3.png",
-        "side": "ancient_mechanism_3.png",
+        "top": "ancient_mechanism_active.png",
+        "side": "ancient_mechanism_active.png",
         "front": "ancient_mechanism_active.png"
       },
       "what": "Bloc ancien qui exige du courant un temps donné, puis reste actif et émet un signal de redstone jusqu'à sa remise à zéro.",
@@ -1413,7 +1414,7 @@
       "staff": [
         "/mechanism set <pos> <fe_par_tick> <secondes>, /mechanism reset <pos>, /mechanism info <pos> (niveau 2).",
         "Ni l'explosion, ni le Wither, ni le dragon, ni le piston ne le déplacent. Il ne s'use pas.",
-        "Il garde sa progression et son état actif après un rechargement ou un redémarrage (prouvé sur serveur dédié)."
+        "Il garde son état actif après un redémarrage (prouvé sur serveur dédié) ; sa progression est gardée au rechargement (GameTest)."
       ]
     },
     {
