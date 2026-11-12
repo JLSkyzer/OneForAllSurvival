@@ -1211,44 +1211,210 @@
       "num": 21,
       "name": "Détecteur de métaux",
       "kind": "objet",
-      "status": "prevu",
+      "status": "dispo",
       "lot": "Lot 7",
-      "image": null,
-      "what": "Objet à batterie qui bipe plus vite près d'une cache enfouie par le staff."
+      "image": {
+        "type": "item",
+        "file": "metal_detector.png"
+      },
+      "what": "Objet à batterie qui bipe de plus en plus vite et de plus en plus aigu en approchant d'une cache enfouie par le staff.",
+      "who": {
+        "fabrique": "Ingénieur",
+        "pose": "-",
+        "utilise": "Tous",
+        "casse": "-"
+      },
+      "steps": [
+        "Le recharger par un clic droit sur un bloc qui donne des FE (source d'un autre mod comprise).",
+        "Le tenir dans une main : un bip toutes les 40 ticks à 24 blocs, toutes les 2 ticks au contact. Seul le porteur l'entend.",
+        "Casser la cache (à la hache ou à la main) : le butin tombe une fois, la cache sort de la liste et le détecteur se tait."
+      ],
+      "flow": [
+        "Batterie",
+        "Détecteur en main",
+        "Cache à portée ?",
+        "Bips"
+      ],
+      "numbers": [
+        {
+          "k": "Batterie",
+          "v": "24 000 FE"
+        },
+        {
+          "k": "Consommation",
+          "v": "2 FE/t, tenu en main"
+        },
+        {
+          "k": "Portée",
+          "v": "24 blocs, distance réelle"
+        },
+        {
+          "k": "Cadence",
+          "v": "40 ticks au bord, 2 au contact"
+        }
+      ],
+      "staff": [
+        "Config oneforallsurvival-explore.toml : detectorCapacity, detectorEnergy, detectorRange.",
+        "Sans cache dans la dimension il ne consomme rien. Une zone déchargée n'est jamais chargée pour lui.",
+        "Les caches se posent avec /give ou en créatif ; /cache list les liste, /cache loot <pos> <table> change leur butin."
+      ]
     },
     {
       "id": "lampe-frontale",
       "num": 22,
       "name": "Lampe frontale rechargeable",
       "kind": "objet",
-      "status": "prevu",
+      "status": "dispo",
       "lot": "Lot 7",
-      "image": null,
-      "what": "Portée à la place du casque, elle éclaire tant que sa batterie tient."
+      "image": {
+        "type": "item",
+        "file": "headlamp.png"
+      },
+      "what": "Portée à la place du casque (protection 1), elle éclaire autour de la tête tant que sa batterie tient.",
+      "who": {
+        "fabrique": "Ingénieur",
+        "pose": "-",
+        "utilise": "Tous",
+        "casse": "-"
+      },
+      "steps": [
+        "La recharger par un clic droit sur un bloc qui donne des FE.",
+        "La mettre sur la tête (clic droit) : une lumière invisible suit le joueur.",
+        "La retirer, la vider ou quitter : la lumière disparaît."
+      ],
+      "flow": [
+        "Batterie",
+        "Lampe portée",
+        "Tête dans l'air ou l'eau ?",
+        "Lumière de niveau 14"
+      ],
+      "numbers": [
+        {
+          "k": "Batterie",
+          "v": "36 000 FE"
+        },
+        {
+          "k": "Consommation",
+          "v": "2 FE/t, soit environ 15 min"
+        },
+        {
+          "k": "Lumière",
+          "v": "niveau 14"
+        },
+        {
+          "k": "Protection",
+          "v": "1, sans durabilité"
+        }
+      ],
+      "staff": [
+        "Config oneforallsurvival-explore.toml : headlampCapacity, headlampEnergy, headlampLight.",
+        "La lumière est un bloc minecraft:light posé seulement dans l'air ou l'eau, noté dans les données du chunk et retiré à la déconnexion, la mort, le changement de dimension et l'arrêt du serveur.",
+        "Le coût sur un serveur chargé n'est pas mesuré."
+      ]
     },
     {
       "id": "recepteur-signaux",
       "num": 23,
       "name": "Récepteur de signaux",
       "kind": "machine",
-      "status": "prevu",
+      "status": "dispo",
       "lot": "Lot 7",
-      "image": null,
-      "what": "Bloc alimenté réglé sur une fréquence ; affiche les messages envoyés par le staff."
+      "image": {
+        "type": "block",
+        "top": "signal_receiver.png",
+        "side": "signal_receiver.png",
+        "front": "signal_receiver.png"
+      },
+      "what": "Bloc alimenté réglé sur une fréquence ; il archive les messages envoyés par le staff et allume un voyant tant qu'un message n'est pas lu.",
+      "who": {
+        "fabrique": "Ingénieur",
+        "pose": "Tous",
+        "utilise": "Tous",
+        "casse": "Tous, à la pioche"
+      },
+      "steps": [
+        "Le poser et lui donner du courant : il écoute.",
+        "Clic droit : l'écran règle la fréquence (1 à 9999) et montre les 50 derniers messages.",
+        "Un récepteur sans courant ou dans une zone déchargée manque le message."
+      ],
+      "flow": [
+        "Courant",
+        "Récepteur",
+        "Bonne fréquence ?",
+        "Archive et voyant"
+      ],
+      "numbers": [
+        {
+          "k": "Énergie",
+          "v": "4 FE/t pour écouter, tampon de 2 000 FE"
+        },
+        {
+          "k": "Fréquence",
+          "v": "1 à 9999"
+        },
+        {
+          "k": "Archive",
+          "v": "50 messages de 256 caractères"
+        }
+      ],
+      "staff": [
+        "/signal send <fréquence> <rayon> <message> (niveau 2) : rayon horizontal de 1 à 30 000 blocs autour de la source de la commande, dans sa dimension ; la réponse donne le nombre de récepteurs qui l'ont reçu.",
+        "Config oneforallsurvival-explore.toml : receiverEnergy.",
+        "Aucun texte n'est livré avec le mod : les messages sont ceux de l'équipe."
+      ]
     },
     {
       "id": "mecanismes-ruines",
       "num": 24,
       "name": "Mécanismes des ruines",
       "kind": "bloc",
-      "status": "prevu",
+      "status": "dispo",
       "lot": "Lot 7",
-      "image": null,
-      "what": "Bloc ancien qui exige du courant un temps donné, puis émet un signal.",
+      "image": {
+        "type": "block",
+        "top": "ancient_mechanism_3.png",
+        "side": "ancient_mechanism_3.png",
+        "front": "ancient_mechanism_active.png"
+      },
+      "what": "Bloc ancien qui exige du courant un temps donné, puis reste actif et émet un signal de redstone jusqu'à sa remise à zéro.",
       "who": {
         "pose": "Staff",
         "casse": "Personne en survie"
-      }
+      },
+      "steps": [
+        "Le brancher à un câble (d'un autre mod) qui lui donne au moins le seuil de FE à chaque tick.",
+        "Tenir le seuil sans coupure pendant la durée réglée : ses veines s'allument une à une, puis il s'active.",
+        "Actif, il émet 15 de redstone de tous côtés (une porte de fer s'ouvre) jusqu'à /mechanism reset."
+      ],
+      "flow": [
+        "Câble",
+        "Seuil tenu ?",
+        "Durée écoulée ?",
+        "Actif, signal 15"
+      ],
+      "numbers": [
+        {
+          "k": "Seuil par défaut",
+          "v": "100 FE/t"
+        },
+        {
+          "k": "Durée par défaut",
+          "v": "10 s"
+        },
+        {
+          "k": "Coupure",
+          "v": "un tick sans seuil remet à zéro"
+        },
+        {
+          "k": "Dureté",
+          "v": "incassable en survie"
+        }
+      ],
+      "staff": [
+        "/mechanism set <pos> <fe_par_tick> <secondes>, /mechanism reset <pos>, /mechanism info <pos> (niveau 2).",
+        "Ni l'explosion, ni le Wither, ni le dragon, ni le piston ne le déplacent. Il ne s'use pas.",
+        "Il garde sa progression et son état actif après un rechargement ou un redémarrage (prouvé sur serveur dédié)."
+      ]
     },
     {
       "id": "chauffe-eau-douche",
