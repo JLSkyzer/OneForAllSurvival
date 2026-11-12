@@ -1,8 +1,10 @@
 package dev.oneforallsurvival.economy;
 
+import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.ToLongFunction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.world.item.ItemStack;
@@ -54,19 +56,44 @@ public final class CoinMath {
         return out;
     }
 
+    /** Combien de pièces d'une coupure font une pièce de celle du dessus, au change. */
+    private static final long GROUP_SIZE = 10L;
+
     /**
      * Regroupe chaque tranche de 10 pièces d'une coupure en 1 pièce de la coupure au-dessus, jusqu'au rubis,
-     * à valeur égale. Le rapport est celui du change (10 pour 1), pas celui de la configuration.
+     * à valeur égale. Le rapport est celui du change (10 pour 1), pas celui de la configuration : voir
+     * {@link #group(EnumMap, ToLongFunction)} pour tenir compte des valeurs vivantes.
      */
     public static EnumMap<Coin, Long> group(EnumMap<Coin, Long> coins) {
+        boolean[] pairs = new boolean[Coin.values().length - 1];
+        Arrays.fill(pairs, true);
+        return group(coins, pairs);
+    }
+
+    /**
+     * Comme {@link #group(EnumMap)}, mais une paire (une coupure et celle du dessus) n'est regroupée que si la
+     * pièce du dessus vaut exactement 10 fois l'autre selon {@code value} : sans cela le regroupement ne serait
+     * pas à valeur égale. Pour une paire qui ne l'est pas, les pièces restent telles quelles.
+     */
+    public static EnumMap<Coin, Long> group(EnumMap<Coin, Long> coins, ToLongFunction<Coin> value) {
+        Coin[] all = Coin.values();
+        boolean[] pairs = new boolean[all.length - 1];
+        for (int i = 0; i < pairs.length; i++) {
+            pairs[i] = value.applyAsLong(all[i + 1]) == value.applyAsLong(all[i]) * GROUP_SIZE;
+        }
+        return group(coins, pairs);
+    }
+
+    private static EnumMap<Coin, Long> group(EnumMap<Coin, Long> coins, boolean[] pairs) {
         EnumMap<Coin, Long> out = new EnumMap<>(Coin.class);
         Coin[] all = Coin.values();
         long carry = 0L;
         for (int i = 0; i < all.length; i++) {
             long n = coins.getOrDefault(all[i], 0L) + carry;
-            if (i < all.length - 1) {
-                carry = n / 10;
-                n = n % 10;
+            carry = 0L;
+            if (i < pairs.length && pairs[i]) {
+                carry = n / GROUP_SIZE;
+                n = n % GROUP_SIZE;
             }
             if (n > 0) {
                 out.put(all[i], n);

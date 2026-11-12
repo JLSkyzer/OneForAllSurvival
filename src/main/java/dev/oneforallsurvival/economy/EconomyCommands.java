@@ -121,10 +121,10 @@ public final class EconomyCommands {
             out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.line",
                     Component.translatable(kind.langKey()), CoinMath.format(ledger.totalDestroyed(kind))));
         }
-        // Lignes des lots suivants : les coffres-forts (tâche 4) et les flux du trésor, des salaires, des
-        // factures et des ventes (lots E2 et suivants) rejoignent ce tableau quand ils existent.
+        // Les flux du trésor, des salaires, des factures et des ventes (lots E2 et suivants) rejoignent ce tableau
+        // quand ils existent.
         out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.vaults",
-                Component.translatable("command.oneforallsurvival.eco.stats.not_yet")));
+                CoinMath.format(SafeAccounts.get(source.getServer()).totalMass())));
         out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.later",
                 Component.translatable("command.oneforallsurvival.eco.stats.not_yet")));
         out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.circulation",

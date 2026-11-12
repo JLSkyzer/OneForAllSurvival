@@ -428,5 +428,19 @@
   "command.oneforallsurvival.eco.ledger.empty": "Le registre est vide.",
   "command.oneforallsurvival.eco.ledger.no_page": "Il n'y a pas de page %s : le registre en compte %s.",
   "command.oneforallsurvival.eco.ledger.line": "%s  %s  %s  %s : %s",
-  "command.oneforallsurvival.eco.ledger.system": "système"
+  "command.oneforallsurvival.eco.ledger.system": "système",
+  "block.oneforallsurvival.safe": "Coffre-fort",
+  "container.oneforallsurvival.safe.of": "Coffre-fort de %s",
+  "gui.oneforallsurvival.safe.total": "Total : %s",
+  "gui.oneforallsurvival.safe.worth": "= %s cuivre(s)",
+  "gui.oneforallsurvival.safe.deposit_all": "Déposer tout",
+  "gui.oneforallsurvival.safe.group": "Regrouper",
+  "gui.oneforallsurvival.safe.group.tooltip": "10 pièces d'une coupure deviennent 1 pièce de la coupure au-dessus, à valeur égale",
+  "message.oneforallsurvival.safe.has_one": "Vous avez déjà un coffre-fort : un seul par joueur",
+  "message.oneforallsurvival.safe.not_yours": "Ce coffre-fort n'est pas à vous",
+  "message.oneforallsurvival.safe.unowned": "Ce coffre-fort n'a pas de propriétaire",
+  "message.oneforallsurvival.safe.not_empty": "Videz votre coffre-fort avant de le casser",
+  "message.oneforallsurvival.safe.insufficient": "Le coffre-fort n'a pas assez de pièces",
+  "message.oneforallsurvival.safe.full": "Votre inventaire est plein",
+  "message.oneforallsurvival.safe.nothing": "Rien à faire"
 }

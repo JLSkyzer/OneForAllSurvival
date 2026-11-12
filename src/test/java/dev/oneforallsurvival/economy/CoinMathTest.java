@@ -109,6 +109,21 @@ class CoinMathTest {
     }
 
     @Test
+    void regrouperSuitLeRapportVivant() {
+        // Rapport de 10 partout : comme le regroupement fixe.
+        assertEquals(CoinMath.group(coins(Coin.COPPER, 123, Coin.SILVER, 47)),
+                CoinMath.group(coins(Coin.COPPER, 123, Coin.SILVER, 47), Coin::value));
+        // L'argent vaut 20 cuivres : le cuivre ne se regroupe pas, mais l'argent monte en or (or = 10 argents).
+        java.util.function.ToLongFunction<Coin> exotique = coin -> new long[] {1, 20, 200, 2000, 20000}[coin.ordinal()];
+        assertEquals(coins(Coin.COPPER, 25, Coin.GOLD, 1, Coin.SILVER, 3),
+                CoinMath.group(coins(Coin.COPPER, 25, Coin.SILVER, 13), exotique));
+        // L'or vaut 1000 cuivres (100 fois l'argent) : le cuivre monte en argent, mais l'argent ne monte pas en or.
+        java.util.function.ToLongFunction<Coin> trop = coin -> new long[] {1, 10, 1000, 10000, 100000}[coin.ordinal()];
+        assertEquals(coins(Coin.COPPER, 5, Coin.SILVER, 12, Coin.EMERALD, 1, Coin.GOLD, 5),
+                CoinMath.group(coins(Coin.COPPER, 15, Coin.SILVER, 11, Coin.GOLD, 15), trop));
+    }
+
+    @Test
     void leCuivreVautToujoursUnEtChaquePieceEstUnMultiple() {
         String defauts = java.util.Arrays.toString(EconomyConfig.DEFAULTS);
         // Cuivre different de 1, pieces non multiples, egales ou decroissantes : valeurs par defaut.

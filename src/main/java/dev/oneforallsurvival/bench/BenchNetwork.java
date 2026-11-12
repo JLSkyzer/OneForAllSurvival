@@ -5,6 +5,7 @@ import dev.oneforallsurvival.OneForAllSurvival;
 import dev.oneforallsurvival.bench.client.BenchClientState;
 import dev.oneforallsurvival.debug.IslandDebugRequest;
 import dev.oneforallsurvival.debug.IslandDebugResponse;
+import dev.oneforallsurvival.economy.SafeActionPacket;
 import dev.oneforallsurvival.explore.ReceiverFrequencyPacket;
 import dev.oneforallsurvival.grid.SubscriberNamePacket;
 import java.util.Locale;
@@ -27,15 +28,15 @@ import net.minecraftforge.network.simple.SimpleChannel;
 import org.slf4j.Logger;
 
 /**
- * Le canal réseau du mod (né avec l'établi), protocole « 3 » : client et serveur doivent concorder. Chaque paquet du
+ * Le canal réseau du mod (né avec l'établi), protocole « 4 » : client et serveur doivent concorder. Chaque paquet du
  * client est traité sur le thread du serveur, et revalide tout : rôle, distance, menu ouvert. Un client
  * n'est jamais cru sur parole.
  */
 public final class BenchNetwork {
 
     public static final ResourceLocation CHANNEL_ID = new ResourceLocation(OneForAllSurvival.MODID, "bench");
-    /** « 3 » depuis les données Lost Island du F3 : un serveur plus ancien ne connaît pas la requête. */
-    private static final String PROTOCOL = "3";
+    /** « 4 » depuis le coffre-fort personnel : un serveur plus ancien ne connaît pas son paquet. */
+    private static final String PROTOCOL = "4";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(CHANNEL_ID, () -> PROTOCOL,
             PROTOCOL::equals, PROTOCOL::equals);
@@ -55,6 +56,8 @@ public final class BenchNetwork {
     public static final int ID_ISLAND_DEBUG_RESPONSE = 9;
     /** Le récepteur de signaux : régler sa fréquence. */
     public static final int ID_RECEIVER_FREQUENCY = 10;
+    /** Le coffre-fort personnel : déposer, retirer, regrouper. */
+    public static final int ID_SAFE_ACTION = 11;
 
     /** Clé de traduction d'un refus : {@code message.oneforallsurvival.bench.refused.<résultat>}. */
     public static final String REFUSED_KEY = "message.oneforallsurvival.bench.refused.";
@@ -100,6 +103,9 @@ public final class BenchNetwork {
         CHANNEL.messageBuilder(ReceiverFrequencyPacket.class, ID_RECEIVER_FREQUENCY, NetworkDirection.PLAY_TO_SERVER)
                 .encoder(ReceiverFrequencyPacket::encode).decoder(ReceiverFrequencyPacket::decode)
                 .consumerMainThread(ReceiverFrequencyPacket::handle).add();
+        CHANNEL.messageBuilder(SafeActionPacket.class, ID_SAFE_ACTION, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(SafeActionPacket::encode).decoder(SafeActionPacket::decode)
+                .consumerMainThread(SafeActionPacket::handle).add();
     }
 
     // --- Serveur vers client -----------------------------------------------------------------

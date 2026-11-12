@@ -428,5 +428,19 @@
   "command.oneforallsurvival.eco.ledger.empty": "The ledger is empty.",
   "command.oneforallsurvival.eco.ledger.no_page": "There is no page %s: the ledger has %s.",
   "command.oneforallsurvival.eco.ledger.line": "%s  %s  %s  %s: %s",
-  "command.oneforallsurvival.eco.ledger.system": "system"
+  "command.oneforallsurvival.eco.ledger.system": "system",
+  "block.oneforallsurvival.safe": "Safe",
+  "container.oneforallsurvival.safe.of": "%s's Safe",
+  "gui.oneforallsurvival.safe.total": "Total: %s",
+  "gui.oneforallsurvival.safe.worth": "= %s copper",
+  "gui.oneforallsurvival.safe.deposit_all": "Deposit all",
+  "gui.oneforallsurvival.safe.group": "Group",
+  "gui.oneforallsurvival.safe.group.tooltip": "10 coins of a denomination become 1 coin of the next one up, at equal value",
+  "message.oneforallsurvival.safe.has_one": "You already have a safe: one per player",
+  "message.oneforallsurvival.safe.not_yours": "This safe is not yours",
+  "message.oneforallsurvival.safe.unowned": "This safe has no owner",
+  "message.oneforallsurvival.safe.not_empty": "Empty your safe before breaking it",
+  "message.oneforallsurvival.safe.insufficient": "The safe does not have enough coins",
+  "message.oneforallsurvival.safe.full": "Your inventory is full",
+  "message.oneforallsurvival.safe.nothing": "Nothing to do"
 }

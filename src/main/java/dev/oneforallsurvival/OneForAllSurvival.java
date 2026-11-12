@@ -13,6 +13,7 @@ import dev.oneforallsurvival.economy.EconomyCommands;
 import dev.oneforallsurvival.economy.EconomyConfig;
 import dev.oneforallsurvival.economy.EconomyRegistry;
 import dev.oneforallsurvival.economy.MoneyGuard;
+import dev.oneforallsurvival.economy.SafeBlock;
 import dev.oneforallsurvival.economy.StartingMoney;
 import dev.oneforallsurvival.explore.ExploreCommands;
 import dev.oneforallsurvival.explore.ExploreConfig;
@@ -87,6 +88,7 @@ public final class OneForAllSurvival {
         modEventBus.addListener(ExploreConfig::onConfigLoad);
         modEventBus.addListener(EconomyConfig::onConfigEvent);
         MinecraftForge.EVENT_BUS.addListener(StartingMoney::onLoggedIn);
+        MinecraftForge.EVENT_BUS.addListener(SafeBlock::onBreak);
         MinecraftForge.EVENT_BUS.addListener(BenchCatalog::onAddReloadListener);
         MinecraftForge.EVENT_BUS.addListener(BenchOverrides::onAddReloadListener);
         MinecraftForge.EVENT_BUS.addListener(BenchCatalog::onTagsUpdated);
