@@ -44,9 +44,8 @@ public class CoinItem extends Item {
      * Filet d'exécution (serveur). Le jeu appelle ce crochet sur la pile fabriquée, avant de la donner : au clic
      * sur la case résultat (la pile est celle du curseur) et au maj-clic de la table (la pile est celle de la
      * case, avant son déplacement). La vider annule le gain ; au maj-clic rien n'est consommé, au clic simple
-     * les ingrédients le sont déjà. Ne couvre pas une machine qui ne passe pas par ce crochet, ni le maj-clic de la grille 2x2 du joueur, où
-     * le jeu déplace la pile avant d'appeler le crochet : le refus y est journalisé sans retirer les pièces
-     * (à fermer en tâche 3).
+     * les ingrédients le sont déjà. Le maj-clic de la grille 2x2 du joueur, où le jeu déplace la pile avant d'appeler ce crochet, est gardé
+     * en amont par {@code InventoryMenuMixin}. Ne couvre pas une machine qui ne passe pas par ce crochet.
      */
     @Override
     public void onCraftedBy(ItemStack stack, Level level, Player player) {
@@ -56,6 +55,12 @@ public class CoinItem extends Item {
         LOGGER.warn("Economie : {} x{} fabriquees par {} hors change dans {}, gain annule", coin.key(),
                 stack.getCount(), player.getGameProfile().getName(), player.containerMenu.getClass().getName());
         stack.setCount(0);
+    }
+
+    /** Une pièce n'entre pas dans une sacoche, un sac ou une boîte qui range les objets sans passer par une case. */
+    @Override
+    public boolean canFitInsideContainerItems() {
+        return false;
     }
 
     /**

@@ -1,0 +1,18 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.oneforallsurvival.mixin",
+  "refmap": "oneforallsurvival.refmap.json",
+  "compatibilityLevel": "JAVA_17",
+  "mixins": [
+    "AbstractContainerMenuMixin",
+    "HopperBlockEntityMixin",
+    "InventoryMenuMixin",
+    "SlotItemHandlerMixin",
+    "SlotMixin",
+    "VanillaInventoryCodeHooksMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

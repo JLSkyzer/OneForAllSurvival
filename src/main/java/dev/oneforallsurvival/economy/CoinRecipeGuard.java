@@ -33,8 +33,8 @@ import org.slf4j.Logger;
  * illisible) ne dit pas ce qu'elle fabriquera ; elle est gardée et comptée dans une seule ligne INFO du journal
  * (les identifiants au niveau DEBUG). Le filet d'exécution
  * ({@link #craftAllowed}), appelé par {@link CoinItem#onCraftedBy}, couvre les pièces qui sortiraient quand même
- * d'une grille de fabrication. Limite du filet : au maj-clic de la grille 2x2 du joueur, le jeu déplace la pile
- * avant d'appeler le crochet ; le refus y est journalisé mais ne retire pas les pièces (à fermer en tâche 3).
+ * d'une grille de fabrication. Au maj-clic de la grille 2x2 du joueur, le jeu déplace la pile
+ * avant d'appeler le crochet : {@code InventoryMenuMixin} y vérifie {@link #quickCraftAllowed} avant le déplacement.
  */
 public final class CoinRecipeGuard {
 
@@ -130,6 +130,25 @@ public final class CoinRecipeGuard {
         if (server != null) {
             server.execute(() -> filter(server.getRecipeManager(), server.registryAccess()));
         }
+    }
+
+    /**
+     * Garde du maj-clic sur le résultat de la grille 2x2 du joueur, appelée avant le déplacement de la pile
+     * ({@code InventoryMenuMixin}). Faux si le résultat est une pièce que {@link #craftAllowed} refuse : le
+     * maj-clic ne fait rien et le refus est écrit au journal.
+     */
+    public static boolean quickCraftAllowed(InventoryMenu menu, net.minecraft.world.entity.player.Player player) {
+        ItemStack result = menu.getSlot(0).getItem();
+        if (result.isEmpty() || Coin.fromItem(result.getItem()).isEmpty()) {
+            return true;
+        }
+        Level level = player.level();
+        if (craftAllowed(menu, level, level.getRecipeManager())) {
+            return true;
+        }
+        LOGGER.warn("Economie : {} x{} refusees a {} au maj-clic de la grille 2x2 (recette hors change)",
+                Coin.fromItem(result.getItem()).orElseThrow().key(), result.getCount(), player.getGameProfile().getName());
+        return false;
     }
 
     private static boolean isValidChange(Recipe<?> recipe, Change change, RegistryAccess access) {

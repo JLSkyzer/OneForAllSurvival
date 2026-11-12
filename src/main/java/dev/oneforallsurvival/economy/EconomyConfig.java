@@ -2,6 +2,10 @@ package dev.oneforallsurvival.economy;
 
 import com.mojang.logging.LogUtils;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.fml.event.config.ModConfigEvent;
 import org.slf4j.Logger;
@@ -30,6 +34,8 @@ public final class EconomyConfig {
 
     private static final ForgeConfigSpec.IntValue LEDGER_MAX_LINES;
     private static final ForgeConfigSpec.IntValue STARTING_MONEY;
+    private static final ForgeConfigSpec.ConfigValue<List<? extends String>> EXTRA_ALLOWED_MENUS;
+    private static final ForgeConfigSpec.ConfigValue<List<? extends String>> EXTRA_FORBIDDEN_MENUS;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -51,6 +57,14 @@ public final class EconomyConfig {
         STARTING_MONEY = builder
                 .comment("Somme de départ, en cuivres, donnée à la première connexion de chaque joueur (500 = 5 or).")
                 .defineInRange("startingMoney", DEFAULT_STARTING_MONEY, 0, 1_000_000);
+        EXTRA_ALLOWED_MENUS = builder
+                .comment("Types d'écran (identifiants, ex. \"mod:coffre\") où une pièce a le droit d'être rangée, en plus",
+                        "de l'inventaire du joueur, de la table de fabrication et des rangements de ce mod.")
+                .defineListAllowEmpty("extraAllowedMenus", List.of(), EconomyConfig::isResourceLocation);
+        EXTRA_FORBIDDEN_MENUS = builder
+                .comment("Types d'écran (identifiants) où une pièce est refusée même si l'écran serait permis.",
+                        "Les cases de l'inventaire du joueur restent toujours permises.")
+                .defineListAllowEmpty("extraForbiddenMenus", List.of(), EconomyConfig::isResourceLocation);
         SPEC = builder.build();
     }
 
@@ -79,6 +93,35 @@ public final class EconomyConfig {
         } catch (IllegalStateException e) {
             return DEFAULT_STARTING_MONEY;
         }
+    }
+
+    /** Types d'écran ajoutés par la configuration aux rangements permis (vide tant qu'elle n'est pas chargée). */
+    public static Set<ResourceLocation> extraAllowedMenus() {
+        return ids(EXTRA_ALLOWED_MENUS);
+    }
+
+    /** Types d'écran que la configuration interdit à l'argent (vide tant qu'elle n'est pas chargée). */
+    public static Set<ResourceLocation> extraForbiddenMenus() {
+        return ids(EXTRA_FORBIDDEN_MENUS);
+    }
+
+    private static Set<ResourceLocation> ids(ForgeConfigSpec.ConfigValue<List<? extends String>> value) {
+        try {
+            Set<ResourceLocation> out = new HashSet<>();
+            for (String text : value.get()) {
+                ResourceLocation id = ResourceLocation.tryParse(text);
+                if (id != null) {
+                    out.add(id);
+                }
+            }
+            return out;
+        } catch (IllegalStateException e) {
+            return Set.of();
+        }
+    }
+
+    private static boolean isResourceLocation(Object text) {
+        return text instanceof String string && ResourceLocation.tryParse(string) != null;
     }
 
     /** Relit le fichier à son chargement et à son rechargement. */
