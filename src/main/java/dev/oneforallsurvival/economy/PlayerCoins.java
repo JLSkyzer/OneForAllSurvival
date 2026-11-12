@@ -9,8 +9,10 @@ import net.minecraft.world.item.ItemStack;
 
 /**
  * Les pièces que porte un joueur, et la seule porte par où elles y entrent et en sortent (commandes, ramassage au
- * sol, somme de départ). Aujourd'hui l'inventaire seulement ; la bourse (tâche 5) s'ajoute ici, dans
- * {@link #held}, {@link #receive} et {@link #remove}, sans toucher aux appelants.
+ * sol, somme de départ). Ce sont les pièces de l'inventaire et le contenu de ses bourses ({@link Purse}) : elles
+ * entrent d'abord dans la première bourse, puis dans l'inventaire ; elles sortent des bourses d'abord.
+ * L'écran de la bourse, qui déplace des pièces entre la bourse et l'inventaire, passe par les variantes « seules »
+ * ({@link #heldLoose}, {@link #receiveLoose}, {@link #removeLoose}).
  *
  * <p>La pile tenue au curseur dans un écran ouvert n'est pas comptée : elle n'est pas dans l'inventaire.
  */
@@ -18,8 +20,24 @@ public final class PlayerCoins {
 
     private PlayerCoins() {}
 
-    /** Le nombre de pièces de chaque coupure dans l'inventaire (armure et main gauche comprises). */
+    /** Le nombre de pièces de chaque coupure que porte le joueur : l'inventaire et le contenu de ses bourses. */
     public static EnumMap<Coin, Long> held(ServerPlayer player) {
+        EnumMap<Coin, Long> out = heldLoose(player);
+        heldInPurses(player).forEach((coin, count) -> out.merge(coin, count, Long::sum));
+        return out;
+    }
+
+    /** Le contenu des bourses de l'inventaire, coupure par coupure. */
+    public static EnumMap<Coin, Long> heldInPurses(ServerPlayer player) {
+        EnumMap<Coin, Long> out = new EnumMap<>(Coin.class);
+        for (ItemStack purse : Purse.purses(player)) {
+            Purse.contents(purse).forEach((coin, count) -> out.merge(coin, count, Long::sum));
+        }
+        return out;
+    }
+
+    /** Le nombre de pièces de chaque coupure dans l'inventaire (armure et main gauche comprises), bourses exclues. */
+    public static EnumMap<Coin, Long> heldLoose(ServerPlayer player) {
         EnumMap<Coin, Long> out = new EnumMap<>(Coin.class);
         Inventory inventory = player.getInventory();
         for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
@@ -43,7 +61,28 @@ public final class PlayerCoins {
     }
 
     /**
-     * Fait entrer jusqu'à {@code count} pièces chez le joueur.
+     * Fait entrer jusqu'à {@code count} pièces chez le joueur : dans la première bourse qui a de la place (dans
+     * l'ordre des cases), puis dans l'inventaire.
+     *
+     * @return combien sont entrées (le reste n'a pas trouvé de place et n'est pas touché)
+     */
+    public static long receive(ServerPlayer player, Coin coin, long count) {
+        long entered = 0L;
+        for (ItemStack purse : Purse.purses(player)) {
+            long fits = Math.min(count - entered, Purse.room(purse, coin));
+            if (fits > 0L) {
+                Purse.add(purse, coin, fits);
+                entered += fits;
+            }
+            if (entered >= count) {
+                return entered;
+            }
+        }
+        return entered + receiveLoose(player, coin, count - entered);
+    }
+
+    /**
+     * Comme {@link #receive}, mais dans l'inventaire seulement, jamais dans une bourse.
      *
      * <p>Ce qui est entré se lit dans l'inventaire (avant et après), jamais dans la pile passée à
      * {@code Inventory.add} : pour un joueur en créatif (capacité {@code instabuild}), le jeu vide la pile et
@@ -52,7 +91,7 @@ public final class PlayerCoins {
      *
      * @return combien sont entrées (le reste n'a pas trouvé de place et n'est pas touché)
      */
-    public static long receive(ServerPlayer player, Coin coin, long count) {
+    public static long receiveLoose(ServerPlayer player, Coin coin, long count) {
         long entered = 0L;
         int max = new ItemStack(coin.item()).getMaxStackSize();
         Inventory inventory = player.getInventory();
@@ -86,10 +125,29 @@ public final class PlayerCoins {
     }
 
     /**
-     * Retire exactement ces pièces de l'inventaire. L'appelant a vérifié qu'elles y sont ({@link #held}) ; si ce
-     * n'est pas le cas, ce qui manque est ignoré.
+     * Retire exactement ces pièces, des bourses d'abord, puis de l'inventaire. L'appelant a vérifié qu'elles y
+     * sont ({@link #held}) ; si ce n'est pas le cas, ce qui manque est ignoré.
      */
     public static void remove(ServerPlayer player, Map<Coin, Long> coins) {
+        EnumMap<Coin, Long> rest = new EnumMap<>(Coin.class);
+        for (Map.Entry<Coin, Long> entry : coins.entrySet()) {
+            long left = entry.getValue();
+            for (ItemStack purse : Purse.purses(player)) {
+                long moved = Math.min(left, Purse.count(purse, entry.getKey()));
+                if (moved > 0L) {
+                    Purse.remove(purse, entry.getKey(), moved);
+                    left -= moved;
+                }
+            }
+            if (left > 0L) {
+                rest.put(entry.getKey(), left);
+            }
+        }
+        removeLoose(player, rest);
+    }
+
+    /** Comme {@link #remove}, mais dans les pièces de l'inventaire seulement, jamais dans une bourse. */
+    public static void removeLoose(ServerPlayer player, Map<Coin, Long> coins) {
         Inventory inventory = player.getInventory();
         for (Map.Entry<Coin, Long> entry : coins.entrySet()) {
             long left = entry.getValue();
@@ -106,13 +164,17 @@ public final class PlayerCoins {
 
     /**
      * Retire {@code amount} cuivres, jamais en partie : si les pièces portées ne couvrent pas la somme, rien ne
-     * bouge. La monnaie est rendue par {@link CoinMath#makeChange} ; ce qui ne rentre pas dans l'inventaire
-     * tombe aux pieds du joueur.
+     * bouge. Les bourses paient seules quand elles suffisent ; sinon on prend dans tout ce qui est porté (bourses
+     * d'abord). La monnaie est rendue par {@link CoinMath#makeChange}, dans la première bourse, puis
+     * l'inventaire ; ce qui ne rentre nulle part tombe aux pieds du joueur.
      *
      * @return vrai si la somme a été retirée
      */
     public static boolean take(ServerPlayer player, long amount) {
-        Optional<CoinMath.Payment> payment = CoinMath.makeChange(held(player), amount);
+        Optional<CoinMath.Payment> payment = CoinMath.makeChange(heldInPurses(player), amount);
+        if (payment.isEmpty()) {
+            payment = CoinMath.makeChange(held(player), amount);
+        }
         if (payment.isEmpty()) {
             return false;
         }

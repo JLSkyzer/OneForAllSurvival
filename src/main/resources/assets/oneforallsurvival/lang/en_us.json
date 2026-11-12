@@ -442,5 +442,15 @@
   "message.oneforallsurvival.safe.not_empty": "Empty your safe before breaking it",
   "message.oneforallsurvival.safe.insufficient": "The safe does not have enough coins",
   "message.oneforallsurvival.safe.full": "Your inventory is full",
-  "message.oneforallsurvival.safe.nothing": "Nothing to do"
+  "message.oneforallsurvival.safe.nothing": "Nothing to do",
+  "item.oneforallsurvival.purse": "Purse",
+  "tooltip.oneforallsurvival.purse.total": "Contents: %s",
+  "gui.oneforallsurvival.purse.total": "Total: %s",
+  "gui.oneforallsurvival.purse.worth": "= %s copper",
+  "gui.oneforallsurvival.purse.deposit_all": "Deposit all",
+  "gui.oneforallsurvival.purse.group": "Group",
+  "gui.oneforallsurvival.purse.group.tooltip": "10 coins of a denomination become 1 coin of the next one up, at equal value",
+  "message.oneforallsurvival.purse.insufficient": "The purse does not have enough coins",
+  "message.oneforallsurvival.purse.full": "Your inventory is full",
+  "message.oneforallsurvival.purse.nothing": "Nothing to do"
 }

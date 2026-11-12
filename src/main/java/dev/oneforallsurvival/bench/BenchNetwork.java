@@ -5,6 +5,7 @@ import dev.oneforallsurvival.OneForAllSurvival;
 import dev.oneforallsurvival.bench.client.BenchClientState;
 import dev.oneforallsurvival.debug.IslandDebugRequest;
 import dev.oneforallsurvival.debug.IslandDebugResponse;
+import dev.oneforallsurvival.economy.PurseActionPacket;
 import dev.oneforallsurvival.economy.SafeActionPacket;
 import dev.oneforallsurvival.explore.ReceiverFrequencyPacket;
 import dev.oneforallsurvival.grid.SubscriberNamePacket;
@@ -58,6 +59,7 @@ public final class BenchNetwork {
     public static final int ID_RECEIVER_FREQUENCY = 10;
     /** Le coffre-fort personnel : déposer, retirer, regrouper. */
     public static final int ID_SAFE_ACTION = 11;
+    public static final int ID_PURSE_ACTION = 12;
 
     /** Clé de traduction d'un refus : {@code message.oneforallsurvival.bench.refused.<résultat>}. */
     public static final String REFUSED_KEY = "message.oneforallsurvival.bench.refused.";
@@ -106,6 +108,9 @@ public final class BenchNetwork {
         CHANNEL.messageBuilder(SafeActionPacket.class, ID_SAFE_ACTION, NetworkDirection.PLAY_TO_SERVER)
                 .encoder(SafeActionPacket::encode).decoder(SafeActionPacket::decode)
                 .consumerMainThread(SafeActionPacket::handle).add();
+        CHANNEL.messageBuilder(PurseActionPacket.class, ID_PURSE_ACTION, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(PurseActionPacket::encode).decoder(PurseActionPacket::decode)
+                .consumerMainThread(PurseActionPacket::handle).add();
     }
 
     // --- Serveur vers client -----------------------------------------------------------------

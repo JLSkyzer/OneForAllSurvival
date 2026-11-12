@@ -8,6 +8,7 @@ import java.util.function.Predicate;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.CraftingContainer;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.inventory.Slot;
@@ -100,7 +101,15 @@ public final class MoneyStorageRules {
      * du joueur, oui dans un écran permis, non partout ailleurs (y compris une case dont on ne connaît pas l'écran).
      */
     public static boolean mayHold(Slot slot, ItemStack stack) {
-        return !isMoney(stack) || isMoneySlot(slot);
+        if (!isMoney(stack)) {
+            return true;
+        }
+        // Les grilles de fabrication prennent les pièces (le change), pas une bourse pleine : une recette qui
+        // l'accepterait comme ingrédient la consommerait sans rien en rendre.
+        if (Purse.isPurse(stack) && slot.container instanceof CraftingContainer) {
+            return false;
+        }
+        return isMoneySlot(slot);
     }
 
     /** La case est-elle un endroit où l'argent a le droit de se trouver ? */

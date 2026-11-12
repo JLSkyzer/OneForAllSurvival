@@ -37,6 +37,12 @@ import org.slf4j.Logger;
  * aimant ou un allay ne la voient pas, seul un vrai joueur la ramasse en la touchant. Même physique qu'un objet
  * au sol ; une pile unique d'une seule coupure, dont le nombre n'est pas limité à la taille d'une pile.
  *
+ * <p><b>Bourse au sol.</b> La même entité porte aussi une bourse qui contient des pièces ({@link #isPurse}) : un
+ * objet de bourse jeté ({@link PurseItem#createEntity}) devient une entité du mod, pour la même raison que les
+ * pièces, et n'est ramassé que par un vrai joueur, dans une case libre de son inventaire. Elle suit les mêmes règles
+ * de durée de vie et de comptes (feu, vide, {@value #LIFETIME} ticks) ; sa valeur est celle de son contenu. Elle ne
+ * fusionne jamais.
+ *
  * <p><b>Comptes.</b> Les pièces qui disparaissent pour de bon sont inscrites au registre ({@link EconomyLedger}) à
  * l'instant où elles disparaissent : feu ou lave, sous le monde, {@value #LIFETIME} ticks au sol. Ce qui les
  * distingue d'un simple retrait de l'entité est le {@link net.minecraft.world.entity.Entity.RemovalReason} :
@@ -61,6 +67,9 @@ public class CoinDropEntity extends Entity {
             SynchedEntityData.defineId(CoinDropEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> DATA_COUNT =
             SynchedEntityData.defineId(CoinDropEntity.class, EntityDataSerializers.INT);
+    /** La bourse portée, ou la pile vide pour des pièces. */
+    private static final EntityDataAccessor<ItemStack> DATA_PURSE =
+            SynchedEntityData.defineId(CoinDropEntity.class, EntityDataSerializers.ITEM_STACK);
 
     /** Intervalle de la fusion avec les voisines, en ticks. */
     private static final int MERGE_INTERVAL = 20;
@@ -118,11 +127,24 @@ public class CoinDropEntity extends Entity {
      * factice devient alors une entité inerte, sinon la commande ferait naître une pièce.
      */
     static CoinDropEntity replacing(Level level, ItemEntity item, Coin coin, int count) {
+        CoinDropEntity entity = replacing(level, item);
+        entity.setCoin(coin);
+        entity.setCount(count);
+        return entity;
+    }
+
+    /** Comme {@link #replacing(Level, ItemEntity, Coin, int)}, pour une bourse qui contient des pièces. */
+    static CoinDropEntity replacingPurse(Level level, ItemEntity item, ItemStack purse) {
+        CoinDropEntity entity = replacing(level, item);
+        entity.entityData.set(DATA_PURSE, purse);
+        entity.setCount(1);
+        return entity;
+    }
+
+    private static CoinDropEntity replacing(Level level, ItemEntity item) {
         CoinDropEntity entity = new CoinDropEntity(EconomyRegistry.coinDropType(), level);
         entity.moveTo(item.getX(), item.getY(), item.getZ(), item.getYRot(), item.getXRot());
         entity.setDeltaMovement(item.getDeltaMovement());
-        entity.setCoin(coin);
-        entity.setCount(count);
         entity.origin = item;
         entity.readOrigin();
         return entity;
@@ -169,6 +191,17 @@ public class CoinDropEntity extends Entity {
     protected void defineSynchedData() {
         this.entityData.define(DATA_COIN, Coin.COPPER.ordinal());
         this.entityData.define(DATA_COUNT, 1);
+        this.entityData.define(DATA_PURSE, ItemStack.EMPTY);
+    }
+
+    /** Vrai si l'entité porte une bourse et non des pièces. */
+    public boolean isPurse() {
+        return !this.entityData.get(DATA_PURSE).isEmpty();
+    }
+
+    /** La bourse portée, ou la pile vide pour des pièces. */
+    public ItemStack purse() {
+        return this.entityData.get(DATA_PURSE);
     }
 
     public Coin coin() {
@@ -190,13 +223,16 @@ public class CoinDropEntity extends Entity {
         this.entityData.set(DATA_COUNT, Mth.clamp(count, 0, MAX_COUNT));
     }
 
-    /** Ce que valent les pièces de cette entité, en cuivres. */
+    /** Ce que valent les pièces de cette entité (ou le contenu de sa bourse), en cuivres. */
     public long value() {
-        return CoinMath.valueOf(coin(), count());
+        return isPurse() ? Purse.total(purse()) : CoinMath.valueOf(coin(), count());
     }
 
-    /** Une pièce, pour l'affichage (le rendu et le nom). */
+    /** Une pièce, ou la bourse, pour l'affichage (le rendu et le nom). */
     public ItemStack getItem() {
+        if (isPurse()) {
+            return purse();
+        }
         Coin coin = coin();
         if (display.isEmpty() || display.getItem() != coin.item()) {
             display = new ItemStack(coin.item());
@@ -335,13 +371,13 @@ public class CoinDropEntity extends Entity {
 
     /** Fond les voisines de même coupure dans celle-ci : la plus ancienne en id absorbe, sans perdre une pièce. */
     private void mergeWithNeighbours() {
-        if (isRemoved() || pickupDelay == NEVER_PICKED_UP || count() >= MAX_COUNT) {
+        if (isRemoved() || isPurse() || pickupDelay == NEVER_PICKED_UP || count() >= MAX_COUNT) {
             return;
         }
         Coin mine = coin();
         List<CoinDropEntity> others = level().getEntitiesOfClass(CoinDropEntity.class,
                 getBoundingBox().inflate(MERGE_RADIUS, 0.0D, MERGE_RADIUS),
-                other -> other != this && !other.isRemoved() && !other.inert && other.coin() == mine
+                other -> other != this && !other.isRemoved() && !other.inert && !other.isPurse() && other.coin() == mine
                         && Objects.equals(other.target, target) && other.pickupDelay != NEVER_PICKED_UP);
         for (CoinDropEntity other : others) {
             long sum = (long) count() + other.count();
@@ -427,6 +463,10 @@ public class CoinDropEntity extends Entity {
         if (target != null && !target.equals(player.getUUID())) {
             return;
         }
+        if (isPurse()) {
+            pickUpPurse(serverPlayer);
+            return;
+        }
         Coin coin = coin();
         int count = count();
         int taken = (int) PlayerCoins.receive(serverPlayer, coin, count);
@@ -445,12 +485,30 @@ public class CoinDropEntity extends Entity {
         }
     }
 
+    /**
+     * La bourse va dans la première case libre de l'inventaire (jamais dans une autre bourse) ; s'il n'y en a pas,
+     * elle reste au sol. La case est lue avant, la bourse posée, puis l'entité retirée : ni copie ni perte.
+     */
+    private void pickUpPurse(ServerPlayer player) {
+        int slot = player.getInventory().getFreeSlot();
+        if (slot < 0) {
+            return;
+        }
+        player.getInventory().setItem(slot, purse().copy());
+        player.take(this, 1);
+        accounted = true;
+        discard();
+    }
+
     // ---------------------------------------------------------------------------------------------
     // Sauvegarde
     // ---------------------------------------------------------------------------------------------
 
     @Override
     protected void addAdditionalSaveData(CompoundTag tag) {
+        if (isPurse()) {
+            tag.put("Purse", purse().save(new CompoundTag()));
+        }
         tag.putString("Coin", coin().key());
         tag.putInt("Count", count());
         tag.putInt("Age", age);
@@ -465,6 +523,22 @@ public class CoinDropEntity extends Entity {
 
     @Override
     protected void readAdditionalSaveData(CompoundTag tag) {
+        if (tag.contains("Purse", 10)) {
+            ItemStack stored = ItemStack.of(tag.getCompound("Purse"));
+            if (Purse.isPurse(stored)) {
+                this.entityData.set(DATA_PURSE, stored);
+                setCount(1);
+            } else {
+                // Une bourse que ce monde ne connaît plus : rien à compter, rien à garder.
+                LOGGER.warn("Economie : bourse au sol inconnue ignoree");
+                setCount(0);
+            }
+            this.age = tag.getInt("Age");
+            this.pickupDelay = tag.contains("PickupDelay") ? tag.getInt("PickupDelay") : 10;
+            this.thrower = tag.hasUUID("Thrower") ? tag.getUUID("Thrower") : null;
+            this.target = tag.hasUUID("Owner") ? tag.getUUID("Owner") : null;
+            return;
+        }
         String key = tag.getString("Coin");
         Coin found = null;
         for (Coin coin : Coin.values()) {

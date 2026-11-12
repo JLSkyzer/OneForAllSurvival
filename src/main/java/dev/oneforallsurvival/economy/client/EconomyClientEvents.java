@@ -9,7 +9,7 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 
-/** Branchements côté client seulement : le rendu de la pièce au sol et l'écran du coffre-fort. */
+/** Branchements côté client seulement : le rendu de la pièce au sol et les écrans du coffre-fort et de la bourse. */
 public final class EconomyClientEvents {
 
     private EconomyClientEvents() {}
@@ -25,7 +25,10 @@ public final class EconomyClientEvents {
 
         @SubscribeEvent
         public static void onClientSetup(FMLClientSetupEvent event) {
-            event.enqueueWork(() -> MenuScreens.register(EconomyRegistry.SAFE_MENU.get(), SafeScreen::new));
+            event.enqueueWork(() -> {
+                MenuScreens.register(EconomyRegistry.SAFE_MENU.get(), SafeScreen::new);
+                MenuScreens.register(EconomyRegistry.PURSE_MENU.get(), PurseScreen::new);
+            });
         }
     }
 }

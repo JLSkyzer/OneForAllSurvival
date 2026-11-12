@@ -23,7 +23,7 @@ import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
 
-/** Ce que l'économie enregistre : les cinq pièces, la pièce au sol et le coffre-fort personnel. */
+/** Ce que l'économie enregistre : les cinq pièces, la pièce au sol, le coffre-fort personnel et la bourse. */
 public final class EconomyRegistry {
 
     private static final DeferredRegister<Item> ITEMS =
@@ -62,6 +62,11 @@ public final class EconomyRegistry {
     public static final RegistryObject<MenuType<SafeMenu>> SAFE_MENU =
             MENUS.register("safe", () -> IForgeMenuType.create(SafeMenu::fromNetwork));
 
+    /** La bourse : ne s'empile pas, garde les pièces dans son NBT ({@link Purse}). */
+    public static final RegistryObject<Item> PURSE = ITEMS.register("purse", () -> new PurseItem(new Item.Properties()));
+    public static final RegistryObject<MenuType<PurseMenu>> PURSE_MENU =
+            MENUS.register("purse", () -> IForgeMenuType.create(PurseMenu::fromNetwork));
+
     private static final Map<Coin, RegistryObject<Item>> COINS = new EnumMap<>(Coin.class);
 
     static {
@@ -90,17 +95,23 @@ public final class EconomyRegistry {
     }
 
     /**
-     * Le coffre-fort est un rangement permis pour l'argent. Déclaré sur les deux côtés (l'évènement tourne aussi
-     * sur le client) : le client ne doit pas prévoir un refus que le serveur ne ferait pas.
+     * Le coffre-fort et l'écran de la bourse sont des rangements permis pour l'argent, et une bourse qui contient au
+     * moins une pièce est de l'argent. Déclaré sur les deux côtés (l'évènement tourne aussi sur le client) : le
+     * client ne doit pas prévoir un refus que le serveur ne ferait pas.
      */
     private static void onCommonSetup(FMLCommonSetupEvent event) {
-        event.enqueueWork(() -> MoneyStorageRules.register(SAFE_MENU.get()));
+        event.enqueueWork(() -> {
+            MoneyStorageRules.register(SAFE_MENU.get());
+            MoneyStorageRules.register(PURSE_MENU.get());
+            MoneyStorageRules.registerMoneyPredicate(stack -> Purse.isPurse(stack) && Purse.total(stack) > 0L);
+        });
     }
 
     /** Les objets que l'onglet créatif affiche, dans l'ordre. */
     public static List<RegistryObject<? extends Item>> tabItems() {
         List<RegistryObject<? extends Item>> items = new ArrayList<>(COINS.values());
         items.add(SAFE_ITEM);
+        items.add(PURSE);
         return items;
     }
 }
