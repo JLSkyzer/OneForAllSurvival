@@ -314,6 +314,16 @@ minecraft {
             args '--width', '1280', '--height', '656'
         }
 
+        // Film du lot 7 (dev seulement) : un client qui se pilote seul et enregistre ses images dans
+        // run-demo/frames-exploration, un bandeau de légende en dessous. Voir FilmExploration (devcontent).
+        demoExplorationFilm {
+            parent minecraft.runs.client
+            workingDirectory project.file('run-demo')
+            property 'oneforallsurvival.demo.exploration', 'true'
+            jvmArgs '-Xmx3G'
+            args '--width', '1280', '--height', '656'
+        }
+
         server {
             // Un dossier à part : un client lancé en même temps tourne dans `run`.
             workingDirectory project.file('run-server')
@@ -511,6 +521,13 @@ tasks.matching { it.name == 'runDemoVilleFilm' }.configureEach {
     doFirst {
         delete project.file('run-demo/saves/film_ville')
         delete project.file('run-demo/frames-ville')
+    }
+}
+
+tasks.matching { it.name == 'runDemoExplorationFilm' }.configureEach {
+    doFirst {
+        delete project.file('run-demo/saves/film_exploration')
+        delete project.file('run-demo/frames-exploration')
     }
 }
 

@@ -8,6 +8,7 @@ import dev.oneforallsurvival.explore.DetectorItem;
 import dev.oneforallsurvival.explore.ExploreConfig;
 import dev.oneforallsurvival.explore.ExploreRegistry;
 import dev.oneforallsurvival.explore.HeadlampItem;
+import dev.oneforallsurvival.explore.MechanismBlock;
 import dev.oneforallsurvival.explore.MechanismBlockEntity;
 import dev.oneforallsurvival.explore.ReceiverBlockEntity;
 import dev.oneforallsurvival.explore.SignalMessage;
@@ -176,6 +177,8 @@ public final class DemoVisuels {
     private static final BlockPos[] MECANISMES = new BlockPos[5];
     private static BlockPos grotte;
     private static final List<BlockPos> EXPLORATION_ALIMENTEE = new ArrayList<>();
+    /** Vrai une fois les étages réglés : le bloc de l'étage 3 est alors tenu à cet étage, inactif. */
+    private static volatile boolean etage3Force;
     private static volatile boolean explorationPosee;
 
     private enum Phase { TITRE, ATTENTE_MONDE, PREPARATION, SCENARIO, FIN }
@@ -257,6 +260,14 @@ public final class DemoVisuels {
                 boolean recepteur = monde.getBlockEntity(p) instanceof ReceiverBlockEntity;
                 monde.getBlockEntity(p).getCapability(ForgeCapabilities.ENERGY, null)
                         .ifPresent(e -> e.receiveEnergy(recepteur ? 200 : 1, false));
+            }
+        }
+        if (etage3Force && MECANISMES[3] != null) {
+            var monde = event.getServer().overworld();
+            var etat = monde.getBlockState(MECANISMES[3]);
+            if (etat.is(ExploreRegistry.MECHANISM.get()) && (etat.getValue(MechanismBlock.STAGE) != 3
+                    || etat.getValue(MechanismBlock.ACTIVE))) {
+                monde.setBlock(MECANISMES[3], etat.setValue(MechanismBlock.STAGE, 3).setValue(MechanismBlock.ACTIVE, false), 3);
             }
         }
         // La douche « en marche » n'a personne dessous : son état actif est reposé à chaque tic pour la capture.
@@ -1141,18 +1152,25 @@ public final class DemoVisuels {
         });
     }
 
-    /** Étages 1 à 3 : progression d'un tiers, deux tiers, la fin de la dernière marche ; seuil de 1 FE, durée immense. */
+    /**
+     * Étages 1 et 2 : une progression à 40 % et à 70 % de la durée, donc strictement en dessous (étage = progression x 3 /
+     * durée, arrondi vers le bas : 1 puis 2). L'étage 3 n'existe qu'à la progression complète, au moment où le mécanisme
+     * devient actif : il n'a donc aucune durée stable. Pour pouvoir le regarder à côté de l'état actif, son bloc n'est pas
+     * alimenté et {@link #onServerTick} le force à l'étage 3, inactif, à chaque tic (affichage de contrôle des textures).
+     */
     private static void reglerLesEtages(ServerLevel monde) {
+        int[] parMille = {0, 400, 700, 0};
         for (int i = 1; i < 4; i++) {
             if (monde.getBlockEntity(MECANISMES[i]) instanceof MechanismBlockEntity be) {
                 CompoundTag tag = new CompoundTag();
                 tag.putInt("Threshold", 1);
                 tag.putInt("Duration", 100_000);
-                tag.putInt("Progress", i * 33_400);
+                tag.putInt("Progress", (int) ((long) 100_000 * parMille[i] / 1000));
                 tag.putBoolean("Active", false);
                 be.load(tag);
             }
         }
+        etage3Force = true;
     }
 
     private static void preparerExploration(MinecraftServer serveur) {
@@ -1190,7 +1208,7 @@ public final class DemoVisuels {
                 tag.putBoolean("Active", i == 4);
                 be.load(tag);
                 be.setChanged();
-                if (i >= 1 && i < 4) {
+                if (i >= 1 && i < 3) {
                     EXPLORATION_ALIMENTEE.add(p);
                 }
             }

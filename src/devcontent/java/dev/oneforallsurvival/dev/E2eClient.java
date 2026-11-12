@@ -51,6 +51,7 @@ public final class E2eClient {
     private static final boolean RELANCE = System.getProperty("oneforallsurvival.e2e.relance") != null;
     private static final boolean SEULE_PROTECTION = System.getenv("E2E_PROTECTION_SEULE") != null;
     private static final boolean SEULE_VILLE = System.getenv("E2E_VILLE_SEULE") != null;
+    private static final boolean SEULE_EXPLORATION = System.getenv("E2E_EXPLORATION_SEULE") != null;
     private static final int COPIES = 2;
     /**
      * Une connexion réussie prend environ 8 s avec le pack (7,5 à 10,5 s sur 11 relevés du 2026-11-06, de la
@@ -59,7 +60,7 @@ public final class E2eClient {
     private static final double DIAGNOSTIC_CONNEXION_S = 17;
 
     private enum Phase { TITRE, CONNEXION, CATALOGUE, PROVISIONS, POSER, OUVRIR, COMMANDER, STOCK, OUVRIR_STOCK, PRENDRE,
-        REPARATION, VIVRES, RESEAU, PROTECTION, VILLE, ARRET, FIN }
+        REPARATION, VIVRES, RESEAU, PROTECTION, VILLE, EXPLORATION, LAMPE_ARRET, LAMPE_RELANCE, ARRET, FIN }
 
     private static Phase phase = Phase.TITRE;
     private static long debutPhase = System.nanoTime();
@@ -123,6 +124,9 @@ public final class E2eClient {
             case RESEAU -> E2eReseau.legende();
             case PROTECTION -> E2eProtection.legende();
             case VILLE -> E2eVille.legende();
+            case EXPLORATION -> E2eExploration.legende();
+            case LAMPE_ARRET -> "La lampe est portée au moment de l'arrêt du serveur";
+            case LAMPE_RELANCE -> "Relance : la lampe portée à l'arrêt est retirée, les lumières sont comptées";
             case ARRET -> "Arrêt du serveur par /stop";
             default -> "Fin";
         };
@@ -180,6 +184,13 @@ public final class E2eClient {
             E2eReseau.recevoir(event.getMessage());
             E2eProtection.recevoir(event.getMessage());
             E2eVille.recevoir(event.getMessage());
+        }
+    }
+
+    @SubscribeEvent
+    public static void onSound(net.minecraftforge.client.event.sound.PlaySoundEvent event) {
+        if (ACTIF) {
+            E2eExploration.sonRecu(event);
         }
     }
 
@@ -250,7 +261,7 @@ public final class E2eClient {
         }
         // La réparation a ses propres délais, pas par pas.
         if (phase != Phase.TITRE && phase != Phase.FIN && phase != Phase.ARRET && phase != Phase.REPARATION && phase != Phase.VIVRES
-                && phase != Phase.RESEAU && phase != Phase.PROTECTION && phase != Phase.VILLE && secondes() > 180) {
+                && phase != Phase.RESEAU && phase != Phase.PROTECTION && phase != Phase.VILLE && phase != Phase.EXPLORATION && secondes() > 180) {
             fail("delai depasse en phase " + phase);
         }
     }
@@ -319,7 +330,15 @@ public final class E2eClient {
                 if (!BenchClientState.catalog().isEmpty()) {
                     pass("catalogue recu par le reseau a la connexion : " + BenchClientState.catalog().size()
                             + " recettes, generation " + BenchClientState.generation() + ", apres " + String.format("%.1f", secondes()) + " s");
-                    if (SEULE_VILLE) {
+                    if (SEULE_EXPLORATION) {
+                        // Essai de mise au point de l'étape du lot 7 seule (variable d'environnement E2E_EXPLORATION_SEULE).
+                        if (RELANCE) {
+                            passer(Phase.LAMPE_RELANCE);
+                        } else {
+                            E2eExploration.premierePhase();
+                            passer(Phase.EXPLORATION);
+                        }
+                    } else if (SEULE_VILLE) {
                         // Essai de mise au point de l'étape du lot 6 seule (variable d'environnement E2E_VILLE_SEULE).
                         if (RELANCE) {
                             E2eVille.relance();
@@ -336,9 +355,9 @@ public final class E2eClient {
                         }
                         passer(Phase.PROTECTION);
                     } else if (RELANCE) {
-                        // L'étape du lot 5 d'abord : le compteur de coupure de la couveuse court tant que le monde tourne.
-                        E2eProtection.relance();
-                        passer(Phase.PROTECTION);
+                        // La lampe portée à l'arrêt est retirée en premier (trois secondes), puis l'étape du lot 5 : le compteur de
+                        // coupure de la couveuse court tant que le monde tourne.
+                        passer(Phase.LAMPE_RELANCE);
                     } else {
                         passer(Phase.PROVISIONS);
                     }
@@ -607,17 +626,52 @@ public final class E2eClient {
                     if (RELANCE && !SEULE_PROTECTION) {
                         E2eReparation.relance();
                         passer(Phase.REPARATION);
-                    } else {
+                    } else if (SEULE_PROTECTION) {
                         passer(Phase.ARRET);
+                    } else {
+                        // Premier passage : le joueur porte la lampe juste avant /stop (quelques secondes seulement).
+                        passer(Phase.LAMPE_ARRET);
                     }
                 }
             }
             case VILLE -> {
                 if (E2eVille.avancer(mc) && phase == Phase.VILLE) {
-                    if (RELANCE || SEULE_VILLE) {
+                    if (SEULE_VILLE) {
                         passer(Phase.ARRET);
+                    } else if (RELANCE) {
+                        E2eExploration.relance();
+                        passer(Phase.EXPLORATION);
+                    } else {
+                        // Le lot 7 avant le lot 5 : l'étape du lot 5 finit juste avant l'arrêt du serveur.
+                        E2eExploration.premierePhase();
+                        passer(Phase.EXPLORATION);
+                    }
+                }
+            }
+            case EXPLORATION -> {
+                if (E2eExploration.avancer(mc) && phase == Phase.EXPLORATION) {
+                    if (RELANCE) {
+                        passer(Phase.ARRET);
+                    } else if (SEULE_EXPLORATION) {
+                        passer(Phase.LAMPE_ARRET);
                     } else {
                         E2eProtection.premierePhase();
+                        passer(Phase.PROTECTION);
+                    }
+                }
+            }
+            case LAMPE_ARRET -> {
+                if (E2eExploration.armerLaLampe(mc) && phase == Phase.LAMPE_ARRET) {
+                    passer(Phase.ARRET);
+                }
+            }
+            case LAMPE_RELANCE -> {
+                if (E2eExploration.relanceLampe(mc) && phase == Phase.LAMPE_RELANCE) {
+                    if (SEULE_EXPLORATION) {
+                        E2eExploration.relance();
+                        passer(Phase.EXPLORATION);
+                    } else {
+                        E2eProtection.relance();
                         passer(Phase.PROTECTION);
                     }
                 }
@@ -632,6 +686,7 @@ public final class E2eClient {
                         // Le lot 6 d'abord : après un échec sous la douche, le joueur n'est plus opérateur, et un joueur qui n'est
                         // pas opérateur est expulsé « pour spam » dès qu'il envoie une dizaine de commandes d'affilée.
                         E2eVille.rangerAvantArret(mc);
+                        E2eExploration.rangerAvantArret(mc);
                         E2eProtection.rangerAvantArret(mc);
                         E2eVivres.rangerAvantArret(mc);
                         E2eReseau.rangerAvantArret(mc);
