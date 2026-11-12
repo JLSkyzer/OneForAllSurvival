@@ -81,12 +81,30 @@ public final class SafeAccounts extends SavedData {
 
     /** La valeur du compte, en cuivres. */
     public long total(UUID owner) {
-        return CoinMath.valueOf(balance(owner));
+        return saturatedValue(balance(owner));
+    }
+
+    /** Le compte est-il vide ? */
+    public boolean isEmpty(UUID owner) {
+        Account account = accounts.get(owner);
+        return account == null || account.isEmpty();
+    }
+
+    /**
+     * Comme {@link CoinMath#valueOf(Map)} mais sans jamais lever d'exception : une valeur hors d'un {@code long}
+     * donne {@link Long#MAX_VALUE} (affichage, droit de casse). Hors de portée du jeu avec le plafond par coupure.
+     */
+    public static long saturatedValue(Map<Coin, Long> coins) {
+        try {
+            return CoinMath.valueOf(coins);
+        } catch (ArithmeticException e) {
+            return Long.MAX_VALUE;
+        }
     }
 
     /** Combien de pièces de cette coupure le compte peut encore recevoir. */
     public long room(UUID owner, Coin coin) {
-        return MAX_PER_COIN - count(owner, coin);
+        return Math.max(0L, MAX_PER_COIN - count(owner, coin));
     }
 
     /** Position du coffre-fort de ce joueur, s'il en a posé un qui tient encore. */
@@ -99,7 +117,11 @@ public final class SafeAccounts extends SavedData {
     public long totalMass() {
         long total = 0L;
         for (UUID owner : accounts.keySet()) {
-            total = Math.addExact(total, total(owner));
+            long next = total + total(owner);
+            if (next < total) {
+                return Long.MAX_VALUE;
+            }
+            total = next;
         }
         return total;
     }
@@ -163,6 +185,21 @@ public final class SafeAccounts extends SavedData {
             return false;
         }
         EnumMap<Coin, Long> grouped = CoinMath.group(balance(owner), value);
+        // Jamais au-dessus du plafond : l'excédent d'une coupure redescend en dizaines dans celle du dessous
+        // (la paire a été regroupée, son rapport est donc de 10). Si même cela ne tient pas, rien ne bouge.
+        Coin[] all = Coin.values();
+        for (int i = all.length - 1; i > 0; i--) {
+            long over = grouped.getOrDefault(all[i], 0L) - MAX_PER_COIN;
+            if (over > 0L) {
+                grouped.put(all[i], MAX_PER_COIN);
+                grouped.merge(all[i - 1], over * 10L, Long::sum);
+            }
+        }
+        for (Coin coin : all) {
+            if (grouped.getOrDefault(coin, 0L) > MAX_PER_COIN) {
+                return false;
+            }
+        }
         boolean changed = false;
         for (Coin coin : Coin.values()) {
             long now = grouped.getOrDefault(coin, 0L);

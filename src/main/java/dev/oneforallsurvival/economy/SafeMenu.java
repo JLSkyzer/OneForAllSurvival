@@ -102,11 +102,11 @@ public final class SafeMenu extends AbstractContainerMenu {
 
     /** La valeur du compte, en cuivres. */
     public long total() {
-        long total = 0L;
+        java.util.EnumMap<Coin, Long> counts = new java.util.EnumMap<>(Coin.class);
         for (Coin coin : Coin.values()) {
-            total += CoinMath.valueOf(coin, count(coin));
+            counts.put(coin, count(coin));
         }
-        return total;
+        return SafeAccounts.saturatedValue(counts);
     }
 
     @Override

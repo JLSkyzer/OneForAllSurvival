@@ -1,7 +1,6 @@
 package dev.oneforallsurvival.economy;
 
 import com.mojang.authlib.GameProfile;
-import com.mojang.logging.LogUtils;
 import java.util.Optional;
 import java.util.UUID;
 import javax.annotation.Nullable;
@@ -28,7 +27,6 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraftforge.common.util.FakePlayer;
 import net.minecraftforge.event.level.BlockEvent;
 import net.minecraftforge.network.NetworkHooks;
-import org.slf4j.Logger;
 
 /**
  * Le coffre-fort personnel : un par joueur, dont le contenu est gardé par le serveur ({@link SafeAccounts}), pas par
@@ -51,8 +49,6 @@ public final class SafeBlock extends Block implements EntityBlock {
 
     /** Distance maximale du joueur au coffre-fort, au carré (8 blocs) : celle de l'écran et des paquets. */
     public static final double MAX_DISTANCE_SQR = 64.0D;
-
-    private static final Logger LOGGER = LogUtils.getLogger();
 
     public SafeBlock(Properties properties) {
         super(properties);
@@ -88,36 +84,30 @@ public final class SafeBlock extends Block implements EntityBlock {
         if (owner == null || !owner.equals(player.getUUID())) {
             return false;
         }
-        return accounts == null || accounts.total(owner) == 0L;
+        return accounts == null || accounts.isEmpty(owner);
     }
 
     /**
-     * Ce joueur a-t-il déjà un coffre-fort qui tient ? L'emplacement noté est vérifié quand son chunk est chargé :
-     * si le bloc n'y est plus (retiré sans que le jeu l'ait su), la note est effacée au lieu de bloquer le joueur
-     * pour toujours. Dans un chunk non chargé on ne peut pas vérifier : le coffre-fort compte.
+     * Ce joueur a-t-il déjà un coffre-fort qui tient ? Lecture seule. L'emplacement noté est vérifié quand son chunk
+     * est chargé : si le bloc n'y est plus (retiré sans que le jeu l'ait su), la note est périmée et ne compte pas,
+     * pour ne pas bloquer le joueur à vie ; la prochaine pose la remplace ({@link #setPlacedBy}). Dans un chunk non
+     * chargé on ne peut pas vérifier : le coffre-fort compte.
      */
     public static boolean hasLiveSafe(MinecraftServer server, UUID owner) {
-        SafeAccounts accounts = SafeAccounts.get(server);
-        Optional<GlobalPos> noted = accounts.safePos(owner);
+        Optional<GlobalPos> noted = SafeAccounts.get(server).safePos(owner);
         if (noted.isEmpty()) {
             return false;
         }
         ServerLevel level = server.getLevel(noted.get().dimension());
         if (level == null) {
-            accounts.forgetSafePos(owner);
             return false;
         }
         BlockPos pos = noted.get().pos();
         if (!level.isLoaded(pos)) {
             return true;
         }
-        if (level.getBlockState(pos).is(EconomyRegistry.SAFE.get()) && level.getBlockEntity(pos) instanceof SafeBlockEntity be
-                && owner.equals(be.owner())) {
-            return true;
-        }
-        LOGGER.warn("Economie : le coffre-fort note de {} n'est plus en {} ; la note est effacee", owner, noted.get());
-        accounts.forgetSafePos(owner);
-        return false;
+        return level.getBlockState(pos).is(EconomyRegistry.SAFE.get())
+                && level.getBlockEntity(pos) instanceof SafeBlockEntity be && owner.equals(be.owner());
     }
 
     // ---------------------------------------------------------------------------------------------

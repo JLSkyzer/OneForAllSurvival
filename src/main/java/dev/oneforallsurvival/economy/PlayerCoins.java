@@ -30,24 +30,43 @@ public final class PlayerCoins {
         return out;
     }
 
+    /** Le nombre de pièces de cette coupure dans l'inventaire (armure et main gauche comprises). */
+    private static long countOf(Inventory inventory, Coin coin) {
+        long total = 0L;
+        for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
+            ItemStack stack = inventory.getItem(slot);
+            if (!stack.isEmpty() && stack.getItem() == coin.item()) {
+                total += stack.getCount();
+            }
+        }
+        return total;
+    }
+
     /**
      * Fait entrer jusqu'à {@code count} pièces chez le joueur.
+     *
+     * <p>Ce qui est entré se lit dans l'inventaire (avant et après), jamais dans la pile passée à
+     * {@code Inventory.add} : pour un joueur en créatif (capacité {@code instabuild}), le jeu vide la pile et
+     * répond vrai même quand rien n'a trouvé de place (vérifié dans le bytecode de {@code Inventory.add} de la
+     * 1.20.1). Se fier à la pile ferait croire à une entrée qui n'a pas eu lieu, et l'argent disparaîtrait.
      *
      * @return combien sont entrées (le reste n'a pas trouvé de place et n'est pas touché)
      */
     public static long receive(ServerPlayer player, Coin coin, long count) {
-        long left = count;
+        long entered = 0L;
         int max = new ItemStack(coin.item()).getMaxStackSize();
-        while (left > 0L) {
-            int size = (int) Math.min(left, max);
-            ItemStack stack = new ItemStack(coin.item(), size);
-            player.getInventory().add(stack);
-            left -= size - stack.getCount();
-            if (!stack.isEmpty()) {
+        Inventory inventory = player.getInventory();
+        while (entered < count) {
+            int size = (int) Math.min(count - entered, max);
+            long before = countOf(inventory, coin);
+            inventory.add(new ItemStack(coin.item(), size));
+            long gained = countOf(inventory, coin) - before;
+            entered += gained;
+            if (gained < size) {
                 break;
             }
         }
-        return count - left;
+        return entered;
     }
 
     /**

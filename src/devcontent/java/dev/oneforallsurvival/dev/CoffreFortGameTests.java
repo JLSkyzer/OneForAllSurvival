@@ -571,10 +571,11 @@ public final class CoffreFortGameTests {
             helper.assertTrue(comptes.total(loin) == 120, "le compte se lit sans son chunk");
             helper.assertTrue(SafeBlock.hasLiveSafe(serveur, loin), "un coffre-fort en zone déchargée compte encore");
             helper.assertTrue(!helper.getLevel().isLoaded(horsMonde), "la vérification ne charge pas le chunk");
-            // Une note vers un bloc qui n'existe plus (chunk chargé) est effacée au lieu de bloquer le joueur.
+            // Une note vers un bloc qui n'existe plus (chunk chargé) est périmée : elle ne bloque pas le joueur,
+            // la vérification ne change rien, et la prochaine pose la remplace.
             comptes.setSafePos(loin, GlobalPos.of(helper.getLevel().dimension(), helper.absolutePos(B)));
-            helper.assertTrue(!SafeBlock.hasLiveSafe(serveur, loin) && comptes.safePos(loin).isEmpty(),
-                    "note périmée effacée");
+            helper.assertTrue(!SafeBlock.hasLiveSafe(serveur, loin) && comptes.safePos(loin).isPresent(),
+                    "note périmée ignorée sans effet de bord");
             helper.assertTrue(comptes.total(loin) == 120, "le compte reste");
             helper.succeed();
         }
@@ -613,6 +614,13 @@ public final class CoffreFortGameTests {
             helper.assertTrue(!comptes.group(autre, aucun), "aucun rapport de 10 : rien ne bouge");
             helper.assertTrue(comptes.balance(autre).equals(exo), "le compte est resté tel quel");
             helper.assertTrue(avant > 0, "garde-fou du test");
+            // Le plafond : un regroupement qui ferait dépasser le plafond du rubis laisse le reste en émeraude.
+            UUID plein = essai.compteLibre();
+            comptes.deposit(plein, Coin.RUBY, SafeAccounts.MAX_PER_COIN);
+            comptes.deposit(plein, Coin.EMERALD, 10);
+            helper.assertTrue(!comptes.group(plein) && comptes.count(plein, Coin.RUBY) == SafeAccounts.MAX_PER_COIN
+                    && comptes.count(plein, Coin.EMERALD) == 10, "plafond respecté : " + comptes.balance(plein));
+            helper.assertTrue(comptes.room(plein, Coin.RUBY) == 0, "place nulle, jamais négative");
             helper.succeed();
         }
     }
@@ -682,6 +690,35 @@ public final class CoffreFortGameTests {
             serveur.broadcastChanges();
             j.synchroniser(client);
             helper.assertTrue(client.count(Coin.COPPER) == 10, "le client suit : " + client.count(Coin.COPPER));
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_B)
+    public static void enCreatifPleinRienNeDisparait(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest proprio = essai.joueur("cf_crea_proprio");
+            JoueurDeTest chef = essai.equipe("cf_crea_chef");
+            chef.joueur().gameMode.changeGameModeForPlayer(GameType.CREATIVE);
+            SafeAccounts comptes = essai.comptes();
+            poserEtVerifier(helper, proprio, A);
+            comptes.deposit(proprio.uuid(), Coin.COPPER, 100);
+            BlockPos abs = helper.absolutePos(A);
+            clicDroit(helper, chef, A);
+            helper.assertTrue(ouvert(chef), "l'équipe en créatif ouvre");
+            remplirDeTerre(chef);
+            helper.assertTrue(chef.joueur().getAbilities().instabuild, "le chef est en créatif");
+            helper.assertTrue(agir(chef, SafeActionPacket.withdraw(abs, Coin.COPPER, 64)) == Result.FULL, "inventaire plein");
+            helper.assertTrue(comptes.count(proprio.uuid(), Coin.COPPER) == 100 && porte(chef, Coin.COPPER) == 0,
+                    "l'argent non pris reste au compte : " + comptes.count(proprio.uuid(), Coin.COPPER));
+            // Place pour 4 seulement : 4 sortent, 96 restent.
+            chef.joueur().getInventory().items.set(0, new ItemStack(Coin.COPPER.item(), 60));
+            helper.assertTrue(agir(chef, SafeActionPacket.withdraw(abs, Coin.COPPER, 10)) == Result.DONE, "entrée partielle");
+            helper.assertTrue(porte(chef, Coin.COPPER) == 64 && comptes.count(proprio.uuid(), Coin.COPPER) == 96,
+                    "porté " + porte(chef, Coin.COPPER) + ", compte " + comptes.count(proprio.uuid(), Coin.COPPER));
+            // L'entrée commune de PlayerCoins : rien n'entre, rien n'est annoncé.
+            long recu = PlayerCoins.receive(chef.joueur(), Coin.GOLD, 5);
+            helper.assertTrue(recu == 0 && porte(chef, Coin.GOLD) == 0, "rien n'entre, rien n'est annoncé : " + recu);
             helper.succeed();
         }
     }
