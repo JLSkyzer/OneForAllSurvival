@@ -909,22 +909,39 @@ public final class BourseGameTests {
     public static void uneBourseAuSolNeFusionnePasAvecUnePileDePieces(GameTestHelper helper) {
         boite(helper);
         Vec3 p = helper.absoluteVec(new Vec3(3.5, 0.1, 3.5));
-        CoinDropEntity pile = CoinDropEntity.at(helper.getLevel(), p.x, p.y, p.z, Coin.GOLD, 3);
+        CoinDropEntity pile = CoinDropEntity.at(helper.getLevel(), p.x, p.y, p.z, Coin.COPPER, 3);
         pile.setPickUpDelay(0);
+        pile.setDeltaMovement(Vec3.ZERO);
         helper.getLevel().addFreshEntity(pile);
+        // La bourse au sol garde la coupure par défaut (cuivre) : la même que la pile. Seule l'exclusion des
+        // bourses dans la fusion peut empêcher qu'elle soit absorbée.
         ItemStack bourse = bourse(Coin.GOLD, 2);
         CoinDropEntity sol = (CoinDropEntity) EconomyRegistry.PURSE.get().createEntity(helper.getLevel(),
                 new ItemEntity(helper.getLevel(), p.x, p.y, p.z, bourse), bourse);
         sol.setPos(p.x, p.y, p.z);
         sol.setPickUpDelay(0);
+        sol.setDeltaMovement(Vec3.ZERO);
         helper.getLevel().addFreshEntity(sol);
+        helper.assertTrue(sol.coin() == pile.coin(), "témoin : la bourse et la pile ont la même coupure, " + sol.coin());
+        // Témoin positif : deux piles de cuivre au même endroit fusionnent dans la même fenêtre.
+        Vec3 q = helper.absoluteVec(new Vec3(5.5, 0.1, 5.5));
+        CoinDropEntity un = CoinDropEntity.at(helper.getLevel(), q.x, q.y, q.z, Coin.COPPER, 3);
+        CoinDropEntity deux = CoinDropEntity.at(helper.getLevel(), q.x, q.y, q.z, Coin.COPPER, 2);
+        un.setPickUpDelay(0);
+        deux.setPickUpDelay(0);
+        un.setDeltaMovement(Vec3.ZERO);
+        deux.setDeltaMovement(Vec3.ZERO);
+        helper.getLevel().addFreshEntity(un);
+        helper.getLevel().addFreshEntity(deux);
         // Au-delà de l'intervalle de fusion (20 ticks), plusieurs fois.
         helper.runAfterDelay(65, () -> {
+            helper.assertTrue(un.isRemoved() != deux.isRemoved() && (un.isRemoved() ? deux : un).count() == 5,
+                    "témoin : les deux piles de cuivre devaient fusionner : " + un.count() + " / " + deux.count());
             helper.assertTrue(!pile.isRemoved() && pile.count() == 3 && !pile.isPurse(),
                     "la pile de pièces a fusionné : " + pile.count() + " removed=" + pile.isRemoved());
             helper.assertTrue(!sol.isRemoved() && sol.isPurse() && sol.value() == 200 && Purse.count(sol.purse(), Coin.GOLD) == 2,
                     "la bourse a fusionné : " + sol.value() + " removed=" + sol.isRemoved());
-            helper.assertTrue(valeurAuSol(helper) == 500, "500 cuivres au sol : " + valeurAuSol(helper));
+            helper.assertTrue(valeurAuSol(helper) == 3 + 200 + 5, "208 cuivres au sol : " + valeurAuSol(helper));
             boite(helper);
             helper.succeed();
         });

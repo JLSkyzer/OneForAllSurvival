@@ -889,6 +889,9 @@ public final class CoffreFortGameTests {
             helper.assertTrue(comptes.count(j.uuid(), Coin.COPPER) == 13, "le compte est intact");
             helper.assertTrue(objets(helper).stream().noneMatch(o -> Coin.fromItem(o.getItem().getItem()).isPresent()),
                     "rien ne tombe au sol");
+            helper.assertTrue(helper.getLevel().getEntitiesOfClass(dev.oneforallsurvival.economy.CoinDropEntity.class,
+                    new AABB(helper.absolutePos(new BlockPos(0, -1, 0)), helper.absolutePos(new BlockPos(8, 5, 8)))).isEmpty(),
+                    "aucune pièce au sol (entité du mod)");
             helper.succeed();
         }
     }
