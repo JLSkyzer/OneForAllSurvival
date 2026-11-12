@@ -144,24 +144,39 @@ public final class PhareGameTests {
         });
     }
 
+    /**
+     * Un phare posé sous un toit déjà en place ne consomme rien. Le toit est posé et la lumière du ciel attendue AVANT le
+     * phare : {@code Level.canSeeSky} lit la lumière du ciel, que le moteur de lumière met à jour un tick après le
+     * {@code setBlock} (relevé tick par tick au 2026-11-12 : {@code canSeeSky} vrai au premier tick du phare, faux dès
+     * le suivant, d'où 32 FE pris). Poser les deux dans le même tick testait la course du moteur de lumière, pas le
+     * phare ; le cas du toit qui arrive sur un phare en marche est {@link #sousUnToitApresCoup}.
+     */
     @GameTest(template = "test/plancher", batch = LOT, setupTicks = 20, timeoutTicks = 200)
     public static void sousUnToitIlNeConsommeRien(GameTestHelper helper) {
         BlockPos pos = haut(helper);
         helper.setBlock(pos.above(), Blocks.STONE);
-        LighthouseBlockEntity be = poser(helper, pos);
-        alimenter(be);
-        int avant = be.energy().getEnergyStored();
-        helper.runAfterDelay(30, () -> {
-            try {
-                helper.assertTrue(be.state() == MachineState.STOPPED, "STOPPED attendu, vu " + be.state());
-                helper.assertTrue(!allume(helper, pos), "le phare ne devait pas être allumé");
-                helper.assertTrue(be.energy().getEnergyStored() == avant,
-                        "rien ne devait être consommé : " + avant + " puis " + be.energy().getEnergyStored());
-            } finally {
-                nettoyer(helper, pos);
-            }
-            helper.succeed();
-        });
+        LighthouseBlockEntity[] be = new LighthouseBlockEntity[1];
+        int[] avant = {0};
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(!helper.getLevel().canSeeSky(helper.absolutePos(pos.above())),
+                        "la lumière du ciel devait se mettre à jour sous le toit"))
+                .thenExecute(() -> {
+                    be[0] = poser(helper, pos);
+                    alimenter(be[0]);
+                    avant[0] = be[0].energy().getEnergyStored();
+                })
+                .thenIdle(30)
+                .thenExecute(() -> {
+                    try {
+                        helper.assertTrue(be[0].state() == MachineState.STOPPED, "STOPPED attendu, vu " + be[0].state());
+                        helper.assertTrue(!allume(helper, pos), "le phare ne devait pas être allumé");
+                        helper.assertTrue(be[0].energy().getEnergyStored() == avant[0],
+                                "rien ne devait être consommé : " + avant[0] + " puis " + be[0].energy().getEnergyStored());
+                    } finally {
+                        nettoyer(helper, pos);
+                    }
+                })
+                .thenSucceed();
     }
 
     @GameTest(template = "test/plancher", batch = LOT, setupTicks = 20, timeoutTicks = 200)
