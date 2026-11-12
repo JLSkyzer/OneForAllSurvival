@@ -33,7 +33,8 @@ import org.slf4j.Logger;
  * illisible) ne dit pas ce qu'elle fabriquera ; elle est gardée et comptée dans une seule ligne INFO du journal
  * (les identifiants au niveau DEBUG). Le filet d'exécution
  * ({@link #craftAllowed}), appelé par {@link CoinItem#onCraftedBy}, couvre les pièces qui sortiraient quand même
- * d'une grille de fabrication.
+ * d'une grille de fabrication. Limite du filet : au maj-clic de la grille 2x2 du joueur, le jeu déplace la pile
+ * avant d'appeler le crochet ; le refus y est journalisé mais ne retire pas les pièces (à fermer en tâche 3).
  */
 public final class CoinRecipeGuard {
 
@@ -118,6 +119,19 @@ public final class CoinRecipeGuard {
         return removed;
     }
 
+    /**
+     * Après la lecture de la configuration SERVER (qui vient après le gardien du chargement), retire des recettes
+     * du serveur en marche les changes dont le rapport n'est plus 10. Ne touche que les recettes de pièces ; le
+     * catalogue de l'établi n'est pas refait. Exécuté sur le fil du serveur. Un retour au rapport 10 ne remet pas
+     * la recette : il faut {@code /reload}.
+     */
+    public static void reapplyOnLiveServer() {
+        net.minecraft.server.MinecraftServer server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+        if (server != null) {
+            server.execute(() -> filter(server.getRecipeManager(), server.registryAccess()));
+        }
+    }
+
     private static boolean isValidChange(Recipe<?> recipe, Change change, RegistryAccess access) {
         if (change == null || recipe.getClass() != ShapelessRecipe.class || recipe.getIngredients().size() != 1) {
             return false;
@@ -151,8 +165,18 @@ public final class CoinRecipeGuard {
      * recettes de change. Une recette dynamique qui fabriquerait une pièce est ainsi refusée.
      * Tout autre écran (tailleur de pierre, forge, mod) est refusé : une pièce n'y a aucune origine permise.
      */
-    @SuppressWarnings("unchecked")
     public static boolean craftAllowed(AbstractContainerMenu menu, Level level, RecipeManager recipes) {
+        return craftAllowed(menu, level, recipes, Coin::value);
+    }
+
+    /**
+     * Comme {@link #craftAllowed(AbstractContainerMenu, Level, RecipeManager)} avec des valeurs données (essais).
+     * Une recette de change n'est permise qu'à valeur égale, selon les valeurs vivantes : le gardien du chargement
+     * tourne avant la lecture de la configuration SERVER, c'est donc ce filet qui compte.
+     */
+    @SuppressWarnings("unchecked")
+    public static boolean craftAllowed(AbstractContainerMenu menu, Level level, RecipeManager recipes,
+            ToLongFunction<Coin> value) {
         if (!(menu instanceof CraftingMenu || menu instanceof InventoryMenu)) {
             return false;
         }
@@ -177,7 +201,8 @@ public final class CoinRecipeGuard {
             if (result.isEmpty() || Coin.fromItem(result.getItem()).isEmpty()) {
                 continue;
             }
-            if (!CHANGE_RECIPES.contains(recipe.getId())) {
+            Change rule = CHANGES.get(recipe.getId());
+            if (rule == null || value.applyAsLong(rule.to()) * CHANGE_COUNT != value.applyAsLong(rule.from())) {
                 return false;
             }
             change = true;

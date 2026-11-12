@@ -30,7 +30,8 @@ public final class EconomyConfig {
         builder.comment("Valeur de chaque pièce, en cuivres. Le cuivre vaut toujours 1.",
                 "Chaque valeur doit être un multiple strict de celle de la pièce du dessous, sinon les valeurs",
                 "par défaut (1, 10, 100, 1000, 10000) sont utilisées et un avertissement est écrit au journal.",
-                "Les recettes de change (1 pour 10) ne suivent pas ces valeurs : elles sont dans les données.");
+                "Le change à la table (1 pièce pour 10 de celle du dessous) n'est actif que si chaque pièce vaut 10 fois",
+                "celle du dessous ; sinon ses recettes sont retirées.");
         for (Coin coin : Coin.values()) {
             if (coin != Coin.COPPER) {
                 VALUES[coin.ordinal()] = builder.defineInRange(coin.key() + "CoinValue", DEFAULTS[coin.ordinal()],
@@ -53,6 +54,7 @@ public final class EconomyConfig {
     public static void onConfigEvent(ModConfigEvent event) {
         if (event.getConfig().getSpec() == SPEC) {
             cache = validated(read());
+            CoinRecipeGuard.reapplyOnLiveServer();
         }
     }
 

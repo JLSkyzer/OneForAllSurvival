@@ -264,4 +264,23 @@ public final class MonnaieGameTests {
                 && dix.getRecipes().size() == 4, "avec un rapport de 10, une recette de change a été retirée");
         helper.succeed();
     }
+
+    @GameTest(template = "test/plancher", batch = LOT)
+    public static void leFiletRefuseUnChangeSiLeRapportVivantEstFaux(GameTestHelper helper) {
+        net.minecraft.world.entity.player.Player joueur = helper.makeMockPlayer();
+        net.minecraft.world.level.Level monde = helper.getLevel();
+        RecipeManager vivant = monde.getServer().getRecipeManager();
+        net.minecraft.world.inventory.CraftingMenu table = new net.minecraft.world.inventory.CraftingMenu(1,
+                joueur.getInventory(), net.minecraft.world.inventory.ContainerLevelAccess.NULL);
+        table.getSlot(1).set(new ItemStack(Coin.SILVER.item()));
+        long[] cinq = {1, 5, 50, 500, 5000};
+        helper.assertTrue(!CoinRecipeGuard.craftAllowed(table, monde, vivant, c -> cinq[c.ordinal()]),
+                "argent -> cuivre permis alors que 10 x 1 != 5");
+        helper.assertTrue(CoinRecipeGuard.craftAllowed(table, monde, vivant, c -> (long) Math.pow(10, c.ordinal())),
+                "argent -> cuivre refusé à valeur égale");
+        table.getSlot(1).set(new ItemStack(Coin.GOLD.item()));
+        helper.assertTrue(CoinRecipeGuard.craftAllowed(table, monde, vivant, c -> cinq[c.ordinal()]),
+                "or -> argent refusé alors que 10 x 5 == 50");
+        helper.succeed();
+    }
 }
