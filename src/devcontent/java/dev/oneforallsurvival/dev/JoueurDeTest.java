@@ -65,15 +65,28 @@ public final class JoueurDeTest {
 
     /** Fait entrer le joueur ; son identifiant découle du nom, comme sur un serveur hors ligne. */
     public static JoueurDeTest rejoindre(ServerLevel level, String nom, Vec3 position) {
+        return rejoindre(level, nom, position, true, joueur -> {});
+    }
+
+    /**
+     * Comme {@link #rejoindre(ServerLevel, String, Vec3)}, avec deux choix : {@code vider} faux garde l'inventaire que
+     * l'entrée en jeu a laissé (ce que le joueur a reçu en se connectant, par exemple la somme de départ), et
+     * {@code avantEntree} prépare le joueur (son inventaire, par exemple) avant la connexion.
+     */
+    public static JoueurDeTest rejoindre(ServerLevel level, String nom, Vec3 position, boolean vider,
+            java.util.function.Consumer<ServerPlayer> avantEntree) {
         Connection connexion = new Connection(PacketFlow.SERVERBOUND);
         EmbeddedChannel canal = new EmbeddedChannel(connexion);
         canal.attr(VERSION_FML).set("FML3");
         UUID uuid = UUID.nameUUIDFromBytes(("OfflinePlayer:" + nom).getBytes(StandardCharsets.UTF_8));
         ServerPlayer joueur = new ServerPlayer(level.getServer(), level, new GameProfile(uuid, nom));
         joueur.moveTo(position.x, position.y, position.z, 0f, 0f);
+        avantEntree.accept(joueur);
         level.getServer().getPlayerList().placeNewPlayer(connexion, joueur);
         // L'UUID découle du nom : placeNewPlayer relit le playerdata d'un joueur d'essai du même nom. On repart à vide.
-        joueur.getInventory().clearContent();
+        if (vider) {
+            joueur.getInventory().clearContent();
+        }
         JoueurDeTest simule = new JoueurDeTest(canal, joueur);
         simule.lire();
         // L'entrée en jeu a envoyé son lot de paquets : on ne garde que ce qui suit.

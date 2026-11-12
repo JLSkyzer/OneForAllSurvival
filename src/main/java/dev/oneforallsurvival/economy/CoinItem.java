@@ -4,6 +4,8 @@ import com.mojang.logging.LogUtils;
 import java.util.List;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -54,5 +56,25 @@ public class CoinItem extends Item {
         LOGGER.warn("Economie : {} x{} fabriquees par {} hors change dans {}, gain annule", coin.key(),
                 stack.getCount(), player.getGameProfile().getName(), player.containerMenu.getClass().getName());
         stack.setCount(0);
+    }
+
+    /**
+     * Une pièce lâchée (touche Q, mort, bloc cassé, {@code /give} sur un inventaire plein, coffre vidé par une
+     * explosion...) devient une pièce au sol du mod : Forge appelle ce crochet à l'entrée dans le monde de
+     * l'objet lâché, le remplace par l'entité rendue ici, et l'ajoute au tick suivant.
+     */
+    @Override
+    public boolean hasCustomEntity(ItemStack stack) {
+        return true;
+    }
+
+    @Nullable
+    @Override
+    public Entity createEntity(Level level, Entity location, ItemStack stack) {
+        // Côté client, l'objet reste un objet : le serveur envoie lui-même la pièce au sol.
+        if (level.isClientSide || !(location instanceof ItemEntity item) || stack.isEmpty()) {
+            return null;
+        }
+        return CoinDropEntity.replacing(level, item, coin, stack.getCount());
     }
 }

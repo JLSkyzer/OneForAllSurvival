@@ -25,6 +25,12 @@ public final class EconomyConfig {
     /** Indexé comme {@link Coin#ordinal()} ; l'entrée du cuivre reste nulle (non réglable). */
     private static final ForgeConfigSpec.LongValue[] VALUES = new ForgeConfigSpec.LongValue[Coin.values().length];
 
+    static final int DEFAULT_LEDGER_MAX_LINES = 10_000;
+    static final int DEFAULT_STARTING_MONEY = 500;
+
+    private static final ForgeConfigSpec.IntValue LEDGER_MAX_LINES;
+    private static final ForgeConfigSpec.IntValue STARTING_MONEY;
+
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
         builder.comment("Valeur de chaque pièce, en cuivres. Le cuivre vaut toujours 1.",
@@ -38,6 +44,13 @@ public final class EconomyConfig {
                         2L, 1_000_000_000L);
             }
         }
+        LEDGER_MAX_LINES = builder
+                .comment("Lignes du registre gardées ; les plus anciennes sont effacées d'abord, mais les totaux",
+                        "par source et par cause ne sont jamais effacés.")
+                .defineInRange("ledgerMaxLines", DEFAULT_LEDGER_MAX_LINES, 100, 1_000_000);
+        STARTING_MONEY = builder
+                .comment("Somme de départ, en cuivres, donnée à la première connexion de chaque joueur (500 = 5 or).")
+                .defineInRange("startingMoney", DEFAULT_STARTING_MONEY, 0, 1_000_000);
         SPEC = builder.build();
     }
 
@@ -48,6 +61,24 @@ public final class EconomyConfig {
     /** Valeur de la pièce en cuivres : la configuration si elle est cohérente, sinon la valeur par défaut. */
     public static long coinValue(Coin coin) {
         return cache[coin.ordinal()];
+    }
+
+    /** Nombre de lignes du registre gardées (10000 par défaut). */
+    public static int ledgerMaxLines() {
+        try {
+            return LEDGER_MAX_LINES.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_LEDGER_MAX_LINES;
+        }
+    }
+
+    /** Somme de départ, en cuivres (500 par défaut). */
+    public static long startingMoney() {
+        try {
+            return STARTING_MONEY.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_STARTING_MONEY;
+        }
     }
 
     /** Relit le fichier à son chargement et à son rechargement. */

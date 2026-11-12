@@ -9,8 +9,10 @@ import dev.oneforallsurvival.bench.BenchRegistry;
 import dev.oneforallsurvival.bench.WorkshopTicker;
 import dev.oneforallsurvival.coast.CoastCommands;
 import dev.oneforallsurvival.debug.IslandDebugRequest;
+import dev.oneforallsurvival.economy.EconomyCommands;
 import dev.oneforallsurvival.economy.EconomyConfig;
 import dev.oneforallsurvival.economy.EconomyRegistry;
+import dev.oneforallsurvival.economy.StartingMoney;
 import dev.oneforallsurvival.explore.ExploreCommands;
 import dev.oneforallsurvival.explore.ExploreConfig;
 import dev.oneforallsurvival.explore.ExploreRegistry;
@@ -66,6 +68,7 @@ public final class OneForAllSurvival {
         MinecraftForge.EVENT_BUS.register(new RoleCommands());
         MinecraftForge.EVENT_BUS.register(new CoastCommands());
         MinecraftForge.EVENT_BUS.register(new ExploreCommands());
+        MinecraftForge.EVENT_BUS.register(new EconomyCommands());
         MinecraftForge.EVENT_BUS.register(new WorkshopTicker());
         MinecraftForge.EVENT_BUS.register(new FoodEvents());
         MinecraftForge.EVENT_BUS.register(new LightningEvents());
@@ -81,6 +84,7 @@ public final class OneForAllSurvival {
         context.registerConfig(ModConfig.Type.SERVER, EconomyConfig.SPEC, "oneforallsurvival-economy.toml");
         modEventBus.addListener(ExploreConfig::onConfigLoad);
         modEventBus.addListener(EconomyConfig::onConfigEvent);
+        MinecraftForge.EVENT_BUS.addListener(StartingMoney::onLoggedIn);
         MinecraftForge.EVENT_BUS.addListener(BenchCatalog::onAddReloadListener);
         MinecraftForge.EVENT_BUS.addListener(BenchOverrides::onAddReloadListener);
         MinecraftForge.EVENT_BUS.addListener(BenchCatalog::onTagsUpdated);
