@@ -74,8 +74,8 @@ public final class MoneyStorageRules {
         if (type != null) {
             Set<ResourceLocation> forbidden = EconomyConfig.extraForbiddenMenus();
             Set<ResourceLocation> extra = EconomyConfig.extraAllowedMenus();
-            if (!forbidden.isEmpty() || !extra.isEmpty()) {
-                ResourceLocation id = ForgeRegistries.MENU_TYPES.getKey(type);
+            ResourceLocation id = forbidden.isEmpty() && extra.isEmpty() ? null : ForgeRegistries.MENU_TYPES.getKey(type);
+            if (id != null) {
                 if (forbidden.contains(id)) {
                     return false;
                 }

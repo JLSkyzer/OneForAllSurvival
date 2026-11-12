@@ -707,8 +707,8 @@ public final class RangementGameTests {
                 Block bloc = BuiltInRegistries.BLOCK.get(id(nom));
                 helper.assertTrue(bloc != Blocks.AIR, nom + " n'existe pas");
                 helper.setBlock(RANGEMENT, bloc);
-                helper.assertTrue(helper.getLevel().getBlockState(abs).getMenuProvider(helper.getLevel(), abs) != null,
-                        nom + " : getMenuProvider est nul");
+                helper.assertTrue(helper.getLevel().getBlockState(abs).is(dev.oneforallsurvival.economy.MoneyGuard.MONEY_USE_ALLOWED),
+                        nom + " n'est pas dans money_use_allowed");
                 p.setItemInHand(InteractionHand.MAIN_HAND, piece(3));
                 PlayerInteractEvent.RightClickBlock evt = ForgeHooks.onRightClickBlock(p, InteractionHand.MAIN_HAND, abs, coup);
                 helper.assertTrue(evt.getUseBlock() != Event.Result.DENY, nom + " : le clic droit avec une pièce est refusé");
@@ -716,6 +716,32 @@ public final class RangementGameTests {
                 helper.assertTrue(p.containerMenu != p.inventoryMenu, nom + " : l'écran ne s'est pas ouvert, pièce en main");
                 p.closeContainer();
                 p.getInventory().clearContent();
+                helper.setBlock(RANGEMENT, Blocks.AIR);
+            }
+            helper.succeed();
+        } finally {
+            quitter(j);
+            degager(helper);
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void unSpectateurNOuvreRienSurLesMachinesDuMod(GameTestHelper helper) {
+        degager(helper);
+        JoueurDeTest j = joueur(helper, "Rangeur19");
+        try {
+            ServerPlayer p = j.joueur();
+            p.gameMode.changeGameModeForPlayer(GameType.SPECTATOR);
+            BlockPos abs = helper.absolutePos(RANGEMENT);
+            BlockHitResult coup = new BlockHitResult(Vec3.atCenterOf(abs), Direction.UP, abs, false);
+            for (String nom : new String[] {"canteen_pot", "desalinator", "dryer", "fridge", "incubator", "galvanic_bath"}) {
+                helper.setBlock(RANGEMENT, BuiltInRegistries.BLOCK.get(id(nom)));
+                // Le spectateur passe par getMenuProvider puis openMenu sans NetworkHooks : le bloc doit rendre null.
+                helper.assertTrue(helper.getLevel().getBlockState(abs).getMenuProvider(helper.getLevel(), abs) == null,
+                        nom + " : getMenuProvider non nul, un spectateur ferait planter son client");
+                InteractionResult r = p.gameMode.useItemOn(p, helper.getLevel(), ItemStack.EMPTY, InteractionHand.MAIN_HAND, coup);
+                helper.assertTrue(p.containerMenu == p.inventoryMenu, nom + " : un écran s'est ouvert pour un spectateur");
+                helper.assertTrue(!r.consumesAction(), nom + " : résultat " + r);
                 helper.setBlock(RANGEMENT, Blocks.AIR);
             }
             helper.succeed();

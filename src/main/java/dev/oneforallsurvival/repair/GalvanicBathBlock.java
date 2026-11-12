@@ -7,7 +7,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.MenuProvider;
 import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.BlockGetter;
@@ -68,20 +67,13 @@ public final class GalvanicBathBlock extends ElectricMachineBlock {
         if (level.isClientSide) {
             return InteractionResult.SUCCESS;
         }
-        MenuProvider provider = state.getMenuProvider(level, pos);
-        if (player instanceof ServerPlayer serverPlayer && provider != null) {
-            NetworkHooks.openScreen(serverPlayer, provider, buf -> buf.writeBlockPos(pos));
+        if (player instanceof ServerPlayer serverPlayer && level.getBlockEntity(pos) instanceof GalvanicBathBlockEntity be) {
+            NetworkHooks.openScreen(serverPlayer,
+                    new SimpleMenuProvider((id, inventory, p) -> new GalvanicBathMenu(id, inventory, be, pos),
+                            Component.translatable(getDescriptionId())),
+                    buf -> buf.writeBlockPos(pos));
         }
         return InteractionResult.CONSUME;
-    }
-
-    /** L'écran de la machine : MoneyGuard le lit pour ne pas refuser le clic droit d'un joueur qui tient une pièce. */
-    @Override
-    public MenuProvider getMenuProvider(BlockState state, Level level, BlockPos pos) {
-        return level.getBlockEntity(pos) instanceof GalvanicBathBlockEntity be
-                ? new SimpleMenuProvider((id, inventory, p) -> new GalvanicBathMenu(id, inventory, be, pos),
-                        Component.translatable(getDescriptionId()))
-                : null;
     }
 
     @Override

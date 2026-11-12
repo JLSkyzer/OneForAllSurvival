@@ -1,4 +1,11 @@
 {
   "replace": false,
-  "values": []
+  "values": [
+    "oneforallsurvival:canteen_pot",
+    "oneforallsurvival:desalinator",
+    "oneforallsurvival:dryer",
+    "oneforallsurvival:fridge",
+    "oneforallsurvival:incubator",
+    "oneforallsurvival:galvanic_bath"
+  ]
 }
