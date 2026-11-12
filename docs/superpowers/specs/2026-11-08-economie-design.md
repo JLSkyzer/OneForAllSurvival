@@ -115,7 +115,7 @@ Valeurs de départ, réglables :
 | Émeraude | 1 000 |
 | Rubis | 10 000 |
 
-- **Le change** : 10 pièces d'une coupure s'échangent contre 1 de la coupure supérieure, et inversement,
+- **Le change** : 10 pièces d'une coupure s'échangent contre 1 de la coupure supérieure, et inversement, du cuivre au rubis,
   sur une table de craft ou auprès du PNJ changeur (feature 80). Ces recettes ne créent rien, elles échangent à
   valeur égale. C'est la seule exception à la règle « aucune recette ne produit une pièce ».
 - L'infobulle d'une pièce indique sa valeur. Une pile indique son total.
@@ -456,7 +456,7 @@ Demandé par Killian le 2026-11-08.
 Demandé par Killian le 2026-11-08.
 - L'équipe du serveur peut **donner des pièces** à un joueur, ou en verser au trésor, par commande.
   C'est son levier pour **piloter l'économie** : relancer une ville pauvre, récompenser un événement.
-- C'est le **seul** moyen d'obtenir un **rubis** : aucune autre source n'en donne.
+- Elle peut donner toutes les coupures, rubis compris.
 - Chaque injection s'inscrit au registre, avec l'auteur et le motif, et compte comme source au tableau
   de bord.
 - L'équipe peut aussi **retirer** des pièces par commande (puits), notées de la même façon.
@@ -584,7 +584,7 @@ leur métier. Celui de l'ingénieur vient avec le lot E6.
 - Le **butin des mobs** n'a pas de plafond : les mobs hostiles donnent des pièces, et les animaux aussi
   s'ils ne viennent pas d'un élevage (2026-11-11).
 - Les quêtes ne récompensent **qu'en pièces**.
-- Le **rubis** n'est donné que par l'équipe du serveur.
+- Le **rubis** s'obtient comme les autres pièces (change, butin, quêtes, injection) ; plus une pièce vaut cher, plus elle est rare au butin (2026-11-12, remplace « le rubis n'est donné que par l'équipe »).
 - Une **somme de départ** de 500 cuivres pour chaque nouveau joueur.
 - **N'importe quel joueur** fabrique son coffre-fort.
 - **Monnaie entièrement physique** : pas de comptes, pas de distributeur, pas de carte bancaire, pas
