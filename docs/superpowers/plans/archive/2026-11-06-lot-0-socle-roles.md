@@ -8,7 +8,7 @@
 
 **Tech Stack:** Forge 1.20.1-47.4.28, Java 17, ForgeGradle 6, JUnit 5, GameTests Forge.
 
-**Spec:** `docs/superpowers/specs/2026-11-06-features-lost-island-design.md` (sections 3, 4 et 7). Lots suivants : `tasks/todo.md`.
+**Spec:** `docs/superpowers/specs/archive/2026-11-06-features-lost-island-design.md` (sections 3, 4 et 7). Lots suivants : `tasks/todo.md`.
 
 ## Global Constraints
 

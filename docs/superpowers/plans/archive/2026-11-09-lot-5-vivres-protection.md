@@ -8,7 +8,7 @@
 
 **Tech Stack:** Forge 1.20.1-47.4.28, Java 17, ForgeGradle 6, JUnit 5, GameTests, Farmer's Delight 1.20.1-1.3.4 (`implementation`), API JEI en `compileOnly`.
 
-**Spec:** `docs/superpowers/specs/2026-11-06-features-lost-island-design.md`, section 4 (machine électrique), section 5 features 12, 13, 16, section 7. Les autres cahiers ne changent pas ces features ; le cahier du médecin (feature 35) ajoutera plus tard la répartition First Aid de nos dégâts sur les bras.
+**Spec:** `docs/superpowers/specs/archive/2026-11-06-features-lost-island-design.md`, section 4 (machine électrique), section 5 features 12, 13, 16, section 7. Les autres cahiers ne changent pas ces features ; le cahier du médecin (feature 35) ajoutera plus tard la répartition First Aid de nos dégâts sur les bras.
 
 ## Global Constraints
 

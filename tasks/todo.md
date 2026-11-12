@@ -1,6 +1,6 @@
 # Suivi : One For All Survival
 
-Cahier des charges : [features Lost Island](../docs/superpowers/specs/2026-11-06-features-lost-island-design.md).
+Cahier des charges : [features Lost Island](../docs/superpowers/specs/archive/2026-11-06-features-lost-island-design.md).
 
 Chaque lot reçoit son plan détaillé au moment de démarrer : ce qu'un lot prouve peut changer le suivant.
 

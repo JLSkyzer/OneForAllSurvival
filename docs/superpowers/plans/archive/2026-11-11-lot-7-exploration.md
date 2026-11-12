@@ -8,7 +8,7 @@
 
 **Tech Stack:** Forge 1.20.1-47.4.28, Java 17, ForgeGradle 6, JUnit 5, GameTests, pack (`-PwithPack`) pour les recettes et l'essai.
 
-**Spec:** `docs/superpowers/specs/2026-11-06-features-lost-island-design.md`, section 4 (machine électrique : « sans usure : … récepteur de signaux et mécanisme ancien »), section 5, features 21 à 24, sections 6 et 7.
+**Spec:** `docs/superpowers/specs/archive/2026-11-06-features-lost-island-design.md`, section 4 (machine électrique : « sans usure : … récepteur de signaux et mécanisme ancien »), section 5, features 21 à 24, sections 6 et 7.
 
 ## Global Constraints
 

@@ -12,7 +12,7 @@ l'équipe (features 84 à 88). Ses réponses sont
 regroupées en section 9.
 
 **Ce document remplace la règle « le mod ne gère aucune monnaie »** des cahiers de
-[l'électricité](2026-11-06-features-lost-island-design.md),
+[l'électricité](archive/2026-11-06-features-lost-island-design.md),
 de [l'agriculteur](2026-11-08-metier-agriculteur-design.md)
 et du [policier](2026-11-08-metier-policier-design.md).
 Les passages concernés y renvoient ici.

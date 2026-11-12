@@ -2,7 +2,7 @@
 
 Date : 2026-11-08. Statut : en attente de validation par Killian.
 
-Ce document complète les cahiers de [l'électricité](2026-11-06-features-lost-island-design.md),
+Ce document complète les cahiers de [l'électricité](archive/2026-11-06-features-lost-island-design.md),
 de [l'agriculteur](2026-11-08-metier-agriculteur-design.md) et du [médecin](2026-11-08-metier-medecin-design.md).
 Il reprend leur socle : rôles, machine électrique, établi d'ingénieur, état à terre, dossier médical.
 Les features ont été choisies par Killian le 2026-11-08 dans une liste de propositions.

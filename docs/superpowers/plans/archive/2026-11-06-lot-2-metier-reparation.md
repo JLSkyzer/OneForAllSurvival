@@ -8,7 +8,7 @@
 
 **Tech Stack:** Forge 1.20.1-47.4.28, Java 17, ForgeGradle 6, JUnit 5, GameTests, recettes `create:sequenced_assembly`, API JEI en `compileOnly`.
 
-**Spec:** `docs/superpowers/specs/2026-11-06-features-lost-island-design.md`, section 4 (« Machine électrique », « Système de rôles », « Détection de l'eau salée ») et section 5 features 1, 2, 3, 4. État précédent : `docs/verifications/lot-1.md`.
+**Spec:** `docs/superpowers/specs/archive/2026-11-06-features-lost-island-design.md`, section 4 (« Machine électrique », « Système de rôles », « Détection de l'eau salée ») et section 5 features 1, 2, 3, 4. État précédent : `docs/verifications/lot-1.md`.
 
 ## Global Constraints
 

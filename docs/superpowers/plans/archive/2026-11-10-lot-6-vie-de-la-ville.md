@@ -8,7 +8,7 @@
 
 **Tech Stack:** Forge 1.20.1-47.4.28, Java 17, ForgeGradle 6, JUnit 5, GameTests, Farmer's Delight 1.20.1-1.3.4 (`implementation`), API JEI en `compileOnly`, Create en `-PwithPack` pour les tuyaux.
 
-**Spec:** `docs/superpowers/specs/2026-11-06-features-lost-island-design.md`, section 4 (machine électrique, Bien-être), section 5 features 17, 25, 26, sections 7 et 9 (« le chauffe-eau exige de l'eau potable », « pas de jauge de moral, mais un effet Bien-être sans soin »). Aucun autre cahier ne touche ces features ; le Bien-être animal du cahier de l'agriculteur (feature 28) est un autre sujet.
+**Spec:** `docs/superpowers/specs/archive/2026-11-06-features-lost-island-design.md`, section 4 (machine électrique, Bien-être), section 5 features 17, 25, 26, sections 7 et 9 (« le chauffe-eau exige de l'eau potable », « pas de jauge de moral, mais un effet Bien-être sans soin »). Aucun autre cahier ne touche ces features ; le Bien-être animal du cahier de l'agriculteur (feature 28) est un autre sujet.
 
 ## Global Constraints
 

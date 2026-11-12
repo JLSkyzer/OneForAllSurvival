@@ -8,7 +8,7 @@
 
 **Tech Stack:** Forge 1.20.1-47.4.28, Java 17, ForgeGradle 6, `SimpleChannel`, JUnit 5, GameTests.
 
-**Spec:** `docs/superpowers/specs/2026-11-06-features-lost-island-design.md`, section 4 « Établi d'ingénieur ». État du lot précédent : `docs/verifications/lot-0.md`.
+**Spec:** `docs/superpowers/specs/archive/2026-11-06-features-lost-island-design.md`, section 4 « Établi d'ingénieur ». État du lot précédent : `docs/verifications/lot-0.md`.
 
 ## Global Constraints
 

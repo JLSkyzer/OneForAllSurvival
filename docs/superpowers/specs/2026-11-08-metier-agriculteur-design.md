@@ -2,7 +2,7 @@
 
 Date : 2026-11-08. Statut : en attente de validation par Killian.
 
-Ce document complète le [cahier des charges de l'électricité](2026-11-06-features-lost-island-design.md),
+Ce document complète le [cahier des charges de l'électricité](archive/2026-11-06-features-lost-island-design.md),
 dont il reprend le socle (rôles, machine électrique, péremption, détection côtière). Les six features
 ont été choisies par Killian le 2026-11-08 dans une liste de propositions.
 

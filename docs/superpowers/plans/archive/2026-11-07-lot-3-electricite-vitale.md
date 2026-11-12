@@ -8,7 +8,7 @@
 
 **Tech Stack:** Forge 1.20.1-47.4.28, Java 17, ForgeGradle 6, JUnit 5, GameTests, fluide Forge (`FluidType`, `ForgeFlowingFluid`, `FluidTank`), recette JSON dédiée, API JEI en `compileOnly`.
 
-**Spec:** `docs/superpowers/specs/2026-11-06-features-lost-island-design.md`, section 5 features 9, 10, 11, section 7 (« Scénario d'acceptation du lot 3 »). Choix de Killian du 2026-11-07 : 6 h de frais et 6 h de rassis ; fusion sans mixin ; le résultat d'une cuisson est frais ; trois rations et leurs trois versions salées.
+**Spec:** `docs/superpowers/specs/archive/2026-11-06-features-lost-island-design.md`, section 5 features 9, 10, 11, section 7 (« Scénario d'acceptation du lot 3 »). Choix de Killian du 2026-11-07 : 6 h de frais et 6 h de rassis ; fusion sans mixin ; le résultat d'une cuisson est frais ; trois rations et leurs trois versions salées.
 
 ## Global Constraints
 

@@ -25,7 +25,7 @@ l'ingénieur doit être quelqu'un dont on a besoin.**
 ### Hors périmètre
 - **Le soin** : il appartient au métier de médecin (Hospitals, Medical Remedies, First Aid).
 - **La communication entre joueurs** (téléphone, radio, haut-parleurs) : prévue plus tard. *Le
-  téléphone a maintenant son [cahier](2026-11-08-telephone-design.md) ; ses antennes consomment de
+  téléphone a maintenant son [cahier](../2026-11-08-telephone-design.md) ; ses antennes consomment de
   l'électricité.*
 - **La production et le transport d'électricité** : déjà couverts par les mods d'ingénierie.
 - **Les lampes, alarmes, fusibles, poteaux, tenue de plongée** : déjà couverts.
@@ -247,7 +247,7 @@ indique quelles sorties sont coupées. Les priorités se règlent dans son inter
 - Le **compteur** se branche en ligne, totalise les FE qui passent et porte le nom de l'abonné.
 - Seul l'Ingénieur le relève, avec le testeur, et obtient un **relevé** : abonné, consommation, date.
 - Le mod ne gère **aucune monnaie** : prix et paiement relèvent du RP. *Remplacé le 2026-11-08 par le
-  [cahier de l'économie](2026-11-08-economie-design.md) : n'importe quel joueur peut devenir fournisseur
+  [cahier de l'économie](../2026-11-08-economie-design.md) : n'importe quel joueur peut devenir fournisseur
   d'électricité et fixer son prix sous un plafond du maire. Chaque jour à minuit, le compteur émet seul
   une facture, prélevée en pièces dans l'inventaire puis le coffre-fort du client (features 83 et 86).
   Le relevé au testeur reste possible pour contrôler un compteur.*
@@ -360,7 +360,7 @@ Chaque lot produit quelque chose de jouable et peut être livré seul, **visuels
 
 *Le lot 4 est livré. Les changements apportés le 2026-11-08 à la feature 8 (fournisseurs, jumelage,
 protection, facture quotidienne) ne rouvrent pas ce lot : ils sont faits au lot E6 du
-[cahier de l'économie](2026-11-08-economie-design.md), qui modifie le compteur et le disjoncteur déjà
+[cahier de l'économie](../2026-11-08-economie-design.md), qui modifie le compteur et le disjoncteur déjà
 livrés.*
 
 ## 7. Vérification
@@ -404,7 +404,7 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 - le chauffe-eau exige de l'eau potable, ce qui donne un débouché au dessalinisateur ;
 - l'usure ne touche que les machines de ce mod en première version ;
 - pas de jauge de moral, mais un effet Bien-être sans soin ;
-- pas de monnaie gérée par le mod (remplacé par le [cahier de l'économie](2026-11-08-economie-design.md)) ;
+- pas de monnaie gérée par le mod (remplacé par le [cahier de l'économie](../2026-11-08-economie-design.md)) ;
 - armoire frigorifique plutôt qu'une pièce froide multi-bloc ;
 - débris et caches placés à la main ;
 - Farmer's Delight comme dépendance obligatoire ;

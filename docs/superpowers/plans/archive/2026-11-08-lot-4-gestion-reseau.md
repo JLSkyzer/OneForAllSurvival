@@ -8,7 +8,7 @@
 
 **Tech Stack:** Forge 1.20.1-47.4.28, Java 17, ForgeGradle 6, JUnit 5, GameTests, capability `ForgeCapabilities.ENERGY`, `EntityJoinLevelEvent` pour la foudre, `ServerLevelData` pour la météo.
 
-**Spec:** `docs/superpowers/specs/2026-11-06-features-lost-island-design.md`, section 4 (« Machine électrique » : compteur et disjoncteur sans usure, parafoudre à usure propre ; « Système de rôles »), section 5 features 5, 6, 7, 8, section 7 (GameTests de la priorité du délestage et de la protection du parafoudre). Choix de Killian du 2026-11-08 : le délesteur s'use et coupe tout en panne ; le relevé porte le jour de jeu et la date réelle ; la station annonce environ 5 minutes à l'avance ; seul l'ingénieur inscrit le nom de l'abonné.
+**Spec:** `docs/superpowers/specs/archive/2026-11-06-features-lost-island-design.md`, section 4 (« Machine électrique » : compteur et disjoncteur sans usure, parafoudre à usure propre ; « Système de rôles »), section 5 features 5, 6, 7, 8, section 7 (GameTests de la priorité du délestage et de la protection du parafoudre). Choix de Killian du 2026-11-08 : le délesteur s'use et coupe tout en panne ; le relevé porte le jour de jeu et la date réelle ; la station annonce environ 5 minutes à l'avance ; seul l'ingénieur inscrit le nom de l'abonné.
 
 ## Global Constraints
 

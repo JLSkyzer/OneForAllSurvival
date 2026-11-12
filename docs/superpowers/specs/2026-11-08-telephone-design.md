@@ -10,7 +10,7 @@ l'électricité et le trajet des appels
 Ses réponses sont regroupées en section 9.
 
 Ce cahier lève, pour le téléphone, le « prévu plus tard » des cahiers de
-[l'électricité](2026-11-06-features-lost-island-design.md) et du
+[l'électricité](archive/2026-11-06-features-lost-island-design.md) et du
 [médecin](2026-11-08-metier-medecin-design.md). L'argent passe par le
 [cahier de l'économie](2026-11-08-economie-design.md).
 
