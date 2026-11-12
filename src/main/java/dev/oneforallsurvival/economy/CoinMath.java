@@ -27,14 +27,14 @@ public final class CoinMath {
     }
 
     public static long valueOf(Coin coin, long count) {
-        return coin.value() * count;
+        return Math.multiplyExact(coin.value(), count);
     }
 
     /** Valeur d'un ensemble de pièces. */
     public static long valueOf(Map<Coin, Long> coins) {
         long total = 0L;
         for (Map.Entry<Coin, Long> entry : coins.entrySet()) {
-            total += valueOf(entry.getKey(), entry.getValue());
+            total = Math.addExact(total, valueOf(entry.getKey(), entry.getValue()));
         }
         return total;
     }
@@ -102,6 +102,10 @@ public final class CoinMath {
      * Paye {@code price} avec les pièces disponibles en prenant le moins de pièces possible : d'abord les
      * coupures exactes, de la plus grande à la plus petite ; s'il reste un reste dû, on casse la plus petite
      * pièce restante qui le couvre, et la monnaie rendue est décomposée gloutonnement.
+     *
+     * <p>{@code taken} et {@code change} sont des bilans nets : une coupure peut figurer dans les deux (on casse
+     * une pièce dont une partie revient en monnaie de même coupure) ; l'appelant retire {@code taken} puis ajoute
+     * {@code change}, ce qui donne le même résultat que de les compenser.
      *
      * @return vide si les pièces disponibles ne suffisent pas
      */

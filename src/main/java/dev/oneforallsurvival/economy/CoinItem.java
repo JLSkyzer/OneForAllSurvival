@@ -1,16 +1,21 @@
 package dev.oneforallsurvival.economy;
 
+import com.mojang.logging.LogUtils;
 import java.util.List;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
 
 /** Une pièce. L'infobulle donne sa valeur et, pour une pile, le total. */
 public class CoinItem extends Item {
+
+    private static final Logger LOGGER = LogUtils.getLogger();
 
     private final Coin coin;
 
@@ -31,5 +36,21 @@ public class CoinItem extends Item {
             tooltip.add(Component.translatable("tooltip.oneforallsurvival.coin.total",
                     CoinMath.format(CoinMath.valueOf(coin, stack.getCount()))).withStyle(ChatFormatting.GRAY));
         }
+    }
+
+    /**
+     * Filet d'exécution (serveur). Le jeu appelle ce crochet sur la pile fabriquée, avant de la donner : au clic
+     * sur la case résultat (la pile est celle du curseur) et au maj-clic de la table (la pile est celle de la
+     * case, avant son déplacement). La vider annule le gain ; au maj-clic rien n'est consommé, au clic simple
+     * les ingrédients le sont déjà. Ne couvre pas une machine qui ne passe pas par ce crochet.
+     */
+    @Override
+    public void onCraftedBy(ItemStack stack, Level level, Player player) {
+        if (level.isClientSide || CoinRecipeGuard.craftAllowed(player.containerMenu, level, level.getRecipeManager())) {
+            return;
+        }
+        LOGGER.warn("Economie : {} x{} fabriquees par {} hors change dans {}, gain annule", coin.key(),
+                stack.getCount(), player.getGameProfile().getName(), player.containerMenu.getClass().getName());
+        stack.setCount(0);
     }
 }

@@ -39,14 +39,6 @@ class CoinMathTest {
     }
 
     @Test
-    void desValeursQuiNeCroissentPasRevientAuxDefauts() {
-        assertEquals(java.util.Arrays.toString(EconomyConfig.DEFAULTS),
-                java.util.Arrays.toString(EconomyConfig.validated(new long[] {1, 10, 10, 1000, 10000})));
-        long[] good = {2, 20, 200, 2000, 20000};
-        assertEquals(java.util.Arrays.toString(good), java.util.Arrays.toString(EconomyConfig.validated(good)));
-    }
-
-    @Test
     void formatPlusGrandeCoupure() {
         String text = CoinMath.format(235).getString();
         int gold = text.indexOf("2 " + Coin.GOLD.unitKey());
@@ -114,5 +106,17 @@ class CoinMathTest {
         assertEquals(CoinMath.valueOf(mixte), CoinMath.valueOf(CoinMath.group(mixte)));
         CoinMath.group(mixte).forEach((coin, n) -> assertTrue(coin == Coin.RUBY || n < 10, coin + " " + n));
         assertTrue(CoinMath.group(new EnumMap<>(Coin.class)).isEmpty());
+    }
+
+    @Test
+    void leCuivreVautToujoursUnEtChaquePieceEstUnMultiple() {
+        String defauts = java.util.Arrays.toString(EconomyConfig.DEFAULTS);
+        // Cuivre different de 1, pieces non multiples, egales ou decroissantes : valeurs par defaut.
+        for (long[] bad : new long[][] {{2, 20, 200, 2000, 20000}, {1, 10, 105, 1000, 10000},
+                {1, 10, 100, 100, 10000}, {1, 10, 100, 1000, 500}, {1, 10, 100}}) {
+            assertEquals(defauts, java.util.Arrays.toString(EconomyConfig.validated(bad)), java.util.Arrays.toString(bad));
+        }
+        long[] good = {1, 5, 50, 500, 5000};
+        assertEquals(java.util.Arrays.toString(good), java.util.Arrays.toString(EconomyConfig.validated(good)));
     }
 }

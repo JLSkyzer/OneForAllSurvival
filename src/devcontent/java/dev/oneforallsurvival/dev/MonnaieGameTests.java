@@ -187,4 +187,53 @@ public final class MonnaieGameTests {
                 && arg(l).startsWith("7 ")), "pas de total pour une pile de 7 : " + pile);
         helper.succeed();
     }
+
+    private static Recipe<?> changeDe(ResourceLocation id, Coin entree, Coin sortie, int nombre) {
+        return new ShapelessRecipe(id, "", CraftingBookCategory.MISC, new ItemStack(sortie.item(), nombre),
+                NonNullList.of(Ingredient.EMPTY, Ingredient.of(entree.item())));
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT)
+    public static void uneRecetteDeChangeAltereeEstRetiree(GameTestHelper helper) {
+        RegistryAccess acces = helper.getLevel().registryAccess();
+        ResourceLocation or = id("coin_change/gold_to_silver");
+        ResourceLocation argent = id("coin_change/silver_to_copper");
+        ResourceLocation rubis = id("coin_change/ruby_to_emerald");
+        ResourceLocation emeraude = id("coin_change/emerald_to_gold");
+        RecipeManager vivant = helper.getLevel().getServer().getRecipeManager();
+        RecipeManager essai = new RecipeManager();
+        essai.replaceRecipes(List.of(
+                changeDe(or, Coin.GOLD, Coin.SILVER, 100),          // donne 100 au lieu de 10
+                changeDe(argent, Coin.GOLD, Coin.COPPER, 10),       // mauvaise pièce en entrée
+                changeDe(rubis, Coin.RUBY, Coin.GOLD, 10),          // saute une coupure
+                vivant.byKey(emeraude).orElseThrow()));             // intacte
+        List<ResourceLocation> retirees = CoinRecipeGuard.filter(essai, acces);
+        helper.assertTrue(Set.copyOf(retirees).equals(Set.of(or, argent, rubis)), "retirées : " + retirees);
+        helper.assertTrue(essai.byKey(emeraude).isPresent(), "la recette de change intacte a été retirée");
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT)
+    public static void leFiletRefuseUneRecetteDynamiqueQuiFabriqueUnePiece(GameTestHelper helper) {
+        net.minecraft.world.entity.player.Player joueur = helper.makeMockPlayer();
+        net.minecraft.world.level.Level monde = helper.getLevel();
+        RecipeManager vivant = monde.getServer().getRecipeManager();
+        net.minecraft.world.inventory.CraftingMenu table = new net.minecraft.world.inventory.CraftingMenu(1,
+                joueur.getInventory(), net.minecraft.world.inventory.ContainerLevelAccess.NULL);
+        table.getSlot(1).set(new ItemStack(Coin.SILVER.item()));
+        helper.assertTrue(CoinRecipeGuard.craftAllowed(table, monde, vivant), "le change d'argent est permis");
+
+        // Une recette hostile, ajoutée en mémoire, donne aussi une pièce à partir d'une pièce d'argent.
+        RecipeManager hostile = new RecipeManager();
+        hostile.replaceRecipes(List.of(vivant.byKey(id("coin_change/silver_to_copper")).orElseThrow(),
+                changeDe(new ResourceLocation("autre_mod", "gratuit"), Coin.SILVER, Coin.RUBY, 5)));
+        helper.assertTrue(!CoinRecipeGuard.craftAllowed(table, monde, hostile), "la recette hostile est permise");
+
+        table.getSlot(1).set(new ItemStack(Items.GOLD_INGOT));
+        helper.assertTrue(!CoinRecipeGuard.craftAllowed(table, monde, vivant), "aucune recette de change sur un lingot");
+        net.minecraft.world.inventory.AnvilMenu enclume = new net.minecraft.world.inventory.AnvilMenu(2,
+                joueur.getInventory());
+        helper.assertTrue(!CoinRecipeGuard.craftAllowed(enclume, monde, vivant), "un autre écran est permis");
+        helper.succeed();
+    }
 }
