@@ -1,7 +1,17 @@
 package dev.oneforallsurvival.economy;
 
 import com.mojang.logging.LogUtils;
+import dev.oneforallsurvival.OneForAllSurvival;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.CompoundContainer;
+import net.minecraft.world.entity.vehicle.ContainerEntity;
+import net.minecraft.world.inventory.PlayerEnderChestContainer;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.Entity;
@@ -25,7 +35,6 @@ import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.event.level.BlockEvent;
 import net.minecraftforge.eventbus.api.Event.Result;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.items.SlotItemHandler;
 import org.slf4j.Logger;
 
 /**
@@ -39,6 +48,12 @@ public final class MoneyGuard {
 
     /** Tics entre deux balayages d'un écran resté ouvert : une seconde. */
     private static final int SWEEP_PERIOD = 20;
+
+    private static final Set<String> WARNED = ConcurrentHashMap.newKeySet();
+
+    /** Blocs d'autres mods qui ouvrent un écran sans MenuProvider : le clic droit avec de l'argent y reste permis. */
+    public static final TagKey<Block> MONEY_USE_ALLOWED =
+            TagKey.create(Registries.BLOCK, new ResourceLocation(OneForAllSurvival.MODID, "money_use_allowed"));
 
     /** Branché sur le bus de Forge. */
     @SubscribeEvent
@@ -61,8 +76,9 @@ public final class MoneyGuard {
      * Rend au joueur toute pièce trouvée dans une case interdite de l'écran, avec une ligne de journal portant le
      * type d'écran (pour l'ajouter à la liste). Deux sortes de cases ne sont pas touchées, car leur contenu n'est
      * pas un rangement et le rendre ferait gagner de l'argent : les cases de résultat (contenu calculé) et les
-     * {@code SlotItemHandler} (les écrans à cases fantômes de Create, comme le demandeur à redstone, y posent une
-     * copie du filtre sans rien prendre au joueur). Une pièce trouvée dans une de ces dernières n'est que signalée.
+     * cases sans stockage réel (voir {@link #isRealStorage} : les écrans à cases fantômes, comme le demandeur à
+     * redstone de Create, y posent une copie du filtre sans rien prendre au joueur). Une pièce trouvée dans une de
+     * ces dernières n'est que signalée.
      *
      * @return le nombre de piles rendues
      */
@@ -74,11 +90,9 @@ public final class MoneyGuard {
                     || isOutput(slot)) {
                 continue;
             }
-            if (slot instanceof SlotItemHandler) {
-                LOGGER.warn("Economie : {} x{} dans la case {} ({}) de l'ecran {} ({}) de {} : case a handler, "
-                        + "probablement fantome, laissee en place", stack.getItem(), stack.getCount(), slot.index,
-                        slot.getClass().getName(), MoneyStorageRules.typeId(menu), menu.getClass().getName(),
-                        player.getGameProfile().getName());
+            if (!isRealStorage(slot)) {
+                warnOnce(player, menu, "case " + slot.index + " (" + slot.getClass().getName() + ") sans stockage "
+                        + "reel (case fantome ?), laissee en place : " + stack.getItem() + " x" + stack.getCount());
                 continue;
             }
             ItemStack back = stack.copy();
@@ -86,11 +100,29 @@ public final class MoneyGuard {
             slot.set(ItemStack.EMPTY);
             player.getInventory().placeItemBackInInventory(back);
             returned++;
-            LOGGER.warn("Economie : {} trouvees dans la case {} de l'ecran {} ({}), rendues a {} ; ajouter "
-                    + "l'ecran a extraForbiddenMenus ou corriger son mod", what, slot.index,
-                    MoneyStorageRules.typeId(menu), menu.getClass().getName(), player.getGameProfile().getName());
+            warnOnce(player, menu, what + " dans la case " + slot.index + ", rendues au joueur ; ajouter l'ecran "
+                    + "a extraForbiddenMenus ou corriger son mod");
         }
         return returned;
+    }
+
+    /**
+     * Le contenu de la case existe-t-il vraiment ailleurs que dans l'écran ? Seuls un bloc à entité, un double
+     * coffre, le coffre de l'Ender et une entité à conteneur (wagonnet, bateau) sont du stockage durable. Une case
+     * fantôme (filtre) repose sur un conteneur quelconque : lui rendre sa copie créerait de l'argent.
+     */
+    static boolean isRealStorage(Slot slot) {
+        return slot.container instanceof BlockEntity || slot.container instanceof CompoundContainer
+                || slot.container instanceof PlayerEnderChestContainer || slot.container instanceof ContainerEntity;
+    }
+
+    /** Un seul avertissement par type d'écran et par joueur, pour la durée du serveur. */
+    private static void warnOnce(ServerPlayer player, AbstractContainerMenu menu, String message) {
+        String key = MoneyStorageRules.typeId(menu) + "/" + menu.getClass().getName() + "/" + player.getUUID();
+        if (WARNED.add(key)) {
+            LOGGER.warn("Economie : ecran {} ({}), joueur {} : {}", MoneyStorageRules.typeId(menu),
+                    menu.getClass().getName(), player.getGameProfile().getName(), message);
+        }
     }
 
     private static boolean isOutput(Slot slot) {
@@ -110,7 +142,8 @@ public final class MoneyGuard {
         }
         BlockEntity entity = event.getLevel().getBlockEntity(event.getPos());
         if (entity == null || entity instanceof MenuProvider
-                || entity.getBlockState().getMenuProvider(event.getLevel(), event.getPos()) != null) {
+                || entity.getBlockState().getMenuProvider(event.getLevel(), event.getPos()) != null
+                || entity.getBlockState().is(MONEY_USE_ALLOWED)) {
             return;
         }
         if (entity.getCapability(ForgeCapabilities.ITEM_HANDLER, event.getFace()).isPresent()) {

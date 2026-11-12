@@ -69,6 +69,8 @@ public final class EconomyConfig {
     }
 
     private static volatile long[] cache = DEFAULTS.clone();
+    private static volatile Set<ResourceLocation> allowedCache = Set.of();
+    private static volatile Set<ResourceLocation> forbiddenCache = Set.of();
 
     private EconomyConfig() {}
 
@@ -95,14 +97,14 @@ public final class EconomyConfig {
         }
     }
 
-    /** Types d'écran ajoutés par la configuration aux rangements permis (vide tant qu'elle n'est pas chargée). */
+    /** Types d'écran ajoutés par la configuration aux rangements permis (lus au chargement du fichier, vides avant). */
     public static Set<ResourceLocation> extraAllowedMenus() {
-        return ids(EXTRA_ALLOWED_MENUS);
+        return allowedCache;
     }
 
-    /** Types d'écran que la configuration interdit à l'argent (vide tant qu'elle n'est pas chargée). */
+    /** Types d'écran que la configuration interdit à l'argent (lus au chargement du fichier, vides avant). */
     public static Set<ResourceLocation> extraForbiddenMenus() {
-        return ids(EXTRA_FORBIDDEN_MENUS);
+        return forbiddenCache;
     }
 
     private static Set<ResourceLocation> ids(ForgeConfigSpec.ConfigValue<List<? extends String>> value) {
@@ -128,6 +130,8 @@ public final class EconomyConfig {
     public static void onConfigEvent(ModConfigEvent event) {
         if (event.getConfig().getSpec() == SPEC) {
             cache = validated(read());
+            allowedCache = Set.copyOf(ids(EXTRA_ALLOWED_MENUS));
+            forbiddenCache = Set.copyOf(ids(EXTRA_FORBIDDEN_MENUS));
             CoinRecipeGuard.reapplyOnLiveServer();
         }
     }

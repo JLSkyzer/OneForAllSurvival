@@ -76,9 +76,10 @@ public final class RangementGameTests {
 
     private static final String LOT_A = "rangement_a";
     private static final String LOT_B = "rangement_b";
+    private static final String LOT_C = "rangement_c";
     private static final String LOT_ECRAN = "rangement_ecran";
     private static final String LOT_PACK = "rangement_pack";
-    private static final String LOT_TAPIS = "rangement_tapis";
+    private static final String LOT_TAPIS = "rangement_depot";
 
     private static final BlockPos RANGEMENT = new BlockPos(3, 0, 3);
 
@@ -612,9 +613,12 @@ public final class RangementGameTests {
         JoueurDeTest j = joueur(helper, "Rangeur14");
         try {
             ServerPlayer p = j.joueur();
-            // L'armoire du mod expose des objets (ITEM_HANDLER) et n'est pas un MenuProvider : l'image d'un dépôt de Create.
-            helper.setBlock(RANGEMENT, BuiltInRegistries.BLOCK.get(id("fridge")));
+            // Un feu de camp porteur d'un stockage d'objets d'essai (RangementDevCaps) : un dépôt, sans écran.
+            helper.setBlock(RANGEMENT, Blocks.CAMPFIRE);
             BlockPos abs = helper.absolutePos(RANGEMENT);
+            helper.assertTrue(helper.getBlockEntity(RANGEMENT)
+                    .getCapability(net.minecraftforge.common.capabilities.ForgeCapabilities.ITEM_HANDLER, Direction.UP)
+                    .isPresent(), "le stockage d'essai manque : le test ne prouve rien");
             BlockHitResult coup = new BlockHitResult(Vec3.atCenterOf(abs), Direction.UP, abs, false);
             p.setItemInHand(InteractionHand.MAIN_HAND, piece(3));
             PlayerInteractEvent.RightClickBlock avecPiece = ForgeHooks.onRightClickBlock(p, InteractionHand.MAIN_HAND, abs, coup);
@@ -683,6 +687,112 @@ public final class RangementGameTests {
             quitter(j);
             degager(helper);
         }
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Lot C : machines du mod, case fantôme, aspiration
+    // ---------------------------------------------------------------------------------------------
+
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void lesMachinesDuModSOuvrentPieceEnMain(GameTestHelper helper) {
+        degager(helper);
+        JoueurDeTest j = joueur(helper, "Rangeur17");
+        try {
+            ServerPlayer p = j.joueur();
+            helper.assertTrue(BuiltInRegistries.BLOCK.getTag(dev.oneforallsurvival.economy.MoneyGuard.MONEY_USE_ALLOWED).isPresent(),
+                    "l'étiquette money_use_allowed n'existe pas");
+            BlockPos abs = helper.absolutePos(RANGEMENT);
+            BlockHitResult coup = new BlockHitResult(Vec3.atCenterOf(abs), Direction.UP, abs, false);
+            for (String nom : new String[] {"canteen_pot", "desalinator", "dryer", "fridge", "incubator", "galvanic_bath"}) {
+                Block bloc = BuiltInRegistries.BLOCK.get(id(nom));
+                helper.assertTrue(bloc != Blocks.AIR, nom + " n'existe pas");
+                helper.setBlock(RANGEMENT, bloc);
+                helper.assertTrue(helper.getLevel().getBlockState(abs).getMenuProvider(helper.getLevel(), abs) != null,
+                        nom + " : getMenuProvider est nul");
+                p.setItemInHand(InteractionHand.MAIN_HAND, piece(3));
+                PlayerInteractEvent.RightClickBlock evt = ForgeHooks.onRightClickBlock(p, InteractionHand.MAIN_HAND, abs, coup);
+                helper.assertTrue(evt.getUseBlock() != Event.Result.DENY, nom + " : le clic droit avec une pièce est refusé");
+                p.gameMode.useItemOn(p, helper.getLevel(), p.getMainHandItem(), InteractionHand.MAIN_HAND, coup);
+                helper.assertTrue(p.containerMenu != p.inventoryMenu, nom + " : l'écran ne s'est pas ouvert, pièce en main");
+                p.closeContainer();
+                p.getInventory().clearContent();
+                helper.setBlock(RANGEMENT, Blocks.AIR);
+            }
+            helper.succeed();
+        } finally {
+            quitter(j);
+            degager(helper);
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void uneCaseFantomeNeCreePasDArgent(GameTestHelper helper) {
+        degager(helper);
+        JoueurDeTest j = joueur(helper, "Rangeur18");
+        try {
+            ServerPlayer p = j.joueur();
+            // Une case de filtre : elle accepte tout, ne prend rien au joueur, sur un conteneur quelconque.
+            AbstractContainerMenu fantome = new AbstractContainerMenu(null, 77) {
+                {
+                    addSlot(new Slot(new net.minecraft.world.SimpleContainer(1), 0, 0, 0) {
+                        @Override
+                        public boolean mayPlace(ItemStack stack) {
+                            return true;
+                        }
+                    });
+                }
+
+                @Override
+                public ItemStack quickMoveStack(net.minecraft.world.entity.player.Player joueur, int index) {
+                    return ItemStack.EMPTY;
+                }
+
+                @Override
+                public boolean stillValid(net.minecraft.world.entity.player.Player joueur) {
+                    return true;
+                }
+            };
+            fantome.getSlot(0).set(piece(7));
+            int rendues = dev.oneforallsurvival.economy.MoneyGuard.sweep(p, fantome);
+            helper.assertTrue(rendues == 0, "le balayage a rendu une case fantôme : " + rendues);
+            helper.assertTrue(PlayerCoins.held(p).isEmpty(), "de l'argent a été créé : " + PlayerCoins.held(p));
+            // Témoin : le même balayage rend bien la pièce d'un vrai coffre.
+            AbstractContainerMenu menu = ouvrirBloc(helper, j, Blocks.CHEST);
+            menu.getSlot(0).set(piece(7));
+            helper.assertTrue(dev.oneforallsurvival.economy.MoneyGuard.sweep(p, menu) == 1, "témoin : le coffre n'est pas balayé");
+            helper.assertTrue(PlayerCoins.held(p).getOrDefault(Coin.GOLD, 0L) == 7L, "témoin : pièces non rendues");
+            helper.succeed();
+        } finally {
+            quitter(j);
+            degager(helper);
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_C, timeoutTicks = 120)
+    public static void unEntonnoirNAspirePasUnePiece(GameTestHelper helper) {
+        degager(helper);
+        BlockPos coffre = new BlockPos(3, 1, 3);
+        BlockPos entonnoir = new BlockPos(3, 0, 3);
+        helper.setBlock(entonnoir, Blocks.HOPPER);
+        helper.setBlock(coffre, Blocks.CHEST);
+        net.minecraft.world.Container c = (net.minecraft.world.Container) helper.getBlockEntity(coffre);
+        HopperBlockEntity hopper = (HopperBlockEntity) helper.getBlockEntity(entonnoir);
+        // Posées sans case : le refus est celui de l'entonnoir.
+        c.setItem(0, piece(5));
+        c.setItem(1, new ItemStack(Items.DIRT, 3));
+        helper.runAfterDelay(60, () -> {
+            int terre = 0;
+            int argent = 0;
+            for (int i = 0; i < hopper.getContainerSize(); i++) {
+                terre += hopper.getItem(i).is(Items.DIRT) ? hopper.getItem(i).getCount() : 0;
+                argent += MoneyStorageRules.isMoney(hopper.getItem(i)) ? hopper.getItem(i).getCount() : 0;
+            }
+            helper.assertTrue(terre == 3, "témoin : la terre devait être aspirée, " + terre);
+            helper.assertTrue(argent == 0, "l'entonnoir a aspiré des pièces : " + argent);
+            helper.assertTrue(c.getItem(0).getCount() == 5 && c.getItem(0).is(Coin.GOLD.item()),
+                    "les pièces ont quitté le coffre : " + c.getItem(0));
+            helper.succeed();
+        });
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -840,8 +950,8 @@ public final class RangementGameTests {
     }
 
     @GameTest(template = "test/plancher", batch = LOT_TAPIS, timeoutTicks = 200)
-    public static void unTapisDeCreateNeRamassePasUnePiece(GameTestHelper helper) {
-        if (sansPack(helper, "unTapisDeCreateNeRamassePasUnePiece")) {
+    public static void unDepotDeCreateNeRamassePasUnePiece(GameTestHelper helper) {
+        if (sansPack(helper, "unDepotDeCreateNeRamassePasUnePiece")) {
             return;
         }
         degager(helper);
@@ -862,6 +972,65 @@ public final class RangementGameTests {
         helper.runAfterDelay(80, () -> {
             helper.assertTrue(terre.isRemoved(), "témoin : le dépôt de Create n'a pas pris l'objet, le test ne prouve rien");
             helper.assertTrue(!piece.isRemoved() && piece.count() == 4, "le dépôt de Create a pris la pièce");
+            degager(helper);
+            helper.succeed();
+        });
+    }
+
+    /** Pose un état de Create par les noms de ses propriétés (aucune dépendance de compilation). */
+    private static BlockState etatCreate(Block bloc, String... nomsEtValeurs) {
+        BlockState etat = bloc.defaultBlockState();
+        for (int i = 0; i < nomsEtValeurs.length; i += 2) {
+            net.minecraft.world.level.block.state.properties.Property<?> propriete =
+                    bloc.getStateDefinition().getProperty(nomsEtValeurs[i]);
+            helperAssert(propriete != null, "propriété absente : " + nomsEtValeurs[i]);
+            etat = withValeur(etat, propriete, nomsEtValeurs[i + 1]);
+        }
+        return etat;
+    }
+
+    private static void helperAssert(boolean ok, String message) {
+        if (!ok) {
+            throw new AssertionError(message);
+        }
+    }
+
+    private static <T extends Comparable<T>> BlockState withValeur(BlockState etat,
+            net.minecraft.world.level.block.state.properties.Property<T> propriete, String valeur) {
+        T v = propriete.getValue(valeur).orElseThrow(() -> new AssertionError("valeur inconnue : " + valeur));
+        return etat.setValue(propriete, v);
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_TAPIS + "_tapis", timeoutTicks = 200)
+    public static void unTapisDeCreateNeRamassePasUnePiece(GameTestHelper helper) {
+        if (sansPack(helper, "unTapisDeCreateNeRamassePasUnePiece")) {
+            return;
+        }
+        degager(helper);
+        Block tapis = ForgeRegistries.BLOCKS.getValue(new ResourceLocation("create", "belt"));
+        helper.assertTrue(tapis != null && tapis != Blocks.AIR, "Create sans tapis");
+        for (int x = 2; x <= 4; x++) {
+            String part = x == 2 ? "start" : (x == 4 ? "end" : "middle");
+            helper.setBlock(new BlockPos(x, 0, 3), etatCreate(tapis, "part", part, "slope", "horizontal", "facing", "east"));
+        }
+        try {
+            Class<?> be = Class.forName("com.simibubi.create.content.kinetics.belt.BeltBlock");
+            be.getMethod("initBelt", net.minecraft.world.level.Level.class, BlockPos.class)
+                    .invoke(null, helper.getLevel(), helper.absolutePos(new BlockPos(2, 0, 3)));
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("initBelt : " + e);
+        }
+        Vec3 haut = helper.absoluteVec(new Vec3(3.5, 1.0, 3.5));
+        ItemEntity terre = new ItemEntity(helper.getLevel(), haut.x, haut.y, haut.z, new ItemStack(Items.DIRT, 4));
+        terre.setDeltaMovement(Vec3.ZERO);
+        helper.getLevel().addFreshEntity(terre);
+        dev.oneforallsurvival.economy.CoinDropEntity piece = dev.oneforallsurvival.economy.CoinDropEntity.at(
+                helper.getLevel(), haut.x, haut.y + 0.2, haut.z, Coin.GOLD, 4);
+        piece.setDeltaMovement(Vec3.ZERO);
+        helper.getLevel().addFreshEntity(piece);
+        helper.runAfterDelay(60, () -> {
+            helper.assertTrue(terre.isRemoved(), "témoin : le tapis n'a pas pris l'objet, le test ne prouve rien");
+            helper.assertTrue(!piece.isRemoved() && piece.count() == 4, "le tapis de Create a pris la pièce");
             degager(helper);
             helper.succeed();
         });

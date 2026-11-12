@@ -146,8 +146,11 @@ public final class CoinRecipeGuard {
         if (craftAllowed(menu, level, level.getRecipeManager())) {
             return true;
         }
-        LOGGER.warn("Economie : {} x{} refusees a {} au maj-clic de la grille 2x2 (recette hors change)",
-                Coin.fromItem(result.getItem()).orElseThrow().key(), result.getCount(), player.getGameProfile().getName());
+        if (!level.isClientSide) {
+            LOGGER.warn("Economie : {} x{} refusees a {} au maj-clic de la grille 2x2 (recette hors change)",
+                    Coin.fromItem(result.getItem()).orElseThrow().key(), result.getCount(),
+                    player.getGameProfile().getName());
+        }
         return false;
     }
 

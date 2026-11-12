@@ -8,7 +8,6 @@ import java.util.function.Predicate;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.inventory.Slot;
@@ -20,7 +19,7 @@ import net.minecraftforge.registries.ForgeRegistries;
  * est refusée : les mixins {@code SlotMixin} et {@code SlotItemHandlerMixin} interrogent {@link #mayHold}, et
  * l'entonnoir interroge {@link #isMoney}.
  *
- * <p>Écrans permis : l'inventaire du joueur (sa grille 2x2 comprise) et la table de fabrication, car le change se
+ * <p>Écrans permis : l'inventaire du joueur (sa grille 2x2 comprise) et les écrans de type {@code MenuType.CRAFTING}, car le change se
  * fait dans une grille de fabrication ; plus les types d'écran déclarés par {@link #register(MenuType)} (coffre-fort,
  * bourse...) et par la configuration ({@link EconomyConfig#extraAllowedMenus()}). Un type de la liste interdite de
  * la configuration l'emporte sur tout, sauf sur les cases de l'inventaire du joueur lui-même.
@@ -69,20 +68,31 @@ public final class MoneyStorageRules {
         ALLOWED.remove(type);
     }
 
-    /** Vrai si l'écran est un rangement permis : le sien, la table, un type déclaré ou ajouté par la configuration. */
+    /** Vrai si l'écran est un rangement permis : le sien, la grille de fabrication, un type déclaré ou configuré. */
     public static boolean isAllowedMenu(AbstractContainerMenu menu) {
-        ResourceLocation id = typeId(menu);
-        if (id != null && EconomyConfig.extraForbiddenMenus().contains(id)) {
-            return false;
+        MenuType<?> type = typeOf(menu);
+        if (type != null) {
+            Set<ResourceLocation> forbidden = EconomyConfig.extraForbiddenMenus();
+            Set<ResourceLocation> extra = EconomyConfig.extraAllowedMenus();
+            if (!forbidden.isEmpty() || !extra.isEmpty()) {
+                ResourceLocation id = ForgeRegistries.MENU_TYPES.getKey(type);
+                if (forbidden.contains(id)) {
+                    return false;
+                }
+                if (extra.contains(id)) {
+                    return true;
+                }
+            }
         }
-        if (menu instanceof InventoryMenu || menu instanceof CraftingMenu) {
-            return true;
+        return menu instanceof InventoryMenu || type == MenuType.CRAFTING || (type != null && ALLOWED.contains(type));
+    }
+
+    private static MenuType<?> typeOf(AbstractContainerMenu menu) {
+        try {
+            return menu.getType();
+        } catch (UnsupportedOperationException e) {
+            return null;
         }
-        if (id == null) {
-            return false;
-        }
-        MenuType<?> type = ForgeRegistries.MENU_TYPES.getValue(id);
-        return (type != null && ALLOWED.contains(type)) || EconomyConfig.extraAllowedMenus().contains(id);
     }
 
     /**
@@ -104,10 +114,7 @@ public final class MoneyStorageRules {
 
     /** L'identifiant du type d'écran, ou null pour l'inventaire du joueur (sans type) ou un type non enregistré. */
     public static ResourceLocation typeId(AbstractContainerMenu menu) {
-        try {
-            return ForgeRegistries.MENU_TYPES.getKey(menu.getType());
-        } catch (UnsupportedOperationException e) {
-            return null;
-        }
+        MenuType<?> type = typeOf(menu);
+        return type == null ? null : ForgeRegistries.MENU_TYPES.getKey(type);
     }
 }
