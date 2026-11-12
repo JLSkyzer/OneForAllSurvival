@@ -166,7 +166,13 @@ public final class SafeScreen extends AbstractContainerScreen<SafeMenu> {
     @Override
     protected void renderLabels(GuiGraphics g, int mx, int my) {
         g.drawString(font, title, titleLabelX, titleLabelY, BenchTheme.TEXT, false);
-        g.drawString(font, Component.translatable(GUI + "total", CoinMath.format(menu.total())), PAD, TOTAL_Y,
-                BenchTheme.BRASS_LIGHT, false);
+        // Le total le plus long (cinq coupures, nombres à plusieurs chiffres) déborderait du cadre : il rétrécit pour y tenir.
+        Component total = Component.translatable(GUI + "total", CoinMath.format(menu.total()));
+        float scale = Math.min(1.0F, (WIDTH - 2 * PAD) / (float) font.width(total));
+        g.pose().pushPose();
+        g.pose().translate(PAD, TOTAL_Y + (1.0F - scale) * 4.0F, 0);
+        g.pose().scale(scale, scale, 1.0F);
+        g.drawString(font, total, 0, 0, BenchTheme.BRASS_LIGHT, false);
+        g.pose().popPose();
     }
 }

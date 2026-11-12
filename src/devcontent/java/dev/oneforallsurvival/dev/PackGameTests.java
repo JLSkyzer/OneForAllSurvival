@@ -498,4 +498,68 @@ public final class PackGameTests {
                 "le mécanisme devrait être incassable (dureté -1)");
         helper.succeed();
     }
+
+    /**
+     * Lot E1 : les pièces, la bourse et le coffre-fort ne se fabriquent jamais à l'établi, quelle que soit sa
+     * configuration ni les mods chargés. Seules la bourse et le coffre-fort ont une recette de table (les pièces
+     * n'ont que le change) : elles sont sans condition de mod, d'ingrédients vanilla, et la bourse comme les pièces
+     * ne sont l'ingrédient d'aucune recette (le livre de recettes remplit la grille sans passer par
+     * {@code Slot.mayPlace}).
+     */
+    @GameTest(template = "test/plancher", batch = "pack_monnaie")
+    public static void laBourseEtLeCoffreSeFabriquentSurLaTableSeulement(GameTestHelper helper) throws java.io.IOException {
+        var manager = helper.getLevel().getRecipeManager();
+        var access = helper.getLevel().registryAccess();
+        List<Item> argent = List.of(objet("oneforallsurvival", "copper_coin"), objet("oneforallsurvival", "silver_coin"),
+                objet("oneforallsurvival", "gold_coin"), objet("oneforallsurvival", "emerald_coin"),
+                objet("oneforallsurvival", "ruby_coin"), objet("oneforallsurvival", "purse"),
+                objet("oneforallsurvival", "safe"));
+        for (Item item : argent) {
+            helper.assertTrue(item != null && item != net.minecraft.world.item.Items.AIR, "objet absent : " + item);
+            List<ResourceLocation> aLEtabli = BenchCatalog.current().recipes().stream()
+                    .filter(r -> r.result().is(item)).map(BenchRecipe::id).toList();
+            helper.assertTrue(aLEtabli.isEmpty(), item + " ne devrait avoir aucune recette d'établi, vu " + aLEtabli);
+            helper.assertTrue(BenchCatalog.isTableOnly(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item)),
+                    item + " devrait porter l'étiquette table_only");
+        }
+        for (String nom : List.of("purse", "safe")) {
+            ResourceLocation id = new ResourceLocation("oneforallsurvival", nom);
+            Item item = objet("oneforallsurvival", nom);
+            // Une seule recette, de table, formée, qui donne un exemplaire.
+            List<ResourceLocation> recettes = recettesDonnant(helper, item);
+            helper.assertTrue(recettes.equals(List.of(id)), nom + " : recettes vues " + recettes);
+            Recipe<?> recette = manager.byKey(id).orElseThrow();
+            helper.assertTrue(recette.getType() == net.minecraft.world.item.crafting.RecipeType.CRAFTING
+                    && recette instanceof net.minecraft.world.item.crafting.ShapedRecipe,
+                    nom + " devrait être une recette de table formée");
+            helper.assertTrue(recette.getResultItem(access).is(item) && recette.getResultItem(access).getCount() == 1,
+                    nom + " devrait donner un exemplaire");
+            // Aucune condition : le fichier de données ne porte pas de « conditions ».
+            try (var in = PackGameTests.class.getResourceAsStream("/data/oneforallsurvival/recipes/" + nom + ".json")) {
+                helper.assertTrue(in != null, "fichier de recette absent : " + nom);
+                String json = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                helper.assertTrue(!json.contains("conditions") && !json.contains("mod_loaded"),
+                        nom + " ne devrait porter aucune condition de mod");
+            }
+            // Ingrédients vanilla, jamais de pièce ni de bourse.
+            for (Ingredient ingredient : recette.getIngredients()) {
+                // Une recette formée porte aussi les cases vides de sa grille : seuls les vrais ingrédients comptent.
+                for (ItemStack pile : ingredient.getItems()) {
+                    helper.assertTrue(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(pile.getItem())
+                            .getNamespace().equals("minecraft"), nom + " : ingrédient non vanilla " + pile);
+                }
+            }
+        }
+        // La bourse et les pièces ne sont l'ingrédient d'aucune recette, d'aucun type.
+        for (Recipe<?> recette : manager.getRecipes()) {
+            for (Ingredient ingredient : recette.getIngredients()) {
+                for (ItemStack pile : ingredient.getItems()) {
+                    helper.assertTrue(!pile.is(objet("oneforallsurvival", "purse")) && !argent.subList(0, 5).contains(pile.getItem())
+                            || recette.getId().getPath().startsWith("coin_change/"),
+                            "la monnaie est un ingrédient de " + recette.getId());
+                }
+            }
+        }
+        helper.succeed();
+    }
 }

@@ -3,6 +3,15 @@ package dev.oneforallsurvival.dev;
 import com.mojang.blaze3d.platform.NativeImage;
 import dev.oneforallsurvival.bench.BenchRegistry;
 import dev.oneforallsurvival.bench.client.EngineerBenchScreen;
+import dev.oneforallsurvival.economy.Coin;
+import dev.oneforallsurvival.economy.CoinDropEntity;
+import dev.oneforallsurvival.economy.EconomyRegistry;
+import dev.oneforallsurvival.economy.Purse;
+import dev.oneforallsurvival.economy.SafeAccounts;
+import dev.oneforallsurvival.economy.SafeBlock;
+import dev.oneforallsurvival.economy.SafeBlockEntity;
+import dev.oneforallsurvival.economy.client.PurseScreen;
+import dev.oneforallsurvival.economy.client.SafeScreen;
 import dev.oneforallsurvival.food.DesalinatorBlockEntity;
 import dev.oneforallsurvival.explore.DetectorItem;
 import dev.oneforallsurvival.explore.ExploreConfig;
@@ -75,6 +84,7 @@ import net.minecraft.world.Difficulty;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.decoration.ItemFrame;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -180,6 +190,21 @@ public final class DemoVisuels {
     /** Vrai une fois les étages réglés : le bloc de l'étage 3 est alors tenu à cet étage, inactif. */
     private static volatile boolean etage3Force;
     private static volatile boolean explorationPosee;
+
+    /**
+     * Les objets de la monnaie (lot E1), les pièces au premier rang, puis ce qui leur ressemble dans Minecraft : lingots,
+     * émeraude, poudre rouge, cuir, coffres, bloc de fer, tonneau.
+     */
+    private static final String[] MONNAIE = {"copper_coin", "silver_coin", "gold_coin", "emerald_coin", "ruby_coin",
+        "purse", "minecraft:copper_ingot", "minecraft:iron_ingot", "minecraft:gold_ingot", "minecraft:emerald",
+        "minecraft:redstone", "minecraft:leather", "safe", "minecraft:chest", "minecraft:iron_block", "minecraft:barrel",
+        "minecraft:ender_chest"};
+    /** La monnaie, loin au sud (au-delà des 6 chunks affichés) : aucune capture d'un lot précédent ne la voit. */
+    private static BlockPos monnaie;
+    private static BlockPos coffreSeul;
+    private static BlockPos coffreMur;
+    private static volatile boolean monnaiePosee;
+    private static final Coin[] PIECES = Coin.values();
 
     private enum Phase { TITRE, ATTENTE_MONDE, PREPARATION, SCENARIO, FIN }
 
@@ -652,6 +677,28 @@ public final class DemoVisuels {
         }
     }
 
+    /** Un objet en grand et son infobulle réelle, à côté : la pile de pièces et la bourse avec leur total. */
+    private static final class Infobulle extends Screen {
+        private final ItemStack pile;
+
+        Infobulle(ItemStack pile) {
+            super(Component.literal("infobulle"));
+            this.pile = pile;
+        }
+
+        @Override
+        public void render(GuiGraphics g, int mx, int my, float partial) {
+            g.fill(0, 0, width, height, 0xFF8B8B8B);
+            g.pose().pushPose();
+            g.pose().translate(width / 2F - 150, height / 2F - 40, 0);
+            g.pose().scale(5, 5, 1);
+            g.renderItem(pile, 0, 0);
+            g.renderItemDecorations(font, pile, 0, 0);
+            g.pose().popPose();
+            g.renderTooltip(font, pile, width / 2 - 40, height / 2 - 10);
+        }
+    }
+
     private static void regarder(Minecraft mc, BlockPos b, Vec3 d, boolean nuit) {
         MinecraftServer serveur = mc.getSingleplayerServer();
         Vec3 cible = new Vec3(b.getX() + 0.5, b.getY() + 0.5, b.getZ() + 0.5);
@@ -879,6 +926,7 @@ public final class DemoVisuels {
             fermer(mc);
             montrerDansJei(mc, "GALVANIC_TYPE");
         }, () -> ecranJei(mc), 1500, "jei_bain.png");
+        construireMonnaie(mc, sudEst);
     }
 
     /**
@@ -936,6 +984,144 @@ public final class DemoVisuels {
             }, () -> mc.screen instanceof CanteenPotScreen, 1500, "ecran_marmite_" + ETATS[k] + ".png");
         }
         etape("fin du lot 5", () -> fermer(mc), () -> true, 300, null);
+    }
+
+    /**
+     * La monnaie (lot E1), loin au sud : les cinq pièces en main et au sol, une pile et son infobulle, la bourse et son
+     * écran avec un total, le coffre-fort seul puis contre un mur et son écran avec un total, la grille des objets à côté de
+     * leurs équivalents de Minecraft. Jouée à la fin, le joueur en survie : la main ne se montre que dans cet état.
+     */
+    private static void construireMonnaie(Minecraft mc, Vec3 sudEst) {
+        etape("pose de la monnaie", () -> {
+            fermer(mc);
+            MinecraftServer serveur = mc.getSingleplayerServer();
+            serveur.execute(() -> preparerMonnaie(serveur));
+        }, () -> monnaiePosee, 2500, null);
+        // Au sol : les cinq pièces en rang, puis la pile et la bourse pleine de près.
+        etape("vue pieces au sol", () -> regarder(mc, monnaie.offset(-12, 0, 0), new Vec3(0.0, 2.2, 4.6), false),
+                () -> true, 2500, "monnaie_pieces_au_sol.png");
+        etape("vue pieces au sol nuit", () -> regarder(mc, monnaie.offset(-12, 0, 0), new Vec3(0.0, 2.2, 4.6), true),
+                () -> true, 1500, "monnaie_pieces_au_sol_nuit.png");
+        etape("vue pile et bourse au sol", () -> regarder(mc, monnaie.offset(-3, 0, 0), new Vec3(0.3, 1.6, 2.6), false),
+                () -> true, 1500, "monnaie_pile_et_bourse_au_sol.png");
+        // En main : les cases 0 à 4 sont les pièces, la 5 la bourse, la 6 le coffre-fort.
+        String[] noms = {"cuivre", "argent", "or", "emeraude", "rubis", "bourse", "coffre_fort"};
+        for (int i = 0; i < noms.length; i++) {
+            int k = i;
+            etape("en main " + noms[k], () -> {
+                mc.options.hideGui = false;
+                mc.gameRenderer.setRenderHand(true);
+                mc.player.getInventory().selected = k;
+                MinecraftServer serveur = mc.getSingleplayerServer();
+                BlockPos c = monnaie.offset(-12, 0, 6);
+                serveur.execute(() -> {
+                    ServerLevel monde = serveur.overworld();
+                    monde.setDayTime(6000);
+                    serveur.getPlayerList().getPlayers().get(0).teleportTo(monde, c.getX() + 0.5, c.getY(),
+                            c.getZ() + 0.5, 180F, 35F);
+                });
+            }, () -> true, 1800, "monnaie_en_main_" + noms[k] + ".png");
+        }
+        etape("infobulle pile", () -> {
+            mc.options.hideGui = false;
+            mc.setScreen(new Infobulle(new ItemStack(Coin.GOLD.item(), 23)));
+        }, () -> true, 800, "monnaie_pile_infobulle.png");
+        etape("infobulle bourse", () -> {
+            ItemStack bourse = new ItemStack(EconomyRegistry.PURSE.get());
+            remplirBourse(bourse);
+            mc.setScreen(new Infobulle(bourse));
+        }, () -> true, 800, "monnaie_bourse_infobulle.png");
+        etape("ecran bourse", () -> {
+            fermer(mc);
+            mc.options.hideGui = false;
+            MinecraftServer serveur = mc.getSingleplayerServer();
+            serveur.execute(() -> {
+                ServerPlayer joueur = serveur.getPlayerList().getPlayers().get(0);
+                joueur.getInventory().selected = 5;
+                joueur.getInventory().getItem(5).use(serveur.overworld(), joueur, InteractionHand.MAIN_HAND);
+            });
+        }, () -> mc.screen instanceof PurseScreen, 1500, "monnaie_ecran_bourse.png");
+        // Le coffre-fort : seul, puis contre un mur (nord et ouest), de jour.
+        etape("vue coffre seul", () -> {
+            fermer(mc);
+            regarder(mc, coffreSeul, sudEst, false);
+        }, () -> true, 1500, "monnaie_coffre_seul.png");
+        etape("vue coffre face", () -> regarder(mc, coffreSeul, new Vec3(0.0, 0.5, 2.3), false), () -> true, 1500,
+                "monnaie_coffre_face.png");
+        etape("vue coffre arriere dessus", () -> regarder(mc, coffreSeul, new Vec3(-1.5, 1.6, -1.7), false),
+                () -> true, 1500, "monnaie_coffre_arriere_dessus.png");
+        etape("vue coffre contre un mur", () -> regarder(mc, coffreMur, new Vec3(1.1, 1.3, 1.6), false), () -> true,
+                1500, "monnaie_coffre_contre_un_mur.png");
+        etape("ecran coffre", () -> {
+            fermer(mc);
+            ouvrir(mc, coffreSeul);
+        }, () -> mc.screen instanceof SafeScreen, 1500, "monnaie_ecran_coffre.png");
+        etape("grille monnaie", () -> {
+            fermer(mc);
+            mc.options.hideGui = false;
+            mc.setScreen(new Grille(MONNAIE, 3));
+        }, () -> true, 800, "monnaie_grille.png");
+        etape("fin de la monnaie", () -> fermer(mc), () -> true, 300, null);
+    }
+
+    /** Une bourse pleine : un peu de chaque coupure, soit 13 957 cuivres (1 rubis, 3 émeraudes, 8 or, 12 argent, 37 cuivre). */
+    private static void remplirBourse(ItemStack bourse) {
+        long[] nombres = {37, 12, 8, 3, 1};
+        for (Coin c : PIECES) {
+            Purse.add(bourse, c, nombres[c.ordinal()]);
+        }
+    }
+
+    private static void preparerMonnaie(MinecraftServer serveur) {
+        ServerLevel monde = serveur.overworld();
+        ServerPlayer joueur = serveur.getPlayerList().getPlayers().get(0);
+        // Loin au sud, au-delà des 6 chunks affichés autour de tout ce que posent les lots précédents (le lot 6 est à
+        // l'est, le lot 7 à l'ouest, le lot 5 au nord) : aucune capture d'un lot précédent ne voit celle-ci, ni l'inverse.
+        BlockPos m = origine.offset(0, 0, 130);
+        monnaie = m;
+        coffreSeul = m.offset(4, 0, 0);
+        coffreMur = m.offset(10, 0, 0);
+        var coffre = EconomyRegistry.SAFE.get().defaultBlockState().setValue(SafeBlock.FACING, Direction.SOUTH);
+        for (BlockPos p : new BlockPos[] {coffreSeul, coffreMur}) {
+            monde.setBlock(p, coffre, 3);
+            if (monde.getBlockEntity(p) instanceof SafeBlockEntity be) {
+                be.setOwner(joueur.getUUID());
+            }
+        }
+        entourer(monde, coffreMur);
+        SafeAccounts comptes = SafeAccounts.get(serveur);
+        long[] enCoffre = {4, 25, 12, 2, 3};
+        for (Coin c : PIECES) {
+            comptes.deposit(joueur.getUUID(), c, enCoffre[c.ordinal()] - comptes.count(joueur.getUUID(), c));
+        }
+        // Les cinq pièces en rang, une pile de 48 pièces d'argent, une bourse pleine : tout au sol, ramassage interdit.
+        for (Coin c : PIECES) {
+            sol(monde, CoinDropEntity.at(monde, m.getX() - 16 + 2 * c.ordinal() + 0.5, m.getY() + 0.1, m.getZ() + 0.5, c, 1));
+        }
+        sol(monde, CoinDropEntity.at(monde, m.getX() - 5 + 0.5, m.getY() + 0.1, m.getZ() + 0.5, Coin.SILVER, 48));
+        ItemStack bourseSol = new ItemStack(EconomyRegistry.PURSE.get());
+        remplirBourse(bourseSol);
+        ItemEntity porte = new ItemEntity(monde, m.getX() - 1 + 0.5, m.getY() + 0.1, m.getZ() + 0.5, bourseSol);
+        porte.setPickUpDelay(30000); // pas 32767 : ce délai-là marque un objet factice, qui deviendrait une entité inerte
+        porte.setDeltaMovement(Vec3.ZERO);
+        monde.addFreshEntity(porte);
+        // L'inventaire : les cinq pièces (cases 0 à 4), la bourse pleine (5), le coffre-fort (6).
+        joueur.getInventory().clearContent();
+        int[] piles = {37, 12, 8, 3, 1};
+        for (Coin c : PIECES) {
+            joueur.getInventory().setItem(c.ordinal(), new ItemStack(c.item(), piles[c.ordinal()]));
+        }
+        ItemStack bourse = new ItemStack(EconomyRegistry.PURSE.get());
+        remplirBourse(bourse);
+        joueur.getInventory().setItem(5, bourse);
+        joueur.getInventory().setItem(6, new ItemStack(EconomyRegistry.SAFE_ITEM.get()));
+        monnaiePosee = true;
+    }
+
+    private static void sol(ServerLevel monde, CoinDropEntity piece) {
+        piece.setDeltaMovement(Vec3.ZERO);
+        piece.setPickUpDelay(CoinDropEntity.NEVER_PICKED_UP);
+        monde.addFreshEntity(piece);
     }
 
     /**

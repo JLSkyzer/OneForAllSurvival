@@ -1,5 +1,8 @@
 {
   "variants": {
-    "": { "model": "oneforallsurvival:block/safe" }
+    "facing=north": { "model": "oneforallsurvival:block/safe" },
+    "facing=east": { "model": "oneforallsurvival:block/safe", "y": 90 },
+    "facing=south": { "model": "oneforallsurvival:block/safe", "y": 180 },
+    "facing=west": { "model": "oneforallsurvival:block/safe", "y": 270 }
   }
 }
