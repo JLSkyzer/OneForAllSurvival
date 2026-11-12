@@ -112,12 +112,12 @@ public final class PackGameTests {
                 .filter(r -> r.getResultItem(access).is(item)).map(Recipe::getId).toList();
     }
 
+    private static final List<String> LOT7 = List.of("metal_detector", "headlamp", "signal_receiver");
+
     /**
      * Un objet du matériel du métier : son nombre d'ingrédients, le nombre fabriqué et les mods qu'il lui faut.
      * La plaque de zinc vient de Crafts &amp; Additions, le reste de Create ; fusible et bobinage restent vanilla.
      */
-    private static final List<String> LOT7 = List.of("metal_detector", "headlamp", "signal_receiver");
-
     private record Materiel(String nom, int ingredients, int resultat, boolean create, boolean additions) {}
 
     /**

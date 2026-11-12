@@ -1,6 +1,7 @@
 package dev.oneforallsurvival.explore;
 
 import dev.oneforallsurvival.OneForAllSurvival;
+import dev.oneforallsurvival.machine.ItemBattery;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -35,29 +36,34 @@ import net.minecraftforge.fml.common.Mod;
  * retire que les blocs que {@link HeadlampLightData} lui attribue et qui ont encore le niveau de la lampe, et n'en
  * laisse aucun derrière elle : déconnexion, mort, changement de dimension, lampe retirée ou vide, arrêt du serveur.
  * Les notes sont écrites dans les données de chaque chunk à sa sauvegarde ; après un plantage, le chargement du chunk
- * retire les blocs notés que plus aucune lampe active ne tient.
+ * relève les blocs notés, et la fin du tick de serveur suivant retire ceux que plus aucune lampe active ne tient (le
+ * chunk n'est pas encore inscrit au monde pendant {@code ChunkDataEvent.Load}).
  *
- * <p>L'énergie se dépense par blocs de {@value #PERIOD} ticks ({@code headlampEnergy} x {@value #PERIOD} d'un coup),
- * pour que la pile ne change qu'une fois par seconde (chaque changement est envoyé à tous ceux qui voient le porteur).
+ * <p>L'énergie se dépense par blocs de {@value ItemBattery#PERIOD} ticks ({@link ItemBattery.Prepaid}), pour que la
+ * pile ne change qu'une fois par seconde (chaque changement est envoyé à tous ceux qui voient le porteur).
  */
 @Mod.EventBusSubscriber(modid = OneForAllSurvival.MODID)
 public final class HeadlampLights {
 
-    /** Ticks payés d'un coup. */
-    public static final int PERIOD = 20;
+    /** Combien de ticks de serveur une position à nettoyer attend son chunk avant qu'on y renonce (la note reste). */
+    private static final int SWEEP_PATIENCE = 200;
 
     /** Ce qu'une lampe allumée tient : la dimension et le bloc des yeux, si un bloc de lumière y est posé, les ticks déjà payés. */
     private static final class Active {
         private volatile ResourceKey<Level> dimension;
         private volatile BlockPos pos;
         private volatile boolean holding;
-        private int paid;
+        private final ItemBattery.Prepaid prepaid;
 
-        private Active(ResourceKey<Level> dimension, BlockPos pos) {
+        private Active(ResourceKey<Level> dimension, BlockPos pos, ItemBattery.Prepaid prepaid) {
             this.dimension = dimension;
             this.pos = pos;
+            this.prepaid = prepaid;
         }
     }
+
+    /** Les positions à nettoyer, par dimension, avec l'âge en ticks de serveur. Remplie par le chargement des chunks. */
+    private static final Map<ResourceKey<Level>, Map<BlockPos, Integer>> TO_SWEEP = new ConcurrentHashMap<>();
 
     /** Les lampes allumées, par joueur. */
     private static final Map<UUID, Active> ACTIVE = new ConcurrentHashMap<>();
@@ -76,18 +82,15 @@ public final class HeadlampLights {
             return;
         }
         Active active = ACTIVE.get(player.getUUID());
-        int paid = active == null ? 0 : active.paid;
-        if (paid <= 0) {
-            if (!HeadlampItem.spend(lamp, ExploreConfig.headlampEnergy() * PERIOD)) {
-                clear(player);
-                return;
-            }
-            paid = PERIOD;
+        ItemBattery.Prepaid prepaid = active == null ? new ItemBattery.Prepaid() : active.prepaid;
+        if (!prepaid.pay(lamp, ExploreConfig.headlampEnergy(), ExploreConfig.headlampCapacity())) {
+            clear(player);
+            return;
         }
         ServerLevel level = player.serverLevel();
         BlockPos eye = BlockPos.containing(player.getEyePosition());
         if (active == null) {
-            active = new Active(level.dimension(), eye);
+            active = new Active(level.dimension(), eye, prepaid);
             ACTIVE.put(player.getUUID(), active);
         } else if (!active.dimension.equals(level.dimension()) || !active.pos.equals(eye)) {
             release(level.getServer(), active);
@@ -95,7 +98,6 @@ public final class HeadlampLights {
             active.pos = eye;
             active.holding = false;
         }
-        active.paid = paid - 1;
         if (active.holding && !isLamp(level.getBlockState(active.pos))) {
             // Le bloc a été remplacé (par autre chose, ou par la lumière d'un autre niveau, celle de l'équipe) :
             // plus rien à retirer, la note s'efface.
@@ -130,9 +132,12 @@ public final class HeadlampLights {
         boolean water = state.is(Blocks.WATER) && state.getValue(LiquidBlock.LEVEL) == 0;
         if (state.isAir() || water) {
             // Le moteur de lumière suit le changement de bloc quel que soit l'indicateur (LevelChunk.setBlockState).
-            level.setBlock(pos, Blocks.LIGHT.defaultBlockState()
+            // Une pose refusée n'est pas notée : la note ne dit que ce qui est vraiment là.
+            if (!level.setBlock(pos, Blocks.LIGHT.defaultBlockState()
                     .setValue(LightBlock.LEVEL, ExploreConfig.headlampLight())
-                    .setValue(LightBlock.WATERLOGGED, water), Block.UPDATE_CLIENTS);
+                    .setValue(LightBlock.WATERLOGGED, water), Block.UPDATE_CLIENTS)) {
+                return false;
+            }
         } else if (!(isLamp(state) && data.isOurs(pos))) {
             return false;
         }
@@ -178,9 +183,9 @@ public final class HeadlampLights {
     }
 
     /**
-     * Balaie un chunk qui vient de charger : tout bloc de lumière noté ici (en mémoire, ou dans les données du chunk
-     * qu'on vient de lire : {@code fromDisk}) que plus aucune lampe active ne tient est un reste de plantage. Il est
-     * retiré s'il est encore un bloc de lumière de notre niveau, et sa note est effacée.
+     * Relève les blocs de lumière à nettoyer dans un chunk qui vient de charger : ceux notés en mémoire et ceux notés
+     * dans les données du chunk qu'on vient de lire ({@code fromDisk}). Rien n'est touché ici : le chunk n'est pas
+     * encore inscrit au monde, {@link #sweepPending} agit à la fin d'un tick de serveur.
      */
     public static void sweep(ServerLevel level, ChunkAccess chunk, List<HeadlampLightData.Note> fromDisk) {
         HeadlampLightData data = HeadlampLightData.get(level);
@@ -192,14 +197,44 @@ public final class HeadlampLights {
                 noted.add(pos);
             }
         }
+        if (noted.isEmpty()) {
+            return;
+        }
+        Map<BlockPos, Integer> pending = TO_SWEEP.computeIfAbsent(level.dimension(), d -> new ConcurrentHashMap<>());
         for (BlockPos pos : noted) {
+            pending.put(pos.immutable(), 0);
+        }
+    }
+
+    /**
+     * Nettoie, à la fin d'un tick de serveur, les positions relevées au chargement : un bloc de lumière de notre niveau
+     * que plus aucune lampe active ne tient est rendu (air, ou eau source s'il était imbibé), mise à jour complète. Une
+     * position dont le chunk n'est pas encore au monde attend ; passé {@value #SWEEP_PATIENCE} ticks, on y renonce et
+     * la note reste, pour le prochain chargement.
+     */
+    public static void sweepPending(ServerLevel level) {
+        Map<BlockPos, Integer> pending = TO_SWEEP.get(level.dimension());
+        if (pending == null || pending.isEmpty()) {
+            return;
+        }
+        HeadlampLightData data = HeadlampLightData.get(level);
+        for (Map.Entry<BlockPos, Integer> entry : new ArrayList<>(pending.entrySet())) {
+            BlockPos pos = entry.getKey();
+            if (!level.hasChunkAt(pos)) {
+                if (entry.getValue() >= SWEEP_PATIENCE) {
+                    pending.remove(pos);
+                } else {
+                    pending.put(pos, entry.getValue() + 1);
+                }
+                continue;
+            }
+            pending.remove(pos);
             if (held(level.dimension(), pos)) {
                 continue;
             }
-            BlockState state = chunk.getBlockState(pos);
+            BlockState state = level.getBlockState(pos);
             if (isLamp(state)) {
-                // Directement dans le chunk : il n'est pas forcément encore dans le monde.
-                chunk.setBlockState(pos, restored(state), false);
+                level.setBlock(pos, restored(state), Block.UPDATE_ALL);
             }
             data.forget(pos);
         }
@@ -256,6 +291,14 @@ public final class HeadlampLights {
     public static void onChunkLoad(ChunkDataEvent.Load event) {
         if (event.getLevel() instanceof ServerLevel level) {
             sweep(level, event.getChunk(), HeadlampLightData.readNotes(event.getData()));
+        }
+    }
+
+    /** La fin du tick de chaque monde de serveur : l'heure sûre pour toucher aux chunks qui viennent de charger. */
+    @SubscribeEvent
+    public static void onLevelTick(TickEvent.LevelTickEvent event) {
+        if (event.phase == TickEvent.Phase.END && event.side.isServer() && event.level instanceof ServerLevel level) {
+            sweepPending(level);
         }
     }
 

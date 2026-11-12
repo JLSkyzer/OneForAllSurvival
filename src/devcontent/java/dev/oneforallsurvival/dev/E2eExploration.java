@@ -496,6 +496,10 @@ final class E2eExploration {
                         + fente(ExploreRegistry.HEADLAMP.get()),
                 () -> "source creative posee, detecteur et lampe dans la barre d'action, vides : " + DetectorItem.stored(pile(ExploreRegistry.METAL_DETECTOR.get()))
                         + " et " + HeadlampItem.stored(pile(ExploreRegistry.HEADLAMP.get())) + " FE");
+        pasC("Il s'accroupit (la recharge se fait accroupi, comme le poste à souder)", () -> mc.options.keyShift.setDown(true),
+                () -> mc.player.isShiftKeyDown() && ecoule() >= 0.5,
+                () -> "accroupi : " + mc.player.isShiftKeyDown(),
+                () -> "accroupi, touche maintenue");
         pasC("Clic droit du détecteur sur la source : il se recharge", () -> {
             tenir(ExploreRegistry.METAL_DETECTOR.get());
             clic(sourceRecharge(), Direction.EAST);
@@ -503,12 +507,16 @@ final class E2eExploration {
                 () -> "charge " + DetectorItem.stored(pile(ExploreRegistry.METAL_DETECTOR.get())),
                 () -> "detecteur recharge par un vrai clic droit sur une source d'un autre mod : " + DetectorItem.stored(pile(ExploreRegistry.METAL_DETECTOR.get()))
                         + " FE (lue sur la pile du client)");
-        pasC("Clic droit de la lampe sur la source : elle se recharge", () -> {
+        pasC("Clic droit de la lampe sur la source (toujours accroupi) : elle se recharge", () -> {
             tenir(ExploreRegistry.HEADLAMP.get());
             clic(sourceRecharge(), Direction.EAST);
         }, () -> HeadlampItem.stored(pile(ExploreRegistry.HEADLAMP.get())) > 0,
                 () -> "charge " + HeadlampItem.stored(pile(ExploreRegistry.HEADLAMP.get())),
                 () -> "lampe rechargee par un vrai clic droit sur la meme source : " + HeadlampItem.stored(pile(ExploreRegistry.HEADLAMP.get())) + " FE");
+        pasC("Il se relève", () -> mc.options.keyShift.setDown(false),
+                () -> !mc.player.isShiftKeyDown() && ecoule() >= 0.5,
+                () -> "encore accroupi : " + mc.player.isShiftKeyDown(),
+                () -> "debout");
     }
 
     private static net.minecraft.world.level.block.Block bloc(String id) {

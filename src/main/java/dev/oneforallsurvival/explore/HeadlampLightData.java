@@ -69,11 +69,6 @@ public final class HeadlampLightData {
         return out;
     }
 
-    /** Remet une note relue dans la table. */
-    public synchronized void put(Note note) {
-        counts.merge(note.pos().asLong(), note.count(), Integer::sum);
-    }
-
     /** Une lampe de plus s'appuie sur ce bloc de lumière. */
     public synchronized void placed(BlockPos pos) {
         counts.merge(pos.asLong(), 1, Integer::sum);

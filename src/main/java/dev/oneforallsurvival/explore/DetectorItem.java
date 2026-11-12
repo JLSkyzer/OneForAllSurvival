@@ -1,9 +1,12 @@
 package dev.oneforallsurvival.explore;
 
-import dev.oneforallsurvival.machine.ElectricMachineBlockEntity;
+import dev.oneforallsurvival.OneForAllSurvival;
 import dev.oneforallsurvival.machine.ItemBattery;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -18,22 +21,34 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.capabilities.ICapabilityProvider;
+import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Le détecteur de métaux : une batterie, et un bip dont la cadence et la hauteur disent la distance à la cache
  * enfouie la plus proche. Il n'agit que côté serveur, tenu dans une main, chargé, dans une dimension qui a des
- * caches ; seul le porteur entend le bip. Un clic droit sur un bloc à FE le recharge. Sa barre montre la charge.
+ * caches ; seul le porteur entend le bip. Accroupi, un clic droit sur une source le recharge. Sa barre montre la
+ * charge.
+ *
+ * <p>La pile ne change pas à chaque tick : l'énergie se paie par blocs de {@link ItemBattery#PERIOD} ticks et le
+ * compteur de bips vit dans une table serveur transitoire, par joueur, vidée à sa déconnexion.
  */
+@Mod.EventBusSubscriber(modid = OneForAllSurvival.MODID)
 public class DetectorItem extends Item {
 
     private static final int BAR_COLOR = 0x6FB7D8;
-    /** Le compteur de ticks depuis le dernier bip, dans le NBT de la pile : il suit l'objet d'une main à l'autre. */
-    private static final String TAG_COUNTER = "beepTicks";
+    /** Ce que le détecteur d'un joueur garde d'un tick à l'autre : les ticks payés d'avance et ceux depuis le dernier bip. */
+    private static final class State {
+        private final ItemBattery.Prepaid prepaid = new ItemBattery.Prepaid();
+        private int beepTicks;
+    }
+
+    /** Par joueur, d'une main à l'autre ; jamais dans la pile, dont le NBT est envoyé aux clients à chaque changement. */
+    private static final Map<UUID, State> STATES = new ConcurrentHashMap<>();
 
     /** Ce qu'un tick de détecteur a fait. */
     public enum Tick {
@@ -77,15 +92,14 @@ public class DetectorItem extends Item {
      * reprend dans le même tick.
      */
     public static Tick tick(ServerLevel level, ServerPlayer player, ItemStack stack) {
-        int cost = ExploreConfig.detectorEnergy();
-        if (stored(stack) < cost) {
-            return Tick.IDLE;
-        }
         CacheIndex index = CacheIndex.get(level);
         if (index.size() == 0) {
             return Tick.IDLE;
         }
-        ItemBattery.spend(stack, cost, capacity());
+        State state = STATES.computeIfAbsent(player.getUUID(), id -> new State());
+        if (!state.prepaid.pay(stack, ExploreConfig.detectorEnergy(), capacity())) {
+            return Tick.IDLE;
+        }
         double range = ExploreConfig.detectorRange();
         Optional<BlockPos> found;
         while ((found = index.nearest(player.blockPosition(), range)).isPresent()) {
@@ -97,58 +111,34 @@ public class DetectorItem extends Item {
             index.remove(pos);
         }
         if (found.isEmpty()) {
-            setCounter(stack, 0);
+            state.beepTicks = 0;
             return Tick.SEARCHING;
         }
         double distance = player.position().distanceTo(Vec3.atCenterOf(found.get()));
         int interval = DetectorRules.beepInterval(distance, range);
         if (interval < 0) {
-            setCounter(stack, 0);
+            state.beepTicks = 0;
             return Tick.SEARCHING;
         }
-        int counter = counter(stack) + 1;
-        if (counter < interval) {
-            setCounter(stack, counter);
+        state.beepTicks++;
+        if (state.beepTicks < interval) {
             return Tick.SEARCHING;
         }
-        setCounter(stack, 0);
+        state.beepTicks = 0;
         player.playNotifySound(SoundEvents.NOTE_BLOCK_BIT.value(), SoundSource.PLAYERS, 1.0F,
                 DetectorRules.pitch(distance, range));
         return Tick.BEEPED;
     }
 
-    private static int counter(ItemStack stack) {
-        return stack.hasTag() ? stack.getTag().getInt(TAG_COUNTER) : 0;
-    }
-
-    private static void setCounter(ItemStack stack, int value) {
-        if (value <= 0) {
-            if (stack.hasTag()) {
-                stack.getTag().remove(TAG_COUNTER);
-            }
-        } else {
-            stack.getOrCreateTag().putInt(TAG_COUNTER, value);
-        }
+    /** Le compteur d'un joueur qui s'en va ne sert plus. */
+    @SubscribeEvent
+    public static void onLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
+        STATES.remove(event.getEntity().getUUID());
     }
 
     @Override
     public InteractionResult onItemUseFirst(ItemStack stack, UseOnContext context) {
-        Level level = context.getLevel();
-        BlockEntity target = level.getBlockEntity(context.getClickedPos());
-        if (target == null || context.getPlayer() == null) {
-            return InteractionResult.PASS;
-        }
-        if (!(target instanceof ElectricMachineBlockEntity)
-                && !target.getCapability(ForgeCapabilities.ENERGY, context.getClickedFace()).isPresent()) {
-            return InteractionResult.PASS;
-        }
-        if (!level.isClientSide && context.getPlayer() instanceof ServerPlayer player) {
-            int received = ItemBattery.chargeFrom(stack, target, context.getClickedFace(), capacity());
-            player.displayClientMessage(Component.translatable(received > 0
-                    ? "message.oneforallsurvival.detector.charged" : "message.oneforallsurvival.detector.not_charged",
-                    received), true);
-        }
-        return InteractionResult.sidedSuccess(level.isClientSide);
+        return ItemBattery.useOnSource(stack, context, capacity(), "message.oneforallsurvival.detector");
     }
 
     @Override
@@ -156,10 +146,9 @@ public class DetectorItem extends Item {
         return new ItemBattery.Provider(stack, DetectorItem::capacity);
     }
 
-    /** La charge et le compteur changent à chaque tick : ce n'est pas un nouvel objet, la main ne doit pas rebondir. */
     @Override
     public boolean shouldCauseReequipAnimation(ItemStack oldStack, ItemStack newStack, boolean slotChanged) {
-        return slotChanged || oldStack.getItem() != newStack.getItem();
+        return ItemBattery.reequip(oldStack, newStack, slotChanged);
     }
 
     @Override
@@ -169,7 +158,7 @@ public class DetectorItem extends Item {
 
     @Override
     public int getBarWidth(ItemStack stack) {
-        return Math.round(13.0F * stored(stack) / capacity());
+        return ItemBattery.barWidth(stack, capacity());
     }
 
     @Override

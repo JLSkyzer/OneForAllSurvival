@@ -56,7 +56,8 @@ public final class ExploreRegistry {
     /** Dureté -1 : ni la main ni un outil ne l'entament en survie ; la résistance maximale le garde des explosions. */
     public static final RegistryObject<Block> MECHANISM = BLOCKS.register("ancient_mechanism",
             () -> new MechanismBlock(BlockBehaviour.Properties.of().mapColor(MapColor.STONE)
-                    .strength(-1.0F, 3600000.0F).lightLevel(MechanismBlock::lightLevel).sound(SoundType.STONE).pushReaction(PushReaction.BLOCK)
+                    .strength(-1.0F, 3600000.0F).lightLevel(MechanismBlock::lightLevel).sound(SoundType.STONE)
+                    .pushReaction(PushReaction.BLOCK)
                     .noLootTable()));
     public static final RegistryObject<Item> MECHANISM_ITEM = ITEMS.register("ancient_mechanism",
             () -> new BlockItem(MECHANISM.get(), new Item.Properties()));

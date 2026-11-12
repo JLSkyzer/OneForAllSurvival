@@ -1,7 +1,6 @@
 package dev.oneforallsurvival.explore;
 
 import dev.oneforallsurvival.OneForAllSurvival;
-import dev.oneforallsurvival.machine.ElectricMachineBlockEntity;
 import dev.oneforallsurvival.machine.ItemBattery;
 import java.util.List;
 import net.minecraft.nbt.CompoundTag;
@@ -18,14 +17,12 @@ import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.capabilities.ICapabilityProvider;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * La lampe frontale : un casque à batterie. Portée et chargée, elle éclaire autour de la tête ({@link HeadlampLights}).
- * Elle ne se recharge pas sur la tête : un clic droit sur un bloc à FE, tenue en main, la remplit. Sa barre montre la
+ * Elle ne se recharge pas sur la tête : tenue en main, accroupi, un clic droit sur une source la remplit. Sa barre montre la
  * charge. Pas de durabilité : elle ne s'use pas, elle se vide.
  */
 public class HeadlampItem extends ArmorItem {
@@ -108,22 +105,7 @@ public class HeadlampItem extends ArmorItem {
 
     @Override
     public InteractionResult onItemUseFirst(ItemStack stack, UseOnContext context) {
-        Level level = context.getLevel();
-        BlockEntity target = level.getBlockEntity(context.getClickedPos());
-        if (target == null || context.getPlayer() == null) {
-            return InteractionResult.PASS;
-        }
-        if (!(target instanceof ElectricMachineBlockEntity)
-                && !target.getCapability(ForgeCapabilities.ENERGY, context.getClickedFace()).isPresent()) {
-            return InteractionResult.PASS;
-        }
-        if (!level.isClientSide && context.getPlayer() instanceof ServerPlayer player) {
-            int received = ItemBattery.chargeFrom(stack, target, context.getClickedFace(), capacity());
-            player.displayClientMessage(Component.translatable(received > 0
-                    ? "message.oneforallsurvival.headlamp.charged" : "message.oneforallsurvival.headlamp.not_charged",
-                    received), true);
-        }
-        return InteractionResult.sidedSuccess(level.isClientSide);
+        return ItemBattery.useOnSource(stack, context, capacity(), "message.oneforallsurvival.headlamp");
     }
 
     @Override
@@ -131,10 +113,9 @@ public class HeadlampItem extends ArmorItem {
         return new ItemBattery.Provider(stack, HeadlampItem::capacity);
     }
 
-    /** La charge baisse à chaque tick : ce n'est pas un nouvel objet, la main ne doit pas rebondir. */
     @Override
     public boolean shouldCauseReequipAnimation(ItemStack oldStack, ItemStack newStack, boolean slotChanged) {
-        return slotChanged || oldStack.getItem() != newStack.getItem();
+        return ItemBattery.reequip(oldStack, newStack, slotChanged);
     }
 
     @Override
@@ -144,7 +125,7 @@ public class HeadlampItem extends ArmorItem {
 
     @Override
     public int getBarWidth(ItemStack stack) {
-        return Math.round(13.0F * stored(stack) / capacity());
+        return ItemBattery.barWidth(stack, capacity());
     }
 
     @Override

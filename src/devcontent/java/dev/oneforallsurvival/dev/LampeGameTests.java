@@ -5,6 +5,7 @@ import dev.oneforallsurvival.explore.ExploreRegistry;
 import dev.oneforallsurvival.explore.HeadlampItem;
 import dev.oneforallsurvival.explore.HeadlampLightData;
 import dev.oneforallsurvival.explore.HeadlampLights;
+import dev.oneforallsurvival.machine.ItemBattery;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.core.BlockPos;
@@ -480,8 +481,8 @@ public final class LampeGameTests {
 
     /**
      * Un chunk déchargé puis rechargé n'est pas simulé : l'évènement de chargement que Forge publie est publié ici à
-     * la main pour un chunk déjà chargé. Une note sans joueur (plantage) part avec son bloc ; un bloc de lumière non
-     * noté (équipe), dans le même chunk, reste.
+     * la main pour un chunk déjà chargé. Une note sans joueur (plantage) part avec son bloc, à la fin du tick de serveur
+     * suivant et non pendant l'évènement ; un bloc de lumière non noté (équipe), dans le même chunk, reste.
      */
     @GameTest(template = "test/plancher", batch = LOT_B)
     public static void orphelineNettoyeeAuChargement(GameTestHelper helper) {
@@ -501,11 +502,16 @@ public final class LampeGameTests {
         LevelChunk chunk = helper.getLevel().getChunkAt(orphelinAbs);
         helper.assertTrue(chunk == helper.getLevel().getChunkAt(equipeAbs), "les deux cases devaient partager un chunk");
         MinecraftForge.EVENT_BUS.post(new ChunkDataEvent.Load(chunk, new CompoundTag(), ChunkStatus.ChunkType.LEVELCHUNK));
-        assertSansLumiere(helper, orphelinAbs);
-        helper.assertTrue(!notes(helper).isOurs(orphelinAbs), "la note orpheline devait être effacée");
-        helper.assertTrue(etat(helper, equipeAbs).is(Blocks.LIGHT), "le bloc de lumière de l'équipe devait rester");
-        helper.setBlock(equipe, Blocks.AIR);
-        helper.succeed();
+        assertLumiere(helper, orphelinAbs);
+        helper.assertTrue(notes(helper).isOurs(orphelinAbs), "pendant l'évènement de chargement rien ne doit être touché");
+        helper.startSequence()
+                .thenWaitUntil(() -> assertSansLumiere(helper, orphelinAbs))
+                .thenExecute(() -> {
+                    helper.assertTrue(!notes(helper).isOurs(orphelinAbs), "la note orpheline devait être effacée");
+                    helper.assertTrue(etat(helper, equipeAbs).is(Blocks.LIGHT), "le bloc de lumière de l'équipe devait rester");
+                    helper.setBlock(equipe, Blocks.AIR);
+                })
+                .thenSucceed();
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -523,7 +529,7 @@ public final class LampeGameTests {
         helper.onEachTick(() -> vus.add(HeadlampItem.stored(lampePortee(p))));
         helper.startSequence()
                 .thenExecuteAfter(45, () -> {
-                    int bloc = ExploreConfig.headlampEnergy() * HeadlampLights.PERIOD;
+                    int bloc = ExploreConfig.headlampEnergy() * ItemBattery.PERIOD;
                     int changements = 0;
                     for (int i = 1; i < vus.size(); i++) {
                         if (!vus.get(i).equals(vus.get(i - 1))) {
@@ -578,6 +584,9 @@ public final class LampeGameTests {
                     HeadlampLightData.writeNotes(List.of(new HeadlampLightData.Note(cible, 1)), donnees);
                     MinecraftForge.EVENT_BUS.post(new ChunkDataEvent.Load(helper.getLevel().getChunkAt(cible), donnees,
                             ChunkStatus.ChunkType.LEVELCHUNK));
+                })
+                .thenExecuteAfter(5, () -> {
+                    BlockPos cible = oeil(p);
                     assertLumiere(helper, cible);
                     helper.assertTrue(notes(helper).isOurs(cible), "la note d'une lampe active devait rester");
                     quitter(j);
@@ -622,7 +631,11 @@ public final class LampeGameTests {
         helper.assertTrue(relues.size() == 1 && relues.get(0).pos().equals(pos) && relues.get(0).count() == 2,
                 "une note de compte 2 attendue, relu " + relues);
         HeadlampLightData apres = new HeadlampLightData();
-        relues.forEach(apres::put);
+        relues.forEach(note -> {
+            for (int i = 0; i < note.count(); i++) {
+                apres.placed(note.pos());
+            }
+        });
         helper.assertTrue(apres.isOurs(pos), "la position relue devait être à nous");
         helper.assertTrue(!apres.released(pos), "premier départ : le bloc ne part pas encore");
         helper.assertTrue(apres.isOurs(pos), "un compte de 1 restait");
@@ -665,8 +678,39 @@ public final class LampeGameTests {
         HeadlampLightData.writeNotes(List.of(new HeadlampLightData.Note(abs, 1)), donnees);
         MinecraftForge.EVENT_BUS.post(new ChunkDataEvent.Load(helper.getLevel().getChunkAt(abs), donnees,
                 ChunkStatus.ChunkType.LEVELCHUNK));
-        assertSansLumiere(helper, abs);
-        helper.succeed();
+        assertLumiere(helper, abs);
+        helper.startSequence()
+                .thenWaitUntil(() -> assertSansLumiere(helper, abs))
+                .thenSucceed();
+    }
+
+    /**
+     * Une orpheline imbibée redevient une source d'eau (mise à jour complète), sans qu'aucun bloc ne reste de lumière.
+     * Le niveau d'eau est celui d'une source ; le fluide est bien de l'eau, et il le reste plusieurs ticks (aucune
+     * erreur de tick de fluide ne fait échouer le test, et le journal n'en porte pas).
+     */
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void orphelineImbibeeRedevientUneSourceDEau(GameTestHelper helper) {
+        enclos(helper);
+        BlockPos pos = new BlockPos(3, 2, 3);
+        BlockPos abs = helper.absolutePos(pos);
+        helper.setBlock(pos, Blocks.LIGHT.defaultBlockState()
+                .setValue(LightBlock.LEVEL, ExploreConfig.headlampLight())
+                .setValue(LightBlock.WATERLOGGED, true));
+        notes(helper).placed(abs);
+        MinecraftForge.EVENT_BUS.post(new ChunkDataEvent.Load(helper.getLevel().getChunkAt(abs), new CompoundTag(),
+                ChunkStatus.ChunkType.LEVELCHUNK));
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(etat(helper, abs).is(Blocks.WATER),
+                        "de l'eau attendue en " + abs + ", vu " + etat(helper, abs)))
+                .thenExecuteAfter(10, () -> {
+                    BlockState etat = etat(helper, abs);
+                    helper.assertTrue(etat.is(Blocks.WATER) && etat.getValue(LiquidBlock.LEVEL) == 0
+                            && etat.getFluidState().isSource(), "une source d'eau attendue, vu " + etat);
+                    helper.assertTrue(!notes(helper).isOurs(abs), "la note devait être effacée");
+                    helper.setBlock(pos, Blocks.AIR);
+                })
+                .thenSucceed();
     }
 
     /** Seul dans son lot : l'arrêt rend la lumière de toutes les lampes allumées, y compris celles d'autres tests. */

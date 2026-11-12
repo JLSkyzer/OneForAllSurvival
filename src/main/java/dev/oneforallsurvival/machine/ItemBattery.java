@@ -2,7 +2,12 @@ package dev.oneforallsurvival.machine;
 
 import java.util.function.IntSupplier;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.context.UseOnContext;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
@@ -13,13 +18,17 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * La batterie d'un objet, adossée au NBT de sa pile ({@code energy}). Partagée par le poste à souder et le détecteur :
- * la capacité est passée à chaque appel, l'objet la tire de sa config. On peut la charger, jamais la vider de
- * l'extérieur : seul l'objet lui-même dépense, par {@link #spend}.
+ * La batterie d'un objet, adossée au NBT de sa pile ({@code energy}). Partagée par le poste à souder, le détecteur et
+ * la lampe frontale : la capacité est passée à chaque appel, l'objet la tire de sa config. On peut la charger, jamais
+ * la vider de l'extérieur : seul l'objet lui-même dépense, par {@link #spend} ou par {@link Prepaid}. Les gestes
+ * communs (recharge accroupi sur une source, largeur de barre, animation de la main) sont ici aussi.
  */
 public final class ItemBattery {
 
     private static final String TAG_ENERGY = "energy";
+    /** Ticks payés d'un coup par un objet qui consomme en continu. */
+    public static final int PERIOD = 20;
+    private static final int BAR_WIDTH = 13;
 
     private ItemBattery() {}
 
@@ -51,6 +60,77 @@ public final class ItemBattery {
         }
         store(stack, have - fe, capacity);
         return true;
+    }
+
+    /** Le coût d'une période de {@link #PERIOD} ticks, borné à la capacité (sinon l'objet ne démarrerait jamais). */
+    public static int periodCost(int perTick, int capacity) {
+        return (int) Math.min((long) perTick * PERIOD, capacity);
+    }
+
+    /** Largeur de la barre d'objet (0 à 13) pour cette charge. */
+    public static int barWidth(ItemStack stack, int capacity) {
+        return Math.round(BAR_WIDTH * (float) stored(stack, capacity) / capacity);
+    }
+
+    /** La charge change à chaque dépense : ce n'est pas un nouvel objet, la main ne doit pas rebondir. */
+    public static boolean reequip(ItemStack oldStack, ItemStack newStack, boolean slotChanged) {
+        return slotChanged || oldStack.getItem() != newStack.getItem();
+    }
+
+    /**
+     * Le geste de recharge d'un objet à batterie : accroupi, clic droit sur une source. Debout, ou sur un bloc qui n'a
+     * pas d'énergie à rendre (ni machine du mod, ni capability qui laisse sortir), le clic passe : il ouvre l'écran
+     * du bloc ou fait son usage normal, il ne le vide pas.
+     *
+     * @param messagePrefix clé de langue sans suffixe : {@code <prefix>.charged} et {@code <prefix>.not_charged}
+     */
+    public static InteractionResult useOnSource(ItemStack stack, UseOnContext context, int capacity, String messagePrefix) {
+        if (context.getPlayer() == null || !context.getPlayer().isSecondaryUseActive()) {
+            return InteractionResult.PASS;
+        }
+        Level level = context.getLevel();
+        BlockEntity target = level.getBlockEntity(context.getClickedPos());
+        if (target == null) {
+            return InteractionResult.PASS;
+        }
+        boolean machine = target instanceof ElectricMachineBlockEntity;
+        if (!machine) {
+            IEnergyStorage supplier = target.getCapability(ForgeCapabilities.ENERGY, context.getClickedFace()).orElse(null);
+            if (supplier == null || !supplier.canExtract()) {
+                return InteractionResult.PASS;
+            }
+        }
+        if (!level.isClientSide && context.getPlayer() instanceof ServerPlayer player) {
+            int received = chargeFrom(stack, target, context.getClickedFace(), capacity);
+            player.displayClientMessage(Component.translatable(
+                    messagePrefix + (received > 0 ? ".charged" : ".not_charged"), received), true);
+        }
+        return InteractionResult.sidedSuccess(level.isClientSide);
+    }
+
+    /**
+     * Les ticks déjà payés d'un objet qui consomme en continu : la dépense part par blocs de {@link #PERIOD} ticks,
+     * pour que la pile (donc son NBT, envoyé à tous ceux qui voient le porteur) ne change qu'une fois par seconde.
+     * Transitoire : vit côté serveur, jamais dans la pile.
+     */
+    public static final class Prepaid {
+
+        private int remaining;
+
+        /**
+         * Couvre un tick de plus. Quand les ticks payés sont écoulés, paie le bloc suivant ({@code perTick} x
+         * {@link #PERIOD}, borné à la capacité) ; renvoie faux, sans rien dépenser, si la batterie ne le couvre pas.
+         */
+        public boolean pay(ItemStack stack, int perTick, int capacity) {
+            if (remaining <= 0) {
+                if (!spend(stack, periodCost(perTick, capacity), capacity)) {
+                    return false;
+                }
+                remaining = PERIOD;
+            }
+            remaining--;
+            return true;
+        }
     }
 
     /**

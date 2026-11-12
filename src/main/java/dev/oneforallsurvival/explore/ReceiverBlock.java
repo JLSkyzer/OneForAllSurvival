@@ -24,7 +24,7 @@ import net.minecraftforge.network.NetworkHooks;
 /**
  * Le récepteur de signaux. {@code listening} : il a de quoi écouter (voyant vert) ; {@code unread} : un message est
  * arrivé depuis la dernière ouverture de l'écran. Il s'inscrit à la {@link ReceiverIndex} en se posant et en sort en
- * partant. Sans recette : l'équipe le donne.
+ * partant. Il se fabrique à l'établi d'ingénieur.
  */
 public final class ReceiverBlock extends Block implements EntityBlock {
 

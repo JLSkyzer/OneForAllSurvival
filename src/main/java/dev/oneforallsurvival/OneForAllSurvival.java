@@ -75,6 +75,7 @@ public final class OneForAllSurvival {
         context.registerConfig(ModConfig.Type.SERVER, TownConfig.SPEC, "oneforallsurvival-town.toml");
         context.registerConfig(ModConfig.Type.SERVER, LightConfig.SPEC, "oneforallsurvival-light.toml");
         context.registerConfig(ModConfig.Type.SERVER, ExploreConfig.SPEC, "oneforallsurvival-explore.toml");
+        modEventBus.addListener(ExploreConfig::onConfigLoad);
         MinecraftForge.EVENT_BUS.addListener(BenchCatalog::onAddReloadListener);
         MinecraftForge.EVENT_BUS.addListener(BenchOverrides::onAddReloadListener);
         MinecraftForge.EVENT_BUS.addListener(BenchCatalog::onTagsUpdated);

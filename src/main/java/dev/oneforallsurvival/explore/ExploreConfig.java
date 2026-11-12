@@ -1,12 +1,18 @@
 package dev.oneforallsurvival.explore;
 
+import com.mojang.logging.LogUtils;
+import dev.oneforallsurvival.machine.ItemBattery;
 import net.minecraftforge.common.ForgeConfigSpec;
+import net.minecraftforge.fml.event.config.ModConfigEvent;
+import org.slf4j.Logger;
 
 /**
  * Réglages de l'exploration. Fichier SERVER ({@code oneforallsurvival-explore.toml}) : le serveur en décide et Forge
  * le synchronise. Les lecteurs retombent sur les valeurs par défaut tant que le fichier n'est pas chargé.
  */
 public final class ExploreConfig {
+
+    private static final Logger LOGGER = LogUtils.getLogger();
 
     private static final int DEFAULT_CACHE_LIST_MAX = 50;
 
@@ -53,12 +59,32 @@ public final class ExploreConfig {
                 .comment("Niveau de lumière du bloc invisible qui suit la tête du porteur (1 à 15).")
                 .defineInRange("headlampLight", DEFAULT_HEADLAMP_LIGHT, 1, 15);
         RECEIVER_ENERGY = builder
-                .comment("FE que le récepteur de signaux consomme à chaque tick pour écouter (sa réserve en tient 2000).")
-                .defineInRange("receiverEnergy", DEFAULT_RECEIVER_ENERGY, 1, 2000);
+                .comment("FE que le récepteur de signaux consomme à chaque tick pour écouter (au plus ce qu'il reçoit par tick : 200).")
+                .defineInRange("receiverEnergy", DEFAULT_RECEIVER_ENERGY, 1, 200);
         SPEC = builder.build();
     }
 
     private ExploreConfig() {}
+
+    /**
+     * Au chargement (et au rechargement) du fichier : un coût de période ({@value ItemBattery#PERIOD} ticks) plus grand
+     * que la batterie ne serait jamais payé ; il est borné à la capacité (voir {@link ItemBattery#periodCost}) et le
+     * réglage fautif est signalé.
+     */
+    public static void onConfigLoad(ModConfigEvent event) {
+        if (event.getConfig().getSpec() != SPEC) {
+            return;
+        }
+        warnIfTooCostly("headlampEnergy", headlampEnergy(), "headlampCapacity", headlampCapacity());
+        warnIfTooCostly("detectorEnergy", detectorEnergy(), "detectorCapacity", detectorCapacity());
+    }
+
+    private static void warnIfTooCostly(String energyKey, int perTick, String capacityKey, int capacity) {
+        if ((long) perTick * ItemBattery.PERIOD > capacity) {
+            LOGGER.warn("{} x {} ticks ({}) depasse {} ({}) : le cout d'une periode est borne a la capacite.",
+                    energyKey, ItemBattery.PERIOD, (long) perTick * ItemBattery.PERIOD, capacityKey, capacity);
+        }
+    }
 
     public static int cacheListMax() {
         try {

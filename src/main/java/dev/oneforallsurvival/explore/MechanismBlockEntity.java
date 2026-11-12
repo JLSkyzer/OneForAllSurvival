@@ -17,7 +17,8 @@ import org.jetbrains.annotations.NotNull;
  * s'active et le reste jusqu'à {@link #reset()}. Une coupure d'un tick remet la progression à zéro. Il ne stocke aucune
  * énergie, ne s'use pas et ne tombe pas en panne (ce n'est donc pas une machine électrique du mod). Dans un chunk
  * déchargé il ne tique pas : rien n'avance, rien ne se perd, et le premier tick après un rechargement ne juge pas
- * (voir {@link #graceTick}).
+ * (voir {@link #graceTick}). Il ne juge pas non plus un tick sans courant quand l'un de ses voisins est dans un
+ * chunk qui ne tique pas : la source figée là-bas n'a pas pu verser.
  *
  * <p>Ordre des ticks. Un câble peut verser du courant avant ou après le tick de ce bloc dans le même tick de jeu. La règle
  * est donc : {@link #serverTick} juge ce qui est arrivé depuis son tick précédent, puis remet le compte à zéro. Une
@@ -139,6 +140,11 @@ public final class MechanismBlockEntity extends BlockEntity {
             syncState(server, pos, state);
             return;
         }
+        if (!active && received == 0 && hasUntickingNeighbor(server, pos)) {
+            // Un voisin dans un chunk qui ne tique pas n'a peut-être pas pu verser son courant : pas de jugement.
+            syncState(server, pos, state);
+            return;
+        }
         if (!active) {
             int before = progress;
             progress = MechanismRules.next(progress, received, threshold, durationTicks);
@@ -150,6 +156,16 @@ public final class MechanismBlockEntity extends BlockEntity {
             }
         }
         syncState(server, pos, state);
+    }
+
+    /** Un des 6 voisins est dans un chunk dont les blocs ne tiquent pas (la source qui l'alimente est figée). */
+    private static boolean hasUntickingNeighbor(ServerLevel server, BlockPos pos) {
+        for (Direction direction : Direction.values()) {
+            if (!server.shouldTickBlocksAt(pos.relative(direction))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Aligne l'état du bloc sur la progression et, quand le signal change, prévient les voisins des voisins. */
