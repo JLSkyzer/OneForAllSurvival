@@ -236,4 +236,32 @@ public final class MonnaieGameTests {
         helper.assertTrue(!CoinRecipeGuard.craftAllowed(enclume, monde, vivant), "un autre écran est permis");
         helper.succeed();
     }
+
+    @GameTest(template = "test/plancher", batch = LOT)
+    public static void unRapportDeConfigAutreQueDixRetireLeChange(GameTestHelper helper) {
+        RegistryAccess acces = helper.getLevel().registryAccess();
+        RecipeManager vivant = helper.getLevel().getServer().getRecipeManager();
+        List<Recipe<?>> quatre = new ArrayList<>();
+        for (ResourceLocation id : CoinRecipeGuard.CHANGE_RECIPES) {
+            quatre.add(vivant.byKey(id).orElseThrow());
+        }
+        // Valeurs 1 / 5 / 20 / 100 / 500 : nulle part dix pièces du dessous ne valent la pièce du dessus.
+        long[] cinq = {1, 5, 20, 100, 500};
+        RecipeManager autre = new RecipeManager();
+        autre.replaceRecipes(quatre);
+        List<ResourceLocation> retirees = CoinRecipeGuard.filter(autre, acces, c -> cinq[c.ordinal()]);
+        helper.assertTrue(Set.copyOf(retirees).equals(CoinRecipeGuard.CHANGE_RECIPES) && autre.getRecipes().isEmpty(),
+                "avec un rapport de 5, retirées : " + retirees);
+        // 1 / 5 / 50 : seul le couple cuivre-argent est faux (10 x 1 != 5) ; argent-or l'est (10 x 5 == 50).
+        long[] mixte = {1, 5, 50, 500, 5000};
+        RecipeManager partiel = new RecipeManager();
+        partiel.replaceRecipes(quatre);
+        List<ResourceLocation> seule = CoinRecipeGuard.filter(partiel, acces, c -> mixte[c.ordinal()]);
+        helper.assertTrue(seule.equals(List.of(id("coin_change/silver_to_copper"))), "rapport 1/5/50, retirées : " + seule);
+        RecipeManager dix = new RecipeManager();
+        dix.replaceRecipes(quatre);
+        helper.assertTrue(CoinRecipeGuard.filter(dix, acces, c -> (long) Math.pow(10, c.ordinal())).isEmpty()
+                && dix.getRecipes().size() == 4, "avec un rapport de 10, une recette de change a été retirée");
+        helper.succeed();
+    }
 }

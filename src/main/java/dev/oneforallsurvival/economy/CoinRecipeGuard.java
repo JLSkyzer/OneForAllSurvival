@@ -7,6 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.ToLongFunction;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -29,7 +30,8 @@ import org.slf4j.Logger;
  * une, de n'importe quel type et de n'importe quel mod ou script, quitte le jeu et est signalée au journal.
  *
  * <p>Limite au chargement : une recette dynamique (résultat vide, comme une {@code CustomRecipe}, ou résultat
- * illisible) ne dit pas ce qu'elle fabriquera ; elle est gardée et signalée au journal. Le filet d'exécution
+ * illisible) ne dit pas ce qu'elle fabriquera ; elle est gardée et comptée dans une seule ligne INFO du journal
+ * (les identifiants au niveau DEBUG). Le filet d'exécution
  * ({@link #craftAllowed}), appelé par {@link CoinItem#onCraftedBy}, couvre les pièces qui sortiraient quand même
  * d'une grille de fabrication.
  */
@@ -69,16 +71,46 @@ public final class CoinRecipeGuard {
      * @return les identifiants retirés
      */
     public static List<ResourceLocation> filter(RecipeManager manager, RegistryAccess access) {
+        return filter(manager, access, Coin::value);
+    }
+
+    /**
+     * Comme {@link #filter(RecipeManager, RegistryAccess)} avec des valeurs de pièces données (essais). Un change
+     * n'est permis qu'à valeur égale : 10 pièces du dessous valent la pièce du dessus. Si la configuration donne un
+     * autre rapport, les recettes de change livrées sont retirées (message unique au journal).
+     */
+    public static List<ResourceLocation> filter(RecipeManager manager, RegistryAccess access,
+            ToLongFunction<Coin> value) {
         List<Recipe<?>> keep = new ArrayList<>();
         List<ResourceLocation> removed = new ArrayList<>();
+        List<ResourceLocation> dynamic = new ArrayList<>();
+        boolean badRatio = false;
         for (Recipe<?> recipe : manager.getRecipes()) {
-            if (!producesCoin(recipe, access) || isValidChange(recipe, access)) {
+            if (!producesCoin(recipe, access, dynamic)) {
                 keep.add(recipe);
                 continue;
             }
+            Change change = CHANGES.get(recipe.getId());
+            if (isValidChange(recipe, change, access)) {
+                if (value.applyAsLong(change.to()) * CHANGE_COUNT == value.applyAsLong(change.from())) {
+                    keep.add(recipe);
+                    continue;
+                }
+                badRatio = true;
+                LOGGER.debug("Economie : change {} retire, le rapport de la config n'est pas 10", recipe.getId());
+            } else {
+                LOGGER.warn("Economie : recette retiree, elle fabrique une piece : {} (classe {})",
+                        recipe.getId(), recipe.getClass().getName());
+            }
             removed.add(recipe.getId());
-            LOGGER.warn("Economie : recette retiree, elle fabrique une piece : {} (classe {})",
-                    recipe.getId(), recipe.getClass().getName());
+        }
+        if (badRatio) {
+            LOGGER.warn("Economie : change a la table desactive : le rapport de la config n'est pas 10");
+        }
+        if (!dynamic.isEmpty()) {
+            LOGGER.info("Economie : {} recettes au resultat dynamique : non verifiables au chargement, "
+                    + "couvertes par le filet onCraftedBy", dynamic.size());
+            LOGGER.debug("Economie : recettes au resultat dynamique {}", dynamic);
         }
         if (!removed.isEmpty()) {
             manager.replaceRecipes(keep);
@@ -86,8 +118,7 @@ public final class CoinRecipeGuard {
         return removed;
     }
 
-    private static boolean isValidChange(Recipe<?> recipe, RegistryAccess access) {
-        Change change = CHANGES.get(recipe.getId());
+    private static boolean isValidChange(Recipe<?> recipe, Change change, RegistryAccess access) {
         if (change == null || recipe.getClass() != ShapelessRecipe.class || recipe.getIngredients().size() != 1) {
             return false;
         }
@@ -98,18 +129,17 @@ public final class CoinRecipeGuard {
                 && result.is(change.to().item()) && result.getCount() == CHANGE_COUNT;
     }
 
-    private static boolean producesCoin(Recipe<?> recipe, RegistryAccess access) {
+    /** Vrai si le résultat est une pièce ; une recette au résultat vide ou illisible est ajoutée à {@code dynamic}. */
+    private static boolean producesCoin(Recipe<?> recipe, RegistryAccess access, List<ResourceLocation> dynamic) {
         ItemStack result;
         try {
             result = recipe.getResultItem(access);
         } catch (RuntimeException e) {
-            LOGGER.warn("Economie : resultat illisible pour {} (classe {}), non verifiable", recipe.getId(),
-                    recipe.getClass().getName(), e);
+            dynamic.add(recipe.getId());
             return false;
         }
         if (result.isEmpty()) {
-            LOGGER.warn("Economie : resultat vide pour {} (classe {}), recette dynamique non verifiable",
-                    recipe.getId(), recipe.getClass().getName());
+            dynamic.add(recipe.getId());
             return false;
         }
         return Coin.fromItem(result.getItem()).isPresent();
