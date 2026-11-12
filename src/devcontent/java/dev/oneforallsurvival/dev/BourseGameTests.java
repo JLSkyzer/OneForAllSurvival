@@ -4,6 +4,8 @@ import dev.oneforallsurvival.economy.Coin;
 import dev.oneforallsurvival.economy.CoinDropEntity;
 import dev.oneforallsurvival.economy.CoinMath;
 import dev.oneforallsurvival.economy.EconomyLedger;
+import dev.oneforallsurvival.economy.EconomyConfig;
+import dev.oneforallsurvival.economy.MoneySource;
 import dev.oneforallsurvival.economy.EconomyRegistry;
 import dev.oneforallsurvival.economy.MoneySink;
 import dev.oneforallsurvival.economy.MoneyStorageRules;
@@ -62,6 +64,7 @@ public final class BourseGameTests {
     private static final String LOT_C = "bourse_c";
     private static final String LOT_D = "bourse_d";
     private static final String LOT_E = "bourse_e";
+    private static final String LOT_G = "bourse_depart";
     /** Seul dans son lot : il détruit de l'argent, et le registre est global. */
     private static final String LOT_F = "bourse_registre";
 
@@ -898,6 +901,74 @@ public final class BourseGameTests {
             helper.succeed();
         } finally {
             quitter(voleur);
+            boite(helper);
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_D, timeoutTicks = 100)
+    public static void uneBourseAuSolNeFusionnePasAvecUnePileDePieces(GameTestHelper helper) {
+        boite(helper);
+        Vec3 p = helper.absoluteVec(new Vec3(3.5, 0.1, 3.5));
+        CoinDropEntity pile = CoinDropEntity.at(helper.getLevel(), p.x, p.y, p.z, Coin.GOLD, 3);
+        pile.setPickUpDelay(0);
+        helper.getLevel().addFreshEntity(pile);
+        ItemStack bourse = bourse(Coin.GOLD, 2);
+        CoinDropEntity sol = (CoinDropEntity) EconomyRegistry.PURSE.get().createEntity(helper.getLevel(),
+                new ItemEntity(helper.getLevel(), p.x, p.y, p.z, bourse), bourse);
+        sol.setPos(p.x, p.y, p.z);
+        sol.setPickUpDelay(0);
+        helper.getLevel().addFreshEntity(sol);
+        // Au-delà de l'intervalle de fusion (20 ticks), plusieurs fois.
+        helper.runAfterDelay(65, () -> {
+            helper.assertTrue(!pile.isRemoved() && pile.count() == 3 && !pile.isPurse(),
+                    "la pile de pièces a fusionné : " + pile.count() + " removed=" + pile.isRemoved());
+            helper.assertTrue(!sol.isRemoved() && sol.isPurse() && sol.value() == 200 && Purse.count(sol.purse(), Coin.GOLD) == 2,
+                    "la bourse a fusionné : " + sol.value() + " removed=" + sol.isRemoved());
+            helper.assertTrue(valeurAuSol(helper) == 500, "500 cuivres au sol : " + valeurAuSol(helper));
+            boite(helper);
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_G)
+    public static void ecoGiveVaDansLaBourse(GameTestHelper helper) throws Exception {
+        boite(helper);
+        JoueurDeTest j = joueur(helper, "bo_give");
+        try {
+            ItemStack bourse = porter(j, 4, bourse());
+            MinecraftServer serveur = helper.getLevel().getServer();
+            EconomyLedger registre = registre(helper);
+            long cree = registre.totalCreated(MoneySource.STAFF);
+            serveur.getCommands().getDispatcher().execute("eco give bo_give 250 essai",
+                    serveur.createCommandSourceStack().withPermission(4));
+            helper.assertTrue(registre.totalCreated(MoneySource.STAFF) - cree == 250, "250 cuivres créés au registre");
+            helper.assertTrue(Purse.total(bourse) == 250 && PlayerCoins.heldLoose(j.joueur()).isEmpty(),
+                    "tout dans la bourse : " + Purse.contents(bourse) + ", en vrac " + PlayerCoins.heldLoose(j.joueur()));
+            helper.succeed();
+        } finally {
+            quitter(j);
+            boite(helper);
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_G)
+    public static void laSommeDeDepartVaDansLaBourse(GameTestHelper helper) {
+        boite(helper);
+        String nom = "bo_depart_" + Long.toHexString(System.nanoTime() & 0xFFFFFFFFL);
+        long somme = EconomyConfig.startingMoney();
+        helper.assertTrue(somme > 0, "témoin : la somme de départ est configurée à zéro");
+        ItemStack bourse = bourse();
+        JoueurDeTest j = JoueurDeTest.rejoindre(helper.getLevel(), nom, helper.absoluteVec(new Vec3(4.5, 0, 4.5)), false,
+                p -> p.getInventory().setItem(2, bourse));
+        try {
+            ItemStack dedans = j.joueur().getInventory().getItem(2);
+            helper.assertTrue(Purse.isPurse(dedans), "la bourse posée avant l'entrée en jeu est là : " + dedans);
+            helper.assertTrue(Purse.total(dedans) == somme && PlayerCoins.heldLoose(j.joueur()).isEmpty(),
+                    "la somme de départ est dans la bourse : " + Purse.contents(dedans) + ", en vrac "
+                            + PlayerCoins.heldLoose(j.joueur()));
+            helper.succeed();
+        } finally {
+            quitter(j);
             boite(helper);
         }
     }
