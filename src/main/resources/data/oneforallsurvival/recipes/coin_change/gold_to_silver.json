@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    { "item": "oneforallsurvival:gold_coin" }
+  ],
+  "result": {
+    "item": "oneforallsurvival:silver_coin",
+    "count": 10
+  }
+}

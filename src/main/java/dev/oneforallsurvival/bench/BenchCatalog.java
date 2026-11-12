@@ -16,7 +16,11 @@ import java.util.TreeMap;
 import com.mojang.logging.LogUtils;
 import io.netty.buffer.Unpooled;
 import net.minecraft.core.RegistryAccess;
+import dev.oneforallsurvival.economy.CoinRecipeGuard;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.tags.TagKey;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
@@ -55,6 +59,10 @@ public final class BenchCatalog {
      * {@code tableAllowedItems} ne doit pas verrouiller sa propre recette.
      */
     public static final ResourceLocation ALWAYS_ON_TABLE = new ResourceLocation("oneforallsurvival", "engineer_bench");
+
+    /** Les objets que l'établi ne prend jamais, quelle que soit la configuration. */
+    public static final TagKey<Item> TABLE_ONLY =
+            TagKey.create(Registries.ITEM, new ResourceLocation("oneforallsurvival", "table_only"));
 
     /** Une recette qu'on ne peut pas payer d'avance, restée sur la table. */
     public record Special(ResourceLocation id, String recipeClass, String reason) {}
@@ -135,6 +143,10 @@ public final class BenchCatalog {
             return;
         }
         processed = manager;
+        // La garde passe AVANT l'extraction : "oneforallsurvival" est un mod gere, donc une recette etrangere
+        // qui fabrique une piece serait sinon deplacee au catalogue de l'etabli (qui la proposerait encore)
+        // au lieu de quitter le jeu ; apres la garde, l'extraction ne voit plus que des recettes permises.
+        CoinRecipeGuard.filter(manager, event.getRegistryAccess());
         install(extract(manager, event.getRegistryAccess(), BenchConfig.managedMods(),
                 BenchConfig.tableAllowedItems(), BenchConfig.excludedItems(), BenchOverrides.current(),
                 BenchConfig.timeParams()));
@@ -208,7 +220,16 @@ public final class BenchCatalog {
 
     /** Vrai si l'objet reste sur la table : la liste de la configuration, plus l'exemption de l'établi. */
     private static boolean stays(ResourceLocation key, Set<ResourceLocation> tableAllowed) {
-        return key.equals(ALWAYS_ON_TABLE) || tableAllowed.contains(key);
+        return key.equals(ALWAYS_ON_TABLE) || tableAllowed.contains(key) || isTableOnly(key);
+    }
+
+    /**
+     * Les objets du tag {@code oneforallsurvival:table_only} (pieces, bourse, coffre-fort) se fabriquent sur la
+     * table par n'importe qui : l'etabli ne les prend jamais. Regle codee, non configurable.
+     */
+    public static boolean isTableOnly(ResourceLocation key) {
+        return BuiltInRegistries.ITEM.getHolder(ResourceKey.create(Registries.ITEM, key))
+                .map(holder -> holder.is(TABLE_ONLY)).orElse(false);
     }
 
     /** Recette concernant un mod géré (par son identifiant ou son résultat) mais non déplaçable. */

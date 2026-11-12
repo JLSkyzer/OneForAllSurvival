@@ -9,6 +9,8 @@ import dev.oneforallsurvival.bench.BenchRegistry;
 import dev.oneforallsurvival.bench.WorkshopTicker;
 import dev.oneforallsurvival.coast.CoastCommands;
 import dev.oneforallsurvival.debug.IslandDebugRequest;
+import dev.oneforallsurvival.economy.EconomyConfig;
+import dev.oneforallsurvival.economy.EconomyRegistry;
 import dev.oneforallsurvival.explore.ExploreCommands;
 import dev.oneforallsurvival.explore.ExploreConfig;
 import dev.oneforallsurvival.explore.ExploreRegistry;
@@ -58,6 +60,7 @@ public final class OneForAllSurvival {
         TownRegistry.register(modEventBus);
         LightRegistry.register(modEventBus);
         ExploreRegistry.register(modEventBus);
+        EconomyRegistry.register(modEventBus);
         BenchNetwork.register();
         MinecraftForge.EVENT_BUS.register(new RoleEvents());
         MinecraftForge.EVENT_BUS.register(new RoleCommands());
@@ -75,6 +78,7 @@ public final class OneForAllSurvival {
         context.registerConfig(ModConfig.Type.SERVER, TownConfig.SPEC, "oneforallsurvival-town.toml");
         context.registerConfig(ModConfig.Type.SERVER, LightConfig.SPEC, "oneforallsurvival-light.toml");
         context.registerConfig(ModConfig.Type.SERVER, ExploreConfig.SPEC, "oneforallsurvival-explore.toml");
+        context.registerConfig(ModConfig.Type.SERVER, EconomyConfig.SPEC, "oneforallsurvival-economy.toml");
         modEventBus.addListener(ExploreConfig::onConfigLoad);
         MinecraftForge.EVENT_BUS.addListener(BenchCatalog::onAddReloadListener);
         MinecraftForge.EVENT_BUS.addListener(BenchOverrides::onAddReloadListener);

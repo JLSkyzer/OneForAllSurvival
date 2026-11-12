@@ -391,5 +391,17 @@
   "command.oneforallsurvival.mechanism.reset": "Mécanisme en %s remis à zéro",
   "command.oneforallsurvival.mechanism.info": "Mécanisme en %s : seuil %s FE par tick, durée %s s, progression %s s, %s",
   "command.oneforallsurvival.mechanism.state.active": "actif",
-  "command.oneforallsurvival.mechanism.state.idle": "au repos"
+  "command.oneforallsurvival.mechanism.state.idle": "au repos",
+  "item.oneforallsurvival.copper_coin": "Pièce de cuivre",
+  "item.oneforallsurvival.silver_coin": "Pièce d'argent",
+  "item.oneforallsurvival.gold_coin": "Pièce d'or",
+  "item.oneforallsurvival.emerald_coin": "Pièce d'émeraude",
+  "item.oneforallsurvival.ruby_coin": "Pièce de rubis",
+  "economy.oneforallsurvival.unit.copper": "cuivre",
+  "economy.oneforallsurvival.unit.silver": "argent",
+  "economy.oneforallsurvival.unit.gold": "or",
+  "economy.oneforallsurvival.unit.emerald": "émeraude",
+  "economy.oneforallsurvival.unit.ruby": "rubis",
+  "tooltip.oneforallsurvival.coin.value": "Valeur : %s",
+  "tooltip.oneforallsurvival.coin.total": "Total de la pile : %s"
 }

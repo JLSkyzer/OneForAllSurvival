@@ -391,5 +391,17 @@
   "command.oneforallsurvival.mechanism.reset": "Mechanism at %s reset",
   "command.oneforallsurvival.mechanism.info": "Mechanism at %s: threshold %s FE per tick, duration %s s, progress %s s, %s",
   "command.oneforallsurvival.mechanism.state.active": "active",
-  "command.oneforallsurvival.mechanism.state.idle": "idle"
+  "command.oneforallsurvival.mechanism.state.idle": "idle",
+  "item.oneforallsurvival.copper_coin": "Copper Coin",
+  "item.oneforallsurvival.silver_coin": "Silver Coin",
+  "item.oneforallsurvival.gold_coin": "Gold Coin",
+  "item.oneforallsurvival.emerald_coin": "Emerald Coin",
+  "item.oneforallsurvival.ruby_coin": "Ruby Coin",
+  "economy.oneforallsurvival.unit.copper": "copper",
+  "economy.oneforallsurvival.unit.silver": "silver",
+  "economy.oneforallsurvival.unit.gold": "gold",
+  "economy.oneforallsurvival.unit.emerald": "emerald",
+  "economy.oneforallsurvival.unit.ruby": "ruby",
+  "tooltip.oneforallsurvival.coin.value": "Value: %s",
+  "tooltip.oneforallsurvival.coin.total": "Stack total: %s"
 }

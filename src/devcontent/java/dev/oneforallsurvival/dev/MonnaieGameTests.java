@@ -1,0 +1,190 @@
+package dev.oneforallsurvival.dev;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import dev.oneforallsurvival.bench.BenchCatalog;
+import dev.oneforallsurvival.bench.BenchTimes;
+import dev.oneforallsurvival.economy.Coin;
+import dev.oneforallsurvival.economy.CoinMath;
+import dev.oneforallsurvival.economy.CoinRecipeGuard;
+import net.minecraft.core.NonNullList;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.gametest.framework.GameTest;
+import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.contents.TranslatableContents;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.crafting.CookingBookCategory;
+import net.minecraft.world.item.crafting.CraftingBookCategory;
+import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.world.item.crafting.Recipe;
+import net.minecraft.world.item.crafting.RecipeManager;
+import net.minecraft.world.item.crafting.ShapelessRecipe;
+import net.minecraft.world.item.crafting.SmeltingRecipe;
+import net.minecraftforge.gametest.GameTestHolder;
+import net.minecraftforge.gametest.PrefixGameTestTemplate;
+
+/** Les pièces de l'économie : objets, change, garde des recettes, établi, infobulle. */
+@GameTestHolder("oneforallsurvival")
+@PrefixGameTestTemplate(false)
+public final class MonnaieGameTests {
+
+    private static final String LOT = "monnaie_pieces";
+
+    private MonnaieGameTests() {}
+
+    private static ResourceLocation id(String path) {
+        return new ResourceLocation("oneforallsurvival", path);
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT)
+    public static void lesCinqPiecesExistent(GameTestHelper helper) {
+        long[] valeurs = {1, 10, 100, 1000, 10000};
+        String[] noms = {"copper", "silver", "gold", "emerald", "ruby"};
+        for (Coin coin : Coin.values()) {
+            ResourceLocation id = id(noms[coin.ordinal()] + "_coin");
+            helper.assertTrue(BuiltInRegistries.ITEM.containsKey(id), "objet manquant : " + id);
+            helper.assertTrue(coin.item() == BuiltInRegistries.ITEM.get(id), "Coin.item() != " + id);
+            helper.assertTrue(Coin.fromItem(coin.item()).orElse(null) == coin, "fromItem : " + id);
+            helper.assertTrue(coin.value() == valeurs[coin.ordinal()], "valeur de " + coin + " : " + coin.value());
+            helper.assertTrue(CoinMath.valueOf(new ItemStack(coin.item(), 3)) == 3 * valeurs[coin.ordinal()],
+                    "valeur d'une pile de " + coin);
+            helper.assertTrue(new ItemStack(coin.item()).is(BenchCatalog.TABLE_ONLY), id + " n'est pas dans table_only");
+        }
+        helper.assertTrue(Coin.fromItem(Items.GOLD_INGOT).isEmpty(), "un lingot d'or n'est pas une pièce");
+        helper.assertTrue(CoinMath.valueOf(new ItemStack(Items.GOLD_INGOT, 5)) == 0, "un lingot d'or vaut 0");
+        helper.assertTrue(CoinMath.valueOf(ItemStack.EMPTY) == 0, "une pile vide vaut 0");
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT)
+    public static void leChangeDescendALaTable(GameTestHelper helper) {
+        RecipeManager manager = helper.getLevel().getServer().getRecipeManager();
+        helper.assertTrue(CoinRecipeGuard.CHANGE_RECIPES.size() == 4, "quatre recettes de change attendues");
+        int deCuivreAuRubis = 0;
+        for (ResourceLocation id : CoinRecipeGuard.CHANGE_RECIPES) {
+            Recipe<?> recette = manager.byKey(id).orElse(null);
+            helper.assertTrue(recette instanceof ShapelessRecipe, "recette de change absente ou non sans forme : " + id);
+            ItemStack resultat = recette.getResultItem(helper.getLevel().registryAccess());
+            Coin sortie = Coin.fromItem(resultat.getItem()).orElse(null);
+            helper.assertTrue(sortie != null, "le résultat de " + id + " n'est pas une pièce");
+            long entree = 0;
+            Coin pieceEntree = null;
+            for (Ingredient ingredient : recette.getIngredients()) {
+                ItemStack[] choix = ingredient.getItems();
+                helper.assertTrue(choix.length == 1, "ingrédient ambigu dans " + id);
+                Coin coin = Coin.fromItem(choix[0].getItem()).orElse(null);
+                helper.assertTrue(coin != null && (pieceEntree == null || pieceEntree == coin),
+                        "ingrédient de " + id + " : " + choix[0]);
+                pieceEntree = coin;
+                entree += coin.value();
+            }
+            long sortieValeur = CoinMath.valueOf(resultat);
+            helper.assertTrue(entree == sortieValeur, id + " : entrée " + entree + ", sortie " + sortieValeur);
+            helper.assertTrue(pieceEntree.ordinal() - sortie.ordinal() == 1,
+                    id + " ne descend pas d'une coupure : " + pieceEntree + " -> " + sortie);
+            helper.assertTrue(recette.getIngredients().size() == 1 && resultat.getCount() == 10, id + " : 1 pour 10");
+            deCuivreAuRubis++;
+        }
+        helper.assertTrue(deCuivreAuRubis == 4, "recettes vérifiées : " + deCuivreAuRubis);
+        // Aucune recette de la table ne regroupe : rien ne produit une pièce hors du change vers le bas.
+        for (Recipe<?> r : manager.getRecipes()) {
+            ItemStack out = r.getResultItem(helper.getLevel().registryAccess());
+            if (!out.isEmpty() && Coin.fromItem(out.getItem()).isPresent()) {
+                helper.assertTrue(CoinRecipeGuard.CHANGE_RECIPES.contains(r.getId()), "recette de pièce inattendue : " + r.getId());
+            }
+        }
+        helper.succeed();
+    }
+
+    private static Recipe<?> fabrique(ResourceLocation id, Coin coin) {
+        return new ShapelessRecipe(id, "", CraftingBookCategory.MISC, new ItemStack(coin.item(), 1),
+                NonNullList.of(Ingredient.EMPTY, Ingredient.of(Items.GOLD_INGOT)));
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT)
+    public static void uneRecetteQuiFabriqueUnePieceEstRetiree(GameTestHelper helper) {
+        RecipeManager vivant = helper.getLevel().getServer().getRecipeManager();
+        RegistryAccess acces = helper.getLevel().registryAccess();
+        ResourceLocation changeId = id("coin_change/silver_to_copper");
+        Recipe<?> change = vivant.byKey(changeId).orElseThrow();
+        ResourceLocation intruse = new ResourceLocation("autre_mod", "pieces_gratuites");
+        ResourceLocation faux = id("coin_change/gratuit");
+        ResourceLocation cuisson = new ResourceLocation("autre_mod", "fondre_une_piece");
+        ResourceLocation lingot = new ResourceLocation("autre_mod", "lingot_normal");
+        Recipe<?> fondre = new SmeltingRecipe(cuisson, "", CookingBookCategory.MISC, Ingredient.of(Items.GOLD_INGOT),
+                new ItemStack(Coin.GOLD.item()), 0.1F, 200);
+        Recipe<?> ordinaire = new ShapelessRecipe(lingot, "", CraftingBookCategory.MISC, new ItemStack(Items.GOLD_INGOT),
+                NonNullList.of(Ingredient.EMPTY, Ingredient.of(Items.GOLD_NUGGET)));
+
+        // Un manager à part : le vrai ne doit pas bouger.
+        RecipeManager essai = new RecipeManager();
+        essai.replaceRecipes(List.of(change, fabrique(intruse, Coin.RUBY), fabrique(faux, Coin.COPPER), fondre, ordinaire));
+        List<ResourceLocation> retirees = CoinRecipeGuard.filter(essai, acces);
+
+        helper.assertTrue(Set.copyOf(retirees).equals(Set.of(intruse, faux, cuisson)), "retirées : " + retirees);
+        helper.assertTrue(essai.byKey(changeId).isPresent(), "la recette de change a été retirée");
+        helper.assertTrue(essai.byKey(lingot).isPresent(), "une recette sans pièce a été retirée");
+        helper.assertTrue(essai.byKey(intruse).isEmpty() && essai.byKey(faux).isEmpty() && essai.byKey(cuisson).isEmpty(),
+                "une recette de pièce est restée");
+        helper.assertTrue(CoinRecipeGuard.filter(essai, acces).isEmpty(), "un second passage retire encore quelque chose");
+        helper.assertTrue(vivant.byKey(changeId).isPresent(), "le vrai manager a perdu le change");
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT)
+    public static void leChangeResteSurLaTable(GameTestHelper helper) {
+        RecipeManager vivant = helper.getLevel().getServer().getRecipeManager();
+        RegistryAccess acces = helper.getLevel().registryAccess();
+        // « oneforallsurvival » est un mod géré et la liste des objets de table est vide : seul le tag retient les pièces.
+        Set<String> mods = Set.of("oneforallsurvival");
+        for (ResourceLocation id : CoinRecipeGuard.CHANGE_RECIPES) {
+            helper.assertTrue(BenchCatalog.current().byId(id).isEmpty(), "le change " + id + " est au catalogue");
+            helper.assertTrue(vivant.byKey(id).isPresent(), "le change " + id + " a quitté la table");
+            Recipe<?> recette = vivant.byKey(id).orElseThrow();
+            helper.assertTrue(!BenchCatalog.isManaged(recette, acces, mods, Set.of()), id + " serait pris par l'établi");
+        }
+        RecipeManager essai = new RecipeManager();
+        List<Recipe<?>> lesHuit = new ArrayList<>();
+        for (ResourceLocation id : CoinRecipeGuard.CHANGE_RECIPES) {
+            lesHuit.add(vivant.byKey(id).orElseThrow());
+        }
+        essai.replaceRecipes(lesHuit);
+        BenchCatalog catalogue = BenchCatalog.extract(essai, acces, mods, Set.of(), Set.of(), Map.of(),
+                new BenchTimes.Params(4, 1, 600));
+        helper.assertTrue(catalogue.recipes().isEmpty() && essai.getRecipes().size() == 4,
+                "extraction : " + catalogue.recipes().size() + " au catalogue, " + essai.getRecipes().size() + " sur la table");
+        helper.assertTrue(BenchCatalog.isTableOnly(id("gold_coin")), "gold_coin n'est pas table_only");
+        helper.assertTrue(!BenchCatalog.isTableOnly(id("engineer_bench")), "l'établi ne doit pas être table_only");
+        helper.succeed();
+    }
+
+    private static String arg(Component ligne) {
+        return ligne.getContents() instanceof TranslatableContents t && t.getArgs().length > 0
+                ? ((Component) t.getArgs()[0]).getString() : "";
+    }
+
+    private static String cle(Component ligne) {
+        return ligne.getContents() instanceof TranslatableContents t ? t.getKey() : "";
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT)
+    public static void uneInfobulleDonneLaValeur(GameTestHelper helper) {
+        List<Component> seule = new ItemStack(Coin.GOLD.item()).getTooltipLines(null, TooltipFlag.NORMAL);
+        helper.assertTrue(seule.stream().anyMatch(l -> cle(l).equals("tooltip.oneforallsurvival.coin.value")
+                && arg(l).startsWith("1 ")), "pas de ligne de valeur pour une pièce d'or : " + seule);
+        helper.assertTrue(seule.stream().noneMatch(l -> cle(l).equals("tooltip.oneforallsurvival.coin.total")),
+                "total affiché pour une pièce seule");
+        List<Component> pile = new ItemStack(Coin.GOLD.item(), 7).getTooltipLines(null, TooltipFlag.NORMAL);
+        // 7 or = 700 cuivres = 7 or ; la valeur d'une pièce reste « 1 or ».
+        helper.assertTrue(pile.stream().anyMatch(l -> cle(l).equals("tooltip.oneforallsurvival.coin.total")
+                && arg(l).startsWith("7 ")), "pas de total pour une pile de 7 : " + pile);
+        helper.succeed();
+    }
+}
