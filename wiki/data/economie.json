@@ -30,8 +30,8 @@
       "what": "Cinq coupures, du cuivre au rubis ; dix pièces valent la suivante.",
       "who": {"fabrique": "Personne", "utilise": "Tous"},
       "steps": [
-        "Changer à la table de fabrication : 1 pièce donne 10 pièces de la coupure du dessous.",
-        "Regrouper 10 pièces en 1 par le bouton « Regrouper » de la bourse ou du coffre-fort.",
+        "Changer vers le bas à la table de fabrication : 1 pièce donne 10 pièces de la coupure du dessous.",
+        "Changer dans les deux sens dans la bourse ou le coffre-fort : panneau « Change » et bouton « Regrouper » (voir « Changer ses pièces »).",
         "L'infobulle donne la valeur, ou le total d'une pile."
       ],
       "numbers": [
@@ -45,7 +45,29 @@
         "Aucune recette ne crée de pièce, hors le change à valeur égale ; les autres sont retirées et signalées au journal au chargement.",
         "Valeurs réglables dans la config du serveur ; si elles ne donnent pas un rapport de 10, le change à la table est désactivé.",
         "Le rubis ne naît que d'une injection de l'équipe ou du regroupement de 10 émeraudes.",
-        "La mort d'un joueur n'a pas été essayée avec des pièces."
+        "Les pièces perdues à la mort, dans la lave, dans le vide ou disparues au sol sont comptées au registre : vérifié en GameTest, pas encore en jeu réel."
+      ]
+    },
+    {
+      "id": "changer",
+      "name": "Changer ses pièces",
+      "kind": "systeme",
+      "status": "dispo",
+      "lot": "Lot E1",
+      "image": null,
+      "what": "Où et comment passer d'une coupure à l'autre, toujours à valeur égale.",
+      "who": {"utilise": "Tous"},
+      "steps": [
+        "À la table de fabrication, vers le bas seulement : une pièce dans la grille donne 10 pièces de la coupure du dessous.",
+        "Dans la bourse ou le coffre-fort, panneau « Change » à droite de l'écran : « 1 or → 10 argent » casse une pièce, « 10 argent → 1 or » regroupe une paire. Clic : une fois ; Maj + clic : autant que possible.",
+        "Le bouton « Regrouper » du même écran regroupe tout le contenu d'un coup, 10 pour 1, de proche en proche.",
+        "Un bouton grisé dit pourquoi dans sa bulle : pas assez de pièces, plus de place, ou valeurs de la config qui ne donnent pas un rapport de 10.",
+        "Plus tard, le changeur (lot E4) fera le change en ville."
+      ],
+      "flow": ["Pièces en vrac", "Bourse ou coffre-fort", "Change", "Pièces en vrac"],
+      "staff": [
+        "Le change porte sur le contenu de la bourse ou du coffre-fort, pas sur les pièces en vrac : on dépose, on change, on retire.",
+        "Le serveur calcule lui-même « autant que possible » ; aucune pièce n'est créée ni détruite, rien n'est écrit au registre."
       ]
     },
     {
@@ -150,13 +172,14 @@
       "who": {"fabrique": "Tous", "pose": "Propriétaire, un seul", "utilise": "Propriétaire, équipe", "casse": "Propriétaire (vide), équipe"},
       "steps": [
         "Fabriquer sur la table : 7 lingots de fer, un levier, un bloc de fer. Un second est refusé à la pose.",
-        "L'ouvrir : le total, une ligne par coupure, retirer 1, 10 ou 64, « Déposer tout » et « Regrouper ».",
+        "L'ouvrir : le total en haut, une ligne par coupure avec les boutons 1, 10 et 64. Clic gauche : déposer ce nombre (les pièces en vrac d'abord, puis celles des bourses). Clic droit : retirer ce nombre (en vrac d'abord, puis dans la première bourse ; ce qui ne rentre pas reste au coffre).",
+        "« Déposer tout », « Regrouper » et le panneau « Change » ; chaque bouton a une bulle d'aide qui dit aussi quel sens est indisponible.",
         "Le compte est gardé par le serveur : il survit à une zone déchargée et à un bloc cassé."
       ],
       "flow": ["Inventaire", "Déposer tout", "Compte du serveur"],
       "numbers": [
         {"k": "Exemplaires", "v": "1 par joueur"},
-        {"k": "Retraits", "v": "1, 10 ou 64 par clic"}
+        {"k": "Par clic", "v": "1, 10 ou 64 pièces, à déposer ou retirer"}
       ],
       "staff": [
         "Le propriétaire ne le casse que vide ; l'équipe le casse plein, le contenu reste au nom du propriétaire et réapparaît dans son prochain coffre-fort.",
@@ -180,7 +203,7 @@
       "steps": [
         "La fabriquer sur la table : une ficelle et trois cuirs.",
         "Dans l'inventaire, elle ramasse les pièces au sol avant l'inventaire.",
-        "Clic droit : son écran (déposer tout, retirer, regrouper)."
+        "Clic droit : son écran. Boutons 1, 10 et 64 par coupure : clic gauche pour déposer des pièces en vrac de l'inventaire, clic droit pour les retirer en vrac ; « Déposer tout », « Regrouper » et le panneau « Change »."
       ],
       "staff": [
         "Se perd ou se vole comme tout objet.",
@@ -441,7 +464,7 @@
       ],
       "steps": [
         "/eco give <joueur> <montant> <motif> : crée la somme chez le joueur.",
-        "/eco take <joueur> <montant> <motif> : prend dans l'inventaire puis dans les bourses, jamais en partie.",
+        "/eco take <joueur> <montant> <motif> : prend d'abord dans les bourses, puis dans l'inventaire si elles ne suffisent pas, jamais en partie.",
         "Niveau de permission 2 ; montants en cuivres."
       ]
     },

@@ -71,7 +71,7 @@ En plus :
 | Coffre-fort | **Un par joueur.** Seuls le propriétaire et l'équipe l'ouvrent. Le propriétaire ne le casse que vide. L'équipe peut le casser plein : le contenu reste au nom du propriétaire et réapparaît dans son prochain coffre-fort. Pas de limite de quantité, 5 lignes (une par coupure) avec déposer et retirer. Le forçage au crochetage arrive avec le lot du policier (feature 67), l'impôt avec celui du maire. | Feature 85 ; « contenu gardé par le serveur, pas seulement dans le bloc » |
 | Bourse | Un objet qui garde le nombre de chaque coupure, sans limite. Portée n'importe où dans l'inventaire, elle **ramasse** les pièces au sol. Clic droit : un écran pour déposer et retirer. Son infobulle donne le total. Elle offre au code l'opération `payer(montant)` qui rend la monnaie exacte, utilisée à partir du lot E2. | Feature 69 |
 | Somme de départ | 500 cuivres, soit 5 pièces d'or, donnés à la **première connexion** d'un UUID et notés dans un `SavedData`. Si l'inventaire est plein, le reste tombe au sol aux pieds du joueur. | Feature 88 |
-| Commandes de l'équipe | `/eco give <joueur> <montant> <motif>`, `/eco take <joueur> <montant> <motif>` (prend dans l'inventaire puis la bourse, jamais partiel), `/eco stats`, `/eco ledger [page]` | Features 87 et 77 |
+| Commandes de l'équipe | `/eco give <joueur> <montant> <motif>`, `/eco take <joueur> <montant> <motif>` (prend d'abord dans les bourses, puis dans l'inventaire si elles ne suffisent pas, jamais partiel ; ordre retenu à la passe finale du 2026-11-13), `/eco stats`, `/eco ledger [page]` | Features 87 et 77 |
 | Tableau de bord | Il montre : le créé par source (butin et quêtes à 0 jusqu'aux lots E4 et E5) ; le détruit par cause (lave et feu, vide, disparition au sol, retrait par l'équipe) ; la masse exacte des coffres-forts ; la masse en circulation (créé moins détruit). Les lignes des lots suivants (trésor, salaires, factures, ventes) sont marquées « pas encore en service ». | Feature 77 |
 | Registre | 10 000 lignes au plus, les plus anciennes effacées d'abord, mais les totaux par source ne sont jamais effacés. | « Nombre de lignes plafonné » |
 | Visuels | Les pièces reprennent les modèles et textures 64 × 64 de `art/pieces-monnaie/`. Bourse et coffre-fort : textures produites par script, dans le style des lots précédents. | Cahier, section 3 |
@@ -175,7 +175,7 @@ Règles :
   - l'UUID est noté avant de donner.
 - **Commandes** (niveau 2) :
   - `give` crée, comptée `STAFF`.
-  - `take` prend dans l'inventaire puis dans la bourse, rend la monnaie si besoin, et n'est jamais partiel ; elle est comptée `STAFF` en destruction. Un montant manquant fait échouer la commande sans rien prendre.
+  - `take` prend d'abord dans les bourses (seules, si elles suffisent), sinon dans tout ce qui est porté, bourses d'abord (ordre retenu à la passe finale du 2026-11-13), rend la monnaie si besoin, et n'est jamais partiel ; elle est comptée `STAFF` en destruction. Un montant manquant fait échouer la commande sans rien prendre.
   - `stats` affiche le tableau de bord décrit dans les décisions.
   - `ledger` pagine le registre.
 
