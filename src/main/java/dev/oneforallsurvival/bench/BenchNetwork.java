@@ -7,6 +7,9 @@ import dev.oneforallsurvival.debug.IslandDebugRequest;
 import dev.oneforallsurvival.debug.IslandDebugResponse;
 import dev.oneforallsurvival.economy.PurseActionPacket;
 import dev.oneforallsurvival.economy.SafeActionPacket;
+import dev.oneforallsurvival.economy.invoice.InvoiceFormPacket;
+import dev.oneforallsurvival.economy.invoice.InvoiceIssuePacket;
+import dev.oneforallsurvival.economy.invoice.InvoicePayPacket;
 import dev.oneforallsurvival.economy.stall.StallActionPacket;
 import dev.oneforallsurvival.economy.stall.StallCashPacket;
 import dev.oneforallsurvival.economy.stall.StallLedgerPacket;
@@ -72,6 +75,10 @@ public final class BenchNetwork {
     public static final int ID_STALL_ACTION = 15;
     /** Une page du registre d'un étal, pour celui qui le gère. */
     public static final int ID_STALL_LEDGER = 16;
+    /** La facture : ouvrir le formulaire (serveur vers client), émettre, payer (client vers serveur). */
+    public static final int ID_INVOICE_FORM = 17;
+    public static final int ID_INVOICE_ISSUE = 18;
+    public static final int ID_INVOICE_PAY = 19;
 
     /** Clé de traduction d'un refus : {@code message.oneforallsurvival.bench.refused.<résultat>}. */
     public static final String REFUSED_KEY = "message.oneforallsurvival.bench.refused.";
@@ -135,6 +142,15 @@ public final class BenchNetwork {
         CHANNEL.messageBuilder(StallLedgerPacket.class, ID_STALL_LEDGER, NetworkDirection.PLAY_TO_CLIENT)
                 .encoder(StallLedgerPacket::encode).decoder(StallLedgerPacket::decode)
                 .consumerMainThread(StallLedgerPacket::handle).add();
+        CHANNEL.messageBuilder(InvoiceFormPacket.class, ID_INVOICE_FORM, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(InvoiceFormPacket::encode).decoder(InvoiceFormPacket::decode)
+                .consumerMainThread(InvoiceFormPacket::handle).add();
+        CHANNEL.messageBuilder(InvoiceIssuePacket.class, ID_INVOICE_ISSUE, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(InvoiceIssuePacket::encode).decoder(InvoiceIssuePacket::decode)
+                .consumerMainThread(InvoiceIssuePacket::handle).add();
+        CHANNEL.messageBuilder(InvoicePayPacket.class, ID_INVOICE_PAY, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(InvoicePayPacket::encode).decoder(InvoicePayPacket::decode)
+                .consumerMainThread(InvoicePayPacket::handle).add();
     }
 
     // --- Serveur vers client -----------------------------------------------------------------

@@ -51,6 +51,8 @@ public final class JoueurDeTest {
     private final List<IslandDebugResponse> reponsesDebug = new ArrayList<>();
     /** Les pages du registre d'un étal reçues, décodées depuis les octets réellement envoyés. */
     private final List<dev.oneforallsurvival.economy.stall.StallLedgerPacket> registresEtal = new ArrayList<>();
+    /** Les ouvertures du formulaire de facture reçues, décodées depuis les octets réellement envoyés. */
+    private final List<dev.oneforallsurvival.economy.invoice.InvoiceFormPacket> formulairesFacture = new ArrayList<>();
     /** Les clés des messages (chat ou barre d'action) reçus, dans l'ordre ; un texte brut est gardé tel quel. */
     private final List<String> messages = new ArrayList<>();
     /** Les hauteurs des sons joués au joueur (paquets de son), dans l'ordre. */
@@ -96,6 +98,7 @@ public final class JoueurDeTest {
         simule.listes.clear();
         simule.files.clear();
         simule.ecransAbonne.clear();
+        simule.formulairesFacture.clear();
         simule.menus.clear();
         simule.messages.clear();
         return simule;
@@ -151,6 +154,8 @@ public final class JoueurDeTest {
                     reponsesDebug.add(IslandDebugResponse.decode(donnees));
                 } else if (discriminant == BenchNetwork.ID_STALL_LEDGER) {
                     registresEtal.add(dev.oneforallsurvival.economy.stall.StallLedgerPacket.decode(donnees));
+                } else if (discriminant == BenchNetwork.ID_INVOICE_FORM) {
+                    formulairesFacture.add(dev.oneforallsurvival.economy.invoice.InvoiceFormPacket.decode(donnees));
                 }
             } finally {
                 donnees.release();
@@ -211,6 +216,14 @@ public final class JoueurDeTest {
         lire();
         List<dev.oneforallsurvival.economy.stall.StallLedgerPacket> out = new ArrayList<>(registresEtal);
         registresEtal.clear();
+        return out;
+    }
+
+    /** Les ouvertures du formulaire de facture reçues depuis le dernier appel, retirées. */
+    public List<dev.oneforallsurvival.economy.invoice.InvoiceFormPacket> formulairesFactureRecus() {
+        lire();
+        List<dev.oneforallsurvival.economy.invoice.InvoiceFormPacket> out = new ArrayList<>(formulairesFacture);
+        formulairesFacture.clear();
         return out;
     }
 

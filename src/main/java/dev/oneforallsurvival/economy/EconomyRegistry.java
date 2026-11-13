@@ -98,8 +98,15 @@ public final class EconomyRegistry {
     public static final RegistryObject<MenuType<dev.oneforallsurvival.economy.trade.TradeMenu>> TRADE_MENU =
             MENUS.register("trade", () -> IForgeMenuType.create(dev.oneforallsurvival.economy.trade.TradeMenu::fromNetwork));
 
-    /** Le reçu d'un échange (et, plus tard, d'une facture) : un papier, empilable à 1. */
+    /** Le reçu d'un échange ou d'une facture réglée : un papier, empilable à 1. */
     public static final RegistryObject<Item> RECEIPT = ITEMS.register("receipt", () -> new ReceiptItem(new Item.Properties()));
+
+    /** Le carnet de factures (lot E2) : fabriqué sur la table par n'importe qui, il ne s'use pas. */
+    public static final RegistryObject<Item> INVOICE_BOOK = ITEMS.register("invoice_book",
+            () -> new dev.oneforallsurvival.economy.invoice.InvoiceBookItem(new Item.Properties()));
+    /** La facture : un papier, empilable à 1, vue du registre des factures ; ne se fabrique pas. */
+    public static final RegistryObject<Item> INVOICE = ITEMS.register("invoice",
+            () -> new dev.oneforallsurvival.economy.invoice.InvoiceItem(new Item.Properties()));
 
     private static final Map<Coin, RegistryObject<Item>> COINS = new EnumMap<>(Coin.class);
 
@@ -153,6 +160,7 @@ public final class EconomyRegistry {
         items.add(MARKET_STALL_ITEM);
         items.add(PURSE);
         items.add(RECEIPT);
+        items.add(INVOICE_BOOK);
         return items;
     }
 }

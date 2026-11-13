@@ -78,6 +78,7 @@ public final class OneForAllSurvival {
         MinecraftForge.EVENT_BUS.register(new MoneyGuard());
         MinecraftForge.EVENT_BUS.register(new TradeService.Events());
         MinecraftForge.EVENT_BUS.register(new TradeCommands());
+        MinecraftForge.EVENT_BUS.register(new dev.oneforallsurvival.economy.invoice.InvoiceCommands());
         MinecraftForge.EVENT_BUS.register(new WorkshopTicker());
         MinecraftForge.EVENT_BUS.register(new FoodEvents());
         MinecraftForge.EVENT_BUS.register(new LightningEvents());
@@ -95,6 +96,8 @@ public final class OneForAllSurvival {
         modEventBus.addListener(EconomyConfig::onConfigEvent);
         MinecraftForge.EVENT_BUS.addListener(StartingMoney::onLoggedIn);
         MinecraftForge.EVENT_BUS.addListener(CommerceDelivery::onLoggedIn);
+        // Après la livraison des attentes : l'avis d'un paiement reçu peut dire « en attente ».
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.invoice.InvoiceService::onLoggedIn);
         MinecraftForge.EVENT_BUS.addListener(CommerceDelivery::onRespawn);
         MinecraftForge.EVENT_BUS.addListener(CommerceDelivery::onServerTick);
         MinecraftForge.EVENT_BUS.addListener(CommerceDelivery::onServerStarted);

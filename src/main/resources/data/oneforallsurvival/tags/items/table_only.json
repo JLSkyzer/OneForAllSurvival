@@ -7,6 +7,7 @@
     "oneforallsurvival:ruby_coin",
     "oneforallsurvival:safe",
     "oneforallsurvival:market_stall",
-    "oneforallsurvival:purse"
+    "oneforallsurvival:purse",
+    "oneforallsurvival:invoice_book"
   ]
 }
