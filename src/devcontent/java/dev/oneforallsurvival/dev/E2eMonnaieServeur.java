@@ -11,6 +11,7 @@ import dev.oneforallsurvival.economy.EconomyLedger;
 import dev.oneforallsurvival.economy.MoneySource;
 import dev.oneforallsurvival.economy.PlayerCoins;
 import dev.oneforallsurvival.economy.SafeAccounts;
+import dev.oneforallsurvival.economy.CoinActions;
 import dev.oneforallsurvival.economy.SafeActionPacket;
 import dev.oneforallsurvival.economy.SafeBlock;
 import dev.oneforallsurvival.economy.SafeMenu;
@@ -171,8 +172,8 @@ public final class E2eMonnaieServeur {
         boolean ouvert = SafeBlock.open(joueur, coffre);
         List<String> messages = premier.messagesRecus();
         boolean menuDuCoffre = joueur.containerMenu instanceof SafeMenu;
-        SafeActionPacket.Result retrait = SafeActionPacket.apply(joueur, SafeActionPacket.withdraw(coffre, Coin.COPPER, 1));
-        SafeActionPacket.Result depot = SafeActionPacket.apply(joueur, SafeActionPacket.deposit(coffre));
+        CoinActions.Result retrait = SafeActionPacket.apply(joueur, SafeActionPacket.withdraw(coffre, Coin.COPPER, 1));
+        CoinActions.Result depot = SafeActionPacket.apply(joueur, SafeActionPacket.depositAll(coffre));
         long compteApres = SafeAccounts.get(serveur).totalMass();
         premier.quitter();
 

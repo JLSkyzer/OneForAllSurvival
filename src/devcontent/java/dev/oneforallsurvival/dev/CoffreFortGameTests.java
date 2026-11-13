@@ -13,7 +13,8 @@ import dev.oneforallsurvival.economy.PlayerCoins;
 import dev.oneforallsurvival.economy.Purse;
 import dev.oneforallsurvival.economy.SafeAccounts;
 import dev.oneforallsurvival.economy.SafeActionPacket;
-import dev.oneforallsurvival.economy.SafeActionPacket.Result;
+import dev.oneforallsurvival.economy.CoinActions.Result;
+import dev.oneforallsurvival.economy.CoinRequest;
 import dev.oneforallsurvival.economy.SafeBlock;
 import dev.oneforallsurvival.economy.SafeBlockEntity;
 import dev.oneforallsurvival.economy.SafeMenu;
@@ -39,6 +40,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
@@ -315,9 +317,9 @@ public final class CoffreFortGameTests {
             // Même en ayant le paquet : ni droit, ni écran.
             helper.assertTrue(agir(autre, SafeActionPacket.withdraw(helper.absolutePos(A), Coin.COPPER, 1)) == Result.NOT_ALLOWED,
                     "retrait par un autre");
-            helper.assertTrue(agir(autre, SafeActionPacket.deposit(helper.absolutePos(A))) == Result.NOT_ALLOWED,
+            helper.assertTrue(agir(autre, SafeActionPacket.depositAll(helper.absolutePos(A))) == Result.NOT_ALLOWED,
                     "dépôt par un autre");
-            helper.assertTrue(agir(autre, SafeActionPacket.group(helper.absolutePos(A))) == Result.NOT_ALLOWED,
+            helper.assertTrue(agir(autre, SafeActionPacket.groupAll(helper.absolutePos(A))) == Result.NOT_ALLOWED,
                     "regroupement par un autre");
             helper.assertTrue(comptes.count(proprio.uuid(), Coin.COPPER) == 5 && porte(autre, Coin.COPPER) == 0,
                     "rien ne devait bouger");
@@ -375,11 +377,11 @@ public final class CoffreFortGameTests {
             clicDroit(helper, j, A);
             helper.assertTrue(ouvert(j), "l'écran devait s'ouvrir");
 
-            helper.assertTrue(agir(j, SafeActionPacket.deposit(abs)) == Result.DONE, "dépôt");
+            helper.assertTrue(agir(j, SafeActionPacket.depositAll(abs)) == Result.DONE, "dépôt");
             helper.assertTrue(valeurPortee(j) == 0 && comptes.total(j.uuid()) == valeur,
                     "tout devait passer au compte : porté " + valeurPortee(j) + ", compte " + comptes.total(j.uuid()));
             helper.assertTrue(comptes.totalMass() - masse == valeur, "la masse suit le compte");
-            helper.assertTrue(agir(j, SafeActionPacket.deposit(abs)) == Result.NOTHING, "rien à déposer");
+            helper.assertTrue(agir(j, SafeActionPacket.depositAll(abs)) == Result.NOTHING, "rien à déposer");
 
             helper.assertTrue(agir(j, SafeActionPacket.withdraw(abs, Coin.SILVER, 64)) == Result.DONE, "retrait de 64");
             helper.assertTrue(agir(j, SafeActionPacket.withdraw(abs, Coin.GOLD, 1)) == Result.DONE, "retrait de 1");
@@ -410,15 +412,15 @@ public final class CoffreFortGameTests {
             helper.assertTrue(agir(j, SafeActionPacket.withdraw(abs, Coin.RUBY, 1)) == Result.INSUFFICIENT, "aucun rubis");
             // Des montants ou coupures hors des boutons : refusés sans effet.
             for (int montant : new int[] {0, -1, 2, 5, 63, 65, 1000, Integer.MAX_VALUE, Integer.MIN_VALUE}) {
-                helper.assertTrue(agir(j, new SafeActionPacket(abs, SafeActionPacket.WITHDRAW, 0, montant)) == Result.BAD_REQUEST,
+                helper.assertTrue(agir(j, new SafeActionPacket(abs, new CoinRequest(CoinRequest.WITHDRAW, 0, montant, false))) == Result.BAD_REQUEST,
                         "montant " + montant);
             }
             for (int coupure : new int[] {-1, 5, 99, Integer.MAX_VALUE, Integer.MIN_VALUE}) {
-                helper.assertTrue(agir(j, new SafeActionPacket(abs, SafeActionPacket.WITHDRAW, coupure, 1)) == Result.BAD_REQUEST,
+                helper.assertTrue(agir(j, new SafeActionPacket(abs, new CoinRequest(CoinRequest.WITHDRAW, coupure, 1, false))) == Result.BAD_REQUEST,
                         "coupure " + coupure);
             }
             for (int action : new int[] {-1, 3, 99, Integer.MIN_VALUE}) {
-                helper.assertTrue(agir(j, new SafeActionPacket(abs, action, 0, 1)) == Result.BAD_REQUEST, "action " + action);
+                helper.assertTrue(agir(j, new SafeActionPacket(abs, new CoinRequest(action, 0, 1, false))) == Result.BAD_REQUEST, "action " + action);
             }
             helper.assertTrue(comptes.count(j.uuid(), Coin.COPPER) == 5 && porte(j, Coin.COPPER) == 0, "toujours rien");
             // Le retrait exact passe, et le compte ne descend pas sous zéro.
@@ -457,7 +459,7 @@ public final class CoffreFortGameTests {
             // Le dépôt ne perd rien non plus quand le compte est plein.
             comptes.deposit(j.uuid(), Coin.GOLD, SafeAccounts.MAX_PER_COIN - 1);
             j.joueur().getInventory().items.set(1, new ItemStack(Coin.GOLD.item(), 5));
-            helper.assertTrue(agir(j, SafeActionPacket.deposit(abs)) == Result.DONE, "dépôt jusqu'au plafond");
+            helper.assertTrue(agir(j, SafeActionPacket.depositAll(abs)) == Result.DONE, "dépôt jusqu'au plafond");
             helper.assertTrue(comptes.count(j.uuid(), Coin.GOLD) == SafeAccounts.MAX_PER_COIN && porte(j, Coin.GOLD) == 4,
                     "une seule pièce d'or a la place : porté " + porte(j, Coin.GOLD));
             helper.succeed();
@@ -596,12 +598,12 @@ public final class CoffreFortGameTests {
             BlockPos abs = helper.absolutePos(A);
             clicDroit(helper, j, A);
 
-            helper.assertTrue(agir(j, SafeActionPacket.group(abs)) == Result.DONE, "regroupement");
+            helper.assertTrue(agir(j, SafeActionPacket.groupAll(abs)) == Result.DONE, "regroupement");
             EnumMap<Coin, Long> apres = comptes.balance(j.uuid());
             helper.assertTrue(apres.get(Coin.COPPER) == 5 && apres.get(Coin.SILVER) == 5 && apres.get(Coin.GOLD) == 8
                     && apres.get(Coin.EMERALD) == 0, "après : " + apres);
             helper.assertTrue(comptes.total(j.uuid()) == valeur, "valeur égale");
-            helper.assertTrue(agir(j, SafeActionPacket.group(abs)) == Result.NOTHING, "rien de plus à regrouper");
+            helper.assertTrue(agir(j, SafeActionPacket.groupAll(abs)) == Result.NOTHING, "rien de plus à regrouper");
 
             // Le rapport vivant : si un rapport n'est pas 10, la paire est laissée telle quelle.
             UUID autre = essai.compteLibre();
@@ -664,6 +666,44 @@ public final class CoffreFortGameTests {
         }
     }
 
+    /**
+     * Pendant que l'écran est ouvert, l'inventaire du client suit les dépôts : le menu porte les cases de
+     * l'inventaire, synchronisées comme pour tout écran (avant, il fallait fermer l'écran).
+     */
+    @GameTest(template = "test/plancher", batch = LOT_B)
+    public static void lInventaireDuClientSuitPendantLEcran(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest j = essai.joueur("cf_client_inv");
+            poserEtVerifier(helper, j, A);
+            j.joueur().setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+            donner(j, Coin.GOLD, 3);
+            donner(j, Coin.SILVER, 20);
+            clicDroit(helper, j, A);
+            helper.assertTrue(ouvert(j), "écran ouvert");
+            AbstractContainerMenu serveur = j.joueur().containerMenu;
+            helper.assertTrue(serveur.slots.size() == 36, "les 36 cases de l'inventaire : " + serveur.slots.size());
+            FriendlyByteBuf tampon = new FriendlyByteBuf(Unpooled.buffer());
+            tampon.writeBlockPos(helper.absolutePos(A));
+            // Le client : un inventaire à part, rempli seulement par les paquets réellement envoyés.
+            SafeMenu client = SafeMenu.fromNetwork(serveur.containerId, new Inventory(j.joueur()), tampon);
+            j.synchroniser(client);
+            helper.assertTrue(client.carried(Coin.GOLD) == 3 && client.carried(Coin.SILVER) == 20,
+                    "à l'ouverture le client voit l'inventaire : or " + client.carried(Coin.GOLD));
+            // Le dépôt passe par le vrai paquet (réseau compris) ; le client est à jour sans fermer l'écran.
+            j.envoyer(SafeActionPacket.depositAll(helper.absolutePos(A)));
+            j.synchroniser(client);
+            helper.assertTrue(client.carried(Coin.GOLD) == 0 && client.carried(Coin.SILVER) == 0,
+                    "après le dépôt, le client voit un inventaire vide : or " + client.carried(Coin.GOLD) + ", argent "
+                            + client.carried(Coin.SILVER));
+            helper.assertTrue(client.count(Coin.GOLD) == 3 && client.count(Coin.SILVER) == 20 && client.total() == 500,
+                    "le compte du client : " + client.total());
+            helper.assertTrue(ouvert(j), "l'écran est resté ouvert");
+            // Le maj-clic sur une case ne fait rien (rien ne passe par le curseur vers le compte).
+            helper.assertTrue(serveur.quickMoveStack(j.joueur(), 0).isEmpty(), "maj-clic");
+            helper.succeed();
+        }
+    }
+
     @GameTest(template = "test/plancher", batch = LOT_B)
     public static void lEcranRecoitLeCompteMemeGrand(GameTestHelper helper) {
         try (Essai essai = new Essai(helper)) {
@@ -680,7 +720,7 @@ public final class CoffreFortGameTests {
             AbstractContainerMenu serveur = j.joueur().containerMenu;
             FriendlyByteBuf tampon = new FriendlyByteBuf(Unpooled.buffer());
             tampon.writeBlockPos(helper.absolutePos(A));
-            SafeMenu client = SafeMenu.fromNetwork(serveur.containerId, j.joueur().getInventory(), tampon);
+            SafeMenu client = SafeMenu.fromNetwork(serveur.containerId, new Inventory(j.joueur()), tampon);
             j.synchroniser(client);
             for (Coin coin : Coin.values()) {
                 helper.assertTrue(client.count(coin) == nombres[coin.ordinal()],
@@ -739,7 +779,7 @@ public final class CoffreFortGameTests {
             // Le paquet arrive après le départ : rien ne se passe, ni dans le compte, ni dans l'inventaire du parti.
             helper.assertTrue(SafeActionPacket.apply(joueur, SafeActionPacket.withdraw(helper.absolutePos(A), Coin.GOLD, 1)) == Result.GONE,
                     "retrait après le départ");
-            helper.assertTrue(SafeActionPacket.apply(joueur, SafeActionPacket.deposit(helper.absolutePos(A))) == Result.GONE,
+            helper.assertTrue(SafeActionPacket.apply(joueur, SafeActionPacket.depositAll(helper.absolutePos(A))) == Result.GONE,
                     "dépôt après le départ");
             helper.assertTrue(comptes.count(j.uuid(), Coin.GOLD) == 10 && comptes.count(j.uuid(), Coin.COPPER) == 0,
                     "le compte est intact");
@@ -773,8 +813,8 @@ public final class CoffreFortGameTests {
                     helper.assertTrue(j.messagesRecus().contains(SafeBlock.MESSAGE + "insufficient"),
                             "le second clic est refusé avec un message");
                     // Deux dépôts de suite : le second ne trouve plus rien.
-                    j.envoyer(SafeActionPacket.deposit(abs));
-                    j.envoyer(SafeActionPacket.deposit(abs));
+                    j.envoyer(SafeActionPacket.depositAll(abs));
+                    j.envoyer(SafeActionPacket.depositAll(abs));
                 } catch (RuntimeException e) {
                     essai.close();
                     throw e;
@@ -836,7 +876,7 @@ public final class CoffreFortGameTests {
             helper.assertTrue(ouvert(j), "l'écran devait s'ouvrir");
 
             // Tout part, bourse comprise ; la valeur est conservée.
-            helper.assertTrue(agir(j, SafeActionPacket.deposit(abs)) == Result.DONE, "dépôt");
+            helper.assertTrue(agir(j, SafeActionPacket.depositAll(abs)) == Result.DONE, "dépôt");
             helper.assertTrue(valeurPortee(j) == 0 && Purse.total(bourse) == 0, "plus rien sur le joueur : " + PlayerCoins.held(j.joueur()));
             helper.assertTrue(comptes.total(j.uuid()) == valeur, "le compte a tout : " + comptes.total(j.uuid()));
 

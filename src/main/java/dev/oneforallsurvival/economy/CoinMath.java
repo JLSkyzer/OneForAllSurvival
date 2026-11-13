@@ -102,6 +102,98 @@ public final class CoinMath {
         return out;
     }
 
+    // ---------------------------------------------------------------------------------------------
+    // Change d'une paire : casser une pièce, regrouper dix pièces (panneau « Change » des écrans)
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * La paire nommée par sa pièce du dessus ({@code upper}) et la coupure juste en dessous est-elle au rapport de
+     * 10 selon {@code value} ? Sans cela, ni casser ni regrouper ne serait à valeur égale. Faux pour le cuivre, qui
+     * n'a rien en dessous.
+     */
+    public static boolean atPar(Coin upper, ToLongFunction<Coin> value) {
+        if (upper.ordinal() == 0) {
+            return false;
+        }
+        Coin lower = Coin.values()[upper.ordinal() - 1];
+        return value.applyAsLong(upper) == value.applyAsLong(lower) * GROUP_SIZE;
+    }
+
+    /**
+     * Combien de pièces {@code upper} on peut casser, chacune en 10 de la coupure du dessous, sans que celle-ci
+     * dépasse {@code max} : 0 si la paire n'est pas au rapport de 10.
+     */
+    public static long maxBreaks(Map<Coin, Long> coins, Coin upper, ToLongFunction<Coin> value, long max) {
+        if (!atPar(upper, value)) {
+            return 0L;
+        }
+        Coin lower = Coin.values()[upper.ordinal() - 1];
+        long room = Math.max(0L, max - coins.getOrDefault(lower, 0L));
+        return Math.max(0L, Math.min(coins.getOrDefault(upper, 0L), room / GROUP_SIZE));
+    }
+
+    /**
+     * Combien de fois on peut regrouper 10 pièces de la coupure du dessous en 1 pièce {@code upper}, sans que
+     * celle-ci dépasse {@code max} : 0 si la paire n'est pas au rapport de 10.
+     */
+    public static long maxGroups(Map<Coin, Long> coins, Coin upper, ToLongFunction<Coin> value, long max) {
+        if (!atPar(upper, value)) {
+            return 0L;
+        }
+        Coin lower = Coin.values()[upper.ordinal() - 1];
+        long room = Math.max(0L, max - coins.getOrDefault(upper, 0L));
+        return Math.max(0L, Math.min(coins.getOrDefault(lower, 0L) / GROUP_SIZE, room));
+    }
+
+    /**
+     * Casse {@code times} pièces {@code upper}, chacune en 10 pièces de la coupure du dessous, à valeur égale.
+     *
+     * @return le nouveau contenu (coupures nulles omises), ou vide si ce n'est pas possible : rapport différent
+     *         de 10, pas assez de pièces, plus de place sous {@code max}, ou {@code times} pas strictement positif
+     */
+    public static Optional<EnumMap<Coin, Long>> breakOne(EnumMap<Coin, Long> coins, Coin upper, long times,
+            ToLongFunction<Coin> value, long max) {
+        if (times <= 0L || times > maxBreaks(coins, upper, value, max)) {
+            return Optional.empty();
+        }
+        Coin lower = Coin.values()[upper.ordinal() - 1];
+        EnumMap<Coin, Long> out = new EnumMap<>(coins);
+        out.merge(upper, -times, Long::sum);
+        out.merge(lower, times * GROUP_SIZE, Long::sum);
+        out.values().removeIf(n -> n == 0L);
+        return Optional.of(out);
+    }
+
+    /**
+     * Regroupe {@code times} fois 10 pièces de la coupure du dessous en 1 pièce {@code upper}, à valeur égale.
+     *
+     * @return le nouveau contenu (coupures nulles omises), ou vide si ce n'est pas possible : rapport différent
+     *         de 10, moins de 10 pièces du dessous par regroupement, plus de place sous {@code max}, ou
+     *         {@code times} pas strictement positif
+     */
+    public static Optional<EnumMap<Coin, Long>> groupPair(EnumMap<Coin, Long> coins, Coin upper, long times,
+            ToLongFunction<Coin> value, long max) {
+        if (times <= 0L || times > maxGroups(coins, upper, value, max)) {
+            return Optional.empty();
+        }
+        Coin lower = Coin.values()[upper.ordinal() - 1];
+        EnumMap<Coin, Long> out = new EnumMap<>(coins);
+        out.merge(lower, -times * GROUP_SIZE, Long::sum);
+        out.merge(upper, times, Long::sum);
+        out.values().removeIf(n -> n == 0L);
+        return Optional.of(out);
+    }
+
+    /** Une pièce {@code upper} cassée, avec les valeurs vivantes et le plafond du coffre-fort et de la bourse. */
+    public static Optional<EnumMap<Coin, Long>> breakOne(EnumMap<Coin, Long> coins, Coin upper) {
+        return breakOne(coins, upper, 1L, Coin::value, SafeAccounts.MAX_PER_COIN);
+    }
+
+    /** Dix pièces regroupées en une {@code upper}, avec les valeurs vivantes et le plafond. */
+    public static Optional<EnumMap<Coin, Long>> groupPair(EnumMap<Coin, Long> coins, Coin upper) {
+        return groupPair(coins, upper, 1L, Coin::value, SafeAccounts.MAX_PER_COIN);
+    }
+
     /** « 2 or 3 argent 5 cuivre », par clés de langue ; « 0 cuivre » pour un montant nul. */
     public static Component format(long amount) {
         EnumMap<Coin, Long> parts = decompose(amount);

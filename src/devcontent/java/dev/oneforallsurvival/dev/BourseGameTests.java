@@ -12,7 +12,8 @@ import dev.oneforallsurvival.economy.MoneyStorageRules;
 import dev.oneforallsurvival.economy.PlayerCoins;
 import dev.oneforallsurvival.economy.Purse;
 import dev.oneforallsurvival.economy.PurseActionPacket;
-import dev.oneforallsurvival.economy.PurseActionPacket.Result;
+import dev.oneforallsurvival.economy.CoinActions.Result;
+import dev.oneforallsurvival.economy.CoinRequest;
 import dev.oneforallsurvival.economy.PurseItem;
 import dev.oneforallsurvival.economy.PurseMenu;
 import dev.oneforallsurvival.bench.BenchCatalog;
@@ -30,6 +31,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.ContainerLevelAccess;
@@ -402,15 +404,15 @@ public final class BourseGameTests {
             helper.assertTrue(valeurPortee(j) == 250 + 200, "rien créé, rien perdu : " + valeurPortee(j));
             // Des montants, coupures, actions hors des boutons : refusés sans effet.
             for (int montant : new int[] {0, -1, 2, 5, 63, 65, 1000, Integer.MAX_VALUE, Integer.MIN_VALUE}) {
-                helper.assertTrue(agir(j, new PurseActionPacket(0, PurseActionPacket.WITHDRAW, 0, montant)) == Result.BAD_REQUEST,
+                helper.assertTrue(agir(j, new PurseActionPacket(0, new CoinRequest(CoinRequest.WITHDRAW, 0, montant, false))) == Result.BAD_REQUEST,
                         "montant " + montant);
             }
             for (int coupure : new int[] {-1, 5, 99, Integer.MAX_VALUE, Integer.MIN_VALUE}) {
-                helper.assertTrue(agir(j, new PurseActionPacket(0, PurseActionPacket.WITHDRAW, coupure, 1)) == Result.BAD_REQUEST,
+                helper.assertTrue(agir(j, new PurseActionPacket(0, new CoinRequest(CoinRequest.WITHDRAW, coupure, 1, false))) == Result.BAD_REQUEST,
                         "coupure " + coupure);
             }
             for (int action : new int[] {-1, 3, 99, Integer.MIN_VALUE}) {
-                helper.assertTrue(agir(j, new PurseActionPacket(0, action, 0, 1)) == Result.BAD_REQUEST, "action " + action);
+                helper.assertTrue(agir(j, new PurseActionPacket(0, new CoinRequest(action, 0, 1, false))) == Result.BAD_REQUEST, "action " + action);
             }
             // Une autre case que celle de l'écran : refusé.
             helper.assertTrue(agir(j, PurseActionPacket.withdraw(5, Coin.SILVER, 1)) == Result.NOT_OPEN, "mauvaise case");
@@ -438,26 +440,26 @@ public final class BourseGameTests {
             long valeur = valeurPortee(j);
             ouvrirEcran(j);
 
-            helper.assertTrue(agir(j, PurseActionPacket.deposit(0)) == Result.DONE, "dépôt");
+            helper.assertTrue(agir(j, PurseActionPacket.depositAll(0)) == Result.DONE, "dépôt");
             helper.assertTrue(PlayerCoins.heldLoose(j.joueur()).isEmpty(), "tout est passé dans la bourse");
             helper.assertTrue(Purse.count(bourse, Coin.COPPER) == 75 && Purse.count(bourse, Coin.SILVER) == 3
                             && Purse.count(autre, Coin.GOLD) == 4, "bourse " + Purse.contents(bourse) + ", l'autre " + Purse.contents(autre));
             helper.assertTrue(valeurPortee(j) == valeur, "valeur égale");
-            helper.assertTrue(agir(j, PurseActionPacket.deposit(0)) == Result.NOTHING, "plus rien à déposer");
+            helper.assertTrue(agir(j, PurseActionPacket.depositAll(0)) == Result.NOTHING, "plus rien à déposer");
 
             // Regrouper à valeur égale, au rapport vivant : 75 cuivres = 7 argent + 5, avec les 3 déjà là : 10 argent = 1 or.
-            helper.assertTrue(agir(j, PurseActionPacket.group(0)) == Result.DONE, "regroupement");
+            helper.assertTrue(agir(j, PurseActionPacket.groupAll(0)) == Result.DONE, "regroupement");
             EnumMap<Coin, Long> attendu = new EnumMap<>(Coin.class);
             attendu.put(Coin.COPPER, 5L);
             attendu.put(Coin.GOLD, 1L);
             helper.assertTrue(Purse.contents(bourse).equals(attendu), "75 cuivres + 3 argent = 1 or + 5 cuivres : " + Purse.contents(bourse));
             helper.assertTrue(valeurPortee(j) == valeur, "le regroupement garde la valeur");
-            helper.assertTrue(agir(j, PurseActionPacket.group(0)) == Result.NOTHING, "rien à regrouper");
+            helper.assertTrue(agir(j, PurseActionPacket.groupAll(0)) == Result.NOTHING, "rien à regrouper");
 
             // Le plafond de la bourse : le dépôt ne perd rien.
             Purse.add(bourse, Coin.GOLD, Purse.MAX_PER_COIN - 1 - 1);
             donnerEnVrac(j, Coin.GOLD, 5);
-            helper.assertTrue(agir(j, PurseActionPacket.deposit(0)) == Result.DONE, "dépôt jusqu'au plafond");
+            helper.assertTrue(agir(j, PurseActionPacket.depositAll(0)) == Result.DONE, "dépôt jusqu'au plafond");
             helper.assertTrue(Purse.count(bourse, Coin.GOLD) == Purse.MAX_PER_COIN && enVrac(j, Coin.GOLD) == 4,
                     "une seule pièce d'or a la place : en vrac " + enVrac(j, Coin.GOLD));
             helper.succeed();
@@ -481,7 +483,7 @@ public final class BourseGameTests {
             AbstractContainerMenu serveur = j.joueur().containerMenu;
             FriendlyByteBuf tampon = new FriendlyByteBuf(Unpooled.buffer());
             tampon.writeVarInt(0);
-            PurseMenu client = PurseMenu.fromNetwork(serveur.containerId, j.joueur().getInventory(), tampon);
+            PurseMenu client = PurseMenu.fromNetwork(serveur.containerId, new Inventory(j.joueur()), tampon);
             j.synchroniser(client);
             for (Coin coin : Coin.values()) {
                 helper.assertTrue(client.count(coin) == nombres[coin.ordinal()],
@@ -493,6 +495,49 @@ public final class BourseGameTests {
             serveur.broadcastChanges();
             j.synchroniser(client);
             helper.assertTrue(client.count(Coin.COPPER) == 10, "le client suit : " + client.count(Coin.COPPER));
+            helper.succeed();
+        } finally {
+            quitter(j);
+            boite(helper);
+        }
+    }
+
+    /**
+     * Pendant l'écran, la case de la bourse ouverte est verrouillée : ni prise au curseur, ni remplacée, ni échangée
+     * par une touche numérique ; les autres cases de l'inventaire restent libres.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_B)
+    public static void laCaseDeLaBourseOuverteEstVerrouillee(GameTestHelper helper) {
+        boite(helper);
+        JoueurDeTest j = joueur(helper, "bo_verrou");
+        try {
+            ItemStack bourse = porter(j, 2, bourse(Coin.GOLD, 4));
+            j.joueur().getInventory().selected = 2;
+            j.joueur().getInventory().setItem(3, new ItemStack(Items.DIRT, 5));
+            ouvrirEcran(j);
+            helper.assertTrue(j.joueur().containerMenu instanceof PurseMenu menu && menu.slot() == 2, "écran ouvert");
+            AbstractContainerMenu menu = j.joueur().containerMenu;
+            helper.assertTrue(menu.slots.size() == 36, "les 36 cases de l'inventaire : " + menu.slots.size());
+            // Dans le menu, la barre d'action est en 27 à 35 : la bourse (case 2 de l'inventaire) est en 29.
+            int caseBourse = 27 + 2;
+            helper.assertTrue(menu.getSlot(caseBourse).getItem() == bourse, "la case 29 est la bourse");
+            menu.clicked(caseBourse, 0, ClickType.PICKUP, j.joueur());
+            helper.assertTrue(menu.getCarried().isEmpty() && j.joueur().getInventory().getItem(2) == bourse,
+                    "la bourse ne se prend pas : curseur " + menu.getCarried());
+            menu.clicked(caseBourse, 0, ClickType.QUICK_MOVE, j.joueur());
+            menu.clicked(caseBourse, 0, ClickType.THROW, j.joueur());
+            helper.assertTrue(j.joueur().getInventory().getItem(2) == bourse, "ni maj-clic ni jet");
+            // Touche numérique « 3 » (case 2) au-dessus d'une autre case : la bourse ne s'échange pas.
+            menu.clicked(0, 2, ClickType.SWAP, j.joueur());
+            helper.assertTrue(j.joueur().getInventory().getItem(2) == bourse, "pas d'échange par la touche numérique");
+            // Une autre case reste libre : la terre se prend et se repose.
+            menu.clicked(27 + 3, 0, ClickType.PICKUP, j.joueur());
+            helper.assertTrue(menu.getCarried().is(Items.DIRT), "les autres cases restent libres");
+            menu.clicked(caseBourse, 0, ClickType.PICKUP, j.joueur());
+            helper.assertTrue(menu.getCarried().is(Items.DIRT) && j.joueur().getInventory().getItem(2) == bourse,
+                    "rien ne se pose sur la case de la bourse");
+            menu.clicked(27 + 3, 0, ClickType.PICKUP, j.joueur());
+            helper.assertTrue(menu.stillValid(j.joueur()) && Purse.total(bourse) == 400, "l'écran reste valable");
             helper.succeed();
         } finally {
             quitter(j);
@@ -515,7 +560,7 @@ public final class BourseGameTests {
             helper.assertTrue(!j.joueur().containerMenu.stillValid(j.joueur()), "l'écran n'est plus valable");
             // Une autre pile dans la case ne se laisse pas prendre pour la bourse.
             j.joueur().getInventory().setItem(0, new ItemStack(Items.DIRT, 3));
-            helper.assertTrue(agir(j, PurseActionPacket.deposit(0)) == Result.NOT_OPEN, "autre objet dans la case");
+            helper.assertTrue(agir(j, PurseActionPacket.depositAll(0)) == Result.NOT_OPEN, "autre objet dans la case");
             helper.assertTrue(Purse.total(bourse) == 200, "la bourse n'a pas bougé");
             helper.succeed();
         } finally {
@@ -1012,8 +1057,8 @@ public final class BourseGameTests {
                 helper.assertTrue(j.messagesRecus().contains(PurseActionPacket.MESSAGE + "insufficient"),
                         "le second clic est refusé avec un message");
                 // Deux dépôts de suite : le second ne trouve plus rien.
-                j.envoyer(PurseActionPacket.deposit(0));
-                j.envoyer(PurseActionPacket.deposit(0));
+                j.envoyer(PurseActionPacket.depositAll(0));
+                j.envoyer(PurseActionPacket.depositAll(0));
             } catch (RuntimeException e) {
                 quitter(j);
                 boite(helper);
@@ -1059,8 +1104,8 @@ public final class BourseGameTests {
             j.quitter();
             helper.assertTrue(PurseActionPacket.apply(joueur, PurseActionPacket.withdraw(0, Coin.GOLD, 1)) == Result.GONE,
                     "retrait après le départ");
-            helper.assertTrue(PurseActionPacket.apply(joueur, PurseActionPacket.deposit(0)) == Result.GONE, "dépôt après le départ");
-            helper.assertTrue(PurseActionPacket.apply(joueur, PurseActionPacket.group(0)) == Result.GONE, "regroupement après le départ");
+            helper.assertTrue(PurseActionPacket.apply(joueur, PurseActionPacket.depositAll(0)) == Result.GONE, "dépôt après le départ");
+            helper.assertTrue(PurseActionPacket.apply(joueur, PurseActionPacket.groupAll(0)) == Result.GONE, "regroupement après le départ");
             helper.assertTrue(Purse.count(bourse, Coin.GOLD) == 10 && Purse.count(bourse, Coin.COPPER) == 0,
                     "la bourse est intacte : " + Purse.contents(bourse));
             helper.succeed();

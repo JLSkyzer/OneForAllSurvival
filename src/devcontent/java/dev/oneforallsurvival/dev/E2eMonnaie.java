@@ -24,6 +24,8 @@ import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import net.minecraft.client.Minecraft;
+import dev.oneforallsurvival.economy.CoinRequest;
+import dev.oneforallsurvival.economy.client.CoinAccountScreen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.CraftingScreen;
 import net.minecraft.core.BlockPos;
@@ -430,24 +432,29 @@ final class E2eMonnaie {
         };
     }
 
-    private static void clicEcran(int dx, int dy) {
-        AbstractContainerScreen<?> s = (AbstractContainerScreen<?>) mc.screen;
-        boolean pris = s.mouseClicked(s.getGuiLeft() + dx, s.getGuiTop() + dy, 0);
-        LOG.info("[e2e] clic d'ecran en ({}, {}) sur {} (coin {}, {}) : {}", dx, dy, s.getClass().getSimpleName(), s.getGuiLeft(), s.getGuiTop(), pris);
+    /** Le bouton de la souris qui retire, sur une ligne de l'écran du coffre-fort ou de la bourse. */
+    private static final int RETIRER = 0;
+
+    /** Un vrai clic sur un bouton de l'écran du coffre-fort ou de la bourse, au centre de l'élément nommé. */
+    private static void clicElement(String id, int bouton) {
+        CoinAccountScreen<?> s = (CoinAccountScreen<?>) mc.screen;
+        int[] c = s.elementCenter(id).orElseThrow(() -> new IllegalStateException("aucun element " + id));
+        boolean pris = s.mouseClicked(c[0], c[1], bouton);
+        LOG.info("[e2e] clic {} sur {} de {} en ({}, {}) : {}", bouton == 0 ? "gauche" : "droit", id, s.getClass().getSimpleName(),
+                c[0], c[1], pris);
     }
 
-    // Les boutons des écrans de la bourse et du coffre-fort (mêmes cotes : 220 x 160, voir SafeScreen).
     private static void boutonDeposer() {
-        clicEcran(8 + 50, 136 + 8);
+        clicElement("deposit_all", 0);
     }
 
     private static void boutonRegrouper() {
-        clicEcran(8 + 100 + 4 + 50, 136 + 8);
+        clicElement("group", 0);
     }
 
+    /** Retirer : {@code montantIndex} dans 1, 10, 64. */
     private static void boutonRetirer(Coin coin, int montantIndex) {
-        int ligne = Coin.values().length - 1 - coin.ordinal();
-        clicEcran(136 + 26 * montantIndex + 12, 32 + 20 * ligne + 3 + 7);
+        clicElement("row." + coin.key() + "." + CoinRequest.amounts()[montantIndex], RETIRER);
     }
 
     private static PurseMenu menuBourse() {

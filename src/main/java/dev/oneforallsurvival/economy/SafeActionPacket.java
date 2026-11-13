@@ -1,8 +1,9 @@
 package dev.oneforallsurvival.economy;
 
 import com.mojang.logging.LogUtils;
-import java.util.EnumMap;
+import dev.oneforallsurvival.economy.CoinActions.Result;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 import net.minecraft.core.BlockPos;
@@ -16,50 +17,37 @@ import net.minecraftforge.network.NetworkEvent;
 import org.slf4j.Logger;
 
 /**
- * Client vers serveur : une opération sur le compte du coffre-fort en {@code pos}. Le serveur revalide tout, comme
- * pour les autres paquets du mod : joueur toujours en ligne, action et coupure connues, montant parmi ceux de
+ * Client vers serveur : une opération ({@link CoinRequest}) sur le compte du coffre-fort en {@code pos}. Le serveur
+ * revalide tout, comme pour les autres paquets du mod : joueur toujours en ligne, demande conforme à un bouton de
  * l'écran, chunk chargé, distance, bloc toujours là, droit du joueur sur ce compte, écran de ce coffre-fort ouvert.
+ * L'opération elle-même est {@link CoinActions#apply}, commune avec la bourse.
  *
- * <p>Chaque opération vérifie d'abord, puis valide d'un seul bloc sur le fil du serveur : deux clics rapides font
- * deux paquets traités l'un après l'autre, le second voit le compte déjà changé ; un joueur qui part entre
- * l'envoi et le traitement ne déclenche rien ({@link Result#GONE}). Les dépôts et retraits ne sont pas écrits au
- * registre : ils ne créent ni ne détruisent de pièces.
+ * <p>Deux clics rapides font deux paquets traités l'un après l'autre, le second voit le compte déjà changé ; un
+ * joueur qui part entre l'envoi et le traitement ne déclenche rien ({@link Result#GONE}).
  */
-public record SafeActionPacket(BlockPos pos, int action, int coin, int amount) {
-
-    public static final int DEPOSIT_ALL = 0;
-    public static final int WITHDRAW = 1;
-    public static final int GROUP = 2;
-
-    /** Les montants du retrait, ceux des boutons de l'écran : tout autre est refusé. */
-    public static final int[] WITHDRAW_AMOUNTS = {1, 10, 64};
+public record SafeActionPacket(BlockPos pos, CoinRequest request) {
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    /** Ce qu'a donné le traitement d'un paquet. Seuls les trois derniers refus sont dits au joueur. */
-    public enum Result { DONE, GONE, BAD_REQUEST, TOO_FAR, NO_SAFE, NOT_ALLOWED, NOT_OPEN, INSUFFICIENT, FULL, NOTHING }
-
-    public static SafeActionPacket deposit(BlockPos pos) {
-        return new SafeActionPacket(pos, DEPOSIT_ALL, 0, 0);
+    public static SafeActionPacket depositAll(BlockPos pos) {
+        return new SafeActionPacket(pos, CoinRequest.depositAll());
     }
 
     public static SafeActionPacket withdraw(BlockPos pos, Coin coin, int amount) {
-        return new SafeActionPacket(pos, WITHDRAW, coin.ordinal(), amount);
+        return new SafeActionPacket(pos, CoinRequest.withdraw(coin, amount));
     }
 
-    public static SafeActionPacket group(BlockPos pos) {
-        return new SafeActionPacket(pos, GROUP, 0, 0);
+    public static SafeActionPacket groupAll(BlockPos pos) {
+        return new SafeActionPacket(pos, CoinRequest.groupAll());
     }
 
     public void encode(FriendlyByteBuf buf) {
         buf.writeBlockPos(pos);
-        buf.writeVarInt(action);
-        buf.writeVarInt(coin);
-        buf.writeVarInt(amount);
+        request.encode(buf);
     }
 
     public static SafeActionPacket decode(FriendlyByteBuf buf) {
-        return new SafeActionPacket(buf.readBlockPos(), buf.readVarInt(), buf.readVarInt(), buf.readVarInt());
+        return new SafeActionPacket(buf.readBlockPos(), CoinRequest.decode(buf));
     }
 
     /** Sur le thread du serveur : un client n'est jamais cru sur parole. */
@@ -69,9 +57,13 @@ public record SafeActionPacket(BlockPos pos, int action, int coin, int amount) {
             return;
         }
         Result result = apply(sender, packet);
-        if (result == Result.INSUFFICIENT || result == Result.FULL || result == Result.NOTHING) {
+        if (CoinActions.isTold(result)) {
             sender.displayClientMessage(
                     Component.translatable(SafeBlock.MESSAGE + result.name().toLowerCase(Locale.ROOT)), true);
+        }
+        // L'écran et l'inventaire du client suivent tout de suite, sans attendre le tick.
+        if (sender.containerMenu instanceof CoinAccountMenu menu) {
+            menu.broadcastChanges();
         }
     }
 
@@ -83,13 +75,9 @@ public record SafeActionPacket(BlockPos pos, int action, int coin, int amount) {
                 || server.getPlayerList().getPlayer(player.getUUID()) != player) {
             return Result.GONE;
         }
-        Coin coin = null;
-        if (packet.action == WITHDRAW) {
-            if (packet.coin < 0 || packet.coin >= Coin.values().length || !isWithdrawAmount(packet.amount)) {
-                return Result.BAD_REQUEST;
-            }
-            coin = Coin.values()[packet.coin];
-        } else if (packet.action != DEPOSIT_ALL && packet.action != GROUP) {
+        CoinRequest request = packet.request;
+        Optional<Coin> coin = request == null ? Optional.empty() : request.coinIfValid();
+        if (coin.isEmpty()) {
             return Result.BAD_REQUEST;
         }
         ServerLevel level = player.serverLevel();
@@ -109,70 +97,12 @@ public record SafeActionPacket(BlockPos pos, int action, int coin, int amount) {
                 || !menu.stillValid(player)) {
             return Result.NOT_OPEN;
         }
-        SafeAccounts accounts = SafeAccounts.get(server);
-        Result result = switch (packet.action) {
-            case DEPOSIT_ALL -> depositAll(player, accounts, owner);
-            case WITHDRAW -> withdraw(player, accounts, owner, coin, packet.amount);
-            default -> accounts.group(owner) ? Result.DONE : Result.NOTHING;
-        };
+        Result result = CoinActions.apply(player, new SafeStore(SafeAccounts.get(server), owner), request.action(),
+                coin.get(), request.amount(), request.all());
         if (result == Result.DONE && !owner.equals(player.getUUID())) {
-            LOGGER.info("Economie : {} a agi sur le coffre-fort de {} (action {}, coupure {}, montant {})",
-                    player.getGameProfile().getName(), owner, packet.action, packet.coin, packet.amount);
+            LOGGER.info("Economie : {} a agi sur le coffre-fort de {} ({})",
+                    player.getGameProfile().getName(), owner, request);
         }
         return result;
-    }
-
-    private static boolean isWithdrawAmount(int amount) {
-        for (int allowed : WITHDRAW_AMOUNTS) {
-            if (allowed == amount) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Dépose toutes les pièces portées, dans la limite de la place du compte. Ce qui est déposé est ce qui a
-     * réellement quitté le joueur (relevé avant et après), jamais ce qu'on espérait retirer : le compte ne gagne
-     * rien que le joueur n'ait perdu.
-     */
-    private static Result depositAll(ServerPlayer player, SafeAccounts accounts, UUID owner) {
-        EnumMap<Coin, Long> before = PlayerCoins.held(player);
-        EnumMap<Coin, Long> wanted = new EnumMap<>(Coin.class);
-        before.forEach((coin, count) -> {
-            long fits = Math.min(count, accounts.room(owner, coin));
-            if (fits > 0L) {
-                wanted.put(coin, fits);
-            }
-        });
-        if (wanted.isEmpty()) {
-            return Result.NOTHING;
-        }
-        PlayerCoins.remove(player, wanted);
-        EnumMap<Coin, Long> after = PlayerCoins.held(player);
-        boolean any = false;
-        for (Coin coin : wanted.keySet()) {
-            long gone = Math.min(wanted.get(coin), before.get(coin) - after.getOrDefault(coin, 0L));
-            if (gone > 0L) {
-                accounts.deposit(owner, coin, gone);
-                any = true;
-            }
-        }
-        return any ? Result.DONE : Result.NOTHING;
-    }
-
-    /**
-     * Retire {@code amount} pièces, toutes ou aucune si le compte n'en a pas assez. Le compte est débité d'abord ;
-     * ce qui ne rentre pas dans l'inventaire n'est pas retiré (remis au compte). Rien n'est lâché au sol.
-     */
-    private static Result withdraw(ServerPlayer player, SafeAccounts accounts, UUID owner, Coin coin, int amount) {
-        if (!accounts.withdraw(owner, coin, amount)) {
-            return Result.INSUFFICIENT;
-        }
-        long entered = PlayerCoins.receive(player, coin, amount);
-        if (entered < amount) {
-            accounts.deposit(owner, coin, amount - entered);
-        }
-        return entered > 0L ? Result.DONE : Result.FULL;
     }
 }

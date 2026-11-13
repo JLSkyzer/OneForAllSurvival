@@ -21,6 +21,7 @@ import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.PauseScreen;
+import dev.oneforallsurvival.economy.client.CoinAccountScreen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.CraftingScreen;
 import net.minecraft.core.BlockPos;
@@ -354,9 +355,14 @@ public final class FilmMonnaie {
         return -1;
     }
 
-    private static void clicEcran(Minecraft mc, int dx, int dy) {
-        AbstractContainerScreen<?> s = (AbstractContainerScreen<?>) mc.screen;
-        s.mouseClicked(s.getGuiLeft() + dx, s.getGuiTop() + dy, 0);
+    /** Le bouton de la souris qui retire, sur une ligne de l'écran du coffre-fort ou de la bourse. */
+    private static final int RETIRER = 0;
+
+    /** Un vrai clic sur un bouton de l'écran du coffre-fort ou de la bourse, au centre de l'élément nommé. */
+    private static void clicElement(Minecraft mc, String id, int bouton) {
+        CoinAccountScreen<?> s = (CoinAccountScreen<?>) mc.screen;
+        int[] c = s.elementCenter(id).orElseThrow(() -> new IllegalStateException("aucun element " + id));
+        s.mouseClicked(c[0], c[1], bouton);
     }
 
     private static PurseMenu menuBourse(Minecraft mc) {
@@ -463,10 +469,10 @@ public final class FilmMonnaie {
             tenir(mc, Purse::isPurse);
             mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
         }, () -> menuOuvert(mc, PurseMenu.class), 2500, () -> valeursJoueur(mc));
-        etape("deposer", "« Déposer tout » : les 50 pièces d'argent entrent dans la bourse", () -> clicEcran(mc, 58, 144),
+        etape("deposer", "« Déposer tout » : les 50 pièces d'argent entrent dans la bourse", () -> clicElement(mc, "deposit_all", 0),
                 () -> menuBourse(mc).count(Coin.SILVER) == 50 && menuBourse(mc).total() == 800, 2500, () -> valeursJoueur(mc));
         etape("regrouper", "« Regrouper » : 10 pièces d'une coupure deviennent 1 de la suivante, à valeur égale",
-                () -> clicEcran(mc, 162, 144), () -> menuBourse(mc).count(Coin.SILVER) == 0 && menuBourse(mc).count(Coin.GOLD) == 8, 4000,
+                () -> clicElement(mc, "group", 0), () -> menuBourse(mc).count(Coin.SILVER) == 0 && menuBourse(mc).count(Coin.GOLD) == 8, 4000,
                 () -> valeursJoueur(mc));
         etape("bourse_fermee", "", () -> mc.player.closeContainer(), () -> mc.screen == null && Purse.count(laBourse(mc), Coin.GOLD) == 8, 800,
                 () -> valeursJoueur(mc));
@@ -476,7 +482,7 @@ public final class FilmMonnaie {
             tenir(mc, Purse::isPurse);
             mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
         }, () -> menuOuvert(mc, PurseMenu.class), 800, () -> valeursJoueur(mc));
-        etape("retirer", "« Retirer 1 » sur la ligne de l'or", () -> clicEcran(mc, 136 + 12, 32 + 20 * 2 + 3 + 7),
+        etape("retirer", "« Retirer 1 » sur la ligne de l'or", () -> clicElement(mc, "row.gold.1", RETIRER),
                 () -> menuBourse(mc).count(Coin.GOLD) == 7, 1800, () -> valeursJoueur(mc));
         etape("retirer_fermer", "", () -> mc.player.closeContainer(), () -> mc.screen == null && pieces(mc, Coin.GOLD) == 1, 600, () -> valeursJoueur(mc));
         etape("coffre_vue", "Un coffre ordinaire", () -> aller(mc, coffre().getX() + 0.5, o.getY(), coffre().getZ() + 2.5, 180, 30),
@@ -510,10 +516,10 @@ public final class FilmMonnaie {
             tenirVide(mc);
             clicDroit(mc, coffreFort(), Direction.NORTH);
         }, () -> menuOuvert(mc, SafeMenu.class), 2500, () -> valeursJoueur(mc));
-        etape("fort_depose", "« Déposer tout » : l'or de l'inventaire et de la bourse entre au compte", () -> clicEcran(mc, 58, 144),
+        etape("fort_depose", "« Déposer tout » : l'or de l'inventaire et de la bourse entre au compte", () -> clicElement(mc, "deposit_all", 0),
                 () -> menuOuvert(mc, SafeMenu.class) && ((SafeMenu) ((AbstractContainerScreen<?>) mc.screen).getMenu()).total() == 800, 4000,
                 () -> valeursJoueur(mc));
-        etape("fort_regroupe", "« Retirer 1 » sur l'or : la pièce revient dans la bourse (elle prend les pièces avant l'inventaire)", () -> clicEcran(mc, 136 + 12, 32 + 20 * 2 + 3 + 7),
+        etape("fort_regroupe", "« Retirer 1 » sur l'or : la pièce revient dans la bourse (elle prend les pièces avant l'inventaire)", () -> clicElement(mc, "row.gold.1", RETIRER),
                 () -> ((SafeMenu) ((AbstractContainerScreen<?>) mc.screen).getMenu()).total() == 700, 3500, () -> valeursJoueur(mc));
         etape("fort_ferme", "", () -> mc.player.closeContainer(), () -> mc.screen == null && Purse.total(laBourse(mc)) == 100, 800, () -> valeursJoueur(mc));
         etape("fort_second", "Un second coffre-fort est refusé : un par joueur", () -> {

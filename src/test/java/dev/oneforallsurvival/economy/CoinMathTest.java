@@ -150,4 +150,99 @@ class CoinMathTest {
         long[] good = {1, 5, 50, 500, 5000};
         assertEquals(java.util.Arrays.toString(good), java.util.Arrays.toString(EconomyConfig.validated(good)));
     }
+
+    private static final java.util.function.ToLongFunction<Coin> DIX = coin -> new long[] {1, 10, 100, 1000, 10000}[coin.ordinal()];
+
+    @Test
+    void casserUnePieceAValeurEgale() {
+        // 1 or -> 10 argent, une fois ; la valeur ne change pas.
+        EnumMap<Coin, Long> avant = coins(Coin.GOLD, 3, Coin.SILVER, 2);
+        EnumMap<Coin, Long> apres = CoinMath.breakOne(avant, Coin.GOLD, 1, DIX, 1000).orElseThrow();
+        assertEquals(coins(Coin.GOLD, 2, Coin.SILVER, 12), apres);
+        assertEquals(CoinMath.valueOf(avant), CoinMath.valueOf(apres));
+        assertEquals(coins(Coin.GOLD, 3, Coin.SILVER, 2), avant, "l'entrée n'est pas modifiée");
+        // La dernière pièce cassée disparaît de la map.
+        assertEquals(coins(Coin.COPPER, 10), CoinMath.breakOne(coins(Coin.SILVER, 1), Coin.SILVER, 1, DIX, 1000).orElseThrow());
+        // Pas de pièce à casser, rien sous le cuivre, nombre de fois nul ou négatif.
+        assertTrue(CoinMath.breakOne(coins(Coin.SILVER, 5), Coin.GOLD, 1, DIX, 1000).isEmpty());
+        assertTrue(CoinMath.breakOne(coins(Coin.COPPER, 5), Coin.COPPER, 1, DIX, 1000).isEmpty());
+        assertTrue(CoinMath.breakOne(coins(Coin.GOLD, 5), Coin.GOLD, 0, DIX, 1000).isEmpty());
+        assertTrue(CoinMath.breakOne(coins(Coin.GOLD, 5), Coin.GOLD, -1, DIX, 1000).isEmpty());
+    }
+
+    @Test
+    void casserRespecteLePlafondEtLeRapport() {
+        // 995 argent, plafond 1000 : il n'y a pas la place de 10 de plus.
+        assertEquals(0L, CoinMath.maxBreaks(coins(Coin.GOLD, 4, Coin.SILVER, 995), Coin.GOLD, DIX, 1000));
+        assertTrue(CoinMath.breakOne(coins(Coin.GOLD, 4, Coin.SILVER, 995), Coin.GOLD, 1, DIX, 1000).isEmpty());
+        // 975 argent : place pour 2 pièces cassées, même si on a 4 or.
+        assertEquals(2L, CoinMath.maxBreaks(coins(Coin.GOLD, 4, Coin.SILVER, 975), Coin.GOLD, DIX, 1000));
+        assertTrue(CoinMath.breakOne(coins(Coin.GOLD, 4, Coin.SILVER, 975), Coin.GOLD, 3, DIX, 1000).isEmpty());
+        assertEquals(coins(Coin.GOLD, 2, Coin.SILVER, 995),
+                CoinMath.breakOne(coins(Coin.GOLD, 4, Coin.SILVER, 975), Coin.GOLD, 2, DIX, 1000).orElseThrow());
+        // Autant que possible : limité par les pièces.
+        assertEquals(4L, CoinMath.maxBreaks(coins(Coin.GOLD, 4), Coin.GOLD, DIX, 1000));
+        // Rapport de la config différent de 10 : jamais.
+        java.util.function.ToLongFunction<Coin> exotique = coin -> new long[] {1, 20, 200, 2000, 20000}[coin.ordinal()];
+        assertFalse(CoinMath.atPar(Coin.SILVER, exotique));
+        assertTrue(CoinMath.atPar(Coin.GOLD, exotique));
+        assertEquals(0L, CoinMath.maxBreaks(coins(Coin.SILVER, 4), Coin.SILVER, exotique, 1000));
+        assertTrue(CoinMath.breakOne(coins(Coin.SILVER, 4), Coin.SILVER, 1, exotique, 1000).isEmpty());
+        assertFalse(CoinMath.atPar(Coin.COPPER, DIX));
+    }
+
+    @Test
+    void regrouperUnePaireAValeurEgale() {
+        EnumMap<Coin, Long> avant = coins(Coin.SILVER, 25, Coin.GOLD, 1);
+        EnumMap<Coin, Long> apres = CoinMath.groupPair(avant, Coin.GOLD, 1, DIX, 1000).orElseThrow();
+        assertEquals(coins(Coin.SILVER, 15, Coin.GOLD, 2), apres);
+        assertEquals(CoinMath.valueOf(avant), CoinMath.valueOf(apres));
+        // Autant que possible : 2 fois (25 argent), puis plus rien.
+        assertEquals(2L, CoinMath.maxGroups(avant, Coin.GOLD, DIX, 1000));
+        assertEquals(coins(Coin.SILVER, 5, Coin.GOLD, 3), CoinMath.groupPair(avant, Coin.GOLD, 2, DIX, 1000).orElseThrow());
+        assertTrue(CoinMath.groupPair(avant, Coin.GOLD, 3, DIX, 1000).isEmpty());
+        // Moins de 10 : impossible ; plus de place au-dessus : impossible.
+        assertTrue(CoinMath.groupPair(coins(Coin.SILVER, 9), Coin.GOLD, 1, DIX, 1000).isEmpty());
+        assertEquals(0L, CoinMath.maxGroups(coins(Coin.SILVER, 50, Coin.GOLD, 1000), Coin.GOLD, DIX, 1000));
+        assertEquals(1L, CoinMath.maxGroups(coins(Coin.SILVER, 50, Coin.GOLD, 999), Coin.GOLD, DIX, 1000));
+        // Rapport différent de 10 : jamais ; le cuivre n'a rien en dessous.
+        java.util.function.ToLongFunction<Coin> trop = coin -> new long[] {1, 10, 1000, 10000, 100000}[coin.ordinal()];
+        assertTrue(CoinMath.groupPair(coins(Coin.SILVER, 50), Coin.GOLD, 1, trop, 1000).isEmpty());
+        assertTrue(CoinMath.groupPair(coins(Coin.COPPER, 50), Coin.COPPER, 1, DIX, 1000).isEmpty());
+        // Des montants qui frôlent le plafond réel ne débordent pas.
+        long max = SafeAccounts.MAX_PER_COIN;
+        assertEquals(max / 10, CoinMath.maxGroups(coins(Coin.COPPER, max), Coin.SILVER, DIX, max));
+        assertEquals(max / 10, CoinMath.maxBreaks(coins(Coin.SILVER, max), Coin.SILVER, DIX, max));
+    }
+
+    @Test
+    void lesDemandesHorsDesBoutonsSontRefusees() {
+        assertTrue(CoinRequest.depositAll().coinIfValid().isPresent());
+        assertTrue(CoinRequest.groupAll().coinIfValid().isPresent());
+        for (Coin c : Coin.values()) {
+            for (int n : CoinRequest.amounts()) {
+                assertEquals(Optional.of(c), CoinRequest.deposit(c, n).coinIfValid());
+                assertEquals(Optional.of(c), CoinRequest.withdraw(c, n).coinIfValid());
+            }
+        }
+        for (int n : new int[] {0, -1, 2, 63, 65, Integer.MAX_VALUE, Integer.MIN_VALUE}) {
+            assertTrue(new CoinRequest(CoinRequest.DEPOSIT, 0, n, false).coinIfValid().isEmpty(), "montant " + n);
+            assertTrue(new CoinRequest(CoinRequest.WITHDRAW, 0, n, false).coinIfValid().isEmpty(), "montant " + n);
+        }
+        // Le change se nomme par la pièce du dessus : pas le cuivre ; pas de montant.
+        assertTrue(CoinRequest.breakCoin(Coin.COPPER, false).coinIfValid().isEmpty());
+        assertTrue(CoinRequest.groupPair(Coin.COPPER, true).coinIfValid().isEmpty());
+        assertEquals(Optional.of(Coin.RUBY), CoinRequest.breakCoin(Coin.RUBY, true).coinIfValid());
+        assertTrue(new CoinRequest(CoinRequest.BREAK, 2, 10, false).coinIfValid().isEmpty());
+        // « Autant que possible » n'existe que pour le change.
+        assertTrue(new CoinRequest(CoinRequest.WITHDRAW, 0, 1, true).coinIfValid().isEmpty());
+        assertTrue(new CoinRequest(CoinRequest.DEPOSIT_ALL, 0, 0, true).coinIfValid().isEmpty());
+        for (int coupure : new int[] {-1, 5, 99, Integer.MIN_VALUE}) {
+            assertTrue(new CoinRequest(CoinRequest.WITHDRAW, coupure, 1, false).coinIfValid().isEmpty());
+            assertTrue(new CoinRequest(CoinRequest.BREAK, coupure, 0, false).coinIfValid().isEmpty());
+        }
+        for (int action : new int[] {-1, 6, 99, Integer.MIN_VALUE}) {
+            assertTrue(new CoinRequest(action, 1, 1, false).coinIfValid().isEmpty(), "action " + action);
+        }
+    }
 }
