@@ -121,14 +121,22 @@ public final class EconomyCommands {
             out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.line",
                     Component.translatable(kind.langKey()), CoinMath.format(ledger.totalDestroyed(kind))));
         }
-        // Les flux du trésor, des salaires, des factures et des ventes (lots E2 et suivants) rejoignent ce tableau
-        // quand ils existent.
         out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.vaults",
                 CoinMath.format(SafeAccounts.get(source.getServer()).totalMass())));
         out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.later",
                 Component.translatable("command.oneforallsurvival.eco.stats.not_yet")));
         out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.circulation",
                 signed(ledger.inCirculation())));
+        // Les transferts ne créent ni ne détruisent : ils suivent la ligne « en circulation », qui reste créé moins détruit.
+        out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.transferred"));
+        for (MoneyTransfer kind : MoneyTransfer.values()) {
+            out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.line",
+                    Component.translatable(kind.langKey()), CoinMath.format(ledger.totalTransferred(kind))));
+        }
+        out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.treasury",
+                CoinMath.format(TreasuryAccount.get(source.getServer()).total())));
+        out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.pending",
+                CoinMath.format(HeldGoods.get(source.getServer()).pendingMass())));
         source.sendSuccess(() -> out, false);
         return 1;
     }
@@ -150,8 +158,9 @@ public final class EconomyCommands {
             out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.ledger.empty"));
         }
         for (EconomyLedger.Entry entry : entries) {
-            boolean created = entry.kind().startsWith("created.");
-            MutableComponent amount = Component.literal(created ? "+" : "-").append(CoinMath.format(entry.amount()));
+            // Un transfert n'a pas de signe : l'argent change de mains, il ne naît ni ne disparaît.
+            String sign = entry.kind().startsWith("created.") ? "+" : entry.kind().startsWith("destroyed.") ? "-" : "";
+            MutableComponent amount = Component.literal(sign).append(CoinMath.format(entry.amount()));
             out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.ledger.line",
                     TIME.format(Instant.ofEpochMilli(entry.epochMillis())), amount,
                     Component.translatable("economy.oneforallsurvival.kind." + entry.kind()),

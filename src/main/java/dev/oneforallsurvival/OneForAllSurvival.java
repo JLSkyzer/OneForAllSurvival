@@ -9,6 +9,7 @@ import dev.oneforallsurvival.bench.BenchRegistry;
 import dev.oneforallsurvival.bench.WorkshopTicker;
 import dev.oneforallsurvival.coast.CoastCommands;
 import dev.oneforallsurvival.debug.IslandDebugRequest;
+import dev.oneforallsurvival.economy.CommerceDelivery;
 import dev.oneforallsurvival.economy.EconomyCommands;
 import dev.oneforallsurvival.economy.EconomyConfig;
 import dev.oneforallsurvival.economy.EconomyRegistry;
@@ -88,6 +89,9 @@ public final class OneForAllSurvival {
         modEventBus.addListener(ExploreConfig::onConfigLoad);
         modEventBus.addListener(EconomyConfig::onConfigEvent);
         MinecraftForge.EVENT_BUS.addListener(StartingMoney::onLoggedIn);
+        MinecraftForge.EVENT_BUS.addListener(CommerceDelivery::onLoggedIn);
+        MinecraftForge.EVENT_BUS.addListener(CommerceDelivery::onServerTick);
+        MinecraftForge.EVENT_BUS.addListener(CommerceDelivery::onServerStarted);
         MinecraftForge.EVENT_BUS.addListener(SafeBlock::onBreak);
         MinecraftForge.EVENT_BUS.addListener(BenchCatalog::onAddReloadListener);
         MinecraftForge.EVENT_BUS.addListener(BenchOverrides::onAddReloadListener);

@@ -31,9 +31,27 @@ public final class EconomyConfig {
 
     static final int DEFAULT_LEDGER_MAX_LINES = 10_000;
     static final int DEFAULT_STARTING_MONEY = 500;
+    static final double DEFAULT_TRADE_MAX_DISTANCE = 5.0D;
+    static final int DEFAULT_TRADE_REQUEST_SECONDS = 30;
+    static final int DEFAULT_SALES_TAX_PERCENT = 0;
+    static final int DEFAULT_STALL_MAX_OFFERS = 9;
+    static final int DEFAULT_STALL_LEDGER_LINES = 200;
+    static final double DEFAULT_INVOICE_MAX_DISTANCE = 5.0D;
+    static final long DEFAULT_INVOICE_MAX_AMOUNT = 100_000_000L;
+    static final int DEFAULT_INVOICE_REASON_MAX = 80;
+    static final int DEFAULT_INVOICE_KEEP_DAYS = 90;
 
     private static final ForgeConfigSpec.IntValue LEDGER_MAX_LINES;
     private static final ForgeConfigSpec.IntValue STARTING_MONEY;
+    private static final ForgeConfigSpec.DoubleValue TRADE_MAX_DISTANCE;
+    private static final ForgeConfigSpec.IntValue TRADE_REQUEST_SECONDS;
+    private static final ForgeConfigSpec.IntValue SALES_TAX_PERCENT;
+    private static final ForgeConfigSpec.IntValue STALL_MAX_OFFERS;
+    private static final ForgeConfigSpec.IntValue STALL_LEDGER_LINES;
+    private static final ForgeConfigSpec.DoubleValue INVOICE_MAX_DISTANCE;
+    private static final ForgeConfigSpec.LongValue INVOICE_MAX_AMOUNT;
+    private static final ForgeConfigSpec.IntValue INVOICE_REASON_MAX;
+    private static final ForgeConfigSpec.IntValue INVOICE_KEEP_DAYS;
     private static final ForgeConfigSpec.ConfigValue<List<? extends String>> EXTRA_ALLOWED_MENUS;
     private static final ForgeConfigSpec.ConfigValue<List<? extends String>> EXTRA_FORBIDDEN_MENUS;
 
@@ -57,6 +75,34 @@ public final class EconomyConfig {
         STARTING_MONEY = builder
                 .comment("Somme de départ, en cuivres, donnée à la première connexion de chaque joueur (500 = 5 or).")
                 .defineInRange("startingMoney", DEFAULT_STARTING_MONEY, 0, 1_000_000);
+        TRADE_MAX_DISTANCE = builder
+                .comment("Distance maximale, en blocs, entre deux joueurs qui échangent (proposition et échange).")
+                .defineInRange("tradeMaxDistance", DEFAULT_TRADE_MAX_DISTANCE, 1.0D, 32.0D);
+        TRADE_REQUEST_SECONDS = builder
+                .comment("Durée, en secondes, pendant laquelle une proposition d'échange reste valable.")
+                .defineInRange("tradeRequestSeconds", DEFAULT_TRADE_REQUEST_SECONDS, 5, 600);
+        SALES_TAX_PERCENT = builder
+                .comment("Taxe sur les ventes aux étals, en pour cent du prix (0 = aucune), arrondie vers le bas.",
+                        "Elle va au compte du trésor ; un rachat n'est pas taxé.")
+                .defineInRange("salesTaxPercent", DEFAULT_SALES_TAX_PERCENT, 0, 100);
+        STALL_MAX_OFFERS = builder
+                .comment("Offres de vente, et offres de rachat, au plus par étal.")
+                .defineInRange("stallMaxOffers", DEFAULT_STALL_MAX_OFFERS, 1, 18);
+        STALL_LEDGER_LINES = builder
+                .comment("Lignes du registre d'un étal ; les plus anciennes sont effacées d'abord.")
+                .defineInRange("stallLedgerLines", DEFAULT_STALL_LEDGER_LINES, 10, 5_000);
+        INVOICE_MAX_DISTANCE = builder
+                .comment("Distance maximale, en blocs, entre l'émetteur d'une facture et son débiteur.")
+                .defineInRange("invoiceMaxDistance", DEFAULT_INVOICE_MAX_DISTANCE, 1.0D, 32.0D);
+        INVOICE_MAX_AMOUNT = builder
+                .comment("Montant maximal d'une facture, en cuivres.")
+                .defineInRange("invoiceMaxAmount", DEFAULT_INVOICE_MAX_AMOUNT, 1L, 1_000_000_000L);
+        INVOICE_REASON_MAX = builder
+                .comment("Longueur maximale du motif d'une facture, en caractères.")
+                .defineInRange("invoiceReasonMax", DEFAULT_INVOICE_REASON_MAX, 1, 200);
+        INVOICE_KEEP_DAYS = builder
+                .comment("Jours pendant lesquels une facture réglée reste connue du serveur avant d'être oubliée.")
+                .defineInRange("invoiceKeepDays", DEFAULT_INVOICE_KEEP_DAYS, 1, 3_650);
         EXTRA_ALLOWED_MENUS = builder
                 .comment("Types d'écran (identifiants, ex. \"mod:coffre\") où une pièce a le droit d'être rangée, en plus",
                         "de l'inventaire du joueur, de la table de fabrication et des rangements de ce mod.")
@@ -94,6 +140,87 @@ public final class EconomyConfig {
             return STARTING_MONEY.get();
         } catch (IllegalStateException e) {
             return DEFAULT_STARTING_MONEY;
+        }
+    }
+
+    /** Distance maximale d'un échange, en blocs (5 par défaut, de 1 à 32). */
+    public static double tradeMaxDistance() {
+        try {
+            return TRADE_MAX_DISTANCE.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_TRADE_MAX_DISTANCE;
+        }
+    }
+
+    /** Validité d'une proposition d'échange, en secondes (30 par défaut). */
+    public static int tradeRequestSeconds() {
+        try {
+            return TRADE_REQUEST_SECONDS.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_TRADE_REQUEST_SECONDS;
+        }
+    }
+
+    /** Taxe sur les ventes, en pour cent (0 par défaut, de 0 à 100). */
+    public static int salesTaxPercent() {
+        try {
+            return SALES_TAX_PERCENT.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_SALES_TAX_PERCENT;
+        }
+    }
+
+    /** Offres de vente (et de rachat) au plus par étal (9 par défaut, de 1 à 18). */
+    public static int stallMaxOffers() {
+        try {
+            return STALL_MAX_OFFERS.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_STALL_MAX_OFFERS;
+        }
+    }
+
+    /** Lignes du registre d'un étal (200 par défaut). */
+    public static int stallLedgerLines() {
+        try {
+            return STALL_LEDGER_LINES.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_STALL_LEDGER_LINES;
+        }
+    }
+
+    /** Distance maximale entre l'émetteur d'une facture et son débiteur, en blocs (5 par défaut). */
+    public static double invoiceMaxDistance() {
+        try {
+            return INVOICE_MAX_DISTANCE.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_INVOICE_MAX_DISTANCE;
+        }
+    }
+
+    /** Montant maximal d'une facture, en cuivres (100 000 000 par défaut). */
+    public static long invoiceMaxAmount() {
+        try {
+            return INVOICE_MAX_AMOUNT.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_INVOICE_MAX_AMOUNT;
+        }
+    }
+
+    /** Longueur maximale du motif d'une facture (80 par défaut). */
+    public static int invoiceReasonMax() {
+        try {
+            return INVOICE_REASON_MAX.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_INVOICE_REASON_MAX;
+        }
+    }
+
+    /** Jours pendant lesquels une facture réglée est gardée (90 par défaut). */
+    public static int invoiceKeepDays() {
+        try {
+            return INVOICE_KEEP_DAYS.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_INVOICE_KEEP_DAYS;
         }
     }
 

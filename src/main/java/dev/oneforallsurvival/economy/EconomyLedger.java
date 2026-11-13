@@ -18,7 +18,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Le registre de l'économie, unique pour le serveur (données du monde principal) : le total créé par source, le
- * total détruit par cause, les lignes du journal (les plus anciennes effacées au-delà de
+ * total détruit par cause, le total transféré par genre, les lignes du journal (les plus anciennes effacées au-delà de
  * {@link EconomyConfig#ledgerMaxLines()}, jamais les totaux) et les joueurs qui ont reçu leur somme de départ.
  * Ne se touche que depuis le fil du serveur.
  */
@@ -38,6 +38,8 @@ public final class EconomyLedger extends SavedData {
 
     private final long[] created = new long[MoneySource.values().length];
     private final long[] destroyed = new long[MoneySink.values().length];
+    /** Transferts entre personnes : ni créés ni détruits, ils ne comptent pas dans {@link #inCirculation()}. */
+    private final long[] transferred = new long[MoneyTransfer.values().length];
     /** Du plus ancien au plus récent. */
     private final ArrayDeque<Entry> entries = new ArrayDeque<>();
     private final Set<UUID> startingGiven = new HashSet<>();
@@ -60,6 +62,22 @@ public final class EconomyLedger extends SavedData {
     /** Compte des pièces détruites. Un montant nul ou négatif n'est pas noté. */
     public void destroyed(MoneySink sink, long amount, @Nullable UUID author, String reason) {
         destroyed(sink, amount, author, reason, EconomyConfig.ledgerMaxLines(), System.currentTimeMillis());
+    }
+
+    /**
+     * Compte un transfert d'argent (entre deux personnes ou vers le trésor) : aucune pièce n'est créée ni détruite.
+     * Un montant nul ou négatif n'est pas noté.
+     */
+    public void transferred(MoneyTransfer type, long amount, @Nullable UUID author, String reason) {
+        transferred(type, amount, author, reason, EconomyConfig.ledgerMaxLines(), System.currentTimeMillis());
+    }
+
+    void transferred(MoneyTransfer type, long amount, @Nullable UUID author, String reason, int maxLines, long now) {
+        if (amount <= 0L) {
+            return;
+        }
+        transferred[type.ordinal()] = Math.addExact(transferred[type.ordinal()], amount);
+        add(new Entry(now, author, amount, type.kind(), clip(reason)), maxLines);
     }
 
     void created(MoneySource source, long amount, @Nullable UUID author, String reason, int maxLines, long now) {
@@ -120,6 +138,11 @@ public final class EconomyLedger extends SavedData {
         return destroyed[sink.ordinal()];
     }
 
+    /** Total des transferts de ce genre depuis le début. */
+    public long totalTransferred(MoneyTransfer type) {
+        return transferred[type.ordinal()];
+    }
+
     /**
      * Créé moins détruit : ce qui existe encore, d'après les comptes. Peut être négatif si des pièces que le
      * registre n'a jamais vues naître (mode créatif, par exemple) ont brûlé.
@@ -176,7 +199,12 @@ public final class EconomyLedger extends SavedData {
         for (MoneySink sink : MoneySink.values()) {
             destroyedTag.putLong(sink.name(), destroyed[sink.ordinal()]);
         }
+        CompoundTag transferredTag = new CompoundTag();
+        for (MoneyTransfer type : MoneyTransfer.values()) {
+            transferredTag.putLong(type.name(), transferred[type.ordinal()]);
+        }
         tag.put("created", createdTag);
+        tag.put("transferred", transferredTag);
         tag.put("destroyed", destroyedTag);
         ListTag list = new ListTag();
         for (Entry entry : entries) {
@@ -208,6 +236,10 @@ public final class EconomyLedger extends SavedData {
         CompoundTag destroyedTag = tag.getCompound("destroyed");
         for (MoneySink sink : MoneySink.values()) {
             ledger.destroyed[sink.ordinal()] = destroyedTag.getLong(sink.name());
+        }
+        CompoundTag transferredTag = tag.getCompound("transferred");
+        for (MoneyTransfer type : MoneyTransfer.values()) {
+            ledger.transferred[type.ordinal()] = transferredTag.getLong(type.name());
         }
         for (Tag raw : tag.getList("entries", Tag.TAG_COMPOUND)) {
             CompoundTag line = (CompoundTag) raw;
