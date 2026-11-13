@@ -18,6 +18,7 @@ import dev.oneforallsurvival.economy.SafeMenu;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
@@ -162,6 +163,19 @@ public final class E2eMonnaieServeur {
         EconomyLedger registre = EconomyLedger.get(serveur);
         Vec3 debout = Vec3.atBottomCenterOf(coffre.south(2));
 
+        // Le second joueur est une identité d'essai : sur un monde déjà servi dont l'économie a été remise à neuf (les
+        // deux .dat effacés), son ancien inventaire (playerdata) porterait encore la somme de départ d'un passage
+        // précédent. Tant que le registre ne le connaît pas, il repart donc de rien, comme un vrai joueur neuf ; à la
+        // relance (registre qui le connaît) son inventaire est gardé.
+        UUID autreId = UUID.nameUUIDFromBytes(("OfflinePlayer:" + AUTRE).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        if (!registre.hasReceivedStarting(autreId)) {
+            try {
+                java.nio.file.Files.deleteIfExists(serveur.getWorldPath(net.minecraft.world.level.storage.LevelResource.PLAYER_DATA_DIR)
+                        .resolve(autreId + ".dat"));
+            } catch (java.io.IOException e) {
+                return dire(ctx, "REFUS : playerdata du second joueur non effacable : " + e.getMessage());
+            }
+        }
         long departAvant = registre.totalCreated(MoneySource.STARTING);
         JoueurDeTest premier = JoueurDeTest.rejoindre(monde, AUTRE, debout, false, p -> {});
         ServerPlayer joueur = premier.joueur();

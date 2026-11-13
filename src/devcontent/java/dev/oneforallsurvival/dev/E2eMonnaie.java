@@ -682,10 +682,16 @@ final class E2eMonnaie {
         pasC("Accroupi (le geste de la recharge du détecteur), la pièce en main, clic droit sur la source d'énergie", () -> {
             placerJoueur(source().getX() + 0.5, source().getZ() + 2.5, 180, 25);
             mc.options.keyShift.setDown(true);
-        }, () -> pres(source().getX() + 0.5, source().getZ() + 2.5) && mc.player.isShiftKeyDown() && ecoule() >= 1.5,
+        }, () -> {
+            // Une perte de focus de la fenêtre relâche toutes les touches (vu : « accroupi false ») : la touche est tenue
+            // à chaque tick jusqu'au clic.
+            mc.options.keyShift.setDown(true);
+            return pres(source().getX() + 0.5, source().getZ() + 2.5) && mc.player.isShiftKeyDown() && ecoule() >= 1.5;
+        },
                 () -> "joueur en " + mc.player.blockPosition() + ", accroupi " + mc.player.isShiftKeyDown(), null);
         pasC("Clic droit sur la source, accroupi", () -> {
             tenir(s -> s.is(Coin.SILVER.item()));
+            mc.options.keyShift.setDown(true);
             clic(source(), Direction.NORTH);
         }, () -> ecoule() >= 1.5, () -> "", () -> {
             mc.options.keyShift.setDown(false);
