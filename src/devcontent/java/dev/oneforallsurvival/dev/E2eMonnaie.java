@@ -433,7 +433,7 @@ final class E2eMonnaie {
     }
 
     /** Le bouton de la souris qui retire, sur une ligne de l'écran du coffre-fort ou de la bourse. */
-    private static final int RETIRER = 0;
+    private static final int RETIRER = 1;
 
     /** Un vrai clic sur un bouton de l'écran du coffre-fort ou de la bourse, au centre de l'élément nommé. */
     private static void clicElement(String id, int bouton) {
@@ -459,6 +459,10 @@ final class E2eMonnaie {
 
     private static PurseMenu menuBourse() {
         return (PurseMenu) ((AbstractContainerScreen<?>) mc.screen).getMenu();
+    }
+
+    private static SafeMenu menuCoffre() {
+        return (SafeMenu) ((AbstractContainerScreen<?>) mc.screen).getMenu();
     }
 
     private static boolean ecranOuvert(Class<?> menu) {
@@ -806,22 +810,40 @@ final class E2eMonnaie {
             tenir(Purse::isPurse);
             mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
         }, () -> ecranOuvert(PurseMenu.class), () -> "ecran " + mc.screen, () -> "ecran de la bourse ouvert : " + ((PurseMenu) ((AbstractContainerScreen<?>) mc.screen).getMenu()).count(Coin.GOLD) + " or");
-        // Pendant l'écran, le client ne reçoit que les données de l'écran (le menu n'a aucune case) : l'inventaire se resynchronise à la fermeture.
-        pasC("« Déposer tout » : les 50 pièces d'argent entrent dans la bourse", () -> boutonDeposer(),
-                () -> menuBourse().count(Coin.SILVER) == 50 && menuBourse().count(Coin.GOLD) == 3 && ecoule() >= 1.0,
-                () -> "ecran : argent " + menuBourse().count(Coin.SILVER) + ", or " + menuBourse().count(Coin.GOLD) + " ; serveur : "
-                        + rcon("data get entity " + nom() + " Inventory"),
-                () -> "Deposer tout : l'ecran de la bourse montre 3 or et 50 argent (" + menuBourse().total() + " cuivres)");
+        // Le menu porte les cases de l'inventaire : l'inventaire du client suit pendant que l'écran est ouvert.
+        pasC("Clic gauche sur « 10 » de la ligne de l'argent : 10 pièces entrent dans la bourse", () -> clicElement("row.silver.10", 0),
+                () -> ecranOuvert(PurseMenu.class) && menuBourse().count(Coin.SILVER) == 10 && pieces(Coin.SILVER) == 40 && ecoule() >= 1.0,
+                () -> "ecran : argent " + menuBourse().count(Coin.SILVER) + ", argent libre cote client " + pieces(Coin.SILVER),
+                () -> "depot de 10 (clic gauche) : l'ecran montre 10 argent et, ecran toujours ouvert, l'inventaire du client montre "
+                        + pieces(Coin.SILVER) + " argent en vrac (au lieu de 50)");
+        pasC("Clic droit sur « 1 » de la ligne de l'or : 1 or sort en vrac", () -> clicElement("row.gold.1", 1),
+                () -> ecranOuvert(PurseMenu.class) && menuBourse().count(Coin.GOLD) == 2 && pieces(Coin.GOLD) == 1 && ecoule() >= 1.0,
+                () -> "ecran : or " + menuBourse().count(Coin.GOLD) + ", or libre cote client " + pieces(Coin.GOLD),
+                () -> "retrait de 1 (clic droit) : l'ecran montre 2 or, le client voit 1 or en vrac, ecran ouvert");
+        pasC("« Déposer tout » : l'or et les 40 pièces d'argent en vrac entrent dans la bourse", () -> boutonDeposer(),
+                () -> menuBourse().count(Coin.SILVER) == 50 && menuBourse().count(Coin.GOLD) == 3 && valeurLibre() == 0 && ecoule() >= 1.0,
+                () -> "ecran : argent " + menuBourse().count(Coin.SILVER) + ", or " + menuBourse().count(Coin.GOLD) + ", valeur libre client "
+                        + valeurLibre() + " ; serveur : " + rcon("data get entity " + nom() + " Inventory"),
+                () -> "Deposer tout : l'ecran de la bourse montre 3 or et 50 argent (" + menuBourse().total()
+                        + " cuivres) et, ecran ouvert, le client ne voit plus aucune piece en vrac (valeur libre " + valeurLibre() + ")");
         pasC("« Regrouper » : 50 argent deviennent 5 or, à valeur égale", () -> boutonRegrouper(),
                 () -> menuBourse().count(Coin.GOLD) == 8 && menuBourse().count(Coin.SILVER) == 0 && ecoule() >= 1.0,
                 () -> "ecran : or " + menuBourse().count(Coin.GOLD) + ", argent " + menuBourse().count(Coin.SILVER),
                 () -> "Regrouper : l'ecran montre " + menuBourse().count(Coin.GOLD) + " or, " + menuBourse().count(Coin.SILVER) + " argent, valeur "
                         + menuBourse().total() + " (inchangee : 800)");
-        pasC("Il referme l'écran : l'inventaire du client se resynchronise", () -> fermer(),
+        pasC("Panneau Change : « 1 or → 10 argent »", () -> clicElement("break.gold", 0),
+                () -> menuBourse().count(Coin.GOLD) == 7 && menuBourse().count(Coin.SILVER) == 10 && ecoule() >= 1.0,
+                () -> "ecran : or " + menuBourse().count(Coin.GOLD) + ", argent " + menuBourse().count(Coin.SILVER),
+                () -> "Change, casser : 7 or et 10 argent, valeur " + menuBourse().total());
+        pasC("Panneau Change : « 10 argent → 1 or »", () -> clicElement("group.gold", 0),
+                () -> menuBourse().count(Coin.GOLD) == 8 && menuBourse().count(Coin.SILVER) == 0 && ecoule() >= 1.0,
+                () -> "ecran : or " + menuBourse().count(Coin.GOLD) + ", argent " + menuBourse().count(Coin.SILVER),
+                () -> "Change, regrouper la paire : 8 or, 0 argent, valeur " + menuBourse().total() + " (inchangee : 800)");
+        pasC("Il referme l'écran : l'inventaire du client est le même", () -> fermer(),
                 () -> mc.screen == null && Purse.count(bourse(), Coin.GOLD) == 8 && pieces(Coin.SILVER) == 0 && ecoule() >= 0.8,
                 () -> "ecran " + mc.screen + ", bourse or " + Purse.count(bourse(), Coin.GOLD) + ", argent libre " + pieces(Coin.SILVER),
                 () -> "apres la fermeture : bourse " + Purse.total(bourse()) + " cuivres (8 or), aucune piece d'argent libre, valeur totale " + valeurTotale());
-        pasC("L'équipe reprend 500 cuivres : /eco take (l'inventaire d'abord, puis la bourse)", () -> {
+        pasC("L'équipe reprend 500 cuivres : /eco take (les bourses d'abord)", () -> {
             reponse = rcon("eco take " + nom() + " 500 reprise avant le coffre-fort");
         }, () -> Purse.total(bourse()) == 300 && ecoule() >= 1.5,
                 () -> "bourse " + Purse.total(bourse()) + ", reponse " + reponse,
@@ -871,10 +893,26 @@ final class E2eMonnaie {
             tenirVide();
             clic(coffreFort(), Direction.NORTH);
         }, () -> ecranOuvert(SafeMenu.class), () -> "ecran " + mc.screen, () -> "ecran du coffre-fort ouvert par son proprietaire");
-        pasC("« Déposer tout » : les 300 cuivres de la bourse entrent dans le compte", () -> boutonDeposer(),
-                () -> ((SafeMenu) ((AbstractContainerScreen<?>) mc.screen).getMenu()).total() == 300 && ecoule() >= 1.0,
-                () -> "compte " + ((SafeMenu) ((AbstractContainerScreen<?>) mc.screen).getMenu()).total(),
-                () -> "Deposer tout : le compte affiche 300 cuivres (3 or)");
+        pasC("Clic gauche sur « 1 » de la ligne de l'or : la pièce vient de la bourse (pas d'or en vrac)", () -> clicElement("row.gold.1", 0),
+                () -> menuCoffre().count(Coin.GOLD) == 1 && Purse.count(bourse(), Coin.GOLD) == 2 && ecoule() >= 1.0,
+                () -> "compte or " + menuCoffre().count(Coin.GOLD) + ", bourse cote client " + Purse.count(bourse(), Coin.GOLD),
+                () -> "depot de 1 (clic gauche) : le compte montre 1 or, la bourse du client (ecran ouvert) en a 2");
+        pasC("Clic droit sur « 1 » de la ligne de l'or : la pièce sort en vrac", () -> clicElement("row.gold.1", 1),
+                () -> menuCoffre().count(Coin.GOLD) == 0 && pieces(Coin.GOLD) == 1 && ecoule() >= 1.0,
+                () -> "compte or " + menuCoffre().count(Coin.GOLD) + ", or libre cote client " + pieces(Coin.GOLD),
+                () -> "retrait de 1 (clic droit) : le compte n'a plus d'or, le client voit 1 or en vrac, ecran ouvert");
+        pasC("« Déposer tout » : les 300 cuivres (bourse et vrac) entrent dans le compte", () -> boutonDeposer(),
+                () -> menuCoffre().total() == 300 && valeurTotale() == 0 && ecoule() >= 1.0,
+                () -> "compte " + menuCoffre().total() + ", client " + valeurTotale(),
+                () -> "Deposer tout : le compte affiche 300 cuivres (3 or) et, ecran ouvert, le client ne porte plus rien (valeur " + valeurTotale() + ")");
+        pasC("Panneau Change du coffre-fort : « 1 or → 10 argent »", () -> clicElement("break.gold", 0),
+                () -> menuCoffre().count(Coin.GOLD) == 2 && menuCoffre().count(Coin.SILVER) == 10 && ecoule() >= 1.0,
+                () -> "compte or " + menuCoffre().count(Coin.GOLD) + ", argent " + menuCoffre().count(Coin.SILVER),
+                () -> "Change dans le coffre-fort, casser : 2 or et 10 argent, total " + menuCoffre().total());
+        pasC("Panneau Change du coffre-fort : « 10 argent → 1 or »", () -> clicElement("group.gold", 0),
+                () -> menuCoffre().count(Coin.GOLD) == 3 && menuCoffre().count(Coin.SILVER) == 0 && menuCoffre().total() == 300 && ecoule() >= 1.0,
+                () -> "compte or " + menuCoffre().count(Coin.GOLD) + ", argent " + menuCoffre().count(Coin.SILVER),
+                () -> "Change dans le coffre-fort, regrouper la paire : 3 or, total " + menuCoffre().total() + " (inchange)");
         pasC("Il referme le coffre-fort : le joueur ne porte plus rien", () -> fermer(), () -> mc.screen == null && valeurTotale() == 0 && ecoule() >= 0.8,
                 () -> "ecran " + mc.screen + ", joueur " + valeurTotale(),
                 () -> "apres la fermeture le joueur ne porte plus aucune piece (bourse comprise) : valeur " + valeurTotale() + ", le compte du serveur garde 300");

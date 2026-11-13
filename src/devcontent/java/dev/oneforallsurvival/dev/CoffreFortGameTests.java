@@ -80,6 +80,7 @@ public final class CoffreFortGameTests {
     private static final String LOT_C = "coffre_fort_c";
     private static final String LOT_MASSE = "coffre_fort_masse";
     private static final String LOT_BOURSE = "coffre_fort_bourse";
+    private static final String LOT_ECRAN = "coffre_fort_ecran";
 
     /** Où le coffre-fort se pose (case d'air ; le sol est un bloc plus bas), loin du joueur. */
     private static final BlockPos A = new BlockPos(1, 0, 1);
@@ -419,7 +420,7 @@ public final class CoffreFortGameTests {
                 helper.assertTrue(agir(j, new SafeActionPacket(abs, new CoinRequest(CoinRequest.WITHDRAW, coupure, 1, false))) == Result.BAD_REQUEST,
                         "coupure " + coupure);
             }
-            for (int action : new int[] {-1, 3, 99, Integer.MIN_VALUE}) {
+            for (int action : new int[] {-1, 6, 99, Integer.MIN_VALUE}) {
                 helper.assertTrue(agir(j, new SafeActionPacket(abs, new CoinRequest(action, 0, 1, false))) == Result.BAD_REQUEST, "action " + action);
             }
             helper.assertTrue(comptes.count(j.uuid(), Coin.COPPER) == 5 && porte(j, Coin.COPPER) == 0, "toujours rien");
@@ -880,18 +881,25 @@ public final class CoffreFortGameTests {
             helper.assertTrue(valeurPortee(j) == 0 && Purse.total(bourse) == 0, "plus rien sur le joueur : " + PlayerCoins.held(j.joueur()));
             helper.assertTrue(comptes.total(j.uuid()) == valeur, "le compte a tout : " + comptes.total(j.uuid()));
 
-            // Le retrait va dans la bourse (première), pas en vrac.
+            // Le retrait va d'abord en vrac dans l'inventaire (décision du 2026-11-13) : le joueur voit ce qu'il retire.
             helper.assertTrue(agir(j, SafeActionPacket.withdraw(abs, Coin.COPPER, 10)) == Result.DONE, "retrait");
-            helper.assertTrue(Purse.count(bourse, Coin.COPPER) == 10 && PlayerCoins.heldLoose(j.joueur()).isEmpty(),
-                    "dans la bourse : " + Purse.contents(bourse) + ", en vrac " + PlayerCoins.heldLoose(j.joueur()));
+            helper.assertTrue(Purse.count(bourse, Coin.COPPER) == 0
+                    && PlayerCoins.heldLoose(j.joueur()).getOrDefault(Coin.COPPER, 0L) == 10,
+                    "en vrac : " + PlayerCoins.heldLoose(j.joueur()) + ", bourse " + Purse.contents(bourse));
             helper.assertTrue(valeurTotale(j, comptes) == valeur, "valeur conservée");
 
-            // Bourse au plafond pour cette coupure : le reste passe en vrac.
-            Purse.add(bourse, Coin.COPPER, Purse.room(bourse, Coin.COPPER));
+            // L'inventaire n'a plus de place que sur le tas de 10 cuivres : le reste entre dans la bourse.
+            for (int i = 0; i < j.joueur().getInventory().items.size(); i++) {
+                if (j.joueur().getInventory().items.get(i).isEmpty()) {
+                    j.joueur().getInventory().items.set(i, new ItemStack(Items.DIRT, 64));
+                }
+            }
+            comptes.deposit(j.uuid(), Coin.COPPER, 64);
             long avant = valeurTotale(j, comptes);
-            helper.assertTrue(agir(j, SafeActionPacket.withdraw(abs, Coin.COPPER, 10)) == Result.DONE, "retrait, bourse au plafond");
-            helper.assertTrue(Purse.count(bourse, Coin.COPPER) == Purse.MAX_PER_COIN && PlayerCoins.heldLoose(j.joueur())
-                    .getOrDefault(Coin.COPPER, 0L) == 10, "10 en vrac : " + PlayerCoins.heldLoose(j.joueur()));
+            helper.assertTrue(agir(j, SafeActionPacket.withdraw(abs, Coin.COPPER, 64)) == Result.DONE, "retrait, vrac presque plein");
+            helper.assertTrue(PlayerCoins.heldLoose(j.joueur()).getOrDefault(Coin.COPPER, 0L) == 64
+                    && Purse.count(bourse, Coin.COPPER) == 10,
+                    "54 en vrac puis 10 dans la bourse : " + PlayerCoins.heldLoose(j.joueur()) + ", bourse " + Purse.contents(bourse));
             helper.assertTrue(valeurTotale(j, comptes) == avant, "valeur conservée au plafond");
             helper.succeed();
         }
@@ -1017,6 +1025,132 @@ public final class CoffreFortGameTests {
             } catch (com.mojang.brigadier.exceptions.CommandSyntaxException e) {
                 throw new AssertionError("eco stats a échoué : " + e.getMessage());
             }
+            helper.succeed();
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Écran de la passe finale : déposer N (clic gauche), retirer N (clic droit), panneau « Change »
+    // ---------------------------------------------------------------------------------------------
+
+    /** Valeur portée (bourses comprises) plus le compte : elle ne bouge jamais d'une action de l'écran. */
+    private static long tout(JoueurDeTest j, SafeAccounts comptes) {
+        return valeurPortee(j) + comptes.total(j.uuid());
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_ECRAN)
+    public static void deposerNPrendLeVracPuisLesBourses(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest j = essai.joueur("cf_depot_n");
+            SafeAccounts comptes = essai.comptes();
+            EconomyLedger registre = EconomyLedger.get(essai.serveur());
+            poserEtVerifier(helper, j, A);
+            j.joueur().setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+            BlockPos abs = helper.absolutePos(A);
+            ItemStack bourse = new ItemStack(EconomyRegistry.PURSE.get());
+            Purse.add(bourse, Coin.GOLD, 20);
+            j.joueur().getInventory().setItem(8, bourse);
+            donner(j, Coin.GOLD, 5);
+            long valeur = tout(j, comptes);
+            long circulation = creeMoinsDetruit(registre);
+            clicDroit(helper, j, A);
+            helper.assertTrue(ouvert(j), "écran ouvert");
+
+            // 10 demandés : les 5 en vrac d'abord, puis 5 de la bourse.
+            helper.assertTrue(agir(j, SafeActionPacket.deposit(abs, Coin.GOLD, 10)) == Result.DONE, "dépôt de 10");
+            helper.assertTrue(PlayerCoins.heldLoose(j.joueur()).getOrDefault(Coin.GOLD, 0L) == 0
+                    && Purse.count(bourse, Coin.GOLD) == 15 && comptes.count(j.uuid(), Coin.GOLD) == 10,
+                    "vrac " + PlayerCoins.heldLoose(j.joueur()) + ", bourse " + Purse.contents(bourse));
+            // 64 demandés, 15 portés : jusqu'à N, selon ce qui est là.
+            helper.assertTrue(agir(j, SafeActionPacket.deposit(abs, Coin.GOLD, 64)) == Result.DONE, "dépôt de 64");
+            helper.assertTrue(Purse.count(bourse, Coin.GOLD) == 0 && comptes.count(j.uuid(), Coin.GOLD) == 25, "tout est au compte");
+            helper.assertTrue(agir(j, SafeActionPacket.deposit(abs, Coin.GOLD, 1)) == Result.NOTHING, "plus rien à déposer");
+            helper.assertTrue(agir(j, SafeActionPacket.deposit(abs, Coin.RUBY, 1)) == Result.NOTHING, "aucun rubis porté");
+
+            // Retirer 64 sur 25 : refusé (tout ou rien) ; retirer 10 : en vrac.
+            helper.assertTrue(agir(j, SafeActionPacket.withdraw(abs, Coin.GOLD, 64)) == Result.INSUFFICIENT, "64 sur 25");
+            helper.assertTrue(agir(j, SafeActionPacket.withdraw(abs, Coin.GOLD, 10)) == Result.DONE, "retrait de 10");
+            helper.assertTrue(PlayerCoins.heldLoose(j.joueur()).getOrDefault(Coin.GOLD, 0L) == 10, "10 en vrac");
+
+            // Compte au plafond pour l'argent : le dépôt est refusé, rien ne quitte le joueur.
+            comptes.deposit(j.uuid(), Coin.SILVER, SafeAccounts.MAX_PER_COIN);
+            donner(j, Coin.SILVER, 3);
+            long avantPlein = tout(j, comptes);
+            helper.assertTrue(agir(j, SafeActionPacket.deposit(abs, Coin.SILVER, 1)) == Result.STORE_FULL, "compte plein");
+            helper.assertTrue(PlayerCoins.heldLoose(j.joueur()).getOrDefault(Coin.SILVER, 0L) == 3 && tout(j, comptes) == avantPlein,
+                    "rien ne bouge au plafond");
+            comptes.withdraw(j.uuid(), Coin.SILVER, SafeAccounts.MAX_PER_COIN);
+            helper.assertTrue(agir(j, SafeActionPacket.deposit(abs, Coin.SILVER, 10)) == Result.DONE, "3 sur 10");
+
+            // En créatif aussi, le compte ne gagne que ce que le joueur a perdu.
+            j.joueur().gameMode.changeGameModeForPlayer(GameType.CREATIVE);
+            long avantCreatif = tout(j, comptes);
+            helper.assertTrue(agir(j, SafeActionPacket.deposit(abs, Coin.GOLD, 1)) == Result.DONE, "dépôt en créatif");
+            helper.assertTrue(tout(j, comptes) == avantCreatif && PlayerCoins.heldLoose(j.joueur()).getOrDefault(Coin.GOLD, 0L) == 9,
+                    "créatif : " + PlayerCoins.heldLoose(j.joueur()));
+            j.joueur().gameMode.changeGameModeForPlayer(GameType.SURVIVAL);
+
+            helper.assertTrue(tout(j, comptes) == valeur + 3 * 10, "valeur conservée (plus les 3 argent donnés)");
+            helper.assertTrue(creeMoinsDetruit(registre) == circulation, "le registre n'a pas bougé");
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_ECRAN)
+    public static void leChangeCasseEtRegroupeAValeurEgale(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest j = essai.joueur("cf_change");
+            SafeAccounts comptes = essai.comptes();
+            poserEtVerifier(helper, j, A);
+            BlockPos abs = helper.absolutePos(A);
+            comptes.deposit(j.uuid(), Coin.GOLD, 3);
+            comptes.deposit(j.uuid(), Coin.SILVER, 25);
+            comptes.deposit(j.uuid(), Coin.RUBY, 1);
+            long valeur = comptes.total(j.uuid());
+            clicDroit(helper, j, A);
+            helper.assertTrue(ouvert(j), "écran ouvert");
+
+            // Clic simple : une seule conversion.
+            helper.assertTrue(agir(j, new SafeActionPacket(abs, CoinRequest.breakCoin(Coin.GOLD, false))) == Result.DONE, "1 or -> 10 argent");
+            helper.assertTrue(comptes.count(j.uuid(), Coin.GOLD) == 2 && comptes.count(j.uuid(), Coin.SILVER) == 35, comptes.balance(j.uuid()).toString());
+            // Maj + clic : autant que possible, calculé par le serveur.
+            helper.assertTrue(agir(j, new SafeActionPacket(abs, CoinRequest.breakCoin(Coin.GOLD, true))) == Result.DONE, "tout l'or");
+            helper.assertTrue(comptes.count(j.uuid(), Coin.GOLD) == 0 && comptes.count(j.uuid(), Coin.SILVER) == 55, comptes.balance(j.uuid()).toString());
+            helper.assertTrue(agir(j, new SafeActionPacket(abs, CoinRequest.breakCoin(Coin.GOLD, false))) == Result.INSUFFICIENT, "plus d'or");
+            helper.assertTrue(agir(j, new SafeActionPacket(abs, CoinRequest.groupPair(Coin.GOLD, false))) == Result.DONE, "10 argent -> 1 or");
+            helper.assertTrue(comptes.count(j.uuid(), Coin.GOLD) == 1 && comptes.count(j.uuid(), Coin.SILVER) == 45, comptes.balance(j.uuid()).toString());
+            helper.assertTrue(agir(j, new SafeActionPacket(abs, CoinRequest.groupPair(Coin.GOLD, true))) == Result.DONE, "tout l'argent");
+            helper.assertTrue(comptes.count(j.uuid(), Coin.GOLD) == 5 && comptes.count(j.uuid(), Coin.SILVER) == 5, comptes.balance(j.uuid()).toString());
+            helper.assertTrue(agir(j, new SafeActionPacket(abs, CoinRequest.groupPair(Coin.GOLD, false))) == Result.INSUFFICIENT, "5 argent");
+            // Le rubis se casse aussi.
+            helper.assertTrue(agir(j, new SafeActionPacket(abs, CoinRequest.breakCoin(Coin.RUBY, false))) == Result.DONE, "1 rubis -> 10 émeraudes");
+            helper.assertTrue(comptes.count(j.uuid(), Coin.EMERALD) == 10 && comptes.count(j.uuid(), Coin.RUBY) == 0, comptes.balance(j.uuid()).toString());
+            helper.assertTrue(comptes.total(j.uuid()) == valeur, "valeur conservée : " + comptes.total(j.uuid()) + " pour " + valeur);
+
+            // Plus de place sous le plafond : refusé, rien ne bouge.
+            comptes.deposit(j.uuid(), Coin.SILVER, SafeAccounts.MAX_PER_COIN - 5 - 5);
+            long avant = comptes.total(j.uuid());
+            helper.assertTrue(agir(j, new SafeActionPacket(abs, CoinRequest.breakCoin(Coin.GOLD, false))) == Result.STORE_FULL, "argent au plafond");
+            helper.assertTrue(agir(j, new SafeActionPacket(abs, CoinRequest.breakCoin(Coin.GOLD, true))) == Result.STORE_FULL, "argent au plafond, maj");
+            helper.assertTrue(comptes.total(j.uuid()) == avant && comptes.count(j.uuid(), Coin.GOLD) == 5, "rien n'a bougé");
+
+            // Demandes hors des boutons : refusées.
+            for (CoinRequest faux : new CoinRequest[] {CoinRequest.breakCoin(Coin.COPPER, false), CoinRequest.groupPair(Coin.COPPER, true),
+                    new CoinRequest(CoinRequest.BREAK, 2, 10, false), new CoinRequest(CoinRequest.GROUP_PAIR, 9, 0, true),
+                    new CoinRequest(CoinRequest.DEPOSIT, 2, 5, false), new CoinRequest(CoinRequest.WITHDRAW, 2, 1, true)}) {
+                helper.assertTrue(agir(j, new SafeActionPacket(abs, faux)) == Result.BAD_REQUEST, "refusé : " + faux);
+            }
+            // Deux paquets « tout casser » d'affilée : le second ne trouve plus rien, rien n'est créé.
+            comptes.withdraw(j.uuid(), Coin.SILVER, comptes.count(j.uuid(), Coin.SILVER));
+            long avantDouble = comptes.total(j.uuid());
+            j.envoyer(new SafeActionPacket(abs, CoinRequest.breakCoin(Coin.GOLD, true)));
+            j.envoyer(new SafeActionPacket(abs, CoinRequest.breakCoin(Coin.GOLD, true)));
+            helper.assertTrue(comptes.count(j.uuid(), Coin.GOLD) == 0 && comptes.count(j.uuid(), Coin.SILVER) == 50
+                    && comptes.total(j.uuid()) == avantDouble, "deux clics : " + comptes.balance(j.uuid()));
+            // Un autre joueur sans droit ne change rien.
+            JoueurDeTest autre = essai.joueur("cf_change_autre");
+            helper.assertTrue(agir(autre, new SafeActionPacket(abs, CoinRequest.groupPair(Coin.GOLD, true))) == Result.NOT_ALLOWED, "sans droit");
+            helper.assertTrue(comptes.count(j.uuid(), Coin.SILVER) == 50, "le compte n'a pas bougé");
             helper.succeed();
         }
     }

@@ -411,7 +411,7 @@ public final class BourseGameTests {
                 helper.assertTrue(agir(j, new PurseActionPacket(0, new CoinRequest(CoinRequest.WITHDRAW, coupure, 1, false))) == Result.BAD_REQUEST,
                         "coupure " + coupure);
             }
-            for (int action : new int[] {-1, 3, 99, Integer.MIN_VALUE}) {
+            for (int action : new int[] {-1, 6, 99, Integer.MIN_VALUE}) {
                 helper.assertTrue(agir(j, new PurseActionPacket(0, new CoinRequest(action, 0, 1, false))) == Result.BAD_REQUEST, "action " + action);
             }
             // Une autre case que celle de l'écran : refusé.
@@ -1168,6 +1168,71 @@ public final class BourseGameTests {
             // La monnaie va dans la bourse (qui vient d'être vidée de l'or) : rien n'est perdu.
             helper.assertTrue(Purse.pay(j.joueur(), 30) == 30, "paiement");
             helper.assertTrue(Purse.total(bourse) == 70 && auSol(helper).isEmpty(), "70 restent dans la bourse : " + Purse.contents(bourse));
+            helper.succeed();
+        } finally {
+            quitter(j);
+            boite(helper);
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Écran de la passe finale : déposer N, retirer N, panneau « Change »
+    // ---------------------------------------------------------------------------------------------
+
+    @GameTest(template = "test/plancher", batch = LOT_E)
+    public static void deposerEtRetirerNNeTouchentQueLeVrac(GameTestHelper helper) {
+        boite(helper);
+        JoueurDeTest j = joueur(helper, "bo_n");
+        try {
+            ItemStack bourse = porter(j, 0, bourse(Coin.GOLD, 1));
+            ItemStack autre = porter(j, 1, bourse(Coin.SILVER, 20));
+            j.joueur().getInventory().selected = 0;
+            donnerEnVrac(j, Coin.SILVER, 15);
+            long valeur = valeurPortee(j);
+            ouvrirEcran(j);
+            helper.assertTrue(j.joueur().containerMenu instanceof PurseMenu, "écran ouvert");
+
+            helper.assertTrue(agir(j, PurseActionPacket.deposit(0, Coin.SILVER, 10)) == Result.DONE, "dépôt de 10");
+            helper.assertTrue(Purse.count(bourse, Coin.SILVER) == 10 && enVrac(j, Coin.SILVER) == 5, "10 et 5");
+            helper.assertTrue(agir(j, PurseActionPacket.deposit(0, Coin.SILVER, 64)) == Result.DONE, "dépôt de 64 (5 portés)");
+            helper.assertTrue(Purse.count(bourse, Coin.SILVER) == 15 && enVrac(j, Coin.SILVER) == 0 && Purse.count(autre, Coin.SILVER) == 20,
+                    "l'autre bourse n'est jamais prise : " + Purse.contents(autre));
+            helper.assertTrue(agir(j, PurseActionPacket.deposit(0, Coin.SILVER, 1)) == Result.NOTHING, "plus d'argent en vrac");
+
+            helper.assertTrue(agir(j, PurseActionPacket.withdraw(0, Coin.SILVER, 10)) == Result.DONE, "retrait de 10");
+            helper.assertTrue(enVrac(j, Coin.SILVER) == 10 && Purse.count(autre, Coin.SILVER) == 20, "en vrac, pas dans l'autre bourse");
+            // Inventaire plein : le retrait ne va pas dans l'autre bourse, il est refusé ; rien au sol.
+            remplirDeTerre(j);
+            helper.assertTrue(agir(j, PurseActionPacket.withdraw(0, Coin.GOLD, 1)) == Result.FULL, "inventaire plein");
+            helper.assertTrue(Purse.count(bourse, Coin.GOLD) == 1 && auSol(helper).isEmpty(), "la pièce reste dans la bourse");
+            helper.assertTrue(valeurPortee(j) == valeur, "valeur conservée : " + valeurPortee(j));
+            helper.succeed();
+        } finally {
+            quitter(j);
+            boite(helper);
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_E)
+    public static void leChangeDeLaBourse(GameTestHelper helper) {
+        boite(helper);
+        JoueurDeTest j = joueur(helper, "bo_change");
+        try {
+            ItemStack bourse = porter(j, 0, bourse(Coin.EMERALD, 2, Coin.GOLD, 4));
+            j.joueur().getInventory().selected = 0;
+            long valeur = Purse.total(bourse);
+            ouvrirEcran(j);
+            helper.assertTrue(agir(j, new PurseActionPacket(0, CoinRequest.breakCoin(Coin.EMERALD, false))) == Result.DONE, "1 émeraude -> 10 or");
+            helper.assertTrue(Purse.count(bourse, Coin.EMERALD) == 1 && Purse.count(bourse, Coin.GOLD) == 14, Purse.contents(bourse).toString());
+            helper.assertTrue(agir(j, new PurseActionPacket(0, CoinRequest.groupPair(Coin.EMERALD, true))) == Result.DONE, "tout regrouper");
+            helper.assertTrue(Purse.count(bourse, Coin.EMERALD) == 2 && Purse.count(bourse, Coin.GOLD) == 4, Purse.contents(bourse).toString());
+            helper.assertTrue(agir(j, new PurseActionPacket(0, CoinRequest.groupPair(Coin.EMERALD, false))) == Result.INSUFFICIENT, "4 or");
+            helper.assertTrue(agir(j, new PurseActionPacket(0, CoinRequest.breakCoin(Coin.SILVER, true))) == Result.INSUFFICIENT, "pas d'argent");
+            helper.assertTrue(agir(j, new PurseActionPacket(0, CoinRequest.breakCoin(Coin.COPPER, false))) == Result.BAD_REQUEST, "cuivre");
+            helper.assertTrue(Purse.total(bourse) == valeur && enVrac(j, Coin.GOLD) == 0, "valeur conservée, rien en vrac");
+            // Écran fermé : plus de change.
+            j.joueur().closeContainer();
+            helper.assertTrue(agir(j, new PurseActionPacket(0, CoinRequest.breakCoin(Coin.EMERALD, false))) == Result.NOT_OPEN, "écran fermé");
             helper.succeed();
         } finally {
             quitter(j);

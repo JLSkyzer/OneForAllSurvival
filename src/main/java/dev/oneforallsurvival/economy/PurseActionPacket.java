@@ -27,6 +27,11 @@ public record PurseActionPacket(int slot, CoinRequest request) {
         return new PurseActionPacket(slot, CoinRequest.depositAll());
     }
 
+    /** Déposer jusqu'à {@code amount} pièces de cette coupure (clic gauche sur un bouton de ligne). */
+    public static PurseActionPacket deposit(int slot, Coin coin, int amount) {
+        return new PurseActionPacket(slot, CoinRequest.deposit(coin, amount));
+    }
+
     public static PurseActionPacket withdraw(int slot, Coin coin, int amount) {
         return new PurseActionPacket(slot, CoinRequest.withdraw(coin, amount));
     }

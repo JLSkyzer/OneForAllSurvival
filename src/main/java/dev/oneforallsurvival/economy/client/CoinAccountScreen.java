@@ -5,11 +5,13 @@ import dev.oneforallsurvival.economy.Coin;
 import dev.oneforallsurvival.economy.CoinAccountMenu;
 import dev.oneforallsurvival.economy.CoinMath;
 import dev.oneforallsurvival.economy.CoinRequest;
+import dev.oneforallsurvival.economy.CoinStore;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nullable;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
@@ -23,8 +25,10 @@ import net.minecraft.world.item.ItemStack;
 
 /**
  * L'écran commun du coffre-fort et de la bourse, au décor de l'établi ({@link BenchTheme}) : le total en haut, une
- * ligne par coupure (la plus grande d'abord) avec ses boutons, « Déposer tout » et « Regrouper », puis l'inventaire
- * du joueur.
+ * ligne par coupure (la plus grande d'abord) avec ses boutons 1, 10 et 64 (clic gauche : déposer, clic droit :
+ * retirer), « Déposer tout » et « Regrouper », puis l'inventaire du joueur ; à droite, le panneau « Change » (casser
+ * une pièce, regrouper une paire ; maj + clic : autant que possible). Chaque bouton a sa bulle d'aide, qui dit aussi
+ * quel sens est indisponible et pourquoi.
  *
  * <p>Tout ce qui se clique est un {@link Element} d'une seule liste ({@link #elements}), qui sert à la fois au rendu
  * et aux clics : la géométrie n'est écrite qu'une fois. L'écran ne décide de rien : chaque clic envoie une
@@ -48,6 +52,14 @@ public abstract class CoinAccountScreen<M extends CoinAccountMenu> extends Abstr
     static final int FOOT_W = (MAIN_W - 2 * PAD - 4) / 2;
     static final int FOOT_H = 14;
     static final int INVENTORY_LABEL_Y = CoinAccountMenu.INVENTORY_Y - 10;
+    /** Le panneau « Change », accolé à droite du cadre principal. */
+    static final int PANEL_X = MAIN_W + 2;
+    static final int PANEL_W = 124;
+    static final int PANEL_H = 98;
+    static final int CHANGE_Y = 20;
+    static final int CHANGE_W = 56;
+    static final int CHANGE_H = 16;
+    static final int CHANGE_ROW = 18;
 
     /** Ce qu'un élément dessine dans son bouton. */
     @FunctionalInterface
@@ -77,7 +89,8 @@ public abstract class CoinAccountScreen<M extends CoinAccountMenu> extends Abstr
 
     protected CoinAccountScreen(M menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
-        imageWidth = MAIN_W;
+        // Le cadre et le panneau : 302 x 232, ce qui tient dans la plus petite interface automatique (320 x 240).
+        imageWidth = PANEL_X + PANEL_W;
         imageHeight = HEIGHT;
     }
 
@@ -124,31 +137,110 @@ public abstract class CoinAccountScreen<M extends CoinAccountMenu> extends Abstr
         return !CoinMath.group(counts, Coin::value).equals(counts);
     }
 
+    private static Component unit(Coin coin, long n) {
+        return Component.translatable(coin.unitKey(n));
+    }
+
+    /** Une ligne de bulle : blanche si possible, grise sinon, suivie de la raison en rouge. */
+    private static void line(List<Component> out, Component text, @Nullable String why) {
+        out.add(text.copy().withStyle(why == null ? ChatFormatting.WHITE : ChatFormatting.GRAY));
+        if (why != null) {
+            out.add(Component.translatable(GUI + "unavailable", Component.translatable(GUI + "why." + why))
+                    .withStyle(ChatFormatting.RED));
+        }
+    }
+
     /** Tous les éléments de l'écran, à leur place : la même liste sert au rendu et aux clics. */
     protected List<Element> elements() {
         List<Element> out = new ArrayList<>();
         EnumMap<Coin, Long> counts = counts();
         int[] amounts = CoinRequest.amounts();
+        Component where = Component.translatable(GUI + (menu.usesPurses() ? "row.safe" : "row.purse"))
+                .withStyle(ChatFormatting.DARK_GRAY);
+        boolean anyToDeposit = false;
         for (int row = 0; row < Coin.values().length; row++) {
             Coin coin = coinOfRow(row);
             long count = counts.getOrDefault(coin, 0L);
+            long carried = menu.carried(coin);
+            long room = Math.max(0L, CoinStore.MAX_PER_COIN - count);
+            String depositWhy = carried <= 0L ? "none_carried" : room <= 0L ? "store_full" : null;
+            anyToDeposit |= depositWhy == null;
             for (int i = 0; i < amounts.length; i++) {
                 int amount = amounts[i];
-                CoinRequest withdraw = count >= amount ? CoinRequest.withdraw(coin, amount) : null;
+                String withdrawWhy = count >= amount ? null : "not_enough";
+                List<Component> tip = new ArrayList<>();
+                line(tip, Component.translatable(GUI + "left_deposit", amount, unit(coin, amount)), depositWhy);
+                line(tip, Component.translatable(GUI + "right_withdraw", amount, unit(coin, amount)), withdrawWhy);
+                tip.add(where);
                 out.add(new Element("row." + coin.key() + "." + amount, rowButtonX(i, amounts.length),
-                        rowY(row) + (ROW_H - ROW_BUTTON_H) / 2, ROW_BUTTON_W, ROW_BUTTON_H, List.of(), withdraw, null,
-                        null, label(String.valueOf(amount), false)));
+                        rowY(row) + (ROW_H - ROW_BUTTON_H) / 2, ROW_BUTTON_W, ROW_BUTTON_H, tip,
+                        depositWhy == null ? CoinRequest.deposit(coin, amount) : null,
+                        withdrawWhy == null ? CoinRequest.withdraw(coin, amount) : null, null,
+                        label(String.valueOf(amount), false)));
             }
         }
         int footY = topPos + FOOT_Y;
-        out.add(new Element("deposit_all", leftPos + PAD, footY, FOOT_W, FOOT_H, List.of(),
-                CoinRequest.depositAll(), null, null,
+        out.add(new Element("deposit_all", leftPos + PAD, footY, FOOT_W, FOOT_H,
+                List.of(Component.translatable(GUI + "deposit_all.tooltip." + (menu.usesPurses() ? "safe" : "purse"))),
+                anyToDeposit ? CoinRequest.depositAll() : null, null, null,
                 label(Component.translatable(GUI + "deposit_all").getString(), true)));
-        CoinRequest group = canGroup(counts) ? CoinRequest.groupAll() : null;
-        out.add(new Element("group", leftPos + PAD + FOOT_W + 4, footY, FOOT_W, FOOT_H,
-                List.of(Component.translatable(GUI + "group.tooltip")), group, null, null,
+        boolean group = canGroup(counts);
+        List<Component> groupTip = new ArrayList<>();
+        line(groupTip, Component.translatable(GUI + "group.tooltip"), group ? null : "nothing");
+        out.add(new Element("group", leftPos + PAD + FOOT_W + 4, footY, FOOT_W, FOOT_H, groupTip,
+                group ? CoinRequest.groupAll() : null, null, null,
                 label(Component.translatable(GUI + "group").getString(), false)));
+        // Le panneau « Change » : une ligne par paire voisine, la plus grande en haut.
+        for (int row = 0; row < Coin.values().length - 1; row++) {
+            Coin upper = coinOfRow(row);
+            Coin lower = Coin.values()[upper.ordinal() - 1];
+            int y = topPos + CHANGE_Y + row * CHANGE_ROW;
+            boolean rate = CoinMath.atPar(upper, Coin::value);
+            String breakWhy = !rate ? "rate"
+                    : CoinMath.maxBreaks(counts, upper, Coin::value, CoinStore.MAX_PER_COIN) > 0L ? null
+                    : counts.getOrDefault(upper, 0L) <= 0L ? "not_enough" : "store_full";
+            String groupWhy = !rate ? "rate"
+                    : CoinMath.maxGroups(counts, upper, Coin::value, CoinStore.MAX_PER_COIN) > 0L ? null
+                    : counts.getOrDefault(lower, 0L) < 10L ? "not_enough" : "store_full";
+            List<Component> breakTip = new ArrayList<>();
+            line(breakTip, Component.translatable(GUI + "break", unit(upper, 1), unit(lower, 10)), breakWhy);
+            breakTip.add(Component.translatable(GUI + "shift_all").withStyle(ChatFormatting.DARK_GRAY));
+            out.add(new Element("break." + upper.key(), leftPos + PANEL_X + 5, y, CHANGE_W, CHANGE_H, breakTip,
+                    breakWhy == null ? CoinRequest.breakCoin(upper, false) : null, null,
+                    breakWhy == null ? CoinRequest.breakCoin(upper, true) : null, exchange(upper, 1, lower, 10)));
+            List<Component> pairTip = new ArrayList<>();
+            line(pairTip, Component.translatable(GUI + "group_pair", unit(lower, 10), unit(upper, 1)), groupWhy);
+            pairTip.add(Component.translatable(GUI + "shift_all").withStyle(ChatFormatting.DARK_GRAY));
+            out.add(new Element("group." + upper.key(), leftPos + PANEL_X + 5 + CHANGE_W + 2, y, CHANGE_W, CHANGE_H,
+                    pairTip, groupWhy == null ? CoinRequest.groupPair(upper, false) : null, null,
+                    groupWhy == null ? CoinRequest.groupPair(upper, true) : null, exchange(lower, 10, upper, 1)));
+        }
         return out;
+    }
+
+    /** Un bouton de change : « 1 [or] → 10 [argent] », pièces en petit. */
+    private Painter exchange(Coin from, int fromCount, Coin to, int toCount) {
+        return (g, e, hover) -> {
+            BenchTheme.button(g, font, e.x(), e.y(), e.w(), e.h(), "", hover && e.active(), e.active(), false);
+            int color = !e.active() ? BenchTheme.TEXT_DISABLED : hover ? BenchTheme.BRASS_LIGHT : BenchTheme.TEXT;
+            String a = String.valueOf(fromCount);
+            String arrow = "→";
+            String b = String.valueOf(toCount);
+            int icon = 12;
+            int width = font.width(a) + 1 + icon + 2 + font.width(arrow) + 2 + font.width(b) + 1 + icon;
+            int x = e.x() + (e.w() - width) / 2;
+            int ty = e.y() + (e.h() - 8) / 2 + 1;
+            int iy = e.y() + (e.h() - icon) / 2;
+            g.drawString(font, a, x, ty, color, false);
+            x += font.width(a) + 1;
+            BenchTheme.item(g, font, new ItemStack(from.item()), x, iy, 0.75F, false);
+            x += icon + 2;
+            g.drawString(font, arrow, x, ty, color, false);
+            x += font.width(arrow) + 2;
+            g.drawString(font, b, x, ty, color, false);
+            x += font.width(b) + 1;
+            BenchTheme.item(g, font, new ItemStack(to.item()), x, iy, 0.75F, false);
+        };
     }
 
     /** Un bouton à texte. */
@@ -233,6 +325,9 @@ public abstract class CoinAccountScreen<M extends CoinAccountMenu> extends Abstr
     protected void renderBg(GuiGraphics g, float partialTick, int mx, int my) {
         BenchTheme.plate(g, leftPos, topPos, MAIN_W, imageHeight);
         BenchTheme.rivets(g, leftPos, topPos, MAIN_W, imageHeight);
+        BenchTheme.plate(g, leftPos + PANEL_X, topPos, PANEL_W, PANEL_H);
+        BenchTheme.rivets(g, leftPos + PANEL_X, topPos, PANEL_W, PANEL_H);
+        BenchTheme.rule(g, leftPos + PANEL_X + 5, topPos + 15, PANEL_W - 10);
         BenchTheme.rule(g, leftPos + PAD, topPos + 15, MAIN_W - 2 * PAD);
         BenchTheme.well(g, leftPos + PAD, topPos + ROWS_Y - 1, MAIN_W - 2 * PAD, Coin.values().length * ROW_H + 1);
         int textRight = rowButtonX(0, CoinRequest.amounts().length) - 2;
@@ -266,6 +361,7 @@ public abstract class CoinAccountScreen<M extends CoinAccountMenu> extends Abstr
     protected void renderLabels(GuiGraphics g, int mx, int my) {
         g.drawString(font, title, titleLabelX, titleLabelY, BenchTheme.TEXT, false);
         g.drawString(font, playerInventoryTitle, inventoryLabelX, inventoryLabelY, BenchTheme.TEXT_DIM, false);
+        g.drawString(font, Component.translatable(GUI + "change"), PANEL_X + 6, 6, BenchTheme.TEXT, false);
         // Le total le plus long (cinq coupures, nombres à plusieurs chiffres) déborderait du cadre : il rétrécit.
         Component total = Component.translatable(GUI + "total", CoinMath.format(menu.total()));
         float scale = Math.min(1.0F, (MAIN_W - 2 * PAD) / (float) font.width(total));

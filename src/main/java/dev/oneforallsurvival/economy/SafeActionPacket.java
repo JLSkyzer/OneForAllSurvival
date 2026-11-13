@@ -33,6 +33,11 @@ public record SafeActionPacket(BlockPos pos, CoinRequest request) {
         return new SafeActionPacket(pos, CoinRequest.depositAll());
     }
 
+    /** Déposer jusqu'à {@code amount} pièces de cette coupure (clic gauche sur un bouton de ligne). */
+    public static SafeActionPacket deposit(BlockPos pos, Coin coin, int amount) {
+        return new SafeActionPacket(pos, CoinRequest.deposit(coin, amount));
+    }
+
     public static SafeActionPacket withdraw(BlockPos pos, Coin coin, int amount) {
         return new SafeActionPacket(pos, CoinRequest.withdraw(coin, amount));
     }
