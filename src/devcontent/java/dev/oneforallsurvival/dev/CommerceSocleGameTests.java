@@ -456,4 +456,35 @@ public final class CommerceSocleGameTests {
             helper.succeed();
         }
     }
+
+    @GameTest(template = "test/plancher", batch = LOT_B)
+    public static void uneBoursePleineLaissePasserLesPiecesDansLesCases(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest j = essai.vide(essai.nom("cs_bpleine"));
+            ServerPlayer p = j.joueur();
+            remplir(p, 0);
+            ItemStack bourse = new ItemStack(EconomyRegistry.PURSE.get());
+            Purse.add(bourse, Coin.GOLD, Purse.MAX_PER_COIN - 2L);
+            p.getInventory().items.set(35, bourse);
+            // Deux or entrent encore dans la bourse ; le troisième n'a ni bourse ni case.
+            helper.assertTrue(InventoryFit.fits(p, List.of(new ItemStack(Coin.GOLD.item(), 2))),
+                    "deux or tiennent dans la bourse presque pleine");
+            helper.assertTrue(!InventoryFit.fits(p, List.of(new ItemStack(Coin.GOLD.item(), 3))),
+                    "bourse pleine et inventaire plein : le troisième or ne tient pas");
+            helper.assertTrue(!InventoryFit.fits(p, List.of(new ItemStack(Coin.GOLD.item(), 2),
+                    new ItemStack(Coin.GOLD.item(), 1))), "la place de la bourse se compte une seule fois");
+            // L'argent n'est pas plein : il entre dans la bourse.
+            helper.assertTrue(InventoryFit.fits(p, List.of(new ItemStack(Coin.SILVER.item(), 64))),
+                    "l'argent entre dans la bourse");
+            // Une case libre : le surplus d'or y prend place.
+            p.getInventory().items.set(0, ItemStack.EMPTY);
+            helper.assertTrue(InventoryFit.fits(p, List.of(new ItemStack(Coin.GOLD.item(), 3))),
+                    "le surplus d'or prend la case libre");
+            helper.assertTrue(!InventoryFit.fits(p, List.of(new ItemStack(Coin.GOLD.item(), 3), new ItemStack(Items.BREAD))),
+                    "le surplus d'or occupe la case : plus de place pour un pain");
+            helper.assertTrue(Purse.count(p.getInventory().items.get(35), Coin.GOLD) == Purse.MAX_PER_COIN - 2L,
+                    "la simulation ne touche pas à la bourse");
+            helper.succeed();
+        }
+    }
 }

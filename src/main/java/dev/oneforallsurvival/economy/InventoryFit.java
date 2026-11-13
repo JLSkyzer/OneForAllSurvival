@@ -1,7 +1,9 @@
 package dev.oneforallsurvival.economy;
 
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Optional;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 
@@ -18,20 +20,38 @@ public final class InventoryFit {
     private InventoryFit() {}
 
     /**
-     * Les objets entrants tiennent-ils dans l'inventaire du joueur ? Les pièces ne comptent pas quand le joueur a
-     * une bourse : elles y entrent.
+     * Les objets entrants tiennent-ils dans l'inventaire du joueur ? Les pièces entrent d'abord dans les bourses,
+     * jusqu'à leur plafond ({@link Purse#MAX_PER_COIN}), comme {@link PlayerCoins#receive} ; le surplus prend des
+     * cases comme n'importe quel objet.
      */
     public static boolean fits(Player player, List<ItemStack> incoming) {
         List<ItemStack> slots = new ArrayList<>(MAIN_SLOTS);
         for (int slot = 0; slot < MAIN_SLOTS; slot++) {
             slots.add(player.getInventory().getItem(slot).copy());
         }
-        boolean hasPurse = Purse.firstPurse(player).isPresent();
+        // La place qui reste dans les bourses, coupure par coupure (les bourses se remplissent l'une après l'autre).
+        EnumMap<Coin, Long> purseRoom = new EnumMap<>(Coin.class);
+        for (ItemStack purse : Purse.purses(player)) {
+            for (Coin coin : Coin.values()) {
+                purseRoom.merge(coin, Purse.room(purse, coin), (a, b) -> a + b < a ? Long.MAX_VALUE : a + b);
+            }
+        }
         for (ItemStack stack : incoming) {
-            if (stack.isEmpty() || hasPurse && Coin.fromItem(stack.getItem()).isPresent()) {
+            if (stack.isEmpty()) {
                 continue;
             }
-            if (!place(slots, stack.copy())) {
+            ItemStack rest = stack.copy();
+            Optional<Coin> coin = Coin.fromItem(stack.getItem());
+            if (coin.isPresent()) {
+                long room = purseRoom.getOrDefault(coin.get(), 0L);
+                int intoPurses = (int) Math.min(room, rest.getCount());
+                purseRoom.put(coin.get(), room - intoPurses);
+                rest.shrink(intoPurses);
+                if (rest.isEmpty()) {
+                    continue;
+                }
+            }
+            if (!place(slots, rest)) {
                 return false;
             }
         }

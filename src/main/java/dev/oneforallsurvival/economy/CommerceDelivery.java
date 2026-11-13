@@ -48,13 +48,17 @@ public final class CommerceDelivery {
      * @return le nombre de piles mises en attente
      */
     public static int giveBack(ServerPlayer owner, List<ItemStack> stacks) {
-        HeldGoods.Pending left = deliver(owner, stacks, Map.of());
-        if (left.isEmpty()) {
-            return 0;
+        Rest rest = Rest.of(stacks, Map.of());
+        try {
+            deliver(owner, rest);
+        } finally {
+            // Même si une livraison lève une exception, ce qui n'est pas encore entré n'est pas perdu.
+            if (!rest.isEmpty()) {
+                HeldGoods.get(owner.server).addPending(owner.getUUID(), rest.items, rest.coins);
+                owner.sendSystemMessage(Component.translatable(MESSAGE + "pending"));
+            }
         }
-        HeldGoods.get(owner.server).addPending(owner.getUUID(), left.items(), left.coins());
-        owner.sendSystemMessage(Component.translatable(MESSAGE + "pending"));
-        return left.items().size() + left.coins().size();
+        return rest.items.size() + rest.coins.size();
     }
 
     /** Comme {@link #giveBack(ServerPlayer, List)} ; joueur absent : tout va en attente. */
@@ -74,53 +78,73 @@ public final class CommerceDelivery {
     }
 
     /**
-     * Fait entrer ce qu'on peut ; rend ce qui n'est pas entré (jamais une pile partagée avec l'appelant).
+     * Ce qui reste à livrer, tenu à jour pendant la livraison : chaque pièce ou objet entré en est retiré aussitôt.
+     * Si la livraison s'interrompt (exception), le reste est exactement ce qui n'est pas entré. Les piles sont des
+     * copies, jamais celles de l'appelant.
      */
-    private static HeldGoods.Pending deliver(ServerPlayer player, List<ItemStack> stacks, Map<Coin, Long> coins) {
-        List<ItemStack> leftItems = new ArrayList<>();
-        EnumMap<Coin, Long> leftCoins = new EnumMap<>(Coin.class);
-        EnumMap<Coin, Long> toReceive = new EnumMap<>(Coin.class);
-        coins.forEach((coin, count) -> {
-            if (count > 0L) {
-                toReceive.merge(coin, count, Long::sum);
+    private static final class Rest {
+        final List<ItemStack> items = new ArrayList<>();
+        final EnumMap<Coin, Long> coins = new EnumMap<>(Coin.class);
+
+        static Rest of(List<ItemStack> stacks, Map<Coin, Long> coins) {
+            Rest rest = new Rest();
+            coins.forEach((coin, count) -> {
+                if (count > 0L) {
+                    rest.coins.merge(coin, count, Long::sum);
+                }
+            });
+            for (ItemStack stack : stacks) {
+                if (stack.isEmpty()) {
+                    continue;
+                }
+                Optional<Coin> coin = Coin.fromItem(stack.getItem());
+                if (coin.isPresent()) {
+                    rest.coins.merge(coin.get(), (long) stack.getCount(), Long::sum);
+                } else {
+                    rest.items.add(stack.copy());
+                }
             }
-        });
-        List<ItemStack> objects = new ArrayList<>();
-        for (ItemStack stack : stacks) {
-            if (stack.isEmpty()) {
-                continue;
-            }
-            Optional<Coin> coin = Coin.fromItem(stack.getItem());
-            if (coin.isPresent()) {
-                toReceive.merge(coin.get(), (long) stack.getCount(), Long::sum);
+            return rest;
+        }
+
+        boolean isEmpty() {
+            return items.isEmpty() && coins.isEmpty();
+        }
+
+        long itemCount() {
+            return countStacks(items);
+        }
+    }
+
+    /** Fait entrer ce qu'on peut ; {@code rest} garde, à chaque instant, ce qui n'est pas encore entré. */
+    private static void deliver(ServerPlayer player, Rest rest) {
+        for (Coin coin : new ArrayList<>(rest.coins.keySet())) {
+            long want = rest.coins.get(coin);
+            long entered = PlayerCoins.receive(player, coin, want);
+            if (entered >= want) {
+                rest.coins.remove(coin);
             } else {
-                objects.add(stack);
+                rest.coins.put(coin, want - entered);
             }
         }
-        for (Map.Entry<Coin, Long> entry : toReceive.entrySet()) {
-            long entered = PlayerCoins.receive(player, entry.getKey(), entry.getValue());
-            if (entered < entry.getValue()) {
-                leftCoins.put(entry.getKey(), entry.getValue() - entered);
-            }
-        }
-        for (ItemStack stack : objects) {
-            int remaining = stack.getCount();
+        java.util.Iterator<ItemStack> it = rest.items.iterator();
+        while (it.hasNext()) {
+            ItemStack stack = it.next();
             int max = Math.max(1, stack.getMaxStackSize());
-            while (remaining > 0) {
-                int size = Math.min(remaining, max);
+            while (!stack.isEmpty()) {
+                int size = Math.min(stack.getCount(), max);
                 long before = countOf(player.getInventory(), stack);
                 player.getInventory().add(stack.copyWithCount(size));
-                long gained = countOf(player.getInventory(), stack) - before;
-                remaining -= (int) Math.min(size, Math.max(0L, gained));
+                long gained = Math.max(0L, Math.min(size, countOf(player.getInventory(), stack) - before));
+                stack.shrink((int) gained);
                 if (gained < size) {
                     break;
                 }
             }
-            if (remaining > 0) {
-                leftItems.add(stack.copyWithCount(remaining));
+            if (stack.isEmpty()) {
+                it.remove();
             }
         }
-        return new HeldGoods.Pending(leftItems, leftCoins);
     }
 
     /** Le nombre d'objets identiques (même objet, mêmes étiquettes) dans tout l'inventaire. */
@@ -206,18 +230,25 @@ public final class CommerceDelivery {
             return false;
         }
         HeldGoods.Pending taken = held.takePending(player.getUUID());
-        HeldGoods.Pending left = deliver(player, taken.items(), taken.coins());
-        boolean progress = !left.coins().equals(taken.coins()) || countStacks(left.items()) != countStacks(taken.items());
-        if (!left.isEmpty()) {
-            held.addPending(player.getUUID(), left.items(), left.coins());
+        Rest rest = Rest.of(taken.items(), taken.coins());
+        EnumMap<Coin, Long> coinsBefore = new EnumMap<>(rest.coins);
+        long itemsBefore = rest.itemCount();
+        try {
+            deliver(player, rest);
+        } finally {
+            // Retiré de l'attente avant la livraison : ce qui n'est pas entré y revient, exception ou non.
+            if (!rest.isEmpty()) {
+                held.addPending(player.getUUID(), rest.items, rest.coins);
+            }
         }
+        boolean progress = !rest.coins.equals(coinsBefore) || rest.itemCount() != itemsBefore;
         if (progress) {
             player.sendSystemMessage(Component.translatable(MESSAGE + "delivered"));
         }
-        if (!left.isEmpty() && (announceLeftovers || progress)) {
+        if (!rest.isEmpty() && (announceLeftovers || progress)) {
             player.sendSystemMessage(Component.translatable(MESSAGE + "pending"));
         }
-        return !left.isEmpty();
+        return !rest.isEmpty();
     }
 
     private static long countStacks(List<ItemStack> stacks) {
