@@ -868,6 +868,8 @@ final class E2eExploration {
                     "oneforallsurvival:battery_cell"}) {
                 rcon("clear " + nom() + " " + objet);
             }
+            // Le point de départ est plus bas que la dalle (un joueur neuf apparaît au sol) : la garde « sous la dalle » cesse ici.
+            airePrete = false;
             rcon("tp " + nom() + " " + (depart.getX() + 0.5) + " " + depart.getY() + " " + (depart.getZ() + 0.5));
         }, () -> ecoule() >= 1.5 && mc.player.blockPosition().distSqr(depart) < 9, () -> "joueur en " + mc.player.blockPosition(), null);
         pasC("Le joueur redevient opérateur (console RCON : op), pour les étapes qui suivent", () -> rcon("op " + nom()),

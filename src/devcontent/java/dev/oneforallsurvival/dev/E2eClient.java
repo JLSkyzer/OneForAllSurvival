@@ -52,6 +52,7 @@ public final class E2eClient {
     private static final boolean SEULE_PROTECTION = System.getenv("E2E_PROTECTION_SEULE") != null;
     private static final boolean SEULE_VILLE = System.getenv("E2E_VILLE_SEULE") != null;
     private static final boolean SEULE_EXPLORATION = System.getenv("E2E_EXPLORATION_SEULE") != null;
+    private static final boolean SEULE_MONNAIE = System.getenv("E2E_MONNAIE_SEULE") != null;
     private static final int COPIES = 2;
     /**
      * Une connexion réussie prend environ 8 s avec le pack (7,5 à 10,5 s sur 11 relevés du 2026-11-06, de la
@@ -60,7 +61,8 @@ public final class E2eClient {
     private static final double DIAGNOSTIC_CONNEXION_S = 17;
 
     private enum Phase { TITRE, CONNEXION, CATALOGUE, PROVISIONS, POSER, OUVRIR, COMMANDER, STOCK, OUVRIR_STOCK, PRENDRE,
-        REPARATION, VIVRES, RESEAU, PROTECTION, VILLE, EXPLORATION, LAMPE_ARRET, LAMPE_RELANCE, ARRET, FIN }
+        REPARATION, VIVRES, RESEAU, PROTECTION, VILLE, EXPLORATION, MONNAIE, LAMPE_ARRET, LAMPE_RELANCE, ARRET, FIN,
+        DEPART, DEPART_SORTIE, DEPART_RETOUR }
 
     private static Phase phase = Phase.TITRE;
     private static long debutPhase = System.nanoTime();
@@ -79,6 +81,8 @@ public final class E2eClient {
     private static FilmCapture film;
     private static String derniereLigne = "";
     private static boolean diagnosticFait;
+    /** Vrai quand le contrôle de la somme de départ (et la reconnexion du premier passage) est fait. */
+    private static boolean departFait;
 
     /**
      * Délai de garde de tout l'essai, en secondes : au-delà, le client se ferme quel que soit l'écran où il est resté
@@ -125,6 +129,9 @@ public final class E2eClient {
             case PROTECTION -> E2eProtection.legende();
             case VILLE -> E2eVille.legende();
             case EXPLORATION -> E2eExploration.legende();
+            case MONNAIE -> E2eMonnaie.legende();
+            case DEPART -> "Somme de départ : 500 cuivres à la première connexion, rien de plus après la reconnexion";
+            case DEPART_SORTIE, DEPART_RETOUR -> "Le client se déconnecte puis se reconnecte au serveur dédié";
             case LAMPE_ARRET -> "La lampe est portée au moment de l'arrêt du serveur";
             case LAMPE_RELANCE -> "Relance : la lampe portée à l'arrêt est retirée, les lumières sont comptées";
             case ARRET -> "Arrêt du serveur par /stop";
@@ -261,7 +268,8 @@ public final class E2eClient {
         }
         // La réparation a ses propres délais, pas par pas.
         if (phase != Phase.TITRE && phase != Phase.FIN && phase != Phase.ARRET && phase != Phase.REPARATION && phase != Phase.VIVRES
-                && phase != Phase.RESEAU && phase != Phase.PROTECTION && phase != Phase.VILLE && phase != Phase.EXPLORATION && secondes() > 180) {
+                && phase != Phase.RESEAU && phase != Phase.PROTECTION && phase != Phase.VILLE && phase != Phase.EXPLORATION
+                && phase != Phase.MONNAIE && phase != Phase.DEPART_RETOUR && secondes() > 180) {
             fail("delai depasse en phase " + phase);
         }
     }
@@ -328,9 +336,23 @@ public final class E2eClient {
                 }
                 // Le catalogue doit arriver a la connexion, sans qu'aucun etabli n'ait ete ouvert.
                 if (!BenchClientState.catalog().isEmpty()) {
-                    pass("catalogue recu par le reseau a la connexion : " + BenchClientState.catalog().size()
-                            + " recettes, generation " + BenchClientState.generation() + ", apres " + String.format("%.1f", secondes()) + " s");
-                    if (SEULE_EXPLORATION) {
+                    if (!departFait) {
+                        pass("catalogue recu par le reseau a la connexion : " + BenchClientState.catalog().size()
+                                + " recettes, generation " + BenchClientState.generation() + ", apres " + String.format("%.1f", secondes()) + " s");
+                        // Le lot E1 d'abord : les autres lots vident l'inventaire, donc la somme de départ se contrôle avant.
+                        E2eMonnaie.commencerDepart();
+                        passer(Phase.DEPART);
+                        return;
+                    }
+                    if (SEULE_MONNAIE) {
+                        // Essai de mise au point de l'étape du lot E1 seule (variable d'environnement E2E_MONNAIE_SEULE).
+                        if (RELANCE) {
+                            E2eMonnaie.relance();
+                        } else {
+                            E2eMonnaie.premierePhase();
+                        }
+                        passer(Phase.MONNAIE);
+                    } else if (SEULE_EXPLORATION) {
                         // Essai de mise au point de l'étape du lot 7 seule (variable d'environnement E2E_EXPLORATION_SEULE).
                         if (RELANCE) {
                             passer(Phase.LAMPE_RELANCE);
@@ -363,6 +385,48 @@ public final class E2eClient {
                     }
                 } else if (secondes() > 40) {
                     fail("aucun catalogue recu 40 s apres la connexion");
+                }
+            }
+            case DEPART -> {
+                E2eMonnaie.Suite suite = E2eMonnaie.depart(mc, RELANCE);
+                if (phase != Phase.DEPART) {
+                    return;
+                }
+                if (suite == E2eMonnaie.Suite.FINI) {
+                    departFait = true;
+                    passer(Phase.CATALOGUE);
+                } else if (suite == E2eMonnaie.Suite.RECONNECTER) {
+                    passer(Phase.DEPART_SORTIE);
+                }
+            }
+            case DEPART_SORTIE -> {
+                if (!actionFaite) {
+                    LOG.info("[e2e] deconnexion du client (premier passage, controle de la somme de depart)");
+                    mc.level.disconnect();
+                    mc.clearLevel();
+                    mc.setScreen(new TitleScreen());
+                    actionFaite = true;
+                    return;
+                }
+                if (mc.getOverlay() == null && mc.level == null && mc.screen instanceof TitleScreen && secondes() > 2) {
+                    LOG.info("[e2e] reconnexion a {}", HOTE);
+                    ConnectScreen.startConnecting(mc.screen, mc, ServerAddress.parseString(HOTE), new ServerData("e2e", HOTE, false), false);
+                    passer(Phase.DEPART_RETOUR);
+                } else if (secondes() > 60) {
+                    fail("titre jamais atteint apres la deconnexion, ecran " + mc.screen);
+                }
+            }
+            case DEPART_RETOUR -> {
+                if (mc.screen instanceof net.minecraft.client.gui.screens.DisconnectedScreen) {
+                    fail("ecran de deconnexion pendant la reconnexion : " + mc.screen.getTitle().getString());
+                    return;
+                }
+                if (mc.player != null && mc.level != null && !BenchClientState.catalog().isEmpty()) {
+                    pass("client reconnecte au serveur dedie apres " + String.format("%.1f", secondes()) + " s");
+                    E2eMonnaie.commencerDepart();
+                    passer(Phase.DEPART);
+                } else if (secondes() > 120) {
+                    fail("reconnexion non etablie en 120 s, ecran " + mc.screen);
                 }
             }
             case PROVISIONS -> {
@@ -651,9 +715,21 @@ public final class E2eClient {
             case EXPLORATION -> {
                 if (E2eExploration.avancer(mc) && phase == Phase.EXPLORATION) {
                     if (RELANCE) {
-                        passer(Phase.ARRET);
+                        E2eMonnaie.relance();
+                        passer(Phase.MONNAIE);
                     } else if (SEULE_EXPLORATION) {
                         passer(Phase.LAMPE_ARRET);
+                    } else {
+                        // Le lot E1 avant le lot 5 : l'étape du lot 5 finit juste avant l'arrêt du serveur.
+                        E2eMonnaie.premierePhase();
+                        passer(Phase.MONNAIE);
+                    }
+                }
+            }
+            case MONNAIE -> {
+                if (E2eMonnaie.avancer(mc) && phase == Phase.MONNAIE) {
+                    if (RELANCE || SEULE_MONNAIE) {
+                        passer(Phase.ARRET);
                     } else {
                         E2eProtection.premierePhase();
                         passer(Phase.PROTECTION);
@@ -686,6 +762,7 @@ public final class E2eClient {
                         // Le lot 6 d'abord : après un échec sous la douche, le joueur n'est plus opérateur, et un joueur qui n'est
                         // pas opérateur est expulsé « pour spam » dès qu'il envoie une dizaine de commandes d'affilée.
                         E2eVille.rangerAvantArret(mc);
+                        E2eMonnaie.rangerAvantArret(mc);
                         E2eExploration.rangerAvantArret(mc);
                         E2eProtection.rangerAvantArret(mc);
                         E2eVivres.rangerAvantArret(mc);

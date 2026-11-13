@@ -325,6 +325,16 @@ minecraft {
             args '--width', '1280', '--height', '656'
         }
 
+        // Film du lot E1 (dev seulement) : un client qui se pilote seul et enregistre ses images dans
+        // run-demo/frames-monnaie, un bandeau de légende en dessous. Voir FilmMonnaie (devcontent).
+        demoMonnaieFilm {
+            parent minecraft.runs.client
+            workingDirectory project.file('run-demo')
+            property 'oneforallsurvival.demo.monnaie', 'true'
+            jvmArgs '-Xmx3G'
+            args '--width', '1280', '--height', '656'
+        }
+
         server {
             // Un dossier à part : un client lancé en même temps tourne dans `run`.
             workingDirectory project.file('run-server')
@@ -547,6 +557,13 @@ tasks.matching { it.name == 'runDemoExplorationFilm' }.configureEach {
     doFirst {
         delete project.file('run-demo/saves/film_exploration')
         delete project.file('run-demo/frames-exploration')
+    }
+}
+
+tasks.matching { it.name == 'runDemoMonnaieFilm' }.configureEach {
+    doFirst {
+        delete project.file('run-demo/saves/film_monnaie')
+        delete project.file('run-demo/frames-monnaie')
     }
 }
 
