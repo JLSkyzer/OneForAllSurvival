@@ -531,5 +531,22 @@
   "tooltip.oneforallsurvival.receipt.nothing": "  rien",
   "tooltip.oneforallsurvival.receipt.line": "  %s × %s",
   "tooltip.oneforallsurvival.receipt.line.purse": "  %s × %s (%s)",
-  "tooltip.oneforallsurvival.receipt.more": "  … et %s autres"
+  "tooltip.oneforallsurvival.receipt.more": "  … et %s autres",
+  "block.oneforallsurvival.market_stall": "Étal de marché",
+  "container.oneforallsurvival.stall.of": "Étal de %s",
+  "gui.oneforallsurvival.stall.tab.stock": "Stock",
+  "gui.oneforallsurvival.stall.tab.offers": "Offres",
+  "gui.oneforallsurvival.stall.tab.cash": "Caisse",
+  "gui.oneforallsurvival.stall.tab.ledger": "Registre",
+  "gui.oneforallsurvival.stall.tab.soon": "Bientôt disponible",
+  "gui.oneforallsurvival.stall.cash.back": "Stock",
+  "gui.oneforallsurvival.stall.cash.back.tooltip": "Retour à l'onglet Stock",
+  "message.oneforallsurvival.stall.shop": "La vitrine de cet étal n'est pas encore ouverte aux clients",
+  "message.oneforallsurvival.stall.not_yours": "Cet étal n'est pas à vous",
+  "message.oneforallsurvival.stall.not_empty": "Videz le stock et la caisse de l'étal avant de le casser",
+  "message.oneforallsurvival.stall.store_full": "La caisse est pleine pour cette coupure",
+  "message.oneforallsurvival.stall.no_rate": "Change impossible : les valeurs de la config ne donnent pas un rapport de 10",
+  "message.oneforallsurvival.stall.insufficient": "La caisse n'a pas assez de pièces",
+  "message.oneforallsurvival.stall.full": "Votre inventaire est plein",
+  "message.oneforallsurvival.stall.nothing": "Rien à faire"
 }

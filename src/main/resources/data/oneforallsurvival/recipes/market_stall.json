@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "WWW",
+    "S S",
+    "PPP"
+  ],
+  "key": {
+    "W": { "tag": "minecraft:wool" },
+    "S": { "item": "minecraft:stick" },
+    "P": { "tag": "minecraft:planks" }
+  },
+  "result": { "item": "oneforallsurvival:market_stall" }
+}

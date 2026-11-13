@@ -531,5 +531,22 @@
   "tooltip.oneforallsurvival.receipt.nothing": "  nothing",
   "tooltip.oneforallsurvival.receipt.line": "  %s × %s",
   "tooltip.oneforallsurvival.receipt.line.purse": "  %s × %s (%s)",
-  "tooltip.oneforallsurvival.receipt.more": "  … and %s more"
+  "tooltip.oneforallsurvival.receipt.more": "  … and %s more",
+  "block.oneforallsurvival.market_stall": "Market Stall",
+  "container.oneforallsurvival.stall.of": "%s's Stall",
+  "gui.oneforallsurvival.stall.tab.stock": "Stock",
+  "gui.oneforallsurvival.stall.tab.offers": "Offers",
+  "gui.oneforallsurvival.stall.tab.cash": "Till",
+  "gui.oneforallsurvival.stall.tab.ledger": "Ledger",
+  "gui.oneforallsurvival.stall.tab.soon": "Coming soon",
+  "gui.oneforallsurvival.stall.cash.back": "Stock",
+  "gui.oneforallsurvival.stall.cash.back.tooltip": "Back to the Stock tab",
+  "message.oneforallsurvival.stall.shop": "This stall's shop front is not open to customers yet",
+  "message.oneforallsurvival.stall.not_yours": "This stall is not yours",
+  "message.oneforallsurvival.stall.not_empty": "Empty the stall's stock and till before breaking it",
+  "message.oneforallsurvival.stall.store_full": "The till is full for this denomination",
+  "message.oneforallsurvival.stall.no_rate": "Exchange impossible: the config values do not give a ratio of 10",
+  "message.oneforallsurvival.stall.insufficient": "The till does not have enough coins",
+  "message.oneforallsurvival.stall.full": "Your inventory is full",
+  "message.oneforallsurvival.stall.nothing": "Nothing to do"
 }

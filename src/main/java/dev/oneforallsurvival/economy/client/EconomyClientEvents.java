@@ -29,6 +29,8 @@ public final class EconomyClientEvents {
                 MenuScreens.register(EconomyRegistry.SAFE_MENU.get(), SafeScreen::new);
                 MenuScreens.register(EconomyRegistry.PURSE_MENU.get(), PurseScreen::new);
                 MenuScreens.register(EconomyRegistry.TRADE_MENU.get(), TradeScreen::new);
+                MenuScreens.register(EconomyRegistry.STALL_OWNER_MENU.get(), StallOwnerScreen::new);
+                MenuScreens.register(EconomyRegistry.STALL_CASH_MENU.get(), StallCashScreen::new);
             });
         }
     }

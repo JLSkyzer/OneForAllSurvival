@@ -1,6 +1,10 @@
 package dev.oneforallsurvival.economy;
 
 import dev.oneforallsurvival.OneForAllSurvival;
+import dev.oneforallsurvival.economy.stall.MarketStallBlock;
+import dev.oneforallsurvival.economy.stall.MarketStallBlockEntity;
+import dev.oneforallsurvival.economy.stall.StallCashMenu;
+import dev.oneforallsurvival.economy.stall.StallOwnerMenu;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
@@ -62,6 +66,25 @@ public final class EconomyRegistry {
     public static final RegistryObject<MenuType<SafeMenu>> SAFE_MENU =
             MENUS.register("safe", () -> IForgeMenuType.create(SafeMenu::fromNetwork));
 
+    /**
+     * L'étal de marché (lot E2) : comme le coffre-fort, dureté -1 et résistance maximale, piston bloqué ; seuls ceux
+     * qui le gèrent le cassent, et seulement vide ({@link MarketStallBlock#getDestroyProgress}). {@code noOcclusion} :
+     * le modèle n'occupe pas le cube entier.
+     */
+    public static final RegistryObject<Block> MARKET_STALL = BLOCKS.register("market_stall",
+            () -> new MarketStallBlock(BlockBehaviour.Properties.of().mapColor(MapColor.WOOD)
+                    .strength(-1.0F, 3600000.0F).sound(SoundType.WOOD).pushReaction(PushReaction.BLOCK).noOcclusion()));
+    public static final RegistryObject<Item> MARKET_STALL_ITEM = ITEMS.register("market_stall",
+            () -> new BlockItem(MARKET_STALL.get(), new Item.Properties()));
+    public static final RegistryObject<BlockEntityType<MarketStallBlockEntity>> MARKET_STALL_BE = BLOCK_ENTITIES
+            .register("market_stall", () -> BlockEntityType.Builder.of(MarketStallBlockEntity::new, MARKET_STALL.get()).build(null));
+    /** La gestion de l'étal (onglet Stock) : n'est PAS un rangement permis pour l'argent. */
+    public static final RegistryObject<MenuType<StallOwnerMenu>> STALL_OWNER_MENU =
+            MENUS.register("market_stall", () -> IForgeMenuType.create(StallOwnerMenu::fromNetwork));
+    /** La caisse de l'étal : un rangement permis, comme le coffre-fort. */
+    public static final RegistryObject<MenuType<StallCashMenu>> STALL_CASH_MENU =
+            MENUS.register("market_stall_cash", () -> IForgeMenuType.create(StallCashMenu::fromNetwork));
+
     /** La bourse : ne s'empile pas, garde les pièces dans son NBT ({@link Purse}). */
     public static final RegistryObject<Item> PURSE = ITEMS.register("purse", () -> new PurseItem(new Item.Properties()));
     public static final RegistryObject<MenuType<PurseMenu>> PURSE_MENU =
@@ -113,6 +136,7 @@ public final class EconomyRegistry {
             MoneyStorageRules.register(SAFE_MENU.get());
             MoneyStorageRules.register(PURSE_MENU.get());
             MoneyStorageRules.register(TRADE_MENU.get());
+            MoneyStorageRules.register(STALL_CASH_MENU.get());
             MoneyStorageRules.registerMoneyPredicate(stack -> Purse.isPurse(stack) && Purse.total(stack) > 0L);
         });
     }
@@ -121,6 +145,7 @@ public final class EconomyRegistry {
     public static List<RegistryObject<? extends Item>> tabItems() {
         List<RegistryObject<? extends Item>> items = new ArrayList<>(COINS.values());
         items.add(SAFE_ITEM);
+        items.add(MARKET_STALL_ITEM);
         items.add(PURSE);
         items.add(RECEIPT);
         return items;

@@ -7,6 +7,7 @@ import dev.oneforallsurvival.debug.IslandDebugRequest;
 import dev.oneforallsurvival.debug.IslandDebugResponse;
 import dev.oneforallsurvival.economy.PurseActionPacket;
 import dev.oneforallsurvival.economy.SafeActionPacket;
+import dev.oneforallsurvival.economy.stall.StallCashPacket;
 import dev.oneforallsurvival.economy.trade.TradeActionPacket;
 import dev.oneforallsurvival.explore.ReceiverFrequencyPacket;
 import dev.oneforallsurvival.grid.SubscriberNamePacket;
@@ -63,6 +64,8 @@ public final class BenchNetwork {
     public static final int ID_PURSE_ACTION = 12;
     /** La fenêtre d'échange : confirmer, cocher le reçu, verser des pièces, annuler. */
     public static final int ID_TRADE_ACTION = 13;
+    /** La caisse d'un étal : déposer, retirer, regrouper. */
+    public static final int ID_STALL_CASH = 14;
 
     /** Clé de traduction d'un refus : {@code message.oneforallsurvival.bench.refused.<résultat>}. */
     public static final String REFUSED_KEY = "message.oneforallsurvival.bench.refused.";
@@ -117,6 +120,9 @@ public final class BenchNetwork {
         CHANNEL.messageBuilder(TradeActionPacket.class, ID_TRADE_ACTION, NetworkDirection.PLAY_TO_SERVER)
                 .encoder(TradeActionPacket::encode).decoder(TradeActionPacket::decode)
                 .consumerMainThread(TradeActionPacket::handle).add();
+        CHANNEL.messageBuilder(StallCashPacket.class, ID_STALL_CASH, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(StallCashPacket::encode).decoder(StallCashPacket::decode)
+                .consumerMainThread(StallCashPacket::handle).add();
     }
 
     // --- Serveur vers client -----------------------------------------------------------------

@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "oneforallsurvival:block/market_stall" },
+    "facing=east": { "model": "oneforallsurvival:block/market_stall", "y": 90 },
+    "facing=south": { "model": "oneforallsurvival:block/market_stall", "y": 180 },
+    "facing=west": { "model": "oneforallsurvival:block/market_stall", "y": 270 }
+  }
+}
