@@ -33,7 +33,11 @@ import net.minecraftforge.registries.ForgeRegistries;
  * signées.
  *
  * <p>Les autres onglets sont des boutons de menu (le mécanisme du jeu, sans paquet à nous) : {@link #BUTTON_CASH} ouvre
- * la caisse ; {@link #BUTTON_OFFERS} et {@link #BUTTON_LEDGER} sont remplis à la tâche suivante.
+ * la caisse. Offres et Registre sont des vues de ce même menu, côté client ({@link #setView}) : la gestion garde ses
+ * cases, l'écran cache celles qui n'ont rien à faire dans la vue ({@link Slot#isActive}). Les offres s'écrivent par
+ * {@link StallActionPacket} (modèle = la pile du curseur de ce menu, côté serveur) ; le registre se demande par le
+ * même paquet et n'est envoyé qu'au joueur qui a ce menu ouvert. {@link #BUTTON_OFFERS} et {@link #BUTTON_LEDGER}
+ * répondent vrai sans rien ouvrir.
  */
 public final class StallOwnerMenu extends AbstractContainerMenu {
 
@@ -55,10 +59,17 @@ public final class StallOwnerMenu extends AbstractContainerMenu {
     public static final int INVENTORY_Y = 108;
     public static final int HOTBAR_Y = INVENTORY_Y + 3 * 18 + 4;
 
+    /** Vues de l'écran (côté client) : quelles cases sont montrées. */
+    public static final int VIEW_STOCK = 0;
+    public static final int VIEW_OFFERS = 1;
+    public static final int VIEW_LEDGER = 2;
+
     private final BlockPos pos;
     /** Côté serveur : l'étal ; nul côté client. */
     @Nullable
     private final MarketStallBlockEntity stall;
+    /** Côté client : la vue de l'écran. Côté serveur, toujours le stock (toutes les cases actives). */
+    private int view = VIEW_STOCK;
 
     /** Côté serveur. */
     public StallOwnerMenu(int containerId, Inventory inventory, BlockPos pos, MarketStallBlockEntity stall) {
@@ -77,16 +88,16 @@ public final class StallOwnerMenu extends AbstractContainerMenu {
         this.stall = stall;
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
-                addSlot(new StockSlot(stock, row * 9 + col, STOCK_X + col * 18, STOCK_Y + row * 18));
+                addSlot(new StockSlot(this, stock, row * 9 + col, STOCK_X + col * 18, STOCK_Y + row * 18));
             }
         }
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
-                addSlot(new Slot(inventory, 9 + row * 9 + col, INVENTORY_X + col * 18, INVENTORY_Y + row * 18));
+                addSlot(new PlayerSlot(this, inventory, 9 + row * 9 + col, INVENTORY_X + col * 18, INVENTORY_Y + row * 18));
             }
         }
         for (int col = 0; col < 9; col++) {
-            addSlot(new Slot(inventory, col, INVENTORY_X + col * 18, HOTBAR_Y));
+            addSlot(new PlayerSlot(this, inventory, col, INVENTORY_X + col * 18, HOTBAR_Y));
         }
     }
 
@@ -99,15 +110,53 @@ public final class StallOwnerMenu extends AbstractContainerMenu {
         return pos;
     }
 
+    /** Côté serveur : l'étal de cette gestion ; nul côté client. */
+    @Nullable
+    public MarketStallBlockEntity stall() {
+        return stall;
+    }
+
+    public int view() {
+        return view;
+    }
+
+    /** Côté client : change la vue ; le stock n'est montré que dans sa vue, l'inventaire partout sauf au registre. */
+    public void setView(int view) {
+        this.view = view;
+    }
+
     /** Une case du stock : elle refuse l'argent d'elle-même, quel que soit l'écran qui la porte. */
     private static final class StockSlot extends SlotItemHandler {
-        StockSlot(StallStockHandler stock, int index, int x, int y) {
+        private final StallOwnerMenu menu;
+
+        StockSlot(StallOwnerMenu menu, StallStockHandler stock, int index, int x, int y) {
             super(stock, index, x, y);
+            this.menu = menu;
         }
 
         @Override
         public boolean mayPlace(ItemStack stack) {
             return !MoneyStorageRules.isMoney(stack) && super.mayPlace(stack);
+        }
+
+        @Override
+        public boolean isActive() {
+            return menu.view == VIEW_STOCK;
+        }
+    }
+
+    /** Une case de l'inventaire du joueur : cachée dans la vue du registre. */
+    private static final class PlayerSlot extends Slot {
+        private final StallOwnerMenu menu;
+
+        PlayerSlot(StallOwnerMenu menu, Inventory inventory, int index, int x, int y) {
+            super(inventory, index, x, y);
+            this.menu = menu;
+        }
+
+        @Override
+        public boolean isActive() {
+            return menu.view != VIEW_LEDGER;
         }
     }
 
@@ -184,7 +233,8 @@ public final class StallOwnerMenu extends AbstractContainerMenu {
         }
         return switch (id) {
             case BUTTON_CASH -> MarketStallBlock.openCash(serverPlayer, pos);
-            // BUTTON_OFFERS et BUTTON_LEDGER : tâche suivante.
+            // Vues du client : rien à ouvrir, le menu reste celui-ci.
+            case BUTTON_OFFERS, BUTTON_LEDGER -> true;
             default -> false;
         };
     }

@@ -127,6 +127,8 @@ public final class DemoVisuels {
 
     private static final Logger LOG = LogManager.getLogger("oneforallsurvival-demo-visuels");
     private static final boolean ACTIF = System.getProperty("oneforallsurvival.demo.visuels") != null;
+    /** {@code etal} : ne jouer que les écrans de l'étal (contrôle rapide d'une tâche), sans les autres captures. */
+    private static final String SEUL = System.getProperty("oneforallsurvival.demo.visuels.seul", "");
     private static final String MONDE = "demo_visuels";
     private static final String[] ETATS = {"arret", "marche", "sans_courant", "panne"};
     private static final String[] OBJETS = {"tester", "welder", "fuse", "treated_fuse", "coil", "treated_coil", "bearing",
@@ -800,6 +802,10 @@ public final class DemoVisuels {
     }
 
     private static void construireScenario(Minecraft mc) {
+        if ("etal".equals(SEUL)) {
+            etal(mc);
+            return;
+        }
         Vec3 sudEst = new Vec3(1.35, 1.0, 1.75);
         etape("vue calage", () -> regarder(mc, BAINS[0], sudEst, false), () -> true, 3000, null);
         for (int i = 0; i < 4; i++) {
@@ -1345,6 +1351,120 @@ public final class DemoVisuels {
             serveur.execute(() -> serveur.getPlayerList().getPlayers().get(0).setItemSlot(EquipmentSlot.HEAD,
                     ItemStack.EMPTY));
         }, () -> true, 800, null);
+        etal(mc);
+    }
+
+    // ================================================================================================
+    // L'étal (lot E2) : la vitrine et la gestion, avec les prix et les noms les plus longs permis
+    // ================================================================================================
+
+    private static BlockPos etal;
+
+    /**
+     * Un étal du joueur, garni pour le pire cas d'affichage : le prix le plus long sous le plafond des factures
+     * (99 999 999 cuivres = 9 999 rubis 9 émeraudes 9 or 9 argent 9 cuivres), le plafond lui-même (10 000 rubis), un
+     * nom d'objet long, six offres (la liste défile), des rachats dans chaque état, un registre aux noms de 16 lettres.
+     * Les vues de la gestion se choisissent par de vrais clics sur l'écran ({@code mouseClicked}).
+     */
+    private static void etal(Minecraft mc) {
+        etape("etal aller", () -> {
+            fermer(mc);
+            mc.options.hideGui = false;
+            etal = origine.offset(24, 0, 170);
+            regarder(mc, etal, new Vec3(0.0, 0.6, 2.4), false);
+        }, () -> true, 2500, null);
+        etape("etal poser et vitrine", () -> {
+            mc.options.hideGui = false;
+            MinecraftServer serveur = mc.getSingleplayerServer();
+            serveur.execute(() -> {
+                ServerLevel monde = serveur.overworld();
+                ServerPlayer joueur = serveur.getPlayerList().getPlayers().get(0);
+                garnirEtal(monde, joueur);
+                dev.oneforallsurvival.economy.stall.MarketStallBlock.openShop(joueur, etal);
+            });
+        }, () -> mc.screen instanceof dev.oneforallsurvival.economy.client.StallShopScreen, 1500, "etal_vitrine_ventes.png");
+        etape("etal vitrine defile", () -> clicEcran(mc, -1, 0, 0, -3.0), () -> true, 800, "etal_vitrine_ventes_defilee.png");
+        etape("etal vitrine rachats", () -> clicEcran(mc, 8 + 79 + 2 + 10, 16 + 5, 0, 0),
+                () -> true, 800, "etal_vitrine_rachats.png");
+        etape("etal gestion", () -> {
+            fermer(mc);
+            mc.options.hideGui = false;
+            MinecraftServer serveur = mc.getSingleplayerServer();
+            serveur.execute(() -> dev.oneforallsurvival.economy.stall.MarketStallBlock.openManage(
+                    serveur.getPlayerList().getPlayers().get(0), etal));
+        }, () -> mc.screen instanceof dev.oneforallsurvival.economy.client.StallOwnerScreen, 1200, "etal_gestion_stock.png");
+        // Onglets : x = 8 + i * (38 + 2), y = 18 ; cases d'offre : x = 7 + col * 18, y = 50.
+        etape("etal gestion offres", () -> clicEcran(mc, 8 + 40 + 10, 18 + 5, 0, 0), () -> true, 600, null);
+        etape("etal offre longue", () -> clicEcran(mc, 7 + 18 + 9, 50 + 9, 0, 0), () -> true, 800, "etal_gestion_offres.png");
+        etape("etal rachats", () -> clicEcran(mc, 8 + 64 + 10, 36 + 5, 0, 0), () -> true, 300, null);
+        etape("etal rachat long", () -> clicEcran(mc, 7 + 18 + 9, 50 + 9, 0, 0), () -> true, 800,
+                "etal_gestion_rachats.png");
+        etape("etal registre", () -> clicEcran(mc, 8 + 3 * 40 + 10, 18 + 5, 0, 0), () -> true, 1500,
+                "etal_gestion_registre.png");
+        etape("etal registre defile", () -> clicEcran(mc, -1, 0, 0, -3.0), () -> true, 800, "etal_gestion_registre_defile.png");
+        etape("fin de l'etal", () -> fermer(mc), () -> true, 300, null);
+    }
+
+    /**
+     * Un clic gauche (ou, {@code molette} non nulle, un tour de molette) sur l'écran ouvert, en coordonnées du cadre ;
+     * {@code x} négatif : au milieu de la liste. La souris de la machine n'est pas touchée.
+     */
+    private static void clicEcran(Minecraft mc, int x, int y, int bouton, double molette) {
+        if (!(mc.screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> ecran)) {
+            throw new IllegalStateException("aucun écran ouvert pour le clic : " + mc.screen);
+        }
+        double ax = ecran.getGuiLeft() + (x < 0 ? 80 : x);
+        double ay = ecran.getGuiTop() + (x < 0 ? 70 : y);
+        LOG.info("[visuels] ecran {} : cadre {}x{} en ({}, {}) dans une interface de {}x{}", ecran.getClass().getSimpleName(),
+                ecran.getXSize(), ecran.getYSize(), ecran.getGuiLeft(), ecran.getGuiTop(),
+                mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
+        if (molette != 0) {
+            ecran.mouseScrolled(ax, ay, molette);
+        } else {
+            ecran.mouseClicked(ax, ay, bouton);
+        }
+    }
+
+    private static void garnirEtal(ServerLevel monde, ServerPlayer joueur) {
+        var etat = EconomyRegistry.MARKET_STALL.get().defaultBlockState()
+                .setValue(dev.oneforallsurvival.economy.stall.MarketStallBlock.FACING, Direction.SOUTH);
+        monde.setBlock(etal, etat, 3);
+        if (!(monde.getBlockEntity(etal) instanceof dev.oneforallsurvival.economy.stall.MarketStallBlockEntity be)) {
+            throw new IllegalStateException("pas d'étal en " + etal);
+        }
+        be.setOwner(joueur.getUUID(), joueur.getGameProfile().getName());
+        ItemStack epee = new ItemStack(Items.DIAMOND_SWORD);
+        epee.setHoverName(net.minecraft.network.chat.Component.literal("Excalibur, lame du roi d'Avalon"));
+        be.stock().setStackInSlot(0, new ItemStack(Items.BREAD, 64));
+        be.stock().setStackInSlot(1, epee.copy());
+        be.stock().setStackInSlot(2, new ItemStack(Items.COBBLESTONE, 64));
+        be.stock().setStackInSlot(3, new ItemStack(Items.WHEAT, 64));
+        be.addCash(Coin.GOLD, 1);
+        long plusLong = 99_999_999L;
+        be.setOffer(0, new dev.oneforallsurvival.economy.stall.StallOffer(new ItemStack(Items.BREAD), 4, 30L));
+        be.setOffer(1, new dev.oneforallsurvival.economy.stall.StallOffer(epee, 1, plusLong));
+        be.setOffer(2, new dev.oneforallsurvival.economy.stall.StallOffer(new ItemStack(Items.COBBLESTONE), 64, 100_000_000L));
+        be.setOffer(3, new dev.oneforallsurvival.economy.stall.StallOffer(new ItemStack(Items.WHEAT), 16, 1L));
+        be.setOffer(4, new dev.oneforallsurvival.economy.stall.StallOffer(new ItemStack(Items.IRON_INGOT), 8, 12_345L));
+        be.setOffer(6, new dev.oneforallsurvival.economy.stall.StallOffer(new ItemStack(Items.EMERALD), 2, 777L));
+        be.setBuyback(0, new dev.oneforallsurvival.economy.stall.StallBuyback(new ItemStack(Items.WHEAT), 8, 16L, 9_999));
+        be.setBuyback(1, new dev.oneforallsurvival.economy.stall.StallBuyback(epee, 1, plusLong, 3));
+        be.setBuyback(2, new dev.oneforallsurvival.economy.stall.StallBuyback(new ItemStack(Items.CARROT), 64, 64L, 1));
+        // Le registre : chaque genre, des noms de 16 lettres, les montants les plus longs.
+        long t = System.currentTimeMillis();
+        java.util.UUID qui = java.util.UUID.nameUUIDFromBytes("Abcdefghijklmnop".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        var K = dev.oneforallsurvival.economy.stall.StallLedger.Kind.values();
+        for (int i = 0; i < 26; i++) {
+            var genre = K[i % K.length];
+            boolean objet = genre != dev.oneforallsurvival.economy.stall.StallLedger.Kind.CASH_IN
+                    && genre != dev.oneforallsurvival.economy.stall.StallLedger.Kind.CASH_OUT;
+            long montant = genre == dev.oneforallsurvival.economy.stall.StallLedger.Kind.SALE
+                    || genre == dev.oneforallsurvival.economy.stall.StallLedger.Kind.BUYBACK
+                    || !objet ? (i % 2 == 0 ? plusLong : 30L) : 0L;
+            be.ledger().add(new dev.oneforallsurvival.economy.stall.StallLedger.Line(t - (26 - i) * 60_000L, qui,
+                    i % 3 == 0 ? "Abcdefghijklmnop" : joueur.getGameProfile().getName(), genre,
+                    objet ? (i % 2 == 0 ? "minecraft:diamond_sword" : "minecraft:bread") : "", objet ? 64 : 0, montant));
+        }
     }
 
     /** Le joueur au centre de la grotte, de nuit, la lampe chargée sur la tête ou non, vu par la caméra demandée. */

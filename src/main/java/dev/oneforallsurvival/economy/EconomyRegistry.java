@@ -84,6 +84,10 @@ public final class EconomyRegistry {
     /** La caisse de l'étal : un rangement permis, comme le coffre-fort. */
     public static final RegistryObject<MenuType<StallCashMenu>> STALL_CASH_MENU =
             MENUS.register("market_stall_cash", () -> IForgeMenuType.create(StallCashMenu::fromNetwork));
+    /** La vitrine de l'étal : seulement les cases du joueur, donc un rangement permis (aucune case de l'étal). */
+    public static final RegistryObject<MenuType<dev.oneforallsurvival.economy.stall.StallShopMenu>> STALL_SHOP_MENU =
+            MENUS.register("market_stall_shop",
+                    () -> IForgeMenuType.create(dev.oneforallsurvival.economy.stall.StallShopMenu::fromNetwork));
 
     /** La bourse : ne s'empile pas, garde les pièces dans son NBT ({@link Purse}). */
     public static final RegistryObject<Item> PURSE = ITEMS.register("purse", () -> new PurseItem(new Item.Properties()));
@@ -137,6 +141,7 @@ public final class EconomyRegistry {
             MoneyStorageRules.register(PURSE_MENU.get());
             MoneyStorageRules.register(TRADE_MENU.get());
             MoneyStorageRules.register(STALL_CASH_MENU.get());
+            MoneyStorageRules.register(STALL_SHOP_MENU.get());
             MoneyStorageRules.registerMoneyPredicate(stack -> Purse.isPurse(stack) && Purse.total(stack) > 0L);
         });
     }

@@ -3,11 +3,18 @@ package dev.oneforallsurvival.economy.stall;
 import dev.oneforallsurvival.economy.Coin;
 import dev.oneforallsurvival.economy.CoinMath;
 import dev.oneforallsurvival.economy.CoinStore;
+import dev.oneforallsurvival.economy.EconomyConfig;
 import dev.oneforallsurvival.economy.EconomyRegistry;
 import dev.oneforallsurvival.economy.MoneyStorageRules;
 import dev.oneforallsurvival.economy.Purse;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.Predicate;
 import net.minecraft.world.item.ItemStack;
 import java.util.UUID;
 import javax.annotation.Nonnull;
@@ -15,6 +22,7 @@ import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
@@ -27,14 +35,15 @@ import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.items.IItemHandler;
 
 /**
- * Ce que garde un étal : son propriétaire, un stock de 27 cases, une caisse (des pièces comptées par coupure) et le
- * registre de ses opérations. La tâche suivante y ajoute les offres ; {@link #version()} compte leurs changements,
- * pour qu'un achat refuse un affichage périmé.
+ * Ce que garde un étal : son propriétaire, un stock de 27 cases, une caisse (des pièces comptées par coupure), le
+ * registre de ses opérations, ses offres de vente et de rachat. {@link #version()} compte les écritures d'offre, pour
+ * qu'un achat refuse un affichage périmé.
  *
  * <p>L'entité n'implémente pas {@code Container} : une trémie vanilla ne la voit que par la capacité d'objets de
  * Forge, et celle-ci n'expose que {@link StallStockHandler#insertOnly()}. La caisse n'est exposée nulle part.
- * Seuls le propriétaire (le poseur) et son nom sont envoyés aux clients ; le contenu ne leur est jamais envoyé hors
- * des écrans de gestion.
+ * Sont envoyés aux clients : le propriétaire, son nom, les offres (modèle, lot, prix, lots de rachat restants) et la
+ * version, informations publiques de la vitrine. Le stock, la caisse et le registre ne leur sont jamais envoyés hors
+ * des écrans de gestion (la vitrine ne reçoit que des disponibilités, par ses données de menu).
  */
 public final class MarketStallBlockEntity extends BlockEntity {
 
@@ -44,6 +53,11 @@ public final class MarketStallBlockEntity extends BlockEntity {
     private static final String TAG_CASH = "Cash";
     private static final String TAG_LEDGER = "Ledger";
     private static final String TAG_VERSION = "Version";
+    private static final String TAG_OFFERS = "Offers";
+    private static final String TAG_BUYBACKS = "Buybacks";
+
+    /** Cases d'offre gardées au plus (le plafond du réglage {@code stallMaxOffers}). */
+    public static final int MAX_OFFERS = 18;
 
     @Nullable
     private UUID owner;
@@ -52,6 +66,8 @@ public final class MarketStallBlockEntity extends BlockEntity {
     private final long[] cash = new long[Coin.values().length];
     private final StallLedger ledger = new StallLedger();
     private int version;
+    private final StallOffer[] offers = new StallOffer[MAX_OFFERS];
+    private final StallBuyback[] buybacks = new StallBuyback[MAX_OFFERS];
     private LazyOptional<IItemHandler> items = LazyOptional.of(stock::insertOnly);
 
     public MarketStallBlockEntity(BlockPos pos, BlockState state) {
@@ -88,7 +104,7 @@ public final class MarketStallBlockEntity extends BlockEntity {
         return ledger;
     }
 
-    /** Le compteur des changements d'offre (tâche suivante) ; 0 à la pose. */
+    /** Le compteur des écritures d'offre ; 0 à la pose. Une vente ou un rachat ne le change pas. */
     public int version() {
         return version;
     }
@@ -97,6 +113,112 @@ public final class MarketStallBlockEntity extends BlockEntity {
     public void bumpVersion() {
         version++;
         setChanged();
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Offres
+    // ---------------------------------------------------------------------------------------------
+
+    /** Le nombre de cases d'offre (de vente, et de rachat) de chaque étal : le réglage, borné à {@link #MAX_OFFERS}. */
+    public static int offerSlots() {
+        return Math.max(1, Math.min(MAX_OFFERS, EconomyConfig.stallMaxOffers()));
+    }
+
+    /** Les offres de vente, une par case ({@link #offerSlots()}), nulle pour une case vide. Lecture seule. */
+    public List<StallOffer> offers() {
+        return Collections.unmodifiableList(Arrays.asList(Arrays.copyOf(offers, offerSlots())));
+    }
+
+    /** Les offres de rachat, une par case, nulle pour une case vide. Lecture seule. */
+    public List<StallBuyback> buybacks() {
+        return Collections.unmodifiableList(Arrays.asList(Arrays.copyOf(buybacks, offerSlots())));
+    }
+
+    /**
+     * Écrit (ou efface, {@code null}) l'offre de vente de la case {@code index}. Le droit est vérifié par l'appelant.
+     * Toute écriture change la version et part aux clients.
+     *
+     * @return faux, sans rien écrire, si la case est hors des bornes ou l'offre invalide
+     */
+    public boolean setOffer(int index, @Nullable StallOffer offer) {
+        if (index < 0 || index >= offerSlots() || (offer != null && !offer.isValid())) {
+            return false;
+        }
+        offers[index] = offer;
+        bumpVersion();
+        syncToClients();
+        return true;
+    }
+
+    /** Comme {@link #setOffer}, pour une offre de rachat (de 1 à 9 999 lots). */
+    public boolean setBuyback(int index, @Nullable StallBuyback buyback) {
+        if (index < 0 || index >= offerSlots() || (buyback != null
+                && !StallBuyback.valid(buyback.template(), buyback.lot(), buyback.price(), buyback.lotsLeft()))) {
+            return false;
+        }
+        buybacks[index] = buyback;
+        bumpVersion();
+        syncToClients();
+        return true;
+    }
+
+    /** Un rachat a eu lieu : un lot de moins. Ce n'est pas une écriture d'offre, la version ne change pas. */
+    void consumeBuybackLot(int index) {
+        if (buybacks[index] != null) {
+            buybacks[index] = buybacks[index].oneLotLess();
+            syncToClients();
+        }
+    }
+
+    /** Les lots entiers de l'offre de vente {@code index} en stock ; 0 sans offre. */
+    public int available(int offerIndex) {
+        if (offerIndex < 0 || offerIndex >= offerSlots() || offers[offerIndex] == null) {
+            return 0;
+        }
+        StallOffer offer = offers[offerIndex];
+        return countInStock(offer::matches) / offer.lot();
+    }
+
+    /** Le nombre d'objets du stock qui satisfont {@code matches}. */
+    public int countInStock(Predicate<ItemStack> matches) {
+        int total = 0;
+        for (int i = 0; i < stock.getSlots(); i++) {
+            ItemStack stack = stock.getStackInSlot(i);
+            if (!stack.isEmpty() && matches.test(stack)) {
+                total += stack.getCount();
+            }
+        }
+        return total;
+    }
+
+    /**
+     * Retire du stock exactement {@code count} objets qui satisfont {@code matches}, ou rien.
+     *
+     * @return les piles retirées, vide si le stock n'en a pas assez
+     */
+    List<ItemStack> takeFromStock(Predicate<ItemStack> matches, int count) {
+        List<ItemStack> out = new ArrayList<>();
+        if (countInStock(matches) < count) {
+            return out;
+        }
+        int left = count;
+        for (int i = 0; i < stock.getSlots() && left > 0; i++) {
+            ItemStack stack = stock.getStackInSlot(i);
+            if (!stack.isEmpty() && matches.test(stack)) {
+                ItemStack taken = stock.extractItem(i, Math.min(left, stack.getCount()), false);
+                left -= taken.getCount();
+                out.add(taken);
+            }
+        }
+        return out;
+    }
+
+    /** Part aux clients qui voient l'étal : propriétaire, offres, version. */
+    private void syncToClients() {
+        setChanged();
+        if (level != null && !level.isClientSide) {
+            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
+        }
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -137,6 +259,23 @@ public final class MarketStallBlockEntity extends BlockEntity {
             cash[coin.ordinal()] += count;
             setChanged();
         }
+    }
+
+    /**
+     * Remplace la caisse par {@code box} (un paiement par la caisse, déjà calculé à valeur conservée par
+     * {@link CommerceMath#payFromBox}). Une coupure négative ou au-dessus du plafond : une exception, rien n'est écrit.
+     */
+    void replaceCash(Map<Coin, Long> box) {
+        long[] next = new long[cash.length];
+        for (Map.Entry<Coin, Long> entry : box.entrySet()) {
+            long n = entry.getValue();
+            if (n < 0L || n > CoinStore.MAX_PER_COIN) {
+                throw new IllegalArgumentException("caisse : " + n + " " + entry.getKey());
+            }
+            next[entry.getKey().ordinal()] = n;
+        }
+        System.arraycopy(next, 0, cash, 0, cash.length);
+        setChanged();
     }
 
     /** Retire exactement {@code count} pièces, ou rien. @return faux si la caisse en a moins (ou si {@code count} n'est pas positif) */
@@ -195,6 +334,50 @@ public final class MarketStallBlockEntity extends BlockEntity {
         tag.put(TAG_CASH, coins);
         tag.put(TAG_LEDGER, ledger.save());
         tag.putInt(TAG_VERSION, version);
+        saveOffers(tag);
+    }
+
+    private void saveOffers(CompoundTag tag) {
+        ListTag sales = new ListTag();
+        ListTag buys = new ListTag();
+        for (int i = 0; i < MAX_OFFERS; i++) {
+            if (offers[i] != null) {
+                CompoundTag one = offers[i].save();
+                one.putInt("slot", i);
+                sales.add(one);
+            }
+            if (buybacks[i] != null) {
+                CompoundTag one = buybacks[i].save();
+                one.putInt("slot", i);
+                buys.add(one);
+            }
+        }
+        tag.put(TAG_OFFERS, sales);
+        tag.put(TAG_BUYBACKS, buys);
+    }
+
+    /** Relit les offres ; une offre abîmée, hors des cases ou dont le modèle est de l'argent est ignorée. */
+    private void loadOffers(CompoundTag tag) {
+        Arrays.fill(offers, null);
+        Arrays.fill(buybacks, null);
+        ListTag sales = tag.getList(TAG_OFFERS, Tag.TAG_COMPOUND);
+        for (int i = 0; i < sales.size(); i++) {
+            CompoundTag one = sales.getCompound(i);
+            int slot = one.getInt("slot");
+            StallOffer offer = StallOffer.load(one);
+            if (slot >= 0 && slot < MAX_OFFERS && offer != null && !MoneyStorageRules.isMoney(offer.template())) {
+                offers[slot] = offer;
+            }
+        }
+        ListTag buys = tag.getList(TAG_BUYBACKS, Tag.TAG_COMPOUND);
+        for (int i = 0; i < buys.size(); i++) {
+            CompoundTag one = buys.getCompound(i);
+            int slot = one.getInt("slot");
+            StallBuyback buyback = StallBuyback.load(one);
+            if (slot >= 0 && slot < MAX_OFFERS && buyback != null && !MoneyStorageRules.isMoney(buyback.template())) {
+                buybacks[slot] = buyback;
+            }
+        }
     }
 
     @Override
@@ -211,6 +394,7 @@ public final class MarketStallBlockEntity extends BlockEntity {
         ledger.load(tag.getList(TAG_LEDGER, Tag.TAG_COMPOUND));
         moveMoneyOutOfStock();
         version = Math.max(0, tag.getInt(TAG_VERSION));
+        loadOffers(tag);
     }
 
     /**
@@ -244,7 +428,7 @@ public final class MarketStallBlockEntity extends BlockEntity {
         }
     }
 
-    /** Aux clients : le propriétaire et son nom, rien du contenu. */
+    /** Aux clients : le propriétaire, son nom, les offres et la version ; rien du stock, de la caisse ni du registre. */
     @Override
     public CompoundTag getUpdateTag() {
         CompoundTag tag = new CompoundTag();
@@ -252,6 +436,8 @@ public final class MarketStallBlockEntity extends BlockEntity {
             tag.putUUID(TAG_OWNER, owner);
         }
         tag.putString(TAG_OWNER_NAME, ownerName);
+        tag.putInt(TAG_VERSION, version);
+        saveOffers(tag);
         return tag;
     }
 

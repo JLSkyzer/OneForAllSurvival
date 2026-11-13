@@ -106,7 +106,7 @@ public final class EtalStockGameTests {
     // ---------------------------------------------------------------------------------------------
 
     /** Une aire close : sol, pourtour, plafond, lumière, vidée de tout ce qui n'est pas un joueur. */
-    private static void boite(GameTestHelper helper) {
+    static void boite(GameTestHelper helper) {
         for (int x = 0; x <= 7; x++) {
             for (int z = 0; z <= 7; z++) {
                 boolean bord = x == 0 || x == 7 || z == 0 || z == 7;
@@ -127,7 +127,7 @@ public final class EtalStockGameTests {
     }
 
     /** Ce qu'un test a ouvert : tout est rendu à la fermeture, même si le test a échoué. */
-    private static final class Essai implements AutoCloseable {
+    static final class Essai implements AutoCloseable {
         private final GameTestHelper helper;
         private final List<JoueurDeTest> joueurs = new ArrayList<>();
         private final List<com.mojang.authlib.GameProfile> equipe = new ArrayList<>();
@@ -176,7 +176,7 @@ public final class EtalStockGameTests {
     }
 
     /** Pose un étal comme le ferait le joueur : l'objet en main, un clic sur le sol sous {@code pos}. */
-    private static InteractionResult poser(GameTestHelper helper, JoueurDeTest j, BlockPos pos) {
+    static InteractionResult poser(GameTestHelper helper, JoueurDeTest j, BlockPos pos) {
         ServerPlayer p = j.joueur();
         ItemStack pile = new ItemStack(EconomyRegistry.MARKET_STALL_ITEM.get());
         p.setItemInHand(InteractionHand.MAIN_HAND, pile);
@@ -185,20 +185,20 @@ public final class EtalStockGameTests {
         return pile.useOn(new UseOnContext(p.serverLevel(), p, InteractionHand.MAIN_HAND, pile, tir));
     }
 
-    private static void poserEtVerifier(GameTestHelper helper, JoueurDeTest j, BlockPos pos) {
+    static void poserEtVerifier(GameTestHelper helper, JoueurDeTest j, BlockPos pos) {
         InteractionResult r = poser(helper, j, pos);
         helper.assertTrue(r.consumesAction() && helper.getBlockState(pos).is(EconomyRegistry.MARKET_STALL.get()),
                 "l'étal devait se poser : " + r + ", vu " + helper.getBlockState(pos));
         j.joueur().setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
     }
 
-    private static MarketStallBlockEntity entite(GameTestHelper helper, BlockPos pos) {
+    static MarketStallBlockEntity entite(GameTestHelper helper, BlockPos pos) {
         helper.assertTrue(helper.getBlockEntity(pos) instanceof MarketStallBlockEntity, "pas d'entité d'étal en " + pos);
         return (MarketStallBlockEntity) helper.getBlockEntity(pos);
     }
 
     /** Un clic droit réel, par le jeu : la garde de l'argent, puis le bloc. */
-    private static void clicDroit(GameTestHelper helper, JoueurDeTest j, BlockPos pos) {
+    static void clicDroit(GameTestHelper helper, JoueurDeTest j, BlockPos pos) {
         ServerPlayer p = j.joueur();
         BlockPos abs = helper.absolutePos(pos);
         BlockHitResult tir = new BlockHitResult(Vec3.atCenterOf(abs), Direction.UP, abs, false);
@@ -213,7 +213,7 @@ public final class EtalStockGameTests {
         return j.joueur().containerMenu instanceof StallCashMenu;
     }
 
-    private static StallOwnerMenu menuGestion(GameTestHelper helper, JoueurDeTest j) {
+    static StallOwnerMenu menuGestion(GameTestHelper helper, JoueurDeTest j) {
         helper.assertTrue(gestion(j), "la gestion devait être ouverte, vu " + j.joueur().containerMenu);
         return (StallOwnerMenu) j.joueur().containerMenu;
     }
@@ -231,11 +231,11 @@ public final class EtalStockGameTests {
         return PlayerCoins.held(j.joueur()).getOrDefault(coin, 0L);
     }
 
-    private static long valeurPortee(JoueurDeTest j) {
+    static long valeurPortee(JoueurDeTest j) {
         return CoinMath.valueOf(PlayerCoins.held(j.joueur()));
     }
 
-    private static void donner(JoueurDeTest j, Coin coin, int nombre) {
+    static void donner(JoueurDeTest j, Coin coin, int nombre) {
         int reste = nombre;
         while (reste > 0) {
             int taille = Math.min(reste, 64);
@@ -248,12 +248,12 @@ public final class EtalStockGameTests {
         return StallCashPacket.apply(j.joueur(), paquet);
     }
 
-    private static List<ItemEntity> objets(GameTestHelper helper) {
+    static List<ItemEntity> objets(GameTestHelper helper) {
         return helper.getLevel().getEntitiesOfClass(ItemEntity.class,
                 new AABB(helper.absolutePos(new BlockPos(0, -1, 0)), helper.absolutePos(new BlockPos(8, 5, 8))));
     }
 
-    private static int compter(StallStockHandler stock, net.minecraft.world.item.Item item) {
+    static int compter(StallStockHandler stock, net.minecraft.world.item.Item item) {
         int total = 0;
         for (int i = 0; i < stock.getSlots(); i++) {
             if (stock.getStackInSlot(i).is(item)) {
@@ -341,8 +341,9 @@ public final class EtalStockGameTests {
             autre.messagesRecus();
             clicDroit(helper, autre, A);
             helper.assertTrue(!gestion(autre) && !caisse(autre), "un autre joueur ne doit pas ouvrir la gestion");
-            helper.assertTrue(autre.messagesRecus().contains(MarketStallBlock.MESSAGE + "shop"),
-                    "il est renvoyé vers la vitrine");
+            helper.assertTrue(autre.joueur().containerMenu instanceof dev.oneforallsurvival.economy.stall.StallShopMenu,
+                    "il ouvre la vitrine, vu " + autre.joueur().containerMenu);
+            autre.joueur().closeContainer();
             helper.assertTrue(!MarketStallBlock.openManage(autre.joueur(), helper.absolutePos(A)),
                     "ni par l'ouverture directe");
             helper.assertTrue(!MarketStallBlock.openCash(autre.joueur(), helper.absolutePos(A)), "ni la caisse");

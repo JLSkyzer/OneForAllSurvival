@@ -49,6 +49,8 @@ public final class JoueurDeTest {
     private final List<SubscriberNamePacket.Open> ecransAbonne = new ArrayList<>();
     /** Les réponses du F3 reçues, décodées depuis les octets réellement envoyés. */
     private final List<IslandDebugResponse> reponsesDebug = new ArrayList<>();
+    /** Les pages du registre d'un étal reçues, décodées depuis les octets réellement envoyés. */
+    private final List<dev.oneforallsurvival.economy.stall.StallLedgerPacket> registresEtal = new ArrayList<>();
     /** Les clés des messages (chat ou barre d'action) reçus, dans l'ordre ; un texte brut est gardé tel quel. */
     private final List<String> messages = new ArrayList<>();
     /** Les hauteurs des sons joués au joueur (paquets de son), dans l'ordre. */
@@ -147,6 +149,8 @@ public final class JoueurDeTest {
                     ecransAbonne.add(SubscriberNamePacket.Open.decode(donnees));
                 } else if (discriminant == BenchNetwork.ID_ISLAND_DEBUG_RESPONSE) {
                     reponsesDebug.add(IslandDebugResponse.decode(donnees));
+                } else if (discriminant == BenchNetwork.ID_STALL_LEDGER) {
+                    registresEtal.add(dev.oneforallsurvival.economy.stall.StallLedgerPacket.decode(donnees));
                 }
             } finally {
                 donnees.release();
@@ -199,6 +203,14 @@ public final class JoueurDeTest {
         lire();
         List<IslandDebugResponse> out = new ArrayList<>(reponsesDebug);
         reponsesDebug.clear();
+        return out;
+    }
+
+    /** Les pages du registre d'un étal reçues depuis le dernier appel, retirées. */
+    public List<dev.oneforallsurvival.economy.stall.StallLedgerPacket> registresEtalRecus() {
+        lire();
+        List<dev.oneforallsurvival.economy.stall.StallLedgerPacket> out = new ArrayList<>(registresEtal);
+        registresEtal.clear();
         return out;
     }
 

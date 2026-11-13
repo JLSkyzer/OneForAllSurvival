@@ -229,6 +229,10 @@ minecraft {
             parent minecraft.runs.client
             workingDirectory project.file('run-demo')
             property 'oneforallsurvival.demo.visuels', 'true'
+            // `-PvisuelsSeul=etal` : seulement les écrans de l'étal (contrôle rapide).
+            if (project.hasProperty('visuelsSeul')) {
+                property 'oneforallsurvival.demo.visuels.seul', project.property('visuelsSeul').toString()
+            }
             jvmArgs '-Xmx3G'
             args '--width', '1280', '--height', '720'
         }

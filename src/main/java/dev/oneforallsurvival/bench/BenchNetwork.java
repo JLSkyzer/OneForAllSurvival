@@ -7,7 +7,9 @@ import dev.oneforallsurvival.debug.IslandDebugRequest;
 import dev.oneforallsurvival.debug.IslandDebugResponse;
 import dev.oneforallsurvival.economy.PurseActionPacket;
 import dev.oneforallsurvival.economy.SafeActionPacket;
+import dev.oneforallsurvival.economy.stall.StallActionPacket;
 import dev.oneforallsurvival.economy.stall.StallCashPacket;
+import dev.oneforallsurvival.economy.stall.StallLedgerPacket;
 import dev.oneforallsurvival.economy.trade.TradeActionPacket;
 import dev.oneforallsurvival.explore.ReceiverFrequencyPacket;
 import dev.oneforallsurvival.grid.SubscriberNamePacket;
@@ -66,6 +68,10 @@ public final class BenchNetwork {
     public static final int ID_TRADE_ACTION = 13;
     /** La caisse d'un étal : déposer, retirer, regrouper. */
     public static final int ID_STALL_CASH = 14;
+    /** L'étal : acheter, revendre, écrire une offre, demander le registre. */
+    public static final int ID_STALL_ACTION = 15;
+    /** Une page du registre d'un étal, pour celui qui le gère. */
+    public static final int ID_STALL_LEDGER = 16;
 
     /** Clé de traduction d'un refus : {@code message.oneforallsurvival.bench.refused.<résultat>}. */
     public static final String REFUSED_KEY = "message.oneforallsurvival.bench.refused.";
@@ -123,6 +129,12 @@ public final class BenchNetwork {
         CHANNEL.messageBuilder(StallCashPacket.class, ID_STALL_CASH, NetworkDirection.PLAY_TO_SERVER)
                 .encoder(StallCashPacket::encode).decoder(StallCashPacket::decode)
                 .consumerMainThread(StallCashPacket::handle).add();
+        CHANNEL.messageBuilder(StallActionPacket.class, ID_STALL_ACTION, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(StallActionPacket::encode).decoder(StallActionPacket::decode)
+                .consumerMainThread(StallActionPacket::handle).add();
+        CHANNEL.messageBuilder(StallLedgerPacket.class, ID_STALL_LEDGER, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(StallLedgerPacket::encode).decoder(StallLedgerPacket::decode)
+                .consumerMainThread(StallLedgerPacket::handle).add();
     }
 
     // --- Serveur vers client -----------------------------------------------------------------

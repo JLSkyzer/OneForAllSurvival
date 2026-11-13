@@ -38,7 +38,8 @@ import dev.oneforallsurvival.economy.EconomyRegistry;
  *
  * <ul>
  *   <li><b>Ouverture</b> : le propriétaire et l'équipe (niveau 2) ouvrent la gestion ({@link #mayManage}) ; les
- *       autres, la vitrine (tâche suivante ; ici, un message).
+ *       autres, la vitrine ({@link StallShopMenu}). Accroupi, main vide, celui qui gère ouvre aussi la vitrine, pour
+ *       se voir comme un client.
  *   <li><b>Casse</b> : seulement quand le stock est vide <i>et</i> la caisse à zéro, et seulement par ceux qui
  *       gèrent ({@link #mayBreak}) : l'équipe vide d'abord, comme tout le monde. Le bloc est déclaré incassable
  *       (dureté -1, résistance maximale, piston bloqué, tags du Wither et du dragon) ; la progression de casse est
@@ -154,11 +155,10 @@ public final class MarketStallBlock extends HorizontalDirectionalBlock implement
             return InteractionResult.SUCCESS;
         }
         if (player instanceof ServerPlayer serverPlayer && level.getBlockEntity(pos) instanceof MarketStallBlockEntity be) {
-            if (mayManage(serverPlayer, be.owner())) {
+            if (mayManage(serverPlayer, be.owner()) && !serverPlayer.isSecondaryUseActive()) {
                 openManage(serverPlayer, pos);
             } else {
-                // La vitrine des clients vient à la tâche suivante : en attendant, la gestion reste refusée.
-                serverPlayer.displayClientMessage(Component.translatable(MESSAGE + "shop"), true);
+                openShop(serverPlayer, pos);
             }
         }
         return InteractionResult.CONSUME;
@@ -172,6 +172,19 @@ public final class MarketStallBlock extends HorizontalDirectionalBlock implement
         }
         NetworkHooks.openScreen(player,
                 new SimpleMenuProvider((id, inventory, p) -> new StallOwnerMenu(id, inventory, pos, be), title(be)),
+                buf -> buf.writeBlockPos(pos));
+        return true;
+    }
+
+    /** Ouvre la vitrine de l'étal en {@code pos}, pour tout joueur. @return vrai si elle s'est ouverte */
+    public static boolean openShop(ServerPlayer player, BlockPos pos) {
+        ServerLevel level = player.serverLevel();
+        if (!level.isLoaded(pos) || !level.getBlockState(pos).is(EconomyRegistry.MARKET_STALL.get())
+                || !(level.getBlockEntity(pos) instanceof MarketStallBlockEntity be)) {
+            return false;
+        }
+        NetworkHooks.openScreen(player,
+                new SimpleMenuProvider((id, inventory, p) -> new StallShopMenu(id, inventory, pos, be), title(be)),
                 buf -> buf.writeBlockPos(pos));
         return true;
     }
