@@ -22,6 +22,12 @@ public record StallBuyback(ItemStack template, int lot, long price, int lotsLeft
         return StallOffer.valid(template, lot, price) && lotsLeft >= 1 && lotsLeft <= MAX_LOTS;
     }
 
+    /** Une copie du modèle : celui de l'offre ne se modifie pas. */
+    @Override
+    public ItemStack template() {
+        return template.copy();
+    }
+
     public boolean matches(ItemStack stack) {
         return !stack.isEmpty() && ItemStack.isSameItemSameTags(template, stack);
     }

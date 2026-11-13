@@ -70,6 +70,16 @@ class CommerceMathTest {
     }
 
     @Test
+    void laCaisseResteSousLePlafond() {
+        // Au plafond : elle paie encore (la coupure baisse).
+        assertEquals(coins(Coin.COPPER, CoinStore.MAX_PER_COIN - 1),
+                CommerceMath.payFromBox(coins(Coin.COPPER, CoinStore.MAX_PER_COIN), 1L, Coin::value).orElseThrow());
+        // Au-delà (fichier forgé) : une coupure resterait au-dessus du plafond, elle ne paie pas.
+        assertTrue(CommerceMath.payFromBox(coins(Coin.COPPER, CoinStore.MAX_PER_COIN + 5, Coin.GOLD, 1), 1L, Coin::value).isEmpty());
+        assertTrue(CommerceMath.payFromBox(coins(Coin.SILVER, CoinStore.MAX_PER_COIN + 1, Coin.GOLD, 1), 100L, Coin::value).isEmpty());
+    }
+
+    @Test
     void valeurConservee() {
         EnumMap<Coin, Long> box = coins(Coin.RUBY, 1, Coin.EMERALD, 3, Coin.GOLD, 2, Coin.SILVER, 9, Coin.COPPER, 4);
         long before = CoinMath.valueOf(box);

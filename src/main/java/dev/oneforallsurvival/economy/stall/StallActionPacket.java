@@ -183,6 +183,10 @@ public record StallActionPacket(BlockPos pos, int action, int index, long price,
         if (!inSlots(packet.index)) {
             return StallResult.BAD_REQUEST;
         }
+        // Un modèle trop lourd partirait à tous les clients qui voient l'étal : refusé avant tout.
+        if (!stall.templateFits(buyback, packet.index, carried)) {
+            return StallResult.BAD_TEMPLATE;
+        }
         boolean written;
         if (buyback) {
             written = StallBuyback.valid(carried, packet.lot, packet.price, packet.lots)

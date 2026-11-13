@@ -59,6 +59,12 @@ public final class MarketStallBlockEntity extends BlockEntity {
     /** Cases d'offre gardées au plus (le plafond du réglage {@code stallMaxOffers}). */
     public static final int MAX_OFFERS = 18;
 
+    /**
+     * Taille totale des modèles d'un étal (ventes et rachats), NBT sérialisé : 32 Kio. Trente-six modèles courants
+     * (quelques centaines d'octets chacun) y tiennent largement ; l'étal entier part aux clients avec le chunk.
+     */
+    public static final int MAX_TEMPLATES_BYTES = 32 * 1024;
+
     @Nullable
     private UUID owner;
     private String ownerName = "";
@@ -141,7 +147,7 @@ public final class MarketStallBlockEntity extends BlockEntity {
      * @return faux, sans rien écrire, si la case est hors des bornes ou l'offre invalide
      */
     public boolean setOffer(int index, @Nullable StallOffer offer) {
-        if (index < 0 || index >= offerSlots() || (offer != null && !offer.isValid())) {
+        if (index < 0 || index >= offerSlots() || (offer != null && (!offer.isValid() || !templateFits(false, index, offer.template())))) {
             return false;
         }
         offers[index] = offer;
@@ -153,13 +159,35 @@ public final class MarketStallBlockEntity extends BlockEntity {
     /** Comme {@link #setOffer}, pour une offre de rachat (de 1 à 9 999 lots). */
     public boolean setBuyback(int index, @Nullable StallBuyback buyback) {
         if (index < 0 || index >= offerSlots() || (buyback != null
-                && !StallBuyback.valid(buyback.template(), buyback.lot(), buyback.price(), buyback.lotsLeft()))) {
+                && (!StallBuyback.valid(buyback.template(), buyback.lot(), buyback.price(), buyback.lotsLeft())
+                        || !templateFits(true, index, buyback.template())))) {
             return false;
         }
         buybacks[index] = buyback;
         bumpVersion();
         syncToClients();
         return true;
+    }
+
+    /**
+     * Ce modèle peut-il occuper cette case ? Au plus {@link StallOffer#MAX_TEMPLATE_BYTES}, et le total des modèles de
+     * l'étal (celui de la case remplacé par celui-ci) au plus {@link #MAX_TEMPLATES_BYTES}.
+     */
+    public boolean templateFits(boolean buyback, int index, ItemStack template) {
+        int size = StallOffer.nbtSize(template);
+        if (size > StallOffer.MAX_TEMPLATE_BYTES) {
+            return false;
+        }
+        long total = size;
+        for (int i = 0; i < MAX_OFFERS; i++) {
+            if (offers[i] != null && !(!buyback && i == index)) {
+                total += StallOffer.nbtSize(offers[i].template());
+            }
+            if (buybacks[i] != null && !(buyback && i == index)) {
+                total += StallOffer.nbtSize(buybacks[i].template());
+            }
+        }
+        return total <= MAX_TEMPLATES_BYTES;
     }
 
     /** Un rachat a eu lieu : un lot de moins. Ce n'est pas une écriture d'offre, la version ne change pas. */
@@ -365,7 +393,8 @@ public final class MarketStallBlockEntity extends BlockEntity {
             CompoundTag one = sales.getCompound(i);
             int slot = one.getInt("slot");
             StallOffer offer = StallOffer.load(one);
-            if (slot >= 0 && slot < MAX_OFFERS && offer != null && !MoneyStorageRules.isMoney(offer.template())) {
+            if (slot >= 0 && slot < MAX_OFFERS && offer != null && !MoneyStorageRules.isMoney(offer.template())
+                    && StallOffer.nbtSize(offer.template()) <= StallOffer.MAX_TEMPLATE_BYTES) {
                 offers[slot] = offer;
             }
         }
@@ -374,7 +403,8 @@ public final class MarketStallBlockEntity extends BlockEntity {
             CompoundTag one = buys.getCompound(i);
             int slot = one.getInt("slot");
             StallBuyback buyback = StallBuyback.load(one);
-            if (slot >= 0 && slot < MAX_OFFERS && buyback != null && !MoneyStorageRules.isMoney(buyback.template())) {
+            if (slot >= 0 && slot < MAX_OFFERS && buyback != null && !MoneyStorageRules.isMoney(buyback.template())
+                    && StallOffer.nbtSize(buyback.template()) <= StallOffer.MAX_TEMPLATE_BYTES) {
                 buybacks[slot] = buyback;
             }
         }

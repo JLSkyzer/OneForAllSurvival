@@ -57,6 +57,7 @@ public final class EtalVenteGameTests {
 
     private static final String LOT_A = "etal_vente_a";
     private static final String LOT_B = "etal_vente_b";
+    private static final String LOT_C = "etal_vente_c";
     /** La taxe est un réglage global : son lot à lui, réglé avant et rendu après. */
     private static final String LOT_TAXE = "etal_vente_taxe";
 
@@ -603,6 +604,145 @@ public final class EtalVenteGameTests {
             helper.assertTrue(global.inCirculation() == circulation, "inCirculation inchangé : " + circulation + " -> "
                     + global.inCirculation());
             helper.assertTrue(objets(helper).isEmpty(), "rien au sol");
+            helper.succeed();
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Lot C : modèles trop lourds, caisse pleine, refus du rachat
+    // ---------------------------------------------------------------------------------------------
+
+    /** Un objet dont le NBT pèse au moins {@code octets} : du papier qui porte une longue chaîne. */
+    private static ItemStack lourd(int octets) {
+        ItemStack papier = new ItemStack(Items.PAPER);
+        papier.getOrCreateTag().putString("charge", "x".repeat(octets));
+        return papier;
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void unModeleTropLourdRefuse(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest proprio = essai.joueur("modele_lourd_proprio");
+            poserEtVerifier(helper, proprio, A);
+            MarketStallBlockEntity be = entite(helper, A);
+            BlockPos abs = be.getBlockPos();
+            clicDroit(helper, proprio, A);
+            StallOwnerMenu menu = menuGestion(helper, proprio);
+            int version = be.version();
+
+            // Un seul modèle au-delà de 8 Kio : refusé, en vente comme en rachat, rien n'est écrit.
+            menu.setCarried(lourd(StallOffer.MAX_TEMPLATE_BYTES));
+            attendu(helper, StallResult.BAD_TEMPLATE, agir(proprio, StallActionPacket.setOffer(abs, 0, 1, 10L)), "modèle de 8 Kio et plus");
+            attendu(helper, StallResult.BAD_TEMPLATE, agir(proprio, StallActionPacket.setBuyback(abs, 0, 1, 10L, 5)), "rachat lourd");
+            helper.assertTrue(!be.setOffer(1, new StallOffer(lourd(StallOffer.MAX_TEMPLATE_BYTES), 1, 10L)), "setOffer direct refusé");
+            helper.assertTrue(be.offers().get(0) == null && be.offers().get(1) == null && be.buybacks().get(0) == null
+                    && be.version() == version, "rien d'écrit, version inchangée");
+
+            // Les objets courants passent largement : épée nommée et enchantée, livre enchanté, potion.
+            ItemStack epee = new ItemStack(Items.DIAMOND_SWORD);
+            epee.setHoverName(Component.literal("Excalibur, lame du roi d'Avalon"));
+            for (var ench : List.of(net.minecraft.world.item.enchantment.Enchantments.SHARPNESS,
+                    net.minecraft.world.item.enchantment.Enchantments.UNBREAKING,
+                    net.minecraft.world.item.enchantment.Enchantments.MENDING,
+                    net.minecraft.world.item.enchantment.Enchantments.FIRE_ASPECT,
+                    net.minecraft.world.item.enchantment.Enchantments.MOB_LOOTING,
+                    net.minecraft.world.item.enchantment.Enchantments.SWEEPING_EDGE)) {
+                epee.enchant(ench, ench.getMaxLevel());
+            }
+            ItemStack livre = net.minecraft.world.item.EnchantedBookItem.createForEnchantment(
+                    new net.minecraft.world.item.enchantment.EnchantmentInstance(
+                            net.minecraft.world.item.enchantment.Enchantments.MENDING, 1));
+            net.minecraft.world.item.EnchantedBookItem.addEnchantment(livre, new net.minecraft.world.item.enchantment.EnchantmentInstance(
+                    net.minecraft.world.item.enchantment.Enchantments.UNBREAKING, 3));
+            ItemStack potion = net.minecraft.world.item.alchemy.PotionUtils.setPotion(new ItemStack(Items.POTION),
+                    net.minecraft.world.item.alchemy.Potions.STRONG_HEALING);
+            int index = 0;
+            StringBuilder tailles = new StringBuilder();
+            for (ItemStack courant : List.of(epee, livre, potion)) {
+                tailles.append(courant.getItem()).append('=').append(StallOffer.nbtSize(courant)).append("o ");
+                menu.setCarried(courant.copy());
+                attendu(helper, StallResult.DONE, agir(proprio, StallActionPacket.setOffer(abs, index++, 1, 10L)), "objet courant "
+                        + courant.getItem());
+            }
+            com.mojang.logging.LogUtils.getLogger().info("Taille des modèles courants : {}", tailles);
+
+            // Le total de l'étal est borné : des modèles de 7 Kio passent un à un, jusqu'au plafond de 32 Kio.
+            int sept = 7 * 1024;
+            int passes = 0;
+            StallResult dernier = StallResult.DONE;
+            for (int i = 3; i < MarketStallBlockEntity.offerSlots() && dernier == StallResult.DONE; i++) {
+                menu.setCarried(lourd(sept));
+                dernier = agir(proprio, StallActionPacket.setOffer(abs, i, 1, 10L));
+                if (dernier == StallResult.DONE) {
+                    passes++;
+                }
+            }
+            helper.assertTrue(passes == 4 && dernier == StallResult.BAD_TEMPLATE,
+                    "quatre modèles de 7 Kio puis refus au plafond de l'étal, vu " + passes + " puis " + dernier + " ; " + tailles);
+            helper.assertTrue(be.offers().get(3 + passes) == null, "le modèle refusé n'est pas écrit");
+            // Remplacer un modèle lourd par un léger reste permis (le total compte la case remplacée).
+            menu.setCarried(new ItemStack(Items.BREAD));
+            attendu(helper, StallResult.DONE, agir(proprio, StallActionPacket.setOffer(abs, 3, 1, 10L)), "remplacer par un léger");
+            menu.setCarried(ItemStack.EMPTY);
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void laCaissePleineRefuseLAchat(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest proprio = essai.joueur("caisse_pleine_proprio");
+            JoueurDeTest client = essai.joueur("caisse_pleine_client");
+            MarketStallBlockEntity be = etalDuPain(helper, proprio, 8);
+            // 30 cuivres entrent comme 3 argent : la coupure de l'argent est au plafond.
+            be.addCash(Coin.SILVER, be.cashRoom(Coin.SILVER));
+            donner(client, Coin.COPPER, 30);
+            vitrine(helper, client);
+            String avant = releve(helper, client, be);
+            attendu(helper, StallResult.CASH_FULL, agir(client, achat(be, 0)), "caisse au plafond");
+            rienNABouge(helper, avant, client, be);
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void rachatInventairePleinRefuse(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest proprio = essai.joueur("rachat_inv_proprio");
+            JoueurDeTest vendeur = essai.joueur("rachat_inv_vendeur");
+            poserEtVerifier(helper, proprio, A);
+            MarketStallBlockEntity be = entite(helper, A);
+            rachatDuBle(helper, be, 3);
+            be.addCash(Coin.GOLD, 1);
+            Inventory inv = vendeur.joueur().getInventory();
+            inv.setItem(0, new ItemStack(Items.WHEAT, 8));
+            for (int i = 1; i < 36; i++) {
+                inv.setItem(i, new ItemStack(Items.DIRT, 64));
+            }
+            vitrine(helper, vendeur);
+            String avant = releve(helper, vendeur, be);
+            attendu(helper, StallResult.NO_ROOM, agir(vendeur, vente(be, 0)), "aucune place pour les pièces, aucune bourse");
+            rienNABouge(helper, avant, vendeur, be);
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void rachatObjetAuNbtDifferentRefuse(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest proprio = essai.joueur("rachat_nbt_proprio");
+            JoueurDeTest vendeur = essai.joueur("rachat_nbt_vendeur");
+            poserEtVerifier(helper, proprio, A);
+            MarketStallBlockEntity be = entite(helper, A);
+            rachatDuBle(helper, be, 3);
+            be.addCash(Coin.GOLD, 1);
+            ItemStack nomme = new ItemStack(Items.WHEAT, 8);
+            nomme.setHoverName(Component.literal("Blé doré"));
+            vendeur.joueur().getInventory().add(nomme);
+            vitrine(helper, vendeur);
+            String avant = releve(helper, vendeur, be);
+            attendu(helper, StallResult.NOTHING_TO_SELL, agir(vendeur, vente(be, 0)), "blé nommé contre un modèle sans nom");
+            rienNABouge(helper, avant, vendeur, be);
             helper.succeed();
         }
     }
