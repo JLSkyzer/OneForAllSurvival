@@ -7,6 +7,7 @@ import dev.oneforallsurvival.debug.IslandDebugRequest;
 import dev.oneforallsurvival.debug.IslandDebugResponse;
 import dev.oneforallsurvival.economy.PurseActionPacket;
 import dev.oneforallsurvival.economy.SafeActionPacket;
+import dev.oneforallsurvival.economy.trade.TradeActionPacket;
 import dev.oneforallsurvival.explore.ReceiverFrequencyPacket;
 import dev.oneforallsurvival.grid.SubscriberNamePacket;
 import java.util.Locale;
@@ -29,15 +30,15 @@ import net.minecraftforge.network.simple.SimpleChannel;
 import org.slf4j.Logger;
 
 /**
- * Le canal réseau du mod (né avec l'établi), protocole « 5 » : client et serveur doivent concorder. Chaque paquet du
+ * Le canal réseau du mod (né avec l'établi), protocole « 6 » : client et serveur doivent concorder. Chaque paquet du
  * client est traité sur le thread du serveur, et revalide tout : rôle, distance, menu ouvert. Un client
  * n'est jamais cru sur parole.
  */
 public final class BenchNetwork {
 
     public static final ResourceLocation CHANNEL_ID = new ResourceLocation(OneForAllSurvival.MODID, "bench");
-    /** « 5 » depuis le codec commun des écrans de pièces (coffre-fort et bourse) : un serveur plus ancien ne le lit pas. */
-    private static final String PROTOCOL = "5";
+    /** « 6 » depuis la fenêtre d'échange (lot E2, une seule montée pour tout le lot) : un serveur plus ancien ne la lit pas. */
+    private static final String PROTOCOL = "6";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(CHANNEL_ID, () -> PROTOCOL,
             PROTOCOL::equals, PROTOCOL::equals);
@@ -60,6 +61,8 @@ public final class BenchNetwork {
     /** Le coffre-fort personnel : déposer, retirer, regrouper. */
     public static final int ID_SAFE_ACTION = 11;
     public static final int ID_PURSE_ACTION = 12;
+    /** La fenêtre d'échange : confirmer, cocher le reçu, verser des pièces, annuler. */
+    public static final int ID_TRADE_ACTION = 13;
 
     /** Clé de traduction d'un refus : {@code message.oneforallsurvival.bench.refused.<résultat>}. */
     public static final String REFUSED_KEY = "message.oneforallsurvival.bench.refused.";
@@ -111,6 +114,9 @@ public final class BenchNetwork {
         CHANNEL.messageBuilder(PurseActionPacket.class, ID_PURSE_ACTION, NetworkDirection.PLAY_TO_SERVER)
                 .encoder(PurseActionPacket::encode).decoder(PurseActionPacket::decode)
                 .consumerMainThread(PurseActionPacket::handle).add();
+        CHANNEL.messageBuilder(TradeActionPacket.class, ID_TRADE_ACTION, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(TradeActionPacket::encode).decoder(TradeActionPacket::decode)
+                .consumerMainThread(TradeActionPacket::handle).add();
     }
 
     // --- Serveur vers client -----------------------------------------------------------------

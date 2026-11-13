@@ -10,6 +10,8 @@ import dev.oneforallsurvival.bench.WorkshopTicker;
 import dev.oneforallsurvival.coast.CoastCommands;
 import dev.oneforallsurvival.debug.IslandDebugRequest;
 import dev.oneforallsurvival.economy.CommerceDelivery;
+import dev.oneforallsurvival.economy.trade.TradeCommands;
+import dev.oneforallsurvival.economy.trade.TradeService;
 import dev.oneforallsurvival.economy.EconomyCommands;
 import dev.oneforallsurvival.economy.EconomyConfig;
 import dev.oneforallsurvival.economy.EconomyRegistry;
@@ -73,6 +75,8 @@ public final class OneForAllSurvival {
         MinecraftForge.EVENT_BUS.register(new ExploreCommands());
         MinecraftForge.EVENT_BUS.register(new EconomyCommands());
         MinecraftForge.EVENT_BUS.register(new MoneyGuard());
+        MinecraftForge.EVENT_BUS.register(new TradeService.Events());
+        MinecraftForge.EVENT_BUS.register(new TradeCommands());
         MinecraftForge.EVENT_BUS.register(new WorkshopTicker());
         MinecraftForge.EVENT_BUS.register(new FoodEvents());
         MinecraftForge.EVENT_BUS.register(new LightningEvents());

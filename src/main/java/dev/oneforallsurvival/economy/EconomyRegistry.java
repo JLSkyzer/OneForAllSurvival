@@ -67,6 +67,13 @@ public final class EconomyRegistry {
     public static final RegistryObject<MenuType<PurseMenu>> PURSE_MENU =
             MENUS.register("purse", () -> IForgeMenuType.create(PurseMenu::fromNetwork));
 
+    /** La fenêtre d'échange de main à main (lot E2) : un rangement permis, sans bloc, qui ne survit pas à l'échange. */
+    public static final RegistryObject<MenuType<dev.oneforallsurvival.economy.trade.TradeMenu>> TRADE_MENU =
+            MENUS.register("trade", () -> IForgeMenuType.create(dev.oneforallsurvival.economy.trade.TradeMenu::fromNetwork));
+
+    /** Le reçu d'un échange (et, plus tard, d'une facture) : un papier, empilable à 1. */
+    public static final RegistryObject<Item> RECEIPT = ITEMS.register("receipt", () -> new ReceiptItem(new Item.Properties()));
+
     private static final Map<Coin, RegistryObject<Item>> COINS = new EnumMap<>(Coin.class);
 
     static {
@@ -105,6 +112,7 @@ public final class EconomyRegistry {
         event.enqueueWork(() -> {
             MoneyStorageRules.register(SAFE_MENU.get());
             MoneyStorageRules.register(PURSE_MENU.get());
+            MoneyStorageRules.register(TRADE_MENU.get());
             MoneyStorageRules.registerMoneyPredicate(stack -> Purse.isPurse(stack) && Purse.total(stack) > 0L);
         });
     }
@@ -114,6 +122,7 @@ public final class EconomyRegistry {
         List<RegistryObject<? extends Item>> items = new ArrayList<>(COINS.values());
         items.add(SAFE_ITEM);
         items.add(PURSE);
+        items.add(RECEIPT);
         return items;
     }
 }
