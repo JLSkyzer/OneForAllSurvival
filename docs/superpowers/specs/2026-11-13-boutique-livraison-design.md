@@ -9,9 +9,9 @@ commande. Le contrat entre le site et le serveur est fixé côté site, dans
 déployée sur le vrai site. **Ce cahier en est le pendant côté mod et ne le contredit pas.** Les points que
 le contrat laisse encore ouverts sont listés en section 13.
 
-Le cahier touche à l'argent : l'action `pieces` crée des pièces, ce que le
-[cahier de l'économie](2026-11-08-economie-design.md) n'autorise que pour quatre sources déclarées. Cette
-nouvelle source est **à trancher par Killian** (section 13).
+La boutique **ne vend pas la monnaie du jeu** (décision de Killian, 2026-11-13) : le
+[cahier de l'économie](2026-11-08-economie-design.md) et ses quatre sources de pièces restent inchangés
+(feature 143).
 
 ## 1. Pourquoi
 
@@ -114,7 +114,6 @@ ne redonne pas : il signale à l'équipe.
     "livrer": true,
     "battementSecondes": 30,
     "sondageSecondes": 60,
-    "piecesMax": 1000000,
     "commandesPermises": ["give", "effect", "title", "tellraw", "lp", "experience"]
   }
   ```
@@ -128,7 +127,6 @@ ne redonne pas : il signale à l'équipe.
   | `livrer` | ce serveur livre-t-il ? Faux sur un serveur qui ne doit que battre le cœur (section 6) | — |
   | `battementSecondes` | intervalle de `/etat` | 10 à 60 (le site déclare hors ligne après 90 s) |
   | `sondageSecondes` | intervalle du sondage des joueurs en ligne | 30 à 600 |
-  | `piecesMax` | plafond du mod pour une action `pieces`, en cuivres | 1 à 1 000 000 (plafond du site) |
   | `commandesPermises` | premiers mots autorisés pour l'action `commande` (feature 143) | liste vide = aucune commande |
 
 - **Sans clé, ou `actif` faux** : la boutique est **désactivée**. Une seule ligne au journal du serveur au
@@ -327,7 +325,7 @@ Toutes les actions d'une livraison sont **validées avant d'en exécuter une seu
 atomique vu du site (contrat). La validation ne change rien au monde.
 
 *Validation commune*
-- Au plus 32 actions par livraison ; un champ `type` connu (`objet`, `commande`, `pieces`), sinon échec
+- Au plus 32 actions par livraison ; un champ `type` connu (`objet`, `commande`), sinon échec
   « action inconnue : <type> » (texte du contrat).
 - Un `id` qui n'est pas un UUID fait ignorer la livraison (on ne pourrait même pas en rendre le résultat),
   avec un avertissement au journal.
@@ -363,30 +361,24 @@ atomique vu du site (contrat). La validation ne change rien au monde.
   que « ajouter un jour de grade ») : c'est la meilleure protection contre le risque résiduel de la
   section 6.
 
-*`pieces`* — **à trancher par Killian** (section 13). Proposition :
-- `montant` est un entier de 1 à `piecesMax` (1 000 000 au plus, plafond du site), **en cuivres**, la plus
-  petite unité de la monnaie du mod (contrat). Au-delà du plafond du mod : échec « montant au-delà du
-  plafond du serveur : <valeur> » (le contrat permet ce plafond plus bas). Sinon : « montant invalide :
-  <valeur> ».
-- **Don** : `CoinMath.decompose(montant)`, puis `PlayerCoins.receive` coupure par coupure (bourse d'abord,
-  puis inventaire) ; ce qui n'est pas entré va au colis, **pas au sol** : une pièce au sol vit dans les
-  données du tronçon, pas dans le fichier du joueur, et échapperait à la règle « donné et marqué ensemble ».
-- **Comptage** : `EconomyLedger.created(MoneySource.SHOP, montant, null, "boutique LI-1043 <id>")`, avec
-  une cinquième source `SHOP` (« Boutique ») à ajouter à `MoneySource`, et sa ligne au tableau de bord
-  `/eco stats`. **Cela modifie la règle des quatre sources du cahier de l'économie.** Tant que Killian n'a
-  pas tranché, l'action `pieces` est refusée (« action non prise en charge : pieces »), sans rien donner, et
-  le reste du cahier tient.
+*Monnaie du jeu* — **décision de Killian (2026-11-13) : la boutique ne vend pas la monnaie du jeu.**
+- Il n'y a pas d'action `pieces` : le site ne la propose plus et refuse à l'enregistrement toute action
+  `objet` ou `commande` qui nomme une pièce (`oneforallsurvival:*_coin`). Une action `pieces` reçue quand
+  même échoue (« action inconnue : pieces »), sans rien donner.
+- **Le mod se protège aussi** (le site est de confiance, pas infaillible) : à la validation, une action
+  `objet` dont l'objet est une pièce du mod (`CoinItem`, ou tout objet du tag des pièces s'il existe) échoue
+  « la boutique ne vend pas la monnaie du jeu », et une action `commande` qui contient `_coin` aussi.
+- `MoneySource` garde ses quatre sources ; la règle du cahier de l'économie est inchangée.
 
 **144. Colis.**
-- Ce qui ne rentre pas dans l'inventaire (ou la bourse, pour les pièces) n'est **ni jeté au sol ni perdu** :
+- Ce qui ne rentre pas dans l'inventaire n'est **ni jeté au sol ni perdu** :
   il est mis dans le **colis** du joueur, gardé par le serveur dans ses données persistantes, avec la marque
   « donné » (feature 142). La livraison compte comme **livrée** une fois en colis.
 - `/boutique colis` donne tout ce qui rentre, dans l'ordre d'arrivée, et garde le reste : « Colis : 3 objets
   récupérés, 2 restent (inventaire plein). » Sans colis : « Votre colis est vide. »
 - À chaque connexion, s'il n'est pas vide : « Un colis vous attend : /boutique colis. »
-- On ne peut **rien déposer** dans un colis : ce n'est pas un rangement. Il s'ajoute pourtant à la liste des
-  endroits où des pièces peuvent se trouver (feature 84 de l'économie), comme le coffre-fort ; une pièce ne
-  peut y entrer que par une livraison. Lié à la décision sur `pieces`.
+- On ne peut **rien déposer** dans un colis : ce n'est pas un rangement. Aucune pièce ne peut y entrer, la
+  boutique n'en livrant jamais.
 - Taille : 256 piles au plus. La validation (feature 142) vérifie que l'inventaire plus la place libre du
   colis suffisent ; sinon la livraison échoue **avant** de rien donner (« colis plein »).
 
@@ -419,7 +411,7 @@ Chaque cas, avec le comportement exact.
 | **Joueur hors ligne** | Rien n'est réservé. La livraison reste `a_livrer` sur le site ; elle arrive à sa connexion (`?uuid=`). |
 | **Joueur qui se déconnecte pendant la livraison** | Le don (étapes 3 à 6) tient dans un seul tic du fil du serveur : la déconnexion tombe avant ou après, jamais au milieu. Pendant la réservation en vol : la revérification de l'étape 2 arrête tout, rien n'est donné, le journal reste `RESERVEE`. À sa reconnexion, le mod re-réserve (le `200` prolonge, ou réserve de nouveau après expiration) et livre. Après l'étape 6 : le message ne s'affiche pas, le résultat part quand même. |
 | **Serveur éteint** | Rien ne se perd : les livraisons attendent sur le site. Au démarrage, les résultats en attente sont envoyés et le journal est rapproché (feature 142). |
-| **Serveur qui plante entre « donner » et « sauvegarder »** | Le journal sur le disque dit `EN_COURS`. À la connexion du joueur, son fichier est chargé et le mod regarde **sa marque** : présente, les objets ont été sauvegardés avec elle, la livraison passe `LIVREE` et le résultat `livree` part ; absente, les objets ont été perdus avec le plantage (même fichier, même sauvegarde), le journal repasse à `RESERVEE` et la livraison est refaite après une nouvelle réservation. Il n'y a donc ni double ni perte **pour les objets, les pièces et le colis**. **Risque résiduel, dit honnêtement** : (1) une action `commande` dont l'effet vit ailleurs que dans le fichier du joueur (grade d'un autre mod, base de LuckPerms, blocs du monde) peut avoir survécu au plantage alors que la marque non : elle sera **rejouée**. Réduit par l'écriture immédiate (la fenêtre est de quelques millisecondes) et par des commandes sans effet au second passage (feature 143). (2) Le registre de l'économie peut avoir compté une création perdue, ou l'inverse : écart du tableau de bord égal au montant, noté au journal du serveur. (3) Si l'écriture du fichier du joueur n'est pas d'un bloc (à vérifier, section 4), un fichier à moitié écrit relève de la panne du monde, pas de ce lot. Un `EN_COURS` que le mod ne peut pas trancher (fichier du joueur illisible) devient `PARTIELLE` (résultat `echec` « PARTIELLE : panne du serveur pendant la livraison ») et une alerte de l'équipe, jamais un nouveau don. |
+| **Serveur qui plante entre « donner » et « sauvegarder »** | Le journal sur le disque dit `EN_COURS`. À la connexion du joueur, son fichier est chargé et le mod regarde **sa marque** : présente, les objets ont été sauvegardés avec elle, la livraison passe `LIVREE` et le résultat `livree` part ; absente, les objets ont été perdus avec le plantage (même fichier, même sauvegarde), le journal repasse à `RESERVEE` et la livraison est refaite après une nouvelle réservation. Il n'y a donc ni double ni perte **pour les objets et le colis**. **Risque résiduel, dit honnêtement** : (1) une action `commande` dont l'effet vit ailleurs que dans le fichier du joueur (grade d'un autre mod, base de LuckPerms, blocs du monde) peut avoir survécu au plantage alors que la marque non : elle sera **rejouée**. Réduit par l'écriture immédiate (la fenêtre est de quelques millisecondes) et par des commandes sans effet au second passage (feature 143). (2) Si l'écriture du fichier du joueur n'est pas d'un bloc (à vérifier, section 4), un fichier à moitié écrit relève de la panne du monde, pas de ce lot. Un `EN_COURS` que le mod ne peut pas trancher (fichier du joueur illisible) devient `PARTIELLE` (résultat `echec` « PARTIELLE : panne du serveur pendant la livraison ») et une alerte de l'équipe, jamais un nouveau don. |
 | **Site injoignable** | Aucune réservation, donc aucun don. Les résultats déjà acquis restent dans la file du journal et repartent au premier appel réussi. Le jeu ne ralentit pas (tout est hors du fil du serveur). Au-delà de 10 minutes : alerte de l'équipe. |
 | **Réservation refusée `409 annulee`** | Rien n'est donné ; l'entrée est effacée du journal. Rien n'est dit au joueur (le remboursement lui a été annoncé par le site). |
 | **Réservation refusée `409 livree`** | Rien n'est donné. Si le journal ou la marque la disent donnée, le mod renvoie `resultat livree` (sans effet, contrat), marque le résultat transmis et l'oublie. Sinon : avertissement au journal du serveur (« livrée par un autre serveur ? ») et l'entrée est oubliée. |
@@ -470,7 +462,7 @@ Chaque cas, avec le comportement exact.
 
 | Avec | Branchement |
 |---|---|
-| Économie | Si Killian l'accepte : une cinquième source de création, `SHOP`, comptée au tableau de bord, et le colis ajouté aux endroits où une pièce peut se trouver (feature 84). |
+| Économie | Aucun : la boutique ne vend pas la monnaie du jeu ; le mod refuse toute pièce dans une livraison (feature 143). |
 | Site Lost Island | Le contrat `api-serveur-minecraft.md`, version révisée du 2026-11-13. Les points encore ouverts (section 13) s'y règlent, côté site. |
 | Casino | Le dossier `config/oneforall/` et, plus tard, le webhook Discord des alertes (feature 121). |
 | Wiki | Une fiche « Boutique » : lier son compte, le colis, et pour l'équipe les commandes, les cas de panne, la règle des commandes rejouables et le passage par `/boutique debloquer` avant de relancer une livraison `PARTIELLE`. |
@@ -483,8 +475,7 @@ Chaque cas, avec le comportement exact.
 | B2 | 141 | Un joueur lie son compte en jeu | B1 |
 | B3 | Journal, marque du joueur, file des résultats, 142, actions `objet`, 144, reste de 145 | Un achat d'objets arrive une seule fois, malgré pannes et inventaire plein | B1 |
 | B4 | Action `commande` (liste permise, analyse, `PARTIELLE`, `debloquer`) | Un grade ou une commande s'achète sans risque de `stop` | B3 |
-| B5 | Action `pieces`, source `SHOP` | Des pièces s'achètent et sont comptées au tableau de bord | B3, décision de Killian |
-| B6 | Essai de bout en bout contre le site | Le circuit complet marche avec le vrai site | B3 (B4, B5 s'ils sont faits) |
+| B5 | Essai de bout en bout contre le site | Le circuit complet marche avec le vrai site | B3 (B4 s'il est fait) |
 
 ## 11. Vérification
 
@@ -501,7 +492,7 @@ Chaque cas, avec le comportement exact.
   - temporisation : 2, 4, 8 s… plafonnée à 5 min, aléa dans ±20 % ; `400`, `401`, `404`, `409`, `413` jamais
     réessayés ;
   - lecture et validation du JSON du site : livraison du contrat acceptée ; `type` inconnu, `quantite` 0 ou
-    6 401, `montant` 0 ou au-delà de `piecesMax`, SNBT invalide, commande de 501 caractères ou sur deux
+    6 401, pièce du mod en `objet` ou dans une `commande`, SNBT invalide, commande de 501 caractères ou sur deux
     lignes, `id` non UUID, champ manquant, champ de mauvais type, réponse de plus de 1 Mio refusés avec la
     bonne raison ; champ inconnu ignoré ; statuts lus en ASCII ;
   - raison `PARTIELLE` : commence bien par `PARTIELLE`, coupée à 500 caractères ;
@@ -528,9 +519,9 @@ Chaque cas, avec le comportement exact.
   - joueur en créatif : le compte de ce qui est entré est juste ;
   - action `commande` : `{joueur}` remplacé par le pseudo en jeu, sortie au journal, commande hors liste
     refusée, erreur d'exécution → `PARTIELLE` et raison qui commence par `PARTIELLE` ;
-  - action `pieces` (si Killian l'accepte) : le montant arrive (bourse, puis inventaire, puis colis) et
-    `/eco stats` le compte à la source Boutique ; sinon, refus sans rien donner.
-- **Essai de bout en bout contre le site** (lot B6), sur un serveur dédié avec un client, `livrer` à vrai,
+  - une pièce du mod demandée (en `objet`, dans une `commande`, ou par un `type` `pieces`) : refus sans
+    rien donner ;
+- **Essai de bout en bout contre le site** (lot B5), sur un serveur dédié avec un client, `livrer` à vrai,
   contre une instance du site (locale, ou de production avec un produit d'essai à 0 € masqué) :
   1. démarrer le serveur : le site l'affiche en ligne en moins de 30 s ; l'arrêter : hors ligne après 90 s ;
   2. se connecter, lier le compte par un code pris sur le site ; un mauvais code donne le bon message ;
@@ -563,8 +554,8 @@ Chaque cas, avec le comportement exact.
 - `livree` toujours accepté ; `echec` accepté sans réservation ; `id` stable après relance.
 - Livraison atomique : tout vérifier avant d'exécuter ; panne au milieu → `echec` dont la raison commence
   par `PARTIELLE`.
-- Trois actions : `objet`, `commande` (500 caractères, `{joueur}` = pseudo en jeu), `pieces` (plus petite
-  unité, 1 à 1 000 000, plafond du mod possible) ; un type inconnu fait échouer sans rien donner.
+- Deux actions : `objet`, `commande` (500 caractères, `{joueur}` = pseudo en jeu) ; un type inconnu fait
+  échouer sans rien donner. Pas de vente de la monnaie du jeu (décision de Killian, 2026-11-13).
 - Liaison par `/boutique lier <code>`, code de 6 caractères sans `0 O 1 I`, casse indifférente, valable
   10 minutes, une seule fois.
 - Table des erreurs : `400` et `413` sans réessai, `401` long délai, `5xx` temporisation ; pas de
@@ -593,12 +584,7 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 ## 13. Questions ouvertes
 
 **À trancher par Killian**
-1. **L'action `pieces`** : la boutique peut-elle créer des pièces ? Le cahier de l'économie dit « exactement
-   quatre sources ». Une cinquième, « Boutique », change ce principe (et ouvre l'achat de monnaie du jeu
-   contre de l'argent réel). La proposition de la feature 143 reste en l'état ; sans décision, `pieces` est
-   refusée et le lot B5 n'est pas fait.
-2. **Le colis** peut-il contenir des pièces (exception à la feature 84) ? Lié à la question 1.
-3. Les **commandes permises** de départ conviennent-elles (`give`, `effect`, `title`, `tellraw`, `lp`,
+1. Les **commandes permises** de départ conviennent-elles (`give`, `effect`, `title`, `tellraw`, `lp`,
    `experience`) ?
 
 **Points du contrat d'API encore ouverts, à régler côté site** (le mod suit les choix prudents ci-dessus)
