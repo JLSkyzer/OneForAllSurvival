@@ -61,6 +61,7 @@ public class LostIslandTitleScreen extends TitleScreen {
     private Button quit;
     private AbstractWidget vanillaMods; // bouton des mods créé par Forge dans super.init(), réduit dans la rangée
     private boolean layoutWithScene; // disposition calculée sur le logo de la scène (et non sur le repli)
+    private SiteAddress.Status shownStatus; // état de l'adresse appliqué au bouton
     private int arrangedChildren = -1; // nombre de widgets à la dernière disposition
 
     public LostIslandTitleScreen() {
@@ -93,10 +94,7 @@ public class LostIslandTitleScreen extends TitleScreen {
                 .build());
         join = addRenderableWidget(new GoldButton(0, 0, TitleLayout.MAIN_W, TitleLayout.MAIN_H,
                 Component.translatable("gui.oneforallsurvival.title.join"), b -> joinIsland()));
-        if (TitleConfig.SERVER_ADDRESS.isBlank()) {
-            join.active = false;
-            join.setTooltip(Tooltip.create(Component.translatable("gui.oneforallsurvival.title.join.soon")));
-        }
+        applyJoinStatus(SiteAddressClient.status());
         options = addRenderableWidget(Button.builder(Component.translatable("gui.oneforallsurvival.title.options"),
                 b -> minecraft.setScreen(new OptionsScreen(this, minecraft.options)))
                 .size(TitleLayout.MAIN_W, TitleLayout.MAIN_H).build());
@@ -178,9 +176,25 @@ public class LostIslandTitleScreen extends TitleScreen {
         return TitleLayout.fallbackLogoRect(width, height);
     }
 
+    /** Active ou grise « Rejoindre l'île » selon l'état de l'adresse (site, adresse gardée, repli, maintenance). */
+    private void applyJoinStatus(SiteAddress.Status next) {
+        shownStatus = next;
+        join.active = next.joinable();
+        if (next.joinable()) {
+            join.setTooltip(null);
+        } else if (next.maintenance()) {
+            // texte brut du site : jamais interprété comme un format ou un composant
+            join.setTooltip(Tooltip.create(next.message() != null ? Component.literal(next.message())
+                    : Component.translatable("gui.oneforallsurvival.title.join.maintenance")));
+        } else {
+            join.setTooltip(Tooltip.create(Component.translatable("gui.oneforallsurvival.title.join.soon")));
+        }
+    }
+
     private void joinIsland() {
-        String address = TitleConfig.SERVER_ADDRESS;
-        if (address.isBlank()) {
+        SiteAddress.Status current = SiteAddressClient.status();
+        String address = current.address();
+        if (address == null || current.maintenance()) {
             return;
         }
         // Connexion standard de Minecraft ; le serveur n'est pas ajouté à la liste. Refus → écran d'erreur habituel.
@@ -192,6 +206,11 @@ public class LostIslandTitleScreen extends TitleScreen {
     public void tick() {
         // Volontairement sans super.tick() : celui de TitleScreen fait vivre les notifications de Realms
         // (requêtes réseau) et l'avertissement Realms 32 bits ; Realms est absent de cet écran.
+        // La réponse du site peut arriver après l'ouverture : relue ici, sur le fil du client.
+        SiteAddress.Status latest = SiteAddressClient.status();
+        if (join != null && !latest.equals(shownStatus)) {
+            applyJoinStatus(latest);
+        }
     }
 
     @Override

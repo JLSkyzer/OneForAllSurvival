@@ -50,13 +50,15 @@
       "who": {"utilise": "Tous"},
       "steps": [
         "Boutons : Solo, Rejoindre l'île, Options, Quitter.",
-        "Rejoindre l'île connecte directement au serveur.",
+        "Rejoindre l'île connecte directement au serveur, à l'adresse réglée sur le site.",
         "Mods, langue, accessibilité : rangée en bas à gauche."
       ],
       "flow": ["Rejoindre l'île", "Serveur"],
       "staff": [
-        "Adresse du serveur : constante du code, pas un réglage.",
-        "Adresse vide : bouton grisé, « Serveur bientôt disponible ».",
+        "Adresse du serveur : lue au démarrage sur le site (/api/adresse), changeable depuis l'admin du site sans nouvelle version.",
+        "Dernière adresse connue gardée dans config/oneforallsurvival-adresse.txt ; repli : constante du code.",
+        "Maintenance sur le site : bouton grisé, infobulle = message du site (vue en direct, jamais gardée).",
+        "Aucune adresse connue : bouton grisé, « Serveur bientôt disponible ».",
         "Pas de Multijoueur ; Create passe par Mods → Config.",
         "Connexion refusée : écran d'erreur habituel de Minecraft."
       ]

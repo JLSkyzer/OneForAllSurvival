@@ -266,6 +266,7 @@
   "gui.oneforallsurvival.title.solo": "Singleplayer",
   "gui.oneforallsurvival.title.join": "Join the island",
   "gui.oneforallsurvival.title.join.soon": "Server coming soon",
+  "gui.oneforallsurvival.title.join.maintenance": "Server under maintenance",
   "gui.oneforallsurvival.title.options": "Options",
   "gui.oneforallsurvival.title.quit": "Quit Game",
   "gui.oneforallsurvival.f3.panel.position": "Position",
