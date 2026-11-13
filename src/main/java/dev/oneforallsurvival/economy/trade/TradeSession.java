@@ -101,11 +101,18 @@ public final class TradeSession {
 
     /** La garde de ce joueur (ses objets posés). */
     public Container offer(UUID player) {
-        return first.equals(player) ? firstOffer : secondOffer;
+        return offerOf(player);
     }
 
+    /** @throws IllegalArgumentException si ce joueur n'est pas de l'échange */
     SimpleContainer offerOf(UUID player) {
-        return first.equals(player) ? firstOffer : secondOffer;
+        if (first.equals(player)) {
+            return firstOffer;
+        }
+        if (second.equals(player)) {
+            return secondOffer;
+        }
+        throw new IllegalArgumentException("pas de cet échange : " + player);
     }
 
     public boolean confirmed(UUID player) {

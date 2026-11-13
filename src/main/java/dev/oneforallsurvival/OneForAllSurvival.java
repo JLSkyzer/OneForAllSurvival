@@ -94,6 +94,7 @@ public final class OneForAllSurvival {
         modEventBus.addListener(EconomyConfig::onConfigEvent);
         MinecraftForge.EVENT_BUS.addListener(StartingMoney::onLoggedIn);
         MinecraftForge.EVENT_BUS.addListener(CommerceDelivery::onLoggedIn);
+        MinecraftForge.EVENT_BUS.addListener(CommerceDelivery::onRespawn);
         MinecraftForge.EVENT_BUS.addListener(CommerceDelivery::onServerTick);
         MinecraftForge.EVENT_BUS.addListener(CommerceDelivery::onServerStarted);
         MinecraftForge.EVENT_BUS.addListener(SafeBlock::onBreak);

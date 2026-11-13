@@ -21,8 +21,8 @@ import net.minecraft.world.level.saveddata.SavedData;
  * Sauvegardé avec le monde, par identifiant de joueur. Ne se touche que depuis le fil du serveur.
  *
  * <p>Au chargement, toute garde retrouvée passe en attente de son propriétaire : le serveur s'est arrêté pendant
- * un échange, et personne d'autre ne la réclamera. La garde et la sauvegarde du joueur ont lieu au même tick, donc
- * rien ne se double.
+ * un échange, et personne d'autre ne la réclamera. La garde est écrite avec le monde (au même tick que les joueurs)
+ * et, en plus, à chaque déconnexion avant le playerdata du joueur ({@link #saveNow}) : rien ne se double.
  */
 public final class HeldGoods extends SavedData {
 
@@ -49,6 +49,23 @@ public final class HeldGoods extends SavedData {
             held.setDirty();
         }
         return held;
+    }
+
+    /** Le fichier de la garde : {@code <monde>/data/oneforallsurvival_held.dat} (stockage de l'Overworld). */
+    public static java.nio.file.Path file(MinecraftServer server) {
+        return server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).resolve("data").resolve(KEY + ".dat");
+    }
+
+    /**
+     * Écrit tout de suite la garde sur le disque si elle a changé depuis la dernière écriture. Appelé à chaque
+     * déconnexion, avant que Minecraft n'écrive le playerdata du joueur : sinon, après un arrêt brutal, une garde
+     * déjà rendue (ou livrée par un échange conclu) reviendrait de l'ancien fichier en plus de ce que le playerdata
+     * contient, et l'objet serait doublé.
+     */
+    public void saveNow(MinecraftServer server) {
+        if (isDirty()) {
+            save(file(server).toFile());
+        }
     }
 
     // ---------------------------------------------------------------------------------------------

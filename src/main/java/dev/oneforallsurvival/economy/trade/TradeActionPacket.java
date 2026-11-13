@@ -68,6 +68,13 @@ public record TradeActionPacket(int action, int seenVersion, int coin, int count
                 || !menu.stillValid(player)) {
             return;
         }
+        // Tout geste autre que l'annulation exige l'autre en ligne et à portée (l'éloignement annule l'échange).
+        if (packet.action != CANCEL) {
+            ServerPlayer other = player.server.getPlayerList().getPlayer(session.other(player.getUUID()));
+            if (other == null || other.hasDisconnected() || !TradeService.inReach(player, other)) {
+                return;
+            }
+        }
         switch (packet.action) {
             case CONFIRM -> {
                 TradeSession.ConfirmResult result = session.confirm(player, packet.seenVersion);

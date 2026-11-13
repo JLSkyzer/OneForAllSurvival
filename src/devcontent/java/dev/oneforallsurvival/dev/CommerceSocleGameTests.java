@@ -458,6 +458,35 @@ public final class CommerceSocleGameTests {
     }
 
     @GameTest(template = "test/plancher", batch = LOT_B)
+    public static void uneAttenteNeSeLivrePasAUnMort(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest j = essai.vide(essai.nom("cs_mort"));
+            MinecraftServer serveur = essai.serveur();
+            HeldGoods held = HeldGoods.get(serveur);
+            held.addPending(j.uuid(), List.of(new ItemStack(Items.BREAD, 3)), Map.of());
+            j.joueur().setHealth(0.0F);
+            j.joueur().die(j.joueur().damageSources().genericKill());
+            helper.assertTrue(!j.joueur().isAlive(), "le joueur est mort");
+
+            helper.assertTrue(CommerceDelivery.deliverPending(j.joueur()), "l'attente reste");
+            CommerceDelivery.giveBack(j.joueur(), List.of(new ItemStack(Items.DIAMOND)));
+            Destination d = CommerceDelivery.payTo(serveur, j.uuid(), 100L);
+            helper.assertTrue(d == Destination.PENDING, "un mort n'est pas payé dans son inventaire : " + d);
+            helper.assertTrue(pains(j.joueur()) == 0 && j.joueur().getInventory().countItem(Items.DIAMOND) == 0
+                    && valeurPortee(j) == 0L, "rien n'entre dans l'inventaire du mort");
+            HeldGoods.Pending attente = held.pendingFor(j.uuid());
+            helper.assertTrue(pains(attente.items()) == 3 && CoinMath.valueOf(attente.coins()) == 100L,
+                    "tout attend : " + attente.items() + " " + attente.coins());
+
+            ServerPlayer reapparu = serveur.getPlayerList().respawn(j.joueur(), false);
+            helper.assertTrue(pains(reapparu) == 3 && reapparu.getInventory().countItem(Items.DIAMOND) == 1
+                    && CoinMath.valueOf(PlayerCoins.held(reapparu)) == 100L, "tout arrive à la réapparition");
+            helper.assertTrue(!held.hasPending(j.uuid()), "plus rien n'attend");
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_B)
     public static void uneBoursePleineLaissePasserLesPiecesDansLesCases(GameTestHelper helper) {
         try (Essai essai = new Essai(helper)) {
             JoueurDeTest j = essai.vide(essai.nom("cs_bpleine"));

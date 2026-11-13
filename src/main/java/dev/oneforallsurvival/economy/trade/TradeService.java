@@ -427,13 +427,21 @@ public final class TradeService {
         public void onLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
             UUID player = event.getEntity().getUUID();
             cancelFor(player, CancelReason.LOGGED_OUT);
+            // Avant le playerdata : la garde sur le disque ne doit plus contenir ce que le joueur a récupéré (rendu
+            // ici, ou reçu par un échange conclu depuis la dernière écriture du monde).
+            if (event.getEntity() instanceof ServerPlayer leaving) {
+                HeldGoods.get(leaving.server).saveNow(leaving.server);
+            }
             REQUESTS.remove(player);
             for (Map<UUID, Long> mine : REQUESTS.values()) {
                 mine.remove(player);
             }
         }
 
-        /** Avant les lâchers : la garde rentre dans l'inventaire du mort et suit son sort. */
+        /**
+         * À la mort, avant les lâchers : l'échange s'annule. Le mort ne reçoit rien dans son inventaire (il serait
+         * lâché ou perdu) : sa garde passe en attente et lui est livrée à la réapparition.
+         */
         @SubscribeEvent(priority = EventPriority.HIGHEST)
         public void onDeath(LivingDeathEvent event) {
             if (event.getEntity() instanceof ServerPlayer player) {

@@ -220,6 +220,40 @@ public final class EchangeGameTests {
         return true;
     }
 
+    private static int compte(List<ItemStack> piles, Item objet) {
+        int total = 0;
+        for (ItemStack pile : piles) {
+            if (pile.is(objet)) {
+                total += pile.getCount();
+            }
+        }
+        return total;
+    }
+
+    /** Les propriétaires des gardes non vides écrites dans le fichier de {@link HeldGoods}, relu du disque. */
+    private static List<UUID> gardesSurLeDisque(MinecraftServer serveur) {
+        List<UUID> out = new ArrayList<>();
+        try {
+            CompoundTag fichier = NbtIo.readCompressed(HeldGoods.file(serveur).toFile());
+            for (Tag brut : fichier.getCompound("data").getList("escrows", Tag.TAG_COMPOUND)) {
+                CompoundTag ligne = (CompoundTag) brut;
+                if (ligne.hasUUID("owner") && !ligne.getList("items", Tag.TAG_COMPOUND).isEmpty()) {
+                    out.add(ligne.getUUID("owner"));
+                }
+            }
+        } catch (java.io.IOException e) {
+            throw new AssertionError("fichier de la garde illisible : " + e.getMessage());
+        }
+        return out;
+    }
+
+    /** Écrit la garde sur le disque maintenant, comme une sauvegarde automatique pendant l'échange. */
+    private static void sauvegardeAutomatique(MinecraftServer serveur) {
+        HeldGoods held = HeldGoods.get(serveur);
+        held.setDirty();
+        held.saveNow(serveur);
+    }
+
     private static int painsAuSol(GameTestHelper helper, AABB autour) {
         int total = 0;
         for (ItemEntity objet : helper.getLevel().getEntitiesOfClass(ItemEntity.class, autour)) {
@@ -574,17 +608,26 @@ public final class EchangeGameTests {
             poser(a, 0);
             poser(b, 0);
 
+            AABB autour = a.joueur().getBoundingBox().inflate(4.0D);
             a.joueur().setHealth(0.0F);
             a.joueur().die(a.joueur().damageSources().genericKill());
             helper.assertTrue(TradeService.sessionOf(a.uuid()) == null && TradeService.sessionOf(b.uuid()) == null,
                     "la mort annule l'échange");
             helper.assertTrue(fermee(b), "la fenêtre de l'autre se ferme");
             helper.assertTrue(compte(b.joueur(), Items.DIAMOND) == 1, "B récupère son diamant");
-            // Rendus avant les lâchers : les pains suivent le sort de l'inventaire du mort, une seule fois.
-            AABB autour = a.joueur().getBoundingBox().inflate(4.0D);
-            int total = painsAuSol(helper, autour) + compte(a.joueur(), Items.BREAD);
-            helper.assertTrue(total == 5, "cinq pains au sol ou dans l'inventaire du mort : " + total);
-            helper.assertTrue(HeldGoods.get(essai.serveur()).closeEscrow(a.uuid()).isEmpty(), "plus de garde");
+            // Le mort ne reçoit rien : ni au sol, ni dans l'inventaire qui serait perdu ; ses pains attendent.
+            HeldGoods held = HeldGoods.get(essai.serveur());
+            helper.assertTrue(painsAuSol(helper, autour) == 0 && compte(a.joueur(), Items.BREAD) == 0,
+                    "rien au sol ni dans l'inventaire du mort : sol " + painsAuSol(helper, autour));
+            helper.assertTrue(held.closeEscrow(a.uuid()).isEmpty(), "plus de garde");
+            helper.assertTrue(compte(held.pendingFor(a.uuid()).items(), Items.BREAD) == 5, "les cinq pains attendent");
+            helper.assertTrue(dev.oneforallsurvival.economy.CommerceDelivery.deliverPending(a.joueur())
+                    && compte(a.joueur(), Items.BREAD) == 0, "une livraison au mort n'a pas lieu");
+
+            // Réapparu, il les reçoit, une seule fois.
+            ServerPlayer reapparu = essai.serveur().getPlayerList().respawn(a.joueur(), false);
+            helper.assertTrue(compte(reapparu, Items.BREAD) == 5, "les pains arrivent à la réapparition : "
+                    + compte(reapparu, Items.BREAD));
             helper.assertTrue(rienEnAttente(essai.serveur(), a, b), "rien en attente");
             helper.succeed();
         }
@@ -601,8 +644,13 @@ public final class EchangeGameTests {
             poser(a, 0);
             poser(b, 0);
             AABB autour = a.joueur().getBoundingBox().inflate(4.0D);
+            sauvegardeAutomatique(essai.serveur());
+            helper.assertTrue(gardesSurLeDisque(essai.serveur()).contains(a.uuid()), "la garde de A est sur le disque");
 
             a.quitter();
+            List<UUID> surLeDisque = gardesSurLeDisque(essai.serveur());
+            helper.assertTrue(!surLeDisque.contains(a.uuid()) && !surLeDisque.contains(b.uuid()),
+                    "à la déconnexion, le fichier de la garde ne contient plus rien de A ni de B : " + surLeDisque);
             helper.assertTrue(TradeService.sessionOf(a.uuid()) == null && TradeService.sessionOf(b.uuid()) == null,
                     "la déconnexion annule l'échange");
             helper.assertTrue(fermee(b), "la fenêtre de l'autre se ferme");
@@ -628,6 +676,33 @@ public final class EchangeGameTests {
                 throw new AssertionError("playerdata illisible : " + fichier + " : " + e.getMessage());
             }
             helper.assertTrue(pains == 5, "le playerdata doit contenir les cinq pains : " + pains);
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_B)
+    public static void unEchangeConcluNeRevientPasDuDisque(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest a = essai.joueur("ec_dskA", POS_A);
+            JoueurDeTest b = essai.joueur("ec_dskB", POS_B);
+            a.joueur().getInventory().items.set(0, new ItemStack(Items.BREAD, 5));
+            b.joueur().getInventory().items.set(0, new ItemStack(Coin.GOLD.item(), 2));
+            TradeSession session = ouvrir(helper, a, b);
+            poser(a, 0);
+            poser(b, 0);
+            // Une sauvegarde automatique tombe pendant l'échange : les deux gardes sont sur le disque.
+            sauvegardeAutomatique(essai.serveur());
+            List<UUID> avant = gardesSurLeDisque(essai.serveur());
+            helper.assertTrue(avant.contains(a.uuid()) && avant.contains(b.uuid()), "les deux gardes sont sur le disque");
+            helper.assertTrue(session.confirm(a.joueur(), session.version()) == ConfirmResult.WAITING, "A confirme");
+            helper.assertTrue(session.confirm(b.joueur(), session.version()) == ConfirmResult.DONE, "B confirme");
+
+            // A part avec ses 2 or, B reste : le fichier relu du disque n'a plus aucune des deux gardes.
+            a.quitter();
+            List<UUID> apres = gardesSurLeDisque(essai.serveur());
+            helper.assertTrue(!apres.contains(a.uuid()) && !apres.contains(b.uuid()),
+                    "après la déconnexion de A, aucune garde de l'échange conclu sur le disque : " + apres);
+            helper.assertTrue(compte(b.joueur(), Items.BREAD) == 5, "B a ses pains");
             helper.succeed();
         }
     }

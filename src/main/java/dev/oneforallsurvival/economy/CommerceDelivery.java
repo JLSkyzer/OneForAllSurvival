@@ -50,7 +50,10 @@ public final class CommerceDelivery {
     public static int giveBack(ServerPlayer owner, List<ItemStack> stacks) {
         Rest rest = Rest.of(stacks, Map.of());
         try {
-            deliver(owner, rest);
+            // Un mort (ou un mourant) ne reçoit rien : son inventaire va être lâché ou perdu à la réapparition.
+            if (owner.isAlive()) {
+                deliver(owner, rest);
+            }
         } finally {
             // Même si une livraison lève une exception, ce qui n'est pas encore entré n'est pas perdu.
             if (!rest.isEmpty()) {
@@ -182,7 +185,7 @@ public final class CommerceDelivery {
         EnumMap<Coin, Long> pending = new EnumMap<>(Coin.class);
         for (Map.Entry<Coin, Long> part : CoinMath.decompose(amount).entrySet()) {
             long left = part.getValue();
-            if (online != null) {
+            if (online != null && online.isAlive()) {
                 left -= PlayerCoins.receive(online, part.getKey(), left);
             }
             if (left > 0L && hasSafe) {
@@ -229,6 +232,11 @@ public final class CommerceDelivery {
         if (!held.hasPending(player.getUUID())) {
             return false;
         }
+        // Un mort ne reçoit rien : sans keepInventory, ServerPlayer.restoreFrom ne recopie pas l'inventaire à la
+        // réapparition, la livraison serait perdue. Elle attend la réapparition (onRespawn).
+        if (!player.isAlive()) {
+            return true;
+        }
         HeldGoods.Pending taken = held.takePending(player.getUUID());
         Rest rest = Rest.of(taken.items(), taken.coins());
         EnumMap<Coin, Long> coinsBefore = new EnumMap<>(rest.coins);
@@ -261,6 +269,13 @@ public final class CommerceDelivery {
 
     /** Branché sur la connexion : ce qui attend le joueur lui est livré. */
     public static void onLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            deliverPending(player, true);
+        }
+    }
+
+    /** Branché sur la réapparition : ce qui attendait pendant la mort est livré au joueur vivant. */
+    public static void onRespawn(PlayerEvent.PlayerRespawnEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             deliverPending(player, true);
         }
