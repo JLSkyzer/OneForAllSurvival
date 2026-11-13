@@ -139,7 +139,7 @@ public record StallCashPacket(BlockPos pos, CoinRequest request) {
                 delta);
         if (delta < 0L) {
             EconomyLedger.get(player.server).transferred(MoneyTransfer.STAFF_WITHDRAW, -delta, player.getUUID(),
-                    "retrait de l'equipe dans la caisse de l'etal de " + (stall.ownerName().isEmpty() ? owner : stall.ownerName())
+                    "retrait de l'equipe dans la caisse de l'etal de " + (!stall.ownerName().isEmpty() ? stall.ownerName() : owner != null ? owner.toString() : "sans proprietaire")
                             + " en " + stall.getBlockPos().toShortString());
         }
         stall.setChanged();

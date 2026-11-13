@@ -132,14 +132,23 @@ public final class StallOwnerMenu extends AbstractContainerMenu {
         for (int i = 0; i < stock.getSlots(); i++) {
             ItemStack stack = stock.getStackInSlot(i);
             if (!stack.isEmpty()) {
-                totals.merge(idOf(stack), stack.getCount(), Integer::sum);
+                totals.merge(keyOf(stack), stack.getCount(), Integer::sum);
             }
         }
         return totals;
     }
 
-    private static String idOf(ItemStack stack) {
-        return String.valueOf(ForgeRegistries.ITEMS.getKey(stack.getItem()));
+    /** Identifiant et NBT : deux piles de même identifiant mais de contenu différent ne se confondent pas. */
+    private static String keyOf(ItemStack stack) {
+        return ForgeRegistries.ITEMS.getKey(stack.getItem()) + (stack.getTag() == null ? "" : TAG_SEPARATOR + stack.getTag());
+    }
+
+    private static final String TAG_SEPARATOR = "|";
+
+    /** L'identifiant seul d'une clé de {@link #keyOf}. */
+    private static String idOfKey(String key) {
+        int cut = key.indexOf(TAG_SEPARATOR);
+        return cut < 0 ? key : key.substring(0, cut);
     }
 
     /** Une ligne du registre de l'étal par objet dont la quantité a changé. */
@@ -157,7 +166,7 @@ public final class StallOwnerMenu extends AbstractContainerMenu {
             }
             Kind kind = !ownStall ? Kind.STAFF : delta > 0 ? Kind.GOODS_IN : Kind.GOODS_OUT;
             int count = ownStall ? Math.abs(delta) : delta;
-            stall.ledger().add(new Line(now, player.getUUID(), player.getGameProfile().getName(), kind, entry.getKey(), count, 0L));
+            stall.ledger().add(new Line(now, player.getUUID(), player.getGameProfile().getName(), kind, idOfKey(entry.getKey()), count, 0L));
         }
         if (!diff.isEmpty()) {
             stall.setChanged();

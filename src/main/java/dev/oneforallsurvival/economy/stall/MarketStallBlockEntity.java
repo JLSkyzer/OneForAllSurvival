@@ -4,7 +4,11 @@ import dev.oneforallsurvival.economy.Coin;
 import dev.oneforallsurvival.economy.CoinMath;
 import dev.oneforallsurvival.economy.CoinStore;
 import dev.oneforallsurvival.economy.EconomyRegistry;
+import dev.oneforallsurvival.economy.MoneyStorageRules;
+import dev.oneforallsurvival.economy.Purse;
 import java.util.EnumMap;
+import java.util.Optional;
+import net.minecraft.world.item.ItemStack;
 import java.util.UUID;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -205,7 +209,39 @@ public final class MarketStallBlockEntity extends BlockEntity {
             cash[coin.ordinal()] = Math.max(0L, Math.min(CoinStore.MAX_PER_COIN, coins.getLong(coin.key())));
         }
         ledger.load(tag.getList(TAG_LEDGER, Tag.TAG_COMPOUND));
+        moveMoneyOutOfStock();
         version = Math.max(0, tag.getInt(TAG_VERSION));
+    }
+
+    /**
+     * Un stock relu ne garde pas d'argent (un objet à {@code BlockEntityTag} posé par commande ou en créatif contourne
+     * {@code isItemValid}) : une pièce passe dans la caisse, et le contenu d'une bourse aussi (la bourse reste, vide).
+     * La valeur est conservée, rien n'est détruit ni dupliqué ; ce qui ne tiendrait pas sous le plafond de la caisse
+     * reste où c'est (cas qui n'arrive que sur un fichier forgé).
+     */
+    private void moveMoneyOutOfStock() {
+        for (int i = 0; i < stock.getSlots(); i++) {
+            ItemStack stack = stock.getStackInSlot(i);
+            if (stack.isEmpty() || !MoneyStorageRules.isMoney(stack)) {
+                continue;
+            }
+            Optional<Coin> coin = Coin.fromItem(stack.getItem());
+            if (coin.isPresent()) {
+                long moved = Math.min(stack.getCount(), cashRoom(coin.get()));
+                cash[coin.get().ordinal()] += moved;
+                stack.shrink((int) moved);
+                if (stack.isEmpty()) {
+                    stock.setStackInSlot(i, ItemStack.EMPTY);
+                }
+            } else if (Purse.isPurse(stack)) {
+                for (Coin c : Coin.values()) {
+                    long moved = Math.min(Purse.count(stack, c), cashRoom(c));
+                    if (moved > 0L && Purse.remove(stack, c, moved)) {
+                        cash[c.ordinal()] += moved;
+                    }
+                }
+            }
+        }
     }
 
     /** Aux clients : le propriétaire et son nom, rien du contenu. */

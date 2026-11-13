@@ -1058,6 +1058,72 @@ public final class EtalStockGameTests {
         }
     }
 
+    /** Remplacer une pile par une autre de même identifiant mais de contenu différent s'écrit au registre. */
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void echangerDeuxPilesDeMemeIdentifiantSEcrit(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest proprio = essai.joueur("etal_nbt_proprio");
+            JoueurDeTest chef = essai.equipe("etal_nbt_chef");
+            poserEtVerifier(helper, proprio, A);
+            MarketStallBlockEntity be = entite(helper, A);
+            ItemStack lameA = new ItemStack(Items.DIAMOND_SWORD);
+            lameA.setHoverName(net.minecraft.network.chat.Component.literal("Lame A"));
+            ItemStack lameB = new ItemStack(Items.DIAMOND_SWORD);
+            lameB.setHoverName(net.minecraft.network.chat.Component.literal("Lame B"));
+            be.stock().setStackInSlot(0, lameA.copy());
+            for (JoueurDeTest j : List.of(proprio, chef)) {
+                clicDroit(helper, j, A);
+                StallOwnerMenu menu = menuGestion(helper, j);
+                int avant = be.ledger().size();
+                menu.setCarried(be.stock().getStackInSlot(0).is(Items.DIAMOND_SWORD)
+                        && be.stock().getStackInSlot(0).getHoverName().getString().equals("Lame A") ? lameB.copy() : lameA.copy());
+                menu.clicked(StallOwnerMenu.STOCK_START, 0, ClickType.PICKUP, j.joueur());
+                helper.assertTrue(be.ledger().size() - avant == 2, "deux lignes attendues (sortie et entrée), vu "
+                        + (be.ledger().size() - avant) + " : " + be.ledger().page(0));
+                List<StallLedger.Line> lignes = be.ledger().page(0).subList(0, 2);
+                boolean proprietaire = j == proprio;
+                helper.assertTrue(lignes.stream().allMatch(l -> l.itemId().equals("minecraft:diamond_sword")
+                        && l.actor().equals(j.uuid())), "objet et acteur : " + lignes);
+                if (proprietaire) {
+                    helper.assertTrue(lignes.stream().anyMatch(l -> l.kind() == Kind.GOODS_OUT && l.count() == 1)
+                            && lignes.stream().anyMatch(l -> l.kind() == Kind.GOODS_IN && l.count() == 1), "sortie et entrée : " + lignes);
+                } else {
+                    helper.assertTrue(lignes.stream().allMatch(l -> l.kind() == Kind.STAFF)
+                            && lignes.stream().anyMatch(l -> l.count() == -1) && lignes.stream().anyMatch(l -> l.count() == 1),
+                            "STAFF signé : " + lignes);
+                }
+                j.joueur().closeContainer();
+                j.joueur().getInventory().clearContent();
+            }
+            helper.succeed();
+        }
+    }
+
+    /** Un stock relu ne garde pas d'argent : la valeur passe à la caisse, rien n'est détruit ni dupliqué. */
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void unStockRelaVecDeLArgentLeRangeALaCaisse(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest j = essai.joueur("etal_relu_argent");
+            poserEtVerifier(helper, j, A);
+            MarketStallBlockEntity be = entite(helper, A);
+            BlockPos abs = helper.absolutePos(A);
+            be.addCash(Coin.SILVER, 2);
+            be.stock().setStackInSlot(0, piece(5));
+            be.stock().setStackInSlot(1, boursePleine());
+            be.stock().setStackInSlot(2, new ItemStack(Items.BREAD, 3));
+            long valeur = CoinMath.valueOf(Coin.SILVER, 2) + CoinMath.valueOf(Coin.GOLD, 5) + CoinMath.valueOf(Coin.COPPER, 10);
+            MarketStallBlockEntity relu = new MarketStallBlockEntity(abs, helper.getBlockState(A));
+            relu.load(be.saveWithoutMetadata());
+            helper.assertTrue(argentDansLe(relu.stock()) == 0 && relu.stock().getStackInSlot(0).isEmpty(), "plus de pièce dans le stock");
+            helper.assertTrue(Purse.total(relu.stock().getStackInSlot(1)) == 0L && !MoneyStorageRules.isMoney(relu.stock().getStackInSlot(1)),
+                    "la bourse reste, vide");
+            helper.assertTrue(relu.stock().getStackInSlot(2).getCount() == 3, "le pain est resté");
+            helper.assertTrue(relu.cashValue() == valeur && relu.cashCount(Coin.GOLD) == 5 && relu.cashCount(Coin.COPPER) == 10,
+                    "valeur conservée : " + relu.cashValue() + " pour " + valeur);
+            helper.succeed();
+        }
+    }
+
     // ---------------------------------------------------------------------------------------------
     // Avec le pack : un entonnoir de Create
     // ---------------------------------------------------------------------------------------------
