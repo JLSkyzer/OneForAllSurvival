@@ -10,6 +10,7 @@ import dev.oneforallsurvival.economy.Purse;
 import dev.oneforallsurvival.economy.SafeAccounts;
 import dev.oneforallsurvival.economy.SafeBlock;
 import dev.oneforallsurvival.economy.SafeBlockEntity;
+import dev.oneforallsurvival.economy.client.CoinAccountScreen;
 import dev.oneforallsurvival.economy.client.PurseScreen;
 import dev.oneforallsurvival.economy.client.SafeScreen;
 import dev.oneforallsurvival.food.DesalinatorBlockEntity;
@@ -720,6 +721,21 @@ public final class DemoVisuels {
         });
     }
 
+    /**
+     * Montre la bulle d'un bouton de l'écran du coffre-fort ou de la bourse, comme si la souris était dessus (la
+     * souris de la machine reste libre), et note au journal si le cadre tient dans l'interface.
+     */
+    private static void bulle(Minecraft mc, String element, String image) {
+        etape("bulle " + element, () -> {
+            if (mc.screen instanceof CoinAccountScreen<?> ecran) {
+                ecran.pinHover(element);
+                LOG.info("[visuels] ecran {} : cadre {}x{} en ({}, {}) dans une interface de {}x{}", ecran.getClass().getSimpleName(),
+                        ecran.getXSize(), ecran.getYSize(), ecran.getGuiLeft(), ecran.getGuiTop(),
+                        mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
+            }
+        }, () -> mc.screen instanceof CoinAccountScreen<?>, 800, image);
+    }
+
     private static void etape(String nom, Runnable action, BooleanSupplier pret, long reposMs, String image) {
         ETAPES.add(new Etape(nom, action, pret, reposMs, image));
     }
@@ -1047,6 +1063,8 @@ public final class DemoVisuels {
                 joueur.getInventory().getItem(5).use(serveur.overworld(), joueur, InteractionHand.MAIN_HAND);
             });
         }, () -> mc.screen instanceof PurseScreen, 1500, "monnaie_ecran_bourse.png");
+        bulle(mc, "row.gold.10", "monnaie_ecran_bourse_bulle_ligne.png");
+        bulle(mc, "break.emerald", "monnaie_ecran_bourse_bulle_change.png");
         // Le coffre-fort : seul, puis contre un mur (nord et ouest), de jour.
         etape("vue coffre seul", () -> {
             fermer(mc);
@@ -1062,6 +1080,15 @@ public final class DemoVisuels {
             fermer(mc);
             ouvrir(mc, coffreSeul);
         }, () -> mc.screen instanceof SafeScreen, 1500, "monnaie_ecran_coffre.png");
+        bulle(mc, "row.silver.10", "monnaie_ecran_coffre_bulle_ligne.png");
+        bulle(mc, "row.ruby.64", "monnaie_ecran_coffre_bulle_retrait_impossible.png");
+        bulle(mc, "group.ruby", "monnaie_ecran_coffre_bulle_change_grise.png");
+        bulle(mc, "break.gold", "monnaie_ecran_coffre_bulle_change.png");
+        etape("ecran coffre sans bulle", () -> {
+            if (mc.screen instanceof CoinAccountScreen<?> ecran) {
+                ecran.pinHover(null);
+            }
+        }, () -> true, 200, null);
         etape("grille monnaie", () -> {
             fermer(mc);
             mc.options.hideGui = false;

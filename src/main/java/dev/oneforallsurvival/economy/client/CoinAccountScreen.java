@@ -54,10 +54,10 @@ public abstract class CoinAccountScreen<M extends CoinAccountMenu> extends Abstr
     static final int INVENTORY_LABEL_Y = CoinAccountMenu.INVENTORY_Y - 10;
     /** Le panneau « Change », accolé à droite du cadre principal. */
     static final int PANEL_X = MAIN_W + 2;
-    static final int PANEL_W = 124;
+    static final int PANEL_W = 134;
     static final int PANEL_H = 98;
     static final int CHANGE_Y = 20;
-    static final int CHANGE_W = 56;
+    static final int CHANGE_W = 61;
     static final int CHANGE_H = 16;
     static final int CHANGE_ROW = 18;
 
@@ -89,7 +89,7 @@ public abstract class CoinAccountScreen<M extends CoinAccountMenu> extends Abstr
 
     protected CoinAccountScreen(M menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
-        // Le cadre et le panneau : 302 x 232, ce qui tient dans la plus petite interface automatique (320 x 240).
+        // Le cadre et le panneau : 312 x 232, ce qui tient dans la plus petite interface automatique (320 x 240).
         imageWidth = PANEL_X + PANEL_W;
         imageHeight = HEIGHT;
     }
@@ -227,16 +227,16 @@ public abstract class CoinAccountScreen<M extends CoinAccountMenu> extends Abstr
             String arrow = "→";
             String b = String.valueOf(toCount);
             int icon = 12;
-            int width = font.width(a) + 1 + icon + 2 + font.width(arrow) + 2 + font.width(b) + 1 + icon;
+            int width = font.width(a) + 1 + icon + 1 + font.width(arrow) + 1 + font.width(b) + 1 + icon;
             int x = e.x() + (e.w() - width) / 2;
             int ty = e.y() + (e.h() - 8) / 2 + 1;
             int iy = e.y() + (e.h() - icon) / 2;
             g.drawString(font, a, x, ty, color, false);
             x += font.width(a) + 1;
             BenchTheme.item(g, font, new ItemStack(from.item()), x, iy, 0.75F, false);
-            x += icon + 2;
+            x += icon + 1;
             g.drawString(font, arrow, x, ty, color, false);
-            x += font.width(arrow) + 2;
+            x += font.width(arrow) + 1;
             g.drawString(font, b, x, ty, color, false);
             x += font.width(b) + 1;
             BenchTheme.item(g, font, new ItemStack(to.item()), x, iy, 0.75F, false);
