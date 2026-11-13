@@ -116,7 +116,47 @@ public final class CoinRecipeGuard {
         if (!removed.isEmpty()) {
             manager.replaceRecipes(keep);
         }
+        for (ResourceLocation id : coinConsumers(keep)) {
+            LOGGER.warn("Economie : la recette {} prend une piece en ingredient (gardee, a verifier : la piece "
+                    + "disparait dans la fabrication)", id);
+        }
         return removed;
+    }
+
+    /**
+     * Les recettes qui prennent une pièce en ingrédient, hors les quatre recettes de change : signalées au journal
+     * par {@link #filter}, jamais retirées (décision de la passe finale du lot E1). Une pièce consommée par une telle
+     * recette sort de la circulation sans être comptée au registre.
+     */
+    public static List<ResourceLocation> coinConsumers(Iterable<? extends Recipe<?>> recipes) {
+        List<ResourceLocation> out = new ArrayList<>();
+        for (Recipe<?> recipe : recipes) {
+            if (CHANGES.containsKey(recipe.getId())) {
+                continue;
+            }
+            List<Ingredient> ingredients;
+            try {
+                ingredients = recipe.getIngredients();
+            } catch (RuntimeException e) {
+                continue;
+            }
+            outer:
+            for (Ingredient ingredient : ingredients) {
+                ItemStack[] choices;
+                try {
+                    choices = ingredient.getItems();
+                } catch (RuntimeException e) {
+                    continue;
+                }
+                for (ItemStack choice : choices) {
+                    if (!choice.isEmpty() && Coin.fromItem(choice.getItem()).isPresent()) {
+                        out.add(recipe.getId());
+                        break outer;
+                    }
+                }
+            }
+        }
+        return out;
     }
 
     /**

@@ -145,6 +145,8 @@ public final class SafeBlock extends HorizontalDirectionalBlock implements Entit
         if (context.getLevel() instanceof ServerLevel level && player instanceof ServerPlayer serverPlayer
                 && hasLiveSafe(level.getServer(), serverPlayer.getUUID())) {
             serverPlayer.displayClientMessage(Component.translatable(MESSAGE + "has_one"), true);
+            // Le client a prédit la pose et retiré l'objet de sa main : on lui renvoie l'inventaire réel.
+            serverPlayer.containerMenu.sendAllDataToRemote();
             return null;
         }
         return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());

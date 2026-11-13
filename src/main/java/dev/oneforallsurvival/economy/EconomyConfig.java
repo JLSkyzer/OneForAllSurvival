@@ -53,7 +53,7 @@ public final class EconomyConfig {
         LEDGER_MAX_LINES = builder
                 .comment("Lignes du registre gardées ; les plus anciennes sont effacées d'abord, mais les totaux",
                         "par source et par cause ne sont jamais effacés.")
-                .defineInRange("ledgerMaxLines", DEFAULT_LEDGER_MAX_LINES, 100, 1_000_000);
+                .defineInRange("ledgerMaxLines", DEFAULT_LEDGER_MAX_LINES, 100, 100_000);
         STARTING_MONEY = builder
                 .comment("Somme de départ, en cuivres, donnée à la première connexion de chaque joueur (500 = 5 or).")
                 .defineInRange("startingMoney", DEFAULT_STARTING_MONEY, 0, 1_000_000);

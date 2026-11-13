@@ -924,15 +924,16 @@ final class E2eMonnaie {
         pasC("Clic droit pour poser le second : refusé", () -> {
             tenir(s -> s.is(EconomyRegistry.SAFE_ITEM.get()));
             clic(secondCoffreFort().below(), Direction.UP);
-        }, () -> ecoule() >= 2.0, () -> "", () -> {
+        }, () -> ecoule() >= 2.0, () -> "pile du client " + caseJoueur0(EconomyRegistry.SAFE_ITEM.get()), () -> {
             String serveur = rcon("execute if block " + xyz(secondCoffreFort()) + " oneforallsurvival:safe");
             String objet = rcon("clear " + nom() + " oneforallsurvival:safe 0");
-            if (!mc.level.getBlockState(secondCoffreFort()).isAir() || !objet.contains("Found 1") || serveur.contains("Test passed")) {
+            if (!mc.level.getBlockState(secondCoffreFort()).isAir() || !objet.contains("Found 1") || serveur.contains("Test passed")
+                    || !caseJoueur0(EconomyRegistry.SAFE_ITEM.get())) {
                 throw new IllegalStateException("bloc " + mc.level.getBlockState(secondCoffreFort()) + ", serveur " + serveur + ", objet " + objet);
             }
             return "second coffre-fort refuse : aucun bloc en " + secondCoffreFort().toShortString() + " (client et serveur : " + serveur.trim()
-                    + "), l'objet reste dans l'inventaire du joueur cote serveur (" + objet.trim() + ") ; cote client la pile est "
-                    + (caseJoueur0(EconomyRegistry.SAFE_ITEM.get()) ? "presente" : "absente (prediction du client non corrigee)");
+                    + "), l'objet reste dans l'inventaire du joueur cote serveur (" + objet.trim() + ") et le client le voit aussi "
+                    + "(le serveur lui renvoie l'inventaire apres le refus)";
         });
         pasC("L'objet en trop est retiré (console)", () -> rcon("clear " + nom() + " oneforallsurvival:safe"),
                 () -> !caseJoueur0(EconomyRegistry.SAFE_ITEM.get()) && ecoule() >= 1.5, () -> "", null);

@@ -1,6 +1,7 @@
 package dev.oneforallsurvival.economy;
 
 import com.mojang.logging.LogUtils;
+import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -76,11 +77,13 @@ public class CoinDropEntity extends Entity {
     /** Autour de la pièce, en blocs, où chercher une voisine de même coupure. */
     private static final double MERGE_RADIUS = 0.5D;
 
-    // Champs privés d'ItemEntity (noms SRG, traduits en développement par ObfuscationReflectionHelper).
-    private static final String ITEM_AGE = "f_31985_";
-    private static final String ITEM_PICKUP_DELAY = "f_31986_";
-    private static final String ITEM_THROWER = "f_31988_";
-    private static final String ITEM_TARGET = "f_265881_";
+    // Champs privés d'ItemEntity (noms SRG, traduits en développement par ObfuscationReflectionHelper), résolus une
+    // seule fois au chargement de la classe : s'il en manque un (autre version du jeu), le démarrage échoue
+    // bruyamment ({@link #checkFields}) au lieu de laisser naître des pièces avec un délai par défaut.
+    private static final Field ITEM_AGE = ObfuscationReflectionHelper.findField(ItemEntity.class, "f_31985_");
+    private static final Field ITEM_PICKUP_DELAY = ObfuscationReflectionHelper.findField(ItemEntity.class, "f_31986_");
+    private static final Field ITEM_THROWER = ObfuscationReflectionHelper.findField(ItemEntity.class, "f_31988_");
+    private static final Field ITEM_TARGET = ObfuscationReflectionHelper.findField(ItemEntity.class, "f_265881_");
 
     public final float bobOffs;
 
@@ -150,6 +153,16 @@ public class CoinDropEntity extends Entity {
         return entity;
     }
 
+    /**
+     * Force la résolution des champs privés d'{@code ItemEntity} : appelé au démarrage du mod
+     * ({@code EconomyRegistry}), il fait échouer le chargement si l'un d'eux manque.
+     */
+    public static void checkFields() {
+        if (ITEM_AGE == null || ITEM_PICKUP_DELAY == null || ITEM_THROWER == null || ITEM_TARGET == null) {
+            throw new IllegalStateException("Economie : champs prives d'ItemEntity introuvables");
+        }
+    }
+
     /** Reprend l'âge, le délai de ramassage, le lanceur et le destinataire de l'objet qu'elle remplace. */
     private void readOrigin() {
         ItemEntity item = origin;
@@ -157,15 +170,19 @@ public class CoinDropEntity extends Entity {
             return;
         }
         try {
-            Integer delay = ObfuscationReflectionHelper.getPrivateValue(ItemEntity.class, item, ITEM_PICKUP_DELAY);
-            Integer itemAge = ObfuscationReflectionHelper.getPrivateValue(ItemEntity.class, item, ITEM_AGE);
-            this.pickupDelay = delay == null ? 10 : delay;
-            this.age = itemAge == null ? 0 : itemAge;
-            this.thrower = ObfuscationReflectionHelper.getPrivateValue(ItemEntity.class, item, ITEM_THROWER);
-            this.target = ObfuscationReflectionHelper.getPrivateValue(ItemEntity.class, item, ITEM_TARGET);
-        } catch (RuntimeException e) {
-            LOGGER.error("Economie : champs de l'objet au sol illisibles, delai de ramassage par defaut", e);
+            this.pickupDelay = ITEM_PICKUP_DELAY.getInt(item);
+            this.age = ITEM_AGE.getInt(item);
+            this.thrower = (UUID) ITEM_THROWER.get(item);
+            this.target = (UUID) ITEM_TARGET.get(item);
+        } catch (IllegalAccessException e) {
+            // findField rend les champs accessibles : ceci ne peut arriver que si le jeu a changé sous nos pieds.
+            throw new IllegalStateException("Economie : champs de l'objet au sol illisibles", e);
         }
+        markInertIfFake();
+    }
+
+    /** Un objet factice ({@code /give}, délai « jamais ») ne porte aucune pièce à lui : l'entité est inerte. */
+    private void markInertIfFake() {
         if (this.pickupDelay == NEVER_PICKED_UP) {
             this.inert = true;
             this.accounted = true;
@@ -533,10 +550,7 @@ public class CoinDropEntity extends Entity {
                 LOGGER.warn("Economie : bourse au sol inconnue ignoree");
                 setCount(0);
             }
-            this.age = tag.getInt("Age");
-            this.pickupDelay = tag.contains("PickupDelay") ? tag.getInt("PickupDelay") : 10;
-            this.thrower = tag.hasUUID("Thrower") ? tag.getUUID("Thrower") : null;
-            this.target = tag.hasUUID("Owner") ? tag.getUUID("Owner") : null;
+            readCommon(tag);
             return;
         }
         String key = tag.getString("Coin");
@@ -554,9 +568,18 @@ public class CoinDropEntity extends Entity {
             setCoin(found);
             setCount(tag.getInt("Count"));
         }
+        readCommon(tag);
+    }
+
+    /**
+     * Âge, délai, lanceur et destinataire. Une entité sauvée inerte (objet factice remplacé au mauvais tick) le
+     * redevient à la relecture : sans cela elle redeviendrait une pièce, ou serait comptée comme détruite.
+     */
+    private void readCommon(CompoundTag tag) {
         this.age = tag.getInt("Age");
         this.pickupDelay = tag.contains("PickupDelay") ? tag.getInt("PickupDelay") : 10;
         this.thrower = tag.hasUUID("Thrower") ? tag.getUUID("Thrower") : null;
         this.target = tag.hasUUID("Owner") ? tag.getUUID("Owner") : null;
+        markInertIfFake();
     }
 }

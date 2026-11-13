@@ -283,4 +283,30 @@ public final class MonnaieGameTests {
                 "or -> argent refusé alors que 10 x 5 == 50");
         helper.succeed();
     }
+
+    /**
+     * Une recette qui prend une pièce en ingrédient (hors les quatre changes) est signalée, pas retirée. Le jeu livré
+     * (sans le pack ou avec) n'en a aucune.
+     */
+    @GameTest(template = "test/plancher", batch = "monnaie_consommees")
+    public static void uneRecetteQuiConsommeUnePieceEstSignalee(GameTestHelper helper) {
+        RecipeManager vivant = helper.getLevel().getServer().getRecipeManager();
+        RegistryAccess acces = helper.getLevel().registryAccess();
+        helper.assertTrue(CoinRecipeGuard.coinConsumers(vivant.getRecipes()).isEmpty(),
+                "recettes du jeu qui consomment une pièce : " + CoinRecipeGuard.coinConsumers(vivant.getRecipes()));
+        ResourceLocation mange = new ResourceLocation("autre_mod", "baton_dore");
+        ResourceLocation lingot = new ResourceLocation("autre_mod", "lingot_normal");
+        Recipe<?> consomme = new ShapelessRecipe(mange, "", CraftingBookCategory.MISC, new ItemStack(Items.STICK),
+                NonNullList.of(Ingredient.EMPTY, Ingredient.of(Items.STICK), Ingredient.of(Coin.GOLD.item())));
+        Recipe<?> ordinaire = new ShapelessRecipe(lingot, "", CraftingBookCategory.MISC, new ItemStack(Items.GOLD_INGOT),
+                NonNullList.of(Ingredient.EMPTY, Ingredient.of(Items.GOLD_NUGGET)));
+        Recipe<?> change = vivant.byKey(id("coin_change/gold_to_silver")).orElseThrow();
+        helper.assertTrue(CoinRecipeGuard.coinConsumers(List.of(consomme, ordinaire, change)).equals(List.of(mange)),
+                "signalées : " + CoinRecipeGuard.coinConsumers(List.of(consomme, ordinaire, change)));
+        RecipeManager essai = new RecipeManager();
+        essai.replaceRecipes(List.of(consomme, ordinaire, change));
+        helper.assertTrue(CoinRecipeGuard.filter(essai, acces).isEmpty() && essai.byKey(mange).isPresent(),
+                "la recette qui consomme une pièce est gardée (seulement signalée)");
+        helper.succeed();
+    }
 }

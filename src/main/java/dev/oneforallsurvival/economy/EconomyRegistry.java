@@ -100,6 +100,8 @@ public final class EconomyRegistry {
      * client ne doit pas prévoir un refus que le serveur ne ferait pas.
      */
     private static void onCommonSetup(FMLCommonSetupEvent event) {
+        // Les champs privés que la pièce au sol relit d'un objet remplacé : absents, le chargement échoue ici.
+        CoinDropEntity.checkFields();
         event.enqueueWork(() -> {
             MoneyStorageRules.register(SAFE_MENU.get());
             MoneyStorageRules.register(PURSE_MENU.get());

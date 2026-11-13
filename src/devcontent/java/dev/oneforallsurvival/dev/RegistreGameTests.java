@@ -689,4 +689,75 @@ public final class RegistreGameTests {
         degager(helper);
         helper.succeed();
     }
+
+    // ---------------------------------------------------------------------------------------------
+    // Passe finale du lot E1
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * Une entité inerte (objet factice de {@code /give} remplacé) sauvée puis relue reste inerte : elle disparaît à
+     * son premier tick sans être comptée comme détruite. Avant la correction, elle redevenait une pièce de délai
+     * « jamais », comptée détruite à sa disparition au sol.
+     */
+    @GameTest(template = "test/plancher", batch = "registre_inerte_relue")
+    public static void uneEntiteInerteRelueNEstPasCompteeDetruite(GameTestHelper helper) {
+        EconomyLedger registre = EconomyLedger.get(helper.getLevel().getServer());
+        long circulation = registre.inCirculation();
+        long disparues = registre.totalDestroyed(MoneySink.DESPAWN) + registre.totalDestroyed(MoneySink.STAFF);
+        Vec3 ici = helper.absoluteVec(new Vec3(2.5, 1.0, 2.5));
+        CoinDropEntity source = CoinDropEntity.at(helper.getLevel(), ici.x, ici.y, ici.z, Coin.GOLD, 7);
+        source.setPickUpDelay(CoinDropEntity.NEVER_PICKED_UP);
+        CompoundTag sauve = new CompoundTag();
+        source.saveWithoutId(sauve);
+        CoinDropEntity relue = new CoinDropEntity(EconomyRegistry.coinDropType(), helper.getLevel());
+        relue.load(sauve);
+        relue.setUUID(UUID.randomUUID());
+        helper.getLevel().addFreshEntity(relue);
+        helper.succeedWhen(() -> {
+            helper.assertTrue(relue.isRemoved(), "l'entité relue devait disparaître à son premier tick");
+            helper.assertTrue(registre.inCirculation() == circulation, "le registre a bougé : " + registre.inCirculation()
+                    + " au lieu de " + circulation);
+            helper.assertTrue(registre.totalDestroyed(MoneySink.DESPAWN) + registre.totalDestroyed(MoneySink.STAFF) == disparues,
+                    "comptée comme détruite");
+        });
+    }
+
+    /**
+     * La monnaie qui ne tient pas dans l'inventaire tombe aux pieds du joueur, réservée à lui : un autre joueur ne la
+     * ramasse pas, lui si.
+     */
+    @GameTest(template = "test/plancher", batch = "registre_monnaie_reservee")
+    public static void laMonnaieAuSolEstReserveeAuJoueur(GameTestHelper helper) {
+        Vec3 ici = helper.absoluteVec(new Vec3(2.5, 1.0, 2.5));
+        JoueurDeTest proprio = JoueurDeTest.rejoindre(helper.getLevel(), "rg_reserve", ici);
+        JoueurDeTest passant = JoueurDeTest.rejoindre(helper.getLevel(), "rg_passant", ici);
+        try {
+            proprio.joueur().gameMode.changeGameModeForPlayer(GameType.SURVIVAL);
+            passant.joueur().gameMode.changeGameModeForPlayer(GameType.SURVIVAL);
+            Inventory inv = proprio.joueur().getInventory();
+            for (int i = 0; i < inv.items.size(); i++) {
+                inv.items.set(i, new ItemStack(Items.DIRT, 64));
+            }
+            PlayerCoins.giveOrDrop(proprio.joueur(), java.util.Map.of(Coin.GOLD, 3L));
+            AABB zone = new AABB(ici, ici).inflate(3.0D);
+            List<CoinDropEntity> sol = helper.getLevel().getEntitiesOfClass(CoinDropEntity.class, zone, e -> e.coin() == Coin.GOLD);
+            helper.assertTrue(sol.size() == 1 && sol.get(0).count() == 3, "3 or au sol : " + sol);
+            CoinDropEntity piece = sol.get(0);
+            piece.setPickUpDelay(0);
+            piece.playerTouch(passant.joueur());
+            helper.assertTrue(!piece.isRemoved() && PlayerCoins.held(passant.joueur()).isEmpty(),
+                    "un autre joueur a ramassé la monnaie : " + PlayerCoins.held(passant.joueur()));
+            inv.items.set(0, ItemStack.EMPTY);
+            piece.playerTouch(proprio.joueur());
+            helper.assertTrue(piece.isRemoved() && PlayerCoins.held(proprio.joueur()).getOrDefault(Coin.GOLD, 0L) == 3,
+                    "le joueur reprend sa monnaie : " + PlayerCoins.held(proprio.joueur()));
+            helper.succeed();
+        } finally {
+            for (CoinDropEntity reste : helper.getLevel().getEntitiesOfClass(CoinDropEntity.class, new AABB(ici, ici).inflate(3.0D))) {
+                reste.discard();
+            }
+            proprio.quitter();
+            passant.quitter();
+        }
+    }
 }

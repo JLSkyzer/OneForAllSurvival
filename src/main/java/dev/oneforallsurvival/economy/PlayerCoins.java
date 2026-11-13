@@ -110,15 +110,18 @@ public final class PlayerCoins {
 
     /**
      * Donne les pièces : dans l'inventaire tant qu'il y a de la place, le reste tombe aux pieds du joueur en une
-     * pièce au sol par coupure.
+     * pièce au sol par coupure, que lui seul peut ramasser.
      */
     public static void giveOrDrop(ServerPlayer player, Map<Coin, Long> coins) {
         for (Map.Entry<Coin, Long> entry : coins.entrySet()) {
             long left = entry.getValue() - receive(player, entry.getKey(), entry.getValue());
             while (left > 0L) {
                 int size = (int) Math.min(left, CoinDropEntity.MAX_COUNT);
-                player.level().addFreshEntity(CoinDropEntity.at(player.level(), player.getX(), player.getY() + 0.3D,
-                        player.getZ(), entry.getKey(), size));
+                CoinDropEntity drop = CoinDropEntity.at(player.level(), player.getX(), player.getY() + 0.3D,
+                        player.getZ(), entry.getKey(), size);
+                // Réservée à ce joueur : un autre qui passe ne ramasse pas la monnaie qui lui revient.
+                drop.setTarget(player.getUUID());
+                player.level().addFreshEntity(drop);
                 left -= size;
             }
         }
