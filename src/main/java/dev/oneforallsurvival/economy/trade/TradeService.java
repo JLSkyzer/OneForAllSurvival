@@ -4,6 +4,7 @@ import dev.oneforallsurvival.economy.Coin;
 import dev.oneforallsurvival.economy.CommerceDelivery;
 import dev.oneforallsurvival.economy.EconomyConfig;
 import dev.oneforallsurvival.economy.EconomyLedger;
+import dev.oneforallsurvival.economy.EconomySave;
 import dev.oneforallsurvival.economy.HeldGoods;
 import dev.oneforallsurvival.economy.InventoryFit;
 import dev.oneforallsurvival.economy.MoneyTransfer;
@@ -422,15 +423,18 @@ public final class TradeService {
             event.setCanceled(true);
         }
 
-        /** Avant la sauvegarde du joueur : tout ce qu'il avait posé rentre dans son inventaire, puis il est sauvé. */
+        /**
+         * Avant la sauvegarde du joueur : tout ce qu'il avait posé rentre dans son inventaire, puis l'écriture
+         * cohérente ({@link EconomySave#playersThenEconomy}) met sur le disque, au même instant, le playerdata de tous
+         * les joueurs en ligne et les données de l'économie. Écrire la garde seule ferait revenir, après un arrêt
+         * brutal, ce qu'un joueur resté en ligne a posé depuis sa dernière sauvegarde.
+         */
         @SubscribeEvent
         public void onLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
             UUID player = event.getEntity().getUUID();
             cancelFor(player, CancelReason.LOGGED_OUT);
-            // Avant le playerdata : la garde sur le disque ne doit plus contenir ce que le joueur a récupéré (rendu
-            // ici, ou reçu par un échange conclu depuis la dernière écriture du monde).
             if (event.getEntity() instanceof ServerPlayer leaving) {
-                HeldGoods.get(leaving.server).saveNow(leaving.server);
+                EconomySave.playersThenEconomy(leaving.server);
             }
             REQUESTS.remove(player);
             for (Map<UUID, Long> mine : REQUESTS.values()) {

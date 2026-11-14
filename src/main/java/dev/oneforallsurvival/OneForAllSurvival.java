@@ -98,6 +98,7 @@ public final class OneForAllSurvival {
         MinecraftForge.EVENT_BUS.addListener(CommerceDelivery::onLoggedIn);
         // Après la livraison des attentes : l'avis d'un paiement reçu peut dire « en attente ».
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.invoice.InvoiceService::onLoggedIn);
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.invoice.InvoiceService::onLoggedOut);
         MinecraftForge.EVENT_BUS.addListener(CommerceDelivery::onRespawn);
         MinecraftForge.EVENT_BUS.addListener(CommerceDelivery::onServerTick);
         MinecraftForge.EVENT_BUS.addListener(CommerceDelivery::onServerStarted);

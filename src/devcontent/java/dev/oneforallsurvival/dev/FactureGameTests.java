@@ -58,6 +58,7 @@ public final class FactureGameTests {
     private static final String LOT_A = "facture_a";
     private static final String LOT_B = "facture_b";
     private static final String LOT_C = "facture_c";
+    private static final String LOT_D = "facture_d";
 
     private static final Vec3 POS_A = new Vec3(2.5, 0, 4.5);
     private static final Vec3 POS_B = new Vec3(5.5, 0, 4.5);
@@ -862,6 +863,56 @@ public final class FactureGameTests {
             helper.assertTrue(statut(essai, f.id()) == Status.SETTLED_BY_HAND, "le statut ne change pas");
             helper.assertTrue(estUnRecu(b.joueur().getInventory().getItem(c), Receipt.KIND_INVOICE_BY_HAND),
                     "elle devient le reçu « de main à main »");
+            helper.succeed();
+        }
+    }
+
+    /**
+     * B paie à A, absent et sans coffre-fort, une facture dont les pièces partent en attente ; puis C, sans rapport,
+     * se déconnecte. Le serveur s'arrête brutalement : le playerdata de B, l'attente de A et le registre des factures
+     * relus du disque disent la même chose (payée : B n'a plus la somme, A l'attend), jamais « payée et encore due ».
+     */
+    /** La note de la dernière émission (délai entre deux factures) s'oublie quand l'émetteur se déconnecte. */
+    @GameTest(template = "test/plancher", batch = LOT_D)
+    public static void laNoteDuDelaiSOublieALaDeconnexion(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest a = essai.joueur("fd_delA", POS_A);
+            JoueurDeTest b = essai.joueur("fd_delB", POS_B);
+            emettre(helper, essai, a, b, 10L, "note");
+            helper.assertTrue(InvoiceService.hasIssueNote(a.uuid()), "l'émission est notée");
+            a.quitter();
+            helper.assertTrue(!InvoiceService.hasIssueNote(a.uuid()), "la note s'oublie à la déconnexion");
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void unPaiementPuisUneDeconnexionRestentCoherentsSurLeDisque(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            MinecraftServer serveur = essai.serveur();
+            JoueurDeTest a = essai.joueur("fc_cohA", POS_A);
+            JoueurDeTest b = essai.joueur("fc_cohB", POS_B);
+            JoueurDeTest c = essai.joueur("fc_cohC", POS_C);
+            Invoice f = emettre(helper, essai, a, b, 1_234L, "outils");
+            a.quitter();
+            b.joueur().getInventory().setItem(10, pieces(Coin.EMERALD, 2));
+            long porteAvant = valeurPortee(b);
+            // Une sauvegarde automatique : B porte ses deux émeraudes, la facture est due.
+            SauvegardeDEssai.automatique(serveur);
+            PayResult r = InvoiceService.pay(b.joueur(), caseDe(b, f.id()));
+            helper.assertTrue(r == PayResult.PAID_PENDING, "émetteur absent sans coffre-fort : " + r);
+
+            c.quitter();
+
+            long porteSurLeDisque = SauvegardeDEssai.argentDansLePlayerdata(serveur, b.uuid());
+            long attenteSurLeDisque = CoinMath.valueOf(SauvegardeDEssai.gardeApresRedemarrage(serveur)
+                    .pendingFor(a.uuid()).coins());
+            Status statutSurLeDisque = SauvegardeDEssai.facturesApresRedemarrage(serveur).get(f.id())
+                    .map(Invoice::status).orElse(null);
+            String lu = "B porte " + porteSurLeDisque + " (avant " + porteAvant + "), A attend " + attenteSurLeDisque
+                    + ", facture " + statutSurLeDisque;
+            helper.assertTrue(statutSurLeDisque == Status.PAID && attenteSurLeDisque == 1_234L
+                    && porteSurLeDisque == porteAvant - 1_234L, "sur le disque, incohérent ou en retard : " + lu);
             helper.succeed();
         }
     }

@@ -21,8 +21,9 @@ import net.minecraft.world.level.saveddata.SavedData;
  * Sauvegardé avec le monde, par identifiant de joueur. Ne se touche que depuis le fil du serveur.
  *
  * <p>Au chargement, toute garde retrouvée passe en attente de son propriétaire : le serveur s'est arrêté pendant
- * un échange, et personne d'autre ne la réclamera. La garde est écrite avec le monde (au même tick que les joueurs)
- * et, en plus, à chaque déconnexion avant le playerdata du joueur ({@link #saveNow}) : rien ne se double.
+ * un échange, et personne d'autre ne la réclamera. La garde n'est jamais écrite sans le playerdata de tous les
+ * joueurs en ligne : avec le monde (sauvegarde automatique, joueurs puis données) et à chaque déconnexion
+ * ({@link EconomySave#playersThenEconomy}). Le disque montre ainsi un seul instant : rien ne se double.
  */
 public final class HeldGoods extends SavedData {
 
@@ -53,19 +54,7 @@ public final class HeldGoods extends SavedData {
 
     /** Le fichier de la garde : {@code <monde>/data/oneforallsurvival_held.dat} (stockage de l'Overworld). */
     public static java.nio.file.Path file(MinecraftServer server) {
-        return server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).resolve("data").resolve(KEY + ".dat");
-    }
-
-    /**
-     * Écrit tout de suite la garde sur le disque si elle a changé depuis la dernière écriture. Appelé à chaque
-     * déconnexion, avant que Minecraft n'écrive le playerdata du joueur : sinon, après un arrêt brutal, une garde
-     * déjà rendue (ou livrée par un échange conclu) reviendrait de l'ancien fichier en plus de ce que le playerdata
-     * contient, et l'objet serait doublé.
-     */
-    public void saveNow(MinecraftServer server) {
-        if (isDirty()) {
-            save(file(server).toFile());
-        }
+        return EconomySave.file(server, KEY);
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -182,11 +171,34 @@ public final class HeldGoods extends SavedData {
     public long pendingMass() {
         long total = 0L;
         for (Pending line : pending.values()) {
-            total = saturatedAdd(total, SafeAccounts.saturatedValue(line.coins()));
-            for (ItemStack stack : line.items()) {
-                if (Purse.isPurse(stack)) {
-                    total = saturatedAdd(total, Purse.total(stack));
-                }
+            total = saturatedAdd(total, valueOf(line));
+        }
+        return total;
+    }
+
+    /** L'attente d'un joueur résumée pour l'équipe : valeur des pièces et des bourses, nombre d'objets. */
+    public record OwnerPending(UUID owner, long value, long items) {}
+
+    /** L'attente de chaque joueur, de la plus grosse valeur à la plus petite (puis du plus d'objets au moins). */
+    public List<OwnerPending> pendingByOwner() {
+        List<OwnerPending> out = new ArrayList<>();
+        for (Map.Entry<UUID, Pending> entry : pending.entrySet()) {
+            long items = 0L;
+            for (ItemStack stack : entry.getValue().items()) {
+                items += stack.getCount();
+            }
+            out.add(new OwnerPending(entry.getKey(), valueOf(entry.getValue()), items));
+        }
+        out.sort(java.util.Comparator.comparingLong(OwnerPending::value).reversed()
+                .thenComparing(java.util.Comparator.comparingLong(OwnerPending::items).reversed()));
+        return out;
+    }
+
+    private static long valueOf(Pending line) {
+        long total = SafeAccounts.saturatedValue(line.coins());
+        for (ItemStack stack : line.items()) {
+            if (Purse.isPurse(stack)) {
+                total = saturatedAdd(total, Purse.total(stack));
             }
         }
         return total;

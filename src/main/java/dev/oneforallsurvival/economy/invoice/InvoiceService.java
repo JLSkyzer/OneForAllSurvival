@@ -71,6 +71,20 @@ public final class InvoiceService {
         LAST_ISSUE.remove(issuer);
     }
 
+    /** Essais seulement : vrai si la dernière émission de ce joueur est encore notée. */
+    public static boolean hasIssueNote(UUID issuer) {
+        return LAST_ISSUE.containsKey(issuer);
+    }
+
+    /**
+     * Branché sur la déconnexion : la note de la dernière émission s'oublie (elle ne sert qu'au délai de quelques
+     * secondes entre deux émissions, qu'une reconnexion dépasse de toute façon). La table ne grossit pas avec le
+     * nombre de joueurs passés depuis le démarrage.
+     */
+    public static void onLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
+        LAST_ISSUE.remove(event.getEntity().getUUID());
+    }
+
     private static boolean coolingDown(ServerPlayer issuer) {
         Integer last = LAST_ISSUE.get(issuer.getUUID());
         if (last == null) {

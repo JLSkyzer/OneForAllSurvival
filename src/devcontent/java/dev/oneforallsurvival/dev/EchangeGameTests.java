@@ -11,6 +11,7 @@ import dev.oneforallsurvival.economy.MoneyTransfer;
 import dev.oneforallsurvival.economy.PlayerCoins;
 import dev.oneforallsurvival.economy.Purse;
 import dev.oneforallsurvival.economy.Receipt;
+import dev.oneforallsurvival.economy.SafeAccounts;
 import dev.oneforallsurvival.economy.trade.TradeActionPacket;
 import dev.oneforallsurvival.economy.trade.TradeMenu;
 import dev.oneforallsurvival.economy.trade.TradeService;
@@ -18,15 +19,14 @@ import dev.oneforallsurvival.economy.trade.TradeService.RequestResult;
 import dev.oneforallsurvival.economy.trade.TradeSession;
 import dev.oneforallsurvival.economy.trade.TradeSession.ConfirmResult;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.MinecraftServer;
@@ -41,12 +41,10 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.storage.LevelResource;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
-import net.minecraftforge.registries.ForgeRegistries;
 
 /**
  * L'échange de main à main (lot E2, tâche 2) : demande, fenêtre à deux côtés, confirmations sur la version vue,
@@ -61,6 +59,8 @@ public final class EchangeGameTests {
 
     private static final String LOT = "echange";
     private static final String LOT_B = "echange_b";
+    private static final String LOT_C = "echange_c";
+    private static final BlockPos COFFRE = new BlockPos(1, 0, 1);
 
     private static final Vec3 POS_A = new Vec3(2.5, 0, 4.5);
     private static final Vec3 POS_B = new Vec3(5.5, 0, 4.5);
@@ -139,9 +139,14 @@ public final class EchangeGameTests {
             }
             boite(helper);
             HeldGoods held = HeldGoods.get(serveur());
+            SafeAccounts coffres = SafeAccounts.get(serveur());
             for (UUID uuid : comptes) {
                 held.takePending(uuid);
                 held.closeEscrow(uuid);
+                for (Coin coin : Coin.values()) {
+                    coffres.withdraw(uuid, coin, coffres.count(uuid, coin));
+                }
+                coffres.forgetSafePos(uuid);
             }
         }
     }
@@ -245,13 +250,6 @@ public final class EchangeGameTests {
             throw new AssertionError("fichier de la garde illisible : " + e.getMessage());
         }
         return out;
-    }
-
-    /** Écrit la garde sur le disque maintenant, comme une sauvegarde automatique pendant l'échange. */
-    private static void sauvegardeAutomatique(MinecraftServer serveur) {
-        HeldGoods held = HeldGoods.get(serveur);
-        held.setDirty();
-        held.saveNow(serveur);
     }
 
     private static int painsAuSol(GameTestHelper helper, AABB autour) {
@@ -644,7 +642,7 @@ public final class EchangeGameTests {
             poser(a, 0);
             poser(b, 0);
             AABB autour = a.joueur().getBoundingBox().inflate(4.0D);
-            sauvegardeAutomatique(essai.serveur());
+            SauvegardeDEssai.automatique(essai.serveur());
             helper.assertTrue(gardesSurLeDisque(essai.serveur()).contains(a.uuid()), "la garde de A est sur le disque");
 
             a.quitter();
@@ -660,21 +658,7 @@ public final class EchangeGameTests {
             helper.assertTrue(rienEnAttente(essai.serveur(), a, b), "rien en attente : tout est rentré avant la sauvegarde");
 
             // Le playerdata relu du disque : les cinq pains y sont, une seule fois.
-            Path fichier = essai.serveur().getWorldPath(LevelResource.PLAYER_DATA_DIR).resolve(a.uuid() + ".dat");
-            int pains = 0;
-            try {
-                CompoundTag donnees = NbtIo.readCompressed(fichier.toFile());
-                ListTag inventaire = donnees.getList("Inventory", Tag.TAG_COMPOUND);
-                String pain = ForgeRegistries.ITEMS.getKey(Items.BREAD).toString();
-                for (Tag brut : inventaire) {
-                    CompoundTag pile = (CompoundTag) brut;
-                    if (pain.equals(pile.getString("id"))) {
-                        pains += pile.getByte("Count");
-                    }
-                }
-            } catch (java.io.IOException e) {
-                throw new AssertionError("playerdata illisible : " + fichier + " : " + e.getMessage());
-            }
+            int pains = SauvegardeDEssai.objetsDansLePlayerdata(essai.serveur(), a.uuid(), Items.BREAD);
             helper.assertTrue(pains == 5, "le playerdata doit contenir les cinq pains : " + pains);
             helper.succeed();
         }
@@ -691,7 +675,7 @@ public final class EchangeGameTests {
             poser(a, 0);
             poser(b, 0);
             // Une sauvegarde automatique tombe pendant l'échange : les deux gardes sont sur le disque.
-            sauvegardeAutomatique(essai.serveur());
+            SauvegardeDEssai.automatique(essai.serveur());
             List<UUID> avant = gardesSurLeDisque(essai.serveur());
             helper.assertTrue(avant.contains(a.uuid()) && avant.contains(b.uuid()), "les deux gardes sont sur le disque");
             helper.assertTrue(session.confirm(a.joueur(), session.version()) == ConfirmResult.WAITING, "A confirme");
@@ -862,5 +846,113 @@ public final class EchangeGameTests {
             }
         }
         return false;
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Lot C : écriture cohérente à la déconnexion, pièces rendues au coffre-fort
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * A verse 2 or dans un échange avec B, puis C, sans rapport, se déconnecte. Le serveur s'arrête brutalement : ce
+     * que le disque rend à A (son playerdata, plus sa garde devenue attente) ne contient ses 2 or qu'une fois.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void laDeconnexionDUnTiersNeDoubleRien(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            MinecraftServer serveur = essai.serveur();
+            JoueurDeTest a = essai.joueur("ec_triA", POS_A);
+            JoueurDeTest b = essai.joueur("ec_triB", POS_B);
+            JoueurDeTest c = essai.joueur("ec_triC", POS_C);
+            a.joueur().getInventory().items.set(0, new ItemStack(Coin.GOLD.item(), 2));
+            b.joueur().getInventory().items.set(0, new ItemStack(Items.DIAMOND, 1));
+            // Une sauvegarde automatique : A porte ses 2 or, B son diamant, aucune garde.
+            SauvegardeDEssai.automatique(serveur);
+            TradeSession session = ouvrir(helper, a, b);
+            poser(a, 0);
+            poser(b, 0);
+            helper.assertTrue(compte(session.offer(a.uuid()), Coin.GOLD.item()) == 2
+                    && compte(session.offer(b.uuid()), Items.DIAMOND) == 1, "les 2 or et le diamant sont en garde");
+
+            c.quitter();
+
+            // Arrêt brutal : ce qu'un redémarrage relirait.
+            HeldGoods relu = SauvegardeDEssai.gardeApresRedemarrage(serveur);
+            int orPorte = SauvegardeDEssai.objetsDansLePlayerdata(serveur, a.uuid(), Coin.GOLD.item());
+            long orGarde = relu.pendingFor(a.uuid()).coins().getOrDefault(Coin.GOLD, 0L);
+            helper.assertTrue(orPorte + orGarde == 2L, "A retrouverait " + orPorte + " or sur lui et " + orGarde
+                    + " en attente : ses 2 or ne doivent être qu'à un seul endroit");
+            int diamantPorte = SauvegardeDEssai.objetsDansLePlayerdata(serveur, b.uuid(), Items.DIAMOND);
+            int diamantGarde = compte(relu.pendingFor(b.uuid()).items(), Items.DIAMOND);
+            helper.assertTrue(diamantPorte + diamantGarde == 1, "B retrouverait " + diamantPorte + " diamant sur lui et "
+                    + diamantGarde + " en attente : un seul attendu");
+            helper.succeed();
+        }
+    }
+
+    /** Remplit tout l'inventaire de pierre, sauf les cases données. */
+    private static void remplirSauf(ServerPlayer joueur, int... libres) {
+        java.util.Set<Integer> garder = new java.util.HashSet<>();
+        for (int i : libres) {
+            garder.add(i);
+        }
+        for (int i = 0; i < 36; i++) {
+            if (!garder.contains(i)) {
+                joueur.getInventory().items.set(i, new ItemStack(Items.STONE, 64));
+            }
+        }
+    }
+
+    /**
+     * A pose 3 or et un pain dans un échange, remplit son inventaire, puis ferme : les pièces qui ne tiennent plus vont
+     * dans son coffre-fort, le pain seul attend. L'attente n'est pas une cachette pour l'argent.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void lesPiecesRenduesVontAuCoffreFortAvantLAttente(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            MinecraftServer serveur = essai.serveur();
+            JoueurDeTest a = essai.joueur("ec_cfA", POS_A);
+            JoueurDeTest b = essai.joueur("ec_cfB", POS_B);
+            SafeAccounts coffres = SafeAccounts.get(serveur);
+            coffres.setSafePos(a.uuid(), GlobalPos.of(helper.getLevel().dimension(), helper.absolutePos(COFFRE)));
+            a.joueur().getInventory().items.set(0, new ItemStack(Coin.GOLD.item(), 3));
+            a.joueur().getInventory().items.set(1, new ItemStack(Items.BREAD, 2));
+            ouvrir(helper, a, b);
+            poser(a, 0);
+            poser(a, 1);
+            remplirSauf(a.joueur());
+            long coffreAvant = coffres.total(a.uuid());
+
+            a.joueur().closeContainer();
+            helper.assertTrue(TradeService.sessionOf(a.uuid()) == null, "fermé");
+            HeldGoods.Pending attente = HeldGoods.get(serveur).pendingFor(a.uuid());
+            helper.assertTrue(coffres.count(a.uuid(), Coin.GOLD) == 3L && coffres.total(a.uuid()) - coffreAvant == 300L,
+                    "les 3 or devaient aller au coffre-fort : " + coffres.count(a.uuid(), Coin.GOLD));
+            helper.assertTrue(attente.coins().isEmpty(), "aucune pièce en attente : " + attente.coins());
+            helper.assertTrue(compte(attente.items(), Items.BREAD) == 2, "le pain attend : " + attente.items());
+            helper.succeed();
+        }
+    }
+
+    /** Même départ sans coffre-fort : les pièces n'ont nulle part où aller, elles attendent avec le pain. */
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void sansCoffreFortLesPiecesRenduesAttendent(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            MinecraftServer serveur = essai.serveur();
+            JoueurDeTest a = essai.joueur("ec_scfA", POS_A);
+            JoueurDeTest b = essai.joueur("ec_scfB", POS_B);
+            a.joueur().getInventory().items.set(0, new ItemStack(Coin.GOLD.item(), 3));
+            a.joueur().getInventory().items.set(1, new ItemStack(Items.BREAD, 2));
+            ouvrir(helper, a, b);
+            poser(a, 0);
+            poser(a, 1);
+            remplirSauf(a.joueur());
+
+            a.joueur().closeContainer();
+            HeldGoods.Pending attente = HeldGoods.get(serveur).pendingFor(a.uuid());
+            helper.assertTrue(attente.coins().getOrDefault(Coin.GOLD, 0L) == 3L, "les 3 or attendent : " + attente.coins());
+            helper.assertTrue(compte(attente.items(), Items.BREAD) == 2, "le pain attend : " + attente.items());
+            helper.assertTrue(SafeAccounts.get(serveur).total(a.uuid()) == 0L, "pas de coffre-fort, rien dedans");
+            helper.succeed();
+        }
     }
 }
