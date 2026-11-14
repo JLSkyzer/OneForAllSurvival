@@ -243,10 +243,7 @@ public final class TreasuryBlock extends HorizontalDirectionalBlock implements E
      */
     @Override
     public float getDestroyProgress(BlockState state, Player player, BlockGetter level, BlockPos pos) {
-        if (TownBlockRules.creativeNeedsCrouch(player) || !TownBlockRules.mayMove(player)) {
-            return 0.0F;
-        }
-        return player.getDigSpeed(state, pos) / 5.0F / 30.0F;
+        return TownBlockRules.moveProgress(player, state, pos);
     }
 
     /** Au début de la casse (côté serveur), dit pourquoi elle n'avancera pas. */
@@ -260,10 +257,7 @@ public final class TreasuryBlock extends HorizontalDirectionalBlock implements E
     /** La raison du refus, ou nulle si la casse est permise. */
     @Nullable
     private static String refusal(Player player) {
-        if (TownBlockRules.creativeNeedsCrouch(player)) {
-            return "crouch";
-        }
-        return TownBlockRules.mayMove(player) ? null : "break_denied";
+        return TownBlockRules.moveRefusal(player);
     }
 
     private static void tellWhyNot(ServerPlayer player) {

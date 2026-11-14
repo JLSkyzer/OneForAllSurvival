@@ -7,6 +7,7 @@ import dev.oneforallsurvival.debug.IslandDebugRequest;
 import dev.oneforallsurvival.debug.IslandDebugResponse;
 import dev.oneforallsurvival.economy.PurseActionPacket;
 import dev.oneforallsurvival.economy.SafeActionPacket;
+import dev.oneforallsurvival.economy.town.TownFinancesPacket;
 import dev.oneforallsurvival.economy.town.TreasuryActionPacket;
 import dev.oneforallsurvival.economy.invoice.InvoiceFormPacket;
 import dev.oneforallsurvival.economy.invoice.InvoiceIssuePacket;
@@ -82,6 +83,8 @@ public final class BenchNetwork {
     public static final int ID_INVOICE_PAY = 19;
     /** Lot E3 : une opération sur le trésor (dépôt, dépense motivée, change). */
     public static final int ID_TREASURY_ACTION = 20;
+    /** Lot E3 : les comptes publics de la ville (solde du trésor, salaires dus), pour le tableau de la mairie. */
+    public static final int ID_TOWN_FINANCES = 21;
 
     /** Clé de traduction d'un refus : {@code message.oneforallsurvival.bench.refused.<résultat>}. */
     public static final String REFUSED_KEY = "message.oneforallsurvival.bench.refused.";
@@ -157,6 +160,9 @@ public final class BenchNetwork {
         CHANNEL.messageBuilder(TreasuryActionPacket.class, ID_TREASURY_ACTION, NetworkDirection.PLAY_TO_SERVER)
                 .encoder(TreasuryActionPacket::encode).decoder(TreasuryActionPacket::decode)
                 .consumerMainThread(TreasuryActionPacket::handle).add();
+        CHANNEL.messageBuilder(TownFinancesPacket.class, ID_TOWN_FINANCES, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(TownFinancesPacket::encode).decoder(TownFinancesPacket::decode)
+                .consumerMainThread(TownFinancesPacket::handle).add();
     }
 
     // --- Serveur vers client -----------------------------------------------------------------

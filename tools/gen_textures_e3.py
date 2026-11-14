@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Textures du lot E3 (tresor et salaires), 16 x 16 : le bloc du tresor de la ville, un coffre de chene sombre cercle
 de fer et de laiton. Face : une piece d'or frappee au centre, une serrure dessous ; flancs : planches et bandes de fer
-rivetees ; dessus : couvercle borde de laiton.
+rivetees ; dessus : couvercle borde de laiton. Et le tableau de la mairie : bois clair pour les pieds et les tranches,
+parchemin sous cadre de bois pour la face (le texte est dessine par le rendu, pas ici).
 
     python tools/gen_textures_e3.py
 """
@@ -135,10 +136,60 @@ def tresor_face():
         rivet(p, x, y)
     return img
 
+BOIS = [(150, 112, 66), (158, 119, 71), (142, 105, 61), (165, 126, 77)]
+BOIS_JOINT = (96, 68, 38, 255)
+PARCHEMIN = [(224, 208, 168), (230, 214, 174), (218, 201, 160), (234, 220, 182)]
+
+
+def tableau_bois():
+    """Bois clair a veines horizontales : les pieds, les tranches et le dos du panneau."""
+    rnd = random.Random(741)
+    img = Image.new("RGBA", (16, 16))
+    p = img.load()
+    for y in range(16):
+        for x in range(16):
+            r, g, b = rnd.choice(BOIS)
+            p[x, y] = (r, g, b, 255)
+    for y in (3, 7, 11, 15):
+        for x in range(16):
+            p[x, y] = BOIS_JOINT
+    for (x, y) in ((4, 1), (5, 1), (10, 5), (11, 5), (2, 9), (3, 9), (12, 13), (13, 13)):
+        p[x, y] = (128, 92, 52, 255)
+    return img
+
+
+def tableau_face():
+    """Face du panneau : seules les 10 premieres lignes servent (le modele y prend l'uv 0 0 16 10). Cadre de bois,
+    parchemin au centre ; le texte est pose par le rendu."""
+    rnd = random.Random(742)
+    img = tableau_bois()
+    p = img.load()
+    for y in range(10):
+        for x in range(16):
+            r, g, b = rnd.choice(PARCHEMIN)
+            p[x, y] = (r, g, b, 255)
+    for i in range(16):  # cadre de bois de 1 px, ombre en bas et a droite, arete claire en haut et a gauche
+        p[i, 0] = BOIS_JOINT
+        p[i, 9] = BOIS_JOINT
+    for i in range(10):
+        p[0, i] = BOIS_JOINT
+        p[15, i] = BOIS_JOINT
+    for i in range(1, 15):
+        p[i, 1] = (192, 172, 128, 255)
+        p[i, 8] = (190, 170, 126, 255)
+    for i in range(1, 9):
+        p[1, i] = (192, 172, 128, 255)
+        p[14, i] = (190, 170, 126, 255)
+    # des clous de laiton aux quatre coins
+    for (x, y) in ((2, 2), (13, 2), (2, 7), (13, 7)):
+        p[x, y] = LAITON[1]
+    return img
+
 
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
-    for nom, fonction in (("treasury_front", tresor_face), ("treasury_side", tresor_cote), ("treasury_top", tresor_dessus)):
+    for nom, fonction in (("treasury_front", tresor_face), ("treasury_side", tresor_cote), ("treasury_top", tresor_dessus),
+                          ("town_board_wood", tableau_bois), ("town_board_front", tableau_face)):
         fonction().save(OUT / (nom + ".png"))
         print("ecrit", OUT / (nom + ".png"))
 

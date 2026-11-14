@@ -4,6 +4,7 @@ import dev.oneforallsurvival.OneForAllSurvival;
 import dev.oneforallsurvival.economy.EconomyRegistry;
 import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.client.event.EntityRenderersEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -22,6 +23,7 @@ public final class EconomyClientEvents {
         public static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
             event.registerEntityRenderer(EconomyRegistry.COIN_DROP.get(), CoinDropRenderer::new);
             event.registerBlockEntityRenderer(EconomyRegistry.MARKET_STALL_BE.get(), StallRenderer::new);
+            event.registerBlockEntityRenderer(EconomyRegistry.TOWN_BOARD_BE.get(), TownBoardRenderer::new);
         }
 
         @SubscribeEvent
@@ -35,6 +37,17 @@ public final class EconomyClientEvents {
                 MenuScreens.register(EconomyRegistry.STALL_SHOP_MENU.get(), StallShopScreen::new);
                 MenuScreens.register(EconomyRegistry.TREASURY_MENU.get(), TreasuryScreen::new);
             });
+        }
+    }
+
+    /** Sur le bus de Forge : les comptes de la ville d'un serveur ne passent pas à un autre. */
+    @Mod.EventBusSubscriber(modid = OneForAllSurvival.MODID, value = Dist.CLIENT)
+    public static final class ForgeBus {
+        private ForgeBus() {}
+
+        @SubscribeEvent
+        public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
+            TownFinancesCache.clear();
         }
     }
 }

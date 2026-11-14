@@ -2,8 +2,11 @@ package dev.oneforallsurvival.economy.town;
 
 import dev.oneforallsurvival.role.RoleGate;
 import dev.oneforallsurvival.role.RoleSavedData;
+import javax.annotation.Nullable;
+import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * Qui peut quoi sur les blocs de la ville (trésor, tableau de la mairie). « L'équipe » est le niveau 2.
@@ -82,5 +85,29 @@ public final class TownBlockRules {
     /** En créatif, casser un bloc de la ville exige d'être accroupi, pour tout le monde (contre l'accident). */
     public static boolean creativeNeedsCrouch(Player player) {
         return player.isCreative() && !player.isShiftKeyDown();
+    }
+
+    /**
+     * Pourquoi ce joueur ne peut pas déplacer (casser) un bloc de la ville : {@code "crouch"} (créatif sans être
+     * accroupi) ou {@code "break_denied"} (pas le droit), ou nul si la casse est permise. Les clés de langue des blocs
+     * portent ces deux suffixes.
+     */
+    @Nullable
+    public static String moveRefusal(Player player) {
+        if (creativeNeedsCrouch(player)) {
+            return "crouch";
+        }
+        return mayMove(player) ? null : "break_denied";
+    }
+
+    /**
+     * La progression de casse d'un bloc de la ville (dureté -1) : nulle pour qui ne peut pas le déplacer, sinon celle
+     * d'un bloc de dureté 5 sans outil exigé.
+     */
+    public static float moveProgress(Player player, BlockState state, BlockPos pos) {
+        if (moveRefusal(player) != null) {
+            return 0.0F;
+        }
+        return player.getDigSpeed(state, pos) / 5.0F / 30.0F;
     }
 }

@@ -11,6 +11,7 @@ import dev.oneforallsurvival.economy.CoinMath;
 import dev.oneforallsurvival.economy.EconomyCommands;
 import dev.oneforallsurvival.economy.EconomyConfig;
 import dev.oneforallsurvival.economy.EconomyLedger;
+import dev.oneforallsurvival.economy.EconomyRegistry;
 import dev.oneforallsurvival.economy.MoneySink;
 import dev.oneforallsurvival.economy.MoneySource;
 import dev.oneforallsurvival.economy.TreasuryAccount;
@@ -37,6 +38,8 @@ import net.minecraft.core.GlobalPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 
@@ -64,6 +67,7 @@ public final class TreasuryCommands {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("treasury")
                 .executes(TreasuryCommands::balance)
+                .then(Commands.literal("board").executes(TreasuryCommands::board))
                 .then(Commands.literal("log")
                         .executes(ctx -> mayorLog(ctx, 1))
                         .then(Commands.argument("page", IntegerArgumentType.integer(1))
@@ -125,6 +129,30 @@ public final class TreasuryCommands {
             }
         }
         source.sendSuccess(() -> out, false);
+        return 1;
+    }
+
+    /** Donne un tableau de la mairie au maire ou à l'équipe, s'il n'en porte pas déjà un. */
+    private static int board(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+        if (!(source.getEntity() instanceof ServerPlayer player)) {
+            source.sendFailure(Component.translatable("command.oneforallsurvival.treasury.board.player_only"));
+            return 0;
+        }
+        if (!TownBlockRules.mayPlaceBoard(player)) {
+            source.sendFailure(Component.translatable("command.oneforallsurvival.treasury.board.denied"));
+            return 0;
+        }
+        Item board = EconomyRegistry.TOWN_BOARD_ITEM.get();
+        if (player.getInventory().countItem(board) > 0) {
+            source.sendFailure(Component.translatable("command.oneforallsurvival.treasury.board.already"));
+            return 0;
+        }
+        if (!player.getInventory().add(new ItemStack(board))) {
+            source.sendFailure(Component.translatable("command.oneforallsurvival.treasury.board.full"));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.translatable("command.oneforallsurvival.treasury.board.success"), false);
         return 1;
     }
 

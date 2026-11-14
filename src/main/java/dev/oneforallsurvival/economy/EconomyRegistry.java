@@ -5,6 +5,8 @@ import dev.oneforallsurvival.economy.stall.MarketStallBlock;
 import dev.oneforallsurvival.economy.stall.MarketStallBlockEntity;
 import dev.oneforallsurvival.economy.stall.StallCashMenu;
 import dev.oneforallsurvival.economy.stall.StallOwnerMenu;
+import dev.oneforallsurvival.economy.town.TownBoardBlock;
+import dev.oneforallsurvival.economy.town.TownBoardBlockEntity;
 import dev.oneforallsurvival.economy.town.TreasuryBlock;
 import dev.oneforallsurvival.economy.town.TreasuryBlockEntity;
 import dev.oneforallsurvival.economy.town.TreasuryMenu;
@@ -108,6 +110,19 @@ public final class EconomyRegistry {
     public static final RegistryObject<MenuType<TreasuryMenu>> TREASURY_MENU =
             MENUS.register("treasury", () -> IForgeMenuType.create(TreasuryMenu::fromNetwork));
 
+    /**
+     * Le tableau de la mairie (lot E3) : posé par le maire (autant qu'il veut) ou l'équipe, déplacé par un ingénieur,
+     * le maire ou l'équipe ; mêmes règles de casse que le trésor. Panneau sur pieds : {@code noOcclusion} et forme
+     * exacte ({@link TownBoardBlock}). Aucune recette : l'onglet créatif et {@code /treasury board}.
+     */
+    public static final RegistryObject<Block> TOWN_BOARD = BLOCKS.register("town_board",
+            () -> new TownBoardBlock(BlockBehaviour.Properties.of().mapColor(MapColor.WOOD)
+                    .strength(-1.0F, 3600000.0F).sound(SoundType.WOOD).pushReaction(PushReaction.BLOCK).noOcclusion()));
+    public static final RegistryObject<Item> TOWN_BOARD_ITEM = ITEMS.register("town_board",
+            () -> new BlockItem(TOWN_BOARD.get(), new Item.Properties()));
+    public static final RegistryObject<BlockEntityType<TownBoardBlockEntity>> TOWN_BOARD_BE = BLOCK_ENTITIES
+            .register("town_board", () -> BlockEntityType.Builder.of(TownBoardBlockEntity::new, TOWN_BOARD.get()).build(null));
+
     /** La bourse : ne s'empile pas, garde les pièces dans son NBT ({@link Purse}). */
     public static final RegistryObject<Item> PURSE = ITEMS.register("purse", () -> new PurseItem(new Item.Properties()));
     public static final RegistryObject<MenuType<PurseMenu>> PURSE_MENU =
@@ -179,6 +194,7 @@ public final class EconomyRegistry {
         items.add(SAFE_ITEM);
         items.add(MARKET_STALL_ITEM);
         items.add(TREASURY_ITEM);
+        items.add(TOWN_BOARD_ITEM);
         items.add(PURSE);
         items.add(RECEIPT);
         items.add(INVOICE_BOOK);

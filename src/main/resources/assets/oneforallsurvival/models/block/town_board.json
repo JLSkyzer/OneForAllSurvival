@@ -1,0 +1,47 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "oneforallsurvival:block/town_board_wood",
+    "wood": "oneforallsurvival:block/town_board_wood",
+    "front": "oneforallsurvival:block/town_board_front"
+  },
+  "elements": [
+    {
+      "name": "panneau",
+      "from": [0, 5, 6],
+      "to": [16, 15, 8],
+      "faces": {
+        "north": { "uv": [0, 0, 16, 10], "texture": "#front" },
+        "east": { "uv": [14, 1, 16, 11], "texture": "#wood" },
+        "south": { "uv": [0, 1, 16, 11], "texture": "#wood" },
+        "west": { "uv": [0, 1, 2, 11], "texture": "#wood" },
+        "up": { "uv": [0, 8, 16, 10], "texture": "#wood" },
+        "down": { "uv": [0, 8, 16, 10], "texture": "#wood" }
+      }
+    },
+    {
+      "name": "pied gauche",
+      "from": [2, 0, 6],
+      "to": [4, 5, 8],
+      "faces": {
+        "north": { "uv": [2, 11, 4, 16], "texture": "#wood" },
+        "east": { "uv": [6, 11, 8, 16], "texture": "#wood" },
+        "south": { "uv": [12, 11, 14, 16], "texture": "#wood" },
+        "west": { "uv": [6, 11, 8, 16], "texture": "#wood" },
+        "down": { "uv": [2, 6, 4, 8], "texture": "#wood" }
+      }
+    },
+    {
+      "name": "pied droit",
+      "from": [12, 0, 6],
+      "to": [14, 5, 8],
+      "faces": {
+        "north": { "uv": [12, 11, 14, 16], "texture": "#wood" },
+        "east": { "uv": [6, 11, 8, 16], "texture": "#wood" },
+        "south": { "uv": [2, 11, 4, 16], "texture": "#wood" },
+        "west": { "uv": [6, 11, 8, 16], "texture": "#wood" },
+        "down": { "uv": [12, 6, 14, 8], "texture": "#wood" }
+      }
+    }
+  ]
+}

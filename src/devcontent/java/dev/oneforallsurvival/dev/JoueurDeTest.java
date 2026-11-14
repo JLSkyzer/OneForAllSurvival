@@ -53,6 +53,10 @@ public final class JoueurDeTest {
     private final List<dev.oneforallsurvival.economy.stall.StallLedgerPacket> registresEtal = new ArrayList<>();
     /** Les ouvertures du formulaire de facture reçues, décodées depuis les octets réellement envoyés. */
     private final List<dev.oneforallsurvival.economy.invoice.InvoiceFormPacket> formulairesFacture = new ArrayList<>();
+    /** Les instantanés des comptes de la ville reçus (tableau de la mairie), décodés depuis les octets réellement envoyés. */
+    private final List<dev.oneforallsurvival.economy.town.TownFinancesPacket> finances = new ArrayList<>();
+    /** Ceux que l'entrée en jeu elle-même a envoyés, avant qu'on ne les oublie. */
+    private final List<dev.oneforallsurvival.economy.town.TownFinancesPacket> financesALaConnexion = new ArrayList<>();
     /** Les clés des messages (chat ou barre d'action) reçus, dans l'ordre ; un texte brut est gardé tel quel. */
     private final List<String> messages = new ArrayList<>();
     /** Les textes des messages reçus (chat ou barre d'action), traduits par la langue du serveur, dans l'ordre. */
@@ -103,6 +107,8 @@ public final class JoueurDeTest {
         simule.listesALaConnexion.addAll(simule.listes);
         simule.messagesALaConnexion.addAll(simule.messages);
         simule.textesALaConnexion.addAll(simule.textes);
+        simule.financesALaConnexion.addAll(simule.finances);
+        simule.finances.clear();
         simule.listes.clear();
         simule.files.clear();
         simule.ecransAbonne.clear();
@@ -126,6 +132,19 @@ public final class JoueurDeTest {
     /** Les textes des messages reçus pendant l'entrée en jeu. */
     public List<String> textesALaConnexion() {
         return List.copyOf(textesALaConnexion);
+    }
+
+    /** Les instantanés des comptes de la ville reçus pendant l'entrée en jeu (la connexion réelle). */
+    public List<dev.oneforallsurvival.economy.town.TownFinancesPacket> financesALaConnexion() {
+        return List.copyOf(financesALaConnexion);
+    }
+
+    /** Les instantanés des comptes de la ville reçus depuis le dernier appel, retirés. */
+    public List<dev.oneforallsurvival.economy.town.TownFinancesPacket> financesRecues() {
+        lire();
+        List<dev.oneforallsurvival.economy.town.TownFinancesPacket> out = new ArrayList<>(finances);
+        finances.clear();
+        return out;
     }
 
     /** Les textes des messages reçus depuis le dernier appel (traduits côté serveur), retirés. */
@@ -182,6 +201,8 @@ public final class JoueurDeTest {
                     reponsesDebug.add(IslandDebugResponse.decode(donnees));
                 } else if (discriminant == BenchNetwork.ID_STALL_LEDGER) {
                     registresEtal.add(dev.oneforallsurvival.economy.stall.StallLedgerPacket.decode(donnees));
+                } else if (discriminant == BenchNetwork.ID_TOWN_FINANCES) {
+                    finances.add(dev.oneforallsurvival.economy.town.TownFinancesPacket.decode(donnees));
                 } else if (discriminant == BenchNetwork.ID_INVOICE_FORM) {
                     formulairesFacture.add(dev.oneforallsurvival.economy.invoice.InvoiceFormPacket.decode(donnees));
                 }
