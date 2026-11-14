@@ -349,6 +349,21 @@ minecraft {
             args '--width', '1280', '--height', '656'
         }
 
+        // Bande-annonce de la monnaie et du commerce (dev seulement) : chargement, titre, puis une place de marché dans un
+        // monde neuf ; images dans run-demo/bande-annonce/plans, montées par tools/bande-annonce-montage.ps1. Son propre
+        // dossier (écran de chargement Lost Island, jeu en français), préparé par prepareBandeAnnonceRun. Voir
+        // FilmBandeAnnonce (devcontent).
+        demoBandeAnnonceFilm {
+            parent minecraft.runs.client
+            workingDirectory project.file('run-demo/bande-annonce')
+            property 'oneforallsurvival.demo.bandeAnnonce', 'true'
+            property 'lostisland.frames', 'plans/fenetre-chargement'
+            // La fenêtre de chargement elle aussi sur le second écran (WindowPlacement du jar de service).
+            property 'oneforallsurvival.fenetre.secondEcran', 'true'
+            jvmArgs '-Xmx4G'
+            args '--username', 'Elio', '--width', '1280', '--height', '720'
+        }
+
         server {
             // Un dossier à part : un client lancé en même temps tourne dans `run`.
             workingDirectory project.file('run-server')
@@ -491,7 +506,10 @@ if (project.hasProperty('withPack') || !gradle.startParameter.taskNames.any { it
         runtimeOnly fg.deobf("curse.maven:medical-remedies-1185929:${medicalremedies_file}")
         runtimeOnly fg.deobf("curse.maven:first-aid-276837:${firstaid_file}")
         runtimeOnly fg.deobf("com.blamejared.crafttweaker:CraftTweaker-forge-1.20.1:${crafttweaker_version}")
-        runtimeOnly fg.deobf("mezz.jei:jei-${minecraft_version}-forge:${jei_version}")
+        // `-PsansJei` : sans JEI (films où sa liste d'objets ne doit pas paraître à côté des écrans).
+        if (!project.hasProperty('sansJei')) {
+            runtimeOnly fg.deobf("mezz.jei:jei-${minecraft_version}-forge:${jei_version}")
+        }
     }
 }
 
@@ -774,6 +792,57 @@ earlyWindowShowCPU = false
 }
 tasks.matching { it.name == 'runTitleFr' }.configureEach {
     dependsOn prepareTitleRun
+}
+
+// Dossier de la bande-annonce (run-demo/bande-annonce) : le jar de service recopié à chaque fois ; fml.toml (fenêtre
+// lostisland en 1280 x 720) et options.txt (français, sans écran d'accessibilité) écrits seulement s'ils manquent.
+def bandeAnnonceDir = project.file('run-demo/bande-annonce')
+def copyBandeAnnonceJar = tasks.register('copyBandeAnnonceJar', Copy) {
+    description = 'Recopie le jar de service dans run-demo/bande-annonce/mods (incrémental).'
+    from earlyWindowJar
+    into new File(bandeAnnonceDir, 'mods')
+    doFirst {
+        delete project.fileTree(new File(bandeAnnonceDir, 'mods')).matching { include "${mod_id}-earlywindow-*.jar" }
+    }
+}
+def prepareBandeAnnonceRun = tasks.register('prepareBandeAnnonceRun') {
+    group = 'build'
+    description = 'Prépare run-demo/bande-annonce/ : jar de service, fml.toml (fenêtre lostisland 1280 x 720), options.txt en français.'
+    dependsOn copyBandeAnnonceJar
+    doLast {
+        def fml = new File(bandeAnnonceDir, 'config/fml.toml')
+        if (!fml.exists()) {
+            fml.parentFile.mkdirs()
+            fml.write("""earlyWindowHeight = 720
+versionCheck = false
+earlyWindowControl = true
+earlyWindowFBScale = 1
+earlyWindowProvider = "lostisland"
+earlyWindowWidth = 1280
+earlyWindowMaximized = false
+defaultConfigPath = "defaultconfigs"
+disableOptimizedDFU = true
+earlyWindowSkipGLVersions = []
+earlyWindowLogHelpMessage = false
+maxThreads = -1
+earlyWindowSquir = false
+earlyWindowShowCPU = false
+""", 'UTF-8')
+        }
+        def options = new File(bandeAnnonceDir, 'options.txt')
+        if (!options.exists()) {
+            options.write(['lang:fr_fr', 'onboardAccessibility:false', 'tutorialStep:none', 'joinedFirstServer:true',
+                           'skipMultiplayerWarning:true', 'guiScale:2', 'renderDistance:12', 'pauseOnLostFocus:false',
+                           'realmsNotifications:false', 'soundCategory_music:0.0'].join('\n') + '\n', 'UTF-8')
+        }
+    }
+}
+tasks.matching { it.name == 'runDemoBandeAnnonceFilm' }.configureEach {
+    dependsOn prepareBandeAnnonceRun
+    doFirst {
+        delete project.file('run-demo/bande-annonce/saves/bande_annonce')
+        delete project.file('run-demo/bande-annonce/plans')
+    }
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.
