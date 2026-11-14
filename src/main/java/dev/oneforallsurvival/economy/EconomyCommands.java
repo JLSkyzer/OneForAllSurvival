@@ -8,6 +8,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import dev.oneforallsurvival.economy.town.TreasuryCommands;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -26,7 +27,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Les commandes de l'équipe pour l'économie, toutes au niveau de permission 2 :
- * {@code /eco give|take <joueur> <montant> <motif>}, {@code /eco stats}, {@code /eco pending}, {@code /eco ledger [page]}.
+ * {@code /eco give|take <joueur> <montant> <motif>}, {@code /eco stats}, {@code /eco pending}, {@code /eco ledger [page]}, {@code /eco treasury ...}.
  * Les montants sont des cuivres ; l'affichage passe par {@link CoinMath#format}.
  */
 public final class EconomyCommands {
@@ -60,6 +61,7 @@ public final class EconomyCommands {
                                                 .executes(EconomyCommands::take)))))
                 .then(Commands.literal("stats").executes(EconomyCommands::stats))
                 .then(Commands.literal("pending").executes(EconomyCommands::pending))
+                .then(TreasuryCommands.ecoBranch())
                 .then(Commands.literal("ledger")
                         .executes(ctx -> ledger(ctx, 1))
                         .then(Commands.argument("page", IntegerArgumentType.integer(1))

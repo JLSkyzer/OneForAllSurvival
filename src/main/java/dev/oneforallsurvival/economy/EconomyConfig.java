@@ -43,6 +43,8 @@ public final class EconomyConfig {
     static final int DEFAULT_INVOICE_MAX_DUE_PER_PAIR = 5;
     static final int DEFAULT_INVOICE_MAX_DUE_PER_DEBTOR = 27;
     static final int DEFAULT_INVOICE_ISSUE_COOLDOWN_TICKS = 40;
+    static final int DEFAULT_TREASURY_LEDGER_LINES = 1_000;
+    static final int DEFAULT_TREASURY_REASON_MAX = 80;
 
     private static final ForgeConfigSpec.IntValue LEDGER_MAX_LINES;
     private static final ForgeConfigSpec.IntValue STARTING_MONEY;
@@ -58,6 +60,8 @@ public final class EconomyConfig {
     private static final ForgeConfigSpec.IntValue INVOICE_MAX_DUE_PER_PAIR;
     private static final ForgeConfigSpec.IntValue INVOICE_MAX_DUE_PER_DEBTOR;
     private static final ForgeConfigSpec.IntValue INVOICE_ISSUE_COOLDOWN_TICKS;
+    private static final ForgeConfigSpec.IntValue TREASURY_LEDGER_LINES;
+    private static final ForgeConfigSpec.IntValue TREASURY_REASON_MAX;
     private static final ForgeConfigSpec.ConfigValue<List<? extends String>> EXTRA_ALLOWED_MENUS;
     private static final ForgeConfigSpec.ConfigValue<List<? extends String>> EXTRA_FORBIDDEN_MENUS;
 
@@ -118,6 +122,12 @@ public final class EconomyConfig {
         INVOICE_ISSUE_COOLDOWN_TICKS = builder
                 .comment("Délai, en ticks, entre deux factures émises par un même joueur (40 = 2 secondes).")
                 .defineInRange("invoiceIssueCooldownTicks", DEFAULT_INVOICE_ISSUE_COOLDOWN_TICKS, 0, 12_000);
+        TREASURY_LEDGER_LINES = builder
+                .comment("Lignes du registre du trésor ; les plus anciennes sont effacées d'abord.")
+                .defineInRange("treasuryLedgerLines", DEFAULT_TREASURY_LEDGER_LINES, 100, 100_000);
+        TREASURY_REASON_MAX = builder
+                .comment("Longueur maximale du motif d'une dépense publique, en caractères.")
+                .defineInRange("treasuryReasonMax", DEFAULT_TREASURY_REASON_MAX, 1, 200);
         EXTRA_ALLOWED_MENUS = builder
                 .comment("Types d'écran (identifiants, ex. \"mod:coffre\") où une pièce a le droit d'être rangée, en plus",
                         "de l'inventaire du joueur, de la table de fabrication et des rangements de ce mod.")
@@ -254,6 +264,24 @@ public final class EconomyConfig {
             return INVOICE_MAX_DUE_PER_DEBTOR.get();
         } catch (IllegalStateException e) {
             return DEFAULT_INVOICE_MAX_DUE_PER_DEBTOR;
+        }
+    }
+
+    /** Lignes du registre du trésor (1 000 par défaut, de 100 à 100 000). */
+    public static int treasuryLedgerLines() {
+        try {
+            return TREASURY_LEDGER_LINES.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_TREASURY_LEDGER_LINES;
+        }
+    }
+
+    /** Longueur maximale du motif d'une dépense publique (80 par défaut, de 1 à 200). */
+    public static int treasuryReasonMax() {
+        try {
+            return TREASURY_REASON_MAX.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_TREASURY_REASON_MAX;
         }
     }
 

@@ -20,7 +20,13 @@ public enum MoneyTransfer {
     /** Facture payée. */
     INVOICE,
     /** Pièces versées par l'équipe dans la caisse d'un étal qui n'est pas le sien. */
-    STAFF_DEPOSIT;
+    STAFF_DEPOSIT,
+    /** Pièces déposées au trésor par le maire ou l'équipe. */
+    TREASURY_DEPOSIT,
+    /** Dépense publique : pièces retirées du trésor par le maire ou l'équipe. */
+    TREASURY_SPEND,
+    /** Salaire versé par le trésor à un joueur. */
+    SALARY;
 
     /** Genre de la ligne du registre pour un transfert : {@code transfer.trade}. */
     public String kind() {

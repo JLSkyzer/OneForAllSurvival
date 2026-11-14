@@ -13,6 +13,7 @@ import dev.oneforallsurvival.economy.PlayerCoins;
 import dev.oneforallsurvival.economy.Purse;
 import dev.oneforallsurvival.economy.SafeAccounts;
 import dev.oneforallsurvival.economy.TreasuryAccount;
+import dev.oneforallsurvival.economy.town.TreasuryLedger;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -322,15 +323,15 @@ public final class CommerceSocleGameTests {
     public static void leTresorGardeSonSoldeAuRechargement(GameTestHelper helper) {
         TreasuryAccount compte = TreasuryAccount.load(new CompoundTag());
         helper.assertTrue(compte.total() == 0L, "un trésor neuf est vide");
-        compte.deposit(Map.of(Coin.GOLD, 3L, Coin.COPPER, 5L));
-        compte.deposit(Map.of(Coin.GOLD, 1L));
+        compte.credit(Map.of(Coin.GOLD, 3L, Coin.COPPER, 5L), TreasuryLedger.Kind.DEPOSIT, null, "", "essai");
+        compte.credit(Map.of(Coin.GOLD, 1L), TreasuryLedger.Kind.DEPOSIT, null, "", "essai");
         helper.assertTrue(compte.total() == 405L, "total : " + compte.total());
         TreasuryAccount relu = TreasuryAccount.load(compte.save(new CompoundTag()));
         helper.assertTrue(relu.balance().equals(compte.balance()), "solde relu : " + relu.balance());
         helper.assertTrue(relu.total() == 405L && relu.balance().get(Coin.GOLD) == 4L, "total relu : " + relu.total());
         boolean refuse = false;
         try {
-            relu.deposit(Map.of(Coin.GOLD, -1L));
+            relu.credit(Map.of(Coin.GOLD, -1L), TreasuryLedger.Kind.DEPOSIT, null, "", "essai");
         } catch (IllegalArgumentException e) {
             refuse = true;
         }
@@ -350,7 +351,7 @@ public final class CommerceSocleGameTests {
             long circulation = registre.inCirculation();
             registre.transferred(MoneyTransfer.TRADE, 200L, uuid, "essai du tableau de bord");
             helper.assertTrue(registre.inCirculation() == circulation, "un transfert ne change pas la circulation");
-            TreasuryAccount.get(serveur).deposit(Map.of(Coin.SILVER, 3L));
+            TreasuryAccount.get(serveur).credit(Map.of(Coin.SILVER, 3L), TreasuryLedger.Kind.DEPOSIT, null, "", "essai du tableau de bord");
             held.addPending(uuid, List.of(), Map.of(Coin.GOLD, 4L));
 
             List<Component> sortie = new ArrayList<>();

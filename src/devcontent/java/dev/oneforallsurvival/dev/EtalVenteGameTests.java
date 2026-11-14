@@ -19,6 +19,7 @@ import dev.oneforallsurvival.economy.MoneyTransfer;
 import dev.oneforallsurvival.economy.PlayerCoins;
 import dev.oneforallsurvival.economy.Purse;
 import dev.oneforallsurvival.economy.TreasuryAccount;
+import dev.oneforallsurvival.economy.town.TreasuryLedger;
 import dev.oneforallsurvival.economy.stall.MarketStallBlockEntity;
 import dev.oneforallsurvival.economy.stall.StallActionPacket;
 import dev.oneforallsurvival.economy.stall.StallBuyback;
@@ -752,7 +753,7 @@ public final class EtalVenteGameTests {
     // ---------------------------------------------------------------------------------------------
 
     @GameTest(template = "test/plancher", batch = LOT_TAXE)
-    public static void laTaxeArriveAuTresor(GameTestHelper helper) {
+    public static void laTaxeArriveAuTresorEtAuRegistre(GameTestHelper helper) {
         try (Essai essai = new Essai(helper)) {
             helper.assertTrue(EconomyConfig.salesTaxPercent() == 10, "la taxe devait être réglée à 10 %, vu "
                     + EconomyConfig.salesTaxPercent());
@@ -763,6 +764,7 @@ public final class EtalVenteGameTests {
             TreasuryAccount tresor = TreasuryAccount.get(essai.serveur());
             EconomyLedger global = EconomyLedger.get(essai.serveur());
             long tresorAvant = tresor.total();
+            int lignesAvant = tresor.ledger().size();
             long taxe = global.totalTransferred(MoneyTransfer.SALES_TAX);
             long ventes = global.totalTransferred(MoneyTransfer.STALL_SALE);
             long circulation = global.inCirculation();
@@ -775,6 +777,11 @@ public final class EtalVenteGameTests {
             helper.assertTrue(global.totalTransferred(MoneyTransfer.STALL_SALE) - ventes == 27L, "registre global : vente 27");
             helper.assertTrue(global.inCirculation() == circulation, "aucune pièce créée ni détruite");
             helper.assertTrue(be.ledger().page(0).get(0).amount() == 30L, "la ligne de l'étal garde le prix payé");
+            helper.assertTrue(tresor.ledger().size() == lignesAvant + 1, "une ligne de plus au registre du trésor : "
+                    + lignesAvant + " puis " + tresor.ledger().size());
+            TreasuryLedger.Line ligne = tresor.ledger().page(0).get(0);
+            helper.assertTrue(ligne.kind() == TreasuryLedger.Kind.TAX && ligne.amount() == 3L
+                    && client.uuid().equals(ligne.actor()), "ligne TAX de 3 payée par le client : " + ligne);
             helper.succeed();
         }
     }

@@ -10,6 +10,7 @@ import dev.oneforallsurvival.economy.InventoryFit;
 import dev.oneforallsurvival.economy.MoneyTransfer;
 import dev.oneforallsurvival.economy.PlayerCoins;
 import dev.oneforallsurvival.economy.TreasuryAccount;
+import dev.oneforallsurvival.economy.town.TreasuryLedger;
 import dev.oneforallsurvival.economy.stall.StallLedger.Kind;
 import dev.oneforallsurvival.economy.stall.StallLedger.Line;
 import java.util.ArrayList;
@@ -103,7 +104,8 @@ public final class StallTrade {
         List<ItemStack> goods = stall.takeFromStock(offer::matches, offer.lot());
         CommerceDelivery.giveBack(buyer, goods);
         if (tax > 0L) {
-            TreasuryAccount.get(buyer.server).deposit(CoinMath.decompose(tax));
+            TreasuryAccount.get(buyer.server).credit(CoinMath.decompose(tax), TreasuryLedger.Kind.TAX, buyer.getUUID(),
+                    buyer.getGameProfile().getName(), "taxe sur la vente a un etal");
         }
         toCash.forEach(stall::addCash);
 
