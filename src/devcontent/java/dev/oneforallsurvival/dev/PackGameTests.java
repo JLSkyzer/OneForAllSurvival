@@ -716,4 +716,45 @@ public final class PackGameTests {
         }
         helper.succeed();
     }
+
+    /** Un reçu d'échange à {@code donne} et {@code recu} piles : les clés de l'infobulle, avec l'argument des lignes « et N autres ». */
+    private static List<String> infobulle(GameTestHelper helper, int donne, int recu) {
+        var joueur = net.minecraftforge.common.util.FakePlayerFactory.getMinecraft(helper.getLevel());
+        List<ItemStack> a = new java.util.ArrayList<>();
+        List<ItemStack> b = new java.util.ArrayList<>();
+        for (int i = 0; i < donne; i++) {
+            a.add(new ItemStack(net.minecraft.world.item.Items.BREAD, i + 1));
+        }
+        for (int i = 0; i < recu; i++) {
+            b.add(new ItemStack(net.minecraft.world.item.Items.APPLE, i + 1));
+        }
+        ItemStack recuPile = dev.oneforallsurvival.economy.Receipt.forTrade(joueur, joueur, a, b, 1L);
+        List<String> out = new java.util.ArrayList<>();
+        for (net.minecraft.network.chat.Component c : dev.oneforallsurvival.economy.Receipt.tooltip(recuPile)) {
+            if (c.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents t) {
+                String cle = t.getKey().substring(t.getKey().lastIndexOf('.') + 1);
+                out.add(t.getKey().endsWith(".more") ? "more:" + t.getArgs()[0] : cle);
+            }
+        }
+        return out;
+    }
+
+    /** Chaque côté du reçu d'échange compte ses propres lignes cachées. */
+    @GameTest(template = "test/plancher", batch = "pack_commerce")
+    public static void chaqueCoteDuRecuCompteSesLignesCachees(GameTestHelper helper) {
+        List<String> plein = infobulle(helper, 12, 12);
+        int d = plein.indexOf("given");
+        int r = plein.indexOf("received");
+        helper.assertTrue(d >= 0 && r > d, "en-têtes : " + plein);
+        helper.assertTrue(plein.subList(d, r).equals(List.of("given", "line", "line", "more:10")), "donné 12 : " + plein.subList(d, r));
+        helper.assertTrue(plein.subList(r, plein.size()).equals(List.of("received", "line", "line", "more:10")),
+                "reçu 12 : " + plein.subList(r, plein.size()));
+        List<String> mixte = infobulle(helper, 1, 12);
+        int d2 = mixte.indexOf("given");
+        int r2 = mixte.indexOf("received");
+        helper.assertTrue(mixte.subList(d2, r2).equals(List.of("given", "line")), "donné 1 : " + mixte.subList(d2, r2));
+        helper.assertTrue(mixte.subList(r2, mixte.size()).equals(List.of("received", "line", "line", "more:10")),
+                "reçu 12 (1 + 12) : " + mixte.subList(r2, mixte.size()));
+        helper.succeed();
+    }
 }

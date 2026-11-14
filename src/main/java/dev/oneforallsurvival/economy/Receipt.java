@@ -189,7 +189,6 @@ public final class Receipt {
         String date = DATE.format(Instant.ofEpochMilli(when(stack)).atZone(ZoneId.systemDefault()));
         out.add(Component.translatable(TOOLTIP + "date", date).withStyle(ChatFormatting.GRAY));
         out.add(Component.translatable(TOOLTIP + "other", other(stack)).withStyle(ChatFormatting.GRAY));
-        int hidden = 0;
         for (String part : List.of("given", "received")) {
             List<Line> lines = part.equals("given") ? given(stack) : received(stack);
             out.add(Component.translatable(TOOLTIP + part).withStyle(ChatFormatting.WHITE));
@@ -197,6 +196,7 @@ public final class Receipt {
                 out.add(Component.translatable(TOOLTIP + "nothing").withStyle(ChatFormatting.DARK_GRAY));
             }
             int shown = 0;
+            int hidden = 0;
             for (Line line : lines) {
                 if (shown >= MAX_LINES) {
                     hidden++;
@@ -205,9 +205,9 @@ public final class Receipt {
                 out.add(describe(line).withStyle(ChatFormatting.GRAY));
                 shown++;
             }
-        }
-        if (hidden > 0) {
-            out.add(Component.translatable(TOOLTIP + "more", hidden).withStyle(ChatFormatting.DARK_GRAY));
+            if (hidden > 0) {
+                out.add(Component.translatable(TOOLTIP + "more", hidden).withStyle(ChatFormatting.DARK_GRAY));
+            }
         }
         return out;
     }
