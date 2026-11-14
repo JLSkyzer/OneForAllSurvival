@@ -13,7 +13,7 @@ Relevés du 2026-11-14, sur `main` (le travail est fait directement sur `main`).
 | Étal (71) | Fabriqué par n'importe qui, le poseur en est propriétaire ; 27 cases de stock, 9 offres de vente et 9 de rachat ; caisse en pièces ; trémies garnissent, ne vident jamais, ne touchent pas la caisse ; ne se casse que vide, par le propriétaire ou l'équipe ; registre de 200 lignes. Pas d'achat ni de rachat chez soi. Modèle d'offre en copie (pas de case fantôme). |
 | Échange (70) | Proposé à 5 blocs (`/trade` ou accroupi + clic droit main vide), accepté par lien ; 12 cases par côté et boutons « +1 / +10 » qui versent depuis les bourses ; toute modification annule les deux confirmations (version) ; atomique ; fermeture, déconnexion, éloignement, mort : tout revient. Reçu sur demande, un pour chacun. Garde (`HeldGoods`) sauvegardée avec le monde. |
 | Facture (72) | Carnet utilisé sur un joueur proche, formulaire (montant, motif) ; facture payable en l'utilisant (écran, bouton « Payer »), tout ou rien ; pièces à l'émetteur : inventaire, sinon coffre-fort, sinon **attente gardée par le serveur** jusqu'à sa connexion ; payée, elle devient un reçu ; le registre des factures fait foi (une copie ne se paie pas). Règlement de main à main déclaré par l'émetteur (`/invoice settle`). Aucun prélèvement à distance (lot E6). |
-| Livraison en attente | Livrée à la connexion puis toutes les 30 s ; visible dans `/eco stats` (« Pending »). Exception à la liste de la feature 84 décidée par le contrôleur. |
+| Livraison en attente | Livrée à la connexion puis toutes les 30 s ; total dans `/eco stats` (« Pending »), détail par joueur dans `/eco pending`. Exception à la liste de la feature 84 décidée par le contrôleur. Depuis la passe finale, les **pièces** qui ne tiennent pas chez un joueur vont d'abord dans son coffre-fort s'il en a un ; seuls les objets et les pièces d'un joueur sans coffre-fort attendent. |
 | Place à l'arrivée | Échange, achat et rachat refusés avant tout mouvement si ce qui arrive ne tient pas ; ce qui revient d'une garde va en attente, jamais au sol. |
 | Relance de l'essai | La relance complète du banc échoue sur la couveuse du lot 5 (défaut du banc, ouvert dans `tasks/todo.md`) ; ce lot fait le passage complet avec le pack, puis une **relance ciblée** de l'économie (`E2E_MONNAIE_SEULE=1 runE2eRelance`). |
 | Ordre de la relance ciblée | **À la relance, l'étape du commerce passe avant celle de la monnaie** : la première reconnexion d'`Autre` après l'arrêt doit être celle que lit l'étape du commerce (livraison de l'attente, avis de paiement). La relance d'E1 lit ce que porte `Autre` (noté par l'étape du commerce avant l'arrêt, attente livrée comprise : 570) au lieu de 500 fixe, et compare `/eco stats` sans la ligne « Pending » (l'attente a été livrée entre-temps, l'étape du commerce le vérifie). Accepté par le contrôleur le 2026-11-14. |
@@ -151,6 +151,62 @@ Les captures de la tâche 6 (`run-demo/visuels-captures/`, `echange_*`, `etal_*`
 
 Capture de la liste des joueurs (`runClient -PtabShots=frames-tab`, 17:23 à 17:25, `run/options.txt` inchangé, somme MD5 comparée) : dans `run/frames-tab/a-1-joueur.png` (1920 × 1080), les en-têtes « Survivant » et « Métier » **ne se chevauchent plus** (environ 17 pixels d'écran entre les deux mots). Rien n'est corrigé ici dans la liste.
 
+## Passe finale (après la revue finale)
+
+Revue finale : `.superpowers/sdd/2026-11-13-lot-e2-commerce/final-review.md` (1 critique, 2 importants, mineurs). Corrections du 2026-11-14, commits `e9da83d` (mineurs), `ca07b4c` (écriture cohérente), `9d1289d` (coffre-fort avant l'attente).
+
+### Écriture cohérente à la déconnexion (critique C1)
+
+Avant : chaque déconnexion écrivait le fichier de la garde et des attentes **seul**, avec la garde et l'attente de tout le monde ; après un arrêt brutal, un joueur resté en ligne retrouvait ce qu'il avait posé (garde devenue attente) **et** ce que portait son vieux playerdata ; une facture payée restait due alors que l'émetteur avait reçu les pièces.
+
+Maintenant : `EconomySave.playersThenEconomy`, seule fonction d'écriture forcée de l'économie, appelée à la déconnexion (`TradeService`), écrit dans cet ordre le playerdata de **tous** les joueurs en ligne (`PlayerList.saveAll`, celui qui part compris), puis chaque donnée de l'économie qui a changé : garde et attentes (`HeldGoods`), factures (`InvoiceRegistry`), registre (`EconomyLedger`), coffres-forts (`SafeAccounts`), trésor (`TreasuryAccount`). Même ordre que la sauvegarde automatique du jeu. Coût accepté : une écriture plus lourde à chaque déconnexion.
+
+**Limite, la même que pour un coffre de Minecraft** : les étals vivent dans les chunks ; leur écriture n'est pas forcée. Un achat à un étal suivi d'un arrêt brutal avant la sauvegarde automatique suivante peut laisser sur le disque un étal plus ancien que le playerdata de l'acheteur (s'il s'est déconnecté entre-temps), exactement comme un coffre vanilla vidé par un joueur qui se déconnecte.
+
+Preuve, vue rouge avant la correction puis verte (`SauvegardeDEssai` relit les fichiers du disque) :
+
+| GameTest | Avant la correction (17:48) | Après |
+|---|---|---|
+| `laDeconnexionDUnTiersNeDoubleRien` (trois joueurs : A verse 2 or dans un échange avec B, C se déconnecte) | « A retrouverait 2 or sur lui et 2 en attente » | passe |
+| `unPaiementPuisUneDeconnexionRestentCoherentsSurLeDisque` (facture payée à un émetteur absent, un tiers se déconnecte) | « B porte 2000 (avant 2000), A attend 1234, facture DUE » | passe |
+
+L'aide des tests qui imite une sauvegarde automatique (`SauvegardeDEssai.automatique`) écrit maintenant joueurs et données ensemble, et `uneGardeSurvitAUnArretBrutal` relit le playerdata du joueur sur le disque (I2).
+
+### Les pièces vont au coffre-fort avant l'attente (important I1)
+
+Les pièces qui ne tiennent ni dans l'inventaire ni dans les bourses d'un joueur vont dans **son coffre-fort s'il en a un** (et qu'il a la place), et seulement sinon en attente, dans le même ordre que le paiement d'une facture : retour d'une garde (fermeture, déconnexion, mort, échange refusé), livraison d'un échange, rachat, livraison d'une attente (à la connexion, à la réapparition, toutes les 30 s). Les objets non monétaires, bourses comprises, restent en attente. Le joueur reçoit « Des pièces qui ne tenaient pas sur vous sont allées dans votre coffre-fort. ». Verser dans son propre coffre-fort n'est pas un transfert : rien au registre.
+
+L'équipe voit l'attente joueur par joueur : `/eco pending` (valeur des pièces et des bourses, nombre d'objets, du plus gros au plus petit, 20 lignes au plus). La ligne « Pending » de `/eco stats` ne change pas.
+
+**À reprendre dans les lots suivants** : un joueur sans coffre-fort peut encore garer des pièces en attente (en remplissant son inventaire). L'attente devra donc être comptée comme **portée** par le prélèvement à distance (lot E6 : amendes, taxes) et par la fouille (lot du policier) ; à inscrire dans leurs plans.
+
+Tests : `lesPiecesRenduesVontAuCoffreFortAvantLAttente` et `uneAttenteDePiecesVaAuCoffreFort` (rouges avant la correction : « les 3 or devaient aller au coffre-fort : 0 », « les 4 or au coffre-fort : 0 »), témoin `sansCoffreFortLesPiecesRenduesAttendent`, `ecoPendingDetailleParJoueur`.
+
+### Mineurs
+
+- Dépôt de l'équipe dans la caisse de l'étal d'un autre : transfert `STAFF_DEPOSIT` au registre global (« Dépôt par l'équipe »), en plus de la ligne signée du registre de l'étal (`leDepotDeLEquipeEstUnTransfert`, rouge avant : « transfert de 300 : 0 »).
+- `ecoStatsMontreTransfertsTresorEtAttente` : la ligne « en circulation » se compare telle que le tableau de bord l'écrit, signe compris ; l'assertion ne se dispense plus d'elle-même.
+- `giveBackEnCreatifPleinNePerdRien` : en créatif, inventaire plein, `giveBack` met tout en attente, rien n'est perdu.
+- La note du délai entre deux factures s'oublie à la déconnexion (`laNoteDuDelaiSOublieALaDeconnexion`).
+- `InvoiceItem`, `InvoiceFormPacket` : écrans clients en nom complet derrière `DistExecutor`, plus d'import d'`economy.client` dans le code commun (vérifié par `grep`).
+- `InvoicePayPacket`, `InvoiceIssuePacket` : contrôle de connexion explicite, comme les autres paquets du commerce.
+- Vitrine de l'étal : ses données ne se recalculent que si l'étal a changé (compteur de changements de l'entité, tout changement passant par `setChanged`) ou si le nombre de cases d'offre réglé a changé. Pas de test dédié : les tests de vitrine existants (disponibilités après achat et rachat) passent.
+- Trouvé en écrivant `/eco pending` : le nom d'un joueur absent du cache des profils (cache nul sur le serveur de GameTest) faisait planter la commande ; l'identifiant court s'affiche alors, pour `/eco ledger` aussi.
+
+### Tests et essai relancés
+
+| Commande | Résultat lu |
+|---|---|
+| `runGameTestServer` avant correction (17:47 à 17:49) | « 6 required tests failed » : les cinq rouges attendus ci-dessus, plus `/eco pending` (cache des profils nul) |
+| `./gradlew --offline test runGameTestServer` (17:54 à 17:56) | « All 728 required tests passed » (17:56:04) ; JUnit : 383 tests, 0 échec, 0 erreur |
+| `./gradlew --offline runGameTestServer -PwithPack` (17:59 à 18:01) | « All 728 required tests passed » (18:01:43) |
+| Mutation : `saveAll` retiré d'`EconomySave` (18:01 à 18:03) | « 2 required tests failed » : `laDeconnexionDUnTiersNeDoubleRien`, `unPaiementPuisUneDeconnexionRestentCoherentsSurLeDisque` ; restauré |
+| Mutation : passage par le coffre-fort retiré de `CommerceDelivery.park` (18:03 à 18:05) | « 2 required tests failed » : `lesPiecesRenduesVontAuCoffreFortAvantLAttente`, `uneAttenteDePiecesVaAuCoffreFort` ; restauré |
+| E2E ciblé économie `E2E_MONNAIE_SEULE=1`, monde neuf, avec le pack : passage (18:06 à 18:11) | « [e2e] bilan : TOUT PASSE » (18:11:35), 98 PASS, 0 FAIL ; « [fenetre] second écran (2600, 40) », « [souris] rendue » 5 fois |
+| Relance ciblée après le vrai `/stop` (18:13 à 18:16) | « [e2e] bilan : TOUT PASSE » (18:16:15), 15 PASS, 0 FAIL ; « [fenetre] second écran » ; aucune ligne « [souris] rendue » (le jeu n'a pas repris la souris, `SourisLibre` chargé) |
+
+Le passage complet du banc n'est pas refait : seule l'économie a changé.
+
 ## Non prouvé
 
 - **Crochetage de l'étal** : renvoyé au lot du policier (feature 67) ; rien n'est codé ni essayé.
@@ -160,5 +216,6 @@ Capture de la liste des joueurs (`runClient -PtabShots=frames-tab`, 17:23 à 17:
 - **Relance complète du banc** : toujours en échec sur la couveuse du lot 5 (défaut du banc, ouvert dans `tasks/todo.md`) ; la relance ciblée de l'économie est faite à la place.
 - **Stockages de mods non installés face à l'étal** : seuls l'entonnoir vanilla (en vrai) et, en GameTest (tâche 3), les trémies dessus et dessous, l'entonnoir de Create et la capacité Forge exposée ; un mod absent du pack, ou qui vide un bloc sans passer par la capacité Forge, n'est pas couvert.
 - **Équilibrage** : prix, taxe, distances (5 blocs) et plafonds (9 offres, 200 lignes, 100 000 000 cuivres par facture) n'ont pas été vécus en partie.
-- **Mort pendant un échange, arrêt brutal avec une garde, inventaire plein du receveur, deux acheteurs sur le dernier lot** : GameTests seulement (tâches 1 à 5), pas en vrai.
+- **Mort pendant un échange, inventaire plein du receveur, deux acheteurs sur le dernier lot** : GameTests seulement (tâches 1 à 5), pas en vrai.
+- **Arrêt brutal** : simulé en GameTest, jamais par un vrai arrêt du processus. Les tests écrivent ce qu'écrit une sauvegarde automatique (playerdata de tous les joueurs en ligne, puis données du monde), font ce qu'il faut (poser dans une garde, payer une facture, déconnecter un joueur), puis relisent **les fichiers du disque** : le playerdata du joueur concerné, le fichier de la garde et des attentes (relu comme au redémarrage, gardes changées en attentes) et le registre des factures. Prouvé : pour le joueur qui part (`deconnexionRendToutAvantLaSauvegarde`, `unEchangeConcluNeRevientPasDuDisque`) et pour des joueurs **restés en ligne** quand un tiers part (`laDeconnexionDUnTiersNeDoubleRien`, `unPaiementPuisUneDeconnexionRestentCoherentsSurLeDisque`). Non prouvé : un arrêt entre deux écritures de la même sauvegarde (le jeu n'écrit pas ses fichiers de façon atomique entre eux), et tout ce que contiennent les chunks (étals, voir « Passe finale »).
 - **Jar livré** : jamais lancé hors du développement.
