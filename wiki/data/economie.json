@@ -240,9 +240,9 @@
       ],
       "staff": [
         "Distance et durée de la demande : tradeMaxDistance et tradeRequestSeconds (oneforallsurvival-economy.toml).",
-        "Ce qui est posé est gardé par le serveur (sauvegardé avec le monde, écrit sur le disque à chaque déconnexion) ; après un arrêt brutal, ce qui était en garde revient à son propriétaire.",
+        "Ce qui est posé est gardé par le serveur. Il est écrit sur le disque avec le monde, et à chaque déconnexion en même temps que tous les joueurs en ligne et toutes les données de l'économie : après un arrêt brutal, ce qui était en garde revient à son propriétaire, une seule fois.",
         "À la mort, ce qui était posé va en attente et revient à la réapparition, au lieu de tomber au sol avec le reste.",
-        "Ce qui revient à un joueur absent ou sans place va en attente : livré à sa connexion, puis toutes les 30 secondes ; visible dans /eco stats, ligne « en attente ».",
+        "Ce qui revient à un joueur absent ou sans place : les pièces vont dans son coffre-fort s'il en a un, le reste (objets, bourses, pièces sans coffre-fort) va en attente, livré à sa connexion puis toutes les 30 secondes. Total dans /eco stats (ligne « en attente »), détail par joueur dans /eco pending.",
         "Les pièces échangées sont un transfert au registre (/eco ledger) : ni créées ni détruites."
       ]
     },
@@ -278,7 +278,7 @@
       ],
       "staff": [
         "Taxe : salesTaxPercent (0 à 100 %, arrondie vers le bas, jamais sur un rachat) ; elle va au compte du trésor gardé par le serveur, que le lot E3 rattachera au bloc du trésor.",
-        "Seuls le propriétaire et l'équipe retirent marchandise et recettes. L'équipe qui retire de la caisse d'un autre est notée au registre global ; un dépôt de l'équipe dans l'étal d'un autre n'est noté qu'au registre de l'étal.",
+        "Seuls le propriétaire et l'équipe retirent marchandise et recettes. L'équipe qui retire de la caisse d'un autre, ou qui y dépose, est notée au registre global (un transfert) et au registre de l'étal.",
         "Il ne se casse que vide, par le propriétaire ou l'équipe ; il résiste aux explosions, au Wither, au dragon et aux pistons.",
         "Les entonnoirs et automatismes peuvent garnir le stock, jamais le vider ni toucher la caisse ; l'argent est refusé au stock.",
         "Un achat est refusé si le prix, le lot ou l'objet ont changé depuis l'affichage (la vitrine envoie la version vue).",
@@ -526,11 +526,12 @@
       "who": {"utilise": "Staff"},
       "staff": [
         "Masse en circulation : total créé moins total détruit.",
-        "Depuis le lot E2 : un total par genre de transfert (échanges, ventes, taxe, rachats, factures, retraits de l'équipe), le solde du trésor et la masse en attente ; les salaires restent « pas encore en service ».",
+        "Depuis le lot E2 : un total par genre de transfert (échanges, ventes, taxe, rachats, factures, retraits et dépôts de l'équipe), le solde du trésor et la masse en attente ; les salaires restent « pas encore en service ».",
         "Inventaires, bourses et étals ne sont pas comptés un à un."
       ],
       "steps": [
         "/eco stats : créé par source, détruit par cause, masse des coffres-forts, en circulation, puis les transferts, le trésor et l'attente.",
+        "/eco pending : ce qui attend, joueur par joueur (valeur des pièces et bourses, nombre d'objets), du plus gros au plus petit, 20 lignes au plus.",
         "/eco ledger [page] : dix lignes par page, de la plus récente à la plus ancienne."
       ],
       "numbers": [

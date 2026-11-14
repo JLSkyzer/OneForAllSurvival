@@ -302,19 +302,27 @@ public final class CommerceSocleGameTests {
     @GameTest(template = "test/plancher", batch = LOT)
     public static void uneGardeSurvitAUnArretBrutal(GameTestHelper helper) {
         try (Essai essai = new Essai(helper)) {
-            UUID uuid = identifiant(essai.nom("cs_garde"));
-            HeldGoods held = HeldGoods.get(essai.serveur());
+            MinecraftServer serveur = essai.serveur();
+            JoueurDeTest j = essai.vide(essai.nom("cs_garde"));
+            UUID uuid = j.uuid();
+            j.joueur().getInventory().items.set(0, new ItemStack(Items.BREAD, 5));
+            SauvegardeDEssai.automatique(serveur);
+            helper.assertTrue(SauvegardeDEssai.objetsDansLePlayerdata(serveur, uuid, Items.BREAD) == 5,
+                    "avant l'échange, le playerdata porte les cinq pains");
+            HeldGoods held = HeldGoods.get(serveur);
             SimpleContainer garde = held.openEscrow(uuid, 12);
             helper.assertTrue(held.openEscrow(uuid, 12) == garde, "une seule garde par joueur");
-            garde.addItem(new ItemStack(Items.BREAD, 5));
+            // Les pains quittent l'inventaire pour la garde, comme un objet posé dans un échange.
+            garde.addItem(j.joueur().getInventory().removeItem(0, 5));
 
-            // Le serveur s'arrête là : la sauvegarde est tout ce qui reste, relue sur une copie.
-            CompoundTag disque = held.save(new CompoundTag());
-            HeldGoods relu = HeldGoods.load(disque);
+            // Une sauvegarde automatique pendant l'échange, puis le serveur s'arrête : le disque est tout ce qui reste.
+            SauvegardeDEssai.automatique(serveur);
+            int porte = SauvegardeDEssai.objetsDansLePlayerdata(serveur, uuid, Items.BREAD);
+            HeldGoods relu = SauvegardeDEssai.gardeApresRedemarrage(serveur);
             helper.assertTrue(relu.hasPending(uuid), "la garde devait devenir une attente");
             HeldGoods.Pending attente = relu.pendingFor(uuid);
-            helper.assertTrue(attente.items().size() == 1 && pains(attente.items()) == 5,
-                    "cinq pains attendus, une seule fois : " + attente.items());
+            helper.assertTrue(porte == 0 && attente.items().size() == 1 && pains(attente.items()) == 5,
+                    "cinq pains attendus, une seule fois : playerdata " + porte + ", attente " + attente.items());
             // Un second arrêt ne double rien.
             HeldGoods encore = HeldGoods.load(relu.save(new CompoundTag()));
             helper.assertTrue(pains(encore.pendingFor(uuid).items()) == 5,
@@ -412,9 +420,12 @@ public final class CommerceSocleGameTests {
                     CoinMath.format(held.pendingMass())).getString();
             helper.assertTrue(texte.contains(attente), "ligne d'attente absente : " + attente + " dans " + texte);
             helper.assertTrue(held.pendingMass() >= 400L, "la masse en attente doit compter les 4 or");
-            String circ = Component.translatable("command.oneforallsurvival.eco.stats.circulation",
-                    CoinMath.format(registre.inCirculation())).getString();
-            helper.assertTrue(registre.inCirculation() < 0L || texte.contains(circ),
+            // La ligne se lit telle que le tableau de bord l'écrit, signe compris : elle ne se dispense jamais.
+            long enCirculation = registre.inCirculation();
+            Component montant = enCirculation < 0L
+                    ? Component.literal("-").append(CoinMath.format(-enCirculation)) : CoinMath.format(enCirculation);
+            String circ = Component.translatable("command.oneforallsurvival.eco.stats.circulation", montant).getString();
+            helper.assertTrue(texte.contains(circ),
                     "la circulation reste créé moins détruit : " + circ + " dans " + texte);
             helper.succeed();
         }
@@ -513,6 +524,120 @@ public final class CommerceSocleGameTests {
                     "le surplus d'or occupe la case : plus de place pour un pain");
             helper.assertTrue(Purse.count(p.getInventory().items.get(35), Coin.GOLD) == Purse.MAX_PER_COIN - 2L,
                     "la simulation ne touche pas à la bourse");
+            helper.succeed();
+        }
+    }
+
+    /**
+     * En créatif, {@code Inventory.add} vide la pile qu'il ne peut pas placer, sans rien placer : {@code giveBack} lit
+     * ce qui est entré dans l'inventaire, pas dans la pile. Inventaire plein : tout attend, rien n'est perdu.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_B)
+    public static void giveBackEnCreatifPleinNePerdRien(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest j = essai.vide(essai.nom("cs_creatif"));
+            ServerPlayer p = j.joueur();
+            p.gameMode.changeGameModeForPlayer(GameType.CREATIVE);
+            remplir(p, 0);
+            int attentes = CommerceDelivery.giveBack(p, List.of(new ItemStack(Items.BREAD, 5),
+                    new ItemStack(Coin.GOLD.item(), 3)));
+            HeldGoods.Pending attente = HeldGoods.get(essai.serveur()).pendingFor(j.uuid());
+            helper.assertTrue(pains(attente.items()) == 5 && attente.coins().getOrDefault(Coin.GOLD, 0L) == 3L,
+                    "les cinq pains et les 3 or attendent : " + attente.items() + " " + attente.coins());
+            helper.assertTrue(attentes == 2, "deux lignes en attente : " + attentes);
+            helper.assertTrue(pains(p) == 0 && valeurPortee(j) == 0L, "rien n'est entré dans l'inventaire plein");
+            helper.succeed();
+        }
+    }
+
+    /**
+     * Des pièces qui attendaient un joueur au coffre-fort ne restent pas en attente quand il n'a pas de place : la
+     * livraison les verse au coffre-fort. Les objets, eux, attendent.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_B)
+    public static void uneAttenteDePiecesVaAuCoffreFort(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest j = essai.vide(essai.nom("cs_att_cf"));
+            SafeAccounts coffres = SafeAccounts.get(essai.serveur());
+            coffres.setSafePos(j.uuid(), GlobalPos.of(helper.getLevel().dimension(), helper.absolutePos(COFFRE)));
+            HeldGoods held = HeldGoods.get(essai.serveur());
+            held.addPending(j.uuid(), List.of(new ItemStack(Items.BREAD, 2)), Map.of(Coin.GOLD, 4L));
+            remplir(j.joueur(), 0);
+
+            boolean encore = CommerceDelivery.deliverPending(j.joueur());
+            HeldGoods.Pending attente = held.pendingFor(j.uuid());
+            helper.assertTrue(coffres.count(j.uuid(), Coin.GOLD) == 4L, "les 4 or au coffre-fort : "
+                    + coffres.count(j.uuid(), Coin.GOLD));
+            helper.assertTrue(encore && attente.coins().isEmpty() && pains(attente.items()) == 2,
+                    "seul le pain attend : " + attente.items() + " " + attente.coins());
+            helper.assertTrue(valeurPortee(j) == 0L, "rien n'est entré dans l'inventaire plein");
+            helper.succeed();
+        }
+    }
+
+    /** {@code /eco pending} détaille l'attente joueur par joueur, la plus grosse d'abord. */
+    @GameTest(template = "test/plancher", batch = LOT_B)
+    public static void ecoPendingDetailleParJoueur(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            MinecraftServer serveur = essai.serveur();
+            HeldGoods held = HeldGoods.get(serveur);
+            UUID petit = essai.absent(essai.nom("cs_pen_p"));
+            UUID gros = essai.absent(essai.nom("cs_pen_g"));
+            held.addPending(petit, List.of(new ItemStack(Items.BREAD, 3)), Map.of(Coin.COPPER, 7L));
+            held.addPending(gros, List.of(), Map.of(Coin.GOLD, 900L));
+
+            List<HeldGoods.OwnerPending> lignes = held.pendingByOwner();
+            int iGros = -1;
+            int iPetit = -1;
+            for (int i = 0; i < lignes.size(); i++) {
+                if (lignes.get(i).owner().equals(gros)) {
+                    iGros = i;
+                } else if (lignes.get(i).owner().equals(petit)) {
+                    iPetit = i;
+                }
+            }
+            helper.assertTrue(iGros >= 0 && iPetit > iGros, "le plus gros d'abord : " + lignes);
+            helper.assertTrue(lignes.get(iGros).value() == 90_000L && lignes.get(iPetit).value() == 7L
+                    && lignes.get(iPetit).items() == 3L, "valeur et objets : " + lignes);
+
+            List<Component> sortie = new ArrayList<>();
+            CommandSource capture = new CommandSource() {
+                @Override
+                public void sendSystemMessage(Component message) {
+                    sortie.add(message);
+                }
+
+                @Override
+                public boolean acceptsSuccess() {
+                    return true;
+                }
+
+                @Override
+                public boolean acceptsFailure() {
+                    return true;
+                }
+
+                @Override
+                public boolean shouldInformAdmins() {
+                    return false;
+                }
+            };
+            CommandSourceStack source = serveur.createCommandSourceStack().withSource(capture).withPermission(2);
+            try {
+                int r = serveur.getCommands().getDispatcher().execute("eco pending", source);
+                helper.assertTrue(r == 1, "eco pending : " + r);
+            } catch (com.mojang.brigadier.exceptions.CommandSyntaxException e) {
+                throw new AssertionError("eco pending a échoué : " + e.getMessage());
+            }
+            String texte = sortie.isEmpty() ? "" : sortie.get(0).getString();
+            String titre = Component.translatable("command.oneforallsurvival.eco.pending.title",
+                    CoinMath.format(held.pendingMass())).getString();
+            helper.assertTrue(texte.contains(titre), "titre absent : " + titre + " dans " + texte);
+            if (iGros < dev.oneforallsurvival.economy.EconomyCommands.PENDING_LINES) {
+                String ligne = Component.translatable("command.oneforallsurvival.eco.pending.line",
+                        gros.toString().substring(0, 8), CoinMath.format(90_000L), 0L).getString();
+                helper.assertTrue(texte.contains(ligne), "ligne du joueur absente : " + ligne + " dans " + texte);
+            }
             helper.succeed();
         }
     }

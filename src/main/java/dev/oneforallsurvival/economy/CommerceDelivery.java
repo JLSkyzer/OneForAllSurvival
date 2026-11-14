@@ -17,10 +17,14 @@ import net.minecraftforge.event.server.ServerStartedEvent;
 
 /**
  * La seule porte par où le commerce rend des objets et de l'argent à quelqu'un : dans son inventaire s'il y a de
- * la place, sinon en attente chez le serveur ({@link HeldGoods}), jamais au sol et jamais au néant. Une pièce
- * passe par {@link PlayerCoins#receive}, un objet par {@code Inventory.add} lu avant et après.
+ * la place ; sinon les <b>pièces</b> vont dans son coffre-fort s'il en a un ({@link SafeAccounts}, le compte marche
+ * hors ligne), et seulement ce qui n'a nulle part où aller attend chez le serveur ({@link HeldGoods}) ; jamais au sol
+ * et jamais au néant. Les objets non monétaires (bourses comprises) n'ont pas de coffre-fort : ils attendent. Ainsi
+ * l'attente n'est pas une cachette pour l'argent de qui a un coffre-fort. Une pièce passe par
+ * {@link PlayerCoins#receive}, un objet par {@code Inventory.add} lu avant et après.
  *
- * <p>Rien n'est écrit au registre ici : l'appelant dit de quel transfert il s'agit.
+ * <p>Rien n'est écrit au registre ici : l'appelant dit de quel transfert il s'agit (verser dans son propre
+ * coffre-fort n'en est pas un).
  */
 public final class CommerceDelivery {
 
@@ -42,13 +46,14 @@ public final class CommerceDelivery {
     /**
      * Rend ces piles à leur propriétaire connecté. Les pièces entrent par {@link PlayerCoins#receive}, les objets
      * par {@code Inventory.add} (ce qui est entré se lit dans l'inventaire, jamais dans la pile rendue : en
-     * créatif {@code Inventory.add} vide la pile sans rien placer, voir {@link PlayerCoins#receiveLoose}). Ce qui
-     * n'entre pas va en attente, avec un message.
+     * créatif {@code Inventory.add} vide la pile sans rien placer, voir {@link PlayerCoins#receiveLoose}). Les pièces
+     * qui n'entrent pas vont dans son coffre-fort s'il en a un ; le reste va en attente. Un message dit où.
      *
-     * @return le nombre de piles mises en attente
+     * @return le nombre de lignes mises en attente (une par objet, une par coupure)
      */
     public static int giveBack(ServerPlayer owner, List<ItemStack> stacks) {
         Rest rest = Rest.of(stacks, Map.of());
+        Parked parked = Parked.NONE;
         try {
             // Un mort (ou un mourant) ne reçoit rien : son inventaire va être lâché ou perdu à la réapparition.
             if (owner.isAlive()) {
@@ -57,27 +62,81 @@ public final class CommerceDelivery {
         } finally {
             // Même si une livraison lève une exception, ce qui n'est pas encore entré n'est pas perdu.
             if (!rest.isEmpty()) {
-                HeldGoods.get(owner.server).addPending(owner.getUUID(), rest.items, rest.coins);
-                owner.sendSystemMessage(Component.translatable(MESSAGE + "pending"));
+                parked = park(owner.server, owner.getUUID(), rest);
             }
         }
-        return rest.items.size() + rest.coins.size();
+        if (parked.toSafe()) {
+            owner.sendSystemMessage(Component.translatable(MESSAGE + "safe"));
+        }
+        if (parked.pendingLines() > 0) {
+            owner.sendSystemMessage(Component.translatable(MESSAGE + "pending"));
+        }
+        return parked.pendingLines();
     }
 
-    /** Comme {@link #giveBack(ServerPlayer, List)} ; joueur absent : tout va en attente. */
+    /**
+     * Comme {@link #giveBack(ServerPlayer, List)} ; joueur absent : les pièces vont dans son coffre-fort s'il en a un,
+     * tout le reste en attente.
+     */
     public static int giveBack(MinecraftServer server, UUID owner, List<ItemStack> stacks) {
         ServerPlayer online = server.getPlayerList().getPlayer(owner);
         if (online != null) {
             return giveBack(online, stacks);
         }
-        List<ItemStack> kept = new ArrayList<>();
-        for (ItemStack stack : stacks) {
-            if (!stack.isEmpty()) {
-                kept.add(stack.copy());
+        Rest rest = Rest.of(stacks, Map.of());
+        return rest.isEmpty() ? 0 : park(server, owner, rest).pendingLines();
+    }
+
+    /** Ce que {@link #park} a fait du reste : des pièces au coffre-fort, et combien de lignes en attente. */
+    private record Parked(boolean toSafe, int pendingLines) {
+        static final Parked NONE = new Parked(false, 0);
+    }
+
+    /**
+     * Range ce qui n'a pas pu entrer chez le joueur : ses pièces dans son coffre-fort tant qu'il y en a un et qu'il a
+     * la place, puis tout ce qui reste en attente. {@code rest} est vidé.
+     */
+    private static Parked park(MinecraftServer server, UUID owner, Rest rest) {
+        boolean toSafe = intoSafe(server, owner, rest.coins);
+        int lines = rest.items.size() + rest.coins.size();
+        if (lines > 0) {
+            HeldGoods.get(server).addPending(owner, rest.items, rest.coins);
+        }
+        rest.items.clear();
+        rest.coins.clear();
+        return new Parked(toSafe, lines);
+    }
+
+    /**
+     * Verse dans le coffre-fort de ce joueur, s'il en a un, ce qui y tient de ces pièces, et le retire de
+     * {@code coins}. Le compte du coffre-fort marche hors ligne et chunk déchargé.
+     *
+     * @return vrai si au moins une pièce y est entrée
+     */
+    private static boolean intoSafe(MinecraftServer server, UUID owner, Map<Coin, Long> coins) {
+        if (coins.isEmpty()) {
+            return false;
+        }
+        SafeAccounts safes = SafeAccounts.get(server);
+        if (safes.safePos(owner).isEmpty()) {
+            return false;
+        }
+        boolean any = false;
+        for (Coin coin : new ArrayList<>(coins.keySet())) {
+            long left = coins.get(coin);
+            long fits = Math.min(left, safes.room(owner, coin));
+            if (fits > 0L) {
+                safes.deposit(owner, coin, fits);
+                left -= fits;
+                any = true;
+            }
+            if (left > 0L) {
+                coins.put(coin, left);
+            } else {
+                coins.remove(coin);
             }
         }
-        HeldGoods.get(server).addPending(owner, kept, Map.of());
-        return kept.size();
+        return any;
     }
 
     /**
@@ -180,38 +239,27 @@ public final class CommerceDelivery {
             return worst;
         }
         ServerPlayer online = server.getPlayerList().getPlayer(creditor);
-        SafeAccounts safes = SafeAccounts.get(server);
-        boolean hasSafe = safes.safePos(creditor).isPresent();
-        EnumMap<Coin, Long> pending = new EnumMap<>(Coin.class);
+        EnumMap<Coin, Long> left = new EnumMap<>(Coin.class);
         for (Map.Entry<Coin, Long> part : CoinMath.decompose(amount).entrySet()) {
-            long left = part.getValue();
+            long count = part.getValue();
             if (online != null && online.isAlive()) {
-                left -= PlayerCoins.receive(online, part.getKey(), left);
+                count -= PlayerCoins.receive(online, part.getKey(), count);
             }
-            if (left > 0L && hasSafe) {
-                long fits = Math.min(left, safes.room(creditor, part.getKey()));
-                if (fits > 0L) {
-                    safes.deposit(creditor, part.getKey(), fits);
-                    left -= fits;
-                    worst = later(worst, Destination.SAFE);
-                }
-            }
-            if (left > 0L) {
-                pending.merge(part.getKey(), left, Long::sum);
-                worst = later(worst, Destination.PENDING);
+            if (count > 0L) {
+                left.put(part.getKey(), count);
             }
         }
-        if (!pending.isEmpty()) {
-            HeldGoods.get(server).addPending(creditor, List.of(), pending);
+        if (intoSafe(server, creditor, left)) {
+            worst = Destination.SAFE;
+        }
+        if (!left.isEmpty()) {
+            HeldGoods.get(server).addPending(creditor, List.of(), left);
+            worst = Destination.PENDING;
             if (online != null) {
                 online.sendSystemMessage(Component.translatable(MESSAGE + "pending"));
             }
         }
         return worst;
-    }
-
-    private static Destination later(Destination a, Destination b) {
-        return a.ordinal() >= b.ordinal() ? a : b;
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -241,22 +289,28 @@ public final class CommerceDelivery {
         Rest rest = Rest.of(taken.items(), taken.coins());
         EnumMap<Coin, Long> coinsBefore = new EnumMap<>(rest.coins);
         long itemsBefore = rest.itemCount();
+        boolean delivered = false;
+        Parked parked = Parked.NONE;
         try {
             deliver(player, rest);
+            delivered = !rest.coins.equals(coinsBefore) || rest.itemCount() != itemsBefore;
         } finally {
-            // Retiré de l'attente avant la livraison : ce qui n'est pas entré y revient, exception ou non.
+            // Retiré de l'attente avant la livraison : ce qui n'est pas entré va au coffre-fort (pièces) ou revient en
+            // attente, exception ou non.
             if (!rest.isEmpty()) {
-                held.addPending(player.getUUID(), rest.items, rest.coins);
+                parked = park(player.server, player.getUUID(), rest);
             }
         }
-        boolean progress = !rest.coins.equals(coinsBefore) || rest.itemCount() != itemsBefore;
-        if (progress) {
+        if (delivered) {
             player.sendSystemMessage(Component.translatable(MESSAGE + "delivered"));
         }
-        if (!rest.isEmpty() && (announceLeftovers || progress)) {
+        if (parked.toSafe()) {
+            player.sendSystemMessage(Component.translatable(MESSAGE + "safe"));
+        }
+        if (parked.pendingLines() > 0 && (announceLeftovers || delivered || parked.toSafe())) {
             player.sendSystemMessage(Component.translatable(MESSAGE + "pending"));
         }
-        return !rest.isEmpty();
+        return parked.pendingLines() > 0;
     }
 
     private static long countStacks(List<ItemStack> stacks) {

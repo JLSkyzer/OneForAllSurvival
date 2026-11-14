@@ -26,7 +26,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Les commandes de l'équipe pour l'économie, toutes au niveau de permission 2 :
- * {@code /eco give|take <joueur> <montant> <motif>}, {@code /eco stats}, {@code /eco ledger [page]}.
+ * {@code /eco give|take <joueur> <montant> <motif>}, {@code /eco stats}, {@code /eco pending}, {@code /eco ledger [page]}.
  * Les montants sont des cuivres ; l'affichage passe par {@link CoinMath#format}.
  */
 public final class EconomyCommands {
@@ -59,6 +59,7 @@ public final class EconomyCommands {
                                         .then(Commands.argument("reason", StringArgumentType.greedyString())
                                                 .executes(EconomyCommands::take)))))
                 .then(Commands.literal("stats").executes(EconomyCommands::stats))
+                .then(Commands.literal("pending").executes(EconomyCommands::pending))
                 .then(Commands.literal("ledger")
                         .executes(ctx -> ledger(ctx, 1))
                         .then(Commands.argument("page", IntegerArgumentType.integer(1))
@@ -141,6 +142,36 @@ public final class EconomyCommands {
         return 1;
     }
 
+    /** Lignes au plus de {@code /eco pending} ; au-delà, le nombre des autres. */
+    public static final int PENDING_LINES = 20;
+
+    /**
+     * Le détail de l'attente, joueur par joueur, de la plus grosse valeur à la plus petite : la valeur des pièces et des
+     * bourses, et le nombre d'objets. Une attente qui grossit ou qui stationne se voit ici.
+     */
+    private static int pending(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+        MinecraftServer server = source.getServer();
+        HeldGoods held = HeldGoods.get(server);
+        List<HeldGoods.OwnerPending> lines = held.pendingByOwner();
+        MutableComponent out = Component.translatable("command.oneforallsurvival.eco.pending.title",
+                CoinMath.format(held.pendingMass()));
+        if (lines.isEmpty()) {
+            out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.pending.none"));
+        }
+        for (int i = 0; i < Math.min(PENDING_LINES, lines.size()); i++) {
+            HeldGoods.OwnerPending line = lines.get(i);
+            out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.pending.line",
+                    authorName(server, line.owner()), CoinMath.format(line.value()), line.items()));
+        }
+        if (lines.size() > PENDING_LINES) {
+            out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.pending.more",
+                    lines.size() - PENDING_LINES));
+        }
+        source.sendSuccess(() -> out, false);
+        return 1;
+    }
+
     /** Une page du registre, de la ligne la plus récente à la plus ancienne. */
     private static int ledger(CommandContext<CommandSourceStack> ctx, int page) {
         CommandSourceStack source = ctx.getSource();
@@ -178,8 +209,10 @@ public final class EconomyCommands {
         if (online != null) {
             return online.getName();
         }
-        return Component.literal(server.getProfileCache().get(author).map(GameProfile::getName)
-                .orElse(author.toString().substring(0, 8)));
+        // Le cache des profils peut manquer (serveur de GameTest) : l'identifiant court suffit alors.
+        java.util.Optional<GameProfile> profile = server.getProfileCache() == null ? java.util.Optional.empty()
+                : server.getProfileCache().get(author);
+        return Component.literal(profile.map(GameProfile::getName).orElse(author.toString().substring(0, 8)));
     }
 
     /** Un montant qui peut être négatif (créé moins détruit si des pièces non vues naître ont brûlé). */
