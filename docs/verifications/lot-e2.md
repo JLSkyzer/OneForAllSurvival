@@ -153,7 +153,7 @@ Capture de la liste des joueurs (`runClient -PtabShots=frames-tab`, 17:23 à 17:
 
 ## Passe finale (après la revue finale)
 
-Revue finale : `.superpowers/sdd/2026-11-13-lot-e2-commerce/final-review.md` (1 critique, 2 importants, mineurs). Corrections du 2026-11-14, commits `e9da83d` (mineurs), `ca07b4c` (écriture cohérente), `9d1289d` (coffre-fort avant l'attente).
+Revue finale : le rapport de revue finale (espace de travail local, supprimé à la clôture) (1 critique, 2 importants, mineurs). Corrections du 2026-11-14, commits `e9da83d` (mineurs), `ca07b4c` (écriture cohérente), `9d1289d` (coffre-fort avant l'attente).
 
 ### Écriture cohérente à la déconnexion (critique C1)
 
@@ -209,7 +209,7 @@ Le passage complet du banc n'est pas refait : seule l'économie a changé.
 
 ## Seconde passe (après la relecture de la passe finale)
 
-Relecture : `.superpowers/sdd/2026-11-13-lot-e2-commerce/final-rereview.md` (N1 critique, I1 partiel, mineurs). Cahier : `final-fix2-brief.md` (même dossier). Corrections du 2026-11-14.
+Relecture : le rapport de relecture (espace de travail local, supprimé à la clôture) (N1 critique, I1 partiel, mineurs). Décisions : celles de la seconde passe, résumées ici. Corrections du 2026-11-14.
 
 ### Plus aucune écriture forcée ; la garde vit avec son propriétaire (critique N1)
 
@@ -223,7 +223,7 @@ Maintenant :
 - `HeldGoods` ne garde plus que l'attente (livraisons à des joueurs absents, morts ou pleins). Un ancien fichier qui contiendrait encore des gardes (`escrows`, format de la passe finale) n'est plus relu : le lot E2 n'a encore servi sur aucun monde de partie (hypothèse : seuls les mondes d'essai en ont eu, et leurs échanges sont finis).
 - Un joueur hors ligne n'a pas de garde : son échange est annulé à sa déconnexion par `PlayerLoggedOutEvent`, que Forge publie en tête de `PlayerList.remove`, **avant** l'écriture de son playerdata. Vérifié par `deconnexionRendToutAvantLaSauvegarde` : le playerdata relu du disque après la déconnexion porte les pains dans l'inventaire et aucune garde.
 
-**Limite qui reste, celle de Minecraft** : un **don** entre deux joueurs suivi d'un arrêt brutal avant la sauvegarde de celui qui n'est pas parti. Exemple : A et B concluent un échange, A se déconnecte (son playerdata est écrit, avec ce qu'il a reçu), le serveur s'arrête avant la sauvegarde automatique suivante : le playerdata de B sur le disque est celui d'avant, sa garde y est encore, et B la retrouve à la connexion ; ce que A a reçu de B existe alors deux fois. C'est exactement ce que fait Minecraft quand A jette un objet que B ramasse, puis que B se déconnecte avant un arrêt brutal (l'objet revient chez A par son vieux playerdata). Même chose pour un achat à un étal (le chunk de l'étal et le playerdata de l'acheteur parti) et pour tout conteneur des chunks. Cette fenêtre dure au plus jusqu'à la sauvegarde automatique suivante (5 minutes par défaut) et ne s'ouvre que pour les fichiers d'un joueur qui part, jamais pour ceux des joueurs restés en ligne.
+**Limite qui reste, celle de Minecraft** : un **don** entre deux joueurs suivi d'un arrêt brutal avant la sauvegarde de celui qui n'est pas parti. Exemple : A et B concluent un échange, A se déconnecte (son playerdata est écrit, avec ce qu'il a reçu), le serveur s'arrête avant la sauvegarde automatique suivante : le playerdata de B sur le disque est celui d'avant, sa garde y est encore, et B la retrouve à la connexion ; ce que A a reçu de B existe alors deux fois. C'est exactement ce que fait Minecraft quand A jette un objet que B ramasse, puis que B se déconnecte avant un arrêt brutal (l'objet revient chez A par son vieux playerdata). Même chose pour un achat à un étal (le chunk de l'étal et le playerdata de l'acheteur parti) et pour tout conteneur des chunks. Cette fenêtre dure au plus jusqu'à la sauvegarde automatique suivante (5 minutes par défaut) et ne s'ouvre que pour les fichiers d'un joueur qui part, jamais pour ceux des joueurs restés en ligne. Elle vaut aussi pour les **données de l'économie gardées par le serveur** (comptes des coffres-forts, attente, registre des factures, registre global, trésor), qui ne s'écrivent plus qu'avec le monde : si un joueur fait un retrait de son coffre-fort, reçoit son attente à la connexion ou paie une facture, puis se déconnecte, et que le serveur s'arrête brutalement avant la sauvegarde suivante, son playerdata (écrit à son départ) est plus récent que ces données. Les pièces peuvent alors se trouver deux fois (retrait, attente reçue) ou manquer (versement, facture payée encore due). C'est le prix de « aucune écriture forcée », choisi parce que toute écriture partielle ouvre une fenêtre plus large (voir la passe précédente).
 
 Preuve, vue rouge avant la correction (18:37 à 18:39, « 7 required tests failed ») puis verte :
 
