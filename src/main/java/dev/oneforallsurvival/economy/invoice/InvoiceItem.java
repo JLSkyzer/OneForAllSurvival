@@ -2,7 +2,6 @@ package dev.oneforallsurvival.economy.invoice;
 
 import dev.oneforallsurvival.economy.CoinMath;
 import dev.oneforallsurvival.economy.EconomyRegistry;
-import dev.oneforallsurvival.economy.client.InvoiceScreen;
 import dev.oneforallsurvival.economy.invoice.InvoiceRegistry.Invoice;
 import java.time.DateTimeException;
 import java.time.Instant;
@@ -33,7 +32,7 @@ import net.minecraftforge.fml.DistExecutor;
  * NBT porte {@code Id}, {@code Issuer}, {@code IssuerName}, {@code Debtor}, {@code DebtorName}, {@code Amount},
  * {@code Reason}, {@code IssuedAt} et le fuseau du serveur ({@code Zone}) pour la date affichée.
  *
- * <p>L'utiliser ouvre l'écran qui la montre ({@link InvoiceScreen}) ; rien n'est payé au premier clic. Une fois par
+ * <p>L'utiliser ouvre l'écran qui la montre ({@code economy.client.InvoiceScreen}) ; rien n'est payé au premier clic. Une fois par
  * seconde, dans l'inventaire d'un joueur, une facture que le registre dit réglée devient un reçu. Ce n'est pas de
  * l'argent : elle se jette et se range partout.
  */
@@ -134,7 +133,7 @@ public final class InvoiceItem extends Item {
         if (level.isClientSide) {
             int slot = hand == InteractionHand.MAIN_HAND ? player.getInventory().selected : Inventory.SLOT_OFFHAND;
             ItemStack shown = stack.copy();
-            DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> InvoiceScreen.open(shown, slot));
+            DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> dev.oneforallsurvival.economy.client.InvoiceScreen.open(shown, slot));
         }
         return InteractionResultHolder.sidedSuccess(stack, level.isClientSide);
     }

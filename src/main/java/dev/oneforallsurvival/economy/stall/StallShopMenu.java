@@ -18,7 +18,7 @@ import net.minecraft.world.phys.Vec3;
  * La vitrine d'un étal, ouverte par tous : les offres de vente et de rachat, avec leur disponibilité. Elle ne porte
  * que les 36 cases du joueur (un achat ou un rachat fait bouger son inventaire : le jeu le synchronise ainsi). Aucune
  * case de l'étal n'y est : les modèles et les prix viennent de l'entité du bloc, que le client reçoit déjà (offres
- * publiques) ; la disponibilité, de données de menu calculées par le serveur à chaque tick ({@link #broadcastChanges}).
+ * publiques) ; la disponibilité, de données de menu recalculées par le serveur au tick où l'étal a changé ({@link #broadcastChanges}).
  *
  * <p>Les données : pour chaque case d'offre de vente, le nombre de lots en stock ({@link #saleAvailable}) ; pour
  * chaque case de rachat, un état ({@link #buybackState}). Elles passent par le réseau en entiers courts : bornées à
@@ -53,6 +53,9 @@ public final class StallShopMenu extends AbstractContainerMenu {
     @Nullable
     private final MarketStallBlockEntity stall;
     private final ContainerData data;
+    /** Côté serveur : la révision de l'étal et le nombre de cases d'offre du dernier calcul ({@link #refresh}). */
+    private int seenRevision;
+    private int seenSlots = -1;
 
     /** Côté serveur. */
     public StallShopMenu(int containerId, Inventory inventory, BlockPos pos, MarketStallBlockEntity stall) {
@@ -103,12 +106,21 @@ public final class StallShopMenu extends AbstractContainerMenu {
         return index < 0 || index >= MarketStallBlockEntity.MAX_OFFERS ? BUYBACK_NONE : data.get(BUYBACK_BASE + index);
     }
 
-    /** Recalcule les données de la vitrine (serveur). */
+    /**
+     * Recalcule les données de la vitrine (serveur), seulement si l'étal a changé depuis le dernier calcul (stock,
+     * caisse, offres : {@link MarketStallBlockEntity#revision}) ou le nombre de cases d'offre réglé : une vitrine
+     * ouverte devant un étal immobile ne coûte rien à chaque tick.
+     */
     private void refresh() {
         if (stall == null) {
             return;
         }
         int slots = MarketStallBlockEntity.offerSlots();
+        if (stall.revision() == seenRevision && slots == seenSlots) {
+            return;
+        }
+        seenRevision = stall.revision();
+        seenSlots = slots;
         for (int i = 0; i < MarketStallBlockEntity.MAX_OFFERS; i++) {
             data.set(SALE_BASE + i, i < slots ? Math.min(Short.MAX_VALUE, stall.available(i)) : 0);
             data.set(BUYBACK_BASE + i, i < slots ? stateOf(stall, stall.buybacks().get(i)) : BUYBACK_NONE);

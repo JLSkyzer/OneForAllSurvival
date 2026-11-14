@@ -1,7 +1,6 @@
 package dev.oneforallsurvival.economy.invoice;
 
 import dev.oneforallsurvival.bench.BenchNetwork;
-import dev.oneforallsurvival.economy.client.InvoiceFormScreen;
 import java.util.UUID;
 import java.util.function.Supplier;
 import net.minecraft.network.FriendlyByteBuf;
@@ -37,6 +36,6 @@ public record InvoiceFormPacket(UUID target, String targetName) {
 
     public static void handle(InvoiceFormPacket packet, Supplier<NetworkEvent.Context> context) {
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
-                () -> () -> InvoiceFormScreen.open(packet.target(), packet.targetName()));
+                () -> () -> dev.oneforallsurvival.economy.client.InvoiceFormScreen.open(packet.target(), packet.targetName()));
     }
 }

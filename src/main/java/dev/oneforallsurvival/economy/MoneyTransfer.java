@@ -18,7 +18,9 @@ public enum MoneyTransfer {
     /** Pièces retirées d'une caisse ou d'un compte par l'équipe. */
     STAFF_WITHDRAW,
     /** Facture payée. */
-    INVOICE;
+    INVOICE,
+    /** Pièces versées par l'équipe dans la caisse d'un étal qui n'est pas le sien. */
+    STAFF_DEPOSIT;
 
     /** Genre de la ligne du registre pour un transfert : {@code transfer.trade}. */
     public String kind() {

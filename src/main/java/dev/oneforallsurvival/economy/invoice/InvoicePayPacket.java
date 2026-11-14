@@ -26,11 +26,20 @@ public record InvoicePayPacket(int slot, UUID seen) {
 
     public static void handle(InvoicePayPacket packet, Supplier<NetworkEvent.Context> context) {
         ServerPlayer sender = context.get().getSender();
-        if (sender == null) {
+        if (!connected(sender)) {
             return;
         }
         InvoiceService.PayResult result = InvoiceService.pay(sender, packet.slot(), packet.seen());
         sender.sendSystemMessage(Component.translatable(InvoiceService.MESSAGE + "pay."
                 + result.name().toLowerCase(Locale.ROOT)));
+    }
+
+    /**
+     * Le joueur est toujours en ligne, celui de la liste du serveur (comme pour les autres paquets du commerce) : un
+     * paquet traité après la déconnexion, donc après l'écriture du playerdata, ne fait rien.
+     */
+    static boolean connected(ServerPlayer sender) {
+        return sender != null && sender.connection != null && sender.connection.isAcceptingMessages()
+                && !sender.hasDisconnected() && sender.server.getPlayerList().getPlayer(sender.getUUID()) == sender;
     }
 }

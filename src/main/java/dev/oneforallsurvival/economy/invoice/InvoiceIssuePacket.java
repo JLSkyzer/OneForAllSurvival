@@ -30,7 +30,7 @@ public record InvoiceIssuePacket(UUID target, long amount, String reason) {
 
     public static void handle(InvoiceIssuePacket packet, Supplier<NetworkEvent.Context> context) {
         ServerPlayer sender = context.get().getSender();
-        if (sender == null) {
+        if (!InvoicePayPacket.connected(sender)) {
             return;
         }
         InvoiceService.IssueResult result = InvoiceService.issue(sender, packet.target(), packet.amount(), packet.reason());

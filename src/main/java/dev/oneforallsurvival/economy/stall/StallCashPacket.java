@@ -32,8 +32,9 @@ import org.slf4j.Logger;
  * est {@link CoinActions#apply}, commune avec le coffre-fort et la bourse.
  *
  * <p>Quand la valeur de la caisse change, l'opération est notée au registre de l'étal : {@code CASH_IN} et
- * {@code CASH_OUT} par le propriétaire ; {@code STAFF} (montant signé) par l'équipe sur l'étal d'un autre, dont un
- * retrait est aussi un transfert du registre global ({@link MoneyTransfer#STAFF_WITHDRAW}). Casser ou regrouper ne
+ * {@code CASH_OUT} par le propriétaire ; {@code STAFF} (montant signé) par l'équipe sur l'étal d'un autre, qui est
+ * aussi un transfert du registre global : {@link MoneyTransfer#STAFF_WITHDRAW} pour un retrait,
+ * {@link MoneyTransfer#STAFF_DEPOSIT} pour un dépôt. Casser ou regrouper ne
  * change pas la valeur : rien n'est noté.
  */
 public record StallCashPacket(BlockPos pos, CoinRequest request) {
@@ -137,10 +138,15 @@ public record StallCashPacket(BlockPos pos, CoinRequest request) {
         stall.ledger().add(new Line(now, player.getUUID(), name, Kind.STAFF, "", 0, delta));
         LOGGER.info("Economie : {} a agi sur la caisse de l'etal de {} en {} ({} cuivres)", name, owner, stall.getBlockPos(),
                 delta);
+        // L'argent passe d'une personne à une autre : un transfert dans les deux sens.
+        String whose = (!stall.ownerName().isEmpty() ? stall.ownerName() : owner != null ? owner.toString() : "sans proprietaire")
+                + " en " + stall.getBlockPos().toShortString();
         if (delta < 0L) {
             EconomyLedger.get(player.server).transferred(MoneyTransfer.STAFF_WITHDRAW, -delta, player.getUUID(),
-                    "retrait de l'equipe dans la caisse de l'etal de " + (!stall.ownerName().isEmpty() ? stall.ownerName() : owner != null ? owner.toString() : "sans proprietaire")
-                            + " en " + stall.getBlockPos().toShortString());
+                    "retrait de l'equipe dans la caisse de l'etal de " + whose);
+        } else {
+            EconomyLedger.get(player.server).transferred(MoneyTransfer.STAFF_DEPOSIT, delta, player.getUUID(),
+                    "depot de l'equipe dans la caisse de l'etal de " + whose);
         }
         stall.setChanged();
     }

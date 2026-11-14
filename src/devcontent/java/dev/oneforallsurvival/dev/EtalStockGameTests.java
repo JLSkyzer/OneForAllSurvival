@@ -1254,6 +1254,44 @@ public final class EtalStockGameTests {
         }
     }
 
+    /**
+     * L'équipe verse des pièces dans la caisse de l'étal d'un autre : l'argent passe d'une personne à une autre, c'est
+     * un transfert du registre global ({@link MoneyTransfer#STAFF_DEPOSIT}), signé dans le registre de l'étal. Le
+     * propriétaire qui garnit sa propre caisse n'en fait pas un.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void leDepotDeLEquipeEstUnTransfert(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest proprio = essai.joueur("etal_dep_proprio");
+            JoueurDeTest chef = essai.equipe("etal_dep_chef");
+            EconomyLedger global = EconomyLedger.get(essai.serveur());
+            poserEtVerifier(helper, proprio, A);
+            MarketStallBlockEntity be = entite(helper, A);
+            BlockPos abs = helper.absolutePos(A);
+            long depots = global.totalTransferred(MoneyTransfer.STAFF_DEPOSIT);
+            long circulation = global.inCirculation();
+
+            donner(proprio, Coin.GOLD, 2);
+            ouvrirCaisse(helper, proprio, A);
+            helper.assertTrue(agir(proprio, StallCashPacket.depositAll(abs)) == Result.DONE, "dépôt du propriétaire");
+            helper.assertTrue(global.totalTransferred(MoneyTransfer.STAFF_DEPOSIT) == depots,
+                    "le propriétaire qui garnit sa caisse ne fait pas un transfert de l'équipe");
+            proprio.joueur().closeContainer();
+
+            donner(chef, Coin.GOLD, 3);
+            ouvrirCaisse(helper, chef, A);
+            helper.assertTrue(agir(chef, StallCashPacket.depositAll(abs)) == Result.DONE, "dépôt de l'équipe");
+            helper.assertTrue(be.cashValue() == 500L, "caisse : " + be.cashValue());
+            helper.assertTrue(global.totalTransferred(MoneyTransfer.STAFF_DEPOSIT) - depots == 300L,
+                    "le dépôt de l'équipe est un transfert de 300 : "
+                            + (global.totalTransferred(MoneyTransfer.STAFF_DEPOSIT) - depots));
+            helper.assertTrue(global.inCirculation() == circulation, "aucune pièce créée ni détruite");
+            StallLedger.Line ligne = be.ledger().page(0).get(0);
+            verifierLigne(helper, ligne, Kind.STAFF, chef.uuid(), "", 0, 300L);
+            helper.succeed();
+        }
+    }
+
     /** L'entonnoir de Create contre le bloc au sud de lui, tourné vers {@code face}, en extraction. */
     private static BlockState entonnoirVers(Block funnel, Direction face) {
         BlockState etat = funnel.defaultBlockState();

@@ -72,6 +72,7 @@ public final class MarketStallBlockEntity extends BlockEntity {
     private final long[] cash = new long[Coin.values().length];
     private final StallLedger ledger = new StallLedger();
     private int version;
+    private int revision;
     private final StallOffer[] offers = new StallOffer[MAX_OFFERS];
     private final StallBuyback[] buybacks = new StallBuyback[MAX_OFFERS];
     private LazyOptional<IItemHandler> items = LazyOptional.of(stock::insertOnly);
@@ -113,6 +114,21 @@ public final class MarketStallBlockEntity extends BlockEntity {
     /** Le compteur des écritures d'offre ; 0 à la pose. Une vente ou un rachat ne le change pas. */
     public int version() {
         return version;
+    }
+
+    /**
+     * Compte chaque changement de l'étal (tout passe par {@link #setChanged}, sans quoi il ne serait pas sauvegardé) :
+     * stock, caisse, offres, rachats. Une vitrine ouverte ne recalcule ses données que s'il a bougé. En mémoire
+     * seulement.
+     */
+    public int revision() {
+        return revision;
+    }
+
+    @Override
+    public void setChanged() {
+        revision++;
+        super.setChanged();
     }
 
     /** À appeler à chaque changement d'offre : un affichage vu avant n'est plus valable. */
