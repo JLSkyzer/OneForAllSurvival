@@ -1555,11 +1555,13 @@ public final class DemoVisuels {
         recuMain = dev.oneforallsurvival.economy.Receipt.forInvoice(payee,
                 dev.oneforallsurvival.economy.invoice.InvoiceRegistry.Status.SETTLED_BY_HAND);
         recuFerme = dev.oneforallsurvival.economy.Receipt.forClosedInvoice(factureDue);
-        List<ItemStack> donne = List.of(nomme(new ItemStack(Items.DIAMOND_SWORD), "Excalibur"), new ItemStack(Items.BREAD, 64),
-                bourse.copy(), new ItemStack(Coin.GOLD.item(), 20), new ItemStack(Coin.EMERALD.item(), 9));
-        List<ItemStack> recu = List.of(new ItemStack(Coin.RUBY.item(), 3), bourseB.copy(),
-                new ItemStack(Items.ENCHANTED_GOLDEN_APPLE, 3), new ItemStack(Items.IRON_INGOT, 64),
-                new ItemStack(Coin.SILVER.item(), 33));
+        // Un échange plein : douze piles de chaque côté, dont deux bourses pleines.
+        List<ItemStack> donne = new ArrayList<>();
+        List<ItemStack> recu = new ArrayList<>();
+        for (int i = 0; i < 12; i++) {
+            donne.add(i == 2 || i == 9 ? bourse.copy() : nomme(new ItemStack(Items.DIAMOND_SWORD), "Excalibur " + i));
+            recu.add(i == 4 || i == 7 ? bourseB.copy() : new ItemStack(Coin.GOLD.item(), 20 + i));
+        }
         recuEchange = dev.oneforallsurvival.economy.Receipt.forTrade(a, b, donne, recu, maintenant);
         echangePret = true;
     }

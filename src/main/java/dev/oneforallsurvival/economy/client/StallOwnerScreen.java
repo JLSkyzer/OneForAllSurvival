@@ -85,7 +85,7 @@ public final class StallOwnerScreen extends AbstractContainerScreen<StallOwnerMe
     // Vue Registre.
     static final int LEDGER_NAV_Y = 36;
     static final int LEDGER_Y = 52;
-    static final int LINE_H = 8;
+    static final int LINE_H = 16;
     static final int LEDGER_ROWS = (HEIGHT - PAD - LEDGER_Y) / LINE_H;
     static final int SCROLL_W = 5;
     /** Échelle de toute une ligne du registre : l'heure, le texte et le montant ensemble. */
@@ -599,29 +599,33 @@ public final class StallOwnerScreen extends AbstractContainerScreen<StallOwnerMe
     }
 
     /**
-     * Une ligne, toute à l'échelle {@link #LINE_SCALE} : l'heure (atténuée), qui, quoi ; le montant en pièces à droite,
-     * à la même échelle (rétréci encore s'il dépasse la moitié de la ligne). Tout tient dans {@code width}.
+     * Une entrée sur deux lignes, toutes à la même échelle {@link #LINE_SCALE} : en haut le genre d'opération (jamais
+     * tronqué), puis le nombre et l'objet (tronqués en premier, s'il le faut), le montant en pièces à droite ; en
+     * dessous l'heure (atténuée) et l'acteur.
      */
     private void drawLine(GuiGraphics g, StallLedger.Line line, int x, int y, int width) {
-        String time = TIME.format(Instant.ofEpochMilli(line.epochMillis()));
-        int timeW = Math.round(font.width(time) * LINE_SCALE);
-        drawScaled(g, time, x, y + 1, LINE_SCALE, BenchTheme.TEXT_DIM);
         int priceW = 0;
         if (line.amount() != 0L) {
             int natural = PriceLabel.width(font, Math.abs(line.amount()));
-            int max = Math.min(Math.round(natural * LINE_SCALE), width / 2);
+            int max = Math.min(Math.round(natural * LINE_SCALE), width * 3 / 5);
             priceW = PriceLabel.draw(g, font, Math.abs(line.amount()), x + width - max, y + 1, max,
                     line.amount() < 0L || line.kind() == StallLedger.Kind.CASH_OUT ? BenchTheme.TEXT_BAD : BenchTheme.TEXT_OK);
         }
-        StringBuilder text = new StringBuilder(line.actorName()).append(' ')
-                .append(Component.translatable(GUI + "ledger.kind." + line.kind().name().toLowerCase(Locale.ROOT)).getString());
+        String kind = Component.translatable(GUI + "ledger.kind." + line.kind().name().toLowerCase(Locale.ROOT)).getString();
+        drawScaled(g, kind, x, y + 1, LINE_SCALE, BenchTheme.TEXT);
         if (!line.itemId().isEmpty()) {
-            text.append(' ').append(line.kind() == StallLedger.Kind.STAFF && line.count() > 0 ? "+" : "").append(line.count())
-                    .append(" x ").append(itemName(line.itemId()));
+            String what = (line.kind() == StallLedger.Kind.STAFF && line.count() > 0 ? "+" : "") + line.count() + " x "
+                    + itemName(line.itemId());
+            int kindW = Math.round(font.width(kind + " ") * LINE_SCALE);
+            int room = Math.max(8, width - kindW - priceW - 4);
+            drawScaled(g, BenchTheme.ellipsize(font, what, Math.round(room / LINE_SCALE)), x + kindW, y + 1, LINE_SCALE,
+                    BenchTheme.TEXT);
         }
-        int textX = x + timeW + 4;
-        StallShopScreen.drawFitted(g, font, text.toString(), textX, y + 1, Math.max(8, width - (textX - x) - priceW - 4),
-                BenchTheme.TEXT, LINE_SCALE);
+        String time = TIME.format(Instant.ofEpochMilli(line.epochMillis()));
+        int timeW = Math.round(font.width(time + " ") * LINE_SCALE);
+        drawScaled(g, time, x, y + LINE_H / 2 + 1, LINE_SCALE, BenchTheme.TEXT_DIM);
+        drawScaled(g, BenchTheme.ellipsize(font, line.actorName(), Math.round((width - timeW) / LINE_SCALE)), x + timeW,
+                y + LINE_H / 2 + 1, LINE_SCALE, BenchTheme.TEXT_DIM);
     }
 
     private void drawScaled(GuiGraphics g, String text, int x, int y, float scale, int color) {

@@ -5,8 +5,10 @@ import dev.oneforallsurvival.economy.CoinRequest;
 import dev.oneforallsurvival.economy.stall.StallCashMenu;
 import dev.oneforallsurvival.economy.stall.StallCashPacket;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.Tooltip;
+import dev.oneforallsurvival.bench.client.BenchTheme;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
@@ -20,17 +22,39 @@ public final class StallCashScreen extends CoinAccountScreen<StallCashMenu> {
         super(menu, inventory, title);
     }
 
+    private int backX() {
+        return leftPos + PANEL_X + 8;
+    }
+
+    private int backY() {
+        return topPos + PANEL_H + 8;
+    }
+
+    private static final int BACK_W = PANEL_W - 16;
+    private static final int BACK_H = 16;
+
+    /** Le bouton de retour au stock, au thème des autres boutons du commerce. */
     @Override
-    protected void init() {
-        super.init();
-        addRenderableWidget(Button.builder(Component.translatable("gui.oneforallsurvival.stall.cash.back"), button -> {
-                    if (Minecraft.getInstance().gameMode != null) {
-                        Minecraft.getInstance().gameMode.handleInventoryButtonClick(menu.containerId, StallCashMenu.BUTTON_STOCK);
-                    }
-                })
-                .bounds(leftPos + PANEL_X + 8, topPos + PANEL_H + 8, PANEL_W - 16, 20)
-                .tooltip(Tooltip.create(Component.translatable("gui.oneforallsurvival.stall.cash.back.tooltip")))
-                .build());
+    public void render(GuiGraphics g, int mx, int my, float partialTick) {
+        super.render(g, mx, my, partialTick);
+        boolean hover = BenchTheme.inside(mx, my, backX(), backY(), BACK_W, BACK_H);
+        StallShopScreen.fittedButton(g, font, backX(), backY(), BACK_W, BACK_H,
+                Component.translatable("gui.oneforallsurvival.stall.cash.back").getString(), hover, true, false);
+        if (hover) {
+            g.renderTooltip(font, Component.translatable("gui.oneforallsurvival.stall.cash.back.tooltip"), mx, my);
+        }
+    }
+
+    @Override
+    public boolean mouseClicked(double mx, double my, int button) {
+        if (button == 0 && BenchTheme.inside(mx, my, backX(), backY(), BACK_W, BACK_H)) {
+            Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+            if (Minecraft.getInstance().gameMode != null) {
+                Minecraft.getInstance().gameMode.handleInventoryButtonClick(menu.containerId, StallCashMenu.BUTTON_STOCK);
+            }
+            return true;
+        }
+        return super.mouseClicked(mx, my, button);
     }
 
     @Override

@@ -37,7 +37,8 @@ public final class Receipt {
      */
     public static final String KIND_INVOICE_CLOSED = "invoice_closed";
     /** Lignes affichées au plus dans l'infobulle ; au-delà, « … et N autres ». */
-    public static final int MAX_LINES = 24;
+    /** Lignes montrées dans l'infobulle, par côté (donné, reçu) : le reste se compte (« … et N autres »). */
+    public static final int MAX_LINES = 2;
 
     private static final String TOOLTIP = "tooltip.oneforallsurvival.receipt.";
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
@@ -160,7 +161,7 @@ public final class Receipt {
         return out;
     }
 
-    /** L'infobulle : genre, date, autre partie, puis les lignes données et reçues (au plus {@value #MAX_LINES}). */
+    /** L'infobulle : genre, date, autre partie, puis les lignes données et reçues (au plus {@value #MAX_LINES} par côté). */
     public static List<Component> tooltip(ItemStack stack) {
         List<Component> out = new ArrayList<>();
         CompoundTag data = data(stack);
@@ -188,7 +189,6 @@ public final class Receipt {
         String date = DATE.format(Instant.ofEpochMilli(when(stack)).atZone(ZoneId.systemDefault()));
         out.add(Component.translatable(TOOLTIP + "date", date).withStyle(ChatFormatting.GRAY));
         out.add(Component.translatable(TOOLTIP + "other", other(stack)).withStyle(ChatFormatting.GRAY));
-        int shown = 0;
         int hidden = 0;
         for (String part : List.of("given", "received")) {
             List<Line> lines = part.equals("given") ? given(stack) : received(stack);
@@ -196,6 +196,7 @@ public final class Receipt {
             if (lines.isEmpty()) {
                 out.add(Component.translatable(TOOLTIP + "nothing").withStyle(ChatFormatting.DARK_GRAY));
             }
+            int shown = 0;
             for (Line line : lines) {
                 if (shown >= MAX_LINES) {
                     hidden++;
