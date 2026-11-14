@@ -88,7 +88,7 @@
       "flow": ["Pièce", "Coffre ou sac", "Refusée"],
       "staff": [
         "Écrans permis et interdits : oneforallsurvival-economy.toml (listes d'identifiants de types d'écran).",
-        "Les rangements des lots suivants (étal, trésor, poste) s'ajouteront à la liste.",
+        "Depuis le lot E2 : la fenêtre d'échange, la vitrine et la caisse de l'étal sont permises, le stock de l'étal refuse l'argent ; le trésor et la poste s'ajouteront avec leurs lots.",
         "Un mod de stockage qui surcharge la case sans appeler Minecraft ni Forge peut contourner : seul le balayage le rattrape.",
         "Signaler toute pièce trouvée dans un stockage interdit."
       ]
@@ -208,7 +208,7 @@
       "staff": [
         "Se perd ou se vole comme tout objet.",
         "Pleine, elle ne va pas dans un stockage interdit.",
-        "Elle offre au code le paiement avec rendu de monnaie, utilisé à partir du lot E2 : aucun paiement n'existe encore."
+        "Les paiements la vident en premier (achat à l'étal, facture, boutons « +1 » et « +10 » de l'échange), et la monnaie rendue y entre d'abord."
       ]
     },
     {
@@ -216,19 +216,34 @@
       "num": 70,
       "name": "Paiement de main à main",
       "kind": "systeme",
-      "status": "prevu",
+      "status": "dispo",
       "lot": "Lot E2",
-      "image": null,
-      "what": "Fenêtre d'échange entre deux joueurs proches, validée par les deux.",
+      "image": {
+        "type": "item",
+        "file": "receipt.png"
+      },
+      "what": "Fenêtre d'échange entre deux joueurs proches, validée par les deux ; un reçu pour chacun sur demande.",
       "who": {"utilise": "Deux joueurs proches"},
       "steps": [
-        "Ouvrir l'échange, chacun pose objets et pièces.",
-        "Les deux confirment l'état final.",
-        "Un reçu est remis sur demande."
+        "Proposer : /trade <joueur>, ou accroupi, main vide, clic droit sur le joueur. L'autre clique [Accepter] ou [Refuser] dans le message, tape /trade accept <joueur>, ou fait le même geste en retour.",
+        "Chacun pose ses objets dans les 12 cases de sa moitié ; les boutons « +1 » et « +10 » du panneau « Pièces » versent des pièces prises dans ses bourses d'abord, puis dans l'inventaire.",
+        "Cocher « Reçu » si l'on en veut un, puis « Confirmer ». Tout changement (une case, le reçu) fait tomber les deux confirmations : on confirme l'état final.",
+        "Après les deux confirmations, tout passe d'un coup ; il est refusé si l'un des deux n'a pas la place pour ce qu'il reçoit.",
+        "Fermer la fenêtre, s'éloigner, se déconnecter ou mourir annule : chacun récupère ce qu'il avait posé, rien ne tombe au sol."
       ],
       "flow": ["Joueur A", "Échange confirmé", "Joueur B"],
+      "numbers": [
+        {"k": "Distance", "v": "5 blocs"},
+        {"k": "Demande valable", "v": "30 secondes"},
+        {"k": "Cases par joueur", "v": "12"},
+        {"k": "Échanges à la fois", "v": "1 par joueur"}
+      ],
       "staff": [
-        "Test d'abus prévu : duplication par déconnexion pendant l'échange."
+        "Distance et durée de la demande : tradeMaxDistance et tradeRequestSeconds (oneforallsurvival-economy.toml).",
+        "Ce qui est posé est gardé par le serveur (sauvegardé avec le monde, écrit sur le disque à chaque déconnexion) ; après un arrêt brutal, ce qui était en garde revient à son propriétaire.",
+        "À la mort, ce qui était posé va en attente et revient à la réapparition, au lieu de tomber au sol avec le reste.",
+        "Ce qui revient à un joueur absent ou sans place va en attente : livré à sa connexion, puis toutes les 30 secondes ; visible dans /eco stats, ligne « en attente ».",
+        "Les pièces échangées sont un transfert au registre (/eco ledger) : ni créées ni détruites."
       ]
     },
     {
@@ -236,24 +251,39 @@
       "num": 71,
       "name": "Étal de marché",
       "kind": "bloc",
-      "status": "prevu",
+      "status": "dispo",
       "lot": "Lot E2",
-      "image": null,
-      "what": "Vend et rachète en l'absence du propriétaire ; une taxe va au trésor.",
-      "who": {"fabrique": "Tous", "pose": "Propriétaire", "utilise": "Acheteurs", "casse": "Propriétaire, staff"},
+      "image": {
+        "type": "block",
+        "top": "stall_top.png",
+        "side": "stall_wood.png",
+        "front": "stall_awning.png"
+      },
+      "what": "Vend et rachète en l'absence du propriétaire ; une taxe réglable va au trésor.",
+      "who": {"fabrique": "Tous", "pose": "Propriétaire", "utilise": "Acheteurs", "casse": "Propriétaire (vide), équipe (vide)"},
       "steps": [
-        "Garnir l'étal et fixer un prix par lot.",
-        "L'acheteur paie et reçoit son lot.",
-        "Racheter : prix et quantité, payés sur les recettes."
+        "Fabriquer sur la table : 3 laines en haut, 2 bâtons, 3 planches en bas. Celui qui le pose en est le propriétaire.",
+        "Clic droit du propriétaire : la gestion. Onglet Stock : y ranger la marchandise. Onglet Offres : choisir une case, prendre l'objet sur le curseur, taper le lot et le prix (en cuivres ; pour un rachat, le nombre de lots), « Définir ». L'objet reste au joueur.",
+        "Onglet Caisse : déposer ou retirer des pièces (même écran que le coffre-fort). Onglet Registre : ventes, rachats, retraits et dépôts.",
+        "Clic droit d'un autre joueur (ou du propriétaire accroupi) : la vitrine. « Acheter » paie avec les pièces de l'inventaire et des bourses, monnaie rendue ; « Vendre » est payé par la caisse.",
+        "Les trois premières offres de vente sont posées sur le comptoir."
       ],
       "flow": ["Acheteur", "Caisse de l'étal", "Taxe au trésor"],
       "numbers": [
         {"k": "Taxe sur les ventes", "v": "0 % au départ"},
-        {"k": "Étals par joueur", "v": "sans limite"}
+        {"k": "Étals par joueur", "v": "sans limite"},
+        {"k": "Offres", "v": "9 ventes et 9 rachats"},
+        {"k": "Stock", "v": "27 cases"},
+        {"k": "Registre", "v": "200 lignes par étal"}
       ],
       "staff": [
-        "Les entonnoirs peuvent garnir l'étal, pas le vider.",
-        "Crochetage lent : caisse et marchandise volées, trace au registre."
+        "Taxe : salesTaxPercent (0 à 100 %, arrondie vers le bas, jamais sur un rachat) ; elle va au compte du trésor gardé par le serveur, que le lot E3 rattachera au bloc du trésor.",
+        "Seuls le propriétaire et l'équipe retirent marchandise et recettes. L'équipe qui retire de la caisse d'un autre est notée au registre global ; un dépôt de l'équipe dans l'étal d'un autre n'est noté qu'au registre de l'étal.",
+        "Il ne se casse que vide, par le propriétaire ou l'équipe ; il résiste aux explosions, au Wither, au dragon et aux pistons.",
+        "Les entonnoirs et automatismes peuvent garnir le stock, jamais le vider ni toucher la caisse ; l'argent est refusé au stock.",
+        "Un achat est refusé si le prix, le lot ou l'objet ont changé depuis l'affichage (la vitrine envoie la version vue).",
+        "Le modèle d'une offre pèse au plus 8 Kio, les modèles d'un étal 32 Kio en tout ; une pièce ou une bourse pleine ne servent pas de modèle.",
+        "Crochetage par le policier : arrivera avec son lot, rien n'est codé (point d'extension prévu)."
       ]
     },
     {
@@ -261,19 +291,35 @@
       "num": 72,
       "name": "Facture",
       "kind": "objet",
-      "status": "prevu",
+      "status": "dispo",
       "lot": "Lot E2",
-      "image": null,
+      "image": {
+        "type": "item",
+        "file": "invoice.png"
+      },
       "what": "Dette écrite d'un joueur à un autre ; payée, elle devient un reçu.",
-      "who": {"fabrique": "Émetteur ou métier", "utilise": "Le débiteur"},
+      "who": {"fabrique": "Tous (carnet de factures)", "utilise": "Le débiteur"},
       "steps": [
-        "Payer de main à main.",
-        "Ou l'utiliser : les pièces de l'inventaire partent.",
-        "Les factures publiques sont prélevées à minuit."
+        "Fabriquer un carnet de factures sur la table : un livre, une poche d'encre et deux papiers.",
+        "Carnet en main, clic droit sur un joueur proche : un formulaire (montant en cuivres, motif), puis « Émettre ». Le débiteur reçoit la facture : émetteur, débiteur, motif, montant, date, numéro.",
+        "Payer en l'utilisant (débiteur seulement) : clic droit, l'écran de la facture, bouton « Payer ». Les pièces de l'inventaire et des bourses partent, la monnaie est rendue, tout ou rien ; la facture devient un reçu.",
+        "Ou payer de main à main (fenêtre d'échange, pièces données) : l'émetteur la déclare réglée par /invoice settle <numéro> (lien dans /invoice list).",
+        "/invoice list : factures émises et reçues, dues ou réglées."
       ],
       "flow": ["Facture", "Paiement", "Reçu"],
+      "numbers": [
+        {"k": "Montant", "v": "1 à 100 000 000 cuivres"},
+        {"k": "Motif", "v": "80 caractères"},
+        {"k": "Distance du carnet", "v": "5 blocs"},
+        {"k": "Factures dues", "v": "5 par couple, 27 par débiteur"},
+        {"k": "Entre deux émissions", "v": "2 secondes"}
+      ],
       "staff": [
-        "Les métiers produisent leurs factures avec ce même objet."
+        "Les pièces vont à l'émetteur : son inventaire s'il est là et a la place, sinon son coffre-fort, sinon en attente jusqu'à sa connexion, où il est prévenu du paiement.",
+        "Le registre des factures du serveur fait foi : une copie, un clone créatif ou une facture déjà réglée ne se paie pas ; une facture réglée devient un reçu dans l'inventaire.",
+        "Bornes réglables : invoiceMaxAmount, invoiceReasonMax, invoiceMaxDistance, invoiceMaxDuePerPair, invoiceMaxDuePerDebtor, invoiceIssueCooldownTicks ; factures réglées oubliées après 90 jours (invoiceKeepDays).",
+        "Aucune facture entre joueurs n'est prélevée à distance ; le prélèvement des factures publiques arrive avec le lot E6. Le débiteur peut jeter la facture.",
+        "Les métiers produiront leurs factures avec ce même objet."
       ]
     },
     {
@@ -480,11 +526,11 @@
       "who": {"utilise": "Staff"},
       "staff": [
         "Masse en circulation : total créé moins total détruit.",
-        "Trésor, salaires, factures et ventes : « pas encore en service » jusqu'aux lots suivants.",
+        "Depuis le lot E2 : un total par genre de transfert (échanges, ventes, taxe, rachats, factures, retraits de l'équipe), le solde du trésor et la masse en attente ; les salaires restent « pas encore en service ».",
         "Inventaires, bourses et étals ne sont pas comptés un à un."
       ],
       "steps": [
-        "/eco stats : créé par source, détruit par cause, masse des coffres-forts, en circulation.",
+        "/eco stats : créé par source, détruit par cause, masse des coffres-forts, en circulation, puis les transferts, le trésor et l'attente.",
         "/eco ledger [page] : dix lignes par page, de la plus récente à la plus ancienne."
       ],
       "numbers": [
