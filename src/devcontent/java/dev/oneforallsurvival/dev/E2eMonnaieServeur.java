@@ -179,6 +179,9 @@ public final class E2eMonnaieServeur {
         long departAvant = registre.totalCreated(MoneySource.STARTING);
         JoueurDeTest premier = JoueurDeTest.rejoindre(monde, AUTRE, debout, false, p -> {});
         ServerPlayer joueur = premier.joueur();
+        // L'entrée relit la position du playerdata (à la relance, celle où l'étape du commerce l'a laissé partir) : il est
+        // ramené devant le coffre-fort, sans quoi les refus lus seraient « trop loin » et non « pas à lui ».
+        joueur.teleportTo(monde, debout.x, debout.y, debout.z, 0f, 0f);
         long departPremiere = registre.totalCreated(MoneySource.STARTING) - departAvant;
         long porte = CoinMath.valueOf(PlayerCoins.held(joueur));
         boolean operateur = joueur.hasPermissions(2);

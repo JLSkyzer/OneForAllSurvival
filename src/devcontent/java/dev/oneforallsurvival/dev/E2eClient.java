@@ -37,7 +37,9 @@ import org.apache.logging.log4j.Logger;
  * client se connecte à {@code -Doneforallsurvival.e2e=<hôte>}, se fait Ingénieur par la vraie commande
  * {@code /role}, pose un établi, l'ouvre par un vrai clic droit, commande un craft court, attend le stock,
  * le retire, joue le métier de réparation ({@link E2eReparation}), les vivres ({@link E2eVivres}) et le réseau
- * ({@link E2eReseau}), la protection du lot 5 ({@link E2eProtection}) et la vie de la ville du lot 6 ({@link E2eVille}), puis arrête le serveur par {@code /stop}.
+ * ({@link E2eReseau}), la protection du lot 5 ({@link E2eProtection}), la vie de la ville du lot 6 ({@link E2eVille}),
+ * l'exploration du lot 7 ({@link E2eExploration}), la monnaie et le commerce ({@link E2eMonnaie}, {@link E2eCommerce}),
+ * puis arrête le serveur par {@code /stop}.
  * Avec {@code -Doneforallsurvival.e2e.relance}, après une vraie relance du serveur, il relit ce que la première
  * phase a laissé. Chaque contrôle écrit une ligne {@code PASS} ou {@code FAIL} dans le journal ; le client
  * quitte à la fin.
@@ -61,7 +63,7 @@ public final class E2eClient {
     private static final double DIAGNOSTIC_CONNEXION_S = 17;
 
     private enum Phase { TITRE, CONNEXION, CATALOGUE, PROVISIONS, POSER, OUVRIR, COMMANDER, STOCK, OUVRIR_STOCK, PRENDRE,
-        REPARATION, VIVRES, RESEAU, PROTECTION, VILLE, EXPLORATION, MONNAIE, LAMPE_ARRET, LAMPE_RELANCE, ARRET, FIN,
+        REPARATION, VIVRES, RESEAU, PROTECTION, VILLE, EXPLORATION, MONNAIE, COMMERCE, LAMPE_ARRET, LAMPE_RELANCE, ARRET, FIN,
         DEPART, DEPART_SORTIE, DEPART_RETOUR }
 
     private static Phase phase = Phase.TITRE;
@@ -130,6 +132,7 @@ public final class E2eClient {
             case VILLE -> E2eVille.legende();
             case EXPLORATION -> E2eExploration.legende();
             case MONNAIE -> E2eMonnaie.legende();
+            case COMMERCE -> E2eCommerce.legende();
             case DEPART -> "Somme de départ : 500 cuivres à la première connexion, rien de plus après la reconnexion";
             case DEPART_SORTIE, DEPART_RETOUR -> "Le client se déconnecte puis se reconnecte au serveur dédié";
             case LAMPE_ARRET -> "La lampe est portée au moment de l'arrêt du serveur";
@@ -191,6 +194,7 @@ public final class E2eClient {
             E2eReseau.recevoir(event.getMessage());
             E2eProtection.recevoir(event.getMessage());
             E2eVille.recevoir(event.getMessage());
+            E2eCommerce.recevoir(event.getMessage());
         }
     }
 
@@ -269,7 +273,7 @@ public final class E2eClient {
         // La réparation a ses propres délais, pas par pas.
         if (phase != Phase.TITRE && phase != Phase.FIN && phase != Phase.ARRET && phase != Phase.REPARATION && phase != Phase.VIVRES
                 && phase != Phase.RESEAU && phase != Phase.PROTECTION && phase != Phase.VILLE && phase != Phase.EXPLORATION
-                && phase != Phase.MONNAIE && phase != Phase.DEPART_RETOUR && secondes() > 180) {
+                && phase != Phase.MONNAIE && phase != Phase.COMMERCE && phase != Phase.DEPART_RETOUR && secondes() > 180) {
             fail("delai depasse en phase " + phase);
         }
     }
@@ -345,13 +349,15 @@ public final class E2eClient {
                         return;
                     }
                     if (SEULE_MONNAIE) {
-                        // Essai de mise au point de l'étape du lot E1 seule (variable d'environnement E2E_MONNAIE_SEULE).
+                        // Les étapes de l'économie seules (variable d'environnement E2E_MONNAIE_SEULE) : E1 puis E2 au premier
+                        // passage ; à la relance, E2 d'abord (voir la phase COMMERCE), puis E1.
                         if (RELANCE) {
-                            E2eMonnaie.relance();
+                            E2eCommerce.relance();
+                            passer(Phase.COMMERCE);
                         } else {
                             E2eMonnaie.premierePhase();
+                            passer(Phase.MONNAIE);
                         }
-                        passer(Phase.MONNAIE);
                     } else if (SEULE_EXPLORATION) {
                         // Essai de mise au point de l'étape du lot 7 seule (variable d'environnement E2E_EXPLORATION_SEULE).
                         if (RELANCE) {
@@ -715,8 +721,8 @@ public final class E2eClient {
             case EXPLORATION -> {
                 if (E2eExploration.avancer(mc) && phase == Phase.EXPLORATION) {
                     if (RELANCE) {
-                        E2eMonnaie.relance();
-                        passer(Phase.MONNAIE);
+                        E2eCommerce.relance();
+                        passer(Phase.COMMERCE);
                     } else if (SEULE_EXPLORATION) {
                         passer(Phase.LAMPE_ARRET);
                     } else {
@@ -728,9 +734,26 @@ public final class E2eClient {
             }
             case MONNAIE -> {
                 if (E2eMonnaie.avancer(mc) && phase == Phase.MONNAIE) {
-                    if (RELANCE || SEULE_MONNAIE) {
+                    if (RELANCE) {
                         passer(Phase.ARRET);
                     } else {
+                        // Le lot E2 juste après le lot E1, dont il reprend le monde (registre, second joueur).
+                        E2eCommerce.premierePhase();
+                        passer(Phase.COMMERCE);
+                    }
+                }
+            }
+            case COMMERCE -> {
+                if (E2eCommerce.avancer(mc) && phase == Phase.COMMERCE) {
+                    if (RELANCE) {
+                        // À la relance, l'étape du commerce passe avant celle de la monnaie : la première reconnexion du second
+                        // joueur après l'arrêt doit être la sienne, pour lire la livraison de son attente et l'avis de paiement.
+                        E2eMonnaie.relance();
+                        passer(Phase.MONNAIE);
+                    } else if (SEULE_MONNAIE) {
+                        passer(Phase.ARRET);
+                    } else {
+                        // Le lot 5 reste le dernier avant l'arrêt du serveur.
                         E2eProtection.premierePhase();
                         passer(Phase.PROTECTION);
                     }
@@ -763,6 +786,7 @@ public final class E2eClient {
                         // pas opérateur est expulsé « pour spam » dès qu'il envoie une dizaine de commandes d'affilée.
                         E2eVille.rangerAvantArret(mc);
                         E2eMonnaie.rangerAvantArret(mc);
+                        E2eCommerce.rangerAvantArret(mc);
                         E2eExploration.rangerAvantArret(mc);
                         E2eProtection.rangerAvantArret(mc);
                         E2eVivres.rangerAvantArret(mc);

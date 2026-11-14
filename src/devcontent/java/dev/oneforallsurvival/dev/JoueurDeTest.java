@@ -61,6 +61,8 @@ public final class JoueurDeTest {
     private final List<Packet<?>> menus = new ArrayList<>();
     /** Les fragments du catalogue que l'entrée en jeu elle-même a envoyés, avant qu'on ne les oublie. */
     private final List<RecipeListPacket> listesALaConnexion = new ArrayList<>();
+    /** Les clés des messages que l'entrée en jeu elle-même a envoyés (livraison en attente, avis), avant qu'on ne les oublie. */
+    private final List<String> messagesALaConnexion = new ArrayList<>();
 
     private JoueurDeTest(EmbeddedChannel canal, ServerPlayer joueur) {
         this.canal = canal;
@@ -95,6 +97,7 @@ public final class JoueurDeTest {
         simule.lire();
         // L'entrée en jeu a envoyé son lot de paquets : on ne garde que ce qui suit.
         simule.listesALaConnexion.addAll(simule.listes);
+        simule.messagesALaConnexion.addAll(simule.messages);
         simule.listes.clear();
         simule.files.clear();
         simule.ecransAbonne.clear();
@@ -107,6 +110,11 @@ public final class JoueurDeTest {
     /** Les fragments du catalogue reçus pendant l'entrée en jeu (la connexion réelle, pas un rejeu). */
     public List<RecipeListPacket> listesALaConnexion() {
         return List.copyOf(listesALaConnexion);
+    }
+
+    /** Les clés des messages reçus pendant l'entrée en jeu (la connexion réelle, pas un rejeu). */
+    public List<String> messagesALaConnexion() {
+        return List.copyOf(messagesALaConnexion);
     }
 
     public ServerPlayer joueur() {

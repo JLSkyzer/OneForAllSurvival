@@ -1184,6 +1184,36 @@ final class E2eMonnaie {
         return new BlockPos(Integer.parseInt(t[0]), Integer.parseInt(t[1]), Integer.parseInt(t[2]));
     }
 
+    /** Le texte de {@code /eco stats} (lignes séparées par « | ») sans la ligne « en attente ». */
+    static String sansAttente(String stats) {
+        StringBuilder out = new StringBuilder();
+        for (String ligne : stats.split("\\|")) {
+            if (!ligne.trim().startsWith("Pending:")) {
+                out.append(ligne).append('|');
+            }
+        }
+        return out.toString();
+    }
+
+    /**
+     * L'étape du commerce, qui suit celle-ci, change le registre (transferts) et ce que porte le second joueur : elle note
+     * ici l'état d'avant l'arrêt que la relance de cette étape doit relire.
+     */
+    static void noterAvantArret(Minecraft minecraft, String stats, String ledger, long autrePorte) {
+        mc = minecraft;
+        Map<String, String> lu = lireFichier();
+        lu.put("stats", stats);
+        lu.put("ledger", ledger);
+        lu.put("autreporte", Long.toString(autrePorte));
+        List<String> lignes = new ArrayList<>();
+        lu.forEach((k, v) -> lignes.add(k + "=" + v));
+        try {
+            Files.write(fichier(), lignes, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
     static void relance() {
         Map<String, String> lu = new LinkedHashMap<>();
         pasC("Relecture des positions écrites avant l'arrêt", () -> {
@@ -1213,7 +1243,9 @@ final class E2eMonnaie {
                 () -> "ecran " + mc.screen, () -> {
                     String stats = rcon("eco stats").trim().replace('\n', '|');
                     String ledger = rcon("eco ledger").split("\n")[0].trim();
-                    if (!stats.equals(lu.get("stats")) || !ledger.equals(lu.get("ledger"))) {
+                    // La ligne « en attente » est hors de la comparaison : l'étape du commerce, relue juste avant, a fait revenir le
+                    // second joueur, qui a reçu son attente (elle le vérifie elle-même) ; les totaux du registre, eux, ne bougent pas.
+                    if (!sansAttente(stats).equals(sansAttente(lu.get("stats"))) || !ledger.equals(lu.get("ledger"))) {
                         throw new IllegalStateException("stats " + stats + " (avant " + lu.get("stats") + "), registre " + ledger + " (avant " + lu.get("ledger") + ")");
                     }
                     return "relance : totaux du registre identiques a ceux d'avant l'arret : " + stats + " ; " + ledger;
@@ -1222,7 +1254,9 @@ final class E2eMonnaie {
             reponse = rcon("e2emonnaie autre " + xyz(coffreFort()));
         }, () -> reponse.contains("AUTRE_FIN"), () -> "reponse " + reponse, () -> {
             Map<String, String> r = lire(reponse);
-            if (!"0".equals(r.get("depart1")) || !"0".equals(r.get("depart2")) || !("" + AUTRE_PORTE).equals(r.get("porte1"))
+            // Ce qu'il porte : 500 après l'étape de la monnaie seule ; après celle du commerce, la valeur qu'elle a notée.
+            String porteAttendue = lu.getOrDefault("autreporte", "" + AUTRE_PORTE);
+            if (!"0".equals(r.get("depart1")) || !"0".equals(r.get("depart2")) || !porteAttendue.equals(r.get("porte1"))
                     || !"false".equals(r.get("ouvert")) || !"NOT_ALLOWED".equals(r.get("retrait"))) {
                 throw new IllegalStateException(reponse);
             }
