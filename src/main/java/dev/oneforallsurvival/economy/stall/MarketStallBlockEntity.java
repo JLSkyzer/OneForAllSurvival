@@ -441,6 +441,8 @@ public final class MarketStallBlockEntity extends BlockEntity {
         moveMoneyOutOfStock();
         version = Math.max(0, tag.getInt(TAG_VERSION));
         loadOffers(tag);
+        // Rechargé sur place (/data merge block) : une vitrine ouverte doit se recalculer.
+        revision++;
     }
 
     /**

@@ -1126,6 +1126,23 @@ public final class EtalStockGameTests {
     }
 
     /**
+     * Un étal rechargé sur place (un {@code /data merge block}, par exemple) fait avancer sa révision : une vitrine
+     * ouverte se recalcule au lieu de garder l'affichage d'avant.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void unRechargementFaitAvancerLaRevision(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest j = essai.joueur("etal_relu_rev");
+            poserEtVerifier(helper, j, A);
+            MarketStallBlockEntity be = entite(helper, A);
+            int avant = be.revision();
+            be.load(be.saveWithoutMetadata());
+            helper.assertTrue(be.revision() != avant, "la révision devait avancer au rechargement : " + avant);
+            helper.succeed();
+        }
+    }
+
+    /**
      * La forme du bloc est exactement l'union des boîtes de son modèle (celles de {@code market_stall.json}, tournées
      * comme son état d'orientation), pour les quatre orientations ; ce n'est pas le cube plein, le bloc ne couvre
      * donc pas l'œil ({@code noOcclusion}) : un bloc plein posé contre lui garde sa face tournée vers lui.
