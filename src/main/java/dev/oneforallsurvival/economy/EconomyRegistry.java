@@ -5,6 +5,9 @@ import dev.oneforallsurvival.economy.stall.MarketStallBlock;
 import dev.oneforallsurvival.economy.stall.MarketStallBlockEntity;
 import dev.oneforallsurvival.economy.stall.StallCashMenu;
 import dev.oneforallsurvival.economy.stall.StallOwnerMenu;
+import dev.oneforallsurvival.economy.town.TreasuryBlock;
+import dev.oneforallsurvival.economy.town.TreasuryBlockEntity;
+import dev.oneforallsurvival.economy.town.TreasuryMenu;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
@@ -89,6 +92,22 @@ public final class EconomyRegistry {
             MENUS.register("market_stall_shop",
                     () -> IForgeMenuType.create(dev.oneforallsurvival.economy.stall.StallShopMenu::fromNetwork));
 
+    /**
+     * Le trésor de la ville (lot E3) : un seul bloc, posé par l'équipe (onglet créatif, aucune recette). Comme le
+     * coffre-fort : dureté -1, résistance maximale, piston bloqué ; seuls ceux qui peuvent le déplacer le cassent
+     * ({@link TreasuryBlock#getDestroyProgress}). Cube plein (pas de {@code noOcclusion}). Son butin est le seul bloc.
+     */
+    public static final RegistryObject<Block> TREASURY = BLOCKS.register("treasury",
+            () -> new TreasuryBlock(BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_YELLOW)
+                    .strength(-1.0F, 3600000.0F).sound(SoundType.METAL).pushReaction(PushReaction.BLOCK)));
+    public static final RegistryObject<Item> TREASURY_ITEM = ITEMS.register("treasury",
+            () -> new BlockItem(TREASURY.get(), new Item.Properties()));
+    public static final RegistryObject<BlockEntityType<TreasuryBlockEntity>> TREASURY_BE = BLOCK_ENTITIES
+            .register("treasury", () -> BlockEntityType.Builder.of(TreasuryBlockEntity::new, TREASURY.get()).build(null));
+    /** L'écran du trésor : un rangement permis, comme le coffre-fort. */
+    public static final RegistryObject<MenuType<TreasuryMenu>> TREASURY_MENU =
+            MENUS.register("treasury", () -> IForgeMenuType.create(TreasuryMenu::fromNetwork));
+
     /** La bourse : ne s'empile pas, garde les pièces dans son NBT ({@link Purse}). */
     public static final RegistryObject<Item> PURSE = ITEMS.register("purse", () -> new PurseItem(new Item.Properties()));
     public static final RegistryObject<MenuType<PurseMenu>> PURSE_MENU =
@@ -149,6 +168,7 @@ public final class EconomyRegistry {
             MoneyStorageRules.register(TRADE_MENU.get());
             MoneyStorageRules.register(STALL_CASH_MENU.get());
             MoneyStorageRules.register(STALL_SHOP_MENU.get());
+            MoneyStorageRules.register(TREASURY_MENU.get());
             MoneyStorageRules.registerMoneyPredicate(stack -> Purse.isPurse(stack) && Purse.total(stack) > 0L);
         });
     }
@@ -158,6 +178,7 @@ public final class EconomyRegistry {
         List<RegistryObject<? extends Item>> items = new ArrayList<>(COINS.values());
         items.add(SAFE_ITEM);
         items.add(MARKET_STALL_ITEM);
+        items.add(TREASURY_ITEM);
         items.add(PURSE);
         items.add(RECEIPT);
         items.add(INVOICE_BOOK);

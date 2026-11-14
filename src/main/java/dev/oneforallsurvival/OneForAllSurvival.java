@@ -105,6 +105,7 @@ public final class OneForAllSurvival {
         MinecraftForge.EVENT_BUS.addListener(CommerceDelivery::onServerTick);
         MinecraftForge.EVENT_BUS.addListener(SafeBlock::onBreak);
         MinecraftForge.EVENT_BUS.addListener(MarketStallBlock::onBreak);
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.town.TreasuryBlock::onBreak);
         MinecraftForge.EVENT_BUS.addListener(BenchCatalog::onAddReloadListener);
         MinecraftForge.EVENT_BUS.addListener(BenchOverrides::onAddReloadListener);
         MinecraftForge.EVENT_BUS.addListener(BenchCatalog::onTagsUpdated);

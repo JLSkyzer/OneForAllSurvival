@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "oneforallsurvival:block/treasury" },
+    "facing=east": { "model": "oneforallsurvival:block/treasury", "y": 90 },
+    "facing=south": { "model": "oneforallsurvival:block/treasury", "y": 180 },
+    "facing=west": { "model": "oneforallsurvival:block/treasury", "y": 270 }
+  }
+}

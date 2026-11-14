@@ -150,6 +150,11 @@ public abstract class CoinAccountScreen<M extends CoinAccountMenu> extends Abstr
         }
     }
 
+    /** La ligne de bulle du clic droit d'un bouton de ligne (le trésor y ajoute que le motif est demandé). */
+    protected Component withdrawLine(int amount, Component unit) {
+        return Component.translatable(GUI + "right_withdraw", amount, unit);
+    }
+
     /** Tous les éléments de l'écran, à leur place : la même liste sert au rendu et aux clics. */
     protected List<Element> elements() {
         List<Element> out = new ArrayList<>();
@@ -170,7 +175,7 @@ public abstract class CoinAccountScreen<M extends CoinAccountMenu> extends Abstr
                 String withdrawWhy = count >= amount ? null : "not_enough";
                 List<Component> tip = new ArrayList<>();
                 line(tip, Component.translatable(GUI + "left_deposit", amount, unit(coin, amount)), depositWhy);
-                line(tip, Component.translatable(GUI + "right_withdraw", amount, unit(coin, amount)), withdrawWhy);
+                line(tip, withdrawLine(amount, unit(coin, amount)), withdrawWhy);
                 tip.add(where);
                 out.add(new Element("row." + coin.key() + "." + amount, rowButtonX(i, amounts.length),
                         rowY(row) + (ROW_H - ROW_BUTTON_H) / 2, ROW_BUTTON_W, ROW_BUTTON_H, tip,

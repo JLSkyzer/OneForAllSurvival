@@ -189,6 +189,14 @@ public final class TreasuryAccount extends SavedData {
         }
     }
 
+    /**
+     * Lève le drapeau des fonds arrivés pour un apport qui n'est pas passé par {@link #credit} (dépôt à l'écran du
+     * trésor, pièce par pièce par {@link #add}). Non sauvegardé.
+     */
+    public void markFundsArrived() {
+        fundsArrived = true;
+    }
+
     /** Lit et baisse le drapeau des fonds arrivés (la paie le consulte au tick suivant). Non sauvegardé. */
     public boolean takeFundsArrived() {
         boolean arrived = fundsArrived;

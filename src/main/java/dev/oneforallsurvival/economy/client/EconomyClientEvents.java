@@ -9,7 +9,7 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 
-/** Branchements côté client seulement : le rendu de la pièce au sol et les écrans du coffre-fort, de la bourse et de l'échange. */
+/** Branchements côté client seulement : le rendu de la pièce au sol et les écrans du coffre-fort, de la bourse, de l'échange, de l'étal et du trésor. */
 public final class EconomyClientEvents {
 
     private EconomyClientEvents() {}
@@ -33,6 +33,7 @@ public final class EconomyClientEvents {
                 MenuScreens.register(EconomyRegistry.STALL_OWNER_MENU.get(), StallOwnerScreen::new);
                 MenuScreens.register(EconomyRegistry.STALL_CASH_MENU.get(), StallCashScreen::new);
                 MenuScreens.register(EconomyRegistry.STALL_SHOP_MENU.get(), StallShopScreen::new);
+                MenuScreens.register(EconomyRegistry.TREASURY_MENU.get(), TreasuryScreen::new);
             });
         }
     }

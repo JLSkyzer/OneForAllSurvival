@@ -7,6 +7,7 @@ import dev.oneforallsurvival.debug.IslandDebugRequest;
 import dev.oneforallsurvival.debug.IslandDebugResponse;
 import dev.oneforallsurvival.economy.PurseActionPacket;
 import dev.oneforallsurvival.economy.SafeActionPacket;
+import dev.oneforallsurvival.economy.town.TreasuryActionPacket;
 import dev.oneforallsurvival.economy.invoice.InvoiceFormPacket;
 import dev.oneforallsurvival.economy.invoice.InvoiceIssuePacket;
 import dev.oneforallsurvival.economy.invoice.InvoicePayPacket;
@@ -43,8 +44,8 @@ import org.slf4j.Logger;
 public final class BenchNetwork {
 
     public static final ResourceLocation CHANNEL_ID = new ResourceLocation(OneForAllSurvival.MODID, "bench");
-    /** « 6 » depuis la fenêtre d'échange (lot E2, une seule montée pour tout le lot) : un serveur plus ancien ne la lit pas. */
-    private static final String PROTOCOL = "6";
+    /** « 7 » depuis le trésor (lot E3, une seule montée pour tout le lot) : un serveur plus ancien ne le lit pas. */
+    private static final String PROTOCOL = "7";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(CHANNEL_ID, () -> PROTOCOL,
             PROTOCOL::equals, PROTOCOL::equals);
@@ -79,6 +80,8 @@ public final class BenchNetwork {
     public static final int ID_INVOICE_FORM = 17;
     public static final int ID_INVOICE_ISSUE = 18;
     public static final int ID_INVOICE_PAY = 19;
+    /** Lot E3 : une opération sur le trésor (dépôt, dépense motivée, change). */
+    public static final int ID_TREASURY_ACTION = 20;
 
     /** Clé de traduction d'un refus : {@code message.oneforallsurvival.bench.refused.<résultat>}. */
     public static final String REFUSED_KEY = "message.oneforallsurvival.bench.refused.";
@@ -151,6 +154,9 @@ public final class BenchNetwork {
         CHANNEL.messageBuilder(InvoicePayPacket.class, ID_INVOICE_PAY, NetworkDirection.PLAY_TO_SERVER)
                 .encoder(InvoicePayPacket::encode).decoder(InvoicePayPacket::decode)
                 .consumerMainThread(InvoicePayPacket::handle).add();
+        CHANNEL.messageBuilder(TreasuryActionPacket.class, ID_TREASURY_ACTION, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(TreasuryActionPacket::encode).decoder(TreasuryActionPacket::decode)
+                .consumerMainThread(TreasuryActionPacket::handle).add();
     }
 
     // --- Serveur vers client -----------------------------------------------------------------
