@@ -103,8 +103,13 @@ public final class OneForAllSurvival {
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.invoice.InvoiceService::onLoggedOut);
         MinecraftForge.EVENT_BUS.addListener(CommerceDelivery::onRespawn);
         MinecraftForge.EVENT_BUS.addListener(CommerceDelivery::onServerTick);
-        // Temps passé dans un rôle payé : un échantillon par seconde, départ à la connexion, crédit à la déconnexion.
-        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.payroll.RoleTimeTracker::onServerTick);
+        // Temps passé dans un rôle payé : départ à la connexion, crédit à la déconnexion ; l'échantillon de chaque
+        // seconde et la paie de minuit passent par le tick de PayrollService (échantillon, clôture, dettes).
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.payroll.PayrollService::onServerTick);
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.payroll.PayrollService::onServerStarted);
+        // Après la livraison des attentes (CommerceDelivery::onLoggedIn, plus haut) : salaires versés pendant
+        // l'absence, dettes dues au joueur.
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.payroll.PayrollService::onLoggedIn);
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.payroll.RoleTimeTracker::onLoggedInEvent);
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.payroll.RoleTimeTracker::onLoggedOutEvent);
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.payroll.RoleTimeTracker::onServerStopped);

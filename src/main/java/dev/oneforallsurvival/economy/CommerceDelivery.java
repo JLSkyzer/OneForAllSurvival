@@ -291,6 +291,49 @@ public final class CommerceDelivery {
         return worst;
     }
 
+    /**
+     * Verse {@code amount} cuivres à ce joueur (pièces de {@link CoinMath#decompose}) dans l'ordre d'un salaire :
+     * son coffre-fort s'il en a un, dans la limite du plafond (le compte marche hors ligne) ; puis son inventaire s'il
+     * est connecté et vivant ({@link PlayerCoins#receive}) ; le reste en attente. Distinct de {@link #payTo} (factures :
+     * l'inventaire d'abord). Rien n'est écrit au registre et aucun message n'est envoyé : l'appelant le fait.
+     *
+     * @return la destination la plus lointaine du joueur parmi celles qui ont reçu une part ({@link Destination#SAFE}
+     *         si rien n'était à verser)
+     */
+    public static Destination payToSafeFirst(MinecraftServer server, UUID payee, long amount) {
+        if (amount <= 0L) {
+            return Destination.SAFE;
+        }
+        EnumMap<Coin, Long> left = new EnumMap<>(CoinMath.decompose(amount));
+        left.values().removeIf(count -> count <= 0L);
+        Destination worst = null;
+        if (intoSafe(server, payee, left)) {
+            worst = Destination.SAFE;
+        }
+        ServerPlayer online = server.getPlayerList().getPlayer(payee);
+        if (!left.isEmpty() && online != null && online.isAlive()) {
+            boolean any = false;
+            for (Coin coin : new ArrayList<>(left.keySet())) {
+                long count = left.get(coin);
+                long entered = PlayerCoins.receive(online, coin, count);
+                any |= entered > 0L;
+                if (entered >= count) {
+                    left.remove(coin);
+                } else {
+                    left.put(coin, count - entered);
+                }
+            }
+            if (any && worst == null) {
+                worst = Destination.INVENTORY;
+            }
+        }
+        if (!left.isEmpty()) {
+            HeldGoods.get(server).addPending(payee, List.of(), left);
+            worst = Destination.PENDING;
+        }
+        return worst == null ? Destination.SAFE : worst;
+    }
+
     // ---------------------------------------------------------------------------------------------
     // Livrer ce qui attend
     // ---------------------------------------------------------------------------------------------

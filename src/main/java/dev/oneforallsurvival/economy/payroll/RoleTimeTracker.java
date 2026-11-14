@@ -13,7 +13,6 @@ import java.util.Map;
 import java.util.UUID;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.server.ServerStoppedEvent;
 import org.slf4j.Logger;
@@ -138,14 +137,7 @@ public final class RoleTimeTracker {
     // Événements du serveur
     // ---------------------------------------------------------------------------------------------
 
-    /** Branché sur le tick du serveur : un échantillon par seconde, en fin de tick, à {@link EconomyClock#now()}. */
-    public static void onServerTick(TickEvent.ServerTickEvent event) {
-        if (event.phase != TickEvent.Phase.END || event.getServer().getTickCount() % PERIOD_TICKS != 0) {
-            return;
-        }
-        MinecraftServer server = event.getServer();
-        SERVER.sample(server, Payroll.get(server), EconomyClock.now());
-    }
+    // L'échantillon de chaque seconde est fait par PayrollService.onServerTick, juste avant la clôture des jours.
 
     public static void onLoggedInEvent(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {

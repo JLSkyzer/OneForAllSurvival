@@ -29,7 +29,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Les commandes de l'équipe pour l'économie, toutes au niveau de permission 2 :
  * {@code /eco give|take <joueur> <montant> <motif>}, {@code /eco stats}, {@code /eco pending}, {@code /eco ledger [page]}, {@code /eco treasury ...},
- * {@code /eco salary list|set <clé> <taux>}.
+ * {@code /eco salary list|set <clé> <taux>|owed [page]}.
  * Les montants sont des cuivres ; l'affichage passe par {@link CoinMath#format}.
  */
 public final class EconomyCommands {
@@ -112,7 +112,7 @@ public final class EconomyCommands {
         return 1;
     }
 
-    /** Le tableau de bord. Les lignes des lots suivants sont annoncées « pas encore en service ». */
+    /** Le tableau de bord : créé, détruit, coffres-forts, salaires dus, circulation, échanges, trésor, attente. */
     private static int stats(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack source = ctx.getSource();
         EconomyLedger ledger = EconomyLedger.get(source.getServer());
@@ -129,8 +129,10 @@ public final class EconomyCommands {
         }
         out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.vaults",
                 CoinMath.format(SafeAccounts.get(source.getServer()).totalMass())));
-        out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.later",
-                Component.translatable("command.oneforallsurvival.eco.stats.not_yet")));
+        dev.oneforallsurvival.economy.payroll.Payroll payroll =
+                dev.oneforallsurvival.economy.payroll.Payroll.get(source.getServer());
+        out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.salaries_owed",
+                CoinMath.format(payroll.owedTotal()), payroll.debts().size()));
         out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.circulation",
                 signed(ledger.inCirculation())));
         // Les transferts ne créent ni ne détruisent : ils suivent la ligne « en circulation », qui reste créé moins détruit.

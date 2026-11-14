@@ -1,10 +1,17 @@
 package dev.oneforallsurvival.economy.payroll;
 
 import com.mojang.logging.LogUtils;
+import dev.oneforallsurvival.economy.CommerceDelivery.Destination;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
@@ -18,8 +25,14 @@ import org.slf4j.Logger;
 
 /**
  * La paie, gardée par le serveur (données du monde principal) : le temps compté dans chaque rôle payé, par jour de
- * paie, joueur et clé de salaire, et le dernier jour réglé. Tout vit dans ce seul fichier, écrit par le jeu avec le
- * reste du monde (aucune écriture forcée) : le temps du jour en cours survit à une relance comme le reste.
+ * paie, joueur et clé de salaire, le dernier jour réglé, les salaires dus (la dette de la ville, par ancienneté) et
+ * les salaires versés à un joueur absent, pas encore annoncés. Tout vit dans ce seul fichier, écrit par le jeu avec le
+ * reste du monde (aucune écriture forcée) : le temps du jour en cours survit à une relance, et un jour réglé ne se
+ * règle pas une seconde fois après une relecture (dernier jour réglé, dettes et temps vont ensemble).
+ *
+ * <p>Aucun temps ne reste sur un jour déjà réglé : un crédit sur un jour au plus égal au dernier réglé (horloge qui a
+ * reculé au-delà d'une frontière) va au jour qui suit le dernier réglé, et {@link #setLastClosed} y reporte ce qui
+ * resterait sur les jours qu'il déclare réglés (jours sautés au-delà du plafond de rattrapage, ancienne sauvegarde).
  *
  * <p>Par compteur : les secondes comptées (plafonnées par jour et par salaire) et les « cuivre-secondes » (chaque
  * seconde ajoute le taux du moment), d'où le salaire du jour par {@link SalaryMath#amount}. NBT : jours en
@@ -43,10 +56,21 @@ public final class Payroll extends SavedData {
         final Map<String, Counter> counters = new TreeMap<>();
     }
 
+    /**
+     * Un salaire dû par la ville : le temps compté et le montant d'un jour, pour un joueur et une clé. Les ids
+     * croissent avec l'ancienneté et ne reviennent jamais.
+     */
+    public record Debt(long id, UUID player, String playerName, String key, LocalDate day, long seconds, long amount) {}
+
     /** Par jour, par joueur. */
     private final Map<LocalDate, Map<UUID, PlayerDay>> days = new TreeMap<>();
     @Nullable
     private LocalDate lastClosed;
+    /** Les dettes, par id (donc par ancienneté). */
+    private final TreeMap<Long, Debt> debts = new TreeMap<>();
+    private long nextDebtId = 1L;
+    /** Les salaires versés à un joueur absent, par destination, pas encore annoncés. */
+    private final Map<UUID, EnumMap<Destination, Long>> unseenPaid = new HashMap<>();
 
     /** Une paie vide (monde neuf, ou essai détaché). */
     public Payroll() {}
@@ -60,6 +84,10 @@ public final class Payroll extends SavedData {
      * sans dépasser {@code maxSeconds} pour ce compteur. Rien n'est noté (ni sali) si rien n'est ajouté.
      */
     public void credit(UUID player, String name, LocalDate day, String key, long seconds, long rate, long maxSeconds) {
+        if (lastClosed != null && !day.isAfter(lastClosed)) {
+            // L'horloge a reculé au-delà d'une frontière déjà réglée : ce jour ne sera plus jamais clos.
+            day = lastClosed.plusDays(1);
+        }
         PlayerDay existing = playerDay(player, day);
         long already = existing == null ? 0L : existing.counters.containsKey(key) ? existing.counters.get(key).seconds : 0L;
         long add = SalaryMath.creditable(already, seconds, maxSeconds);
@@ -109,11 +137,136 @@ public final class Payroll extends SavedData {
         return lastClosed;
     }
 
+    /**
+     * Déclare {@code day} réglé. Le temps qui resterait sur un jour au plus égal à {@code day} (jours sautés au-delà
+     * du plafond de rattrapage) est reporté sur le jour suivant : jamais perdu, jamais laissé sur un jour qui ne
+     * sera plus clos.
+     */
     public void setLastClosed(LocalDate day) {
         if (!day.equals(lastClosed)) {
             lastClosed = day;
+            carryClosedDays();
             setDirty();
         }
+    }
+
+    /**
+     * Reporte sur le lendemain du dernier jour réglé les compteurs des jours au plus égaux à lui.
+     *
+     * @return vrai si un compteur a bougé
+     */
+    private boolean carryClosedDays() {
+        if (lastClosed == null) {
+            return false;
+        }
+        LocalDate target = lastClosed.plusDays(1);
+        boolean moved = false;
+        Iterator<Map.Entry<LocalDate, Map<UUID, PlayerDay>>> it = days.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<LocalDate, Map<UUID, PlayerDay>> old = it.next();
+            if (old.getKey().isAfter(lastClosed)) {
+                break;
+            }
+            it.remove();
+            moved = true;
+            LOGGER.warn("Paie : le temps du {} (jour deja regle) est reporte au {}", old.getKey(), target);
+            for (Map.Entry<UUID, PlayerDay> player : old.getValue().entrySet()) {
+                PlayerDay into = days.computeIfAbsent(target, d -> new LinkedHashMap<>())
+                        .computeIfAbsent(player.getKey(), p -> new PlayerDay());
+                if (into.name.isEmpty()) {
+                    into.name = player.getValue().name;
+                }
+                player.getValue().counters.forEach((key, counter) -> {
+                    Counter c = into.counters.computeIfAbsent(key, k -> new Counter());
+                    c.seconds = saturatedAdd(c.seconds, counter.seconds);
+                    c.rateSeconds = saturatedAdd(c.rateSeconds, counter.rateSeconds);
+                });
+            }
+        }
+        return moved;
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Dettes et avis
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * Arrête le jour : chaque compteur de ce jour au montant non nul devient une dette (ordre du joueur, UUID, puis de
+     * la clé ; ids croissants), et les compteurs du jour sont retirés. Un jour sans compteur ne donne rien.
+     *
+     * @return les dettes créées
+     */
+    public List<Debt> closeDay(LocalDate day) {
+        Map<UUID, PlayerDay> players = days.remove(day);
+        if (players == null) {
+            return List.of();
+        }
+        List<Debt> created = new ArrayList<>();
+        for (Map.Entry<UUID, PlayerDay> player : new TreeMap<>(players).entrySet()) {
+            for (Map.Entry<String, Counter> counter : player.getValue().counters.entrySet()) {
+                long amount = SalaryMath.amount(counter.getValue().rateSeconds);
+                if (amount <= 0L) {
+                    continue;
+                }
+                Debt debt = new Debt(nextDebtId++, player.getKey(), player.getValue().name, counter.getKey(), day,
+                        counter.getValue().seconds, amount);
+                debts.put(debt.id(), debt);
+                created.add(debt);
+            }
+        }
+        setDirty();
+        return created;
+    }
+
+    /** Toutes les dettes, de la plus ancienne à la plus récente. */
+    public List<Debt> debts() {
+        return List.copyOf(debts.values());
+    }
+
+    public void removeDebt(long id) {
+        if (debts.remove(id) != null) {
+            setDirty();
+        }
+    }
+
+    /** La dette de la ville, en cuivres (saturée). */
+    public long owedTotal() {
+        long total = 0L;
+        for (Debt debt : debts.values()) {
+            total = saturatedAdd(total, debt.amount());
+        }
+        return total;
+    }
+
+    /** Les dettes envers ce joueur, de la plus ancienne à la plus récente. */
+    public List<Debt> owedTo(UUID player) {
+        List<Debt> out = new ArrayList<>();
+        for (Debt debt : debts.values()) {
+            if (debt.player().equals(player)) {
+                out.add(debt);
+            }
+        }
+        return out;
+    }
+
+    /** Note un salaire versé à un joueur absent, annoncé à sa connexion. */
+    public void addUnseenPaid(UUID player, long amount, Destination destination) {
+        if (amount <= 0L) {
+            return;
+        }
+        unseenPaid.computeIfAbsent(player, p -> new EnumMap<>(Destination.class))
+                .merge(destination, amount, Payroll::saturatedAdd);
+        setDirty();
+    }
+
+    /** Lit et oublie les salaires versés pendant l'absence de ce joueur (vide s'il n'y en a pas). */
+    public EnumMap<Destination, Long> takeUnseenPaid(UUID player) {
+        EnumMap<Destination, Long> seen = unseenPaid.remove(player);
+        if (seen == null) {
+            return new EnumMap<>(Destination.class);
+        }
+        setDirty();
+        return seen;
     }
 
     @Nullable
@@ -162,6 +315,31 @@ public final class Payroll extends SavedData {
         if (lastClosed != null) {
             tag.putString("lastClosed", lastClosed.toString());
         }
+        ListTag debtList = new ListTag();
+        for (Debt debt : debts.values()) {
+            CompoundTag d = new CompoundTag();
+            d.putLong("id", debt.id());
+            d.putUUID("player", debt.player());
+            d.putString("name", debt.playerName());
+            d.putString("key", debt.key());
+            d.putString("day", debt.day().toString());
+            d.putLong("seconds", debt.seconds());
+            d.putLong("amount", debt.amount());
+            debtList.add(d);
+        }
+        tag.put("debts", debtList);
+        tag.putLong("nextDebtId", nextDebtId);
+        ListTag unseen = new ListTag();
+        for (Map.Entry<UUID, EnumMap<Destination, Long>> entry : unseenPaid.entrySet()) {
+            for (Map.Entry<Destination, Long> part : entry.getValue().entrySet()) {
+                CompoundTag u = new CompoundTag();
+                u.putUUID("player", entry.getKey());
+                u.putString("to", part.getKey().name());
+                u.putLong("amount", part.getValue());
+                unseen.add(u);
+            }
+        }
+        tag.put("unseenPaid", unseen);
         return tag;
     }
 
@@ -200,6 +378,38 @@ public final class Payroll extends SavedData {
         }
         if (tag.contains("lastClosed", Tag.TAG_STRING)) {
             payroll.lastClosed = parseDay(tag.getString("lastClosed"));
+        }
+        long maxId = 0L;
+        for (Tag raw : tag.getList("debts", Tag.TAG_COMPOUND)) {
+            CompoundTag d = (CompoundTag) raw;
+            LocalDate day = parseDay(d.getString("day"));
+            long amount = d.getLong("amount");
+            if (day == null || !d.hasUUID("player") || d.getString("key").isEmpty() || amount <= 0L) {
+                LOGGER.warn("Paie : dette illisible ignoree : {}", d);
+                continue;
+            }
+            Debt debt = new Debt(d.getLong("id"), d.getUUID("player"), d.getString("name"), d.getString("key"), day,
+                    Math.max(0L, d.getLong("seconds")), amount);
+            payroll.debts.put(debt.id(), debt);
+            maxId = Math.max(maxId, debt.id());
+        }
+        payroll.nextDebtId = Math.max(Math.max(1L, tag.getLong("nextDebtId")), maxId + 1L);
+        for (Tag raw : tag.getList("unseenPaid", Tag.TAG_COMPOUND)) {
+            CompoundTag u = (CompoundTag) raw;
+            Destination to;
+            try {
+                to = Destination.valueOf(u.getString("to").toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                continue;
+            }
+            if (u.hasUUID("player") && u.getLong("amount") > 0L) {
+                payroll.unseenPaid.computeIfAbsent(u.getUUID("player"), p -> new EnumMap<>(Destination.class))
+                        .merge(to, u.getLong("amount"), Payroll::saturatedAdd);
+            }
+        }
+        // Une sauvegarde d'avant le report : du temps laissé sur un jour réglé va au jour suivant.
+        if (payroll.carryClosedDays()) {
+            payroll.setDirty();
         }
         return payroll;
     }

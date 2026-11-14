@@ -1,5 +1,6 @@
 package dev.oneforallsurvival.economy.payroll;
 
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.LongArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -10,6 +11,7 @@ import dev.oneforallsurvival.role.Role;
 import dev.oneforallsurvival.role.RoleBook;
 import dev.oneforallsurvival.role.RoleSavedData;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -21,8 +23,9 @@ import net.minecraft.network.chat.MutableComponent;
 
 /**
  * La branche {@code salary} de {@code /eco} (niveau 2, exigé par {@code /eco}) : {@code list} (chaque clé, le libellé
- * du rôle et son taux par heure) et {@code set <clé> <taux>} (clé = identifiant d'un rôle existant ou
- * {@link SalaryRates#MAYOR_KEY} ; taux de 0 à 1 000 000 cuivres par heure, écrit dans la configuration).
+ * du rôle et son taux par heure), {@code set <clé> <taux>} (clé = identifiant d'un rôle existant ou
+ * {@link SalaryRates#MAYOR_KEY} ; taux de 0 à 1 000 000 cuivres par heure, écrit dans la configuration) et
+ * {@code owed [page]} (la file des salaires dus, de la plus ancienne dette à la plus récente).
  */
 public final class SalaryCommands {
 
@@ -32,6 +35,10 @@ public final class SalaryCommands {
         return Commands.literal("salary")
                 .executes(SalaryCommands::list)
                 .then(Commands.literal("list").executes(SalaryCommands::list))
+                .then(Commands.literal("owed")
+                        .executes(ctx -> owed(ctx, 1))
+                        .then(Commands.argument("page", IntegerArgumentType.integer(1))
+                                .executes(ctx -> owed(ctx, IntegerArgumentType.getInteger(ctx, "page")))))
                 .then(Commands.literal("set")
                         .then(Commands.argument("key", StringArgumentType.word())
                                 .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(
@@ -82,6 +89,41 @@ public final class SalaryCommands {
         source.sendSuccess(() -> Component.translatable("command.oneforallsurvival.eco.salary.set.success",
                 label(book, key), rate(rate)), true);
         return 1;
+    }
+
+    /** Lignes par page de {@code /eco salary owed}. */
+    public static final int OWED_PAGE_SIZE = 10;
+
+    /** La file des salaires dus, de la plus ancienne dette à la plus récente : jour, joueur, clé, temps, montant. */
+    private static int owed(CommandContext<CommandSourceStack> ctx, int page) {
+        CommandSourceStack source = ctx.getSource();
+        Payroll payroll = Payroll.get(source.getServer());
+        RoleBook book = RoleSavedData.get(source.getServer()).book();
+        List<Payroll.Debt> debts = payroll.debts();
+        int pages = Math.max(1, (debts.size() + OWED_PAGE_SIZE - 1) / OWED_PAGE_SIZE);
+        if (page > pages) {
+            source.sendFailure(Component.translatable("command.oneforallsurvival.eco.salary.owed.no_page", page, pages));
+            return 0;
+        }
+        MutableComponent out = Component.translatable("command.oneforallsurvival.eco.salary.owed.title", page, pages,
+                debts.size(), CoinMath.format(payroll.owedTotal()));
+        if (debts.isEmpty()) {
+            out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.salary.owed.empty"));
+        }
+        int from = (page - 1) * OWED_PAGE_SIZE;
+        for (Payroll.Debt debt : debts.subList(from, Math.min(debts.size(), from + OWED_PAGE_SIZE))) {
+            out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.salary.owed.line",
+                    debt.day().toString(), debt.playerName(), debt.key(), label(book, debt.key()),
+                    duration(debt.seconds()), CoinMath.format(debt.amount())));
+        }
+        source.sendSuccess(() -> out, false);
+        return 1;
+    }
+
+    /** Une durée en heures et minutes (« 1 h 5 min »). */
+    public static Component duration(long seconds) {
+        return Component.translatable("command.oneforallsurvival.eco.salary.duration", seconds / 3_600L,
+                seconds % 3_600L / 60L);
     }
 
     /** Le libellé d'une clé : le rôle, « Maire » pour le statut, l'identifiant d'un rôle supprimé. */

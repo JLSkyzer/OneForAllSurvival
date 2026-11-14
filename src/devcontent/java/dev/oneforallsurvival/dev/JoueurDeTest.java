@@ -55,6 +55,8 @@ public final class JoueurDeTest {
     private final List<dev.oneforallsurvival.economy.invoice.InvoiceFormPacket> formulairesFacture = new ArrayList<>();
     /** Les clés des messages (chat ou barre d'action) reçus, dans l'ordre ; un texte brut est gardé tel quel. */
     private final List<String> messages = new ArrayList<>();
+    /** Les textes des messages reçus (chat ou barre d'action), traduits par la langue du serveur, dans l'ordre. */
+    private final List<String> textes = new ArrayList<>();
     /** Les hauteurs des sons joués au joueur (paquets de son), dans l'ordre. */
     private final List<Float> sons = new ArrayList<>();
     /** Les paquets de synchronisation de menu (contenu, case, donnée), dans l'ordre d'envoi. */
@@ -63,6 +65,8 @@ public final class JoueurDeTest {
     private final List<RecipeListPacket> listesALaConnexion = new ArrayList<>();
     /** Les clés des messages que l'entrée en jeu elle-même a envoyés (livraison en attente, avis), avant qu'on ne les oublie. */
     private final List<String> messagesALaConnexion = new ArrayList<>();
+    /** Les textes des messages que l'entrée en jeu elle-même a envoyés, avant qu'on ne les oublie. */
+    private final List<String> textesALaConnexion = new ArrayList<>();
 
     private JoueurDeTest(EmbeddedChannel canal, ServerPlayer joueur) {
         this.canal = canal;
@@ -98,12 +102,14 @@ public final class JoueurDeTest {
         // L'entrée en jeu a envoyé son lot de paquets : on ne garde que ce qui suit.
         simule.listesALaConnexion.addAll(simule.listes);
         simule.messagesALaConnexion.addAll(simule.messages);
+        simule.textesALaConnexion.addAll(simule.textes);
         simule.listes.clear();
         simule.files.clear();
         simule.ecransAbonne.clear();
         simule.formulairesFacture.clear();
         simule.menus.clear();
         simule.messages.clear();
+        simule.textes.clear();
         return simule;
     }
 
@@ -115,6 +121,19 @@ public final class JoueurDeTest {
     /** Les clés des messages reçus pendant l'entrée en jeu (la connexion réelle, pas un rejeu). */
     public List<String> messagesALaConnexion() {
         return List.copyOf(messagesALaConnexion);
+    }
+
+    /** Les textes des messages reçus pendant l'entrée en jeu. */
+    public List<String> textesALaConnexion() {
+        return List.copyOf(textesALaConnexion);
+    }
+
+    /** Les textes des messages reçus depuis le dernier appel (traduits côté serveur), retirés. */
+    public List<String> textesRecus() {
+        lire();
+        List<String> out = new ArrayList<>(textes);
+        textes.clear();
+        return out;
     }
 
     public ServerPlayer joueur() {
@@ -141,6 +160,7 @@ public final class JoueurDeTest {
         } else if (message instanceof ClientboundSystemChatPacket chat) {
             messages.add(chat.content().getContents() instanceof TranslatableContents t ? t.getKey()
                     : chat.content().getString());
+            textes.add(chat.content().getString());
         } else if (message instanceof ClientboundSoundPacket son) {
             sons.add(son.getPitch());
         } else if (message instanceof ClientboundContainerSetContentPacket

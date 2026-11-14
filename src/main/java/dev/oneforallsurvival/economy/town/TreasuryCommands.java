@@ -14,9 +14,17 @@ import dev.oneforallsurvival.economy.EconomyLedger;
 import dev.oneforallsurvival.economy.MoneySink;
 import dev.oneforallsurvival.economy.MoneySource;
 import dev.oneforallsurvival.economy.TreasuryAccount;
+import dev.oneforallsurvival.economy.EconomyCalendar;
+import dev.oneforallsurvival.economy.EconomyClock;
+import dev.oneforallsurvival.economy.payroll.Payroll;
+import dev.oneforallsurvival.economy.payroll.SalaryCommands;
 import dev.oneforallsurvival.economy.town.TreasuryLedger.Kind;
+import dev.oneforallsurvival.role.RoleBook;
 import dev.oneforallsurvival.role.RoleGate;
+import dev.oneforallsurvival.role.RoleSavedData;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.util.Map;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.EnumMap;
@@ -33,7 +41,8 @@ import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 
 /**
- * Les commandes du trésor. {@code /treasury} (tout le monde : le solde public) et {@code /treasury log [page]} (le
+ * Les commandes du trésor. {@code /treasury} (tout le monde : le solde public, la dette de la ville, ce que la ville
+ * vous doit, votre temps compté aujourd'hui) et {@code /treasury log [page]} (le
  * maire et l'équipe) ; la branche {@code /eco treasury [give|take <montant> <motif> | log [page]]} de l'équipe
  * (niveau 2), branchée dans {@code /eco} par {@link #ecoBranch()}. Les montants sont des cuivres, affichés par
  * {@link CoinMath#format}.
@@ -83,11 +92,39 @@ public final class TreasuryCommands {
     // /treasury
     // ---------------------------------------------------------------------------------------------
 
+    /**
+     * Le solde public et la dette de la ville ; pour un joueur, en plus, ce que la ville lui doit et son temps compté
+     * aujourd'hui dans chaque salaire.
+     */
     private static int balance(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack source = ctx.getSource();
         long total = TreasuryAccount.get(source.getServer()).total();
-        source.sendSuccess(() -> Component.translatable("command.oneforallsurvival.treasury.balance",
-                CoinMath.format(total)), false);
+        Payroll payroll = Payroll.get(source.getServer());
+        MutableComponent out = Component.translatable("command.oneforallsurvival.treasury.balance",
+                CoinMath.format(total));
+        out.append("\n").append(Component.translatable("command.oneforallsurvival.treasury.debts",
+                CoinMath.format(payroll.owedTotal()), payroll.debts().size()));
+        if (source.getEntity() instanceof ServerPlayer player) {
+            List<Payroll.Debt> mine = payroll.owedTo(player.getUUID());
+            long owed = 0L;
+            for (Payroll.Debt debt : mine) {
+                owed = Long.MAX_VALUE - owed < debt.amount() ? Long.MAX_VALUE : owed + debt.amount();
+            }
+            out.append("\n").append(Component.translatable("command.oneforallsurvival.treasury.owed_you",
+                    CoinMath.format(owed), mine.size()));
+            LocalDate today = EconomyCalendar.payDay(EconomyClock.now(), EconomyCalendar.configuredZone(),
+                    EconomyConfig.payHour());
+            Map<String, Long> seconds = payroll.secondsFor(player.getUUID(), today);
+            if (seconds.isEmpty()) {
+                out.append("\n").append(Component.translatable("command.oneforallsurvival.treasury.time_none"));
+            }
+            RoleBook book = RoleSavedData.get(source.getServer()).book();
+            for (Map.Entry<String, Long> entry : seconds.entrySet()) {
+                out.append("\n").append(Component.translatable("command.oneforallsurvival.treasury.time",
+                        SalaryCommands.label(book, entry.getKey()), SalaryCommands.duration(entry.getValue())));
+            }
+        }
+        source.sendSuccess(() -> out, false);
         return 1;
     }
 
@@ -106,7 +143,7 @@ public final class TreasuryCommands {
     // /eco treasury
     // ---------------------------------------------------------------------------------------------
 
-    /** Le solde, l'emplacement du bloc et les dettes (les salaires dus : aucun à ce lot). */
+    /** Le solde, l'emplacement du bloc et les dettes (les salaires dus, leur total et leur nombre). */
     private static int ecoStatus(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack source = ctx.getSource();
         TreasuryAccount account = TreasuryAccount.get(source.getServer());
@@ -115,8 +152,9 @@ public final class TreasuryCommands {
         out.append("\n").append(account.position()
                 .map(pos -> Component.translatable("command.oneforallsurvival.eco.treasury.position", place(pos)))
                 .orElseGet(() -> Component.translatable("command.oneforallsurvival.eco.treasury.no_position")));
-        out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.treasury.debts", 0,
-                CoinMath.format(0L)));
+        Payroll payroll = Payroll.get(source.getServer());
+        out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.treasury.debts",
+                CoinMath.format(payroll.owedTotal()), payroll.debts().size()));
         source.sendSuccess(() -> out, false);
         return 1;
     }
