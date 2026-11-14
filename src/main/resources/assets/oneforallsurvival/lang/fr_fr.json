@@ -498,6 +498,8 @@
   "message.oneforallsurvival.town_board.crouch": "En créatif, accroupissez-vous pour casser ce bloc",
   "gui.oneforallsurvival.town_board.title": "Trésor de la ville",
   "gui.oneforallsurvival.town_board.balance": "Solde : %s",
+  "gui.oneforallsurvival.town_board.balance_label": "Solde :",
+  "gui.oneforallsurvival.town_board.owed_head": "Salaires dus : %s",
   "gui.oneforallsurvival.town_board.owed": "Salaires dus : %s (%s)",
   "gui.oneforallsurvival.town_board.none": "Aucun salaire dû",
   "gui.oneforallsurvival.town_board.owed_unknown": "Salaires dus : …",

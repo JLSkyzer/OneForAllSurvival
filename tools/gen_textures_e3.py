@@ -180,8 +180,8 @@ def tableau_face():
     for i in range(1, 9):
         p[1, i] = (192, 172, 128, 255)
         p[14, i] = (190, 170, 126, 255)
-    # des clous de laiton aux quatre coins
-    for (x, y) in ((2, 2), (13, 2), (2, 7), (13, 7)):
+    # des clous de laiton aux quatre coins du cadre : hors de la zone de texte (x 1 a 14, y 1 a 8)
+    for (x, y) in ((0, 0), (15, 0), (0, 9), (15, 9)):
         p[x, y] = LAITON[1]
     return img
 

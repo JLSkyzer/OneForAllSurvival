@@ -717,6 +717,25 @@ public final class PackGameTests {
         helper.succeed();
     }
 
+    /**
+     * Ni le trésor ni le tableau de la mairie ne se fabriquent : aucune recette chargée ne les donne, ni à la table ni à
+     * l'établi, et l'établi ne les prend pas non plus par l'étiquette (objets de l'onglet créatif, posés par l'équipe
+     * ou le maire).
+     */
+    @GameTest(template = "test/plancher", batch = "pack_tresor")
+    public static void niLeTresorNiLeTableauNeSeFabriquent(GameTestHelper helper) {
+        for (String nom : List.of("treasury", "town_board")) {
+            Item item = objet("oneforallsurvival", nom);
+            helper.assertTrue(item != null && item != net.minecraft.world.item.Items.AIR, "objet absent : " + nom);
+            List<ResourceLocation> aLaTable = recettesDonnant(helper, item);
+            helper.assertTrue(aLaTable.isEmpty(), nom + " ne devrait avoir aucune recette de table, vu " + aLaTable);
+            List<ResourceLocation> aLEtabli = BenchCatalog.current().recipes().stream()
+                    .filter(r -> r.result().is(item)).map(BenchRecipe::id).toList();
+            helper.assertTrue(aLEtabli.isEmpty(), nom + " ne devrait avoir aucune recette d'établi, vu " + aLEtabli);
+        }
+        helper.succeed();
+    }
+
     /** Un reçu d'échange à {@code donne} et {@code recu} piles : les clés de l'infobulle, avec l'argument des lignes « et N autres ». */
     private static List<String> infobulle(GameTestHelper helper, int donne, int recu) {
         var joueur = net.minecraftforge.common.util.FakePlayerFactory.getMinecraft(helper.getLevel());

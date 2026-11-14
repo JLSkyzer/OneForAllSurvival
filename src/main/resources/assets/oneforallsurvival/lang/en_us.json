@@ -498,6 +498,8 @@
   "message.oneforallsurvival.town_board.crouch": "In creative mode, crouch to break this block",
   "gui.oneforallsurvival.town_board.title": "Town Treasury",
   "gui.oneforallsurvival.town_board.balance": "Balance: %s",
+  "gui.oneforallsurvival.town_board.balance_label": "Balance:",
+  "gui.oneforallsurvival.town_board.owed_head": "Wages owed: %s",
   "gui.oneforallsurvival.town_board.owed": "Wages owed: %s (%s)",
   "gui.oneforallsurvival.town_board.none": "No wages owed",
   "gui.oneforallsurvival.town_board.owed_unknown": "Wages owed: …",

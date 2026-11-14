@@ -196,23 +196,36 @@ public final class CoinMath {
 
     /** « 2 or 3 argent 5 cuivre », par clés de langue ; « 0 cuivre » pour un montant nul. */
     public static Component format(long amount) {
+        MutableComponent out = Component.empty();
+        boolean first = true;
+        for (Component part : parts(amount)) {
+            if (!first) {
+                out.append(" ");
+            }
+            first = false;
+            out.append(part);
+        }
+        return out;
+    }
+
+    /**
+     * Les coupures du montant, une par élément (« 2 or », « 3 argent »), de la plus grande à la plus petite ; « 0 cuivre »
+     * pour un montant nul. Un affichage étroit (le tableau de la mairie) range ces morceaux sur plusieurs lignes sans
+     * jamais couper l'un d'eux.
+     */
+    public static java.util.List<Component> parts(long amount) {
         EnumMap<Coin, Long> parts = decompose(amount);
         if (parts.isEmpty()) {
-            return Component.literal("0 ").append(Component.translatable(Coin.COPPER.unitKey()));
+            return java.util.List.of(Component.literal("0 ").append(Component.translatable(Coin.COPPER.unitKey())));
         }
-        MutableComponent out = Component.empty();
+        java.util.List<Component> out = new java.util.ArrayList<>();
         Coin[] coins = Coin.values();
-        boolean first = true;
         for (int i = coins.length - 1; i >= 0; i--) {
             Long count = parts.get(coins[i]);
             if (count == null) {
                 continue;
             }
-            if (!first) {
-                out.append(" ");
-            }
-            first = false;
-            out.append(count + " ").append(Component.translatable(coins[i].unitKey(count)));
+            out.add(Component.literal(count + " ").append(Component.translatable(coins[i].unitKey(count))));
         }
         return out;
     }

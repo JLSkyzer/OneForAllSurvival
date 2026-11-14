@@ -4,6 +4,7 @@ import dev.oneforallsurvival.bench.BenchNetwork;
 import dev.oneforallsurvival.economy.CoinMath;
 import dev.oneforallsurvival.economy.TreasuryAccount;
 import dev.oneforallsurvival.economy.payroll.Payroll;
+import java.util.List;
 import javax.annotation.Nullable;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -92,6 +93,34 @@ public final class TownFinances {
             return Component.translatable(KEY + "none");
         }
         return Component.translatable(KEY + "owed", snapshot.owedCount(), CoinMath.format(snapshot.owedTotal()));
+    }
+
+    /**
+     * Un compte du tableau en deux parties : de quoi l'on parle (« Solde : », « Salaires dus : 3 ») et les coupures du
+     * montant, une par élément (vide quand il n'y a pas de montant à lire). Le tableau, trop étroit pour la phrase
+     * entière, range les mots du début et les coupures sur autant de lignes qu'il lui en faut.
+     */
+    public record Parts(Component head, List<Component> amount) {}
+
+    /** « Solde : » et les coupures du solde (« … » tant que rien n'est reçu). */
+    public static Parts balanceParts(@Nullable Snapshot snapshot) {
+        return new Parts(Component.translatable(KEY + "balance_label"),
+                snapshot == null ? List.of(Component.literal("…")) : CoinMath.parts(snapshot.balance()));
+    }
+
+    /**
+     * « Salaires dus : N » et les coupures du total dû ; « Aucun salaire dû » seul s'il n'y en a pas, « Salaires dus : …
+     * » tant que rien n'est reçu.
+     */
+    public static Parts owedParts(@Nullable Snapshot snapshot) {
+        if (snapshot == null) {
+            return new Parts(Component.translatable(KEY + "owed_unknown"), List.of());
+        }
+        if (snapshot.owedCount() <= 0) {
+            return new Parts(Component.translatable(KEY + "none"), List.of());
+        }
+        return new Parts(Component.translatable(KEY + "owed_head", snapshot.owedCount()),
+                CoinMath.parts(snapshot.owedTotal()));
     }
 
     /** Le texte du chat : les trois lignes du tableau. */

@@ -95,6 +95,7 @@ import net.minecraft.world.level.LevelSettings;
 import net.minecraft.world.level.WorldDataConfiguration;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraftforge.fluids.FluidStack;
@@ -127,7 +128,10 @@ public final class DemoVisuels {
 
     private static final Logger LOG = LogManager.getLogger("oneforallsurvival-demo-visuels");
     private static final boolean ACTIF = System.getProperty("oneforallsurvival.demo.visuels") != null;
-    /** {@code etal} ou {@code commerce} : ne jouer que les captures du commerce (contrôle rapide d'une tâche), sans les autres. */
+    /**
+     * {@code etal} ou {@code commerce} : ne jouer que les captures du commerce ; {@code tresor} : que celles du trésor et du
+     * tableau de la mairie (contrôle rapide d'une tâche), sans les autres.
+     */
     private static final String SEUL = System.getProperty("oneforallsurvival.demo.visuels.seul", "");
     private static final String MONDE = "demo_visuels";
     private static final String[] ETATS = {"arret", "marche", "sans_courant", "panne"};
@@ -806,6 +810,10 @@ public final class DemoVisuels {
             commerce(mc);
             return;
         }
+        if ("tresor".equals(SEUL)) {
+            construireTresor(mc);
+            return;
+        }
         Vec3 sudEst = new Vec3(1.35, 1.0, 1.75);
         etape("vue calage", () -> regarder(mc, BAINS[0], sudEst, false), () -> true, 3000, null);
         for (int i = 0; i < 4; i++) {
@@ -1352,6 +1360,7 @@ public final class DemoVisuels {
                     ItemStack.EMPTY));
         }, () -> true, 800, null);
         commerce(mc);
+        construireTresor(mc);
     }
 
     // ================================================================================================
@@ -1938,6 +1947,178 @@ public final class DemoVisuels {
         for (BlockPos mur : List.of(p.north(), p.west())) {
             monde.setBlock(mur, Blocks.STONE.defaultBlockState(), 3);
             monde.setBlock(mur.above(), Blocks.STONE.defaultBlockState(), 3);
+        }
+    }
+
+    // ================================================================================================
+    // Le trésor et le tableau de la mairie (lot E3)
+    // ================================================================================================
+
+    /** Les objets du lot E3 à côté de leurs équivalents : coffres et coffre-fort, panneau de chêne. */
+    private static final String[] TRESOR = {"treasury", "minecraft:chest", "safe", "minecraft:ender_chest", "town_board",
+        "minecraft:oak_sign"};
+
+    /** Loin au sud (au-delà des 6 chunks affichés de tout ce qui précède). */
+    private static BlockPos zoneTresor;
+    private static volatile boolean tresorPose;
+    /** L'écran du trésor ouvert, d'où partent les fenêtres du motif. */
+    private static dev.oneforallsurvival.economy.client.TreasuryScreen ecranTresor;
+
+    /** Les coupures du trésor de la démonstration : cuivre, argent, or, émeraude, rubis (le compte le plus long, 9 999). */
+    private static final long[] TRESOR_PIECES = {37, 12, 8, 3, 9_999};
+
+    /** Un motif de 80 caractères, le plus long permis (le plafond de {@code treasuryReasonMax}). */
+    private static final String MOTIF_LONG = "Remboursement des materiaux du pont ouest et des planches de la forge du village";
+
+    private static void construireTresor(Minecraft mc) {
+        MinecraftServer serveur = mc.getSingleplayerServer();
+        etape("tresor pose", () -> {
+            fermer(mc);
+            mc.options.hideGui = false;
+            zoneTresor = origine.offset(24, 0, 320);
+            mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+            serveur.execute(() -> preparerTresor(serveur));
+        }, () -> tresorPose, 4000, null);
+        // Le trésor seul : de face et de trois quarts, de jour et de nuit, puis dessus et derrière.
+        vueTresor(mc, "tresor_seul_face_jour.png", 0, new Vec3(0.0, 0.4, 3.0), false, 3000);
+        vueTresor(mc, "tresor_seul_trois_quarts_jour.png", 0, new Vec3(2.2, 1.3, 2.6), false, 1500);
+        vueTresor(mc, "tresor_seul_face_nuit.png", 0, new Vec3(0.0, 0.4, 3.0), true, 1500);
+        vueTresor(mc, "tresor_seul_trois_quarts_nuit.png", 0, new Vec3(2.2, 1.3, 2.6), true, 1500);
+        vueTresor(mc, "tresor_seul_dessus.png", 0, new Vec3(0.3, 2.8, 1.2), false, 1500);
+        vueTresor(mc, "tresor_seul_arriere.png", 0, new Vec3(1.6, 1.0, -2.4), false, 1500);
+        // Contre un mur : pierre au nord, à l'est, à l'ouest et au-dessus.
+        vueTresor(mc, "tresor_contre_un_mur_jour.png", 8, new Vec3(1.4, 1.1, 2.1), false, 1500);
+        vueTresor(mc, "tresor_contre_un_mur_face.png", 8, new Vec3(0.0, 0.5, 1.6), false, 1500);
+
+        // Le tableau collé à un mur, de près et à quatre blocs, avec les comptes les plus longs, moyens, sans dette.
+        comptes(mc, "les plus longs", new dev.oneforallsurvival.economy.town.TownFinances.Snapshot(99_999_999L, 99_999_999L, 99));
+        vueTresor(mc, "tableau_pire_pres.png", 16, new Vec3(0.0, 0.13, 1.25), false, 1800);
+        vueTresor(mc, "tableau_pire_4_blocs.png", 16, new Vec3(0.0, 0.3, 4.0), false, 1500);
+        vueTresor(mc, "tableau_pire_trois_quarts.png", 16, new Vec3(1.6, 0.5, 2.2), false, 1500);
+        vueTresor(mc, "tableau_pire_nuit_4_blocs.png", 16, new Vec3(0.0, 0.3, 4.0), true, 1500);
+        vueTresor(mc, "tableau_pire_6_blocs.png", 16, new Vec3(0.0, 0.4, 6.0), false, 1500);
+        comptes(mc, "moyens", new dev.oneforallsurvival.economy.town.TownFinances.Snapshot(13_957L, 600L, 2));
+        vueTresor(mc, "tableau_moyen_pres.png", 16, new Vec3(0.0, 0.13, 1.25), false, 1200);
+        vueTresor(mc, "tableau_moyen_4_blocs.png", 16, new Vec3(0.0, 0.3, 4.0), false, 1500);
+        comptes(mc, "sans dette", new dev.oneforallsurvival.economy.town.TownFinances.Snapshot(99_999_999L, 0L, 0));
+        vueTresor(mc, "tableau_sans_dette_pres.png", 16, new Vec3(0.0, 0.13, 1.25), false, 1200);
+        vueTresor(mc, "tableau_sans_dette_4_blocs.png", 16, new Vec3(0.0, 0.3, 4.0), false, 1500);
+        comptes(mc, "vide", new dev.oneforallsurvival.economy.town.TownFinances.Snapshot(0L, 0L, 0));
+        vueTresor(mc, "tableau_vide_pres.png", 16, new Vec3(0.0, 0.13, 1.25), false, 1200);
+        comptes(mc, "rien recu", null);
+        vueTresor(mc, "tableau_rien_recu_pres.png", 16, new Vec3(0.0, 0.13, 1.25), false, 1200);
+        comptes(mc, "les plus longs, encore", new dev.oneforallsurvival.economy.town.TownFinances.Snapshot(99_999_999L, 99_999_999L, 99));
+        // Les quatre orientations côte à côte (sud, est, nord, ouest), puis un tableau seul, devant et derrière.
+        vueTresor(mc, "tableau_quatre_orientations.png", 26, new Vec3(0.0, 2.6, 6.4), false, 1800);
+        // Chacun des trois autres vu de face : le texte se lit à l'endroit sur les quatre orientations.
+        vueTresor(mc, "tableau_face_est.png", 28, new Vec3(1.3, 0.13, 0.0), false, 1500);
+        vueTresor(mc, "tableau_face_nord.png", 32, new Vec3(0.0, 0.13, -1.3), false, 1500);
+        vueTresor(mc, "tableau_face_ouest.png", 36, new Vec3(-1.3, 0.13, 0.0), false, 1500);
+        vueTresor(mc, "tableau_seul_trois_quarts.png", 40, new Vec3(1.5, 0.9, 2.2), false, 1500);
+        vueTresor(mc, "tableau_seul_arriere.png", 40, new Vec3(-1.2, 0.8, -2.2), false, 1500);
+
+        // L'écran du trésor (cadre, panneau Change, inventaire), la bulle d'un retrait, la fenêtre du motif.
+        etape("tresor ecran", () -> {
+            fermer(mc);
+            mc.options.hideGui = false;
+            serveur.execute(() -> {
+                ServerLevel monde = serveur.overworld();
+                ServerPlayer joueur = serveur.getPlayerList().getPlayers().get(0);
+                monde.setDayTime(6000);
+                BlockPos t = zoneTresor;
+                joueur.teleportTo(monde, t.getX() + 0.5, t.getY(), t.getZ() + 3.5, 0F, 20F);
+                dev.oneforallsurvival.economy.town.TreasuryBlock.open(joueur, t);
+            });
+        }, () -> mc.screen instanceof dev.oneforallsurvival.economy.client.TreasuryScreen, 1500, "tresor_ecran.png");
+        bulle(mc, "row.gold.10", "tresor_ecran_bulle_retrait.png");
+        etape("tresor motif plein", () -> {
+            ecranTresor = (dev.oneforallsurvival.economy.client.TreasuryScreen) mc.screen;
+            mc.setScreen(new dev.oneforallsurvival.economy.client.TreasuryReasonScreen(ecranTresor,
+                    new dev.oneforallsurvival.economy.CoinRequest(dev.oneforallsurvival.economy.CoinRequest.WITHDRAW,
+                            Coin.RUBY.ordinal(), 64, false), MOTIF_LONG));
+        }, () -> mc.screen instanceof dev.oneforallsurvival.economy.client.TreasuryReasonScreen, 1000,
+                "tresor_motif_plein.png");
+        etape("tresor motif vide", () -> mc.setScreen(new dev.oneforallsurvival.economy.client.TreasuryReasonScreen(
+                        ecranTresor, new dev.oneforallsurvival.economy.CoinRequest(
+                                dev.oneforallsurvival.economy.CoinRequest.WITHDRAW, Coin.EMERALD.ordinal(), 1, false), "")),
+                () -> mc.screen instanceof dev.oneforallsurvival.economy.client.TreasuryReasonScreen, 1000,
+                "tresor_motif_vide.png");
+        etape("grille du tresor", () -> {
+            fermer(mc);
+            mc.options.hideGui = false;
+            mc.setScreen(new Grille(TRESOR, 2));
+        }, () -> true, 800, "tresor_grille.png");
+        etape("fin du tresor", () -> fermer(mc), () -> true, 300, null);
+    }
+
+    /** Une vue d'un bloc de la zone du trésor, à {@code dx} blocs à l'est de son origine (relue à l'exécution). */
+    private static void vueTresor(Minecraft mc, String fichier, int dx, Vec3 d, boolean nuit, long reposMs) {
+        etape("vue " + fichier, () -> regarder(mc, zoneTresor.offset(dx, 0, 0), d, nuit), () -> true, reposMs, fichier);
+    }
+
+    /**
+     * Les comptes du tableau, posés à la main chez le client : le serveur n'envoie rien tant que ses comptes ne changent
+     * pas, et ceux d'ici ne sont pas ceux de la ville de démonstration.
+     */
+    private static void comptes(Minecraft mc, String nom, dev.oneforallsurvival.economy.town.TownFinances.Snapshot comptes) {
+        etape("comptes " + nom, () -> {
+            if (comptes == null) {
+                dev.oneforallsurvival.economy.client.TownFinancesCache.clear();
+            } else {
+                dev.oneforallsurvival.economy.client.TownFinancesCache.set(comptes);
+            }
+        }, () -> true, 200, null);
+    }
+
+    private static void preparerTresor(MinecraftServer serveur) {
+        ServerLevel monde = serveur.overworld();
+        ServerPlayer joueur = serveur.getPlayerList().getPlayers().get(0);
+        BlockPos z = zoneTresor;
+        BlockState tresor = EconomyRegistry.TREASURY.get().defaultBlockState()
+                .setValue(dev.oneforallsurvival.economy.town.TreasuryBlock.FACING, Direction.SOUTH);
+        // Le trésor de la ville : seul, noté à son emplacement (l'écran s'ouvre) ; un second contre un mur (non noté).
+        monde.setBlock(z, tresor, 3);
+        var compte = dev.oneforallsurvival.economy.TreasuryAccount.get(serveur);
+        compte.setPosition(net.minecraft.core.GlobalPos.of(monde.dimension(), z));
+        for (Coin c : PIECES) {
+            compte.add(c, Math.min(TRESOR_PIECES[c.ordinal()], compte.room(c)));
+        }
+        BlockPos mur = z.offset(8, 0, 0);
+        monde.setBlock(mur, tresor, 3);
+        pierreAutour(monde, mur);
+        // Le tableau contre un mur, les quatre orientations, un tableau seul.
+        BlockState tableau = EconomyRegistry.TOWN_BOARD.get().defaultBlockState();
+        BlockPos contre = z.offset(16, 0, 0);
+        monde.setBlock(contre, tableau.setValue(dev.oneforallsurvival.economy.town.TownBoardBlock.FACING, Direction.SOUTH), 3);
+        pierreAutour(monde, contre);
+        Direction[] faces = {Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST};
+        for (int i = 0; i < faces.length; i++) {
+            monde.setBlock(z.offset(24 + 4 * i, 0, 0),
+                    tableau.setValue(dev.oneforallsurvival.economy.town.TownBoardBlock.FACING, faces[i]), 3);
+        }
+        monde.setBlock(z.offset(40, 0, 0),
+                tableau.setValue(dev.oneforallsurvival.economy.town.TownBoardBlock.FACING, Direction.SOUTH), 3);
+        // Des lanternes : la nuit, les faces se voient sans être au grand jour.
+        for (BlockPos l : List.of(z.offset(-2, 0, 2), z.offset(2, 0, 2), z.offset(6, 0, 3), z.offset(10, 0, 3),
+                z.offset(14, 0, 3), z.offset(18, 0, 3), z.offset(26, 0, 3), z.offset(38, 0, 3), z.offset(42, 0, 3))) {
+            monde.setBlock(l, Blocks.LANTERN.defaultBlockState(), 3);
+        }
+        // L'inventaire : les cinq pièces et une bourse, comme à la monnaie.
+        joueur.getInventory().clearContent();
+        int[] piles = {37, 12, 8, 3, 1};
+        for (Coin c : PIECES) {
+            joueur.getInventory().setItem(c.ordinal(), new ItemStack(c.item(), piles[c.ordinal()]));
+        }
+        ItemStack bourse = new ItemStack(EconomyRegistry.PURSE.get());
+        remplirBourse(bourse);
+        joueur.getInventory().setItem(5, bourse);
+        tresorPose = true;
+    }
+
+    /** De la pierre au nord, à l'est, à l'ouest et au-dessus du bloc (la face avant et le sol restent libres). */
+    private static void pierreAutour(ServerLevel monde, BlockPos p) {
+        for (BlockPos pierre : List.of(p.north(), p.east(), p.west(), p.above())) {
+            monde.setBlock(pierre, Blocks.STONE.defaultBlockState(), 3);
         }
     }
 
