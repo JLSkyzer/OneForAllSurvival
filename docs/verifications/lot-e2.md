@@ -159,9 +159,9 @@ Revue finale : `.superpowers/sdd/2026-11-13-lot-e2-commerce/final-review.md` (1 
 
 Avant : chaque déconnexion écrivait le fichier de la garde et des attentes **seul**, avec la garde et l'attente de tout le monde ; après un arrêt brutal, un joueur resté en ligne retrouvait ce qu'il avait posé (garde devenue attente) **et** ce que portait son vieux playerdata ; une facture payée restait due alors que l'émetteur avait reçu les pièces.
 
-Maintenant : `EconomySave.playersThenEconomy`, seule fonction d'écriture forcée de l'économie, appelée à la déconnexion (`TradeService`), écrit dans cet ordre le playerdata de **tous** les joueurs en ligne (`PlayerList.saveAll`, celui qui part compris), puis chaque donnée de l'économie qui a changé : garde et attentes (`HeldGoods`), factures (`InvoiceRegistry`), registre (`EconomyLedger`), coffres-forts (`SafeAccounts`), trésor (`TreasuryAccount`). Même ordre que la sauvegarde automatique du jeu. Coût accepté : une écriture plus lourde à chaque déconnexion.
+**Remplacé à la seconde passe** (voir « Seconde passe » plus bas) : cette écriture forcée ouvrait une duplication plus large (N1). Pour l'historique, ce que faisait la passe finale : `EconomySave.playersThenEconomy`, seule fonction d'écriture forcée de l'économie, appelée à la déconnexion (`TradeService`), écrit dans cet ordre le playerdata de **tous** les joueurs en ligne (`PlayerList.saveAll`, celui qui part compris), puis chaque donnée de l'économie qui a changé : garde et attentes (`HeldGoods`), factures (`InvoiceRegistry`), registre (`EconomyLedger`), coffres-forts (`SafeAccounts`), trésor (`TreasuryAccount`). Même ordre que la sauvegarde automatique du jeu. Coût accepté : une écriture plus lourde à chaque déconnexion.
 
-**Limite, la même que pour un coffre de Minecraft** : les étals vivent dans les chunks ; leur écriture n'est pas forcée. Un achat à un étal suivi d'un arrêt brutal avant la sauvegarde automatique suivante peut laisser sur le disque un étal plus ancien que le playerdata de l'acheteur (s'il s'est déconnecté entre-temps), exactement comme un coffre vanilla vidé par un joueur qui se déconnecte.
+La passe finale présentait ici sa limite comme « la même que pour un coffre de Minecraft ». C'était faux pour les joueurs restés en ligne : à chaque déconnexion de n'importe qui, leur playerdata devenait plus récent que les chunks (caisse d'un étal, coffres, stock de l'atelier), ce que Minecraft ne fait jamais. Corrigé à la seconde passe ; la limite qui reste est décrite là.
 
 Preuve, vue rouge avant la correction puis verte (`SauvegardeDEssai` relit les fichiers du disque) :
 
@@ -170,11 +170,11 @@ Preuve, vue rouge avant la correction puis verte (`SauvegardeDEssai` relit les f
 | `laDeconnexionDUnTiersNeDoubleRien` (trois joueurs : A verse 2 or dans un échange avec B, C se déconnecte) | « A retrouverait 2 or sur lui et 2 en attente » | passe |
 | `unPaiementPuisUneDeconnexionRestentCoherentsSurLeDisque` (facture payée à un émetteur absent, un tiers se déconnecte) | « B porte 2000 (avant 2000), A attend 1234, facture DUE » | passe |
 
-L'aide des tests qui imite une sauvegarde automatique (`SauvegardeDEssai.automatique`) écrit maintenant joueurs et données ensemble, et `uneGardeSurvitAUnArretBrutal` relit le playerdata du joueur sur le disque (I2).
+L'aide des tests qui imite une sauvegarde automatique (`SauvegardeDEssai.automatique`) écrit maintenant joueurs et données ensemble (I2). (`uneGardeSurvitAUnArretBrutal` est remplacé à la seconde passe.)
 
 ### Les pièces vont au coffre-fort avant l'attente (important I1)
 
-Les pièces qui ne tiennent ni dans l'inventaire ni dans les bourses d'un joueur vont dans **son coffre-fort s'il en a un** (et qu'il a la place), et seulement sinon en attente, dans le même ordre que le paiement d'une facture : retour d'une garde (fermeture, déconnexion, mort, échange refusé), livraison d'un échange, rachat, livraison d'une attente (à la connexion, à la réapparition, toutes les 30 s). Les objets non monétaires, bourses comprises, restent en attente. Le joueur reçoit « Des pièces qui ne tenaient pas sur vous sont allées dans votre coffre-fort. ». Verser dans son propre coffre-fort n'est pas un transfert : rien au registre.
+Les pièces qui ne tiennent ni dans l'inventaire ni dans les bourses d'un joueur vont dans **son coffre-fort s'il en a un** (et qu'il a la place), et seulement sinon en attente, dans le même ordre que le paiement d'une facture : retour d'une garde (fermeture, déconnexion, mort, échange refusé), livraison d'un échange, rachat, livraison d'une attente (à la connexion, à la réapparition, toutes les 30 s). Les objets non monétaires restent en attente ; les bourses aussi, mais depuis la seconde passe leur contenu passe d'abord au coffre-fort. Le joueur reçoit « Des pièces qui ne tenaient pas sur vous sont allées dans votre coffre-fort. ». Verser dans son propre coffre-fort n'est pas un transfert : rien au registre.
 
 L'équipe voit l'attente joueur par joueur : `/eco pending` (valeur des pièces et des bourses, nombre d'objets, du plus gros au plus petit, 20 lignes au plus). La ligne « Pending » de `/eco stats` ne change pas.
 
@@ -207,6 +207,62 @@ Tests : `lesPiecesRenduesVontAuCoffreFortAvantLAttente` et `uneAttenteDePiecesVa
 
 Le passage complet du banc n'est pas refait : seule l'économie a changé.
 
+## Seconde passe (après la relecture de la passe finale)
+
+Relecture : `.superpowers/sdd/2026-11-13-lot-e2-commerce/final-rereview.md` (N1 critique, I1 partiel, mineurs). Cahier : `final-fix2-brief.md` (même dossier). Corrections du 2026-11-14.
+
+### Plus aucune écriture forcée ; la garde vit avec son propriétaire (critique N1)
+
+N1 : l'écriture forcée de la passe finale (`saveAll` et les données de l'économie à chaque déconnexion) rendait le playerdata des joueurs **restés en ligne** plus récent que les chunks. Exemple : A retire 10 rubis de la caisse de son étal, C se déconnecte, le serveur s'arrête brutalement avant la sauvegarde automatique : A a ses 10 rubis et la caisse les a encore. Toute écriture partielle d'un ensemble de fichiers que le jeu écrit ensemble ouvre ce genre de fenêtre.
+
+Maintenant :
+
+- `EconomySave` est supprimé ; le mod n'écrit plus rien lui-même sur le disque. Les données de l'économie (`HeldGoods`, `InvoiceRegistry`, `EconomyLedger`, `SafeAccounts`, `TreasuryAccount`) s'écrivent avec la sauvegarde du monde, marquées sales à chaque changement (comme avant).
+- **La garde d'un échange vit dans le playerdata de son propriétaire** (`TradeEscrow`, sous `ForgeData/PlayerPersisted/oneforallsurvival_escrow`, recopiée par Forge à la réapparition). Elle est recopiée à chaque changement de son contenu, dans le même tick que le retrait de l'inventaire ; Minecraft l'écrit donc avec l'inventaire, dans le même fichier, au même moment (sauvegarde automatique, déconnexion). Un objet posé est soit dans l'inventaire, soit dans la garde de ce playerdata, jamais aux deux.
+- À la connexion, une garde trouvée dans le playerdata (le serveur s'est arrêté pendant un échange) est rendue au joueur et effacée dans le même playerdata : une seule fois. Inventaire, sinon coffre-fort (pièces) ou attente, comme tout retour.
+- `HeldGoods` ne garde plus que l'attente (livraisons à des joueurs absents, morts ou pleins). Un ancien fichier qui contiendrait encore des gardes (`escrows`, format de la passe finale) n'est plus relu : le lot E2 n'a encore servi sur aucun monde de partie (hypothèse : seuls les mondes d'essai en ont eu, et leurs échanges sont finis).
+- Un joueur hors ligne n'a pas de garde : son échange est annulé à sa déconnexion par `PlayerLoggedOutEvent`, que Forge publie en tête de `PlayerList.remove`, **avant** l'écriture de son playerdata. Vérifié par `deconnexionRendToutAvantLaSauvegarde` : le playerdata relu du disque après la déconnexion porte les pains dans l'inventaire et aucune garde.
+
+**Limite qui reste, celle de Minecraft** : un **don** entre deux joueurs suivi d'un arrêt brutal avant la sauvegarde de celui qui n'est pas parti. Exemple : A et B concluent un échange, A se déconnecte (son playerdata est écrit, avec ce qu'il a reçu), le serveur s'arrête avant la sauvegarde automatique suivante : le playerdata de B sur le disque est celui d'avant, sa garde y est encore, et B la retrouve à la connexion ; ce que A a reçu de B existe alors deux fois. C'est exactement ce que fait Minecraft quand A jette un objet que B ramasse, puis que B se déconnecte avant un arrêt brutal (l'objet revient chez A par son vieux playerdata). Même chose pour un achat à un étal (le chunk de l'étal et le playerdata de l'acheteur parti) et pour tout conteneur des chunks. Cette fenêtre dure au plus jusqu'à la sauvegarde automatique suivante (5 minutes par défaut) et ne s'ouvre que pour les fichiers d'un joueur qui part, jamais pour ceux des joueurs restés en ligne.
+
+Preuve, vue rouge avant la correction (18:37 à 18:39, « 7 required tests failed ») puis verte :
+
+| GameTest | Avant la correction | Après |
+|---|---|---|
+| `laGardeVitDansLePlayerdataEtRevientUneFois` (A pose 5 pains ; sauvegarde ; playerdata remis tel quel après son départ ; A revient deux fois) | « le playerdata de A porte la garde : inventaire 0, garde 0 » | passe : garde 5 sur le disque, 5 pains au retour, 5 encore au retour suivant |
+| `laDeconnexionDUnTiersNEcritQueSonPlayerdata` (A et B dans un échange, toutes les données de l'économie changées, C part) | « la déconnexion de C a réécrit : [playerdata de A, playerdata de B, les cinq données de l'économie] » | passe : rien de réécrit (octets et date), playerdata de C écrit |
+| `deconnexionRendToutAvantLaSauvegarde` (adapté : garde lue dans le playerdata) | « la garde de A est dans son playerdata » | passe |
+| `unEchangeConcluNeRevientPasDuDisque` (adapté : playerdata de A au départ, de B à la sauvegarde suivante) | « les deux gardes sont dans les playerdata » | passe |
+| `unPaiementPuisUneDeconnexionRestentCoherentsSurLeDisque` (adapté : au départ de C, le disque montre l'instant de la dernière sauvegarde ; à la suivante, le paiement) | « facture PAID, A attend 1234, B porte 766 » au lieu de l'instant de la sauvegarde | passe |
+| `laDeconnexionDUnTiersNeDoubleRien` (adapté : compte aussi la garde du playerdata) | passait (l'écriture forcée la tenait) | passe sans écriture forcée |
+
+`CommerceSocleGameTests.uneGardeSurvitAUnArretBrutal` (garde dans `HeldGoods`) est remplacé par `uneAttenteSurvitAUnArretBrutal`.
+
+### Bourses pleines vers le coffre-fort (I1)
+
+Une bourse qui ne peut pas entrer chez son propriétaire, s'il a un coffre-fort, y vide son contenu dans la limite du plafond ; la bourse (vide, ou avec ce qui n'a pas tenu) attend comme objet. Sans coffre-fort, elle attend pleine, comme avant. Même chemin que les pièces (`CommerceDelivery.park`) : retour d'une garde, livraison d'un échange, livraison d'une attente. Test `uneBoursePleineRendueSeVideAuCoffreFort` (coffre-fort à 1 or du plafond, bourse de 3 or et 5 cuivres : 1 or et 5 cuivres au coffre-fort, la bourse attend avec 2 or), rouge avant : « 1 or et 5 cuivres au coffre-fort : or 999999999999, cuivre 0 ».
+
+### Mineurs
+
+- La liste des tests qui relisent un playerdata (« Non prouvé », arrêt brutal) ne compte que ceux qui le font.
+- `saveAll` répété à l'arrêt du serveur : disparu avec `EconomySave`.
+- `MarketStallBlockEntity.load` fait avancer la révision : une vitrine ouverte se recalcule après un rechargement sur place (`unRechargementFaitAvancerLaRevision`, rouge avant : « la révision devait avancer au rechargement : 1 »).
+- `FactureGameTests` : la javadoc du test de cohérence est revenue au-dessus de son test.
+
+### Tests et essai relancés
+
+| Commande | Résultat lu |
+|---|---|
+| `runGameTestServer` avant correction (18:37 à 18:39) | « 7 required tests failed » : les sept rouges attendus ci-dessus |
+| `./gradlew --offline test runGameTestServer` (18:41 à 18:43) | « All 732 required tests passed » (18:43:00) ; JUnit : 383 tests, 0 échec, 0 erreur |
+| `./gradlew --offline runGameTestServer -PwithPack` (18:43 à 18:46) | « All 732 required tests passed » (18:46:11) |
+| Mutation : `saveAll` remis à la déconnexion (18:46 à 18:48) | « 2 required tests failed » : `laDeconnexionDUnTiersNEcritQueSonPlayerdata` (« a réécrit : [playerdata de A, playerdata de B] »), `unPaiementPuisUneDeconnexionRestentCoherentsSurLeDisque` (« facture DUE, A attend 0, B porte 766 » : la duplication elle-même) ; restauré |
+| Mutation : garde non recopiée dans le playerdata (18:48 à 18:50) | « 3 required tests failed » : `laGardeVitDansLePlayerdataEtRevientUneFois`, `deconnexionRendToutAvantLaSauvegarde`, `unEchangeConcluNeRevientPasDuDisque` ; restauré |
+| E2E ciblé économie `E2E_MONNAIE_SEULE=1`, monde neuf, avec le pack : passage (18:50 à 18:55) | « [e2e] bilan : TOUT PASSE » (18:55:47), 98 PASS, 0 FAIL ; « [fenetre] second écran (2600, 40) » ; « [souris] rendue » 20 fois |
+| Relance ciblée du même monde après le vrai `/stop` (18:59 à 19:02) | « [e2e] bilan : TOUT PASSE » (19:02:06), 15 PASS, 0 FAIL ; « [fenetre] second écran (2600, 40) » ; « [souris] rendue » 7 fois |
+
+Le passage complet du banc n'est pas refait : seule l'économie a changé.
+
 ## Non prouvé
 
 - **Crochetage de l'étal** : renvoyé au lot du policier (feature 67) ; rien n'est codé ni essayé.
@@ -217,5 +273,5 @@ Le passage complet du banc n'est pas refait : seule l'économie a changé.
 - **Stockages de mods non installés face à l'étal** : seuls l'entonnoir vanilla (en vrai) et, en GameTest (tâche 3), les trémies dessus et dessous, l'entonnoir de Create et la capacité Forge exposée ; un mod absent du pack, ou qui vide un bloc sans passer par la capacité Forge, n'est pas couvert.
 - **Équilibrage** : prix, taxe, distances (5 blocs) et plafonds (9 offres, 200 lignes, 100 000 000 cuivres par facture) n'ont pas été vécus en partie.
 - **Mort pendant un échange, inventaire plein du receveur, deux acheteurs sur le dernier lot** : GameTests seulement (tâches 1 à 5), pas en vrai.
-- **Arrêt brutal** : simulé en GameTest, jamais par un vrai arrêt du processus. Les tests écrivent ce qu'écrit une sauvegarde automatique (playerdata de tous les joueurs en ligne, puis données du monde), font ce qu'il faut (poser dans une garde, payer une facture, déconnecter un joueur), puis relisent **les fichiers du disque** : le playerdata du joueur concerné, le fichier de la garde et des attentes (relu comme au redémarrage, gardes changées en attentes) et le registre des factures. Prouvé : pour le joueur qui part (`deconnexionRendToutAvantLaSauvegarde`, `unEchangeConcluNeRevientPasDuDisque`) et pour des joueurs **restés en ligne** quand un tiers part (`laDeconnexionDUnTiersNeDoubleRien`, `unPaiementPuisUneDeconnexionRestentCoherentsSurLeDisque`). Non prouvé : un arrêt entre deux écritures de la même sauvegarde (le jeu n'écrit pas ses fichiers de façon atomique entre eux), et tout ce que contiennent les chunks (étals, voir « Passe finale »).
+- **Arrêt brutal** : simulé en GameTest, jamais par un vrai arrêt du processus. Les tests écrivent ce qu'écrit une sauvegarde automatique (playerdata de tous les joueurs en ligne, puis données du monde), font ce qu'il faut (poser dans une garde, payer une facture, déconnecter un joueur), puis relisent **les fichiers du disque**. Tests qui relisent un **playerdata** sur le disque : `laGardeVitDansLePlayerdataEtRevientUneFois` (garde écrite avec l'inventaire, puis rendue une fois à la connexion à partir du fichier remis tel qu'il était), `deconnexionRendToutAvantLaSauvegarde` (playerdata de celui qui part), `unEchangeConcluNeRevientPasDuDisque` (playerdata de A qui part, puis celui de B à la sauvegarde suivante), `laDeconnexionDUnTiersNeDoubleRien` (A et B restés en ligne), `laDeconnexionDUnTiersNEcritQueSonPlayerdata` (octets et date des playerdata de A et B et des cinq données de l'économie inchangés au départ de C ; playerdata de C relu), `unPaiementPuisUneDeconnexionRestentCoherentsSurLeDisque` (playerdata de B, avec l'attente et le registre des factures). Non prouvé : un arrêt entre deux écritures de la même sauvegarde (le jeu n'écrit pas ses fichiers de façon atomique entre eux), et la limite de Minecraft décrite dans « Seconde passe » (don puis arrêt brutal avant la sauvegarde de l'autre), qui reste ouverte par choix.
 - **Jar livré** : jamais lancé hors du développement.
