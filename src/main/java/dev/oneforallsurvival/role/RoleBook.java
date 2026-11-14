@@ -191,6 +191,32 @@ public final class RoleBook {
             boolean builtin = t.getBoolean("builtin") || BUILTIN_IDS.contains(id);
             book.roles.put(id, new Role(id, t.getString("label"), color, builtin));
         }
+        // Une sauvegarde d'avant la clé réservée peut porter un rôle « mayor » : il ne doit ni toucher le salaire du
+        // maire ni partager sa clé. Il est renommé (libellé, couleur et porteurs gardés).
+        Map<String, String> renamed = new LinkedHashMap<>();
+        for (String reserved : RESERVED_IDS) {
+            Role old = book.roles.get(reserved);
+            if (old == null) {
+                continue;
+            }
+            String base = reserved + "_role";
+            String fresh = base;
+            for (int n = 2; book.roles.containsKey(fresh); n++) {
+                fresh = base + "_" + n;
+            }
+            Map<String, Role> rebuilt = new LinkedHashMap<>();
+            for (Map.Entry<String, Role> entry : book.roles.entrySet()) {
+                if (entry.getKey().equals(reserved)) {
+                    rebuilt.put(fresh, new Role(fresh, old.label(), old.color(), false));
+                } else {
+                    rebuilt.put(entry.getKey(), entry.getValue());
+                }
+            }
+            book.roles.clear();
+            book.roles.putAll(rebuilt);
+            renamed.put(reserved, fresh);
+            LOGGER.warn("Rôle '{}' renommé '{}' : l'identifiant est réservé au salaire du maire", reserved, fresh);
+        }
         book.addMissingBuiltins();
         for (Tag raw : tag.getList("assignments", Tag.TAG_COMPOUND)) {
             CompoundTag t = (CompoundTag) raw;
@@ -198,7 +224,7 @@ public final class RoleBook {
                 LOGGER.warn("Attribution ignorée, identifiant de joueur absent ou invalide");
                 continue;
             }
-            String roleId = t.getString("role");
+            String roleId = renamed.getOrDefault(t.getString("role"), t.getString("role"));
             if (book.roles.containsKey(roleId)) {
                 book.assignments.put(t.getUUID("player"), roleId);
             }

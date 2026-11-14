@@ -245,4 +245,23 @@ class RoleBookTest {
         RoleBook relu = RoleBook.load(sauvegarde(new ListTag(), assignments));
         assertEquals("citoyen", relu.roleOf(joueur).id());
     }
+    @Test
+    void unAncienRoleMayorEstRenommeAuChargement() {
+        // Une sauvegarde d'avant la clé réservée : un rôle créé sous « mayor », porté par un joueur.
+        ListTag roles = new ListTag();
+        roles.add(roleTag("mayor", "Mayeur", "gold", false));
+        roles.add(roleTag("mayor_role", "Déjà pris", "blue", false));
+        ListTag assignments = new ListTag();
+        assignments.add(assignTag(joueur, "mayor"));
+        RoleBook relu = RoleBook.load(sauvegarde(roles, assignments));
+        assertTrue(relu.role("mayor").isEmpty(), "aucun rôle ne garde la clé du statut");
+        Role renomme = relu.role("mayor_role_2").orElseThrow();
+        assertEquals("Mayeur", renomme.label());
+        assertEquals("Déjà pris", relu.role("mayor_role").orElseThrow().label(), "le rôle existant n'est pas écrasé");
+        assertEquals("mayor_role_2", relu.roleOf(joueur).id(), "le porteur suit son rôle renommé");
+        // Et la relecture de la sauvegarde corrigée est stable.
+        RoleBook encore = RoleBook.load(relu.save());
+        assertEquals("mayor_role_2", encore.roleOf(joueur).id());
+        assertTrue(encore.role("mayor").isEmpty());
+    }
 }

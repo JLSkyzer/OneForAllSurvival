@@ -136,10 +136,10 @@ public final class TempsDeRoleGameTests {
 
     @GameTest(template = "test/plancher", batch = LOT_A)
     public static void leMaireAccumuleDeuxSalaires(GameTestHelper helper) {
-        long ancienTaux = SalaryRates.rateFor(RoleBook.ENGINEER_ROLE_ID);
-        try {
-            SalaryRates.set(RoleBook.ENGINEER_ROLE_ID, 30L);
-            avecJoueur(helper, "RoleMaire", RoleBook.ENGINEER_ROLE_ID, (serveur, j, roles) -> {
+        avecJoueur(helper, "RoleMaire", RoleBook.ENGINEER_ROLE_ID, (serveur, j, roles) -> {
+            long ancienTaux = SalaryRates.rateFor(RoleBook.ENGINEER_ROLE_ID);
+            try {
+                SalaryRates.set(RoleBook.ENGINEER_ROLE_ID, 30L);
                 roles.appointMayor(j.uuid());
                 long tauxMaire = SalaryRates.rateFor(SalaryRates.MAYOR_KEY);
                 helper.assertTrue(tauxMaire > 0L, "le maire a un taux");
@@ -162,11 +162,12 @@ public final class TempsDeRoleGameTests {
                 helper.assertTrue(secondes(paie, j.uuid(), jour, "ingenieur") == 15L
                         && secondes(paie, j.uuid(), jour, "mayor") == 10L, "après la destitution : "
                         + paie.secondsFor(j.uuid(), jour));
-            });
-        } finally {
-            SalaryRates.set(RoleBook.ENGINEER_ROLE_ID, ancienTaux);
-        }
-        helper.assertTrue(SalaryRates.rateFor(RoleBook.ENGINEER_ROLE_ID) == ancienTaux, "taux de l'ingénieur rendu");
+            } finally {
+                SalaryRates.set(RoleBook.ENGINEER_ROLE_ID, ancienTaux);
+            }
+            // Vérifié avant le succeed() d'avecJoueur, qui suit le corps.
+            helper.assertTrue(SalaryRates.rateFor(RoleBook.ENGINEER_ROLE_ID) == ancienTaux, "taux de l'ingénieur rendu");
+        });
     }
 
     @GameTest(template = "test/plancher", batch = LOT_A)
@@ -225,6 +226,48 @@ public final class TempsDeRoleGameTests {
                     && secondes(paie, j.uuid(), jour.plusDays(1), "policier") == 20L,
                     "30 s la veille, 20 s le lendemain, vu " + paie.secondsFor(j.uuid(), jour) + " / "
                     + paie.secondsFor(j.uuid(), jour.plusDays(1)));
+        });
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_B)
+    public static void leResteDesMillisecondesPasseDUnEchantillonALAutre(GameTestHelper helper) {
+        avecJoueur(helper, "RoleReste", "policier", (serveur, j, roles) -> {
+            RoleTimeTracker suivi = new RoleTimeTracker();
+            Payroll paie = Payroll.load(new CompoundTag());
+            long t = midi();
+            suivi.onLoggedIn(j.joueur(), t);
+            // Trois échantillons de 1,5 s : 1 s (0,5 reporté), 2 s, 1 s (0,5 reporté) = 4 s, et non 3.
+            suivi.sample(serveur, paie, t + 1_500L);
+            suivi.sample(serveur, paie, t + 3_000L);
+            suivi.sample(serveur, paie, t + 4_500L);
+            helper.assertTrue(secondes(paie, j.uuid(), jourDe(t), "policier") == 4L,
+                    "4 s pour 4,5 s, vu " + paie.secondsFor(j.uuid(), jourDe(t)));
+            suivi.sample(serveur, paie, t + 5_000L);
+            helper.assertTrue(secondes(paie, j.uuid(), jourDe(t), "policier") == 5L, "la demi-seconde reportée compte");
+        });
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_B)
+    public static void lePlafondJournalierEstTenuParLeSuivi(GameTestHelper helper) {
+        avecJoueur(helper, "RolePlafond", "policier", (serveur, j, roles) -> {
+            roles.removeMayor();
+            RoleTimeTracker suivi = new RoleTimeTracker();
+            Payroll paie = Payroll.load(new CompoundTag());
+            long max = EconomyConfig.salaryMaxHoursPerDay() * 3_600L;
+            // Départ juste après le début du jour : le plafond est atteint bien avant la frontière.
+            ZoneId zone = EconomyCalendar.configuredZone();
+            long t = EconomyCalendar.boundaryAfter(LocalDate.of(2026, 6, 13), zone, EconomyConfig.payHour()) + 1_000L;
+            LocalDate jour = jourDe(t);
+            suivi.onLoggedIn(j.joueur(), t);
+            long pas = max / 60L + 30L;
+            for (long i = 1; i <= pas; i++) {
+                suivi.sample(serveur, paie, t + i * 60_000L);
+            }
+            helper.assertTrue(jourDe(t + pas * 60_000L).equals(jour), "toujours le même jour");
+            helper.assertTrue(secondes(paie, j.uuid(), jour, "policier") == max,
+                    "plafond de " + max + " s, vu " + paie.secondsFor(j.uuid(), jour));
+            helper.assertTrue(paie.rateSecondsFor(j.uuid(), jour).get("policier") == max * SalaryRates.rateFor("policier"),
+                    "cuivre-secondes plafonnées aussi");
         });
     }
 
