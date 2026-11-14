@@ -45,6 +45,14 @@ public final class EconomyConfig {
     static final int DEFAULT_INVOICE_ISSUE_COOLDOWN_TICKS = 40;
     static final int DEFAULT_TREASURY_LEDGER_LINES = 1_000;
     static final int DEFAULT_TREASURY_REASON_MAX = 80;
+    static final List<String> DEFAULT_SALARY_PER_HOUR = List.of("policier=60", "medecin=60");
+    static final long DEFAULT_MAYOR_SALARY_PER_HOUR = 60L;
+    static final int DEFAULT_SALARY_MAX_HOURS_PER_DAY = 8;
+    static final int DEFAULT_PAY_HOUR = 0;
+    static final String DEFAULT_PAY_TIME_ZONE = "";
+    static final int DEFAULT_PAY_MAX_MISSED_DAYS = 400;
+    /** Plafond d'un taux de salaire, en cuivres par heure. */
+    public static final long MAX_SALARY_PER_HOUR = 1_000_000L;
 
     private static final ForgeConfigSpec.IntValue LEDGER_MAX_LINES;
     private static final ForgeConfigSpec.IntValue STARTING_MONEY;
@@ -62,6 +70,12 @@ public final class EconomyConfig {
     private static final ForgeConfigSpec.IntValue INVOICE_ISSUE_COOLDOWN_TICKS;
     private static final ForgeConfigSpec.IntValue TREASURY_LEDGER_LINES;
     private static final ForgeConfigSpec.IntValue TREASURY_REASON_MAX;
+    private static final ForgeConfigSpec.ConfigValue<List<? extends String>> SALARY_PER_HOUR;
+    private static final ForgeConfigSpec.LongValue MAYOR_SALARY_PER_HOUR;
+    private static final ForgeConfigSpec.IntValue SALARY_MAX_HOURS_PER_DAY;
+    private static final ForgeConfigSpec.IntValue PAY_HOUR;
+    private static final ForgeConfigSpec.ConfigValue<String> PAY_TIME_ZONE;
+    private static final ForgeConfigSpec.IntValue PAY_MAX_MISSED_DAYS;
     private static final ForgeConfigSpec.ConfigValue<List<? extends String>> EXTRA_ALLOWED_MENUS;
     private static final ForgeConfigSpec.ConfigValue<List<? extends String>> EXTRA_FORBIDDEN_MENUS;
 
@@ -128,6 +142,29 @@ public final class EconomyConfig {
         TREASURY_REASON_MAX = builder
                 .comment("Longueur maximale du motif d'une dépense publique, en caractères.")
                 .defineInRange("treasuryReasonMax", DEFAULT_TREASURY_REASON_MAX, 1, 200);
+        SALARY_PER_HOUR = builder
+                .comment("Salaire de chaque rôle, en cuivres par heure passée connecté dans le rôle : \"<rôle>=<taux>\",",
+                        "le rôle par son identifiant (ex. \"policier=60\", 60 = 1 cuivre par minute). Un rôle absent n'est",
+                        "pas payé. Une entrée illisible est ignorée avec un avertissement. Le maire se règle à part.",
+                        "Modifiable en jeu par /eco salary set <rôle> <taux>.")
+                .defineListAllowEmpty("salaryPerHour", DEFAULT_SALARY_PER_HOUR, o -> o instanceof String);
+        MAYOR_SALARY_PER_HOUR = builder
+                .comment("Salaire du maire, en cuivres par heure, en plus de celui de son métier (0 = aucun).")
+                .defineInRange("mayorSalaryPerHour", DEFAULT_MAYOR_SALARY_PER_HOUR, 0L, MAX_SALARY_PER_HOUR);
+        SALARY_MAX_HOURS_PER_DAY = builder
+                .comment("Heures comptées au plus par joueur, par jour et par salaire.")
+                .defineInRange("salaryMaxHoursPerDay", DEFAULT_SALARY_MAX_HOURS_PER_DAY, 1, 24);
+        PAY_HOUR = builder
+                .comment("Heure locale (0 à 23) où le jour de paie se clôt et où les salaires sont réglés (0 = minuit).")
+                .defineInRange("payHour", DEFAULT_PAY_HOUR, 0, 23);
+        PAY_TIME_ZONE = builder
+                .comment("Fuseau horaire de la paie, identifiant IANA (ex. \"Europe/Paris\") ; vide = fuseau du système.",
+                        "Un fuseau illisible donne celui du système, avec un avertissement.")
+                .define("payTimeZone", DEFAULT_PAY_TIME_ZONE);
+        PAY_MAX_MISSED_DAYS = builder
+                .comment("Jours de paie manqués (serveur éteint) rattrapés au plus au démarrage ; les plus anciens",
+                        "au-delà sont sautés avec un avertissement.")
+                .defineInRange("payMaxMissedDays", DEFAULT_PAY_MAX_MISSED_DAYS, 1, 3_650);
         EXTRA_ALLOWED_MENUS = builder
                 .comment("Types d'écran (identifiants, ex. \"mod:coffre\") où une pièce a le droit d'être rangée, en plus",
                         "de l'inventaire du joueur, de la table de fabrication et des rangements de ce mod.")
@@ -282,6 +319,72 @@ public final class EconomyConfig {
             return TREASURY_REASON_MAX.get();
         } catch (IllegalStateException e) {
             return DEFAULT_TREASURY_REASON_MAX;
+        }
+    }
+
+    /** Les taux de salaire réglés, tels qu'écrits (\"policier=60\"…) ; les valeurs par défaut sans fichier. */
+    public static List<? extends String> salaryPerHour() {
+        try {
+            return SALARY_PER_HOUR.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_SALARY_PER_HOUR;
+        }
+    }
+
+    /** Remplace la liste des taux et écrit le fichier (commande de l'équipe). */
+    public static void setSalaryPerHour(List<String> entries) {
+        SALARY_PER_HOUR.set(List.copyOf(entries));
+        SALARY_PER_HOUR.save();
+    }
+
+    /** Salaire du maire, en cuivres par heure (60 par défaut). */
+    public static long mayorSalaryPerHour() {
+        try {
+            return MAYOR_SALARY_PER_HOUR.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_MAYOR_SALARY_PER_HOUR;
+        }
+    }
+
+    /** Règle le salaire du maire et écrit le fichier (commande de l'équipe). */
+    public static void setMayorSalaryPerHour(long rate) {
+        MAYOR_SALARY_PER_HOUR.set(rate);
+        MAYOR_SALARY_PER_HOUR.save();
+    }
+
+    /** Heures comptées au plus par joueur, par jour et par salaire (8 par défaut). */
+    public static int salaryMaxHoursPerDay() {
+        try {
+            return SALARY_MAX_HOURS_PER_DAY.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_SALARY_MAX_HOURS_PER_DAY;
+        }
+    }
+
+    /** Heure locale de la clôture du jour de paie (0 par défaut, de 0 à 23). */
+    public static int payHour() {
+        try {
+            return PAY_HOUR.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_PAY_HOUR;
+        }
+    }
+
+    /** Fuseau de la paie tel qu'écrit (vide par défaut : fuseau du système) ; lu par {@link EconomyCalendar#configuredZone()}. */
+    public static String payTimeZone() {
+        try {
+            return PAY_TIME_ZONE.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_PAY_TIME_ZONE;
+        }
+    }
+
+    /** Jours de paie manqués rattrapés au plus (400 par défaut). */
+    public static int payMaxMissedDays() {
+        try {
+            return PAY_MAX_MISSED_DAYS.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_PAY_MAX_MISSED_DAYS;
         }
     }
 

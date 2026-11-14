@@ -66,6 +66,8 @@ class RoleBookTest {
         assertThrows(IllegalArgumentException.class, () -> book.createRole("Pêcheur", "Pêcheur", BLUE));
         assertThrows(IllegalArgumentException.class, () -> book.createRole("", "Vide", BLUE));
         assertThrows(IllegalArgumentException.class, () -> book.createRole("citoyen", "Doublon", BLUE));
+        // « mayor » est la clé réservée du salaire du maire : aucun rôle ne la porte.
+        assertThrows(IllegalArgumentException.class, () -> book.createRole("mayor", "Maire", BLUE));
     }
 
     @Test

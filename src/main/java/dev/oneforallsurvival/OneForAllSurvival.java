@@ -103,6 +103,11 @@ public final class OneForAllSurvival {
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.invoice.InvoiceService::onLoggedOut);
         MinecraftForge.EVENT_BUS.addListener(CommerceDelivery::onRespawn);
         MinecraftForge.EVENT_BUS.addListener(CommerceDelivery::onServerTick);
+        // Temps passé dans un rôle payé : un échantillon par seconde, départ à la connexion, crédit à la déconnexion.
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.payroll.RoleTimeTracker::onServerTick);
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.payroll.RoleTimeTracker::onLoggedInEvent);
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.payroll.RoleTimeTracker::onLoggedOutEvent);
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.payroll.RoleTimeTracker::onServerStopped);
         MinecraftForge.EVENT_BUS.addListener(SafeBlock::onBreak);
         MinecraftForge.EVENT_BUS.addListener(MarketStallBlock::onBreak);
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.town.TreasuryBlock::onBreak);

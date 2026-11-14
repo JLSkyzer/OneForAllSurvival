@@ -30,6 +30,8 @@ public final class RoleBook {
     private static final Set<String> BUILTIN_IDS =
             Set.of("medecin", ENGINEER_ROLE_ID, "policier", "agriculteur", DEFAULT_ROLE_ID);
     private static final Pattern ID_PATTERN = Pattern.compile("[a-z0-9_]{1,32}");
+    /** Identifiants qu'aucun rôle ne peut prendre : {@code mayor} est la clé du salaire du maire (statut, pas rôle). */
+    private static final Set<String> RESERVED_IDS = Set.of("mayor");
 
     private final Map<String, Role> roles = new LinkedHashMap<>();
     private final Map<UUID, String> assignments = new LinkedHashMap<>();
@@ -79,7 +81,7 @@ public final class RoleBook {
     }
 
     public void createRole(String id, String label, ChatFormatting color) {
-        if (id == null || !ID_PATTERN.matcher(id).matches()) {
+        if (id == null || !ID_PATTERN.matcher(id).matches() || RESERVED_IDS.contains(id)) {
             throw new IllegalArgumentException("Identifiant invalide : " + id);
         }
         if (roles.containsKey(id)) {
