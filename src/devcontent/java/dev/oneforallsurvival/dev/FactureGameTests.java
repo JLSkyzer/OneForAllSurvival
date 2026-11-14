@@ -173,6 +173,7 @@ public final class FactureGameTests {
     private static Invoice emettre(GameTestHelper helper, Essai essai, JoueurDeTest a, JoueurDeTest b, long montant,
             String motif) {
         a.joueur().setItemInHand(InteractionHand.MAIN_HAND, carnet());
+        InvoiceService.resetCooldown(a.uuid());
         IssueResult r = InvoiceService.issue(a.joueur(), b.uuid(), montant, motif);
         helper.assertTrue(r == IssueResult.DONE, "émission : " + r);
         List<Invoice> dues = essai.registre().owedBy(b.uuid());
@@ -279,10 +280,15 @@ public final class FactureGameTests {
                     "inconnu");
             a.joueur().setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
             helper.assertTrue(InvoiceService.issue(a.joueur(), b.uuid(), 10L, "pain") == IssueResult.NO_BOOK, "sans carnet");
-            // Le même refus par le paquet du client : rien n'est émis.
-            a.envoyer(new InvoiceIssuePacket(b.uuid(), 0L, "pain"));
+            // Les mêmes refus par le paquet du client, carnet en main : rien n'est émis.
             a.joueur().setItemInHand(InteractionHand.MAIN_HAND, carnet());
+            a.messagesRecus();
+            a.envoyer(new InvoiceIssuePacket(b.uuid(), 0L, "pain"));
+            helper.assertTrue(a.messagesRecus().contains(InvoiceService.MESSAGE + "issue.bad_amount"),
+                    "le paquet au montant nul est refusé pour son montant");
             a.envoyer(new InvoiceIssuePacket(b.uuid(), 10L, "x".repeat(motifMax + 1)));
+            helper.assertTrue(a.messagesRecus().contains(InvoiceService.MESSAGE + "issue.bad_reason"),
+                    "le paquet au motif trop long est refusé pour son motif");
             helper.assertTrue(essai.registre().owedBy(b.uuid()).isEmpty() && essai.registre().issuedBy(a.uuid()).isEmpty(),
                     "aucune facture ne devait naître");
             helper.assertTrue(InvoiceService.issue(a.joueur(), b.uuid(), max, "x".repeat(motifMax)) == IssueResult.DONE,
@@ -490,8 +496,13 @@ public final class FactureGameTests {
             b.joueur().getInventory().setItem(10, pieces(Coin.GOLD, 1));
             int c = caseDe(b, f.id());
             b.messagesRecus();
+            // Un paquet qui vise une autre facture que celle de la case : rien ne bouge.
+            b.envoyer(new InvoicePayPacket(c, UUID.randomUUID()));
+            helper.assertTrue(b.messagesRecus().contains(InvoiceService.MESSAGE + "pay.changed"), "case changée");
+            helper.assertTrue(statut(essai, f.id()) == Status.DUE && valeurPortee(b) == 100L && valeurPortee(a) == 0L,
+                    "rien n'est payé quand la case ne porte plus la facture affichée");
             // Par le paquet du client, comme le bouton « Payer ».
-            b.envoyer(new InvoicePayPacket(c));
+            b.envoyer(new InvoicePayPacket(c, f.id()));
             helper.assertTrue(statut(essai, f.id()) == Status.PAID, "payée");
             ItemStack pile = b.joueur().getInventory().getItem(c);
             helper.assertTrue(estUnRecu(pile, Receipt.KIND_INVOICE_PAID), "la case porte un reçu de facture : " + pile
@@ -647,6 +658,21 @@ public final class FactureGameTests {
             b.joueur().getInventory().setItem(10, pieces(Coin.GOLD, 1));
             helper.assertTrue(InvoiceService.pay(b.joueur(), 3) == PayResult.UNKNOWN, "copie d'une facture oubliée");
             helper.assertTrue(valeurPortee(b) == 100L, "aucune pièce ne bouge");
+
+            // Réglée de main à main il y a longtemps, oubliée, l'objet resté chez le débiteur : il devient un reçu.
+            Invoice main = emettre(helper, essai, a, b, 10L, "main");
+            int c = caseDe(b, main.id());
+            helper.assertTrue(registre.settleByHand(main.id(), a.uuid(), maintenant - garde - jour), "réglée à la main");
+            registre.prune(maintenant);
+            helper.assertTrue(registre.get(main.id()).isEmpty(), "oubliée");
+            for (int i = 0; i < 20; i++) {
+                b.joueur().doTick();
+            }
+            helper.assertTrue(estUnRecu(b.joueur().getInventory().getItem(c), Receipt.KIND_INVOICE_CLOSED),
+                    "la facture oubliée devient un reçu de facture close : " + b.joueur().getInventory().getItem(c));
+            helper.assertTrue(estUnRecu(b.joueur().getInventory().getItem(3), Receipt.KIND_INVOICE_CLOSED),
+                    "la vieille copie aussi");
+            helper.assertTrue(valeurPortee(b) == 100L, "aucune pièce ne bouge");
             helper.succeed();
         }
     }
@@ -672,6 +698,170 @@ public final class FactureGameTests {
             helper.assertTrue(registre.inCirculation() == enCirculation, "en circulation inchangé");
             helper.assertTrue(registre.totalTransferred(MoneyTransfer.INVOICE) - factures == 4_321L,
                     "transfert noté : " + (registre.totalTransferred(MoneyTransfer.INVOICE) - factures));
+            helper.succeed();
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Bornes du nombre de factures (tour 1)
+    // ---------------------------------------------------------------------------------------------
+
+    private static int papiers(JoueurDeTest j) {
+        return j.joueur().getInventory().countItem(EconomyRegistry.INVOICE.get());
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_B)
+    public static void laFactureDeTropEstRefusee(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest a = essai.joueur("fb_tropA", POS_A);
+            JoueurDeTest b = essai.joueur("fb_tropB", POS_B);
+            int max = dev.oneforallsurvival.economy.EconomyConfig.invoiceMaxDuePerPair();
+            List<Invoice> faites = new ArrayList<>();
+            for (int i = 0; i < max; i++) {
+                faites.add(emettre(helper, essai, a, b, 100L, "dette " + i));
+            }
+            InvoiceService.resetCooldown(a.uuid());
+            int registre = essai.registre().owedBy(b.uuid()).size();
+            helper.assertTrue(registre == max && papiers(b) == max, "les " + max + " premières passent");
+            IssueResult r = InvoiceService.issue(a.joueur(), b.uuid(), 100L, "de trop");
+            helper.assertTrue(r == IssueResult.TOO_MANY, "la facture de trop : " + r);
+            a.messagesRecus();
+            a.envoyer(new InvoiceIssuePacket(b.uuid(), 100L, "de trop"));
+            helper.assertTrue(a.messagesRecus().contains(InvoiceService.MESSAGE + "issue.too_many"), "message clair");
+            a.joueur().interactOn(b.joueur(), InteractionHand.MAIN_HAND);
+            helper.assertTrue(a.formulairesFactureRecus().isEmpty(), "le carnet n'ouvre plus le formulaire");
+            helper.assertTrue(essai.registre().owedBy(b.uuid()).size() == registre && papiers(b) == max
+                    && !HeldGoods.get(essai.serveur()).hasPending(b.uuid()),
+                    "rien n'est écrit : registre, inventaire, attente");
+
+            // En payer une libère une place.
+            b.joueur().getInventory().setItem(30, pieces(Coin.GOLD, 1));
+            helper.assertTrue(InvoiceService.pay(b.joueur(), caseDe(b, faites.get(0).id())) == PayResult.PAID_TO_INVENTORY,
+                    "paiement");
+            InvoiceService.resetCooldown(a.uuid());
+            helper.assertTrue(InvoiceService.issue(a.joueur(), b.uuid(), 100L, "après paiement") == IssueResult.DONE,
+                    "une place libérée par le paiement");
+            InvoiceService.resetCooldown(a.uuid());
+            helper.assertTrue(InvoiceService.issue(a.joueur(), b.uuid(), 100L, "de trop") == IssueResult.TOO_MANY,
+                    "de nouveau au plafond");
+            // En régler une de main à main aussi.
+            essai.serveur().getCommands().performPrefixedCommand(a.joueur().createCommandSourceStack(),
+                    "invoice settle " + faites.get(1).id());
+            helper.assertTrue(statut(essai, faites.get(1).id()) == Status.SETTLED_BY_HAND, "réglée de main à main");
+            InvoiceService.resetCooldown(a.uuid());
+            helper.assertTrue(InvoiceService.issue(a.joueur(), b.uuid(), 100L, "après main à main") == IssueResult.DONE,
+                    "une place libérée par le règlement de main à main");
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void plafondParDebiteurToutesOrigines(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest b = essai.joueur("fc_debB", POS_B);
+            int parPaire = dev.oneforallsurvival.economy.EconomyConfig.invoiceMaxDuePerPair();
+            int parDebiteur = dev.oneforallsurvival.economy.EconomyConfig.invoiceMaxDuePerDebtor();
+            int faites = 0;
+            int n = 0;
+            while (faites < parDebiteur) {
+                JoueurDeTest a = essai.joueur("fc_deb" + n++, POS_A);
+                for (int i = 0; i < parPaire && faites < parDebiteur; i++) {
+                    emettre(helper, essai, a, b, 10L, "part " + faites);
+                    faites++;
+                }
+            }
+            JoueurDeTest autre = essai.joueur("fc_debX", POS_C);
+            autre.joueur().setItemInHand(InteractionHand.MAIN_HAND, carnet());
+            int avant = papiers(b);
+            IssueResult r = InvoiceService.issue(autre.joueur(), b.uuid(), 10L, "une de trop");
+            helper.assertTrue(r == IssueResult.TOO_MANY, "au plafond du débiteur, un émetteur neuf : " + r);
+            helper.assertTrue(essai.registre().owedBy(b.uuid()).size() == parDebiteur && papiers(b) == avant
+                    && !HeldGoods.get(essai.serveur()).hasPending(b.uuid()), "rien n'est écrit");
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void delaiEntreDeuxEmissions(GameTestHelper helper) {
+        Essai essai = new Essai(helper);
+        JoueurDeTest a;
+        JoueurDeTest b;
+        try {
+            a = essai.joueur("fc_delA", POS_A);
+            b = essai.joueur("fc_delB", POS_B);
+            emettre(helper, essai, a, b, 10L, "première");
+            IssueResult r = InvoiceService.issue(a.joueur(), b.uuid(), 10L, "aussitôt");
+            helper.assertTrue(r == IssueResult.TOO_SOON, "seconde émission immédiate : " + r);
+            helper.assertTrue(essai.registre().owedBy(b.uuid()).size() == 1 && papiers(b) == 1, "rien n'est écrit");
+        } catch (RuntimeException | Error e) {
+            essai.close();
+            throw e;
+        }
+        JoueurDeTest emetteur = a;
+        JoueurDeTest debiteur = b;
+        helper.runAfterDelay(dev.oneforallsurvival.economy.EconomyConfig.invoiceIssueCooldownTicks() + 1, () -> {
+            try {
+                IssueResult r = InvoiceService.issue(emetteur.joueur(), debiteur.uuid(), 10L, "plus tard");
+                helper.assertTrue(r == IssueResult.DONE, "après le délai : " + r);
+                helper.assertTrue(essai.registre().owedBy(debiteur.uuid()).size() == 2 && papiers(debiteur) == 2,
+                        "la seconde arrive");
+                helper.succeed();
+            } finally {
+                essai.close();
+            }
+        });
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void monnaieSansPlaceRefusee(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest a = essai.joueur("fc_placeA", POS_A);
+            JoueurDeTest b = essai.joueur("fc_placeB", POS_B);
+            Invoice f = emettre(helper, essai, a, b, 250L, "laine");
+            int c = caseDe(b, f.id());
+            boolean emeraude = false;
+            for (int i = 0; i < 36; i++) {
+                if (i == c) {
+                    continue;
+                }
+                b.joueur().getInventory().setItem(i, emeraude ? new ItemStack(Items.DIRT, 64) : pieces(Coin.EMERALD, 1));
+                emeraude = true;
+            }
+            long registre = EconomyLedger.get(essai.serveur()).totalTransferred(MoneyTransfer.INVOICE);
+            PayResult r = InvoiceService.pay(b.joueur(), c);
+            helper.assertTrue(r == PayResult.NO_ROOM, "inventaire plein, aucune bourse, monnaie à rendre : " + r);
+            helper.assertTrue(valeurPortee(b) == 1_000L && valeurPortee(a) == 0L, "aucune pièce ne bouge");
+            helper.assertTrue(statut(essai, f.id()) == Status.DUE && caseDe(b, f.id()) == c, "toujours due, toujours là");
+            helper.assertTrue(EconomyLedger.get(essai.serveur()).totalTransferred(MoneyTransfer.INVOICE) == registre,
+                    "rien au registre");
+            helper.assertTrue(helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+                    b.joueur().getBoundingBox().inflate(4)).isEmpty(), "rien au sol");
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void regleeDeMainAMainPuisPaiementAvantLaConversion(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest a = essai.joueur("fc_avantA", POS_A);
+            JoueurDeTest b = essai.joueur("fc_avantB", POS_B);
+            Invoice f = emettre(helper, essai, a, b, 500L, "toit");
+            int c = caseDe(b, f.id());
+            b.joueur().getInventory().setItem(20, pieces(Coin.GOLD, 9));
+            long registre = EconomyLedger.get(essai.serveur()).totalTransferred(MoneyTransfer.INVOICE);
+            essai.serveur().getCommands().performPrefixedCommand(a.joueur().createCommandSourceStack(),
+                    "invoice settle " + f.id());
+            helper.assertTrue(statut(essai, f.id()) == Status.SETTLED_BY_HAND, "réglée de main à main");
+            helper.assertTrue(b.joueur().getInventory().getItem(c).is(EconomyRegistry.INVOICE.get()),
+                    "encore une facture : aucun tick n'est passé");
+            PayResult r = InvoiceService.pay(b.joueur(), c);
+            helper.assertTrue(r == PayResult.ALREADY_SETTLED, "paiement avant la conversion : " + r);
+            helper.assertTrue(valeurPortee(b) == 900L && valeurPortee(a) == 0L, "aucune pièce ne bouge");
+            helper.assertTrue(EconomyLedger.get(essai.serveur()).totalTransferred(MoneyTransfer.INVOICE) == registre,
+                    "rien au registre");
+            helper.assertTrue(statut(essai, f.id()) == Status.SETTLED_BY_HAND, "le statut ne change pas");
+            helper.assertTrue(estUnRecu(b.joueur().getInventory().getItem(c), Receipt.KIND_INVOICE_BY_HAND),
+                    "elle devient le reçu « de main à main »");
             helper.succeed();
         }
     }

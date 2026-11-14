@@ -673,5 +673,9 @@
   "gui.oneforallsurvival.invoice.view.hint.debtor": "Payer prend les pièces de vos bourses et de votre inventaire",
   "gui.oneforallsurvival.invoice.view.hint.other": "Seul %s peut la payer",
   "gui.oneforallsurvival.invoice.view.pay": "Payer",
-  "gui.oneforallsurvival.invoice.view.close": "Fermer"
+  "gui.oneforallsurvival.invoice.view.close": "Fermer",
+  "message.oneforallsurvival.invoice.issue.too_many": "Trop de factures dues : %s en a déjà autant qu'il est permis (de vous, ou en tout). Attendez qu'une soit réglée.",
+  "message.oneforallsurvival.invoice.issue.too_soon": "Une facture à la fois : attendez un instant avant la suivante",
+  "message.oneforallsurvival.invoice.pay.changed": "La facture affichée n'est plus dans cette case : rien n'a été payé",
+  "tooltip.oneforallsurvival.receipt.kind.invoice_closed": "Reçu de facture close (ne se paie plus)"
 }

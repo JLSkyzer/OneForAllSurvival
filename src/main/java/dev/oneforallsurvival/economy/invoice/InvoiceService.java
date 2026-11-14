@@ -14,11 +14,13 @@ import dev.oneforallsurvival.economy.Receipt;
 import dev.oneforallsurvival.economy.invoice.InvoiceRegistry.Invoice;
 import dev.oneforallsurvival.economy.invoice.InvoiceRegistry.Status;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import javax.annotation.Nullable;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -43,17 +45,56 @@ public final class InvoiceService {
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    public enum IssueResult { DONE, SELF, TOO_FAR, BAD_AMOUNT, BAD_REASON, NO_BOOK, GONE }
+    /**
+     * {@link #TOO_MANY} : trop de factures dues entre ces deux joueurs ({@link EconomyConfig#invoiceMaxDuePerPair()})
+     * ou chez ce débiteur ({@link EconomyConfig#invoiceMaxDuePerDebtor()}) ; {@link #TOO_SOON} : l'émetteur vient
+     * d'en émettre une ({@link EconomyConfig#invoiceIssueCooldownTicks()}). Bornes techniques : sans elles, un joueur
+     * ferait croître sans fin le registre et l'attente d'un autre.
+     */
+    public enum IssueResult { DONE, SELF, TOO_FAR, BAD_AMOUNT, BAD_REASON, NO_BOOK, GONE, TOO_MANY, TOO_SOON }
 
     /**
      * {@link #NO_ROOM} s'ajoute aux valeurs du plan : la monnaie rendue ne tiendrait pas dans l'inventaire du payeur
      * ({@link PlayerCoins#take} la jetterait à ses pieds) ; on refuse avant tout mouvement.
      */
-    public enum PayResult { PAID_TO_INVENTORY, PAID_TO_SAFE, PAID_PENDING, NOT_DEBTOR, ALREADY_SETTLED, UNKNOWN, CANNOT_PAY, NO_ROOM }
+    public enum PayResult { PAID_TO_INVENTORY, PAID_TO_SAFE, PAID_PENDING, NOT_DEBTOR, ALREADY_SETTLED, UNKNOWN, CANNOT_PAY, NO_ROOM, CHANGED }
 
     public enum SettleResult { DONE, NOT_FOUND, AMBIGUOUS, ALREADY_SETTLED }
 
+    /** Tick du serveur de la dernière émission de chaque joueur (en mémoire seulement). */
+    private static final Map<UUID, Integer> LAST_ISSUE = new HashMap<>();
+
     private InvoiceService() {}
+
+    /** Essais seulement : oublie la dernière émission de ce joueur (le délai ne s'applique plus). */
+    public static void resetCooldown(UUID issuer) {
+        LAST_ISSUE.remove(issuer);
+    }
+
+    private static boolean coolingDown(ServerPlayer issuer) {
+        Integer last = LAST_ISSUE.get(issuer.getUUID());
+        if (last == null) {
+            return false;
+        }
+        int elapsed = issuer.server.getTickCount() - last;
+        // Négatif : le compteur est reparti de zéro (autre monde du même jeu) ; la note est périmée.
+        return elapsed >= 0 && elapsed < EconomyConfig.invoiceIssueCooldownTicks();
+    }
+
+    /** Vrai si une facture de plus de {@code issuer} à {@code debtor} dépasserait une des deux bornes. */
+    private static boolean tooMany(ServerPlayer issuer, ServerPlayer debtor) {
+        int pair = 0;
+        int all = 0;
+        for (Invoice invoice : InvoiceRegistry.get(issuer.server).owedBy(debtor.getUUID())) {
+            if (invoice.status() == Status.DUE) {
+                all++;
+                if (invoice.issuer().equals(issuer.getUUID())) {
+                    pair++;
+                }
+            }
+        }
+        return pair >= EconomyConfig.invoiceMaxDuePerPair() || all >= EconomyConfig.invoiceMaxDuePerDebtor();
+    }
 
     // ---------------------------------------------------------------------------------------------
     // Émettre
@@ -77,6 +118,9 @@ public final class InvoiceService {
         double max = EconomyConfig.invoiceMaxDistance();
         if (issuer.level() != debtor.level() || issuer.distanceToSqr(debtor) > max * max) {
             return IssueResult.TOO_FAR;
+        }
+        if (tooMany(issuer, debtor)) {
+            return IssueResult.TOO_MANY;
         }
         return IssueResult.DONE;
     }
@@ -128,6 +172,10 @@ public final class InvoiceService {
         if (clean == null) {
             return IssueResult.BAD_REASON;
         }
+        if (coolingDown(issuer)) {
+            return IssueResult.TOO_SOON;
+        }
+        LAST_ISSUE.put(issuer.getUUID(), issuer.server.getTickCount());
 
         Invoice invoice = InvoiceRegistry.get(issuer.server).issue(issuer, debtor, amount, clean, System.currentTimeMillis());
         CommerceDelivery.giveBack(debtor, List.of(InvoiceItem.of(invoice)));
@@ -149,12 +197,23 @@ public final class InvoiceService {
      * Tout autre résultat qu'un {@code PAID_*} : aucune pièce n'a bougé.
      */
     public static PayResult pay(ServerPlayer payer, int slot) {
+        return pay(payer, slot, null);
+    }
+
+    /**
+     * Comme {@link #pay(ServerPlayer, int)}, pour la facture d'identifiant {@code seen} (celle que l'écran montrait) :
+     * si la case porte autre chose, {@link PayResult#CHANGED} et rien ne bouge. {@code null} : pas de contrôle.
+     */
+    public static PayResult pay(ServerPlayer payer, int slot, @Nullable UUID seen) {
         Inventory inventory = payer.getInventory();
         if (slot < 0 || slot >= inventory.getContainerSize()) {
             return PayResult.UNKNOWN;
         }
         ItemStack stack = inventory.getItem(slot);
         Optional<UUID> id = InvoiceItem.idOf(stack);
+        if (seen != null && (id.isEmpty() || !id.get().equals(seen))) {
+            return PayResult.CHANGED;
+        }
         if (id.isEmpty()) {
             return PayResult.UNKNOWN;
         }
@@ -250,13 +309,17 @@ public final class InvoiceService {
             return;
         }
         Optional<Invoice> known = InvoiceRegistry.get(player.server).get(id.get());
-        if (known.isEmpty() || known.get().status() == Status.DUE) {
+        if (known.isPresent() && known.get().status() == Status.DUE) {
             return;
         }
+        // Inconnue : une facture due n'est jamais oubliée, donc celle-ci a été réglée puis oubliée (ou n'a jamais
+        // existé) ; elle devient un reçu de facture close, impayable comme elle l'était.
+        ItemStack receipt = known.isPresent() ? Receipt.forInvoice(known.get(), known.get().status())
+                : Receipt.forClosedInvoice(stack);
         Inventory inventory = player.getInventory();
         for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
             if (inventory.getItem(slot) == stack) {
-                inventory.setItem(slot, Receipt.forInvoice(known.get(), known.get().status()));
+                inventory.setItem(slot, receipt);
                 return;
             }
         }

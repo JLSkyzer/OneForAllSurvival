@@ -673,5 +673,9 @@
   "gui.oneforallsurvival.invoice.view.hint.debtor": "Paying takes coins from your purses and inventory",
   "gui.oneforallsurvival.invoice.view.hint.other": "Only %s can pay it",
   "gui.oneforallsurvival.invoice.view.pay": "Pay",
-  "gui.oneforallsurvival.invoice.view.close": "Close"
+  "gui.oneforallsurvival.invoice.view.close": "Close",
+  "message.oneforallsurvival.invoice.issue.too_many": "Too many unpaid invoices: %s already has as many as allowed (from you, or in total). Wait until one is settled.",
+  "message.oneforallsurvival.invoice.issue.too_soon": "One invoice at a time: wait a moment before the next one",
+  "message.oneforallsurvival.invoice.pay.changed": "The invoice shown is no longer in that slot: nothing was paid",
+  "tooltip.oneforallsurvival.receipt.kind.invoice_closed": "Receipt for a closed invoice (no longer payable)"
 }

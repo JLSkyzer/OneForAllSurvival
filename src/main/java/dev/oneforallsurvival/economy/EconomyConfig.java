@@ -40,6 +40,9 @@ public final class EconomyConfig {
     static final long DEFAULT_INVOICE_MAX_AMOUNT = 100_000_000L;
     static final int DEFAULT_INVOICE_REASON_MAX = 80;
     static final int DEFAULT_INVOICE_KEEP_DAYS = 90;
+    static final int DEFAULT_INVOICE_MAX_DUE_PER_PAIR = 5;
+    static final int DEFAULT_INVOICE_MAX_DUE_PER_DEBTOR = 27;
+    static final int DEFAULT_INVOICE_ISSUE_COOLDOWN_TICKS = 40;
 
     private static final ForgeConfigSpec.IntValue LEDGER_MAX_LINES;
     private static final ForgeConfigSpec.IntValue STARTING_MONEY;
@@ -52,6 +55,9 @@ public final class EconomyConfig {
     private static final ForgeConfigSpec.LongValue INVOICE_MAX_AMOUNT;
     private static final ForgeConfigSpec.IntValue INVOICE_REASON_MAX;
     private static final ForgeConfigSpec.IntValue INVOICE_KEEP_DAYS;
+    private static final ForgeConfigSpec.IntValue INVOICE_MAX_DUE_PER_PAIR;
+    private static final ForgeConfigSpec.IntValue INVOICE_MAX_DUE_PER_DEBTOR;
+    private static final ForgeConfigSpec.IntValue INVOICE_ISSUE_COOLDOWN_TICKS;
     private static final ForgeConfigSpec.ConfigValue<List<? extends String>> EXTRA_ALLOWED_MENUS;
     private static final ForgeConfigSpec.ConfigValue<List<? extends String>> EXTRA_FORBIDDEN_MENUS;
 
@@ -103,6 +109,15 @@ public final class EconomyConfig {
         INVOICE_KEEP_DAYS = builder
                 .comment("Jours pendant lesquels une facture réglée reste connue du serveur avant d'être oubliée.")
                 .defineInRange("invoiceKeepDays", DEFAULT_INVOICE_KEEP_DAYS, 1, 3_650);
+        INVOICE_MAX_DUE_PER_PAIR = builder
+                .comment("Factures dues au plus d'un même émetteur vers un même débiteur ; au-delà, la suivante est refusée.")
+                .defineInRange("invoiceMaxDuePerPair", DEFAULT_INVOICE_MAX_DUE_PER_PAIR, 1, 100);
+        INVOICE_MAX_DUE_PER_DEBTOR = builder
+                .comment("Factures dues au plus par un même débiteur, tous émetteurs confondus.")
+                .defineInRange("invoiceMaxDuePerDebtor", DEFAULT_INVOICE_MAX_DUE_PER_DEBTOR, 1, 1_000);
+        INVOICE_ISSUE_COOLDOWN_TICKS = builder
+                .comment("Délai, en ticks, entre deux factures émises par un même joueur (40 = 2 secondes).")
+                .defineInRange("invoiceIssueCooldownTicks", DEFAULT_INVOICE_ISSUE_COOLDOWN_TICKS, 0, 12_000);
         EXTRA_ALLOWED_MENUS = builder
                 .comment("Types d'écran (identifiants, ex. \"mod:coffre\") où une pièce a le droit d'être rangée, en plus",
                         "de l'inventaire du joueur, de la table de fabrication et des rangements de ce mod.")
@@ -221,6 +236,33 @@ public final class EconomyConfig {
             return INVOICE_KEEP_DAYS.get();
         } catch (IllegalStateException e) {
             return DEFAULT_INVOICE_KEEP_DAYS;
+        }
+    }
+
+    /** Factures dues au plus d'un même émetteur vers un même débiteur (5 par défaut). */
+    public static int invoiceMaxDuePerPair() {
+        try {
+            return INVOICE_MAX_DUE_PER_PAIR.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_INVOICE_MAX_DUE_PER_PAIR;
+        }
+    }
+
+    /** Factures dues au plus par un même débiteur, toutes origines (27 par défaut). */
+    public static int invoiceMaxDuePerDebtor() {
+        try {
+            return INVOICE_MAX_DUE_PER_DEBTOR.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_INVOICE_MAX_DUE_PER_DEBTOR;
+        }
+    }
+
+    /** Délai entre deux émissions d'un même joueur, en ticks (40 par défaut). */
+    public static int invoiceIssueCooldownTicks() {
+        try {
+            return INVOICE_ISSUE_COOLDOWN_TICKS.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_INVOICE_ISSUE_COOLDOWN_TICKS;
         }
     }
 

@@ -84,7 +84,7 @@ public final class InvoiceScreen extends Screen {
             int y = top + buttonsY;
             if (BenchTheme.inside(mx, my, payX(), y, BUTTON_W, BUTTON_H) && isDebtor()) {
                 click();
-                BenchNetwork.CHANNEL.sendToServer(new InvoicePayPacket(slot));
+                BenchNetwork.CHANNEL.sendToServer(new InvoicePayPacket(slot, InvoiceItem.idOf(invoice).get()));
                 onClose();
                 return true;
             }

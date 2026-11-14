@@ -31,6 +31,11 @@ public final class Receipt {
     public static final String KIND_INVOICE_PAID = "invoice_paid";
     /** Reçu d'une facture que l'émetteur a déclarée réglée de main à main (aucune pièce passée par le mod). */
     public static final String KIND_INVOICE_BY_HAND = "invoice_by_hand";
+    /**
+     * Reçu d'une facture que le registre ne connaît plus (réglée puis oubliée après {@code invoiceKeepDays}) : on ne
+     * sait plus comment elle a été réglée, seulement qu'elle ne se paie plus.
+     */
+    public static final String KIND_INVOICE_CLOSED = "invoice_closed";
     /** Lignes affichées au plus dans l'infobulle ; au-delà, « … et N autres ». */
     public static final int MAX_LINES = 24;
 
@@ -78,9 +83,27 @@ public final class Receipt {
         return stack;
     }
 
+    /** Le reçu d'une facture que le registre ne connaît plus, tiré de ce que porte l'objet (date de règlement inconnue). */
+    public static ItemStack forClosedInvoice(ItemStack invoice) {
+        ItemStack stack = new ItemStack(EconomyRegistry.RECEIPT.get());
+        CompoundTag source = invoice.getTag() == null ? new CompoundTag() : invoice.getTag();
+        CompoundTag tag = new CompoundTag();
+        tag.putString("Kind", KIND_INVOICE_CLOSED);
+        tag.putLong("When", 0L);
+        tag.putString("Zone", source.getString("Zone"));
+        tag.putString("Issuer", source.getString("IssuerName"));
+        tag.putString("Debtor", source.getString("DebtorName"));
+        tag.putLong("Amount", source.getLong("Amount"));
+        tag.putString("Reason", source.getString("Reason"));
+        tag.putLong("IssuedAt", source.getLong("IssuedAt"));
+        tag.putString("Invoice", dev.oneforallsurvival.economy.invoice.InvoiceItem.shortId(invoice));
+        stack.getOrCreateTag().put(TAG, tag);
+        return stack;
+    }
+
     private static boolean isInvoice(CompoundTag data) {
         String kind = data.getString("Kind");
-        return KIND_INVOICE_PAID.equals(kind) || KIND_INVOICE_BY_HAND.equals(kind);
+        return KIND_INVOICE_PAID.equals(kind) || KIND_INVOICE_BY_HAND.equals(kind) || KIND_INVOICE_CLOSED.equals(kind);
     }
 
     private static ListTag lines(List<ItemStack> stacks) {
@@ -156,7 +179,9 @@ public final class Receipt {
             out.add(Component.translatable(TOOLTIP + "invoice.amount", CoinMath.format(data.getLong("Amount")))
                     .withStyle(ChatFormatting.GOLD));
             out.add(Component.translatable(TOOLTIP + "invoice.issued", issued).withStyle(ChatFormatting.GRAY));
-            out.add(Component.translatable(TOOLTIP + "invoice.settled", settled).withStyle(ChatFormatting.GRAY));
+            if (data.getLong("When") > 0L) {
+                out.add(Component.translatable(TOOLTIP + "invoice.settled", settled).withStyle(ChatFormatting.GRAY));
+            }
             out.add(Component.translatable(TOOLTIP + "invoice.id", data.getString("Invoice")).withStyle(ChatFormatting.DARK_GRAY));
             return out;
         }
