@@ -127,7 +127,7 @@ public final class DemoVisuels {
 
     private static final Logger LOG = LogManager.getLogger("oneforallsurvival-demo-visuels");
     private static final boolean ACTIF = System.getProperty("oneforallsurvival.demo.visuels") != null;
-    /** {@code etal} : ne jouer que les écrans de l'étal (contrôle rapide d'une tâche), sans les autres captures. */
+    /** {@code etal} ou {@code commerce} : ne jouer que les captures du commerce (contrôle rapide d'une tâche), sans les autres. */
     private static final String SEUL = System.getProperty("oneforallsurvival.demo.visuels.seul", "");
     private static final String MONDE = "demo_visuels";
     private static final String[] ETATS = {"arret", "marche", "sans_courant", "panne"};
@@ -802,8 +802,8 @@ public final class DemoVisuels {
     }
 
     private static void construireScenario(Minecraft mc) {
-        if ("etal".equals(SEUL)) {
-            etal(mc);
+        if ("etal".equals(SEUL) || "commerce".equals(SEUL)) {
+            commerce(mc);
             return;
         }
         Vec3 sudEst = new Vec3(1.35, 1.0, 1.75);
@@ -1351,7 +1351,341 @@ public final class DemoVisuels {
             serveur.execute(() -> serveur.getPlayerList().getPlayers().get(0).setItemSlot(EquipmentSlot.HEAD,
                     ItemStack.EMPTY));
         }, () -> true, 800, null);
+        commerce(mc);
+    }
+
+    // ================================================================================================
+    // Le commerce (lot E2) : l'étal vu du dehors, l'échange, la facture, la grille des objets
+    // ================================================================================================
+
+    /** Les objets du lot E2 à côté de leurs équivalents de Minecraft : établi, livre, papier, livre et plume, coffre, tonneau. */
+    private static final String[] COMMERCE = {"market_stall", "minecraft:crafting_table", "invoice_book", "minecraft:book",
+        "invoice", "minecraft:paper", "receipt", "minecraft:writable_book", "safe", "minecraft:chest", "purse",
+        "minecraft:barrel"};
+
+    /** L'angle des étals vus du dehors, et celui de l'échange : loin des zones des lots précédents. */
+    private static BlockPos zoneCommerce;
+    private static boolean commercePose;
+    private static boolean echangePret;
+    private static JoueurDeTest autreJoueur;
+    private static final java.util.UUID EMETTEUR = java.util.UUID.nameUUIDFromBytes("Abcdefghijklmnop".getBytes(
+            java.nio.charset.StandardCharsets.UTF_8));
+    private static ItemStack factureDue = ItemStack.EMPTY;
+    private static ItemStack factureAutre = ItemStack.EMPTY;
+    private static ItemStack recuEchange = ItemStack.EMPTY;
+    private static ItemStack recuFacture = ItemStack.EMPTY;
+    private static ItemStack recuMain = ItemStack.EMPTY;
+    private static ItemStack recuFerme = ItemStack.EMPTY;
+
+    private static void commerce(Minecraft mc) {
+        MinecraftServer serveur = mc.getSingleplayerServer();
+        etape("commerce pose", () -> {
+            fermer(mc);
+            mc.options.hideGui = false;
+            zoneCommerce = origine.offset(24, 0, 230);
+            // Le bavardage du serveur (arrivée du second joueur, progrès) n'a rien à faire sur une capture.
+            mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+            serveur.execute(() -> preparerCommerce(serveur));
+        }, () -> commercePose, 3000, null);
+        // L'étal contre un mur (pierre au nord, à l'est, à l'ouest et au-dessus), de jour, de nuit, de face.
+        etape("etal mur jour", () -> regarder(mc, zoneCommerce, new Vec3(0.7, 0.55, 1.25), false), () -> true, 3000,
+                "etal_contre_un_mur_jour.png");
+        etape("etal mur nuit", () -> regarder(mc, zoneCommerce, new Vec3(0.7, 0.55, 1.25), true), () -> true, 1500,
+                "etal_contre_un_mur_nuit.png");
+        etape("etal mur face jour", () -> regarder(mc, zoneCommerce, new Vec3(0.0, 0.5, 1.15), false), () -> true, 1500,
+                "etal_contre_un_mur_face.png");
+        etape("etal mur gauche", () -> regarder(mc, zoneCommerce, new Vec3(-0.75, 0.5, 1.2), false), () -> true, 1500,
+                "etal_contre_un_mur_gauche.png");
+        // Le comptoir de près, du dessus : les trois offres posées, la quatrième ne se montre pas.
+        etape("etal comptoir", () -> regarder(mc, zoneCommerce.offset(8, 0, 0), new Vec3(0.0, 0.45, 0.95), false),
+                () -> true, 1500, "etal_comptoir_trois_offres.png");
+        // Seul : trois quarts, de l'arrière, du dessus, de nuit.
+        etape("etal seul", () -> regarder(mc, zoneCommerce.offset(8, 0, 0), new Vec3(1.3, 1.0, 1.9), false), () -> true, 2000, "etal_seul_jour.png");
+        etape("etal seul nuit", () -> regarder(mc, zoneCommerce.offset(8, 0, 0), new Vec3(1.3, 1.0, 1.9), true), () -> true, 1500, "etal_seul_nuit.png");
+        etape("etal seul arriere", () -> regarder(mc, zoneCommerce.offset(8, 0, 0), new Vec3(1.2, 1.0, -2.0), false), () -> true, 1500,
+                "etal_seul_arriere.png");
+        etape("etal seul dessus", () -> regarder(mc, zoneCommerce.offset(8, 0, 0), new Vec3(0.2, 2.8, 0.9), false), () -> true, 1500,
+                "etal_seul_dessus.png");
+        etape("etal seul dessous", () -> regarder(mc, zoneCommerce.offset(8, 0, 0), new Vec3(0.3, -0.35, 1.2), false), () -> true, 1500,
+                "etal_seul_dessous.png");
+        // Les quatre orientations : sud, est, nord, ouest, côte à côte.
+        etape("etal quatre orientations", () -> regarder(mc, zoneCommerce.offset(18, 0, 0), new Vec3(0.0, 2.6, 6.4), false),
+                () -> true, 2000, "etal_quatre_orientations.png");
+        etape("etal quatre orientations nuit", () -> regarder(mc, zoneCommerce.offset(18, 0, 0), new Vec3(0.0, 2.6, 6.4),
+                true), () -> true, 1500, "etal_quatre_orientations_nuit.png");
         etal(mc);
+        echange(mc);
+        facture(mc);
+        etape("grille du commerce", () -> {
+            fermer(mc);
+            mc.options.hideGui = false;
+            mc.setScreen(new Grille(COMMERCE, 2));
+        }, () -> true, 800, "commerce_grille.png");
+        etape("fin du commerce", () -> {
+            fermer(mc);
+            serveur.execute(() -> {
+                if (autreJoueur != null && autreJoueur.connecte()) {
+                    autreJoueur.quitter();
+                }
+            });
+        }, () -> true, 500, null);
+    }
+
+    /** Pose un étal du joueur, garni de quatre offres (seules les trois premières se voient sur le comptoir). */
+    private static void poserEtal(ServerLevel monde, ServerPlayer joueur, BlockPos p, Direction face) {
+        monde.setBlock(p, EconomyRegistry.MARKET_STALL.get().defaultBlockState()
+                .setValue(dev.oneforallsurvival.economy.stall.MarketStallBlock.FACING, face), 3);
+        if (!(monde.getBlockEntity(p) instanceof dev.oneforallsurvival.economy.stall.MarketStallBlockEntity be)) {
+            throw new IllegalStateException("pas d'étal en " + p);
+        }
+        be.setOwner(joueur.getUUID(), joueur.getGameProfile().getName());
+        be.setOffer(0, new dev.oneforallsurvival.economy.stall.StallOffer(new ItemStack(Items.BREAD), 4, 30L));
+        be.setOffer(1, new dev.oneforallsurvival.economy.stall.StallOffer(new ItemStack(Items.DIAMOND_SWORD), 1, 1_200L));
+        be.setOffer(2, new dev.oneforallsurvival.economy.stall.StallOffer(new ItemStack(Items.COBBLESTONE), 64, 90L));
+        be.setOffer(3, new dev.oneforallsurvival.economy.stall.StallOffer(new ItemStack(Items.EMERALD), 2, 777L));
+    }
+
+    private static void preparerCommerce(MinecraftServer serveur) {
+        ServerLevel monde = serveur.overworld();
+        ServerPlayer joueur = serveur.getPlayerList().getPlayers().get(0);
+        BlockPos z = zoneCommerce;
+        // Le sol : de l'herbe plane partout, rien à déblayer. Les étals, de l'ouest à l'est.
+        poserEtal(monde, joueur, z, Direction.SOUTH);
+        for (BlockPos mur : List.of(z.north(), z.east(), z.west())) {
+            monde.setBlock(mur, Blocks.STONE.defaultBlockState(), 3);
+            monde.setBlock(mur.above(), Blocks.STONE.defaultBlockState(), 3);
+        }
+        monde.setBlock(z.above(), Blocks.STONE.defaultBlockState(), 3);
+        poserEtal(monde, joueur, z.offset(8, 0, 0), Direction.SOUTH);
+        // Une lanterne de chaque côté du premier et du second : la nuit, les offres se voient sans être au grand jour.
+        for (BlockPos l : List.of(z.offset(-2, 0, 2), z.offset(2, 0, 2), z.offset(6, 0, 2), z.offset(10, 0, 2),
+                z.offset(18, 0, 3))) {
+            monde.setBlock(l, Blocks.LANTERN.defaultBlockState(), 3);
+        }
+        Direction[] faces = {Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST};
+        for (int i = 0; i < faces.length; i++) {
+            poserEtal(monde, joueur, z.offset(12 + 4 * i, 0, 0), faces[i]);
+        }
+        commercePose = true;
+    }
+
+    // ---- L'échange -----------------------------------------------------------------------------
+
+    private static void echange(Minecraft mc) {
+        MinecraftServer serveur = mc.getSingleplayerServer();
+        etape("echange preparer", () -> {
+            fermer(mc);
+            mc.options.hideGui = false;
+            serveur.execute(() -> preparerEchange(serveur));
+        }, () -> echangePret, 2500, null);
+        // L'autre a proposé, le joueur accepte : il est le second côté. L'autre a posé ses objets, ses pièces et sa
+        // bourse, coché le reçu et confirmé.
+        etape("echange ouvrir", () -> serveur.execute(() -> ouvrirEchange(serveur, false)),
+                () -> mc.screen instanceof dev.oneforallsurvival.economy.client.TradeScreen, 2000, null);
+        etape("echange rempli", () -> serveur.execute(() -> remplirEchange(serveur)), () -> true, 1800,
+                "echange_l_autre_a_confirme.png");
+        etape("echange confirme", () -> serveur.execute(() -> confirmerEchange(serveur)), () -> true, 1500,
+                "echange_vous_avez_confirme.png");
+        etape("echange ferme", () -> serveur.execute(() -> fermerEchange(serveur)), () -> mc.screen == null, 1200, null);
+        // Les rôles échangés : le joueur propose, l'autre accepte ; douze cases de chaque côté, noms longs.
+        etape("echange inverse ouvrir", () -> serveur.execute(() -> ouvrirEchange(serveur, true)),
+                () -> mc.screen instanceof dev.oneforallsurvival.economy.client.TradeScreen, 2000, null);
+        etape("echange inverse rempli", () -> serveur.execute(() -> remplirEchangePlein(serveur)), () -> true, 1800,
+                "echange_douze_cases.png");
+        etape("echange inverse ferme", () -> serveur.execute(() -> fermerEchange(serveur)), () -> mc.screen == null, 1200,
+                null);
+    }
+
+    private static ItemStack nomme(ItemStack pile, String nom) {
+        pile.setHoverName(Component.literal(nom));
+        return pile;
+    }
+
+    private static final int[] EN_DOUZE = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+
+    private static void preparerEchange(MinecraftServer serveur) {
+        ServerLevel monde = serveur.overworld();
+        ServerPlayer a = serveur.getPlayerList().getPlayers().get(0);
+        BlockPos t = origine.offset(24, 0, 260);
+        a.setNoGravity(true);
+        a.teleportTo(monde, t.getX() + 0.5, t.getY(), t.getZ() + 0.5, 0F, 0F);
+        if (autreJoueur == null) {
+            autreJoueur = JoueurDeTest.rejoindre(monde, "Abcdefghijklmnop", new Vec3(t.getX() + 1.5, t.getY(), t.getZ() + 0.5));
+        }
+        ServerPlayer b = autreJoueur.joueur();
+        b.setNoGravity(true);
+        b.teleportTo(monde, t.getX() + 1.5, t.getY(), t.getZ() + 0.5, 0F, 0F);
+        a.getInventory().clearContent();
+        b.getInventory().clearContent();
+        // A : une épée au nom long, des pains, une bourse pleine, de l'or, des émeraudes.
+        a.getInventory().items.set(0, nomme(new ItemStack(Items.DIAMOND_SWORD), "Excalibur, lame du roi d'Avalon"));
+        a.getInventory().items.set(1, new ItemStack(Items.BREAD, 64));
+        ItemStack bourse = new ItemStack(EconomyRegistry.PURSE.get());
+        remplirBourse(bourse);
+        a.getInventory().items.set(2, bourse);
+        a.getInventory().items.set(3, new ItemStack(Coin.GOLD.item(), 20));
+        a.getInventory().items.set(4, new ItemStack(Coin.EMERALD.item(), 9));
+        a.getInventory().items.set(5, nomme(new ItemStack(Items.WRITTEN_BOOK), "Le grand livre des comptes du port"));
+        b.getInventory().items.set(0, new ItemStack(Coin.RUBY.item(), 3));
+        ItemStack bourseB = new ItemStack(EconomyRegistry.PURSE.get());
+        remplirBourse(bourseB);
+        b.getInventory().items.set(1, bourseB);
+        b.getInventory().items.set(2, new ItemStack(Items.ENCHANTED_GOLDEN_APPLE, 3));
+        b.getInventory().items.set(3, nomme(new ItemStack(Items.IRON_INGOT, 64), "Lingots de la forge de Saint-Aubin"));
+        b.getInventory().items.set(4, new ItemStack(Coin.SILVER.item(), 33));
+        // Les infobulles : une facture et ses trois reçus.
+        long maintenant = System.currentTimeMillis();
+        long plafond = dev.oneforallsurvival.economy.EconomyConfig.invoiceMaxAmount();
+        String motif = "Réparation complète de la toiture de la grande grange du nord, bois et clous fournis par l'atelier";
+        motif = motif.substring(0, Math.min(motif.length(), dev.oneforallsurvival.economy.EconomyConfig.invoiceReasonMax()));
+        var due = new dev.oneforallsurvival.economy.invoice.InvoiceRegistry.Invoice(java.util.UUID.fromString(
+                "a1b2c3d4-0000-4000-8000-000000000001"), EMETTEUR, "Abcdefghijklmnop", a.getUUID(),
+                a.getGameProfile().getName(), plafond, motif, maintenant - 3_600_000L,
+                dev.oneforallsurvival.economy.invoice.InvoiceRegistry.Status.DUE, 0L);
+        factureDue = dev.oneforallsurvival.economy.invoice.InvoiceItem.of(due);
+        factureAutre = dev.oneforallsurvival.economy.invoice.InvoiceItem.of(new dev.oneforallsurvival.economy.invoice.InvoiceRegistry
+                .Invoice(java.util.UUID.fromString("a1b2c3d4-0000-4000-8000-000000000002"), a.getUUID(),
+                a.getGameProfile().getName(), EMETTEUR, "Abcdefghijklmnop", 12_345L, "Trois sacs de blé", maintenant - 600_000L,
+                dev.oneforallsurvival.economy.invoice.InvoiceRegistry.Status.DUE, 0L));
+        var payee = new dev.oneforallsurvival.economy.invoice.InvoiceRegistry.Invoice(due.id(), due.issuer(), due.issuerName(),
+                due.debtor(), due.debtorName(), due.amount(), due.reason(), due.issuedAt(),
+                dev.oneforallsurvival.economy.invoice.InvoiceRegistry.Status.PAID, maintenant);
+        recuFacture = dev.oneforallsurvival.economy.Receipt.forInvoice(payee,
+                dev.oneforallsurvival.economy.invoice.InvoiceRegistry.Status.PAID);
+        recuMain = dev.oneforallsurvival.economy.Receipt.forInvoice(payee,
+                dev.oneforallsurvival.economy.invoice.InvoiceRegistry.Status.SETTLED_BY_HAND);
+        recuFerme = dev.oneforallsurvival.economy.Receipt.forClosedInvoice(factureDue);
+        List<ItemStack> donne = List.of(nomme(new ItemStack(Items.DIAMOND_SWORD), "Excalibur"), new ItemStack(Items.BREAD, 64),
+                bourse.copy(), new ItemStack(Coin.GOLD.item(), 20), new ItemStack(Coin.EMERALD.item(), 9));
+        List<ItemStack> recu = List.of(new ItemStack(Coin.RUBY.item(), 3), bourseB.copy(),
+                new ItemStack(Items.ENCHANTED_GOLDEN_APPLE, 3), new ItemStack(Items.IRON_INGOT, 64),
+                new ItemStack(Coin.SILVER.item(), 33));
+        recuEchange = dev.oneforallsurvival.economy.Receipt.forTrade(a, b, donne, recu, maintenant);
+        echangePret = true;
+    }
+
+    /** Ouvre la fenêtre : {@code leJoueurPropose} faux, c'est l'autre qui propose (le joueur est le second côté). */
+    private static void ouvrirEchange(MinecraftServer serveur, boolean leJoueurPropose) {
+        ServerPlayer a = serveur.getPlayerList().getPlayers().get(0);
+        ServerPlayer b = autreJoueur.joueur();
+        ServerPlayer de = leJoueurPropose ? a : b;
+        ServerPlayer vers = leJoueurPropose ? b : a;
+        var r1 = dev.oneforallsurvival.economy.trade.TradeService.request(de, vers);
+        var r2 = dev.oneforallsurvival.economy.trade.TradeService.accept(vers, de);
+        LOG.info("[visuels] échange : demande {}, acceptation {}", r1, r2);
+    }
+
+    private static void remplirEchange(MinecraftServer serveur) {
+        ServerPlayer a = serveur.getPlayerList().getPlayers().get(0);
+        ServerPlayer b = autreJoueur.joueur();
+        var session = dev.oneforallsurvival.economy.trade.TradeService.sessionOf(a.getUUID());
+        if (session == null) {
+            throw new IllegalStateException("aucun échange ouvert");
+        }
+        for (int inv : new int[] {0, 1, 2, 5}) {
+            ((dev.oneforallsurvival.economy.trade.TradeMenu) a.containerMenu).clicked(
+                    dev.oneforallsurvival.economy.trade.TradeMenu.slotOfInventory(inv), 0,
+                    net.minecraft.world.inventory.ClickType.QUICK_MOVE, a);
+        }
+        for (int inv : new int[] {0, 1, 2, 3, 4}) {
+            ((dev.oneforallsurvival.economy.trade.TradeMenu) b.containerMenu).clicked(
+                    dev.oneforallsurvival.economy.trade.TradeMenu.slotOfInventory(inv), 0,
+                    net.minecraft.world.inventory.ClickType.QUICK_MOVE, b);
+        }
+        // Les pièces de A passent par les boutons +1 / +10 : de la bourse d'abord, puis de l'inventaire.
+        LOG.info("[visuels] échange : A verse {} {}", session.addCoins(a, Coin.GOLD, 10), session.addCoins(a, Coin.EMERALD, 4));
+        session.toggleReceipt(b, session.version());
+        LOG.info("[visuels] échange : B confirme -> {}", session.confirm(b, session.version()));
+    }
+
+    private static void confirmerEchange(MinecraftServer serveur) {
+        ServerPlayer a = serveur.getPlayerList().getPlayers().get(0);
+        var session = dev.oneforallsurvival.economy.trade.TradeService.sessionOf(a.getUUID());
+        // Un changement du joueur efface la confirmation de l'autre ; il confirme ensuite, l'autre attend.
+        boolean verse = session.addCoins(a, Coin.GOLD, 1);
+        if (!verse || session.confirmed(autreJoueur.uuid())) {
+            throw new IllegalStateException("le versement devait effacer la confirmation de l'autre : " + verse);
+        }
+        LOG.info("[visuels] échange : A confirme -> {}", session.confirm(a, session.version()));
+    }
+
+    private static void fermerEchange(MinecraftServer serveur) {
+        serveur.getPlayerList().getPlayers().get(0).closeContainer();
+    }
+
+    /** Douze cases de chaque côté, aux noms longs, le reçu coché, l'autre confirmé. */
+    private static void remplirEchangePlein(MinecraftServer serveur) {
+        ServerPlayer a = serveur.getPlayerList().getPlayers().get(0);
+        ServerPlayer b = autreJoueur.joueur();
+        var session = dev.oneforallsurvival.economy.trade.TradeService.sessionOf(a.getUUID());
+        if (session == null) {
+            throw new IllegalStateException("aucun échange ouvert");
+        }
+        Item[] objets = {Items.DIAMOND_SWORD, Items.GOLDEN_APPLE, Items.IRON_INGOT, Items.WHEAT, Items.NETHERITE_INGOT,
+            Items.ENCHANTED_GOLDEN_APPLE, Items.EMERALD, Items.COOKED_BEEF, Items.SPYGLASS, Items.SADDLE, Items.NAME_TAG,
+            Items.MAP};
+        for (int i : EN_DOUZE) {
+            ItemStack pile = nomme(new ItemStack(objets[i], i % 3 == 0 ? 1 : 16), "Marchandise rare de la maison Abcdefghijklmnop n° " + i);
+            session.offer(a.getUUID()).setItem(i, pile.copy());
+            session.offer(b.getUUID()).setItem(i, i % 4 == 0 ? new ItemStack(Coin.GOLD.item(), 64) : pile.copy());
+        }
+        ItemStack bourse = new ItemStack(EconomyRegistry.PURSE.get());
+        remplirBourse(bourse);
+        session.offer(a.getUUID()).setItem(11, bourse);
+        session.offer(b.getUUID()).setItem(11, bourse.copy());
+        session.toggleReceipt(a, session.version());
+        LOG.info("[visuels] échange plein : B confirme -> {}", session.confirm(b, session.version()));
+    }
+
+    // ---- La facture ----------------------------------------------------------------------------
+
+    private static void facture(Minecraft mc) {
+        etape("facture formulaire", () -> {
+            fermer(mc);
+            mc.options.hideGui = false;
+            var ecran = new dev.oneforallsurvival.economy.client.InvoiceFormScreen(EMETTEUR, "Abcdefghijklmnop");
+            mc.setScreen(ecran);
+            List<net.minecraft.client.gui.components.EditBox> champs = new ArrayList<>();
+            for (var enfant : ecran.children()) {
+                if (enfant instanceof net.minecraft.client.gui.components.EditBox champ) {
+                    champs.add(champ);
+                }
+            }
+            if (champs.size() != 2) {
+                throw new IllegalStateException("deux champs attendus, vu " + champs.size());
+            }
+            champs.get(0).setValue(Long.toString(dev.oneforallsurvival.economy.EconomyConfig.invoiceMaxAmount()));
+            String motif = "Réparation complète de la toiture de la grande grange du nord, bois et clous fournis par l'atelier";
+            champs.get(1).setValue(motif.substring(0, Math.min(motif.length(),
+                    dev.oneforallsurvival.economy.EconomyConfig.invoiceReasonMax())));
+            champs.get(1).moveCursorToStart();
+        }, () -> mc.screen instanceof dev.oneforallsurvival.economy.client.InvoiceFormScreen, 1200, "facture_formulaire_rempli.png");
+        etape("facture formulaire court", () -> {
+            var ecran = new dev.oneforallsurvival.economy.client.InvoiceFormScreen(EMETTEUR, "Abcdefghijklmnop");
+            mc.setScreen(ecran);
+            int i = 0;
+            for (var enfant : ecran.children()) {
+                if (enfant instanceof net.minecraft.client.gui.components.EditBox champ) {
+                    champ.setValue(i++ == 0 ? "1275" : "Trois sacs de blé");
+                }
+            }
+        }, () -> mc.screen instanceof dev.oneforallsurvival.economy.client.InvoiceFormScreen, 1000,
+                "facture_formulaire_court.png");
+        etape("facture ecran debiteur", () -> dev.oneforallsurvival.economy.client.InvoiceScreen.open(factureDue, 0),
+                () -> mc.screen instanceof dev.oneforallsurvival.economy.client.InvoiceScreen, 1200, "facture_ecran_debiteur.png");
+        etape("facture ecran autre", () -> dev.oneforallsurvival.economy.client.InvoiceScreen.open(factureAutre, 0),
+                () -> mc.screen instanceof dev.oneforallsurvival.economy.client.InvoiceScreen, 1200,
+                "facture_ecran_emetteur.png");
+        etape("infobulle facture", () -> mc.setScreen(new Infobulle(factureDue)), () -> true, 800, "facture_infobulle.png");
+        etape("infobulle recu echange", () -> mc.setScreen(new Infobulle(recuEchange)), () -> true, 800,
+                "recu_echange_infobulle.png");
+        etape("infobulle recu facture", () -> mc.setScreen(new Infobulle(recuFacture)), () -> true, 800,
+                "recu_facture_infobulle.png");
+        etape("infobulle recu main", () -> mc.setScreen(new Infobulle(recuMain)), () -> true, 800,
+                "recu_facture_main_infobulle.png");
+        etape("infobulle recu ferme", () -> mc.setScreen(new Infobulle(recuFerme)), () -> true, 800,
+                "recu_facture_close_infobulle.png");
+        etape("fin de la facture", () -> fermer(mc), () -> true, 300, null);
     }
 
     // ================================================================================================
@@ -1383,7 +1717,7 @@ public final class DemoVisuels {
                 dev.oneforallsurvival.economy.stall.MarketStallBlock.openShop(joueur, etal);
             });
         }, () -> mc.screen instanceof dev.oneforallsurvival.economy.client.StallShopScreen, 1500, "etal_vitrine_ventes.png");
-        etape("etal vitrine defile", () -> clicEcran(mc, -1, 0, 0, -3.0), () -> true, 800, "etal_vitrine_ventes_defilee.png");
+        etape("etal vitrine defile", () -> clicEcran(mc, -1, 0, 0, -9.0), () -> true, 800, "etal_vitrine_ventes_defilee.png");
         etape("etal vitrine rachats", () -> clicEcran(mc, 8 + 79 + 2 + 10, 16 + 5, 0, 0),
                 () -> true, 800, "etal_vitrine_rachats.png");
         etape("etal gestion", () -> {
@@ -1402,6 +1736,17 @@ public final class DemoVisuels {
         etape("etal registre", () -> clicEcran(mc, 8 + 3 * 40 + 10, 18 + 5, 0, 0), () -> true, 1500,
                 "etal_gestion_registre.png");
         etape("etal registre defile", () -> clicEcran(mc, -1, 0, 0, -3.0), () -> true, 800, "etal_gestion_registre_defile.png");
+        // La caisse : l'écran commun du coffre-fort, ouvert par le vrai clic sur l'onglet depuis la gestion.
+        etape("etal gestion pour la caisse", () -> {
+            fermer(mc);
+            mc.options.hideGui = false;
+            MinecraftServer serveur = mc.getSingleplayerServer();
+            serveur.execute(() -> dev.oneforallsurvival.economy.stall.MarketStallBlock.openManage(
+                    serveur.getPlayerList().getPlayers().get(0), etal));
+        }, () -> mc.screen instanceof dev.oneforallsurvival.economy.client.StallOwnerScreen, 1000, null);
+        etape("etal caisse", () -> clicEcran(mc, 8 + 2 * 40 + 10, 18 + 5, 0, 0),
+                () -> mc.screen instanceof dev.oneforallsurvival.economy.client.StallCashScreen, 1500,
+                "etal_gestion_caisse.png");
         etape("fin de l'etal", () -> fermer(mc), () -> true, 300, null);
     }
 
@@ -1439,14 +1784,24 @@ public final class DemoVisuels {
         be.stock().setStackInSlot(1, epee.copy());
         be.stock().setStackInSlot(2, new ItemStack(Items.COBBLESTONE, 64));
         be.stock().setStackInSlot(3, new ItemStack(Items.WHEAT, 64));
-        be.addCash(Coin.GOLD, 1);
+        for (Coin c : PIECES) {
+            be.addCash(c, new long[] {37, 12, 8, 3, 9_999}[c.ordinal()]);
+        }
         long plusLong = 99_999_999L;
         be.setOffer(0, new dev.oneforallsurvival.economy.stall.StallOffer(new ItemStack(Items.BREAD), 4, 30L));
         be.setOffer(1, new dev.oneforallsurvival.economy.stall.StallOffer(epee, 1, plusLong));
         be.setOffer(2, new dev.oneforallsurvival.economy.stall.StallOffer(new ItemStack(Items.COBBLESTONE), 64, 100_000_000L));
         be.setOffer(3, new dev.oneforallsurvival.economy.stall.StallOffer(new ItemStack(Items.WHEAT), 16, 1L));
         be.setOffer(4, new dev.oneforallsurvival.economy.stall.StallOffer(new ItemStack(Items.IRON_INGOT), 8, 12_345L));
+        be.setOffer(5, new dev.oneforallsurvival.economy.stall.StallOffer(new ItemStack(Items.ENCHANTED_GOLDEN_APPLE), 1, plusLong));
         be.setOffer(6, new dev.oneforallsurvival.economy.stall.StallOffer(new ItemStack(Items.EMERALD), 2, 777L));
+        be.setOffer(7, new dev.oneforallsurvival.economy.stall.StallOffer(new ItemStack(Items.NETHERITE_INGOT), 9, plusLong));
+        ItemStack baton = new ItemStack(Items.STICK);
+        baton.setHoverName(net.minecraft.network.chat.Component.literal("Bâton de marche du vieux berger de la vallée"));
+        be.setOffer(8, new dev.oneforallsurvival.economy.stall.StallOffer(baton, 16, 100_000_000L));
+        be.stock().setStackInSlot(4, new ItemStack(Items.IRON_INGOT, 64));
+        be.stock().setStackInSlot(5, new ItemStack(Items.ENCHANTED_GOLDEN_APPLE, 1));
+        be.stock().setStackInSlot(6, new ItemStack(Items.NETHERITE_INGOT, 64));
         be.setBuyback(0, new dev.oneforallsurvival.economy.stall.StallBuyback(new ItemStack(Items.WHEAT), 8, 16L, 9_999));
         be.setBuyback(1, new dev.oneforallsurvival.economy.stall.StallBuyback(epee, 1, plusLong, 3));
         be.setBuyback(2, new dev.oneforallsurvival.economy.stall.StallBuyback(new ItemStack(Items.CARROT), 64, 64L, 1));
@@ -1454,14 +1809,14 @@ public final class DemoVisuels {
         long t = System.currentTimeMillis();
         java.util.UUID qui = java.util.UUID.nameUUIDFromBytes("Abcdefghijklmnop".getBytes(java.nio.charset.StandardCharsets.UTF_8));
         var K = dev.oneforallsurvival.economy.stall.StallLedger.Kind.values();
-        for (int i = 0; i < 26; i++) {
+        for (int i = 0; i < 200; i++) {
             var genre = K[i % K.length];
             boolean objet = genre != dev.oneforallsurvival.economy.stall.StallLedger.Kind.CASH_IN
                     && genre != dev.oneforallsurvival.economy.stall.StallLedger.Kind.CASH_OUT;
             long montant = genre == dev.oneforallsurvival.economy.stall.StallLedger.Kind.SALE
                     || genre == dev.oneforallsurvival.economy.stall.StallLedger.Kind.BUYBACK
                     || !objet ? (i % 2 == 0 ? plusLong : 30L) : 0L;
-            be.ledger().add(new dev.oneforallsurvival.economy.stall.StallLedger.Line(t - (26 - i) * 60_000L, qui,
+            be.ledger().add(new dev.oneforallsurvival.economy.stall.StallLedger.Line(t - (200 - i) * 60_000L, qui,
                     i % 3 == 0 ? "Abcdefghijklmnop" : joueur.getGameProfile().getName(), genre,
                     objet ? (i % 2 == 0 ? "minecraft:diamond_sword" : "minecraft:bread") : "", objet ? 64 : 0, montant));
         }

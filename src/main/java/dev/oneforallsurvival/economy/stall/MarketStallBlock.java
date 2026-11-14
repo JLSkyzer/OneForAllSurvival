@@ -1,5 +1,6 @@
 package dev.oneforallsurvival.economy.stall;
 
+import java.util.EnumMap;
 import java.util.UUID;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
@@ -26,6 +27,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import net.minecraftforge.common.util.FakePlayer;
 import net.minecraftforge.event.level.BlockEvent;
@@ -47,8 +49,9 @@ import dev.oneforallsurvival.economy.EconomyRegistry;
  *       créatif compris. Il ne lâche que son bloc : son contenu est nul quand il se casse.
  * </ul>
  *
- * <p>Forme provisoire : le comptoir seul (le modèle définitif, avec montants et auvent tenus dans le cube, vient à la
- * tâche des visuels). {@code noOcclusion()} et la forme sont écrits pour un bloc qui n'occupe pas le cube entier.
+ * <p>Le modèle (comptoir, quatre montants, auvent rayé, caisse et planche du fond, tout dans le cube) n'occupe pas le
+ * cube entier : {@code noOcclusion()} et une forme qui en est l'union exacte des boîtes ({@link #SHAPES}, vérifiée sur
+ * le fichier du modèle par {@code laFormeSuitLeModele}), tournée comme son état d'orientation.
  */
 public final class MarketStallBlock extends HorizontalDirectionalBlock implements EntityBlock {
 
@@ -57,8 +60,42 @@ public final class MarketStallBlock extends HorizontalDirectionalBlock implement
     /** Distance maximale du joueur à l'étal, au carré (8 blocs) : celle des écrans et des paquets. */
     public static final double MAX_DISTANCE_SQR = 64.0D;
 
-    /** Le comptoir : le bloc entier en largeur, 12 pixels de haut. */
-    private static final VoxelShape COUNTER = Block.box(0.0D, 0.0D, 0.0D, 16.0D, 12.0D, 16.0D);
+    /**
+     * Les boîtes du modèle {@code block/market_stall.json}, tourné vers le nord (le devant, côté client, en z = 0) :
+     * comptoir, deux montants avant, deux montants arrière, planche du fond, caisse, lambrequin, auvent. Chaque boîte
+     * est {@code {x0, y0, z0, x1, y1, z1}} en seizièmes de bloc.
+     */
+    private static final double[][] BOXES = {
+        {0, 0, 0, 16, 10, 6}, {0, 10, 0, 2, 14, 2}, {14, 10, 0, 16, 14, 2}, {0, 0, 14, 2, 14, 16}, {14, 0, 14, 16, 14, 16},
+        {2, 0, 15, 14, 8, 16}, {3, 0, 8, 9, 6, 13}, {2, 12, 0, 14, 14, 1}, {0, 14, 0, 16, 16, 16}};
+
+    /** La forme de chaque orientation : les boîtes ci-dessus, tournées d'un quart de tour par pas (sens des aiguilles). */
+    private static final EnumMap<Direction, VoxelShape> SHAPES = shapes();
+
+    private static EnumMap<Direction, VoxelShape> shapes() {
+        EnumMap<Direction, VoxelShape> shapes = new EnumMap<>(Direction.class);
+        Direction[] order = {Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST};
+        for (int quarts = 0; quarts < order.length; quarts++) {
+            VoxelShape shape = Shapes.empty();
+            for (double[] b : BOXES) {
+                double x0 = b[0];
+                double x1 = b[3];
+                double z0 = b[2];
+                double z1 = b[5];
+                for (int i = 0; i < quarts; i++) {
+                    double nx0 = 16.0D - z1;
+                    double nx1 = 16.0D - z0;
+                    z0 = x0;
+                    z1 = x1;
+                    x0 = nx0;
+                    x1 = nx1;
+                }
+                shape = Shapes.or(shape, Block.box(x0, b[1], z0, x1, b[4], z1));
+            }
+            shapes.put(order[quarts], shape);
+        }
+        return shapes;
+    }
 
     public MarketStallBlock(Properties properties) {
         super(properties);
@@ -82,7 +119,7 @@ public final class MarketStallBlock extends HorizontalDirectionalBlock implement
 
     @Override
     public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        return COUNTER;
+        return SHAPES.get(state.getValue(FACING));
     }
 
     @Override

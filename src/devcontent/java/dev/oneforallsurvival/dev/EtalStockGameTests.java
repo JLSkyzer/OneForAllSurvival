@@ -1125,6 +1125,76 @@ public final class EtalStockGameTests {
         }
     }
 
+    /**
+     * La forme du bloc est exactement l'union des boîtes de son modèle (celles de {@code market_stall.json}, tournées
+     * comme son état d'orientation), pour les quatre orientations ; ce n'est pas le cube plein, le bloc ne couvre
+     * donc pas l'œil ({@code noOcclusion}) : un bloc plein posé contre lui garde sa face tournée vers lui.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void laFormeSuitLeModele(GameTestHelper helper) throws java.io.IOException {
+        com.google.gson.JsonObject modele;
+        try (var in = EtalStockGameTests.class.getResourceAsStream("/assets/oneforallsurvival/models/block/market_stall.json")) {
+            helper.assertTrue(in != null, "modèle de bloc absent");
+            modele = com.google.gson.JsonParser.parseReader(new java.io.InputStreamReader(in, java.nio.charset.StandardCharsets.UTF_8))
+                    .getAsJsonObject();
+        }
+        com.google.gson.JsonArray elements = modele.getAsJsonArray("elements");
+        helper.assertTrue(elements.size() >= 6, "comptoir, montants et auvent attendus : " + elements.size() + " éléments");
+        net.minecraft.world.phys.shapes.VoxelShape cube = net.minecraft.world.phys.shapes.Shapes.block();
+        for (Direction facing : Direction.Plane.HORIZONTAL) {
+            // Le blockstate tourne le modèle (tourné vers le nord) de 0, 90, 180, 270 degrés.
+            int quarts = switch (facing) {
+                case NORTH -> 0;
+                case EAST -> 1;
+                case SOUTH -> 2;
+                default -> 3;
+            };
+            net.minecraft.world.phys.shapes.VoxelShape attendue = net.minecraft.world.phys.shapes.Shapes.empty();
+            for (com.google.gson.JsonElement e : elements) {
+                com.google.gson.JsonObject o = e.getAsJsonObject();
+                helper.assertTrue(!o.has("rotation"), "un élément tourné n'a pas de boîte alignée");
+                double[] de = {o.getAsJsonArray("from").get(0).getAsDouble(), o.getAsJsonArray("from").get(1).getAsDouble(),
+                        o.getAsJsonArray("from").get(2).getAsDouble()};
+                double[] a = {o.getAsJsonArray("to").get(0).getAsDouble(), o.getAsJsonArray("to").get(1).getAsDouble(),
+                        o.getAsJsonArray("to").get(2).getAsDouble()};
+                helper.assertTrue(de[0] >= 0 && de[1] >= 0 && de[2] >= 0 && a[0] <= 16 && a[1] <= 16 && a[2] <= 16,
+                        "un élément sort du cube : " + o);
+                double x0 = de[0];
+                double z0 = de[2];
+                double x1 = a[0];
+                double z1 = a[2];
+                for (int i = 0; i < quarts; i++) {
+                    // Un quart de tour dans le sens des aiguilles d'une montre vu d'en haut : (x, z) -> (16 - z, x).
+                    double nx0 = 16 - z1;
+                    double nx1 = 16 - z0;
+                    double nz0 = x0;
+                    double nz1 = x1;
+                    x0 = nx0;
+                    x1 = nx1;
+                    z0 = nz0;
+                    z1 = nz1;
+                }
+                attendue = net.minecraft.world.phys.shapes.Shapes.or(attendue,
+                        Block.box(x0, de[1], z0, x1, a[1], z1));
+            }
+            BlockState etat = EconomyRegistry.MARKET_STALL.get().defaultBlockState().setValue(MarketStallBlock.FACING, facing);
+            net.minecraft.world.phys.shapes.VoxelShape vue = etat.getShape(helper.getLevel(), helper.absolutePos(A));
+            helper.assertTrue(!net.minecraft.world.phys.shapes.Shapes.joinIsNotEmpty(attendue, vue,
+                    net.minecraft.world.phys.shapes.BooleanOp.NOT_SAME), facing + " : la forme n'est pas l'union des boîtes du modèle");
+            helper.assertTrue(net.minecraft.world.phys.shapes.Shapes.joinIsNotEmpty(cube, vue,
+                    net.minecraft.world.phys.shapes.BooleanOp.ONLY_FIRST), facing + " : la forme ne doit pas être le cube plein");
+            helper.assertTrue(!etat.canOcclude() && !etat.isSolidRender(helper.getLevel(), helper.absolutePos(A)),
+                    facing + " : le bloc doit être sans occlusion (noOcclusion)");
+        }
+        // Un bloc plein à côté garde sa face tournée vers l'étal, le voisin ne la cache pas.
+        helper.setBlock(A, EconomyRegistry.MARKET_STALL.get());
+        helper.setBlock(A.west(), Blocks.STONE);
+        BlockState pierre = helper.getBlockState(A.west());
+        helper.assertTrue(Block.shouldRenderFace(pierre, helper.getLevel(), helper.absolutePos(A.west()), Direction.EAST,
+                helper.absolutePos(A)), "la pierre voisine doit garder sa face tournée vers l'étal");
+        helper.succeed();
+    }
+
     // ---------------------------------------------------------------------------------------------
     // Avec le pack : un entonnoir de Create
     // ---------------------------------------------------------------------------------------------

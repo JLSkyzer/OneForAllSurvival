@@ -21,6 +21,7 @@ public final class EconomyClientEvents {
         @SubscribeEvent
         public static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
             event.registerEntityRenderer(EconomyRegistry.COIN_DROP.get(), CoinDropRenderer::new);
+            event.registerBlockEntityRenderer(EconomyRegistry.MARKET_STALL_BE.get(), StallRenderer::new);
         }
 
         @SubscribeEvent

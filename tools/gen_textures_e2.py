@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Textures du lot E2 (commerce), 16 x 16 : le recu (feuille de papier ecrue, lignes d'ecriture a l'encre, un tampon
 de laiton en bas a droite et un coin corne), la facture (feuille a en-tete rouge, montant souligne, cachet de cire) et
-le carnet de factures (couverture de cuir bordeaux, coins de laiton, tranche de papier, etiquette).
+le carnet de factures (couverture de cuir bordeaux, coins de laiton, tranche de papier, etiquette) ; puis, pour
+l'etal de marche (blocs, textures/block), le bois du comptoir et des montants, le dessus du comptoir et l'auvent rayé
+rouge et ecru.
 
     python tools/gen_textures_e2.py
 """
@@ -12,6 +14,7 @@ from PIL import Image
 
 ASSETS = Path(__file__).resolve().parent.parent / "src/main/resources/assets/oneforallsurvival/textures"
 OUT_ITEM = ASSETS / "item"
+OUT_BLOCK = ASSETS / "block"
 
 PAPIER = [(232, 222, 196), (226, 214, 186), (238, 230, 206), (220, 208, 178)]
 BORD = (128, 112, 84, 255)
@@ -148,11 +151,72 @@ def carnet():
     return img
 
 
+BOIS = [(86, 58, 34), (96, 66, 40), (78, 52, 30), (104, 72, 44)]
+BOIS_JOINT = (52, 34, 20, 255)
+DESSUS = [(166, 124, 76), (176, 132, 82), (156, 114, 68), (184, 140, 90)]
+DESSUS_JOINT = (110, 78, 46, 255)
+RAYE_ROUGE = [(176, 38, 42), (190, 48, 50), (164, 32, 38)]
+RAYE_ECRU = [(236, 226, 200), (228, 216, 188), (242, 234, 212)]
+
+
+def planches(rnd, teintes, joint, hauteur_planche):
+    """Des planches horizontales de 16 px : un joint entre elles, quelques veines, un clou aux extremites."""
+    img = Image.new("RGBA", (16, 16), (0, 0, 0, 255))
+    p = img.load()
+    for y in range(16):
+        for x in range(16):
+            p[x, y] = rnd.choice(teintes) + (255,)
+    for y in range(0, 16, hauteur_planche):
+        for x in range(16):
+            p[x, y] = joint
+    for y in range(16):
+        if y % hauteur_planche:
+            # Une veine : un trait un peu plus sombre, de longueur variable.
+            if rnd.random() < 0.5:
+                debut = rnd.randrange(0, 10)
+                for x in range(debut, debut + rnd.randrange(3, 7)):
+                    if x < 16:
+                        r, g, b, _ = p[x, y]
+                        p[x, y] = (max(r - 14, 0), max(g - 12, 0), max(b - 10, 0), 255)
+    return img
+
+
+def bois():
+    """Le bois du comptoir et des montants : planches de 4 px, sombres."""
+    return planches(random.Random(731), BOIS, BOIS_JOINT, 4)
+
+
+def dessus():
+    """Le dessus du comptoir : planches de 4 px, plus claires, usees."""
+    return planches(random.Random(732), DESSUS, DESSUS_JOINT, 4)
+
+
+def auvent():
+    """L'auvent raye : quatre bandes verticales de 4 px (rouge, ecru, rouge, ecru), un pli de toile tous les 8 px."""
+    rnd = random.Random(733)
+    img = Image.new("RGBA", (16, 16), (0, 0, 0, 255))
+    p = img.load()
+    for y in range(16):
+        for x in range(16):
+            rouge = (x // 4) % 2 == 0
+            p[x, y] = rnd.choice(RAYE_ROUGE if rouge else RAYE_ECRU) + (255,)
+    # La toile : un fil un peu plus sombre toutes les 4 lignes, a travers les bandes.
+    for y in range(3, 16, 4):
+        for x in range(16):
+            r, g, b, _ = p[x, y]
+            p[x, y] = (max(r - 18, 0), max(g - 18, 0), max(b - 18, 0), 255)
+    return img
+
+
 def main():
     OUT_ITEM.mkdir(parents=True, exist_ok=True)
+    OUT_BLOCK.mkdir(parents=True, exist_ok=True)
     for nom, image in (("receipt", recu()), ("invoice", facture()), ("invoice_book", carnet())):
         image.save(OUT_ITEM / (nom + ".png"))
         print("ecrit", OUT_ITEM / (nom + ".png"))
+    for nom, image in (("stall_wood", bois()), ("stall_top", dessus()), ("stall_awning", auvent())):
+        image.save(OUT_BLOCK / (nom + ".png"))
+        print("ecrit", OUT_BLOCK / (nom + ".png"))
 
 
 if __name__ == "__main__":

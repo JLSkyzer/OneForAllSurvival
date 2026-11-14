@@ -564,4 +564,156 @@ public final class PackGameTests {
         }
         helper.succeed();
     }
+
+    // ---------------------------------------------------------------------------------------------
+    // Lot E2 : l'étal et le carnet de factures
+    // ---------------------------------------------------------------------------------------------
+
+    /** Une grille de table 3 x 3 garnie de ces objets (de gauche à droite, de haut en bas ; {@code null} = vide). */
+    private static net.minecraft.world.inventory.CraftingContainer grille(Item... cases) {
+        net.minecraft.world.inventory.AbstractContainerMenu menu = new net.minecraft.world.inventory.AbstractContainerMenu(null, 0) {
+            @Override
+            public ItemStack quickMoveStack(net.minecraft.world.entity.player.Player joueur, int index) {
+                return ItemStack.EMPTY;
+            }
+
+            @Override
+            public boolean stillValid(net.minecraft.world.entity.player.Player joueur) {
+                return true;
+            }
+        };
+        net.minecraft.world.inventory.TransientCraftingContainer grille =
+                new net.minecraft.world.inventory.TransientCraftingContainer(menu, 3, 3);
+        for (int i = 0; i < cases.length; i++) {
+            grille.setItem(i, cases[i] == null ? ItemStack.EMPTY : new ItemStack(cases[i]));
+        }
+        return grille;
+    }
+
+    /** La recette de table que la grille déclenche, ou rien. */
+    private static java.util.Optional<net.minecraft.world.item.crafting.CraftingRecipe> fabrique(GameTestHelper helper,
+            net.minecraft.world.inventory.CraftingContainer grille) {
+        return helper.getLevel().getRecipeManager().getRecipeFor(net.minecraft.world.item.crafting.RecipeType.CRAFTING, grille,
+                helper.getLevel());
+    }
+
+    private static boolean donne(java.util.Optional<net.minecraft.world.item.crafting.CraftingRecipe> trouvee, ResourceLocation id) {
+        return trouvee.map(r -> r.getId().equals(id)).orElse(false);
+    }
+
+    private static String fichierDeRecette(GameTestHelper helper, String nom) throws java.io.IOException {
+        try (var in = PackGameTests.class.getResourceAsStream("/data/oneforallsurvival/recipes/" + nom + ".json")) {
+            helper.assertTrue(in != null, "fichier de recette absent : " + nom);
+            return new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        }
+    }
+
+    /**
+     * L'étal : trois laines, deux bâtons, trois planches (forme {@code WWW / S S / PPP}), n'importe quelle laine et
+     * n'importe quelles planches, sans condition de mod, un exemplaire. La forme est exigée.
+     */
+    @GameTest(template = "test/plancher", batch = "pack_commerce")
+    public static void lEtalSeFabriqueALaTable(GameTestHelper helper) throws java.io.IOException {
+        Item etal = objet("oneforallsurvival", "market_stall");
+        ResourceLocation id = new ResourceLocation("oneforallsurvival", "market_stall");
+        helper.assertTrue(etal != null && etal != net.minecraft.world.item.Items.AIR, "étal absent");
+        helper.assertTrue(recettesDonnant(helper, etal).equals(List.of(id)), "recettes vues : " + recettesDonnant(helper, etal));
+        Recipe<?> recette = helper.getLevel().getRecipeManager().byKey(id).orElseThrow();
+        helper.assertTrue(recette instanceof net.minecraft.world.item.crafting.ShapedRecipe forme
+                && forme.getWidth() == 3 && forme.getHeight() == 3, "recette formée 3 x 3 attendue");
+        helper.assertTrue(recette.getResultItem(helper.getLevel().registryAccess()).is(etal)
+                && recette.getResultItem(helper.getLevel().registryAccess()).getCount() == 1, "un exemplaire attendu");
+        String json = fichierDeRecette(helper, "market_stall");
+        helper.assertTrue(!json.contains("conditions") && !json.contains("mod_loaded"), "aucune condition de mod");
+        helper.assertTrue(json.contains("minecraft:wool") && json.contains("minecraft:stick") && json.contains("minecraft:planks"),
+                "laine, bâton, planches attendus");
+
+        Item s = net.minecraft.world.item.Items.STICK;
+        // Des laines et des planches de toutes sortes, la forme exacte : la recette se déclenche.
+        for (Item[] pieces : new Item[][] {
+                {net.minecraft.world.item.Items.WHITE_WOOL, net.minecraft.world.item.Items.OAK_PLANKS},
+                {net.minecraft.world.item.Items.RED_WOOL, net.minecraft.world.item.Items.CRIMSON_PLANKS},
+                {net.minecraft.world.item.Items.BLACK_WOOL, net.minecraft.world.item.Items.BAMBOO_PLANKS}}) {
+            Item w = pieces[0];
+            Item p = pieces[1];
+            var trouvee = fabrique(helper, grille(w, w, w, s, null, s, p, p, p));
+            helper.assertTrue(donne(trouvee, id), "la forme exacte devait donner l'étal : " + trouvee);
+        }
+        // Des laines et des planches mêlées : toujours l'étal (l'étiquette, pas une couleur).
+        helper.assertTrue(donne(fabrique(helper, grille(net.minecraft.world.item.Items.RED_WOOL, net.minecraft.world.item.Items.WHITE_WOOL,
+                net.minecraft.world.item.Items.BLUE_WOOL, s, null, s, net.minecraft.world.item.Items.OAK_PLANKS,
+                net.minecraft.world.item.Items.SPRUCE_PLANKS, net.minecraft.world.item.Items.BIRCH_PLANKS)), id),
+                "des laines et des planches mêlées devaient convenir");
+        // Hors forme, rien : la forme est exigée.
+        Item w = net.minecraft.world.item.Items.WHITE_WOOL;
+        Item p = net.minecraft.world.item.Items.OAK_PLANKS;
+        helper.assertTrue(!donne(fabrique(helper, grille(w, w, w, s, s, null, p, p, p)), id), "un bâton déplacé ne devait pas donner l'étal");
+        helper.assertTrue(!donne(fabrique(helper, grille(p, p, p, s, null, s, w, w, w)), id), "la forme renversée ne devait pas donner l'étal");
+        helper.succeed();
+    }
+
+    /**
+     * Le carnet de factures : sans forme, un livre, une poche d'encre et du papier, sans condition de mod, un
+     * exemplaire. Le livre, l'encre et la plume sont la recette du livre et de la plume vanilla ({@code writable_book}) :
+     * elle reste intacte, et le carnet ne la recouvre pas (l'un des deux serait sinon infabricable).
+     */
+    @GameTest(template = "test/plancher", batch = "pack_commerce")
+    public static void leCarnetSeFabriqueALaTable(GameTestHelper helper) throws java.io.IOException {
+        Item carnet = objet("oneforallsurvival", "invoice_book");
+        ResourceLocation id = new ResourceLocation("oneforallsurvival", "invoice_book");
+        helper.assertTrue(carnet != null && carnet != net.minecraft.world.item.Items.AIR, "carnet absent");
+        helper.assertTrue(recettesDonnant(helper, carnet).equals(List.of(id)), "recettes vues : " + recettesDonnant(helper, carnet));
+        Recipe<?> recette = helper.getLevel().getRecipeManager().byKey(id).orElseThrow();
+        helper.assertTrue(recette instanceof net.minecraft.world.item.crafting.ShapelessRecipe,
+                "une recette sans forme attendue : " + recette.getClass());
+        helper.assertTrue(recette.getResultItem(helper.getLevel().registryAccess()).is(carnet)
+                && recette.getResultItem(helper.getLevel().registryAccess()).getCount() == 1, "un exemplaire attendu");
+        String json = fichierDeRecette(helper, "invoice_book");
+        helper.assertTrue(!json.contains("conditions") && !json.contains("mod_loaded"), "aucune condition de mod");
+        for (Ingredient ingredient : recette.getIngredients()) {
+            for (ItemStack pile : ingredient.getItems()) {
+                helper.assertTrue(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(pile.getItem()).getNamespace()
+                        .equals("minecraft"), "ingrédient non vanilla " + pile);
+            }
+        }
+        Item livre = net.minecraft.world.item.Items.BOOK;
+        Item encre = net.minecraft.world.item.Items.INK_SAC;
+        Item papier = net.minecraft.world.item.Items.PAPER;
+        // Dans n'importe quel ordre, dans n'importe quelles cases.
+        var a = fabrique(helper, grille(livre, encre, papier, papier));
+        var b = fabrique(helper, grille(null, papier, null, encre, null, papier, null, livre, null));
+        helper.assertTrue(donne(a, id), "livre, encre, papiers (en haut) : " + a);
+        helper.assertTrue(donne(b, id), "livre, encre, papiers (en vrac) : " + b);
+        // Il manque un ingrédient : rien.
+        helper.assertTrue(!donne(fabrique(helper, grille(livre, encre, papier)), id), "un papier de moins ne devait pas donner le carnet");
+        // Le livre, l'encre et la plume : toujours la recette vanilla, pas le carnet.
+        var plume = fabrique(helper, grille(livre, encre, net.minecraft.world.item.Items.FEATHER));
+        helper.assertTrue(plume.isPresent() && plume.get().getResultItem(helper.getLevel().registryAccess())
+                .is(net.minecraft.world.item.Items.WRITABLE_BOOK), "livre, encre, plume devait rester le livre et la plume : " + plume);
+        helper.succeed();
+    }
+
+    /**
+     * Ni l'étal, ni le carnet, ni la facture, ni le reçu ne se fabriquent à l'établi : aucune recette de l'établi ne
+     * les donne ; l'étal et le carnet portent l'étiquette {@code table_only} (l'établi ne les prend jamais), la
+     * facture et le reçu n'ont aucune recette, de quelque type que ce soit.
+     */
+    @GameTest(template = "test/plancher", batch = "pack_commerce")
+    public static void niLEtalNiLeCarnetNiLaFactureALEtabli(GameTestHelper helper) {
+        for (String nom : List.of("market_stall", "invoice_book", "invoice", "receipt")) {
+            Item item = objet("oneforallsurvival", nom);
+            helper.assertTrue(item != null && item != net.minecraft.world.item.Items.AIR, "objet absent : " + nom);
+            List<ResourceLocation> aLEtabli = BenchCatalog.current().recipes().stream()
+                    .filter(r -> r.result().is(item)).map(BenchRecipe::id).toList();
+            helper.assertTrue(aLEtabli.isEmpty(), nom + " ne devrait avoir aucune recette d'établi, vu " + aLEtabli);
+        }
+        for (String nom : List.of("market_stall", "invoice_book")) {
+            helper.assertTrue(BenchCatalog.isTableOnly(new ResourceLocation("oneforallsurvival", nom)), nom + " : étiquette table_only");
+        }
+        for (String nom : List.of("invoice", "receipt")) {
+            List<ResourceLocation> recettes = recettesDonnant(helper, objet("oneforallsurvival", nom));
+            helper.assertTrue(recettes.isEmpty(), nom + " ne devrait avoir aucune recette, vu " + recettes);
+        }
+        helper.succeed();
+    }
 }
