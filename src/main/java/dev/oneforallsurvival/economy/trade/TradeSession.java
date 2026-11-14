@@ -17,8 +17,8 @@ import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * Un échange en cours entre deux joueurs : leurs deux gardes (les objets posés, qui ont quitté l'inventaire et
- * vivent dans {@link dev.oneforallsurvival.economy.HeldGoods}), la case « reçu », les confirmations et la
+ * Un échange en cours entre deux joueurs : leurs deux gardes (les objets posés, qui ont quitté l'inventaire ; chacune
+ * est recopiée chez son propriétaire, {@link TradeEscrow}), la case « reçu », les confirmations et la
  * <b>version</b>. Toute écriture dans une garde et chaque bascule du reçu font avancer la version et effacent les
  * deux confirmations ; une confirmation n'est reçue que sur la version courante. Fil du serveur seulement.
  */
@@ -44,6 +44,8 @@ public final class TradeSession {
     private final UUID second;
     private final String firstName;
     private final String secondName;
+    private final ServerPlayer firstPlayer;
+    private final ServerPlayer secondPlayer;
     private final SimpleContainer firstOffer;
     private final SimpleContainer secondOffer;
     /** Le dernier contenu vu des deux gardes : une écriture qui ne change rien ne fait pas avancer la version. */
@@ -64,6 +66,8 @@ public final class TradeSession {
         this.second = second.getUUID();
         this.firstName = first.getGameProfile().getName();
         this.secondName = second.getGameProfile().getName();
+        this.firstPlayer = first;
+        this.secondPlayer = second;
         this.firstOffer = firstOffer;
         this.secondOffer = secondOffer;
         remember();
@@ -111,6 +115,17 @@ public final class TradeSession {
         }
         if (second.equals(player)) {
             return secondOffer;
+        }
+        throw new IllegalArgumentException("pas de cet échange : " + player);
+    }
+
+    /** Le joueur (l'entité ouverte au début de l'échange) chez qui vit cette garde. */
+    ServerPlayer playerOf(UUID player) {
+        if (first.equals(player)) {
+            return firstPlayer;
+        }
+        if (second.equals(player)) {
+            return secondPlayer;
         }
         throw new IllegalArgumentException("pas de cet échange : " + player);
     }
@@ -163,7 +178,8 @@ public final class TradeSession {
 
     /**
      * Appelé à chaque écriture dans une garde (et après chaque clic de la fenêtre) : si le contenu a vraiment changé,
-     * la version avance et les deux confirmations tombent.
+     * la version avance, les deux confirmations tombent et chaque garde est recopiée chez son propriétaire (dans le
+     * même tick que le retrait de son inventaire : aucune sauvegarde ne tombe entre les deux).
      */
     void contentsMayHaveChanged() {
         if (ended) {
@@ -180,6 +196,8 @@ public final class TradeSession {
         if (!same) {
             remember();
             changed();
+            TradeEscrow.write(firstPlayer, firstOffer);
+            TradeEscrow.write(secondPlayer, secondOffer);
         }
     }
 

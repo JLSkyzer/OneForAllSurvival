@@ -242,7 +242,7 @@
         "Distance et durée de la demande : tradeMaxDistance et tradeRequestSeconds (oneforallsurvival-economy.toml).",
         "Ce qui est posé est gardé par le serveur. Il est écrit sur le disque avec le monde, et à chaque déconnexion en même temps que tous les joueurs en ligne et toutes les données de l'économie : après un arrêt brutal, ce qui était en garde revient à son propriétaire, une seule fois.",
         "À la mort, ce qui était posé va en attente et revient à la réapparition, au lieu de tomber au sol avec le reste.",
-        "Ce qui revient à un joueur absent ou sans place : les pièces vont dans son coffre-fort s'il en a un, le reste (objets, bourses, pièces sans coffre-fort) va en attente, livré à sa connexion puis toutes les 30 secondes. Total dans /eco stats (ligne « en attente »), détail par joueur dans /eco pending.",
+        "Ce qui revient à un joueur absent ou sans place : les pièces et le contenu des bourses vont dans son coffre-fort s'il en a un (dans la limite du plafond), le reste (objets, bourses vidées, pièces sans coffre-fort) va en attente, livré à sa connexion puis toutes les 30 secondes. Total dans /eco stats (ligne « en attente »), détail par joueur dans /eco pending.",
         "Les pièces échangées sont un transfert au registre (/eco ledger) : ni créées ni détruites."
       ]
     },

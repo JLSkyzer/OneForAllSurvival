@@ -28,7 +28,6 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -142,7 +141,6 @@ public final class CommerceSocleGameTests {
             SafeAccounts coffres = SafeAccounts.get(serveur());
             for (UUID uuid : comptes) {
                 held.takePending(uuid);
-                held.closeEscrow(uuid);
                 for (Coin coin : Coin.values()) {
                     coffres.withdraw(uuid, coin, coffres.count(uuid, coin));
                 }
@@ -299,41 +297,23 @@ public final class CommerceSocleGameTests {
     // Garde, trésor, tableau de bord, place
     // ---------------------------------------------------------------------------------------------
 
+    /**
+     * Une attente écrite avec le monde survit à un arrêt brutal, une seule fois. (La garde d'un échange en cours, elle,
+     * vit dans le playerdata de son propriétaire : voir {@code EchangeGameTests.laGardeVitDansLePlayerdataEtRevientUneFois}.)
+     */
     @GameTest(template = "test/plancher", batch = LOT)
-    public static void uneGardeSurvitAUnArretBrutal(GameTestHelper helper) {
+    public static void uneAttenteSurvitAUnArretBrutal(GameTestHelper helper) {
         try (Essai essai = new Essai(helper)) {
             MinecraftServer serveur = essai.serveur();
-            JoueurDeTest j = essai.vide(essai.nom("cs_garde"));
-            UUID uuid = j.uuid();
-            j.joueur().getInventory().items.set(0, new ItemStack(Items.BREAD, 5));
+            UUID uuid = essai.absent(essai.nom("cs_attente"));
+            HeldGoods.get(serveur).addPending(uuid, List.of(new ItemStack(Items.BREAD, 5)), Map.of());
             SauvegardeDEssai.automatique(serveur);
-            helper.assertTrue(SauvegardeDEssai.objetsDansLePlayerdata(serveur, uuid, Items.BREAD) == 5,
-                    "avant l'échange, le playerdata porte les cinq pains");
-            HeldGoods held = HeldGoods.get(serveur);
-            SimpleContainer garde = held.openEscrow(uuid, 12);
-            helper.assertTrue(held.openEscrow(uuid, 12) == garde, "une seule garde par joueur");
-            // Les pains quittent l'inventaire pour la garde, comme un objet posé dans un échange.
-            garde.addItem(j.joueur().getInventory().removeItem(0, 5));
-
-            // Une sauvegarde automatique pendant l'échange, puis le serveur s'arrête : le disque est tout ce qui reste.
-            SauvegardeDEssai.automatique(serveur);
-            int porte = SauvegardeDEssai.objetsDansLePlayerdata(serveur, uuid, Items.BREAD);
-            HeldGoods relu = SauvegardeDEssai.gardeApresRedemarrage(serveur);
-            helper.assertTrue(relu.hasPending(uuid), "la garde devait devenir une attente");
-            HeldGoods.Pending attente = relu.pendingFor(uuid);
-            helper.assertTrue(porte == 0 && attente.items().size() == 1 && pains(attente.items()) == 5,
-                    "cinq pains attendus, une seule fois : playerdata " + porte + ", attente " + attente.items());
-            // Un second arrêt ne double rien.
+            HeldGoods relu = SauvegardeDEssai.attenteApresRedemarrage(serveur);
+            helper.assertTrue(pains(relu.pendingFor(uuid).items()) == 5,
+                    "cinq pains attendus après l'arrêt : " + relu.pendingFor(uuid).items());
             HeldGoods encore = HeldGoods.load(relu.save(new CompoundTag()));
             helper.assertTrue(pains(encore.pendingFor(uuid).items()) == 5,
-                    "toujours cinq pains : " + encore.pendingFor(uuid).items());
-
-            // Une garde fermée rend son contenu et s'oublie.
-            List<ItemStack> rendu = held.closeEscrow(uuid);
-            helper.assertTrue(pains(rendu) == 5, "la garde fermée devait rendre cinq pains : " + rendu);
-            helper.assertTrue(held.closeEscrow(uuid).isEmpty(), "une garde fermée ne rend rien deux fois");
-            helper.assertTrue(!HeldGoods.load(held.save(new CompoundTag())).hasPending(uuid),
-                    "une garde fermée ne revient pas à la relecture");
+                    "un second arrêt ne double rien : " + encore.pendingFor(uuid).items());
             helper.succeed();
         }
     }

@@ -4,8 +4,6 @@ import dev.oneforallsurvival.economy.Coin;
 import dev.oneforallsurvival.economy.CommerceDelivery;
 import dev.oneforallsurvival.economy.EconomyConfig;
 import dev.oneforallsurvival.economy.EconomyLedger;
-import dev.oneforallsurvival.economy.EconomySave;
-import dev.oneforallsurvival.economy.HeldGoods;
 import dev.oneforallsurvival.economy.InventoryFit;
 import dev.oneforallsurvival.economy.MoneyTransfer;
 import dev.oneforallsurvival.economy.Purse;
@@ -42,7 +40,7 @@ import net.minecraftforge.network.NetworkHooks;
 /**
  * L'échange de main à main (feature 70) : les demandes, les sessions ouvertes, leur exécution et leur annulation.
  * Fil du serveur seulement ; l'état vit en mémoire (une demande ou un échange ne survit pas à un redémarrage, les
- * gardes, elles, si : voir {@link HeldGoods}).
+ * gardes, elles, si : chacune vit dans le playerdata de son propriétaire, voir {@link TradeEscrow}).
  *
  * <p>Annulation (fenêtre fermée, éloignement, changement de dimension, déconnexion, mort, arrêt du serveur) :
  * chaque garde est fermée et rendue à son propriétaire par {@link CommerceDelivery#giveBack} (inventaire, sinon
@@ -184,9 +182,11 @@ public final class TradeService {
     }
 
     private static void open(ServerPlayer first, ServerPlayer second) {
-        HeldGoods held = HeldGoods.get(first.server);
-        SimpleContainer firstOffer = held.openEscrow(first.getUUID(), TradeMenu.OFFER_SIZE);
-        SimpleContainer secondOffer = held.openEscrow(second.getUUID(), TradeMenu.OFFER_SIZE);
+        // Une garde restée chez l'un (normalement rendue à la connexion) lui revient avant d'être remplacée.
+        TradeEscrow.recover(first);
+        TradeEscrow.recover(second);
+        SimpleContainer firstOffer = new SimpleContainer(TradeMenu.OFFER_SIZE);
+        SimpleContainer secondOffer = new SimpleContainer(TradeMenu.OFFER_SIZE);
         TradeSession session = new TradeSession(first.server, first, second, firstOffer, secondOffer);
         SESSIONS.put(first.getUUID(), session);
         SESSIONS.put(second.getUUID(), session);
@@ -279,9 +279,8 @@ public final class TradeService {
         session.end();
         SESSIONS.remove(session.first());
         SESSIONS.remove(session.second());
-        HeldGoods held = HeldGoods.get(session.server());
-        held.closeEscrow(session.first());
-        held.closeEscrow(session.second());
+        TradeEscrow.close(session.playerOf(session.first()), session.offerOf(session.first()));
+        TradeEscrow.close(session.playerOf(session.second()), session.offerOf(session.second()));
         takeCarried(session.menuOf(session.first()));
         takeCarried(session.menuOf(session.second()));
         CommerceDelivery.giveBack(first, toFirst);
@@ -352,9 +351,8 @@ public final class TradeService {
         SESSIONS.remove(session.first());
         SESSIONS.remove(session.second());
         MinecraftServer server = session.server();
-        HeldGoods held = HeldGoods.get(server);
         for (UUID owner : List.of(session.first(), session.second())) {
-            List<ItemStack> back = held.closeEscrow(owner);
+            List<ItemStack> back = TradeEscrow.close(session.playerOf(owner), session.offerOf(owner));
             ItemStack carried = takeCarried(session.menuOf(owner));
             if (!carried.isEmpty()) {
                 back.add(carried);
@@ -424,21 +422,25 @@ public final class TradeService {
         }
 
         /**
-         * Avant la sauvegarde du joueur : tout ce qu'il avait posé rentre dans son inventaire, puis l'écriture
-         * cohérente ({@link EconomySave#playersThenEconomy}) met sur le disque, au même instant, le playerdata de tous
-         * les joueurs en ligne et les données de l'économie. Écrire la garde seule ferait revenir, après un arrêt
-         * brutal, ce qu'un joueur resté en ligne a posé depuis sa dernière sauvegarde.
+         * Avant la sauvegarde du joueur (Forge publie l'événement en tête de {@code PlayerList.remove}) : tout ce qu'il
+         * avait posé rentre dans son inventaire et sa garde est effacée ; Minecraft écrit ensuite son playerdata, et
+         * rien d'autre. Aucune écriture forcée : le reste du disque reste à l'instant de la dernière sauvegarde.
          */
         @SubscribeEvent
         public void onLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
             UUID player = event.getEntity().getUUID();
             cancelFor(player, CancelReason.LOGGED_OUT);
-            if (event.getEntity() instanceof ServerPlayer leaving) {
-                EconomySave.playersThenEconomy(leaving.server);
-            }
             REQUESTS.remove(player);
             for (Map<UUID, Long> mine : REQUESTS.values()) {
                 mine.remove(player);
+            }
+        }
+
+        /** À la connexion : une garde laissée par un arrêt brutal pendant un échange revient au joueur, une fois. */
+        @SubscribeEvent
+        public void onLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
+            if (event.getEntity() instanceof ServerPlayer player) {
+                TradeEscrow.recover(player);
             }
         }
 

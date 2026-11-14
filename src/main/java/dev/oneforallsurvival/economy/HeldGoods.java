@@ -11,19 +11,14 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.saveddata.SavedData;
 
 /**
- * Ce que le serveur garde pour quelqu'un : la <b>garde</b> d'un échange en cours (les objets posés quittent
- * l'inventaire et vivent ici) et les livraisons <b>en attente</b> (objets et pièces qui n'ont pas pu arriver).
- * Sauvegardé avec le monde, par identifiant de joueur. Ne se touche que depuis le fil du serveur.
- *
- * <p>Au chargement, toute garde retrouvée passe en attente de son propriétaire : le serveur s'est arrêté pendant
- * un échange, et personne d'autre ne la réclamera. La garde n'est jamais écrite sans le playerdata de tous les
- * joueurs en ligne : avec le monde (sauvegarde automatique, joueurs puis données) et à chaque déconnexion
- * ({@link EconomySave#playersThenEconomy}). Le disque montre ainsi un seul instant : rien ne se double.
+ * Les livraisons <b>en attente</b> : objets et pièces qui n'ont pas pu arriver chez un joueur (absent, mort, inventaire
+ * plein). Sauvegardé avec le monde seulement (marqué sale à chaque changement), par identifiant de joueur. Ne se
+ * touche que depuis le fil du serveur. La garde d'un échange en cours n'est pas ici : elle vit dans le playerdata de
+ * son propriétaire ({@code TradeEscrow}).
  */
 public final class HeldGoods extends SavedData {
 
@@ -36,63 +31,12 @@ public final class HeldGoods extends SavedData {
         }
     }
 
-    private final Map<UUID, SimpleContainer> escrows = new HashMap<>();
     private final Map<UUID, Pending> pending = new HashMap<>();
-    /** Vrai si le chargement a converti des gardes : le prochain {@link #get} le note à sauvegarder. */
-    private boolean recovered;
 
     HeldGoods() {}
 
     public static HeldGoods get(MinecraftServer server) {
-        HeldGoods held = server.overworld().getDataStorage().computeIfAbsent(HeldGoods::load, HeldGoods::new, KEY);
-        if (held.recovered) {
-            held.recovered = false;
-            held.setDirty();
-        }
-        return held;
-    }
-
-    /** Le fichier de la garde : {@code <monde>/data/oneforallsurvival_held.dat} (stockage de l'Overworld). */
-    public static java.nio.file.Path file(MinecraftServer server) {
-        return EconomySave.file(server, KEY);
-    }
-
-    // ---------------------------------------------------------------------------------------------
-    // Garde
-    // ---------------------------------------------------------------------------------------------
-
-    /**
-     * La garde de ce joueur, créée de {@code size} cases si elle n'existe pas (une seule par joueur : si elle
-     * existe déjà, c'est elle qui est rendue). Chaque changement de son contenu marque la sauvegarde.
-     */
-    public SimpleContainer openEscrow(UUID owner, int size) {
-        SimpleContainer existing = escrows.get(owner);
-        if (existing != null) {
-            return existing;
-        }
-        SimpleContainer container = new SimpleContainer(size);
-        container.addListener(changed -> setDirty());
-        escrows.put(owner, container);
-        setDirty();
-        return container;
-    }
-
-    /** Vide et oublie la garde de ce joueur, et rend son contenu (rien si elle n'existe pas). */
-    public List<ItemStack> closeEscrow(UUID owner) {
-        SimpleContainer container = escrows.remove(owner);
-        List<ItemStack> out = new ArrayList<>();
-        if (container == null) {
-            return out;
-        }
-        for (int slot = 0; slot < container.getContainerSize(); slot++) {
-            ItemStack stack = container.getItem(slot);
-            if (!stack.isEmpty()) {
-                out.add(stack.copy());
-            }
-            container.setItem(slot, ItemStack.EMPTY);
-        }
-        setDirty();
-        return out;
+        return server.overworld().getDataStorage().computeIfAbsent(HeldGoods::load, HeldGoods::new, KEY);
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -215,14 +159,6 @@ public final class HeldGoods extends SavedData {
 
     @Override
     public CompoundTag save(CompoundTag tag) {
-        ListTag escrowList = new ListTag();
-        for (Map.Entry<UUID, SimpleContainer> entry : escrows.entrySet()) {
-            CompoundTag line = new CompoundTag();
-            line.putUUID("owner", entry.getKey());
-            line.put("items", saveStacks(containerStacks(entry.getValue())));
-            escrowList.add(line);
-        }
-        tag.put("escrows", escrowList);
         ListTag pendingList = new ListTag();
         for (Map.Entry<UUID, Pending> entry : pending.entrySet()) {
             CompoundTag line = new CompoundTag();
@@ -256,31 +192,7 @@ public final class HeldGoods extends SavedData {
             }
             held.addPending(line.getUUID("owner"), loadStacks(line.getList("items", Tag.TAG_COMPOUND)), coins);
         }
-        // Une garde encore là au chargement : le serveur s'est arrêté pendant un échange. Elle devient une
-        // attente de son propriétaire, une seule fois (elle n'est pas gardée en mémoire).
-        for (Tag raw : tag.getList("escrows", Tag.TAG_COMPOUND)) {
-            CompoundTag line = (CompoundTag) raw;
-            if (!line.hasUUID("owner")) {
-                continue;
-            }
-            List<ItemStack> items = loadStacks(line.getList("items", Tag.TAG_COMPOUND));
-            if (!items.isEmpty()) {
-                held.addPending(line.getUUID("owner"), items, Map.of());
-            }
-            held.recovered = true;
-        }
         return held;
-    }
-
-    private static List<ItemStack> containerStacks(SimpleContainer container) {
-        List<ItemStack> out = new ArrayList<>();
-        for (int slot = 0; slot < container.getContainerSize(); slot++) {
-            ItemStack stack = container.getItem(slot);
-            if (!stack.isEmpty()) {
-                out.add(stack);
-            }
-        }
-        return out;
     }
 
     private static ListTag saveStacks(List<ItemStack> stacks) {

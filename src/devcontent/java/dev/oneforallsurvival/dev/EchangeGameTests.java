@@ -26,9 +26,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.NbtIo;
-import net.minecraft.nbt.Tag;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
@@ -124,6 +121,17 @@ public final class EchangeGameTests {
             return j;
         }
 
+        /**
+         * Le même joueur revient : son playerdata est relu du disque (inventaire non vidé), comme à une connexion
+         * après un redémarrage.
+         */
+        JoueurDeTest revenir(JoueurDeTest parti, Vec3 position) {
+            JoueurDeTest j = JoueurDeTest.rejoindre(helper.getLevel(), parti.joueur().getGameProfile().getName(),
+                    helper.absoluteVec(position), false, p -> {});
+            joueurs.add(j);
+            return j;
+        }
+
         @Override
         public void close() {
             for (JoueurDeTest j : joueurs) {
@@ -142,7 +150,6 @@ public final class EchangeGameTests {
             SafeAccounts coffres = SafeAccounts.get(serveur());
             for (UUID uuid : comptes) {
                 held.takePending(uuid);
-                held.closeEscrow(uuid);
                 for (Coin coin : Coin.values()) {
                     coffres.withdraw(uuid, coin, coffres.count(uuid, coin));
                 }
@@ -233,23 +240,6 @@ public final class EchangeGameTests {
             }
         }
         return total;
-    }
-
-    /** Les propriétaires des gardes non vides écrites dans le fichier de {@link HeldGoods}, relu du disque. */
-    private static List<UUID> gardesSurLeDisque(MinecraftServer serveur) {
-        List<UUID> out = new ArrayList<>();
-        try {
-            CompoundTag fichier = NbtIo.readCompressed(HeldGoods.file(serveur).toFile());
-            for (Tag brut : fichier.getCompound("data").getList("escrows", Tag.TAG_COMPOUND)) {
-                CompoundTag ligne = (CompoundTag) brut;
-                if (ligne.hasUUID("owner") && !ligne.getList("items", Tag.TAG_COMPOUND).isEmpty()) {
-                    out.add(ligne.getUUID("owner"));
-                }
-            }
-        } catch (java.io.IOException e) {
-            throw new AssertionError("fichier de la garde illisible : " + e.getMessage());
-        }
-        return out;
     }
 
     private static int painsAuSol(GameTestHelper helper, AABB autour) {
@@ -362,9 +352,8 @@ public final class EchangeGameTests {
             helper.assertTrue(compte(b.joueur(), Items.BREAD) == 5, "B reçoit 5 pains : " + compte(b.joueur(), Items.BREAD));
             helper.assertTrue(compte(a.joueur(), Items.BREAD) == 0 && valeurPortee(b) == 0L, "rien n'est doublé");
             helper.assertTrue(fermee(a) && fermee(b), "les deux fenêtres se ferment");
-            HeldGoods held = HeldGoods.get(essai.serveur());
-            helper.assertTrue(held.closeEscrow(a.uuid()).isEmpty() && held.closeEscrow(b.uuid()).isEmpty(),
-                    "plus aucune garde");
+            helper.assertTrue(SauvegardeDEssai.gardeEnMemoire(a.joueur()).isEmpty()
+                    && SauvegardeDEssai.gardeEnMemoire(b.joueur()).isEmpty(), "plus aucune garde");
             helper.assertTrue(rienEnAttente(essai.serveur(), a, b), "rien en attente");
             helper.assertTrue(registre.totalTransferred(MoneyTransfer.TRADE) - echangeAvant == 200L,
                     "échange noté : " + (registre.totalTransferred(MoneyTransfer.TRADE) - echangeAvant));
@@ -553,8 +542,8 @@ public final class EchangeGameTests {
             helper.assertTrue(compte(b.joueur(), Items.DIAMOND) == 1, "B récupère son diamant");
             helper.assertTrue(compte(a.joueur(), Items.DIAMOND) == 0 && compte(b.joueur(), Items.BREAD) == 0,
                     "rien ne passe de l'un à l'autre");
-            HeldGoods held = HeldGoods.get(essai.serveur());
-            helper.assertTrue(held.closeEscrow(a.uuid()).isEmpty() && held.closeEscrow(b.uuid()).isEmpty(), "plus de garde");
+            helper.assertTrue(SauvegardeDEssai.gardeEnMemoire(a.joueur()).isEmpty()
+                    && SauvegardeDEssai.gardeEnMemoire(b.joueur()).isEmpty(), "plus de garde");
             helper.assertTrue(rienEnAttente(essai.serveur(), a, b), "rien en attente");
             helper.assertTrue(painsAuSol(helper, zone(helper)) == 0, "rien au sol");
             helper.assertTrue(b.messagesRecus().stream().anyMatch(k -> k.startsWith("message.oneforallsurvival.trade.cancelled")),
@@ -617,7 +606,7 @@ public final class EchangeGameTests {
             HeldGoods held = HeldGoods.get(essai.serveur());
             helper.assertTrue(painsAuSol(helper, autour) == 0 && compte(a.joueur(), Items.BREAD) == 0,
                     "rien au sol ni dans l'inventaire du mort : sol " + painsAuSol(helper, autour));
-            helper.assertTrue(held.closeEscrow(a.uuid()).isEmpty(), "plus de garde");
+            helper.assertTrue(SauvegardeDEssai.gardeEnMemoire(a.joueur()).isEmpty(), "plus de garde");
             helper.assertTrue(compte(held.pendingFor(a.uuid()).items(), Items.BREAD) == 5, "les cinq pains attendent");
             helper.assertTrue(dev.oneforallsurvival.economy.CommerceDelivery.deliverPending(a.joueur())
                     && compte(a.joueur(), Items.BREAD) == 0, "une livraison au mort n'a pas lieu");
@@ -643,18 +632,19 @@ public final class EchangeGameTests {
             poser(b, 0);
             AABB autour = a.joueur().getBoundingBox().inflate(4.0D);
             SauvegardeDEssai.automatique(essai.serveur());
-            helper.assertTrue(gardesSurLeDisque(essai.serveur()).contains(a.uuid()), "la garde de A est sur le disque");
+            helper.assertTrue(compte(SauvegardeDEssai.gardeDansLePlayerdata(essai.serveur(), a.uuid()), Items.BREAD) == 5,
+                    "la garde de A est dans son playerdata");
 
             a.quitter();
-            List<UUID> surLeDisque = gardesSurLeDisque(essai.serveur());
-            helper.assertTrue(!surLeDisque.contains(a.uuid()) && !surLeDisque.contains(b.uuid()),
-                    "à la déconnexion, le fichier de la garde ne contient plus rien de A ni de B : " + surLeDisque);
+            List<ItemStack> surLeDisque = SauvegardeDEssai.gardeDansLePlayerdata(essai.serveur(), a.uuid());
+            helper.assertTrue(surLeDisque.isEmpty(),
+                    "à la déconnexion, le playerdata de A ne porte plus de garde : " + surLeDisque);
             helper.assertTrue(TradeService.sessionOf(a.uuid()) == null && TradeService.sessionOf(b.uuid()) == null,
                     "la déconnexion annule l'échange");
             helper.assertTrue(fermee(b), "la fenêtre de l'autre se ferme");
             helper.assertTrue(compte(b.joueur(), Items.DIAMOND) == 1, "B récupère son diamant");
             helper.assertTrue(painsAuSol(helper, autour) == 0, "rien au sol");
-            helper.assertTrue(HeldGoods.get(essai.serveur()).closeEscrow(a.uuid()).isEmpty(), "plus de garde");
+            helper.assertTrue(SauvegardeDEssai.gardeEnMemoire(b.joueur()).isEmpty(), "plus de garde chez B");
             helper.assertTrue(rienEnAttente(essai.serveur(), a, b), "rien en attente : tout est rentré avant la sauvegarde");
 
             // Le playerdata relu du disque : les cinq pains y sont, une seule fois.
@@ -674,19 +664,29 @@ public final class EchangeGameTests {
             TradeSession session = ouvrir(helper, a, b);
             poser(a, 0);
             poser(b, 0);
-            // Une sauvegarde automatique tombe pendant l'échange : les deux gardes sont sur le disque.
-            SauvegardeDEssai.automatique(essai.serveur());
-            List<UUID> avant = gardesSurLeDisque(essai.serveur());
-            helper.assertTrue(avant.contains(a.uuid()) && avant.contains(b.uuid()), "les deux gardes sont sur le disque");
+            // Une sauvegarde automatique tombe pendant l'échange : chaque garde est dans le playerdata de son propriétaire.
+            MinecraftServer serveur = essai.serveur();
+            SauvegardeDEssai.automatique(serveur);
+            helper.assertTrue(compte(SauvegardeDEssai.gardeDansLePlayerdata(serveur, a.uuid()), Items.BREAD) == 5
+                    && compte(SauvegardeDEssai.gardeDansLePlayerdata(serveur, b.uuid()), Coin.GOLD.item()) == 2,
+                    "les deux gardes sont dans les playerdata");
             helper.assertTrue(session.confirm(a.joueur(), session.version()) == ConfirmResult.WAITING, "A confirme");
             helper.assertTrue(session.confirm(b.joueur(), session.version()) == ConfirmResult.DONE, "B confirme");
 
-            // A part avec ses 2 or, B reste : le fichier relu du disque n'a plus aucune des deux gardes.
+            // A part avec ses 2 or : son playerdata relu du disque n'a plus de garde, il porte les 2 or et plus les pains.
             a.quitter();
-            List<UUID> apres = gardesSurLeDisque(essai.serveur());
-            helper.assertTrue(!apres.contains(a.uuid()) && !apres.contains(b.uuid()),
-                    "après la déconnexion de A, aucune garde de l'échange conclu sur le disque : " + apres);
+            helper.assertTrue(SauvegardeDEssai.gardeDansLePlayerdata(serveur, a.uuid()).isEmpty()
+                    && SauvegardeDEssai.objetsDansLePlayerdata(serveur, a.uuid(), Coin.GOLD.item()) == 2
+                    && SauvegardeDEssai.objetsDansLePlayerdata(serveur, a.uuid(), Items.BREAD) == 0,
+                    "le playerdata de A : l'échange conclu, sans garde");
             helper.assertTrue(compte(b.joueur(), Items.BREAD) == 5, "B a ses pains");
+            // B, resté, s'écrit à la sauvegarde suivante : l'échange conclu, sans garde. (Entre les deux, un arrêt
+            // brutal rendrait à B sa garde : la limite de Minecraft pour un don, écrite dans la vérification.)
+            SauvegardeDEssai.automatique(serveur);
+            helper.assertTrue(SauvegardeDEssai.gardeDansLePlayerdata(serveur, b.uuid()).isEmpty()
+                    && SauvegardeDEssai.objetsDansLePlayerdata(serveur, b.uuid(), Items.BREAD) == 5
+                    && SauvegardeDEssai.objetsDansLePlayerdata(serveur, b.uuid(), Coin.GOLD.item()) == 0,
+                    "le playerdata de B à la sauvegarde suivante : l'échange conclu, sans garde");
             helper.succeed();
         }
     }
@@ -875,16 +875,18 @@ public final class EchangeGameTests {
 
             c.quitter();
 
-            // Arrêt brutal : ce qu'un redémarrage relirait.
-            HeldGoods relu = SauvegardeDEssai.gardeApresRedemarrage(serveur);
+            // Arrêt brutal : ce qu'un redémarrage relirait (inventaire, garde du playerdata, attentes).
+            HeldGoods relu = SauvegardeDEssai.attenteApresRedemarrage(serveur);
             int orPorte = SauvegardeDEssai.objetsDansLePlayerdata(serveur, a.uuid(), Coin.GOLD.item());
-            long orGarde = relu.pendingFor(a.uuid()).coins().getOrDefault(Coin.GOLD, 0L);
-            helper.assertTrue(orPorte + orGarde == 2L, "A retrouverait " + orPorte + " or sur lui et " + orGarde
-                    + " en attente : ses 2 or ne doivent être qu'à un seul endroit");
+            int orGarde = compte(SauvegardeDEssai.gardeDansLePlayerdata(serveur, a.uuid()), Coin.GOLD.item());
+            long orAttente = relu.pendingFor(a.uuid()).coins().getOrDefault(Coin.GOLD, 0L);
+            helper.assertTrue(orPorte + orGarde + orAttente == 2L, "A retrouverait " + orPorte + " or sur lui, " + orGarde
+                    + " en garde et " + orAttente + " en attente : ses 2 or ne doivent être qu'à un seul endroit");
             int diamantPorte = SauvegardeDEssai.objetsDansLePlayerdata(serveur, b.uuid(), Items.DIAMOND);
-            int diamantGarde = compte(relu.pendingFor(b.uuid()).items(), Items.DIAMOND);
-            helper.assertTrue(diamantPorte + diamantGarde == 1, "B retrouverait " + diamantPorte + " diamant sur lui et "
-                    + diamantGarde + " en attente : un seul attendu");
+            int diamantGarde = compte(SauvegardeDEssai.gardeDansLePlayerdata(serveur, b.uuid()), Items.DIAMOND);
+            int diamantAttente = compte(relu.pendingFor(b.uuid()).items(), Items.DIAMOND);
+            helper.assertTrue(diamantPorte + diamantGarde + diamantAttente == 1, "B retrouverait " + diamantPorte
+                    + " diamant sur lui, " + diamantGarde + " en garde et " + diamantAttente + " en attente : un seul attendu");
             helper.succeed();
         }
     }
@@ -953,6 +955,158 @@ public final class EchangeGameTests {
             helper.assertTrue(compte(attente.items(), Items.BREAD) == 2, "le pain attend : " + attente.items());
             helper.assertTrue(SafeAccounts.get(serveur).total(a.uuid()) == 0L, "pas de coffre-fort, rien dedans");
             helper.succeed();
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Seconde passe : la garde vit avec son propriétaire, aucune écriture forcée, bourses au coffre-fort
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * A pose cinq pains dans un échange ; une sauvegarde de A les écrit dans son playerdata, sous sa garde, avec son
+     * inventaire. Le serveur s'arrête brutalement à cet instant (le fichier relu tel quel) : à la connexion suivante,
+     * les pains lui reviennent, une seule fois.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void laGardeVitDansLePlayerdataEtRevientUneFois(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            MinecraftServer serveur = essai.serveur();
+            JoueurDeTest a = essai.joueur("ec_pdA", POS_A);
+            JoueurDeTest b = essai.joueur("ec_pdB", POS_B);
+            a.joueur().getInventory().items.set(0, new ItemStack(Items.BREAD, 5));
+            ouvrir(helper, a, b);
+            poser(a, 0);
+            SauvegardeDEssai.automatique(serveur);
+            int porte = SauvegardeDEssai.objetsDansLePlayerdata(serveur, a.uuid(), Items.BREAD);
+            int enGarde = compte(SauvegardeDEssai.gardeDansLePlayerdata(serveur, a.uuid()), Items.BREAD);
+            helper.assertTrue(porte == 0 && enGarde == 5,
+                    "le playerdata de A porte la garde : inventaire " + porte + ", garde " + enGarde);
+            helper.assertTrue(!SauvegardeDEssai.attenteApresRedemarrage(serveur).hasPending(a.uuid()),
+                    "la garde n'est pas dans le fichier des attentes");
+
+            // L'arrêt brutal : le playerdata tel qu'il est sur le disque à cet instant.
+            java.nio.file.Path fichier = SauvegardeDEssai.fichierDuJoueur(serveur, a.uuid());
+            byte[] instant = lire(fichier);
+            a.quitter();
+            ecrire(fichier, instant);
+
+            JoueurDeTest revenu = essai.revenir(a, POS_A);
+            helper.assertTrue(compte(revenu.joueur(), Items.BREAD) == 5,
+                    "la garde revient à la connexion : " + compte(revenu.joueur(), Items.BREAD));
+            helper.assertTrue(SauvegardeDEssai.gardeEnMemoire(revenu.joueur()).isEmpty(), "la garde est vidée");
+            helper.assertTrue(rienEnAttente(serveur, revenu), "rien en attente : tout est rentré");
+            revenu.quitter();
+            JoueurDeTest encore = essai.revenir(a, POS_A);
+            helper.assertTrue(compte(encore.joueur(), Items.BREAD) == 5,
+                    "une seule fois : " + compte(encore.joueur(), Items.BREAD) + " pains à la connexion suivante");
+            helper.succeed();
+        }
+    }
+
+    /**
+     * Pendant un échange entre A et B, C se déconnecte : son départ n'écrit que son propre playerdata. Ni celui de A ni
+     * celui de B, ni aucune donnée de l'économie (même changée depuis) ne sont réécrits sur le disque : tout ce qui
+     * n'est pas C reste au même instant, celui de la dernière sauvegarde.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void laDeconnexionDUnTiersNEcritQueSonPlayerdata(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            MinecraftServer serveur = essai.serveur();
+            JoueurDeTest a = essai.joueur("ec_ecrA", POS_A);
+            JoueurDeTest b = essai.joueur("ec_ecrB", POS_B);
+            JoueurDeTest c = essai.joueur("ec_ecrC", POS_C);
+            a.joueur().getInventory().items.set(0, new ItemStack(Coin.GOLD.item(), 2));
+            b.joueur().getInventory().items.set(0, new ItemStack(Items.DIAMOND, 1));
+            c.joueur().getInventory().items.set(0, new ItemStack(Items.BREAD, 3));
+            SauvegardeDEssai.automatique(serveur);
+            ouvrir(helper, a, b);
+            poser(a, 0);
+            poser(b, 0);
+            c.joueur().getInventory().items.set(1, new ItemStack(Items.APPLE, 1));
+            // Toutes les données de l'économie ont changé depuis la sauvegarde.
+            dev.oneforallsurvival.economy.invoice.InvoiceRegistry.get(serveur).setDirty();
+            EconomyLedger.get(serveur).setDirty();
+            HeldGoods.get(serveur).setDirty();
+            SafeAccounts.get(serveur).setDirty();
+            dev.oneforallsurvival.economy.TreasuryAccount.get(serveur).setDirty();
+            java.util.Map<String, java.nio.file.Path> fichiers = new java.util.LinkedHashMap<>();
+            fichiers.put("playerdata de A", SauvegardeDEssai.fichierDuJoueur(serveur, a.uuid()));
+            fichiers.put("playerdata de B", SauvegardeDEssai.fichierDuJoueur(serveur, b.uuid()));
+            for (String cle : List.of(HeldGoods.KEY, dev.oneforallsurvival.economy.invoice.InvoiceRegistry.KEY,
+                    EconomyLedger.KEY, SafeAccounts.KEY, dev.oneforallsurvival.economy.TreasuryAccount.KEY)) {
+                fichiers.put(cle, SauvegardeDEssai.fichierDeDonnees(serveur, cle));
+            }
+            java.util.Map<String, SauvegardeDEssai.Instantane> avant = new java.util.LinkedHashMap<>();
+            fichiers.forEach((nom, fichier) -> avant.put(nom, SauvegardeDEssai.Instantane.de(fichier)));
+
+            c.quitter();
+
+            List<String> reecrits = new ArrayList<>();
+            fichiers.forEach((nom, fichier) -> {
+                if (!avant.get(nom).pareil(SauvegardeDEssai.Instantane.de(fichier))) {
+                    reecrits.add(nom);
+                }
+            });
+            helper.assertTrue(reecrits.isEmpty(), "la déconnexion de C a réécrit : " + reecrits);
+            helper.assertTrue(SauvegardeDEssai.objetsDansLePlayerdata(serveur, c.uuid(), Items.APPLE) == 1,
+                    "le playerdata de C est écrit à son départ");
+            helper.succeed();
+        }
+    }
+
+    /**
+     * A, qui a un coffre-fort presque plein en or, pose une bourse de 3 or et 5 cuivres et deux pains, remplit son
+     * inventaire, puis ferme : la bourse ne rentre pas. Son contenu va au coffre-fort dans la limite du plafond (1 or,
+     * 5 cuivres) ; la bourse, avec ce qui n'a pas tenu (2 or), attend avec les pains.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void uneBoursePleineRendueSeVideAuCoffreFort(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            MinecraftServer serveur = essai.serveur();
+            JoueurDeTest a = essai.joueur("ec_bcfA", POS_A);
+            JoueurDeTest b = essai.joueur("ec_bcfB", POS_B);
+            SafeAccounts coffres = SafeAccounts.get(serveur);
+            coffres.setSafePos(a.uuid(), GlobalPos.of(helper.getLevel().dimension(), helper.absolutePos(COFFRE)));
+            coffres.deposit(a.uuid(), Coin.GOLD, SafeAccounts.MAX_PER_COIN - 1L);
+            ItemStack bourse = new ItemStack(EconomyRegistry.PURSE.get());
+            Purse.add(bourse, Coin.GOLD, 3L);
+            Purse.add(bourse, Coin.COPPER, 5L);
+            a.joueur().getInventory().items.set(0, bourse);
+            a.joueur().getInventory().items.set(1, new ItemStack(Items.BREAD, 2));
+            ouvrir(helper, a, b);
+            poser(a, 0);
+            poser(a, 1);
+            remplirSauf(a.joueur());
+
+            a.joueur().closeContainer();
+            helper.assertTrue(TradeService.sessionOf(a.uuid()) == null, "fermé");
+            helper.assertTrue(coffres.count(a.uuid(), Coin.GOLD) == SafeAccounts.MAX_PER_COIN
+                    && coffres.count(a.uuid(), Coin.COPPER) == 5L, "1 or et 5 cuivres au coffre-fort : or "
+                    + coffres.count(a.uuid(), Coin.GOLD) + ", cuivre " + coffres.count(a.uuid(), Coin.COPPER));
+            HeldGoods.Pending attente = HeldGoods.get(serveur).pendingFor(a.uuid());
+            List<ItemStack> bourses = attente.items().stream().filter(Purse::isPurse).toList();
+            helper.assertTrue(bourses.size() == 1 && Purse.count(bourses.get(0), Coin.GOLD) == 2L
+                    && Purse.count(bourses.get(0), Coin.COPPER) == 0L,
+                    "la bourse attend avec les 2 or qui n'ont pas tenu : " + bourses.stream().map(Purse::contents).toList());
+            helper.assertTrue(compte(attente.items(), Items.BREAD) == 2 && attente.coins().isEmpty(),
+                    "les pains attendent, aucune pièce en vrac : " + attente.items() + " / " + attente.coins());
+            helper.succeed();
+        }
+    }
+
+    private static byte[] lire(java.nio.file.Path fichier) {
+        try {
+            return java.nio.file.Files.readAllBytes(fichier);
+        } catch (java.io.IOException e) {
+            throw new AssertionError("illisible : " + fichier + " : " + e.getMessage());
+        }
+    }
+
+    private static void ecrire(java.nio.file.Path fichier, byte[] octets) {
+        try {
+            java.nio.file.Files.write(fichier, octets);
+        } catch (java.io.IOException e) {
+            throw new AssertionError("écriture impossible : " + fichier + " : " + e.getMessage());
         }
     }
 }

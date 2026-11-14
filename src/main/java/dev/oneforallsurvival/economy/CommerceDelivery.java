@@ -13,14 +13,14 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
-import net.minecraftforge.event.server.ServerStartedEvent;
 
 /**
  * La seule porte par où le commerce rend des objets et de l'argent à quelqu'un : dans son inventaire s'il y a de
- * la place ; sinon les <b>pièces</b> vont dans son coffre-fort s'il en a un ({@link SafeAccounts}, le compte marche
- * hors ligne), et seulement ce qui n'a nulle part où aller attend chez le serveur ({@link HeldGoods}) ; jamais au sol
- * et jamais au néant. Les objets non monétaires (bourses comprises) n'ont pas de coffre-fort : ils attendent. Ainsi
- * l'attente n'est pas une cachette pour l'argent de qui a un coffre-fort. Une pièce passe par
+ * la place ; sinon les <b>pièces</b>, et le contenu des <b>bourses</b>, vont dans son coffre-fort s'il en a un
+ * ({@link SafeAccounts}, le compte marche hors ligne, dans la limite du plafond), et seulement ce qui n'a nulle part où
+ * aller attend chez le serveur ({@link HeldGoods}) : objets non monétaires, bourses (vidées de ce qui est entré au
+ * coffre-fort), pièces sans coffre-fort ou au-delà du plafond ; jamais au sol et jamais au néant. Ainsi l'attente n'est
+ * pas une cachette pour l'argent de qui a un coffre-fort. Une pièce passe par
  * {@link PlayerCoins#receive}, un objet par {@code Inventory.add} lu avant et après.
  *
  * <p>Rien n'est écrit au registre ici : l'appelant dit de quel transfert il s'agit (verser dans son propre
@@ -93,11 +93,13 @@ public final class CommerceDelivery {
     }
 
     /**
-     * Range ce qui n'a pas pu entrer chez le joueur : ses pièces dans son coffre-fort tant qu'il y en a un et qu'il a
-     * la place, puis tout ce qui reste en attente. {@code rest} est vidé.
+     * Range ce qui n'a pas pu entrer chez le joueur : ses pièces et le contenu de ses bourses dans son coffre-fort tant
+     * qu'il y en a un et qu'il a la place, puis tout ce qui reste (les bourses comprises) en attente. {@code rest} est
+     * vidé.
      */
     private static Parked park(MinecraftServer server, UUID owner, Rest rest) {
         boolean toSafe = intoSafe(server, owner, rest.coins);
+        toSafe |= pursesIntoSafe(server, owner, rest.items);
         int lines = rest.items.size() + rest.coins.size();
         if (lines > 0) {
             HeldGoods.get(server).addPending(owner, rest.items, rest.coins);
@@ -134,6 +136,33 @@ public final class CommerceDelivery {
                 coins.put(coin, left);
             } else {
                 coins.remove(coin);
+            }
+        }
+        return any;
+    }
+
+    /**
+     * Vide dans le coffre-fort de ce joueur, s'il en a un, le contenu de ces bourses, dans la limite de sa place ; une
+     * bourse garde ce qui n'a pas tenu. Les piles sont celles de {@link Rest} (des copies).
+     *
+     * @return vrai si au moins une pièce y est entrée
+     */
+    private static boolean pursesIntoSafe(MinecraftServer server, UUID owner, List<ItemStack> items) {
+        SafeAccounts safes = SafeAccounts.get(server);
+        if (safes.safePos(owner).isEmpty()) {
+            return false;
+        }
+        boolean any = false;
+        for (ItemStack stack : items) {
+            if (!Purse.isPurse(stack)) {
+                continue;
+            }
+            for (Map.Entry<Coin, Long> part : Purse.contents(stack).entrySet()) {
+                long fits = Math.min(part.getValue(), safes.room(owner, part.getKey()));
+                if (fits > 0L && Purse.remove(stack, part.getKey(), fits)) {
+                    safes.deposit(owner, part.getKey(), fits);
+                    any = true;
+                }
             }
         }
         return any;
@@ -349,11 +378,4 @@ public final class CommerceDelivery {
         }
     }
 
-    /**
-     * Branché sur le démarrage : charge la garde du serveur, donc convertit en attentes les gardes qu'un arrêt
-     * brutal a laissées, et note le résultat à sauvegarder.
-     */
-    public static void onServerStarted(ServerStartedEvent event) {
-        HeldGoods.get(event.getServer());
-    }
 }

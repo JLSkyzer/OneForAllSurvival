@@ -867,11 +867,6 @@ public final class FactureGameTests {
         }
     }
 
-    /**
-     * B paie à A, absent et sans coffre-fort, une facture dont les pièces partent en attente ; puis C, sans rapport,
-     * se déconnecte. Le serveur s'arrête brutalement : le playerdata de B, l'attente de A et le registre des factures
-     * relus du disque disent la même chose (payée : B n'a plus la somme, A l'attend), jamais « payée et encore due ».
-     */
     /** La note de la dernière émission (délai entre deux factures) s'oublie quand l'émetteur se déconnecte. */
     @GameTest(template = "test/plancher", batch = LOT_D)
     public static void laNoteDuDelaiSOublieALaDeconnexion(GameTestHelper helper) {
@@ -886,6 +881,13 @@ public final class FactureGameTests {
         }
     }
 
+    /**
+     * B paie à A, absent et sans coffre-fort, une facture dont les pièces partent en attente ; puis C, sans rapport,
+     * se déconnecte. Le départ de C n'écrit rien d'autre que son playerdata : un arrêt brutal à cet instant relit le
+     * disque de la dernière sauvegarde (B porte encore la somme, rien n'attend, la facture est due), cohérent. La
+     * sauvegarde suivante écrit l'après, cohérent aussi (payée : B n'a plus la somme, A l'attend) ; jamais « payée et
+     * encore due ».
+     */
     @GameTest(template = "test/plancher", batch = LOT_C)
     public static void unPaiementPuisUneDeconnexionRestentCoherentsSurLeDisque(GameTestHelper helper) {
         try (Essai essai = new Essai(helper)) {
@@ -904,16 +906,26 @@ public final class FactureGameTests {
 
             c.quitter();
 
-            long porteSurLeDisque = SauvegardeDEssai.argentDansLePlayerdata(serveur, b.uuid());
-            long attenteSurLeDisque = CoinMath.valueOf(SauvegardeDEssai.gardeApresRedemarrage(serveur)
-                    .pendingFor(a.uuid()).coins());
-            Status statutSurLeDisque = SauvegardeDEssai.facturesApresRedemarrage(serveur).get(f.id())
-                    .map(Invoice::status).orElse(null);
-            String lu = "B porte " + porteSurLeDisque + " (avant " + porteAvant + "), A attend " + attenteSurLeDisque
-                    + ", facture " + statutSurLeDisque;
-            helper.assertTrue(statutSurLeDisque == Status.PAID && attenteSurLeDisque == 1_234L
-                    && porteSurLeDisque == porteAvant - 1_234L, "sur le disque, incohérent ou en retard : " + lu);
+            String avantLaSauvegarde = surLeDisque(serveur, a, b, f);
+            helper.assertTrue(avantLaSauvegarde.equals(lu(Status.DUE, 0L, porteAvant)),
+                    "après le départ de C, le disque doit montrer l'instant de la dernière sauvegarde : " + avantLaSauvegarde);
+            SauvegardeDEssai.automatique(serveur);
+            String apres = surLeDisque(serveur, a, b, f);
+            helper.assertTrue(apres.equals(lu(Status.PAID, 1_234L, porteAvant - 1_234L)),
+                    "après la sauvegarde suivante, le disque doit montrer le paiement : " + apres);
             helper.succeed();
         }
+    }
+
+    /** Ce qu'un redémarrage relirait : registre des factures, attente de A et argent du playerdata de B. */
+    private static String surLeDisque(MinecraftServer serveur, JoueurDeTest a, JoueurDeTest b, Invoice f) {
+        Status statut = SauvegardeDEssai.facturesApresRedemarrage(serveur).get(f.id()).map(Invoice::status).orElse(null);
+        long attente = CoinMath.valueOf(SauvegardeDEssai.attenteApresRedemarrage(serveur).pendingFor(a.uuid()).coins());
+        long porte = SauvegardeDEssai.argentDansLePlayerdata(serveur, b.uuid());
+        return "facture " + statut + ", A attend " + attente + ", B porte " + porte;
+    }
+
+    private static String lu(Status statut, long attente, long porte) {
+        return "facture " + statut + ", A attend " + attente + ", B porte " + porte;
     }
 }
