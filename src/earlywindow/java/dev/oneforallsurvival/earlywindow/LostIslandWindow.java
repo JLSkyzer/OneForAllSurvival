@@ -30,6 +30,7 @@ import net.minecraftforge.fml.loading.ImmediateWindowProvider;
 import net.minecraftforge.fml.loading.progress.Message;
 import net.minecraftforge.fml.loading.progress.ProgressMeter;
 import net.minecraftforge.fml.loading.progress.StartupNotificationManager;
+import org.lwjgl.PointerBuffer;
 import org.lwjgl.glfw.Callbacks;
 import org.lwjgl.glfw.GLFWVidMode;
 import org.lwjgl.opengl.GL;
@@ -251,7 +252,26 @@ public final class LostIslandWindow implements ImmediateWindowProvider {
         glfwGetWindowSize(window, x, y);
         winWidth = x[0];
         winHeight = y[0];
-        glfwSetWindowPos(window, (mode.width() - winWidth) / 2 + monitorX, (mode.height() - winHeight) / 2 + monitorY);
+        int[] pos = WindowPlacement.centered(monitorX, monitorY, mode.width(), mode.height(), winWidth, winHeight);
+        // Essais automatiques seulement (propriété de développement) : sur un autre écran que le principal.
+        if (WindowPlacement.secondScreenRequested() && !maximized) {
+            PointerBuffer monitors = glfwGetMonitors();
+            long[] list = new long[monitors == null ? 0 : monitors.limit()];
+            for (int i = 0; i < list.length; i++) {
+                list[i] = monitors.get(i);
+            }
+            long other = WindowPlacement.otherMonitor(list, monitor);
+            if (other != 0L) {
+                int[] w = new int[1];
+                int[] h = new int[1];
+                glfwGetMonitorWorkarea(other, x, y, w, h);
+                pos = WindowPlacement.onWorkArea(x[0], y[0]);
+                write("fenêtre placée sur le second écran (" + pos[0] + ", " + pos[1] + ")");
+            } else {
+                write("second écran demandé, un seul écran : fenêtre centrée");
+            }
+        }
+        glfwSetWindowPos(window, pos[0], pos[1]);
         glfwSetFramebufferSizeCallback(window, (win, w, h) -> {
             if (w != 0 && h != 0) {
                 fbWidth = w;

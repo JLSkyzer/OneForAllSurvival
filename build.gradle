@@ -154,6 +154,11 @@ minecraft {
             if (project.hasProperty('gameArgs')) {
                 args project.gameArgs.trim().split(/\s+/).toList()
             }
+            // Un lancement d'automate (captures, film de la scène) ouvre aussi la fenêtre de chargement sur le second
+            // écran (WindowPlacement du jar de service) ; un runClient ordinaire n'est pas touché.
+            if (['titleShots', 'debugShots', 'tabShots', 'sceneFrames'].any { project.hasProperty(it) }) {
+                property 'oneforallsurvival.fenetre.secondEcran', 'true'
+            }
             // `-PoverlayFail=first` : la première image de l'overlay du mod échoue, celui de Forge prend la main.
             // `-PprogressTrace` : relevé de l'avancement des ressources une fois par seconde au journal de la scène.
             if (project.hasProperty('overlayFail')) {
