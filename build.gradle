@@ -146,6 +146,11 @@ minecraft {
             if (project.hasProperty('debugShotsFilm')) {
                 property 'lostisland.debugShots.film', 'true'
             }
+            // `-PtabShots=<dossier>` : captures de contrôle de la liste des joueurs (relatif au dossier du jeu), puis
+            // fermeture du client. Voir TabShots (devcontent).
+            if (project.hasProperty('tabShots')) {
+                property 'oneforallsurvival.tabShots', project.tabShots ?: 'frames-tab'
+            }
             if (project.hasProperty('gameArgs')) {
                 args project.gameArgs.trim().split(/\s+/).toList()
             }

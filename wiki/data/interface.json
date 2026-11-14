@@ -1,7 +1,7 @@
 {
   "id": "interface",
   "title": "Interface",
-  "intro": "L'identité Lost Island RP, de l'ouverture de la fenêtre jusqu'au jeu, en trois chantiers.",
+  "intro": "L'identité Lost Island RP, de l'ouverture de la fenêtre jusqu'au jeu.",
   "diagrams": [
     {
       "title": "Du lancement au menu",
@@ -81,6 +81,31 @@
         "La règle reducedDebugInfo reste respectée.",
         "Le texte vient de Minecraft et Forge ; seul le dessin change.",
         "Pas encore de plan."
+      ]
+    },
+    {
+      "id": "liste-joueurs",
+      "name": "Liste des joueurs",
+      "kind": "systeme",
+      "status": "dispo",
+      "lot": "Interface",
+      "image": null,
+      "what": "Touche TAB redessinée en verre ambré : survivants rangés par métier, maire en tête, jour et heure du monde.",
+      "who": {"utilise": "Tous"},
+      "steps": [
+        "Le maire a son bandeau en haut ; les autres sont rangés par métier, puis par pseudo.",
+        "Chaque survivant : tête, pseudo, métier dans sa couleur, ping en ms et en barres.",
+        "Les spectateurs sont grisés en bas et ne comptent pas parmi les survivants.",
+        "Pied : jour (il change à minuit) et heure du monde."
+      ],
+      "flow": ["TAB enfoncée", "Liste", "TAB relâchée"],
+      "numbers": [
+        {"k": "Lignes par colonne", "v": "10, jusqu'à 20 si la largeur manque"}
+      ],
+      "staff": [
+        "Métier et couleur lus dans les équipes des rôles : un métier créé ou renommé par commande s'affiche tel quel.",
+        "Foule trop grande pour l'écran : colonnes compactes, puis « et N autres ».",
+        "Le nom RP, l'en-tête et le pied envoyés par le serveur ne sont pas affichés."
       ]
     }
   ]
