@@ -130,6 +130,26 @@ public final class OneForAllSurvival {
         // Quêtes du joueur : séries renouvelées à la connexion et par un tic de contrôle (toutes les 20 ticks).
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.quest.QuestService::onLoggedIn);
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.quest.QuestService::onServerTick);
+        // Progression des quêtes par les gestes : les derniers à parler, jamais sur un geste annulé (le combat
+        // excepté : un mod qui annule les objets lâchés n'annule pas la mort). Marque « posé » dans chaque chunk.
+        modEventBus.addListener(dev.oneforallsurvival.economy.quest.PlacedBlocks::onRegisterCapabilities);
+        MinecraftForge.EVENT_BUS.addGenericListener(net.minecraft.world.level.chunk.LevelChunk.class,
+                dev.oneforallsurvival.economy.quest.PlacedBlocks::onAttachChunk);
+        MinecraftForge.EVENT_BUS.addListener(net.minecraftforge.eventbus.api.EventPriority.LOWEST,
+                dev.oneforallsurvival.economy.quest.QuestProgress::onBreak);
+        MinecraftForge.EVENT_BUS.addListener(net.minecraftforge.eventbus.api.EventPriority.LOWEST,
+                dev.oneforallsurvival.economy.quest.QuestProgress::onPlace);
+        MinecraftForge.EVENT_BUS.addListener(net.minecraftforge.eventbus.api.EventPriority.LOWEST,
+                dev.oneforallsurvival.economy.quest.QuestProgress::onFluidPlace);
+        MinecraftForge.EVENT_BUS.addListener(net.minecraftforge.eventbus.api.EventPriority.LOWEST,
+                dev.oneforallsurvival.economy.quest.QuestProgress::onPiston);
+        MinecraftForge.EVENT_BUS.addListener(net.minecraftforge.eventbus.api.EventPriority.LOWEST, true,
+                dev.oneforallsurvival.economy.quest.QuestProgress::onLivingDrops);
+        MinecraftForge.EVENT_BUS.addListener(net.minecraftforge.eventbus.api.EventPriority.LOWEST,
+                dev.oneforallsurvival.economy.quest.QuestProgress::onFished);
+        MinecraftForge.EVENT_BUS.addListener(net.minecraftforge.eventbus.api.EventPriority.LOWEST,
+                dev.oneforallsurvival.economy.quest.QuestProgress::onBabySpawn);
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.quest.QuestProgress::onServerStopped);
         // Origine des mobs : la dernière à parler, et même sur un événement annulé (le générateur fait quand même
         // apparaître son mob, avec son NBT, qu'il faut effacer).
         MinecraftForge.EVENT_BUS.addListener(net.minecraftforge.eventbus.api.EventPriority.LOWEST, true,

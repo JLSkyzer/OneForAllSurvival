@@ -1,8 +1,10 @@
 package dev.oneforallsurvival.food;
 
+import dev.oneforallsurvival.economy.quest.QuestProgress;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -53,11 +55,11 @@ public final class CanteenPotMenu extends AbstractContainerMenu {
         this.data = data;
         for (int i = 0; i < CanteenPotBlockEntity.INPUTS; i++) {
             addSlot(new PotSlot(pot, CanteenPotBlockEntity.SLOT_INPUT_FIRST + i, INPUT_X + (i % 3) * 18,
-                    INPUT_Y + (i / 3) * 18, true, onChanged));
+                    INPUT_Y + (i / 3) * 18, true, onChanged, false));
         }
-        addSlot(new PotSlot(pot, CanteenPotBlockEntity.SLOT_CONTAINER, CONTAINER_X, CONTAINER_Y, true, onChanged));
+        addSlot(new PotSlot(pot, CanteenPotBlockEntity.SLOT_CONTAINER, CONTAINER_X, CONTAINER_Y, true, onChanged, false));
         // La sortie ne reçoit rien du joueur, côté client comme côté serveur.
-        addSlot(new PotSlot(pot, CanteenPotBlockEntity.SLOT_OUTPUT, OUTPUT_X, OUTPUT_Y, false, onChanged));
+        addSlot(new PotSlot(pot, CanteenPotBlockEntity.SLOT_OUTPUT, OUTPUT_X, OUTPUT_Y, false, onChanged, true));
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
                 addSlot(new Slot(inventory, 9 + row * 9 + col, 8 + col * 18, 98 + row * 18));
@@ -76,11 +78,43 @@ public final class CanteenPotMenu extends AbstractContainerMenu {
     private static final class PotSlot extends SlotItemHandler {
         private final boolean acceptsFromPlayer;
         private final Runnable onChanged;
+        /** La case de sortie : ce qu'on y prend compte pour les quêtes. */
+        private final boolean output;
+        private ItemStack taken = ItemStack.EMPTY;
+        private int takenCount;
 
-        PotSlot(IItemHandler handler, int index, int x, int y, boolean acceptsFromPlayer, Runnable onChanged) {
+        PotSlot(IItemHandler handler, int index, int x, int y, boolean acceptsFromPlayer, Runnable onChanged,
+                boolean output) {
             super(handler, index, x, y);
             this.acceptsFromPlayer = acceptsFromPlayer;
             this.onChanged = onChanged;
+            this.output = output;
+        }
+
+        @Override
+        public ItemStack remove(int amount) {
+            if (output && hasItem()) {
+                noteTaken(getItem(), Math.min(amount, getItem().getCount()));
+            }
+            return super.remove(amount);
+        }
+
+        /** Ce que le joueur vient de retirer de la sortie (clic, ou clic majuscule qui déplace la pile en place). */
+        void noteTaken(ItemStack stack, int count) {
+            if (count > 0) {
+                taken = stack.copyWithCount(1);
+                takenCount += count;
+            }
+        }
+
+        @Override
+        public void onTake(Player player, ItemStack stack) {
+            if (output && takenCount > 0 && player instanceof ServerPlayer server) {
+                QuestProgress.cooked(server, taken.copyWithCount(takenCount));
+            }
+            takenCount = 0;
+            taken = ItemStack.EMPTY;
+            super.onTake(player, stack);
         }
 
         @Override
@@ -163,6 +197,9 @@ public final class CanteenPotMenu extends AbstractContainerMenu {
         }
         if (stack.getCount() == copy.getCount()) {
             return ItemStack.EMPTY;
+        }
+        if (index == CanteenPotBlockEntity.SLOT_OUTPUT && slot instanceof PotSlot out) {
+            out.noteTaken(copy, copy.getCount() - stack.getCount());
         }
         slot.onTake(player, stack);
         return copy;

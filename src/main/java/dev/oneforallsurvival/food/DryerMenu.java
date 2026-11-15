@@ -1,8 +1,10 @@
 package dev.oneforallsurvival.food;
 
+import dev.oneforallsurvival.economy.quest.QuestProgress;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -51,10 +53,10 @@ public final class DryerMenu extends AbstractContainerMenu {
         this.pos = pos.immutable();
         this.dryer = dryer;
         this.data = data;
-        addSlot(new DryerSlot(dryer, DryerBlockEntity.SLOT_INPUT, INPUT_X, INPUT_Y, true, onChanged));
-        addSlot(new DryerSlot(dryer, DryerBlockEntity.SLOT_SALT, SALT_X, SALT_Y, true, onChanged));
+        addSlot(new DryerSlot(dryer, DryerBlockEntity.SLOT_INPUT, INPUT_X, INPUT_Y, true, onChanged, false));
+        addSlot(new DryerSlot(dryer, DryerBlockEntity.SLOT_SALT, SALT_X, SALT_Y, true, onChanged, false));
         // La sortie ne reçoit rien du joueur, côté client comme côté serveur.
-        addSlot(new DryerSlot(dryer, DryerBlockEntity.SLOT_OUTPUT, OUTPUT_X, OUTPUT_Y, false, onChanged));
+        addSlot(new DryerSlot(dryer, DryerBlockEntity.SLOT_OUTPUT, OUTPUT_X, OUTPUT_Y, false, onChanged, true));
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
                 addSlot(new Slot(inventory, 9 + row * 9 + col, 8 + col * 18, 98 + row * 18));
@@ -73,11 +75,43 @@ public final class DryerMenu extends AbstractContainerMenu {
     private static final class DryerSlot extends SlotItemHandler {
         private final boolean acceptsFromPlayer;
         private final Runnable onChanged;
+        /** La case de sortie : ce qu'on y prend compte pour les quêtes. */
+        private final boolean output;
+        private ItemStack taken = ItemStack.EMPTY;
+        private int takenCount;
 
-        DryerSlot(IItemHandler handler, int index, int x, int y, boolean acceptsFromPlayer, Runnable onChanged) {
+        DryerSlot(IItemHandler handler, int index, int x, int y, boolean acceptsFromPlayer, Runnable onChanged,
+                boolean output) {
             super(handler, index, x, y);
             this.acceptsFromPlayer = acceptsFromPlayer;
             this.onChanged = onChanged;
+            this.output = output;
+        }
+
+        @Override
+        public ItemStack remove(int amount) {
+            if (output && hasItem()) {
+                noteTaken(getItem(), Math.min(amount, getItem().getCount()));
+            }
+            return super.remove(amount);
+        }
+
+        /** Ce que le joueur vient de retirer de la sortie (clic, ou clic majuscule qui déplace la pile en place). */
+        void noteTaken(ItemStack stack, int count) {
+            if (count > 0) {
+                taken = stack.copyWithCount(1);
+                takenCount += count;
+            }
+        }
+
+        @Override
+        public void onTake(Player player, ItemStack stack) {
+            if (output && takenCount > 0 && player instanceof ServerPlayer server) {
+                QuestProgress.preserved(server, taken.copyWithCount(takenCount));
+            }
+            takenCount = 0;
+            taken = ItemStack.EMPTY;
+            super.onTake(player, stack);
         }
 
         @Override
@@ -146,6 +180,9 @@ public final class DryerMenu extends AbstractContainerMenu {
         }
         if (stack.getCount() == copy.getCount()) {
             return ItemStack.EMPTY;
+        }
+        if (index == DryerBlockEntity.SLOT_OUTPUT && slot instanceof DryerSlot out) {
+            out.noteTaken(copy, copy.getCount() - stack.getCount());
         }
         slot.onTake(player, stack);
         return copy;

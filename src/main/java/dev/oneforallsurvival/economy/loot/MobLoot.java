@@ -194,7 +194,7 @@ public final class MobLoot {
     }
 
     /** Un animal qui appartient à quelqu'un (chien, chat, cheval, lama...). */
-    private static boolean isTamed(LivingEntity victim) {
+    public static boolean isTamed(LivingEntity victim) {
         if (victim instanceof TamableAnimal tamable && tamable.isTame()) {
             return true;
         }

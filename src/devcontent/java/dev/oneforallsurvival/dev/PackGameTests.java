@@ -891,6 +891,109 @@ public final class PackGameTests {
                 .thenSucceed();
     }
 
+    // ---------------------------------------------------------------------------------------------
+    // Lot E5 : les quêtes
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * Deux déployeurs de Create (faux joueurs) devant un vrai joueur qui a une quête de pose de planches et une quête
+     * de casse de pierre : l'un pose des planches, l'autre casse une pierre née du gabarit (non marquée). Aucune
+     * progression ; les planches posées par le déployeur sont marquées « posé ». Clés de série au 18 novembre 2026,
+     * jamais dépassées par l'horloge réelle du passage : aucun renouvellement pendant l'essai.
+     */
+    @GameTest(template = "test/plancher", batch = "pack_quetes", setupTicks = 20, timeoutTicks = 900)
+    public static void unDeployeurDeCreateNAvanceRien(GameTestHelper helper) {
+        if (!ModList.get().isLoaded("create")) {
+            helper.succeed();
+            return;
+        }
+        ButinGameTests.degager(helper);
+        var level = helper.getLevel();
+        Block blocDeployeur = ForgeRegistries.BLOCKS.getValue(new ResourceLocation("create", "deployer"));
+        Block blocMoteur = ForgeRegistries.BLOCKS.getValue(new ResourceLocation("create", "creative_motor"));
+        helper.assertTrue(blocDeployeur != null && blocDeployeur != Blocks.AIR, "déployeur introuvable");
+        helper.assertTrue(blocMoteur != null && blocMoteur != Blocks.AIR, "moteur créatif introuvable");
+        BlockPos poseur = new BlockPos(1, 1, 2);
+        BlockPos casseur = new BlockPos(1, 1, 5);
+        BlockPos planche = poseur.east(2);
+        BlockPos pierre = casseur.east(2);
+        helper.setBlock(pierre, Blocks.STONE);
+        for (BlockPos deployeur : List.of(poseur, casseur)) {
+            helper.setBlock(deployeur, avec(avec(blocDeployeur.defaultBlockState(), "facing", "east"),
+                    "axis_along_first", "false"));
+            helper.setBlock(deployeur.north(), avec(blocMoteur.defaultBlockState(), "facing", "south"));
+        }
+        var maintenant = java.time.Instant.parse("2026-11-18T12:00:00Z").toEpochMilli();
+        JoueurDeTest simule = JoueurDeTest.rejoindre(level, "QueteDeployeur",
+                helper.absoluteVec(new net.minecraft.world.phys.Vec3(6.5, 1, 7.5)));
+        var joueur = simule.joueur();
+        var coin = helper.absoluteVec(new net.minecraft.world.phys.Vec3(6.5, 1, 7.5));
+        joueur.teleportTo(coin.x, coin.y, coin.z);
+        joueur.gameMode.changeGameModeForPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        var book = new dev.oneforallsurvival.economy.quest.QuestBook();
+        var pose = new dev.oneforallsurvival.economy.quest.Quest("essai_planches",
+                dev.oneforallsurvival.economy.quest.QuestCategory.PLACE,
+                dev.oneforallsurvival.economy.quest.QuestTarget.parse("#minecraft:planks").orElseThrow(), 4, 10L, 0,
+                false, null);
+        var casse = new dev.oneforallsurvival.economy.quest.Quest("essai_pierre",
+                dev.oneforallsurvival.economy.quest.QuestCategory.BREAK,
+                dev.oneforallsurvival.economy.quest.QuestTarget.parse("#minecraft:base_stone_overworld").orElseThrow(), 4,
+                10L, 0, false, null);
+        book.setSeries(dev.oneforallsurvival.economy.quest.QuestGenerator.Series.DAILY,
+                dev.oneforallsurvival.economy.quest.QuestService.today(maintenant), List.of(pose, casse));
+        book.setSeries(dev.oneforallsurvival.economy.quest.QuestGenerator.Series.WEEKLY,
+                dev.oneforallsurvival.economy.quest.QuestService.week(maintenant), List.of());
+        book.saveTo(joueur);
+        Runnable rendre = () -> {
+            for (BlockPos deployeur : List.of(poseur, casseur)) {
+                helper.setBlock(deployeur, Blocks.AIR);
+                helper.setBlock(deployeur.north(), Blocks.AIR);
+            }
+            if (simule.connecte()) {
+                simule.quitter();
+            }
+            ButinGameTests.ranger(helper);
+        };
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(fauxJoueur(helper.getBlockEntity(poseur)) != null
+                        && fauxJoueur(helper.getBlockEntity(casseur)) != null, "faux joueurs des déployeurs pas prêts"))
+                .thenExecute(() -> {
+                    net.minecraft.world.entity.player.Player a = fauxJoueur(helper.getBlockEntity(poseur));
+                    net.minecraft.world.entity.player.Player b = fauxJoueur(helper.getBlockEntity(casseur));
+                    if (!(a instanceof net.minecraftforge.common.util.FakePlayer)
+                            || !(b instanceof net.minecraftforge.common.util.FakePlayer)) {
+                        rendre.run();
+                        helper.fail("un déployeur n'a pas de faux joueur : " + a + ", " + b);
+                    }
+                    a.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+                            new ItemStack(net.minecraft.world.item.Items.OAK_PLANKS, 16));
+                    b.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+                            new ItemStack(net.minecraft.world.item.Items.DIAMOND_PICKAXE));
+                    try {
+                        BlockEntity be = helper.getBlockEntity(casseur);
+                        be.getClass().getMethod("changeMode").invoke(be);
+                    } catch (ReflectiveOperationException e) {
+                        rendre.run();
+                        throw new IllegalStateException(e);
+                    }
+                })
+                .thenWaitUntil(() -> {
+                    helper.assertBlockPresent(Blocks.OAK_PLANKS, planche);
+                    helper.assertBlockPresent(Blocks.AIR, pierre);
+                })
+                .thenIdle(3)
+                .thenExecute(() -> {
+                    var relu = dev.oneforallsurvival.economy.quest.QuestBook.of(joueur).daily();
+                    boolean marquee = dev.oneforallsurvival.economy.quest.PlacedBlocks.isPlaced(level,
+                            helper.absolutePos(planche));
+                    rendre.run();
+                    helper.assertTrue(relu.get(0).progress() == 0, "pose : " + relu.get(0).progress());
+                    helper.assertTrue(relu.get(1).progress() == 0, "casse : " + relu.get(1).progress());
+                    helper.assertTrue(marquee, "planche du déployeur non marquée");
+                })
+                .thenSucceed();
+    }
+
     /** Le faux joueur d'un déployeur de Create ({@code getPlayer}, lu par réflexion), ou {@code null}. */
     private static net.minecraft.world.entity.player.Player fauxJoueur(BlockEntity be) {
         if (be == null) {

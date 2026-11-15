@@ -1,5 +1,7 @@
 package dev.oneforallsurvival.repair;
 
+import dev.oneforallsurvival.economy.quest.QuestJobs;
+import dev.oneforallsurvival.economy.quest.QuestProgress;
 import dev.oneforallsurvival.machine.ElectricMachineBlockEntity;
 import dev.oneforallsurvival.machine.ItemBattery;
 import dev.oneforallsurvival.machine.MachineConfig;
@@ -47,6 +49,9 @@ public final class RepairActions {
     public static Result repair(ServerPlayer player, ElectricMachineBlockEntity machine, ItemStack welder,
             ItemStack part) {
         Result result = attempt(player, machine, welder, part);
+        if (result == Result.REPAIRED) {
+            QuestProgress.job(player, QuestJobs.REPAIR_MACHINE, 1);
+        }
         if (result == Result.WRONG_PART) {
             player.displayClientMessage(Component.translatable(result.messageKey(),
                     RepairRegistry.partItem(machine.expectedPart(), false).getDescription()), true);
