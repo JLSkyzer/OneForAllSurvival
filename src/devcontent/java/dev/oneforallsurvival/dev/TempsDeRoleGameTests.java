@@ -138,11 +138,15 @@ public final class TempsDeRoleGameTests {
     public static void leMaireAccumuleDeuxSalaires(GameTestHelper helper) {
         avecJoueur(helper, "RoleMaire", RoleBook.ENGINEER_ROLE_ID, (serveur, j, roles) -> {
             long ancienTaux = SalaryRates.rateFor(RoleBook.ENGINEER_ROLE_ID);
+            // Par défaut, seule la police est salariée (décision du 2026-11-15) : le maire reçoit ici un taux fixé par
+            // l'équipe, comme le ferait /eco salary set mayor.
+            long ancienTauxMaire = SalaryRates.rateFor(SalaryRates.MAYOR_KEY);
             try {
                 SalaryRates.set(RoleBook.ENGINEER_ROLE_ID, 30L);
+                SalaryRates.set(SalaryRates.MAYOR_KEY, 60L);
                 roles.appointMayor(j.uuid());
                 long tauxMaire = SalaryRates.rateFor(SalaryRates.MAYOR_KEY);
-                helper.assertTrue(tauxMaire > 0L, "le maire a un taux");
+                helper.assertTrue(tauxMaire == 60L, "le maire a le taux fixé, vu " + tauxMaire);
                 RoleTimeTracker suivi = new RoleTimeTracker();
                 Payroll paie = Payroll.load(new CompoundTag());
                 long t = midi();
@@ -164,9 +168,11 @@ public final class TempsDeRoleGameTests {
                         + paie.secondsFor(j.uuid(), jour));
             } finally {
                 SalaryRates.set(RoleBook.ENGINEER_ROLE_ID, ancienTaux);
+                SalaryRates.set(SalaryRates.MAYOR_KEY, ancienTauxMaire);
             }
             // Vérifié avant le succeed() d'avecJoueur, qui suit le corps.
-            helper.assertTrue(SalaryRates.rateFor(RoleBook.ENGINEER_ROLE_ID) == ancienTaux, "taux de l'ingénieur rendu");
+            helper.assertTrue(SalaryRates.rateFor(RoleBook.ENGINEER_ROLE_ID) == ancienTaux
+                    && SalaryRates.rateFor(SalaryRates.MAYOR_KEY) == ancienTauxMaire, "taux de l'ingénieur et du maire rendus");
         });
     }
 
@@ -174,20 +180,28 @@ public final class TempsDeRoleGameTests {
     public static void unRoleChangeEnCoursDeJourneeComptePourChacun(GameTestHelper helper) {
         avecJoueur(helper, "RoleChange", "policier", (serveur, j, roles) -> {
             roles.removeMayor();
-            helper.assertTrue(SalaryRates.rateFor("medecin") > 0L, "le médecin a un taux");
-            RoleTimeTracker suivi = new RoleTimeTracker();
-            Payroll paie = Payroll.load(new CompoundTag());
-            long t = midi();
-            suivi.onLoggedIn(j.joueur(), t);
-            for (int i = 1; i <= 5; i++) {
-                suivi.sample(serveur, paie, t + i * 1_000L);
+            // Le médecin n'est pas salarié par défaut (seule la police l'est) : l'équipe lui fixe un taux le temps de l'essai.
+            long ancienTaux = SalaryRates.rateFor("medecin");
+            try {
+                SalaryRates.set("medecin", 60L);
+                helper.assertTrue(SalaryRates.rateFor("medecin") == 60L, "le médecin a le taux fixé");
+                RoleTimeTracker suivi = new RoleTimeTracker();
+                Payroll paie = Payroll.load(new CompoundTag());
+                long t = midi();
+                suivi.onLoggedIn(j.joueur(), t);
+                for (int i = 1; i <= 5; i++) {
+                    suivi.sample(serveur, paie, t + i * 1_000L);
+                }
+                roles.assign(j.uuid(), "medecin");
+                for (int i = 6; i <= 10; i++) {
+                    suivi.sample(serveur, paie, t + i * 1_000L);
+                }
+                helper.assertTrue(paie.secondsFor(j.uuid(), jourDe(t)).equals(Map.of("policier", 5L, "medecin", 5L)),
+                        "5 s chacun, vu " + paie.secondsFor(j.uuid(), jourDe(t)));
+            } finally {
+                SalaryRates.set("medecin", ancienTaux);
             }
-            roles.assign(j.uuid(), "medecin");
-            for (int i = 6; i <= 10; i++) {
-                suivi.sample(serveur, paie, t + i * 1_000L);
-            }
-            helper.assertTrue(paie.secondsFor(j.uuid(), jourDe(t)).equals(Map.of("policier", 5L, "medecin", 5L)),
-                    "5 s chacun, vu " + paie.secondsFor(j.uuid(), jourDe(t)));
+            helper.assertTrue(SalaryRates.rateFor("medecin") == ancienTaux, "taux du médecin rendu");
         });
     }
 
@@ -418,6 +432,9 @@ public final class TempsDeRoleGameTests {
         long maire = SalaryRates.rateFor(SalaryRates.MAYOR_KEY);
         Ecoute ecoute = new Ecoute();
         CommandSourceStack equipe = serveur.createCommandSourceStack().withSource(ecoute).withPermission(2);
+        // Le monde d'essai est neuf à chaque passage : sa config est celle par défaut, où seule la police est salariée.
+        helper.assertTrue(policier == 60L && maire == 0L && SalaryRates.rateFor("medecin") == 0L,
+                "défauts : policier " + policier + ", maire " + maire + ", médecin " + SalaryRates.rateFor("medecin"));
         try {
             helper.assertTrue(lancer(serveur, equipe, "eco salary set policier 120") == 1, "set policier 120 : "
                     + ecoute.cle());
@@ -441,6 +458,10 @@ public final class TempsDeRoleGameTests {
             helper.assertTrue(lancer(serveur, equipe, "eco salary set policier 1000001") != 1, "taux trop grand refusé");
             ecoute.tout();
 
+            helper.assertTrue(lancer(serveur, equipe, "eco salary set mayor 45") == 1, "set mayor 45");
+            ecoute.tout();
+            helper.assertTrue(SalaryRates.rateFor(SalaryRates.MAYOR_KEY) == 45L, "maire à 45");
+            helper.assertTrue(EconomyConfig.mayorSalaryPerHour() == 45L, "config du maire à 45");
             helper.assertTrue(lancer(serveur, equipe, "eco salary set mayor 0") == 1, "set mayor 0");
             ecoute.tout();
             helper.assertTrue(SalaryRates.rateFor(SalaryRates.MAYOR_KEY) == 0L, "maire à 0");

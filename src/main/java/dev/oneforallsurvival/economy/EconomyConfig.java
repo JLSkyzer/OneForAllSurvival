@@ -45,8 +45,8 @@ public final class EconomyConfig {
     static final int DEFAULT_INVOICE_ISSUE_COOLDOWN_TICKS = 40;
     static final int DEFAULT_TREASURY_LEDGER_LINES = 1_000;
     static final int DEFAULT_TREASURY_REASON_MAX = 80;
-    static final List<String> DEFAULT_SALARY_PER_HOUR = List.of("policier=60", "medecin=60");
-    static final long DEFAULT_MAYOR_SALARY_PER_HOUR = 60L;
+    static final List<String> DEFAULT_SALARY_PER_HOUR = List.of("policier=60");
+    static final long DEFAULT_MAYOR_SALARY_PER_HOUR = 0L;
     static final int DEFAULT_SALARY_MAX_HOURS_PER_DAY = 8;
     static final int DEFAULT_PAY_HOUR = 0;
     static final String DEFAULT_PAY_TIME_ZONE = "";
@@ -145,7 +145,8 @@ public final class EconomyConfig {
         SALARY_PER_HOUR = builder
                 .comment("Salaire de chaque rôle, en cuivres par heure passée connecté dans le rôle : \"<rôle>=<taux>\",",
                         "le rôle par son identifiant (ex. \"policier=60\", 60 = 1 cuivre par minute). Un rôle absent n'est",
-                        "pas payé. Une entrée illisible est ignorée avec un avertissement. Le maire se règle à part.",
+                        "pas payé (par défaut, seule la police l'est). Une entrée illisible est ignorée avec un avertissement.",
+                        "Le maire se règle à part.",
                         "Modifiable en jeu par /eco salary set <rôle> <taux>.")
                 .defineListAllowEmpty("salaryPerHour", DEFAULT_SALARY_PER_HOUR, o -> o instanceof String);
         MAYOR_SALARY_PER_HOUR = builder
@@ -337,7 +338,7 @@ public final class EconomyConfig {
         SALARY_PER_HOUR.save();
     }
 
-    /** Salaire du maire, en cuivres par heure (60 par défaut). */
+    /** Salaire du maire, en cuivres par heure (0 par défaut : seule la police est salariée). */
     public static long mayorSalaryPerHour() {
         try {
             return MAYOR_SALARY_PER_HOUR.get();

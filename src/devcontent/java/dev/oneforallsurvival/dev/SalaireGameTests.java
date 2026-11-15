@@ -451,16 +451,25 @@ public final class SalaireGameTests {
         essai(helper, e -> {
             JoueurDeTest j = e.joueur("SalMaire", "policier");
             e.roles.appointMayor(j.uuid());
-            long tauxMaire = SalaryRates.rateFor(SalaryRates.MAYOR_KEY);
-            helper.assertTrue(tauxMaire == 60L, "maire à 60, vu " + tauxMaire);
+            // Le maire n'est pas salarié par défaut (seule la police l'est) : l'équipe lui fixe 60 par heure le temps du
+            // comptage, rendu aussitôt (essai synchrone).
+            long ancienTauxMaire = SalaryRates.rateFor(SalaryRates.MAYOR_KEY);
             Payroll paie = Payroll.load(new CompoundTag());
             paie.setLastClosed(J.minusDays(1));
             RoleTimeTracker suivi = new RoleTimeTracker();
             long t = debut(J) + 6L * HEURE;
-            suivi.onLoggedIn(j.joueur(), t);
-            for (int i = 1; i <= 60; i++) {
-                suivi.sample(e.serveur, paie, t + i * 60_000L);
+            try {
+                SalaryRates.set(SalaryRates.MAYOR_KEY, 60L);
+                long tauxMaire = SalaryRates.rateFor(SalaryRates.MAYOR_KEY);
+                helper.assertTrue(tauxMaire == 60L, "maire à 60, vu " + tauxMaire);
+                suivi.onLoggedIn(j.joueur(), t);
+                for (int i = 1; i <= 60; i++) {
+                    suivi.sample(e.serveur, paie, t + i * 60_000L);
+                }
+            } finally {
+                SalaryRates.set(SalaryRates.MAYOR_KEY, ancienTauxMaire);
             }
+            helper.assertTrue(SalaryRates.rateFor(SalaryRates.MAYOR_KEY) == ancienTauxMaire, "taux du maire rendu");
             TreasuryAccount tresor = tresor(200L);
             j.textesRecus();
             PayrollService.closeDueDays(e.serveur, paie, tresor, minuit(J));

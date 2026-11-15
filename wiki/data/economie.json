@@ -354,7 +354,7 @@
       "lot": "Lot E3",
       "image": null,
       "what": "Payés chaque minuit sur le trésor, selon le temps connecté dans le rôle.",
-      "who": {"utilise": "Policier, médecin, maire"},
+      "who": {"utilise": "Policier (par défaut) ; tout rôle et le maire si l'équipe leur fixe un salaire"},
       "steps": [
         "Le salaire est arrêté chaque minuit.",
         "Il arrive au coffre-fort, sinon dans l'inventaire.",
@@ -363,7 +363,7 @@
       "flow": ["Trésor", "Salaire", "Coffre-fort"],
       "staff": [
         "Réglable en config ou par commande prévue.",
-        "Seuls les rôles publics sont proposés.",
+        "Par défaut, seule la police est salariée (60 cuivres par heure) ; médecin et maire à 0 : les joueurs gagnent leur argent eux-mêmes.",
         "Un salaire impayé reste dû."
       ]
     },

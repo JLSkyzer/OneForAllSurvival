@@ -149,4 +149,15 @@ class PayrollTest {
         assertTrue(relu.isDirty());
         assertTrue(relu.takeUnseenPaid(POLICIER).isEmpty(), "lu une seule fois");
     }
+
+    @Test
+    void seuleLaPoliceEstSalarieeParDefaut() {
+        // Décision du 2026-11-15 : les joueurs gagnent leur argent eux-mêmes ; seule la police est payée par la ville
+        // tant que l'équipe ne fixe pas d'autre salaire (/eco salary set).
+        assertEquals(List.of("policier=60"), EconomyConfig.DEFAULT_SALARY_PER_HOUR);
+        assertEquals(0L, EconomyConfig.DEFAULT_MAYOR_SALARY_PER_HOUR);
+        assertEquals(60L, SalaryRates.rateFor("policier"));
+        assertEquals(0L, SalaryRates.rateFor("medecin"));
+        assertEquals(0L, SalaryRates.rateFor(SalaryRates.MAYOR_KEY));
+    }
 }
