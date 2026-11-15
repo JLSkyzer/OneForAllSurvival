@@ -302,7 +302,7 @@ public final class QuestScreen extends Screen {
                 done ? BenchTheme.TEXT_DIM : BenchTheme.TEXT, false);
         Rect bar = shifted(row.bar());
         BenchTheme.progress(g, bar.x(), bar.y(), bar.w(), bar.h(),
-                e.goal() <= 0 ? 1.0D : Math.min(1.0D, e.progress() / (double) e.goal()));
+                QuestScreenLayout.fill(e.progress(), e.goal(), bar.w() - 4));
         g.drawString(font, row.progress().shown(), row.progress().x(), listY(row.progress().y()),
                 e.state() == State.IN_PROGRESS ? BenchTheme.TEXT_DIM : BenchTheme.TEXT_OK, false);
         int rewardColor = done ? BenchTheme.TEXT_DISABLED

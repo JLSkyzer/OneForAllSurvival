@@ -234,4 +234,16 @@ class QuestScreenLayoutTest {
         assertNotNull(l.sections().get(1).empty());
         assertEquals("Aucune quête", l.sections().get(1).empty().shown());
     }
+
+    @Test
+    void laBarreNEstPleineQuALaFin() {
+        int inner = QuestScreenLayout.BAR_W - 4;
+        // Ce que dessine la barre : arrondi du remplissage sur la largeur intérieure.
+        assertEquals(inner - 1, Math.round(inner * QuestScreenLayout.fill(1279, 1280, inner)), "1279 / 1280 paraît pleine");
+        assertEquals(inner, Math.round(inner * QuestScreenLayout.fill(1280, 1280, inner)));
+        assertEquals(inner, Math.round(inner * QuestScreenLayout.fill(9999, 9999, inner)));
+        assertEquals(1, Math.round(inner * QuestScreenLayout.fill(1, 9999, inner)), "un premier pas invisible");
+        assertEquals(0, Math.round(inner * QuestScreenLayout.fill(0, 9999, inner)));
+        assertEquals(16, Math.round(inner * QuestScreenLayout.fill(1, 2, inner)));
+    }
 }

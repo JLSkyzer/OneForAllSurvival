@@ -110,6 +110,10 @@ public record QuestActionPacket(int action, @Nullable QuestRef ref) {
             return;
         }
         long now = EconomyClock.now();
+        if (packet.action == OPEN && !QuestService.allowOpen(player)) {
+            // Plus d'une demande d'état par seconde : le client a déjà le dernier état, rien n'est reconstruit.
+            return;
+        }
         switch (packet.action) {
             case OPEN -> QuestService.refresh(player, now);
             case CLAIM -> {

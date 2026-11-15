@@ -521,8 +521,9 @@ public final class QuestClaimGameTests {
             book.saveTo(joueur);
             simule.etatsQuetesRecus();
             simule.envoyer(QuestActionPacket.open());
+            simule.envoyer(QuestActionPacket.open());
             List<QuestSyncPacket> etats = simule.etatsQuetesRecus();
-            helper.assertTrue(etats.size() == 1, "états : " + etats.size());
+            helper.assertTrue(etats.size() == 1, "états pour deux ouvertures dans la seconde : " + etats.size());
             QuestSyncPacket etat = etats.get(0);
             helper.assertTrue(etat.capPaid() == 980L && etat.cap() == 1_000L && etat.pendingCount() == 1
                     && etat.rerollsLeft() == 1, "en-tête : " + etat);
@@ -539,6 +540,67 @@ public final class QuestClaimGameTests {
                     && !enCoursVue.icon().isEmpty() && enCoursVue.state() == QuestSyncPacket.State.IN_PROGRESS,
                     "en cours : " + enCoursVue);
         } finally {
+            simule.quitter();
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_PAQUETS)
+    public static void unEvenementSeReclameParPaquet(GameTestHelper helper) {
+        MinecraftServer server = helper.getLevel().getServer();
+        dev.oneforallsurvival.economy.quest.QuestBoard board = dev.oneforallsurvival.economy.quest.QuestBoard.get(server);
+        String id = "essai_paquet_fete";
+        // Le titre libre de l'équipe : un format et une clé de langue, qui doivent ressortir tels quels.
+        String titre = "%s fête quest.oneforallsurvival.template.fish %1$s";
+        long debut = MAINTENANT - 3_600_000L;
+        JoueurDeTest simule = JoueurDeTest.rejoindre(helper.getLevel(), "QuetePaquetFete", helper.absoluteVec(ICI));
+        try {
+            ServerPlayer joueur = simule.joueur();
+            board.stopEvent(id);
+            helper.assertTrue(board.startEvent(new dev.oneforallsurvival.economy.quest.QuestEvent(id,
+                    QuestCategory.BREAK, null, 10, 30L, debut, MAINTENANT + 86_400_000L, titre, joueur.getUUID())).ok(),
+                    "événement refusé");
+            poser(joueur, enCours("essai_a"));
+            QuestService.refresh(joueur, MAINTENANT);
+            QuestBook book = QuestBook.of(joueur);
+            helper.assertTrue(book.events().containsKey(id), "événement absent du carnet : " + book.events().keySet());
+            book.events().put(id, book.events().get(id).withProgress(10));
+            book.saveTo(joueur);
+            QuestRef ref = book.eventRef(id);
+            helper.assertTrue(ref.eventKey() == debut, "début : " + ref.eventKey());
+            long[] avant = registre(server);
+            simule.etatsQuetesRecus();
+            simule.messagesRecus();
+
+            // L'état décodé : la référence d'événement à l'identique, le titre littéral.
+            simule.envoyer(QuestActionPacket.open());
+            List<QuestSyncPacket> etats = simule.etatsQuetesRecus();
+            helper.assertTrue(etats.size() == 1, "états : " + etats.size());
+            QuestSyncPacket.Entry vue = etats.get(0).quests().stream()
+                    .filter(e -> e.ref().kind() == QuestRef.Kind.EVENT).findFirst().orElse(null);
+            helper.assertTrue(vue != null && vue.ref().equals(ref), "référence décodée : " + (vue == null ? null : vue.ref()));
+            helper.assertTrue(vue.title().getContents() instanceof net.minecraft.network.chat.contents.LiteralContents
+                    && vue.title().getString().equals(titre), "titre : " + vue.title());
+            helper.assertTrue(vue.state() == QuestSyncPacket.State.COMPLETE && vue.payable() == 30L, "vue : " + vue);
+
+            // Un début décalé (événement relancé sous le même identifiant) : rien, ni message.
+            simule.envoyer(QuestActionPacket.claim(QuestRef.event(id, debut + 1L)));
+            helper.assertTrue(porte(joueur) == 0L, "payé sur un début périmé : " + porte(joueur));
+            helper.assertTrue(simule.messagesRecus().isEmpty(), "message pour un début périmé");
+
+            // La vraie référence, deux fois : un seul paiement.
+            simule.envoyer(QuestActionPacket.claim(vue.ref()));
+            simule.envoyer(QuestActionPacket.claim(vue.ref()));
+            helper.assertTrue(porte(joueur) == 30L, "porté : " + porte(joueur));
+            long[] apres = registre(server);
+            helper.assertTrue(apres[0] == avant[0] + 30L && apres[1] == avant[1] + 1L,
+                    "registre : +" + (apres[0] - avant[0]) + " en " + (apres[1] - avant[1]));
+            List<String> messages = simule.messagesRecus();
+            helper.assertTrue(messages.equals(List.of("message.oneforallsurvival.quest.claim.paid",
+                    "message.oneforallsurvival.quest.claim.already_claimed")), "messages : " + messages);
+            helper.assertTrue(QuestBook.of(joueur).events().get(id).claimed(), "événement non marqué");
+        } finally {
+            board.stopEvent(id);
             simule.quitter();
         }
         helper.succeed();

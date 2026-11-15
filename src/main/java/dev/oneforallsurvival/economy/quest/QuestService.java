@@ -51,6 +51,10 @@ public final class QuestService {
     public static final int SYNC_TICKS = 10;
     /** Les joueurs dont l'état des quêtes a changé depuis le dernier envoi. */
     private static final Set<UUID> DIRTY = ConcurrentHashMap.newKeySet();
+    /** Au plus une demande d'état ({@code OPEN}) par joueur toutes les {@value} ticks. */
+    public static final int OPEN_TICKS = 20;
+    /** Le tick de la dernière demande d'état acceptée de chaque joueur en ligne. */
+    private static final Map<UUID, Integer> LAST_OPEN = new ConcurrentHashMap<>();
     static final String MESSAGE = "message.oneforallsurvival.quest.";
 
     public enum ClaimResult { PAID, CAPPED_PARTIAL, CAP_REACHED, NO_ROOM, NOT_COMPLETE, ALREADY_CLAIMED, STALE, CREATIVE }
@@ -177,6 +181,18 @@ public final class QuestService {
 
     public static void onLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
         DIRTY.remove(event.getEntity().getUUID());
+        LAST_OPEN.remove(event.getEntity().getUUID());
+    }
+
+    /** Vrai si le joueur peut demander l'état maintenant (au plus une fois toutes les {@value #OPEN_TICKS} ticks). */
+    public static boolean allowOpen(ServerPlayer player) {
+        int tick = player.server.getTickCount();
+        Integer last = LAST_OPEN.get(player.getUUID());
+        if (last != null && tick - last >= 0 && tick - last < OPEN_TICKS) {
+            return false;
+        }
+        LAST_OPEN.put(player.getUUID(), tick);
+        return true;
     }
 
     /**

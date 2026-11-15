@@ -220,6 +220,24 @@ public final class QuestScreenLayout {
         return new RowLayout(box, icon, title, bar, progress, reward, button, buttonLabel, status);
     }
 
+    /**
+     * La part remplie de la barre : jamais pleine avant la fin (1279 / 1280 laisse un pixel vide), jamais vide après
+     * le premier pas.
+     */
+    public static double fill(int progress, int goal, int inner) {
+        if (goal <= 0 || progress >= goal) {
+            return 1.0D;
+        }
+        double fraction = Math.max(0.0D, progress / (double) goal);
+        if (inner > 1) {
+            fraction = Math.min(fraction, (inner - 1) / (double) inner);
+            if (progress > 0) {
+                fraction = Math.max(fraction, 1.0D / inner);
+            }
+        }
+        return fraction;
+    }
+
     private static Text text(int x, int y, int room, String shown, String full, ToIntFunction<String> textWidth) {
         return new Text(x, y, room, shown, full, textWidth.applyAsInt(shown));
     }
