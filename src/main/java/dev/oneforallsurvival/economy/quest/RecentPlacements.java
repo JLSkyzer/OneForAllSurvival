@@ -60,6 +60,20 @@ public final class RecentPlacements {
         return Optional.empty();
     }
 
+    /** Oublie les poses de ce joueur plus vieilles que la fenêtre : elles ne retireraient plus rien. */
+    public void purge(UUID player, long gameTime, long windowTicks) {
+        ArrayDeque<Entry> entries = byPlayer.get(player);
+        if (entries == null) {
+            return;
+        }
+        while (!entries.isEmpty() && gameTime - entries.peekFirst().gameTime() >= windowTicks) {
+            entries.removeFirst();
+        }
+        if (entries.isEmpty()) {
+            byPlayer.remove(player);
+        }
+    }
+
     public int size(UUID player) {
         ArrayDeque<Entry> entries = byPlayer.get(player);
         return entries == null ? 0 : entries.size();

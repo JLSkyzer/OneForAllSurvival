@@ -1,4 +1,4 @@
-package dev.oneforallsurvival.mixin;
+package dev.oneforallsurvival.compat.mixin.farmersdelight;
 
 import dev.oneforallsurvival.economy.quest.QuestProgress;
 import net.minecraft.server.level.ServerPlayer;
@@ -17,7 +17,8 @@ import vectorwing.farmersdelight.common.block.entity.container.CookingPotResultS
  * événement de Forge n'y est tiré. Lu au bytecode de Farmer's Delight 1.20.1-1.3.4 : {@code remove} ajoute à
  * {@code removeCount}, {@code onTake} appelle {@code checkTakeAchievements} (SRG {@code m_5845_}, surcharge de
  * {@code Slot}) qui le remet à zéro. Le clic majuscule ne passe pas par {@code remove} (le compte reste à zéro) : il
- * est compté par {@link CookingPotMenuMixin}.
+ * est compté par {@link CookingPotMenuMixin}. Configuration à part, appliquée seulement avec la version de Farmer's
+ * Delight lue ({@link dev.oneforallsurvival.compat.OptionalModMixinPlugin}).
  */
 @Mixin(CookingPotResultSlot.class)
 public abstract class CookingPotResultSlotMixin {

@@ -98,6 +98,7 @@ public final class QuestProgressGameTests {
 
     private static final String LOT_BLOCS = "quetesGestesBlocs";
     private static final String LOT_VIVANTS = "quetesGestesVivants";
+    private static final String LOT_BLOCS2 = "quetesGestesBlocs2";
     private static final String LOT_CUISINE = "quetesGestesCuisine";
     /** Mercredi 18 novembre 2026, midi (UTC) : loin de toute heure de renouvellement. */
     private static final long MAINTENANT = Instant.parse("2026-11-18T12:00:00Z").toEpochMilli();
@@ -146,6 +147,16 @@ public final class QuestProgressGameTests {
 
     @AfterBatch(batch = LOT_BLOCS)
     public static void apresBlocs(ServerLevel level) {
+        apres();
+    }
+
+    @BeforeBatch(batch = LOT_BLOCS2)
+    public static void avantBlocs2(ServerLevel level) {
+        avant();
+    }
+
+    @AfterBatch(batch = LOT_BLOCS2)
+    public static void apresBlocs2(ServerLevel level) {
         apres();
     }
 
@@ -402,7 +413,7 @@ public final class QuestProgressGameTests {
                 .thenSucceed();
     }
 
-    /** La marque est écrite avec le chunk (aller-retour par {@code ChunkSerializer}) ; 4 097 marques : la première oubliée. */
+    /** La marque est écrite avec le chunk (aller-retour par {@code ChunkSerializer}) ; 4 097 marques : chunk saturé. */
     @GameTest(template = "test/plancher", batch = LOT_BLOCS)
     public static void laMarqueSurvitAuChunk(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
@@ -430,11 +441,15 @@ public final class QuestProgressGameTests {
         for (int i = 0; i < 4097; i++) {
             borne.add(i, EconomyConfig.questPlacedMarksPerChunk());
         }
-        helper.assertTrue(borne.size() == 4096 && !borne.contains(0) && borne.contains(1) && borne.contains(4096),
-                "borne : " + borne.size() + ", première " + borne.contains(0));
+        // Rien n'est oublié : la 4 097e sature le chunk, et toute case y compte alors pour « posé ».
+        helper.assertTrue(borne.size() == 4096 && borne.contains(0) && !borne.contains(4096) && borne.saturated(),
+                "borne : " + borne.size() + ", première " + borne.contains(0) + ", saturé " + borne.saturated());
+        helper.assertTrue(borne.covers(0) && borne.covers(4096) && borne.covers(123_456), "chunk saturé non couvert");
         PlacedBlocks rond = new PlacedBlocks();
         rond.deserializeNBT(borne.serializeNBT());
-        helper.assertTrue(rond.size() == 4096 && !rond.contains(0) && rond.contains(4096), "aller-retour de la borne");
+        helper.assertTrue(rond.size() == 4096 && rond.contains(0) && rond.saturated(), "aller-retour de la borne");
+        rond.remove(0);
+        helper.assertTrue(rond.covers(0), "une marque retirée d'un chunk saturé ne le désature pas");
         helper.succeed();
     }
 
@@ -452,6 +467,90 @@ public final class QuestProgressGameTests {
             casser(helper, joueur, new BlockPos(3, 1, 2), new ItemStack(Items.STONE_PICKAXE));
             helper.assertTrue(progres(joueur, 0) == 1, "minerai cassé à la pioche : " + progres(joueur, 0));
         } finally {
+            sortir(helper, simule);
+        }
+        helper.succeed();
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Second lot des blocs (tour 1 de la relecture)
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * Du sable posé par le joueur au-dessus d'un vide tombe : sa case d'atterrissage est marquée, sa casse à la pelle
+     * n'avance rien (ferme d'un seul bloc de sable sinon). Témoin : un sable du gabarit compte.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_BLOCS2, timeoutTicks = 100)
+    public static void unBlocQuiTombeNeComptePas(GameTestHelper helper) {
+        ButinGameTests.degager(helper);
+        JoueurDeTest simule = entrer(helper, "QueteSable");
+        ServerPlayer joueur = simule.joueur();
+        carnet(joueur, quete("essai_sable", QuestCategory.BREAK, "#minecraft:sand", 4));
+        BlockPos sol = new BlockPos(2, 0, 2);
+        BlockPos appui = new BlockPos(2, 2, 2);
+        BlockPos pose = new BlockPos(2, 3, 2);
+        BlockPos arrivee = new BlockPos(2, 1, 2);
+        helper.setBlock(sol, Blocks.STONE);
+        helper.setBlock(appui, Blocks.STONE);
+        poser(helper, joueur, pose, Items.SAND);
+        helper.assertBlockPresent(Blocks.SAND, pose);
+        helper.setBlock(appui, Blocks.AIR);
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertBlockPresent(Blocks.SAND, arrivee))
+                .thenExecute(() -> {
+                    try {
+                        helper.assertTrue(PlacedBlocks.isPlaced(helper.getLevel(), helper.absolutePos(arrivee)),
+                                "case d'atterrissage non marquée");
+                        casser(helper, joueur, arrivee, new ItemStack(Items.IRON_SHOVEL));
+                        helper.assertTrue(progres(joueur, 0) == 0, "casse du sable tombé : " + progres(joueur, 0));
+                        helper.setBlock(new BlockPos(4, 1, 2), Blocks.SAND);
+                        casser(helper, joueur, new BlockPos(4, 1, 2), new ItemStack(Items.IRON_SHOVEL));
+                        helper.assertTrue(progres(joueur, 0) == 1, "témoin : " + progres(joueur, 0));
+                    } finally {
+                        sortir(helper, simule);
+                    }
+                })
+                .thenSucceed();
+    }
+
+    /**
+     * Un chunk qui atteint la borne des marques est saturé : la pierre du gabarit, jamais posée, n'y compte plus. Les
+     * marques du chunk sont rendues à leur état d'avant dans le même appel (les essais voisins n'en voient rien).
+     */
+    @GameTest(template = "test/plancher", batch = LOT_BLOCS2)
+    public static void unChunkSatureNeCompteAucuneCasse(GameTestHelper helper) {
+        ButinGameTests.degager(helper);
+        JoueurDeTest simule = entrer(helper, "QueteSature");
+        ServerLevel level = helper.getLevel();
+        BlockPos pierre = new BlockPos(2, 1, 2);
+        BlockPos abs = helper.absolutePos(pierre);
+        PlacedBlocks marques = level.getChunkAt(abs).getCapability(PlacedBlocks.CAPABILITY).resolve().orElseThrow();
+        IntArrayTag avant = marques.serializeNBT();
+        try {
+            ServerPlayer joueur = simule.joueur();
+            carnet(joueur, quete(QuestCategory.BREAK, 4));
+            helper.setBlock(pierre, Blocks.STONE);
+            helper.setBlock(new BlockPos(3, 1, 2), Blocks.STONE);
+            casser(helper, joueur, new BlockPos(3, 1, 2), pioche());
+            helper.assertTrue(progres(joueur, 0) == 1, "témoin avant saturation : " + progres(joueur, 0));
+            net.minecraft.world.level.ChunkPos chunk = new net.minecraft.world.level.ChunkPos(abs);
+            int n = 0;
+            for (int y = level.getMinBuildHeight(); n <= EconomyConfig.questPlacedMarksPerChunk(); y++) {
+                for (int x = 0; x < 16 && n <= EconomyConfig.questPlacedMarksPerChunk(); x++) {
+                    for (int z = 0; z < 16 && n <= EconomyConfig.questPlacedMarksPerChunk(); z++) {
+                        BlockPos p = new BlockPos(chunk.getMinBlockX() + x, y, chunk.getMinBlockZ() + z);
+                        if (!p.equals(abs)) {
+                            PlacedBlocks.mark(level, p);
+                            n++;
+                        }
+                    }
+                }
+            }
+            helper.assertTrue(PlacedBlocks.isPlaced(level, abs), "chunk non saturé après " + n + " marques");
+            casser(helper, joueur, pierre, pioche());
+            helper.assertTrue(progres(joueur, 0) == 1, "casse dans un chunk saturé : " + progres(joueur, 0));
+        } finally {
+            marques.deserializeNBT(avant);
             sortir(helper, simule);
         }
         helper.succeed();

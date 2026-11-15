@@ -272,6 +272,7 @@ public final class QuestProgress {
         BlockState state = event.getPlacedBlock();
         List<String> keys = advance(player, QuestCategory.PLACE, t -> t == null || blockMatches(t, state), 1);
         long now = gameTime(player, level);
+        RECENT.purge(player.getUUID(), now, undoWindowTicks());
         for (BlockPos pos : positions) {
             for (String key : keys) {
                 RECENT.record(player.getUUID(), level.dimension(), pos, now, key);

@@ -401,12 +401,17 @@ minecraft {
 mixin {
     add sourceSets.main, 'oneforallsurvival.refmap.json'
     config 'oneforallsurvival.mixins.json'
+    // Mixins des mods tiers (lot E5) : configurations non requises, appliquées seulement si le mod est chargé dans la
+    // plage de versions dont le bytecode a été lu (OptionalModMixinPlugin).
+    config 'oneforallsurvival.create.mixins.json'
+    config 'oneforallsurvival.farmersdelight.mixins.json'
 }
 
 // Le jar livré déclare sa configuration de mixins, Forge la lit dans le manifeste.
 tasks.named('jar', Jar).configure {
     manifest {
-        attributes('MixinConfigs': 'oneforallsurvival.mixins.json')
+        attributes('MixinConfigs': 'oneforallsurvival.mixins.json,oneforallsurvival.create.mixins.json,'
+                + 'oneforallsurvival.farmersdelight.mixins.json')
     }
 }
 

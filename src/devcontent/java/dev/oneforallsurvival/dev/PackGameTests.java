@@ -994,6 +994,101 @@ public final class PackGameTests {
                 .thenSucceed();
     }
 
+    /**
+     * Un piston mécanique de Create (une rallonge, moteur créatif au sud) pousse du granite d'une case ; à l'arrêt du
+     * moteur, la contraption se démonte et repose le granite par {@code Contraption.addBlocksToWorld} : la case est
+     * marquée « posé », et sa casse par un vrai joueur n'avance pas sa quête de pierre. Témoin : un granite du gabarit
+     * compte.
+     */
+    @GameTest(template = "test/plancher", batch = "pack_quetes", setupTicks = 20, timeoutTicks = 900)
+    public static void unBlocDeplaceParUnPistonMecaniqueNeComptePas(GameTestHelper helper) {
+        if (!ModList.get().isLoaded("create")) {
+            helper.succeed();
+            return;
+        }
+        ButinGameTests.degager(helper);
+        var level = helper.getLevel();
+        Block piston = ForgeRegistries.BLOCKS.getValue(new ResourceLocation("create", "mechanical_piston"));
+        Block rallonge = ForgeRegistries.BLOCKS.getValue(new ResourceLocation("create", "piston_extension_pole"));
+        Block blocMoteur = ForgeRegistries.BLOCKS.getValue(new ResourceLocation("create", "creative_motor"));
+        helper.assertTrue(piston != null && piston != Blocks.AIR && rallonge != null && rallonge != Blocks.AIR
+                && blocMoteur != null && blocMoteur != Blocks.AIR, "blocs de Create introuvables");
+        BlockPos posPiston = new BlockPos(2, 1, 3);
+        // Au sud, tourné vers le nord : le sens de rotation qui fait sortir le piston (au nord, il voulait rentrer).
+        BlockPos moteur = posPiston.south();
+        BlockPos depart = posPiston.east();
+        BlockPos arrivee = depart.east();
+        helper.setBlock(posPiston.west(), avec(rallonge.defaultBlockState(), "facing", "east"));
+        helper.setBlock(depart, Blocks.GRANITE);
+        helper.setBlock(posPiston, avec(avec(piston.defaultBlockState(), "facing", "east"), "axis_along_first", "false"));
+        var maintenant = java.time.Instant.parse("2026-11-18T12:00:00Z").toEpochMilli();
+        JoueurDeTest simule = JoueurDeTest.rejoindre(level, "QuetePistonMeca",
+                helper.absoluteVec(new net.minecraft.world.phys.Vec3(6.5, 1, 7.5)));
+        var joueur = simule.joueur();
+        var coin = helper.absoluteVec(new net.minecraft.world.phys.Vec3(6.5, 1, 7.5));
+        joueur.teleportTo(coin.x, coin.y, coin.z);
+        joueur.gameMode.changeGameModeForPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        var book = new dev.oneforallsurvival.economy.quest.QuestBook();
+        book.setSeries(dev.oneforallsurvival.economy.quest.QuestGenerator.Series.DAILY,
+                dev.oneforallsurvival.economy.quest.QuestService.today(maintenant),
+                List.of(new dev.oneforallsurvival.economy.quest.Quest("essai_pierre",
+                        dev.oneforallsurvival.economy.quest.QuestCategory.BREAK,
+                        dev.oneforallsurvival.economy.quest.QuestTarget.parse("#minecraft:base_stone_overworld")
+                                .orElseThrow(), 4, 10L, 0, false, null)));
+        book.setSeries(dev.oneforallsurvival.economy.quest.QuestGenerator.Series.WEEKLY,
+                dev.oneforallsurvival.economy.quest.QuestService.week(maintenant), List.of());
+        book.saveTo(joueur);
+        java.util.function.IntSupplier progres = () ->
+                dev.oneforallsurvival.economy.quest.QuestBook.of(joueur).daily().get(0).progress();
+        Runnable rendre = () -> {
+            for (int x = 0; x <= 7; x++) {
+                helper.setBlock(new BlockPos(x, 1, 3), Blocks.AIR);
+            }
+            helper.setBlock(moteur, Blocks.AIR);
+            if (simule.connecte()) {
+                simule.quitter();
+            }
+            ButinGameTests.ranger(helper);
+        };
+        helper.setBlock(moteur, avec(blocMoteur.defaultBlockState(), "facing", "north"));
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(helper.getBlockState(depart).getBlock() != Blocks.GRANITE,
+                        "le piston n'a pas bougé, vitesse " + vitesse(helper.getBlockEntity(posPiston))))
+                .thenIdle(40)
+                .thenExecute(() -> helper.setBlock(moteur, Blocks.AIR))
+                .thenWaitUntil(() -> helper.assertBlockPresent(Blocks.GRANITE, arrivee))
+                .thenExecute(() -> {
+                    try {
+                        helper.assertTrue(dev.oneforallsurvival.economy.quest.PlacedBlocks.isPlaced(level,
+                                helper.absolutePos(arrivee)), "granite reposé par la contraption non marqué");
+                        joueur.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+                                new ItemStack(net.minecraft.world.item.Items.DIAMOND_PICKAXE));
+                        joueur.gameMode.destroyBlock(helper.absolutePos(arrivee));
+                        helper.assertBlockPresent(Blocks.AIR, arrivee);
+                        helper.assertTrue(progres.getAsInt() == 0, "casse du granite déplacé : " + progres.getAsInt());
+                        BlockPos temoin = new BlockPos(2, 1, 6);
+                        helper.setBlock(temoin, Blocks.GRANITE);
+                        joueur.gameMode.destroyBlock(helper.absolutePos(temoin));
+                        helper.assertTrue(progres.getAsInt() == 1, "témoin : " + progres.getAsInt());
+                    } finally {
+                        rendre.run();
+                    }
+                })
+                .thenSucceed();
+    }
+
+    /** La vitesse d'un bloc cinétique de Create ({@code getSpeed}, lue par réflexion), pour les messages d'échec. */
+    private static String vitesse(BlockEntity be) {
+        if (be == null) {
+            return "sans block entity";
+        }
+        try {
+            return String.valueOf(be.getClass().getMethod("getSpeed").invoke(be));
+        } catch (ReflectiveOperationException e) {
+            return e.toString();
+        }
+    }
+
     /** Le faux joueur d'un déployeur de Create ({@code getPlayer}, lu par réflexion), ou {@code null}. */
     private static net.minecraft.world.entity.player.Player fauxJoueur(BlockEntity be) {
         if (be == null) {

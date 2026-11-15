@@ -26,16 +26,22 @@ import net.minecraftforge.event.AttachCapabilitiesEvent;
  * (générateur de pierre) ou poussé par un piston.
  *
  * <p>Positions locales tassées dans un {@code int} ({@link #pack}), dans l'ordre d'arrivée ; au plus
- * {@link EconomyConfig#questPlacedMarksPerChunk()} par chunk, les plus anciennes oubliées. Une marque oubliée ou en
- * trop ne fait qu'accorder ou refuser une progression, jamais créer de l'argent.
+ * {@link EconomyConfig#questPlacedMarksPerChunk()} par chunk. Aucune marque n'est jamais oubliée : un chunk qui
+ * atteint la borne est <b>saturé</b>, pour toujours (drapeau sauvé avec les marques) : toutes ses cases comptent alors
+ * pour « posé » et plus aucune casse n'y fait avancer une quête. Oublier une marque rendrait un bloc posé cassable pour
+ * une quête, donc une ferme ; une marque en trop, ou un chunk saturé, ne fait que refuser une progression.
  */
 public final class PlacedBlocks implements ICapabilitySerializable<IntArrayTag> {
 
     public static final ResourceLocation KEY = new ResourceLocation("oneforallsurvival", "placed_blocks");
     public static final Capability<PlacedBlocks> CAPABILITY = CapabilityManager.get(new CapabilityToken<>() {});
 
-    /** De la plus ancienne à la plus récente. */
+    /** Dans l'ordre d'arrivée. */
     private final IntLinkedOpenHashSet marks = new IntLinkedOpenHashSet();
+    /** La borne a été atteinte : toute case du chunk compte pour « posé », pour toujours. */
+    private boolean saturated;
+    /** Valeur réservée du tableau sauvé (jamais une position tassée, toujours positive) : le chunk est saturé. */
+    private static final int SATURATED = -1;
     private final LazyOptional<PlacedBlocks> self = LazyOptional.of(() -> this);
 
     public PlacedBlocks() {}
@@ -45,14 +51,27 @@ public final class PlacedBlocks implements ICapabilitySerializable<IntArrayTag> 
     // ---------------------------------------------------------------------------------------------
 
     /**
-     * Marque cette position (une position déjà marquée devient la plus récente) ; au-delà de {@code max}, les plus
-     * anciennes sont oubliées.
+     * Marque cette position. Un chunk qui tient déjà {@code max} marques est saturé au lieu d'en oublier une : la
+     * position n'est pas ajoutée, mais elle compte (comme toutes) pour « posé ».
      */
     public void add(int packed, int max) {
-        marks.addAndMoveToLast(packed);
-        while (marks.size() > Math.max(1, max)) {
-            marks.removeFirstInt();
+        if (marks.contains(packed)) {
+            return;
         }
+        if (marks.size() >= Math.max(1, max)) {
+            saturated = true;
+            return;
+        }
+        marks.add(packed);
+    }
+
+    /** Vrai si la position compte pour « posé » : marquée, ou chunk saturé. */
+    public boolean covers(int packed) {
+        return saturated || marks.contains(packed);
+    }
+
+    public boolean saturated() {
+        return saturated;
     }
 
     public boolean remove(int packed) {
@@ -92,7 +111,7 @@ public final class PlacedBlocks implements ICapabilitySerializable<IntArrayTag> 
 
     public static boolean isPlaced(LevelAccessor level, BlockPos pos) {
         PlacedBlocks marks = of(level, pos);
-        return marks != null && marks.contains(pack(pos, level.getMinBuildHeight()));
+        return marks != null && marks.covers(pack(pos, level.getMinBuildHeight()));
     }
 
     /** Marque la position ; le chunk est à sauver. */
@@ -123,14 +142,27 @@ public final class PlacedBlocks implements ICapabilitySerializable<IntArrayTag> 
 
     @Override
     public IntArrayTag serializeNBT() {
-        return new IntArrayTag(marks.toIntArray());
+        int[] out = new int[marks.size() + (saturated ? 1 : 0)];
+        int i = 0;
+        if (saturated) {
+            out[i++] = SATURATED;
+        }
+        for (int packed : marks) {
+            out[i++] = packed;
+        }
+        return new IntArrayTag(out);
     }
 
     @Override
     public void deserializeNBT(IntArrayTag tag) {
         marks.clear();
+        saturated = false;
         for (int packed : tag.getAsIntArray()) {
-            marks.addAndMoveToLast(packed);
+            if (packed == SATURATED) {
+                saturated = true;
+            } else {
+                marks.add(packed);
+            }
         }
     }
 
