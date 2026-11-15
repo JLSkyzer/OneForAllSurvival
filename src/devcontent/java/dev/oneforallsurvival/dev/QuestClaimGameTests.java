@@ -9,12 +9,14 @@ import dev.oneforallsurvival.economy.MoneySource;
 import dev.oneforallsurvival.economy.PlayerCoins;
 import dev.oneforallsurvival.economy.Purse;
 import dev.oneforallsurvival.economy.quest.Quest;
+import dev.oneforallsurvival.economy.quest.QuestActionPacket;
 import dev.oneforallsurvival.economy.quest.QuestBook;
 import dev.oneforallsurvival.economy.quest.QuestCategory;
 import dev.oneforallsurvival.economy.quest.QuestGenerator.Series;
 import dev.oneforallsurvival.economy.quest.QuestRef;
 import dev.oneforallsurvival.economy.quest.QuestService;
 import dev.oneforallsurvival.economy.quest.QuestService.ClaimResult;
+import dev.oneforallsurvival.economy.quest.QuestSyncPacket;
 import dev.oneforallsurvival.economy.quest.QuestTemplate;
 import dev.oneforallsurvival.economy.quest.QuestTemplates;
 import java.time.Instant;
@@ -52,6 +54,8 @@ public final class QuestClaimGameTests {
 
     private static final String LOT = "quetesReclamation";
     private static final String LOT_ECO = "quetesEco";
+    /** Les paquets de l'écran (tâche 5) : traités sur place par {@link JoueurDeTest#envoyer} (leçon du 2026-11-12). */
+    private static final String LOT_PAQUETS = "quetesPaquets";
     /** Mercredi 18 novembre 2026, midi (UTC) : loin de toute heure de renouvellement. */
     private static final long MAINTENANT = Instant.parse("2026-11-18T12:00:00Z").toEpochMilli();
     private static final Vec3 ICI = new Vec3(2.5, 1, 2.5);
@@ -97,6 +101,16 @@ public final class QuestClaimGameTests {
         apres();
     }
 
+    @BeforeBatch(batch = LOT_PAQUETS)
+    public static void avantPaquets(ServerLevel level) {
+        avant();
+    }
+
+    @AfterBatch(batch = LOT_PAQUETS)
+    public static void apresPaquets(ServerLevel level) {
+        apres();
+    }
+
     private static Quest finie(String id, long reward) {
         return new Quest(id, QuestCategory.BREAK, null, 10, reward, 10, false, null);
     }
@@ -110,7 +124,7 @@ public final class QuestClaimGameTests {
         book.setSeries(Series.DAILY, QuestService.today(MAINTENANT), List.of(daily));
         book.setSeries(Series.WEEKLY, QuestService.week(MAINTENANT), List.of());
         book.saveTo(joueur);
-        return book.ref(QuestRef.Kind.DAILY, 0);
+        return daily.length == 0 ? null : book.ref(QuestRef.Kind.DAILY, 0);
     }
 
     private static long porte(ServerPlayer joueur) {
@@ -344,6 +358,240 @@ public final class QuestClaimGameTests {
             simule.quitter();
         }
         helper.succeed();
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Paquets de l'écran (tâche 5)
+    // ---------------------------------------------------------------------------------------------
+
+    private static Quest enCours(String id) {
+        return new Quest(id, QuestCategory.BREAK, null, 10, 25L, 3, false, null);
+    }
+
+    /** Le registre du serveur : (total QUEST, réclamations). */
+    private static long[] registre(MinecraftServer server) {
+        EconomyLedger l = EconomyLedger.get(server);
+        return new long[] {l.totalCreated(MoneySource.QUEST), l.questClaims()};
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_PAQUETS)
+    public static void unClicPerimeNeReclameRien(GameTestHelper helper) {
+        MinecraftServer server = helper.getLevel().getServer();
+        JoueurDeTest simule = JoueurDeTest.rejoindre(helper.getLevel(), "QuetePaquetPerime", helper.absoluteVec(ICI));
+        try {
+            ServerPlayer joueur = simule.joueur();
+            // Ce que l'écran montrait : la série d'hier, finie. Entre l'affichage et le clic, le jour a tourné.
+            LocalDate hier = QuestService.today(MAINTENANT).minusDays(1);
+            QuestBook book = new QuestBook();
+            book.setSeries(Series.DAILY, hier, List.of(finie("essai_a", 25L)));
+            book.setSeries(Series.WEEKLY, QuestService.week(MAINTENANT), List.of());
+            book.saveTo(joueur);
+            QuestRef vue = book.ref(QuestRef.Kind.DAILY, 0);
+            long[] avant = registre(server);
+            simule.etatsQuetesRecus();
+            simule.messagesRecus();
+            simule.envoyer(QuestActionPacket.claim(vue));
+            helper.assertTrue(porte(joueur) == 0L, "payé : " + porte(joueur));
+            long[] apres = registre(server);
+            helper.assertTrue(apres[0] == avant[0] && apres[1] == avant[1], "registre changé");
+            QuestBook relu = QuestBook.of(joueur);
+            helper.assertTrue(QuestService.today(MAINTENANT).equals(relu.dailyKey()), "série non renouvelée");
+            // L'ancienne quête finie attend sa réclamation, intacte (ni payée ni perdue).
+            helper.assertTrue(relu.pending().size() == 1 && !relu.pending().get(0).quest().claimed(),
+                    "attente : " + relu.pending());
+            List<QuestSyncPacket> etats = simule.etatsQuetesRecus();
+            helper.assertTrue(etats.size() == 1 && etats.get(0).pendingCount() == 1, "état renvoyé : " + etats);
+            helper.assertTrue(simule.messagesRecus().stream().noneMatch(m -> m.contains("quest.claim")),
+                    "un clic périmé ne dit rien d'autre que l'état");
+        } finally {
+            simule.quitter();
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_PAQUETS)
+    public static void deuxPaquetsDeReclamationDansLeMemeTick(GameTestHelper helper) {
+        MinecraftServer server = helper.getLevel().getServer();
+        JoueurDeTest simule = JoueurDeTest.rejoindre(helper.getLevel(), "QuetePaquetDouble", helper.absoluteVec(ICI));
+        try {
+            ServerPlayer joueur = simule.joueur();
+            QuestRef ref = poser(joueur, finie("essai_a", 37L));
+            long[] avant = registre(server);
+            simule.messagesRecus();
+            simule.envoyer(QuestActionPacket.claim(ref));
+            simule.envoyer(QuestActionPacket.claim(ref));
+            helper.assertTrue(porte(joueur) == 37L, "porté : " + porte(joueur));
+            long[] apres = registre(server);
+            helper.assertTrue(apres[0] == avant[0] + 37L && apres[1] == avant[1] + 1L,
+                    "registre : +" + (apres[0] - avant[0]) + " en " + (apres[1] - avant[1]));
+            List<String> messages = simule.messagesRecus();
+            helper.assertTrue(messages.equals(List.of("message.oneforallsurvival.quest.claim.paid",
+                    "message.oneforallsurvival.quest.claim.already_claimed")), "messages : " + messages);
+            List<QuestSyncPacket> etats = simule.etatsQuetesRecus();
+            helper.assertTrue(!etats.isEmpty()
+                    && etats.get(etats.size() - 1).quests().get(0).state() == QuestSyncPacket.State.CLAIMED,
+                    "état : " + etats);
+        } finally {
+            simule.quitter();
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_PAQUETS)
+    public static void uneRelanceParPaquetPuisRefus(GameTestHelper helper) {
+        JoueurDeTest simule = JoueurDeTest.rejoindre(helper.getLevel(), "QuetePaquetRelance", helper.absoluteVec(ICI));
+        try {
+            ServerPlayer joueur = simule.joueur();
+            helper.assertTrue(EconomyConfig.questRerollsPerDay() == 1,
+                    "relances réglées : " + EconomyConfig.questRerollsPerDay());
+            poser(joueur, enCours("essai_a"), enCours("essai_b"));
+            QuestBook book = QuestBook.of(joueur);
+            QuestRef premiere = book.ref(QuestRef.Kind.DAILY, 0);
+            QuestRef seconde = book.ref(QuestRef.Kind.DAILY, 1);
+            simule.messagesRecus();
+            simule.envoyer(QuestActionPacket.reroll(premiere));
+            String nouvelle = QuestBook.of(joueur).daily().get(0).templateId();
+            helper.assertTrue(!nouvelle.equals("essai_a") && !nouvelle.equals("essai_b"), "relance : " + nouvelle);
+            simule.envoyer(QuestActionPacket.reroll(seconde));
+            QuestBook apres = QuestBook.of(joueur);
+            helper.assertTrue(apres.daily().get(1).templateId().equals("essai_b")
+                    && apres.daily().get(0).templateId().equals(nouvelle), "seconde relance acceptée : " + apres.daily());
+            // La première relance rejouée (clic périmé sur la quête déjà remplacée) : rien, ni message.
+            simule.envoyer(QuestActionPacket.reroll(premiere));
+            helper.assertTrue(QuestBook.of(joueur).save().equals(apres.save()), "le carnet a bougé");
+            List<String> messages = simule.messagesRecus();
+            helper.assertTrue(messages.equals(List.of("message.oneforallsurvival.quest.reroll.done",
+                    "message.oneforallsurvival.quest.reroll.none_left")), "messages : " + messages);
+            List<QuestSyncPacket> etats = simule.etatsQuetesRecus();
+            helper.assertTrue(!etats.isEmpty() && etats.get(etats.size() - 1).rerollsLeft() == 0,
+                    "relances restantes : " + etats);
+        } finally {
+            simule.quitter();
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_PAQUETS)
+    public static void unIndexHorsDesBornesNeFaitRien(GameTestHelper helper) {
+        MinecraftServer server = helper.getLevel().getServer();
+        JoueurDeTest simule = JoueurDeTest.rejoindre(helper.getLevel(), "QuetePaquetBornes", helper.absoluteVec(ICI));
+        try {
+            ServerPlayer joueur = simule.joueur();
+            QuestRef ref = poser(joueur, finie("essai_a", 25L), enCours("essai_b"));
+            CompoundTag carnet = QuestBook.of(joueur).save();
+            long[] avant = registre(server);
+            simule.etatsQuetesRecus();
+            simule.messagesRecus();
+            int envois = 0;
+            for (int index : new int[] {-1, 2, 99, Integer.MAX_VALUE}) {
+                for (QuestRef.Kind kind : QuestRef.Kind.values()) {
+                    QuestRef faux = new QuestRef(kind, index, ref.templateId(), ref.seriesKey(), null, 0L);
+                    simule.envoyer(QuestActionPacket.claim(faux));
+                    simule.envoyer(QuestActionPacket.reroll(faux));
+                    envois += 2;
+                }
+            }
+            // Un geste inconnu et un geste sans référence : seulement l'état.
+            simule.envoyer(new QuestActionPacket(42, ref));
+            simule.envoyer(new QuestActionPacket(QuestActionPacket.CLAIM, null));
+            envois += 2;
+            helper.assertTrue(porte(joueur) == 0L, "payé : " + porte(joueur));
+            long[] apres = registre(server);
+            helper.assertTrue(apres[0] == avant[0] && apres[1] == avant[1], "registre changé");
+            helper.assertTrue(carnet.equals(QuestBook.of(joueur).save()), "le carnet a bougé");
+            List<String> messages = simule.messagesRecus();
+            helper.assertTrue(messages.isEmpty(), "message pour une référence qui ne désigne rien : " + messages);
+            int etats = simule.etatsQuetesRecus().size();
+            helper.assertTrue(etats == envois, "états renvoyés : " + etats + " pour " + envois + " paquets");
+        } finally {
+            simule.quitter();
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_PAQUETS)
+    public static void lEtatDecritLeCarnet(GameTestHelper helper) {
+        JoueurDeTest simule = JoueurDeTest.rejoindre(helper.getLevel(), "QuetePaquetEtat", helper.absoluteVec(ICI));
+        try {
+            ServerPlayer joueur = simule.joueur();
+            poser(joueur, finie("essai_a", 50L), enCours("essai_b"));
+            QuestBook book = QuestBook.of(joueur);
+            book.recordPaid(QuestService.week(MAINTENANT), 980L);
+            book.addPending(finie("essai_c", 10L), QuestService.today(MAINTENANT).minusDays(1), 8);
+            book.saveTo(joueur);
+            simule.etatsQuetesRecus();
+            simule.envoyer(QuestActionPacket.open());
+            List<QuestSyncPacket> etats = simule.etatsQuetesRecus();
+            helper.assertTrue(etats.size() == 1, "états : " + etats.size());
+            QuestSyncPacket etat = etats.get(0);
+            helper.assertTrue(etat.capPaid() == 980L && etat.cap() == 1_000L && etat.pendingCount() == 1
+                    && etat.rerollsLeft() == 1, "en-tête : " + etat);
+            helper.assertTrue(etat.dailyResetIn() > 0L && etat.weeklyResetIn() >= etat.dailyResetIn(),
+                    "renouvellements : " + etat.dailyResetIn() + ", " + etat.weeklyResetIn());
+            helper.assertTrue(etat.quests().size() == 2, "quêtes : " + etat.quests());
+            QuestSyncPacket.Entry finieVue = etat.quests().get(0);
+            // Somme payable maintenant : ce que le plafond laisse (20 sur 50).
+            helper.assertTrue(finieVue.ref().equals(QuestBook.of(joueur).ref(QuestRef.Kind.DAILY, 0))
+                    && finieVue.payable() == 20L && finieVue.reward() == 50L
+                    && finieVue.state() == QuestSyncPacket.State.COMPLETE, "finie : " + finieVue);
+            QuestSyncPacket.Entry enCoursVue = etat.quests().get(1);
+            helper.assertTrue(enCoursVue.progress() == 3 && enCoursVue.goal() == 10 && enCoursVue.payable() == 0L
+                    && !enCoursVue.icon().isEmpty() && enCoursVue.state() == QuestSyncPacket.State.IN_PROGRESS,
+                    "en cours : " + enCoursVue);
+        } finally {
+            simule.quitter();
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_PAQUETS)
+    public static void lAttenteSeReclameEnUnGeste(GameTestHelper helper) {
+        JoueurDeTest simule = JoueurDeTest.rejoindre(helper.getLevel(), "QuetePaquetAttente", helper.absoluteVec(ICI));
+        try {
+            ServerPlayer joueur = simule.joueur();
+            poser(joueur);
+            QuestBook book = QuestBook.of(joueur);
+            LocalDate hier = QuestService.today(MAINTENANT).minusDays(1);
+            book.addPending(finie("essai_a", 10L), hier, 8);
+            book.addPending(finie("essai_b", 20L), hier, 8);
+            book.addPending(finie("essai_c", 30L), hier, 8);
+            book.saveTo(joueur);
+            simule.messagesRecus();
+            simule.envoyer(QuestActionPacket.claimPendingAll());
+            helper.assertTrue(porte(joueur) == 60L, "porté : " + porte(joueur));
+            helper.assertTrue(QuestBook.of(joueur).pending().isEmpty(), "attente : " + QuestBook.of(joueur).pending());
+            List<String> messages = simule.messagesRecus();
+            helper.assertTrue(messages.equals(List.of("message.oneforallsurvival.quest.pending.done")),
+                    "messages : " + messages);
+            // Plus rien en attente : un second geste ne paie rien.
+            simule.envoyer(QuestActionPacket.claimPendingAll());
+            helper.assertTrue(porte(joueur) == 60L, "payé deux fois : " + porte(joueur));
+        } finally {
+            simule.quitter();
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_PAQUETS, timeoutTicks = 60)
+    public static void unJoueurMarqueSaleRecoitUnSeulEtat(GameTestHelper helper) {
+        JoueurDeTest simule = JoueurDeTest.rejoindre(helper.getLevel(), "QuetePaquetSale", helper.absoluteVec(ICI));
+        ServerPlayer joueur = simule.joueur();
+        poser(joueur, enCours("essai_a"));
+        simule.etatsQuetesRecus();
+        QuestService.markDirty(joueur);
+        QuestService.markDirty(joueur);
+        QuestService.markDirty(joueur);
+        helper.assertTrue(QuestService.isDirty(joueur), "non marqué");
+        helper.runAfterDelay(QuestService.SYNC_TICKS + 1, () -> {
+            try {
+                int n = simule.etatsQuetesRecus().size();
+                helper.assertTrue(n == 1, "états envoyés : " + n);
+                helper.assertTrue(!QuestService.isDirty(joueur), "toujours marqué");
+            } finally {
+                simule.quitter();
+            }
+            helper.succeed();
+        });
     }
 
     /** Une source de commande qui garde ce qu'on lui dit. */

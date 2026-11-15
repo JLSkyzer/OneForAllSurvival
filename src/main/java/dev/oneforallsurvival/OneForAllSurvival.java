@@ -131,6 +131,7 @@ public final class OneForAllSurvival {
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.quest.QuestService::onServerStarted);
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.quest.QuestService::onLoggedIn);
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.quest.QuestService::onServerTick);
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.quest.QuestService::onLoggedOut);
         // Progression des quêtes par les gestes : les derniers à parler, jamais sur un geste annulé (le combat
         // excepté : un mod qui annule les objets lâchés n'annule pas la mort). Marque « posé » dans chaque chunk.
         modEventBus.addListener(dev.oneforallsurvival.economy.quest.PlacedBlocks::onRegisterCapabilities);

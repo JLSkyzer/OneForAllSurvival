@@ -1,6 +1,7 @@
 package dev.oneforallsurvival.economy.quest;
 
 import com.mojang.logging.LogUtils;
+import dev.oneforallsurvival.bench.BenchNetwork;
 import dev.oneforallsurvival.economy.Coin;
 import dev.oneforallsurvival.economy.CoinMath;
 import dev.oneforallsurvival.economy.EconomyCalendar;
@@ -20,6 +21,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -28,6 +30,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.common.util.FakePlayer;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.network.PacketDistributor;
 import org.slf4j.Logger;
 
 /**
@@ -44,6 +47,10 @@ public final class QuestService {
     private static final Logger LOGGER = LogUtils.getLogger();
     /** Le tic de contrôle des séries des joueurs en ligne. */
     public static final int CHECK_TICKS = 20;
+    /** L'envoi de l'état aux joueurs marqués sales : au plus une fois toutes les {@value} ticks. */
+    public static final int SYNC_TICKS = 10;
+    /** Les joueurs dont l'état des quêtes a changé depuis le dernier envoi. */
+    private static final Set<UUID> DIRTY = ConcurrentHashMap.newKeySet();
     static final String MESSAGE = "message.oneforallsurvival.quest.";
 
     public enum ClaimResult { PAID, CAPPED_PARTIAL, CAP_REACHED, NO_ROOM, NOT_COMPLETE, ALREADY_CLAIMED, STALE, CREATIVE }
@@ -159,29 +166,66 @@ public final class QuestService {
         QuestBoard.get(event.getServer());
     }
 
-    /** À la connexion. */
+    /** À la connexion : séries renouvelées, puis l'état part tout de suite au client. */
     public static void onLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer player && !(player instanceof FakePlayer)) {
-            refresh(player, EconomyClock.now());
+            long now = EconomyClock.now();
+            refresh(player, now);
+            sendState(player, now);
         }
     }
 
-    /** Toutes les {@value #CHECK_TICKS} ticks, pour les joueurs en ligne. */
+    public static void onLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
+        DIRTY.remove(event.getEntity().getUUID());
+    }
+
+    /**
+     * Toutes les {@value #CHECK_TICKS} ticks, pour les joueurs en ligne : renouvellement. Toutes les
+     * {@value #SYNC_TICKS} ticks : l'état part aux joueurs marqués sales (au plus une fois par période).
+     */
     public static void onServerTick(TickEvent.ServerTickEvent event) {
-        if (event.phase != TickEvent.Phase.END || event.getServer().getTickCount() % CHECK_TICKS != 0) {
+        if (event.phase != TickEvent.Phase.END) {
             return;
         }
+        int tick = event.getServer().getTickCount();
         long now = EconomyClock.now();
-        for (ServerPlayer player : List.copyOf(event.getServer().getPlayerList().getPlayers())) {
-            if (!(player instanceof FakePlayer)) {
-                refresh(player, now);
+        if (tick % CHECK_TICKS == 0) {
+            for (ServerPlayer player : List.copyOf(event.getServer().getPlayerList().getPlayers())) {
+                if (!(player instanceof FakePlayer)) {
+                    refresh(player, now);
+                }
+            }
+        }
+        if (tick % SYNC_TICKS == 0 && !DIRTY.isEmpty()) {
+            for (UUID id : List.copyOf(DIRTY)) {
+                DIRTY.remove(id);
+                ServerPlayer player = event.getServer().getPlayerList().getPlayer(id);
+                if (player != null) {
+                    sendState(player, now);
+                }
             }
         }
     }
 
-    /** L'état des quêtes du joueur a changé (la tâche 5 y branche l'envoi au client). */
+    /** L'état des quêtes du joueur a changé : il partira au client au prochain envoi groupé. */
     public static void markDirty(ServerPlayer player) {
-        // Rien encore : l'écran des quêtes (tâche 5) s'y branche.
+        if (!(player instanceof FakePlayer)) {
+            DIRTY.add(player.getUUID());
+        }
+    }
+
+    /** Vrai si l'état du joueur attend l'envoi groupé (essais). */
+    public static boolean isDirty(ServerPlayer player) {
+        return DIRTY.contains(player.getUUID());
+    }
+
+    /** Envoie l'état des quêtes du joueur tout de suite (demande, geste, connexion) ; il n'est plus marqué sale. */
+    public static void sendState(ServerPlayer player, long now) {
+        DIRTY.remove(player.getUUID());
+        if (player instanceof FakePlayer || player.connection == null) {
+            return;
+        }
+        BenchNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), QuestSyncPacket.of(player, now));
     }
 
     // ---------------------------------------------------------------------------------------------

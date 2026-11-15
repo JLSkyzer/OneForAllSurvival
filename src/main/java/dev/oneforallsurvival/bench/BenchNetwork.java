@@ -7,6 +7,8 @@ import dev.oneforallsurvival.debug.IslandDebugRequest;
 import dev.oneforallsurvival.debug.IslandDebugResponse;
 import dev.oneforallsurvival.economy.PurseActionPacket;
 import dev.oneforallsurvival.economy.SafeActionPacket;
+import dev.oneforallsurvival.economy.quest.QuestActionPacket;
+import dev.oneforallsurvival.economy.quest.QuestSyncPacket;
 import dev.oneforallsurvival.economy.town.TownFinancesPacket;
 import dev.oneforallsurvival.economy.town.TreasuryActionPacket;
 import dev.oneforallsurvival.economy.invoice.InvoiceFormPacket;
@@ -38,15 +40,18 @@ import net.minecraftforge.network.simple.SimpleChannel;
 import org.slf4j.Logger;
 
 /**
- * Le canal réseau du mod (né avec l'établi), protocole « 6 » : client et serveur doivent concorder. Chaque paquet du
+ * Le canal réseau du mod (né avec l'établi), protocole « 8 » : client et serveur doivent concorder. Chaque paquet du
  * client est traité sur le thread du serveur, et revalide tout : rôle, distance, menu ouvert. Un client
  * n'est jamais cru sur parole.
  */
 public final class BenchNetwork {
 
     public static final ResourceLocation CHANNEL_ID = new ResourceLocation(OneForAllSurvival.MODID, "bench");
-    /** « 7 » depuis le trésor (lot E3, une seule montée pour tout le lot) : un serveur plus ancien ne le lit pas. */
-    private static final String PROTOCOL = "7";
+    /**
+     * « 8 » depuis l'écran des quêtes (lot E5, une seule montée pour tout le lot) : un client ou un serveur plus ancien
+     * ne le lit pas.
+     */
+    private static final String PROTOCOL = "8";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(CHANNEL_ID, () -> PROTOCOL,
             PROTOCOL::equals, PROTOCOL::equals);
@@ -85,6 +90,9 @@ public final class BenchNetwork {
     public static final int ID_TREASURY_ACTION = 20;
     /** Lot E3 : les comptes publics de la ville (solde du trésor, salaires dus), pour le tableau de la mairie. */
     public static final int ID_TOWN_FINANCES = 21;
+    /** Lot E5 : l'état des quêtes d'un joueur (serveur vers client) et un geste de son écran (client vers serveur). */
+    public static final int ID_QUEST_SYNC = 22;
+    public static final int ID_QUEST_ACTION = 23;
 
     /** Clé de traduction d'un refus : {@code message.oneforallsurvival.bench.refused.<résultat>}. */
     public static final String REFUSED_KEY = "message.oneforallsurvival.bench.refused.";
@@ -163,6 +171,12 @@ public final class BenchNetwork {
         CHANNEL.messageBuilder(TownFinancesPacket.class, ID_TOWN_FINANCES, NetworkDirection.PLAY_TO_CLIENT)
                 .encoder(TownFinancesPacket::encode).decoder(TownFinancesPacket::decode)
                 .consumerMainThread(TownFinancesPacket::handle).add();
+        CHANNEL.messageBuilder(QuestSyncPacket.class, ID_QUEST_SYNC, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(QuestSyncPacket::encode).decoder(QuestSyncPacket::decode)
+                .consumerMainThread(QuestSyncPacket::handle).add();
+        CHANNEL.messageBuilder(QuestActionPacket.class, ID_QUEST_ACTION, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(QuestActionPacket::encode).decoder(QuestActionPacket::decode)
+                .consumerMainThread(QuestActionPacket::handle).add();
     }
 
     // --- Serveur vers client -----------------------------------------------------------------

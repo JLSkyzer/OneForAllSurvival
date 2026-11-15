@@ -55,6 +55,7 @@ public final class JoueurDeTest {
     private final List<dev.oneforallsurvival.economy.invoice.InvoiceFormPacket> formulairesFacture = new ArrayList<>();
     /** Les instantanés des comptes de la ville reçus (tableau de la mairie), décodés depuis les octets réellement envoyés. */
     private final List<dev.oneforallsurvival.economy.town.TownFinancesPacket> finances = new ArrayList<>();
+    private final List<dev.oneforallsurvival.economy.quest.QuestSyncPacket> etatsQuetes = new ArrayList<>();
     /** Ceux que l'entrée en jeu elle-même a envoyés, avant qu'on ne les oublie. */
     private final List<dev.oneforallsurvival.economy.town.TownFinancesPacket> financesALaConnexion = new ArrayList<>();
     /** Les clés des messages (chat ou barre d'action) reçus, dans l'ordre ; un texte brut est gardé tel quel. */
@@ -147,6 +148,14 @@ public final class JoueurDeTest {
         return out;
     }
 
+    /** Les états des quêtes reçus depuis le dernier appel (décodés comme le client les lit), retirés. */
+    public List<dev.oneforallsurvival.economy.quest.QuestSyncPacket> etatsQuetesRecus() {
+        lire();
+        List<dev.oneforallsurvival.economy.quest.QuestSyncPacket> out = new ArrayList<>(etatsQuetes);
+        etatsQuetes.clear();
+        return out;
+    }
+
     /** Les textes des messages reçus depuis le dernier appel (traduits côté serveur), retirés. */
     public List<String> textesRecus() {
         lire();
@@ -203,6 +212,8 @@ public final class JoueurDeTest {
                     registresEtal.add(dev.oneforallsurvival.economy.stall.StallLedgerPacket.decode(donnees));
                 } else if (discriminant == BenchNetwork.ID_TOWN_FINANCES) {
                     finances.add(dev.oneforallsurvival.economy.town.TownFinancesPacket.decode(donnees));
+                } else if (discriminant == BenchNetwork.ID_QUEST_SYNC) {
+                    etatsQuetes.add(dev.oneforallsurvival.economy.quest.QuestSyncPacket.decode(donnees));
                 } else if (discriminant == BenchNetwork.ID_INVOICE_FORM) {
                     formulairesFacture.add(dev.oneforallsurvival.economy.invoice.InvoiceFormPacket.decode(donnees));
                 }

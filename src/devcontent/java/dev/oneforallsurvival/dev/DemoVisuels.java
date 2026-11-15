@@ -130,7 +130,7 @@ public final class DemoVisuels {
     private static final boolean ACTIF = System.getProperty("oneforallsurvival.demo.visuels") != null;
     /**
      * {@code etal} ou {@code commerce} : ne jouer que les captures du commerce ; {@code tresor} : que celles du trésor et du
-     * tableau de la mairie (contrôle rapide d'une tâche), sans les autres.
+     * tableau de la mairie ; {@code quetes} : que celles de l'écran des quêtes (contrôle rapide d'une tâche), sans les autres.
      */
     private static final String SEUL = System.getProperty("oneforallsurvival.demo.visuels.seul", "");
     private static final String MONDE = "demo_visuels";
@@ -249,7 +249,9 @@ public final class DemoVisuels {
         }
         dansUneEtape = true;
         Minecraft mc = Minecraft.getInstance();
-        mc.getToasts().clear();
+        if (!garderToasts) {
+            mc.getToasts().clear();
+        }
         try {
             avancer(mc);
         } catch (RuntimeException | IOException e) {
@@ -814,6 +816,10 @@ public final class DemoVisuels {
             construireTresor(mc);
             return;
         }
+        if ("quetes".equals(SEUL)) {
+            construireQuetes(mc);
+            return;
+        }
         Vec3 sudEst = new Vec3(1.35, 1.0, 1.75);
         etape("vue calage", () -> regarder(mc, BAINS[0], sudEst, false), () -> true, 3000, null);
         for (int i = 0; i < 4; i++) {
@@ -1361,6 +1367,7 @@ public final class DemoVisuels {
         }, () -> true, 800, null);
         commerce(mc);
         construireTresor(mc);
+        construireQuetes(mc);
     }
 
     // ================================================================================================
@@ -2205,5 +2212,243 @@ public final class DemoVisuels {
         phase = Phase.FIN;
         LOG.info("[visuels] terminé : {} images, {}", images, echec == null ? "sans erreur" : echec);
         mc.stop();
+    }
+
+    // ================================================================================================
+    // Lot E5 : l'écran des quêtes
+    // ================================================================================================
+
+    /** Vrai pendant la capture du toast : les notifications ne sont pas effacées à chaque image. */
+    private static volatile boolean garderToasts;
+    private static final java.util.Set<String> QUETES_JOURNAL = new java.util.HashSet<>();
+    private static final java.time.LocalDate JOUR_DEMO = java.time.LocalDate.of(2026, 11, 18);
+    private static final String TITRE_64 = "Rassembler les vivres du grand banquet de la fête du solstice !!";
+    /** 1 rubis 3 émeraudes 9 or 5 argent 7 cuivres : une récompense à cinq coupures. */
+    private static final long CINQ_COUPURES = 13_957L;
+
+    /**
+     * L'écran des quêtes avec un état imposé chez le client (le serveur n'envoie rien tant que le carnet ne change pas) :
+     * le contenu le plus long dans l'interface de 320 × 240 (onglet des quêtes, des événements, bulles du titre coupé,
+     * de la récompense coupée et de l'attente), le plus court, le plafond atteint et réduit, le toast, puis les mêmes
+     * dans une grande interface (640 × 360), et l'écran Contrôles sur la touche des quêtes (le pack est chargé).
+     */
+    private static void construireQuetes(Minecraft mc) {
+        etape("quetes debut", () -> {
+            fermer(mc);
+            mc.options.hideGui = false;
+            mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+            journaliserTouche(mc);
+        }, () -> true, 500, null);
+        taille(mc, 960, 720, 3, 320, 240);
+        ecranQuetes(mc, "320 long", etatLePlusLong(), 0, null, "quetes_320_long.png");
+        ecranQuetes(mc, "320 evenements", etatLePlusLong(), 1, null, "quetes_320_evenements.png");
+        ecranQuetes(mc, "320 bulle titre", etatLePlusLong(), 0, "title:0:0", "quetes_320_bulle_titre.png");
+        ecranQuetes(mc, "320 bulle recompense", etatLePlusLong(), 0, "reward:0:1", "quetes_320_bulle_recompense.png");
+        ecranQuetes(mc, "320 bulle attente", etatLePlusLong(), 0, "pending", "quetes_320_bulle_attente.png");
+        ecranQuetes(mc, "320 bulle evenement", etatLePlusLong(), 1, "title:0:7", "quetes_320_bulle_evenement.png");
+        ecranQuetes(mc, "320 court", etatLePlusCourt(), 0, null, "quetes_320_court.png");
+        ecranQuetes(mc, "320 plafond", etatPlafond(1_000L), 0, "button:0:0", "quetes_320_plafond.png");
+        ecranQuetes(mc, "320 plafond partiel", etatPlafond(980L), 0, "button:0:0", "quetes_320_plafond_partiel.png");
+        toastQuete(mc, "quetes_320_toast.png");
+        taille(mc, 1280, 720, 2, 640, 360);
+        ecranQuetes(mc, "grand long", etatLePlusLong(), 0, null, "quetes_grand_long.png");
+        ecranQuetes(mc, "grand evenements", etatLePlusLong(), 1, null, "quetes_grand_evenements.png");
+        ecranQuetes(mc, "grand court", etatLePlusCourt(), 0, null, "quetes_grand_court.png");
+        ecranQuetes(mc, "grand plafond", etatPlafond(1_000L), 0, "button:0:0", "quetes_grand_plafond.png");
+        toastQuete(mc, "quetes_grand_toast.png");
+        etape("controles ouverture", () -> {
+            fermer(mc);
+            mc.setScreen(new net.minecraft.client.gui.screens.controls.KeyBindsScreen(null, mc.options));
+        }, () -> mc.screen instanceof net.minecraft.client.gui.screens.controls.KeyBindsScreen, 800, null);
+        etape("controles touche des quetes", () -> defilerVersLaTouche(mc), () -> true, 800,
+                "quetes_controles_touche.png");
+        etape("fin des quetes", () -> {
+            fermer(mc);
+            dev.oneforallsurvival.economy.quest.client.QuestClientCache.clear();
+        }, () -> true, 300, null);
+    }
+
+    /** Fenêtre de {@code l} × {@code h} pixels à l'échelle {@code echelle}, attendue à {@code guiL} × {@code guiH}. */
+    private static void taille(Minecraft mc, int l, int h, int echelle, int guiL, int guiH) {
+        etape("taille " + guiL + "x" + guiH, () -> {
+            fermer(mc);
+            org.lwjgl.glfw.GLFW.glfwSetWindowSize(mc.getWindow().getWindow(), l, h);
+            mc.options.guiScale().set(echelle);
+            mc.resizeDisplay();
+        }, () -> {
+            if (mc.getWindow().getGuiScaledWidth() == guiL && mc.getWindow().getGuiScaledHeight() == guiH) {
+                return true;
+            }
+            mc.resizeDisplay();
+            return false;
+        }, 800, null);
+    }
+
+    private static void ecranQuetes(Minecraft mc, String nom, dev.oneforallsurvival.economy.quest.QuestSyncPacket etat,
+            int onglet, String bulle, String image) {
+        etape("quetes " + nom, () -> {
+            fermer(mc);
+            dev.oneforallsurvival.economy.quest.client.QuestClientCache.clear();
+            dev.oneforallsurvival.economy.quest.client.QuestClientCache.accept(etat);
+            var ecran = new dev.oneforallsurvival.economy.quest.client.QuestScreen();
+            mc.setScreen(ecran);
+            ecran.showTab(onglet);
+            ecran.pinHover(bulle);
+        }, () -> {
+            if (!(mc.screen instanceof dev.oneforallsurvival.economy.quest.client.QuestScreen ecran)
+                    || ecran.layout() == null) {
+                return false;
+            }
+            if (QUETES_JOURNAL.add(nom)) {
+                var l = ecran.layout();
+                LOG.info("[visuels] quetes {} : cadre {}x{} en ({}, {}) dans une interface de {}x{}, defilement {}",
+                        nom, l.frame().w(), l.frame().h(), l.frame().x(), l.frame().y(),
+                        mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight(), l.scrollMax());
+            }
+            return true;
+        }, 1000, image);
+    }
+
+    /** Deux états successifs : la quête passe de « en cours » à « finie », le cache ajoute le toast. */
+    private static void toastQuete(Minecraft mc, String image) {
+        etape("toast " + image, () -> {
+            fermer(mc);
+            garderToasts = true;
+            mc.getToasts().clear();
+            dev.oneforallsurvival.economy.quest.client.QuestClientCache.clear();
+            dev.oneforallsurvival.economy.quest.client.QuestClientCache.accept(etatToast(false));
+            dev.oneforallsurvival.economy.quest.client.QuestClientCache.accept(etatToast(true));
+        }, () -> true, 1500, image);
+        etape("fin du toast " + image, () -> {
+            garderToasts = false;
+            mc.getToasts().clear();
+        }, () -> true, 200, null);
+    }
+
+    /** Note au journal la touche des quêtes et toute touche qui la partage (ce que Contrôles montre en rouge). */
+    private static void journaliserTouche(Minecraft mc) {
+        net.minecraft.client.KeyMapping quetes = dev.oneforallsurvival.economy.quest.client.QuestKeys.OPEN;
+        List<String> conflits = new ArrayList<>();
+        for (net.minecraft.client.KeyMapping k : mc.options.keyMappings) {
+            if (k != quetes && (k.same(quetes) || quetes.same(k))) {
+                conflits.add(k.getName() + " (" + k.getCategory() + ")");
+            }
+        }
+        LOG.info("[visuels] touche des quetes : {} parmi {} touches, conflits : {}", quetes.getKey().getName(),
+                mc.options.keyMappings.length, conflits.isEmpty() ? "aucun" : conflits);
+    }
+
+    /** Fait défiler la liste de Contrôles jusqu'à la touche des quêtes (champ privé lu par son type). */
+    private static void defilerVersLaTouche(Minecraft mc) {
+        if (!(mc.screen instanceof net.minecraft.client.gui.screens.controls.KeyBindsScreen ecran)) {
+            throw new IllegalStateException("Contrôles n'est pas ouvert : " + mc.screen);
+        }
+        try {
+            for (Field champ : net.minecraft.client.gui.screens.controls.KeyBindsScreen.class.getDeclaredFields()) {
+                if (champ.getType() != net.minecraft.client.gui.screens.controls.KeyBindsList.class) {
+                    continue;
+                }
+                champ.setAccessible(true);
+                var liste = (net.minecraft.client.gui.screens.controls.KeyBindsList) champ.get(ecran);
+                var lignes = liste.children();
+                for (int i = 0; i < lignes.size(); i++) {
+                    for (Field f : lignes.get(i).getClass().getDeclaredFields()) {
+                        if (f.getType() == net.minecraft.client.KeyMapping.class) {
+                            f.setAccessible(true);
+                            if (f.get(lignes.get(i)) == dev.oneforallsurvival.economy.quest.client.QuestKeys.OPEN) {
+                                liste.setScrollAmount(Math.max(0, i * 20 - 60));
+                                LOG.info("[visuels] Contrôles : touche des quetes à la ligne {} sur {}", i, lignes.size());
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException(e);
+        }
+        throw new IllegalStateException("touche des quêtes absente de Contrôles");
+    }
+
+    private static dev.oneforallsurvival.economy.quest.QuestSyncPacket.Entry quete(
+            dev.oneforallsurvival.economy.quest.QuestRef ref, Component titre, net.minecraft.world.item.Item icone,
+            int progres, int but, long recompense, long payable,
+            dev.oneforallsurvival.economy.quest.QuestSyncPacket.State etat) {
+        return new dev.oneforallsurvival.economy.quest.QuestSyncPacket.Entry(ref, titre, new ItemStack(icone), progres, but,
+                recompense, payable, etat);
+    }
+
+    private static dev.oneforallsurvival.economy.quest.QuestRef ref(dev.oneforallsurvival.economy.quest.QuestRef.Kind kind,
+            int index) {
+        return new dev.oneforallsurvival.economy.quest.QuestRef(kind, index, "demo_" + kind + "_" + index, JOUR_DEMO);
+    }
+
+    private static Component modele(String id, int but) {
+        return Component.translatable("quest.oneforallsurvival.template." + id, but);
+    }
+
+    /**
+     * Le contenu le plus long : titre de 64 caractères, titres livrés les plus longs, récompenses à cinq coupures,
+     * progressions à quatre chiffres, 3 + 5 quêtes, attente pleine (8), huit événements, plafond à neuf chiffres,
+     * cinq relances, les deux renouvellements à 23 h 59.
+     */
+    private static dev.oneforallsurvival.economy.quest.QuestSyncPacket etatLePlusLong() {
+        var D = dev.oneforallsurvival.economy.quest.QuestRef.Kind.DAILY;
+        var W = dev.oneforallsurvival.economy.quest.QuestRef.Kind.WEEKLY;
+        var FINIE = dev.oneforallsurvival.economy.quest.QuestSyncPacket.State.COMPLETE;
+        var EN_COURS = dev.oneforallsurvival.economy.quest.QuestSyncPacket.State.IN_PROGRESS;
+        var RECLAMEE = dev.oneforallsurvival.economy.quest.QuestSyncPacket.State.CLAIMED;
+        long r = CINQ_COUPURES;
+        List<dev.oneforallsurvival.economy.quest.QuestSyncPacket.Entry> q = new ArrayList<>();
+        q.add(quete(ref(D, 0), Component.literal(TITRE_64), Items.CAKE, 9999, 9999, r, r, FINIE));
+        q.add(quete(ref(D, 1), modele("harvest_potatoes", 1280), Items.POTATO, 1279, 1280, r, 0, EN_COURS));
+        q.add(quete(ref(D, 2), modele("breed_animals", 1280), Items.EGG, 999, 1280, r, 0, EN_COURS));
+        q.add(quete(ref(W, 0), modele("harvest_potatoes", 9999), Items.POTATO, 9999, 9999, r, r, FINIE));
+        q.add(quete(ref(W, 1), modele("cook_meals", 9999), Items.BOWL, 4321, 9999, r, 0, EN_COURS));
+        q.add(quete(ref(W, 2), modele("mine_copper", 9999), Items.COPPER_ORE, 9999, 9999, r, 0, RECLAMEE));
+        q.add(quete(ref(W, 3), modele("kill_skeletons", 9999), Items.SKELETON_SPAWN_EGG, 1, 9999, r, 0, EN_COURS));
+        q.add(quete(ref(W, 4), modele("place_bricks", 9999), Items.BRICKS, 0, 9999, r, 0, EN_COURS));
+        for (int i = 0; i < 8; i++) {
+            q.add(quete(dev.oneforallsurvival.economy.quest.QuestRef.event("evenement_" + i, 1_000L + i),
+                    Component.literal(TITRE_64), Items.FIREWORK_ROCKET, i == 0 ? 9999 : 1234, 9999, r, i == 0 ? r : 0,
+                    i == 0 ? FINIE : EN_COURS));
+        }
+        long minuit = (23L * 60L + 59L) * 60_000L;
+        return new dev.oneforallsurvival.economy.quest.QuestSyncPacket(999_999_999L - r, 999_999_999L, 5, minuit, minuit, 8,
+                q);
+    }
+
+    /** Le contenu le plus court : une quête, aucune attente, aucun événement, pas de relance, renouvellement proche. */
+    private static dev.oneforallsurvival.economy.quest.QuestSyncPacket etatLePlusCourt() {
+        var q = List.of(quete(ref(dev.oneforallsurvival.economy.quest.QuestRef.Kind.DAILY, 0), modele("fish", 6),
+                Items.COD, 0, 6, 15L, 0L, dev.oneforallsurvival.economy.quest.QuestSyncPacket.State.IN_PROGRESS));
+        return new dev.oneforallsurvival.economy.quest.QuestSyncPacket(0L, 1_000L, 0, 3L * 60_000L, 4L * 24L * 3_600_000L, 0,
+                q);
+    }
+
+    /** Le plafond payé à {@code paye} sur 1 000 : deux journalières finies, la seconde partiellement payable ou pas. */
+    private static dev.oneforallsurvival.economy.quest.QuestSyncPacket etatPlafond(long paye) {
+        var D = dev.oneforallsurvival.economy.quest.QuestRef.Kind.DAILY;
+        var W = dev.oneforallsurvival.economy.quest.QuestRef.Kind.WEEKLY;
+        var FINIE = dev.oneforallsurvival.economy.quest.QuestSyncPacket.State.COMPLETE;
+        var EN_COURS = dev.oneforallsurvival.economy.quest.QuestSyncPacket.State.IN_PROGRESS;
+        long reste = Math.max(0L, 1_000L - paye);
+        List<dev.oneforallsurvival.economy.quest.QuestSyncPacket.Entry> q = new ArrayList<>();
+        q.add(quete(ref(D, 0), modele("mine_iron", 6), Items.IRON_ORE, 6, 6, 50L, Math.min(50L, reste), FINIE));
+        q.add(quete(ref(D, 1), modele("break_logs", 40), Items.OAK_LOG, 40, 40, 15L, Math.min(15L, reste), FINIE));
+        q.add(quete(ref(D, 2), modele("fish", 8), Items.COD, 2, 8, 20L, 0L, EN_COURS));
+        q.add(quete(ref(W, 0), modele("break_stone", 400), Items.STONE, 400, 400, 62L, Math.min(62L, reste), FINIE));
+        q.add(quete(ref(W, 1), modele("kill_monsters", 60), Items.ZOMBIE_SPAWN_EGG, 31, 60, 90L, 0L, EN_COURS));
+        return new dev.oneforallsurvival.economy.quest.QuestSyncPacket(paye, 1_000L, 1, 5L * 3_600_000L + 12L * 60_000L,
+                3L * 24L * 3_600_000L, 0, q);
+    }
+
+    /** L'état d'avant et d'après pour le toast : la même quête, en cours puis finie. */
+    private static dev.oneforallsurvival.economy.quest.QuestSyncPacket etatToast(boolean finie) {
+        var q = List.of(quete(ref(dev.oneforallsurvival.economy.quest.QuestRef.Kind.DAILY, 0),
+                modele("harvest_potatoes", 128), Items.POTATO, finie ? 128 : 127, 128, 25L, finie ? 25L : 0L,
+                finie ? dev.oneforallsurvival.economy.quest.QuestSyncPacket.State.COMPLETE
+                        : dev.oneforallsurvival.economy.quest.QuestSyncPacket.State.IN_PROGRESS));
+        return new dev.oneforallsurvival.economy.quest.QuestSyncPacket(0L, 1_000L, 1, 3_600_000L, 3_600_000L, 0, q);
     }
 }
