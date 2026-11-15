@@ -1,11 +1,14 @@
 package dev.oneforallsurvival.economy.quest;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.ToLongFunction;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
@@ -58,6 +61,38 @@ public final class RecentPlacements {
             }
         }
         return Optional.empty();
+    }
+
+    /** Une pose retenue rendue par {@link #takeAllAt}. */
+    public record Taken(UUID player, String countedKey) {}
+
+    /**
+     * Retire toutes les poses retenues à cette position, tous joueurs confondus, et rend celles qui datent de moins de
+     * {@code windowTicks} selon l'horloge de chaque joueur ({@code now}). Pour un bloc qui quitte sa case de lui-même
+     * (bloc qui tombe) : sa pose n'a pas tenu.
+     */
+    public List<Taken> takeAllAt(ResourceKey<Level> dimension, BlockPos pos, ToLongFunction<UUID> now,
+            long windowTicks) {
+        List<Taken> out = new ArrayList<>();
+        long packed = pos.asLong();
+        for (Iterator<Map.Entry<UUID, ArrayDeque<Entry>>> players = byPlayer.entrySet().iterator(); players.hasNext();) {
+            Map.Entry<UUID, ArrayDeque<Entry>> player = players.next();
+            long gameTime = now.applyAsLong(player.getKey());
+            for (Iterator<Entry> it = player.getValue().iterator(); it.hasNext();) {
+                Entry entry = it.next();
+                if (entry.pos() == packed && entry.dimension().equals(dimension)) {
+                    it.remove();
+                    long age = gameTime - entry.gameTime();
+                    if (age >= 0 && age < windowTicks) {
+                        out.add(new Taken(player.getKey(), entry.countedKey()));
+                    }
+                }
+            }
+            if (player.getValue().isEmpty()) {
+                players.remove();
+            }
+        }
+        return out;
     }
 
     /** Oublie les poses de ce joueur plus vieilles que la fenêtre : elles ne retireraient plus rien. */

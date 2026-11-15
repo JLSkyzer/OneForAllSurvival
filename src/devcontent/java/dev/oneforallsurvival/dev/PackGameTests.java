@@ -1077,6 +1077,84 @@ public final class PackGameTests {
                 .thenSucceed();
     }
 
+    /**
+     * Les poses de Create sans événement de Forge sont marquées : deux chemins réels appelés par réflexion, un tuyau
+     * de lave qui se vide dans de l'eau ({@code FluidReactions.handlePipeSpillCollision}, réaction de repli de Create : pierre) et le pavage
+     * d'une voie ({@code TrackPaver.placeBlockIfFree}, granite). Les deux blocs sont marqués, leur casse par un vrai
+     * joueur n'avance pas sa quête de pierre ; témoin du gabarit : 1. Le rouleau mécanique
+     * ({@code RollerMovementBehaviour.tryFill}) n'est pas monté ici (il faut une contraption en marche et son
+     * {@code MovementContext}) : son mixin n'est vérifié qu'au bytecode et à la refmap.
+     */
+    @GameTest(template = "test/plancher", batch = "pack_quetes")
+    public static void lesPosesSansEvenementDeCreateSontMarquees(GameTestHelper helper) throws Exception {
+        if (!ModList.get().isLoaded("create")) {
+            helper.succeed();
+            return;
+        }
+        ButinGameTests.degager(helper);
+        var level = helper.getLevel();
+        var maintenant = java.time.Instant.parse("2026-11-18T12:00:00Z").toEpochMilli();
+        JoueurDeTest simule = JoueurDeTest.rejoindre(level, "QueteCreatePoses",
+                helper.absoluteVec(new net.minecraft.world.phys.Vec3(6.5, 1, 7.5)));
+        try {
+            var joueur = simule.joueur();
+            var coin = helper.absoluteVec(new net.minecraft.world.phys.Vec3(6.5, 1, 7.5));
+            joueur.teleportTo(coin.x, coin.y, coin.z);
+            joueur.gameMode.changeGameModeForPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+            var book = new dev.oneforallsurvival.economy.quest.QuestBook();
+            book.setSeries(dev.oneforallsurvival.economy.quest.QuestGenerator.Series.DAILY,
+                    dev.oneforallsurvival.economy.quest.QuestService.today(maintenant),
+                    List.of(new dev.oneforallsurvival.economy.quest.Quest("essai_pierre",
+                            dev.oneforallsurvival.economy.quest.QuestCategory.BREAK,
+                            dev.oneforallsurvival.economy.quest.QuestTarget.parse("#minecraft:base_stone_overworld")
+                                    .orElseThrow(), 4, 10L, 0, false, null)));
+            book.setSeries(dev.oneforallsurvival.economy.quest.QuestGenerator.Series.WEEKLY,
+                    dev.oneforallsurvival.economy.quest.QuestService.week(maintenant), List.of());
+            book.saveTo(joueur);
+            java.util.function.IntSupplier progres = () ->
+                    dev.oneforallsurvival.economy.quest.QuestBook.of(joueur).daily().get(0).progress();
+            joueur.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+                    new ItemStack(net.minecraft.world.item.Items.DIAMOND_PICKAXE));
+
+            BlockPos tuyau = new BlockPos(2, 1, 2);
+            helper.setBlock(tuyau, Blocks.WATER);
+            Class.forName("com.simibubi.create.content.fluids.FluidReactions")
+                    .getMethod("handlePipeSpillCollision", net.minecraft.world.level.Level.class, BlockPos.class,
+                            net.minecraft.world.level.material.Fluid.class,
+                            net.minecraft.world.level.material.FluidState.class)
+                    .invoke(null, level, helper.absolutePos(tuyau), Fluids.LAVA, Fluids.WATER.getSource(false));
+            helper.assertBlockPresent(Blocks.STONE, tuyau);
+            helper.assertTrue(dev.oneforallsurvival.economy.quest.PlacedBlocks.isPlaced(level, helper.absolutePos(tuyau)),
+                    "pierre du tuyau non marquée");
+            joueur.gameMode.destroyBlock(helper.absolutePos(tuyau));
+            helper.assertBlockPresent(Blocks.AIR, tuyau);
+            helper.assertTrue(progres.getAsInt() == 0, "casse de la pierre du tuyau : " + progres.getAsInt());
+
+            BlockPos voie = new BlockPos(4, 1, 2);
+            Method paver = Class.forName("com.simibubi.create.content.trains.track.TrackPaver")
+                    .getDeclaredMethod("placeBlockIfFree", net.minecraft.world.level.Level.class, BlockPos.class,
+                            BlockState.class, boolean.class);
+            paver.setAccessible(true);
+            paver.invoke(null, level, helper.absolutePos(voie), Blocks.GRANITE.defaultBlockState(), false);
+            helper.assertBlockPresent(Blocks.GRANITE, voie);
+            helper.assertTrue(dev.oneforallsurvival.economy.quest.PlacedBlocks.isPlaced(level, helper.absolutePos(voie)),
+                    "granite du pavage non marqué");
+            joueur.gameMode.destroyBlock(helper.absolutePos(voie));
+            helper.assertTrue(progres.getAsInt() == 0, "casse du granite pavé : " + progres.getAsInt());
+
+            BlockPos temoin = new BlockPos(2, 1, 5);
+            helper.setBlock(temoin, Blocks.GRANITE);
+            joueur.gameMode.destroyBlock(helper.absolutePos(temoin));
+            helper.assertTrue(progres.getAsInt() == 1, "témoin : " + progres.getAsInt());
+        } finally {
+            if (simule.connecte()) {
+                simule.quitter();
+            }
+            ButinGameTests.ranger(helper);
+        }
+        helper.succeed();
+    }
+
     /** La vitesse d'un bloc cinétique de Create ({@code getSpeed}, lue par réflexion), pour les messages d'échec. */
     private static String vitesse(BlockEntity be) {
         if (be == null) {

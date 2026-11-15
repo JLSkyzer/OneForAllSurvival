@@ -7,7 +7,10 @@
   "compatibilityLevel": "JAVA_17",
   "mixins": [
     "CreateContraptionMixin",
-    "CreateSchematicMixin"
+    "CreateFluidReactionsMixin",
+    "CreatePavingMixin",
+    "CreateSchematicMixin",
+    "CreateTrackPaverMixin"
   ],
   "injectors": {
     "defaultRequire": 0

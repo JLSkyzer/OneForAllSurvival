@@ -477,15 +477,17 @@ public final class QuestProgressGameTests {
     // ---------------------------------------------------------------------------------------------
 
     /**
-     * Du sable posé par le joueur au-dessus d'un vide tombe : sa case d'atterrissage est marquée, sa casse à la pelle
-     * n'avance rien (ferme d'un seul bloc de sable sinon). Témoin : un sable du gabarit compte.
+     * Du sable posé par le joueur au-dessus d'un vide tombe : la pose comptée est retirée dès qu'il tombe, sa case
+     * d'atterrissage est marquée et sa casse à la pelle n'avance rien (ferme d'un seul bloc de sable sinon). Témoin : un
+     * sable du gabarit compte.
      */
     @GameTest(template = "test/plancher", batch = LOT_BLOCS2, timeoutTicks = 100)
     public static void unBlocQuiTombeNeComptePas(GameTestHelper helper) {
         ButinGameTests.degager(helper);
         JoueurDeTest simule = entrer(helper, "QueteSable");
         ServerPlayer joueur = simule.joueur();
-        carnet(joueur, quete("essai_sable", QuestCategory.BREAK, "#minecraft:sand", 4));
+        carnet(joueur, quete("essai_sable", QuestCategory.BREAK, "#minecraft:sand", 4),
+                quete("essai_pose_sable", QuestCategory.PLACE, "minecraft:sand", 4));
         BlockPos sol = new BlockPos(2, 0, 2);
         BlockPos appui = new BlockPos(2, 2, 2);
         BlockPos pose = new BlockPos(2, 3, 2);
@@ -494,6 +496,7 @@ public final class QuestProgressGameTests {
         helper.setBlock(appui, Blocks.STONE);
         poser(helper, joueur, pose, Items.SAND);
         helper.assertBlockPresent(Blocks.SAND, pose);
+        helper.assertTrue(progres(joueur, 1) == 1, "pose du sable : " + progres(joueur, 1));
         helper.setBlock(appui, Blocks.AIR);
         helper.startSequence()
                 .thenWaitUntil(() -> helper.assertBlockPresent(Blocks.SAND, arrivee))
@@ -501,6 +504,8 @@ public final class QuestProgressGameTests {
                     try {
                         helper.assertTrue(PlacedBlocks.isPlaced(helper.getLevel(), helper.absolutePos(arrivee)),
                                 "case d'atterrissage non marquée");
+                        // La pose comptée ne tient pas : le bloc est parti de lui-même.
+                        helper.assertTrue(progres(joueur, 1) == 0, "pose après la chute : " + progres(joueur, 1));
                         casser(helper, joueur, arrivee, new ItemStack(Items.IRON_SHOVEL));
                         helper.assertTrue(progres(joueur, 0) == 0, "casse du sable tombé : " + progres(joueur, 0));
                         helper.setBlock(new BlockPos(4, 1, 2), Blocks.SAND);

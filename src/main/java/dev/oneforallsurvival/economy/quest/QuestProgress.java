@@ -280,6 +280,24 @@ public final class QuestProgress {
         }
     }
 
+    /**
+     * Un bloc devient un bloc qui tombe (crochet de {@code FallingBlockEntity.fall}) : la pose récente qu'il avait fait
+     * compter est retirée, quel que soit le sort du bloc (atterrissage, torche qui le casse, vide). Sinon un seul bloc
+     * de sable reposé sans fin remplirait une quête de pose. Un joueur hors ligne garde la sienne (rare : 60 s).
+     */
+    public static void blockStartsFalling(net.minecraft.world.level.Level level, BlockPos pos) {
+        if (!(level instanceof ServerLevel server)) {
+            return;
+        }
+        for (RecentPlacements.Taken taken : RECENT.takeAllAt(server.dimension(), pos,
+                id -> server.getGameTime() + TIME_SHIFT.getOrDefault(id, 0L), undoWindowTicks())) {
+            ServerPlayer player = server.getServer().getPlayerList().getPlayer(taken.player());
+            if (player != null) {
+                undo(player, taken.countedKey());
+            }
+        }
+    }
+
     /** {@code LOWEST} : un bloc formé par un fluide (générateur de pierre, de basalte) est marqué ; le feu, non. */
     public static void onFluidPlace(BlockEvent.FluidPlaceBlockEvent event) {
         if (event.getLevel() instanceof ServerLevel level && !(event.getNewState().getBlock() instanceof BaseFireBlock)) {
