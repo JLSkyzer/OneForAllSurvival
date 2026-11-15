@@ -122,6 +122,8 @@ public final class OneForAllSurvival {
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.town.TownFinances::onServerTick);
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.town.TownFinances::onServerStopped);
         MinecraftForge.EVENT_BUS.addListener(BenchCatalog::onAddReloadListener);
+        // Le butin des mobs : table de données, rechargée avec /reload.
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.loot.MobCoinTables::onAddReloadListener);
         MinecraftForge.EVENT_BUS.addListener(BenchOverrides::onAddReloadListener);
         MinecraftForge.EVENT_BUS.addListener(BenchCatalog::onTagsUpdated);
         MinecraftForge.EVENT_BUS.addListener(BenchNetwork::onDatapackSync);

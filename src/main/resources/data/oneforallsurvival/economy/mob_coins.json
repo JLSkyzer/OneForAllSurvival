@@ -1,0 +1,49 @@
+{
+  "tiers": {
+    "common": {
+      "any_origin": false,
+      "rolls": [
+        { "coin": "copper", "chance": 0.3333, "min": 1, "max": 3 }
+      ]
+    },
+    "dangerous": {
+      "any_origin": false,
+      "rolls": [
+        { "coin": "silver", "chance": 0.5, "min": 1, "max": 2 }
+      ]
+    },
+    "boss": {
+      "any_origin": true,
+      "rolls": [
+        { "coin": "gold", "chance": 1.0, "min": 5, "max": 5 },
+        { "coin": "emerald", "chance": 0.1, "min": 1, "max": 1 },
+        { "coin": "ruby", "chance": 0.01, "min": 1, "max": 1 }
+      ]
+    },
+    "wild_animal": {
+      "any_origin": false,
+      "rolls": [
+        { "coin": "copper", "chance": 0.25, "min": 1, "max": 1 }
+      ]
+    }
+  },
+  "rules": [
+    { "match": "#forge:bosses", "tier": "boss" },
+    { "match": "minecraft:elder_guardian", "tier": "boss" },
+    { "match": "minecraft:witch", "tier": "dangerous" },
+    { "match": "minecraft:enderman", "tier": "dangerous" },
+    { "match": "minecraft:vindicator", "tier": "dangerous" },
+    { "match": "minecraft:evoker", "tier": "dangerous" },
+    { "match": "minecraft:ravager", "tier": "dangerous" },
+    { "match": "minecraft:blaze", "tier": "dangerous" },
+    { "match": "minecraft:ghast", "tier": "dangerous" },
+    { "match": "minecraft:wither_skeleton", "tier": "dangerous" },
+    { "match": "minecraft:piglin_brute", "tier": "dangerous" },
+    { "match": "minecraft:warden", "tier": "dangerous" }
+  ],
+  "category_defaults": {
+    "monster": "common",
+    "creature": "wild_animal"
+  },
+  "charged_creeper": "dangerous"
+}
