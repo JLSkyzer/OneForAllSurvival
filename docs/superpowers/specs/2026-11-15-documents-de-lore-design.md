@@ -4,8 +4,8 @@ Date : 2026-11-15. Source du lore : `D:\LostIsland\lore` (fourni par Killian).
 
 ## 1. Pourquoi
 
-Killian a écrit une archive de lore de Lost Island RP : 55 documents HTML (dossiers Nova Corps, sujets
-expérimentaux, secteur Oméga, programme ARRIVAL, carnets de Mathis Delcourt, enregistrements). Le staff
+Killian a écrit une archive de lore de Lost Island RP : 25 documents HTML (programme ARRIVAL, carnets de
+Mathis Delcourt, enregistrements). Le staff
 les dispose sur la map ; les joueurs les découvrent en explorant et reconstituent le mystère de l'île.
 
 La page doit être **le vrai HTML** de Killian, avec sa mise en page, pas une interface Minecraft qui en
@@ -15,7 +15,7 @@ pièce) fait partie de l'expérience.
 ## 2. Objectifs et limites
 
 ### Objectifs
-- Chacun des 55 documents peut être posé par le staff, n'importe où, autant de fois qu'il veut.
+- Chacun des 25 documents peut être posé par le staff, n'importe où, autant de fois qu'il veut.
 - Un document posé **reste sur place** : on le lit, on ne le prend pas.
 - Un **ordinateur** affiche un bureau de système d'exploitation fictif, avec des dossiers et des fichiers
   à ouvrir ; le staff choisit ce que contient chaque poste.
@@ -38,19 +38,22 @@ pièce) fait partie de l'expérience.
 
 ## 3. Les documents
 
-- **55 documents** : les 53 des sous-dossiers `01_` à `06_`, plus les deux fichiers de la racine
-  `1- Lost_Island_Programme_ARRIVAL_Dossier_Secret.html` et
-  `2- Lost_Island_Transcription_Communication_Barry_Mathis.html`. Ces deux-là sont des pièces à part
-  entière, différentes de `ARV-001` et `COM-001` (précision de Killian).
-- **Exclus** : `INDEX.html` (la liste de tout le lore, qui gâcherait la découverte) et le PDF
+- **25 documents** (dossier relu le 2026-11-15, après tri par Killian) : 11 dans `04_PROGRAMME_ARRIVAL`
+  (`ARR-001` à `ARR-010`, `ARV-001`), 9 dans `05_MATHIS_DELCOURT` (`MAT-001` à `MAT-009`), 5 dans
+  `06_ENREGISTREMENTS` (`AUD-001` à `AUD-004`, `COM-001`). Killian a retiré les dossiers Nova Corps,
+  Sujets expérimentaux et Secteur Oméga, ainsi que les deux pièces de la racine. Le catalogue suit
+  le dossier : ce qui n'y est plus n'entre pas dans le mod.
+- **Exclus** : `INDEX.html` (la liste de tout le lore, qui gâcherait la découverte ; elle cite encore des
+  documents retirés) et le PDF
   « A NE PAS PRENDRE EN COMPTE ».
 - **Constat technique** (lu le 2026-11-15) : pages autonomes, CSS dans la page, **aucun script, aucune
   image, aucun lien externe**. Le CSS est moderne : grilles, `color-mix()`, `clamp()`, variables CSS,
   dégradés, `@media`. Polices système (Georgia, Arial, Segoe UI, Consolas, monospace). 870 Ko au total.
 - **Rangement dans le mod** (décision de Killian : option B) : copiés tels quels dans
-  `src/main/resources/assets/oneforallsurvival/lore/<catégorie>/<id>.html`, sans retouche du HTML.
-- **Identifiants** : le nom du fichier (`NC-DOC-004`, `OMEGA-007`…). Choix de l'auteur pour les deux
-  pièces de la racine : `ARRIVAL-DOSSIER-SECRET` et `COM-BARRY-MATHIS`.
+  `src/main/resources/assets/oneforallsurvival/html/lore/<catégorie>/<id en minuscules>.html`, sans
+  retouche du HTML (chemin imposé par le schéma `mod://` de MCEF, qui sert `assets/<modid>/html/` et passe
+  les chemins en minuscules ; voir le plan).
+- **Identifiants** : le nom du fichier (`ARR-004`, `MAT-007`, `AUD-002`…).
 - **Un manifeste** (`lore/documents.json`) liste chaque document : identifiant, titre (celui de la
   balise `<title>`), catégorie, fichier, forme posée par défaut, type de fichier sur l'ordinateur
   (`html` ou `audio`). Ajouter un document = déposer le fichier + une ligne au manifeste + une version du mod.
@@ -89,8 +92,8 @@ pièce) fait partie de l'expérience.
 - **Un bloc par document.** Le staff reçoit chaque document comme un objet dans un **onglet créatif
   « Lore » réservé**. Posé, il devient un petit bloc plat (sur une table, au sol), orienté selon le joueur.
 - **Formes** (choix de l'auteur) : feuille, dossier ou classeur, carnet, cassette, clé USB. Forme par
-  défaut selon le manifeste (rapport → feuille, dossier scellé → classeur, carnet de Mathis → carnet,
-  enregistrement → cassette) ; le staff peut la changer en créatif (accroupi + clic droit fait défiler
+  défaut selon le manifeste (pièce du programme ARRIVAL → classeur, carnet ou rapport de Mathis →
+  carnet, enregistrement → cassette) ; le staff peut la changer en créatif (accroupi + clic droit fait défiler
   les formes).
 - **Clic droit d'un joueur** : la page HTML du document s'ouvre.
 - **Protection** comme le mécanisme ancien (`explore/MechanismBlock`) : dureté -1, résistance maximale,
@@ -116,8 +119,8 @@ pièce) fait partie de l'expérience.
 - **Identité** (décision de Killian) : un système maison de **Nova Corps** (nom du système, logo, fond
   d'écran par défaut dans l'esprit des documents Nova Corps). Le staff peut changer le **nom du poste** et
   le **fond d'écran** de chaque poste (fonds fournis par le mod, choix de l'auteur).
-- **Horloge figée** (décision de Killian) à la fermeture du site : **17 novembre 1998**, date de la
-  directive de fermeture (`NC-DOC-005`, aussi dans `NC-DOC-009`, `OMEGA-003`, `AUD-001`). Le lore ne donne
+- **Horloge figée** (décision de Killian) à la fermeture du site : **17 novembre 1998**, date de
+  l'annonce de fermeture (`AUD-001`, seul document restant qui la donne). Le lore ne donne
   pas d'heure : l'heure affichée est réglable par poste par le staff (choix de l'auteur), elle ne bouge
   jamais. L'esthétique du bureau doit rester crédible pour une machine de 1998 (choix de l'auteur).
 - Double-clic sur un fichier : le document s'ouvre **dans une fenêtre du bureau**, avec le vrai HTML
@@ -146,7 +149,7 @@ pièce) fait partie de l'expérience.
 ### Mode édition (staff)
 - Réservé au niveau de permission 2 (comme les commandes `cache`, `signal`, `mechanism`), en créatif.
 - Depuis le bureau lui-même : nommer le poste, créer, renommer, supprimer des dossiers, glisser des
-  documents depuis la liste des 55, poser et retirer des mots de passe, reverrouiller.
+  documents depuis la liste des 25, poser et retirer des mots de passe, reverrouiller.
 - Le contenu de chaque poste (arborescence, mots de passe, état des verrous) est gardé par le serveur
   dans l'entité du bloc ; il survit au redémarrage et au rechargement des chunks.
 - Copier la configuration d'un poste sur un autre (choix de l'auteur, confort du staff) : objet ou
@@ -170,7 +173,7 @@ pièce) fait partie de l'expérience.
 
 1. **Base MCEF** : dépendance, écran plein écran, chargement depuis les ressources, repli navigateur.
    Premier test sur Windows ; test sur un Mac à puce Apple dès que possible.
-2. **Documents posés** : manifeste, 55 pages copiées, onglet créatif, bloc à formes, protections.
+2. **Documents posés** : manifeste, 25 pages copiées, onglet créatif, bloc à formes, protections.
 3. **Ordinateur** : bureau HTML, fenêtres, pont JavaScript, mode édition, sauvegarde.
 4. **Mots de passe et post-it**, puis l'écran de repli de l'ordinateur.
 
@@ -179,14 +182,16 @@ pièce) fait partie de l'expérience.
 - Tests automatiques (GameTest) côté serveur : protections des blocs, mot de passe juste et faux,
   déverrouillage global, reverrouillage, refus d'un fichier verrouillé, droits du mode édition, état
   conservé après rechargement.
-- Comparaison visuelle : chaque type de page (charte, registre, incident, directive, inventaire,
-  enregistrement, les deux pièces de la racine) capturé en jeu et dans Chrome, côte à côte.
+- Comparaison visuelle : une page de chacun des 13 gabarits présents (`briefing`, `telemetry`, `matrix`,
+  `fieldreport`, `directive`, `timeline`, `dossier`, `redacted`, `diary`, `report`, `agreement`,
+  `transcript`, `waveform`), capturée en jeu et dans Chrome, côte à côte.
 - Lancement du client selon la procédure du verrou de lancement Minecraft, fenêtre sur le second écran.
 
 ## 11. Décisions et choix
 
 ### Décisions de Killian (2026-11-15)
-- Les 55 documents, dont les deux pièces de la racine ; vrai rendu HTML, pas d'interface réécrite.
+- Les documents présents dans `D:\LostIsland\lore` (25 après le tri du 2026-11-15, qui a retiré Nova
+  Corps, Sujets, Oméga et les deux pièces de la racine) ; vrai rendu HTML, pas d'interface réécrite.
 - Un document posé reste sur place.
 - L'ordinateur : un bureau avec des dossiers et des fichiers à ouvrir.
 - Mots de passe trouvés ailleurs sur la map ; déverrouillage pour tout le monde.
@@ -201,7 +206,6 @@ Non validés par Killian, contestables :
 - le post-it à texte libre ;
 - le mode édition dans le bureau, par glisser-déposer ;
 - le bouton reverrouiller ;
-- identifiants des deux pièces de la racine ;
 - le titre au survol ;
 - l'écran de repli de l'ordinateur en interface Minecraft ;
 - la copie de configuration d'un poste à l'autre ;

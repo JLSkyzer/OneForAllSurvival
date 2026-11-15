@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Les 55 documents HTML de lore de Killian se posent sur la map par le staff, sous forme de documents posés, de post-it et d'ordinateurs Nova Corps à mots de passe, et s'affichent en vrai HTML dans le jeu par MCEF.
+**Goal:** Les 25 documents HTML de lore de Killian se posent sur la map par le staff, sous forme de documents posés, de post-it et d'ordinateurs Nova Corps à mots de passe, et s'affichent en vrai HTML dans le jeu par MCEF.
 
 **Architecture :** un nouveau paquet `dev.oneforallsurvival.lore` (serveur et commun : catalogue, blocs, entités, règles, paquets) et `lore/client` (écrans). Le socle navigateur, réutilisable par le téléphone, vit dans `client/web`. Les pages sont des ressources du mod servies par le schéma `mod://` de MCEF. Le serveur fait foi pour tout état : texte des post-it, arborescence des postes, mots de passe, verrous. Le bureau de l'ordinateur est une page HTML/JS du mod qui parle au serveur par un pont JavaScript → Java → paquet.
 
@@ -14,14 +14,14 @@
 
 Trouvés en vérifiant l'API de MCEF le 2026-11-15 (code de la branche `1.20.1-legacy` de github.com/Keksuccino/Rinku) :
 - **Chemin des pages :** `src/main/resources/assets/oneforallsurvival/html/lore/<catégorie>/<id>.html` et non `assets/oneforallsurvival/lore/…` : le schéma `mod://oneforallsurvival/<chemin>` de MCEF sert `/assets/<modid>/html/<chemin>`.
-- **Noms de fichiers en minuscules :** MCEF passe le chemin en minuscules (`nc-doc-004.html`). L'identifiant affiché reste `NC-DOC-004`. Catégories : `nova-corps`, `sujets`, `omega`, `arrival`, `mathis`, `enregistrements`, `racine`.
+- **Noms de fichiers en minuscules :** MCEF passe le chemin en minuscules (`arr-004.html`). L'identifiant affiché reste `ARR-004`. Catégories : `arrival`, `mathis`, `enregistrements`.
 - **Fork renommé :** le projet s'appelle aujourd'hui Rinku (3.x, Chromium 151, autre API et mod_id `rinku`). On reste sur la **2.2.0**, dernière « MCEF », dont l'API est lue. Passer à Rinku est un chantier à part.
 
 ## Global Constraints
 
 - Contraintes communes du dépôt (voir « Global Constraints » de `docs/superpowers/plans/2026-11-14-lot-e3-tresor-salaires.md`) : ASCII dans `gradle.properties` ; aucune classe cliente atteignable du serveur (écrans, MCEF et rendu dans `lore/client` ou `client/web`, appelés par `DistExecutor`) ; textes dans `fr_fr.json` avec repli `en_us.json`, accents corrects, jamais « SolarTown » ; `DeferredRegister` ; textures produites par script Python/PIL (`tools/gen_textures_lore.py`) ; lots de 8 GameTests au plus ; `JoueurDeTest` pour tout joueur d'essai ; « le staff » = `hasPermissions(2)` ; un client n'est jamais cru sur parole ; « vérifier puis engager ».
 - **Le HTML de Killian n'est jamais modifié.** Copie octet pour octet ; seul le nom de fichier passe en minuscules.
-- **Documents en jeu : 55** = les 53 de `01_` à `06_` + `1- Lost_Island_Programme_ARRIVAL_Dossier_Secret.html` (id `ARRIVAL-DOSSIER-SECRET`) + `2- Lost_Island_Transcription_Communication_Barry_Mathis.html` (id `COM-BARRY-MATHIS`). Exclus : `INDEX.html` et le PDF.
+- **Documents en jeu : 25** (dossier trié par Killian le 2026-11-15) = 11 de `04_PROGRAMME_ARRIVAL` (`ARR-001` à `ARR-010`, `ARV-001`) + 9 de `05_MATHIS_DELCOURT` (`MAT-001` à `MAT-009`) + 5 de `06_ENREGISTREMENTS` (`AUD-001` à `AUD-004`, `COM-001`). Exclus : `INDEX.html` (cite encore des documents retirés) et le PDF.
 - **MCEF facultatif côté client :** `mods.toml` déclare `modId="mcef"`, `mandatory=false`, `side="CLIENT"`, `versionRange="[2.2.0,)"`. Aucune classe `com.cinemamod.mcef` n'est chargée sans `ModList.get().isLoaded("mcef")`. Le serveur ne l'exige pas.
 - **Repli :** MCEF absent, non initialisé ou en échec → document ouvert dans le navigateur du système ; joueur prévenu une fois par session (`lore.web.fallback_notice`).
 - **Pas d'accès réseau** depuis les pages : seuls `mod://oneforallsurvival/…` et `about:blank` sont chargés ; toute autre navigation est annulée.
@@ -48,7 +48,7 @@ Trouvés en vérifiant l'API de MCEF le 2026-11-15 (code de la branche `1.20.1-l
 
 **Files :**
 - Create : `tools/import_lore.py`
-- Create : `src/main/resources/assets/oneforallsurvival/html/lore/**` (55 pages copiées) et `src/main/resources/assets/oneforallsurvival/html/lore/documents.json`
+- Create : `src/main/resources/assets/oneforallsurvival/html/lore/**` (25 pages copiées) et `src/main/resources/assets/oneforallsurvival/html/lore/documents.json`
 - Create : `src/main/java/dev/oneforallsurvival/lore/LoreDocument.java`, `LoreShape.java`, `LoreFileKind.java`, `LoreCatalog.java`
 - Test : `src/test/java/dev/oneforallsurvival/lore/LoreCatalogTest.java`
 
@@ -56,24 +56,24 @@ Trouvés en vérifiant l'API de MCEF le 2026-11-15 (code de la branche `1.20.1-l
 - Produces :
   - `enum LoreShape implements StringRepresentable { SHEET, FOLDER, NOTEBOOK, CASSETTE, USB; LoreShape next(); }`
   - `enum LoreFileKind { HTML, AUDIO }`
-  - `record LoreDocument(String id, String title, String category, String path, LoreShape shape, LoreFileKind kind)` ; `path` relatif à `html/` (`lore/nova-corps/nc-doc-004.html`) ; `String url()` → `"mod://oneforallsurvival/" + path`.
+  - `record LoreDocument(String id, String title, String category, String path, LoreShape shape, LoreFileKind kind)` ; `path` relatif à `html/` (`lore/arrival/arr-004.html`) ; `String url()` → `"mod://oneforallsurvival/" + path`.
   - `final class LoreCatalog` : `static LoreCatalog load(InputStream json)`, `static LoreCatalog get()` (chargé une fois depuis le classpath), `Optional<LoreDocument> find(String id)`, `List<LoreDocument> all()` (ordre du manifeste).
 
-- [ ] **Step 1 : écrire `tools/import_lore.py`** — lit `D:\LostIsland\lore`, copie octet pour octet chaque page retenue vers `html/lore/<catégorie>/<nom en minuscules>.html`, écrit `documents.json` (tableau d'objets `id`, `title`, `category`, `path`, `shape`, `kind`). `title` = contenu de `<title>` déséchappé (`html.unescape`). Forme et type par défaut : `nova-corps` → `SHEET`/`HTML` ; `sujets` → `FOLDER` ; `omega` → `SHEET` ; `arrival` → `FOLDER` ; `mathis` → `NOTEBOOK` ; `enregistrements` (AUD, COM) → `CASSETTE`/`AUDIO` ; `ARRIVAL-DOSSIER-SECRET` → `FOLDER`/`HTML` ; `COM-BARRY-MATHIS` → `CASSETTE`/`AUDIO`. Le script échoue s'il ne trouve pas exactement 55 pages.
-- [ ] **Step 2 : lancer le script** — `python tools/import_lore.py` ; attendu : « 55 documents ».
+- [ ] **Step 1 : écrire `tools/import_lore.py`** — lit `D:\LostIsland\lore`, copie octet pour octet chaque page retenue vers `html/lore/<catégorie>/<nom en minuscules>.html`, écrit `documents.json` (tableau d'objets `id`, `title`, `category`, `path`, `shape`, `kind`). `title` = contenu de `<title>` déséchappé (`html.unescape`). Seuls les sous-dossiers `04_PROGRAMME_ARRIVAL` → `arrival`, `05_MATHIS_DELCOURT` → `mathis`, `06_ENREGISTREMENTS` → `enregistrements` sont lus ; tout autre fichier HTML est ignoré. Forme et type par défaut : `arrival` → `FOLDER`/`HTML` ; `mathis` → `NOTEBOOK`/`HTML` ; `enregistrements` (AUD, COM) → `CASSETTE`/`AUDIO`. Le script affiche le nombre de documents copiés et échoue s'il diffère de 25.
+- [ ] **Step 2 : lancer le script** — `python tools/import_lore.py` ; attendu : « 25 documents ».
 - [ ] **Step 3 : écrire les tests qui échouent** dans `LoreCatalogTest` :
-  - `cinquanteCinqDocuments` : `all().size() == 55` ;
+  - `vingtCinqDocuments` : `all().size() == 25` ;
   - `identifiantsUniques` ;
   - `chaqueFichierExiste` : la ressource `/assets/oneforallsurvival/html/` + `path` est lisible et commence par `<!doctype html` (sans tenir compte de la casse) ;
   - `cheminsEnMinuscules` : `path.equals(path.toLowerCase(Locale.ROOT))` ;
-  - `piecesDeLaRacinePresentes` : `find("ARRIVAL-DOSSIER-SECRET")` et `find("COM-BARRY-MATHIS")` présents ;
+  - `documentsRetiresAbsents` : aucun identifiant ne commence par `NC-` ni `OMEGA-` ;
   - `indexAbsent` : aucun `path` ne finit par `index.html` ;
-  - `titreDechappe` : `find("NC-DOC-004").get().title()` contient `"Rapport d'incident"` ;
+  - `titreDechappe` : `find("ARR-006").get().title()` contient `"cohorte d'arrivée"` ;
   - `idInconnu` : `find("XX-000")` est vide.
 - [ ] **Step 4 : vérifier qu'ils échouent** — `./gradlew --offline test --tests '*LoreCatalogTest*'` ; attendu : échec de compilation (classes absentes).
 - [ ] **Step 5 : implémenter** les quatre types (lecture JSON avec Gson, déjà présent dans Minecraft).
 - [ ] **Step 6 : vérifier** — même commande ; attendu : 8 tests verts.
-- [ ] **Step 7 : commit** — `feat(lore): catalogue des 55 documents`.
+- [ ] **Step 7 : commit** — `feat(lore): catalogue des 25 documents`.
 
 ### Task 2 : le document posé
 
@@ -102,7 +102,7 @@ Trouvés en vérifiant l'API de MCEF le 2026-11-15 (code de la branche `1.20.1-l
   - `idConserveAuRechargement` : l'identifiant survit à une sauvegarde/lecture NBT de l'entité ;
   - `idInconnuNePlantePas` : une entité avec `"XX-000"` se charge, et le clic droit n'envoie rien au client (pas d'exception).
 - [ ] **Step 2 : vérifier qu'ils échouent** — `./gradlew --offline runGameTestServer` (procédure du verrou) ; attendu : échec de compilation.
-- [ ] **Step 3 : implémenter** bloc, entité, objet, onglet (les 55 piles dans l'ordre du catalogue, plus le post-it et l'ordinateur des tâches suivantes quand ils existent), textures et modèles des cinq formes. Le clic droit d'un joueur appelle `LoreNetwork.openDocument(ServerPlayer, String id)` — **déclaré ici vide**, rempli à la tâche 3.
+- [ ] **Step 3 : implémenter** bloc, entité, objet, onglet (les 25 piles dans l'ordre du catalogue, plus le post-it et l'ordinateur des tâches suivantes quand ils existent), textures et modèles des cinq formes. Le clic droit d'un joueur appelle `LoreNetwork.openDocument(ServerPlayer, String id)` — **déclaré ici vide**, rempli à la tâche 3.
 - [ ] **Step 4 : vérifier** — attendu : « All N required tests passed », les 7 nouveaux compris.
 - [ ] **Step 5 : commit** — `feat(lore): document pose et onglet du staff`.
 
@@ -124,11 +124,11 @@ Trouvés en vérifiant l'API de MCEF le 2026-11-15 (code de la branche `1.20.1-l
   - `SystemBrowserFallback.open(String id, String html)` : écrit `<gameDir>/lostisland-lecture/<id>.html` (le dossier est vidé au lancement du client) et l'ouvre par `Util.getPlatform().openFile` ; `static Path pathFor(Path gameDir, String id)` (testable : refuse un identifiant contenant `/`, `\` ou `..`).
   - Paquet `ID_LORE_OPEN` (serveur → client) : `String documentId`. `LoreNetwork.openDocument` l'envoie ; le client appelle `LoreClient.open(documentId)` qui ouvre `WebScreen` si `isReady()`, sinon lit la ressource et appelle `SystemBrowserFallback.open`, et affiche `lore.web.fallback_notice` une fois par session.
 
-- [ ] **Step 1 : écrire le test qui échoue** — `SystemBrowserFallbackTest` : `pathFor(dir, "NC-DOC-004")` est dans `dir/lostisland-lecture` ; `pathFor(dir, "../x")` et `pathFor(dir, "a/b")` lèvent `IllegalArgumentException`.
+- [ ] **Step 1 : écrire le test qui échoue** — `SystemBrowserFallbackTest` : `pathFor(dir, "ARR-004")` est dans `dir/lostisland-lecture` ; `pathFor(dir, "../x")` et `pathFor(dir, "a/b")` lèvent `IllegalArgumentException`.
 - [ ] **Step 2 : vérifier qu'il échoue** — `./gradlew --offline test --tests '*SystemBrowserFallbackTest*'`.
 - [ ] **Step 3 : implémenter** la dépendance Gradle, `mods.toml`, les quatre classes `client/web`, le paquet et `LoreClient`. Monter le protocole de `BenchNetwork` d'un cran (une seule fois pour tout ce plan) et réserver les cinq identifiants.
 - [ ] **Step 4 : vérifier les tests** — `./gradlew --offline test runGameTestServer` ; attendu : tout vert, le serveur d'essai démarre **sans** MCEF dans son chemin de classes (preuve que rien de MCEF n'est chargé côté serveur).
-- [ ] **Step 5 : vérifier en jeu** (procédure du verrou, second écran) : client de dev, poser `NC-DOC-004`, clic droit → la page s'affiche ; défilement à la molette ; Échap ferme. Capturer et comparer à Chrome. Relancer sans MCEF (`runtimeOnly` retiré) → la page s'ouvre dans le navigateur du système et l'avis apparaît une fois.
+- [ ] **Step 5 : vérifier en jeu** (procédure du verrou, second écran) : client de dev, poser `ARR-004`, clic droit → la page s'affiche ; défilement à la molette ; Échap ferme. Capturer et comparer à Chrome. Relancer sans MCEF (`runtimeOnly` retiré) → la page s'ouvre dans le navigateur du système et l'avis apparaît une fois.
 - [ ] **Step 6 : commit** — `feat(lore): socle navigateur MCEF et lecture des documents`.
 
 ### Task 4 : le post-it
@@ -227,7 +227,7 @@ Trouvés en vérifiant l'API de MCEF le 2026-11-15 (code de la branche `1.20.1-l
   - page → Java : `{"a":"ready"}`, `{"a":"open","node":N}`, `{"a":"password","node":N,"value":"…"}`, `{"a":"edit","op":"…",…}` (champs de `ComputerEdit`), `{"a":"close"}` ;
   - Java → page : appel de `window.novaOS.render(view)`, `window.novaOS.openFile(nodeId, url, title, fileKind)`, `window.novaOS.passwordRefused(nodeId)` par `executeJavaScript`, avec arguments sérialisés en JSON (jamais concaténés comme du code).
 
-- [ ] **Step 1 : écrire la page** — bureau en plein écran : fond, nom du poste, icônes des dossiers de la racine, explorateur, barre des tâches « Nova Corps » avec la date `17/11/1998` et l'heure figée du poste ; esthétique crédible pour 1998. Fenêtres déplaçables, fermables, agrandissables ; une fenêtre de document s'ouvre à au moins 760 px utiles et charge `document.url()` dans une `iframe` ; un fichier `AUDIO` s'ouvre dans un lecteur factice (boutons inertes, barre de temps) autour de l'`iframe` de transcription. Cadenas sur les nœuds `locked` ; double-clic → champ de mot de passe ; « Mot de passe incorrect » en cas de refus. Lecture seule pour un joueur. Mode édition visible seulement si la vue est `staff` : liste des 55 documents à glisser dans un dossier, créer, renommer, supprimer, déplacer, poser ou retirer un mot de passe, reverrouiller, régler nom, fond et heure. Tout texte inséré par `textContent`.
+- [ ] **Step 1 : écrire la page** — bureau en plein écran : fond, nom du poste, icônes des dossiers de la racine, explorateur, barre des tâches « Nova Corps » avec la date `17/11/1998` et l'heure figée du poste ; esthétique crédible pour 1998. Fenêtres déplaçables, fermables, agrandissables ; une fenêtre de document s'ouvre à au moins 760 px utiles et charge `document.url()` dans une `iframe` ; un fichier `AUDIO` s'ouvre dans un lecteur factice (boutons inertes, barre de temps) autour de l'`iframe` de transcription. Cadenas sur les nœuds `locked` ; double-clic → champ de mot de passe ; « Mot de passe incorrect » en cas de refus. Lecture seule pour un joueur. Mode édition visible seulement si la vue est `staff` : liste des 25 documents à glisser dans un dossier, créer, renommer, supprimer, déplacer, poser ou retirer un mot de passe, reverrouiller, régler nom, fond et heure. Tout texte inséré par `textContent`.
 - [ ] **Step 2 : implémenter `ComputerScreenController`** — à `ready`, pousse la dernière vue reçue ; relaie les actions en `ID_COMPUTER_ACTION` ; à la fermeture envoie `close`.
 - [ ] **Step 3 : vérifier en jeu** (procédure du verrou, second écran, deux clients pour le cas 1 de la Review Focus) : poser un poste, le remplir en staff, verrouiller un dossier, cacher le mot de passe sur un post-it ; en joueur, ouvrir, échouer, réussir ; vérifier que le second client voit le cadenas disparaître ; capturer.
 - [ ] **Step 4 : commit** — `feat(lore): bureau Nova Corps`.
@@ -252,7 +252,7 @@ Trouvés en vérifiant l'API de MCEF le 2026-11-15 (code de la branche `1.20.1-l
 - Create : `docs/verifications/lore.md`
 - Modify : `wiki/` (page staff : poser un document, un post-it, remplir un poste), `tasks/todo.md`
 
-- [ ] **Step 1 : comparaison visuelle** — capturer en jeu et dans Chrome une page de chaque gabarit : charte (`NC-DOC-001`), registre (`NC-DOC-007`), incident (`NC-DOC-004`), directive (`NC-DOC-005`), inventaire (`NC-DOC-006`), enregistrement (`AUD-001`), `ARRIVAL-DOSSIER-SECRET`, `COM-BARRY-MATHIS` ; les mettre côte à côte dans `docs/verifications/lore.md`. Toute différence visible de mise en page est un défaut à corriger.
+- [ ] **Step 1 : comparaison visuelle** — capturer en jeu et dans Chrome une page de chacun des 13 gabarits : `briefing` (`ARR-001`), `telemetry` (`ARR-002`), `matrix` (`ARR-003`), `fieldreport` (`ARR-004`), `directive` (`ARR-005`), `timeline` (`ARR-007`), `dossier` (`ARR-008`), `redacted` (`ARR-010`), `diary` (`MAT-001`), `report` (`MAT-004`), `agreement` (`MAT-006`), `transcript` (`AUD-001`), `waveform` (`AUD-002`) ; les mettre côte à côte dans `docs/verifications/lore.md`. Toute différence visible de mise en page est un défaut à corriger.
 - [ ] **Step 2 : suite complète** — `./gradlew --offline test runGameTestServer`, puis `-PwithPack` ; consigner les compteurs lus dans les journaux.
 - [ ] **Step 3 : Mac à puce Apple** — si un Mac est disponible, lancer le client et noter le résultat ; sinon, l'écrire comme non vérifié dans `docs/verifications/lore.md`.
 - [ ] **Step 4 : pack** — signaler à Killian que `mcef-forge-2.2.0-1.20.1.jar` doit être ajouté au dossier `mods` du pack (par l'admin « Fichiers du jeu » ou le logiciel de transfert) : c'est lui qui le dépose.
