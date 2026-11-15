@@ -77,6 +77,13 @@ class MobCoinTableTest {
     }
 
     @Test
+    void leMarchandAmbulantEtSesLamasNeDonnentRien() {
+        assertNull(tier("minecraft:wandering_trader", MobCategory.CREATURE, false));
+        assertNull(tier("minecraft:trader_llama", MobCategory.CREATURE, false));
+        assertEquals("wild_animal", tier("minecraft:llama", MobCategory.CREATURE, false).id());
+    }
+
+    @Test
     void creeperChargeDangereux() {
         assertEquals("dangerous", tier("minecraft:creeper", MobCategory.MONSTER, true).id());
         assertEquals("common", tier("minecraft:creeper", MobCategory.MONSTER, false).id());

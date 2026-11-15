@@ -51,6 +51,9 @@ public final class EconomyConfig {
     static final int DEFAULT_PAY_HOUR = 0;
     static final String DEFAULT_PAY_TIME_ZONE = "";
     static final int DEFAULT_PAY_MAX_MISSED_DAYS = 400;
+    static final long DEFAULT_MOB_LOOT_JOURNAL_THRESHOLD = 100L;
+    static final long DEFAULT_RAID_LOOT_CAP = 100L;
+    static final int DEFAULT_BOSS_LOOT_PER_DAY = 1;
     /** Plafond d'un taux de salaire, en cuivres par heure. */
     public static final long MAX_SALARY_PER_HOUR = 1_000_000L;
 
@@ -76,6 +79,9 @@ public final class EconomyConfig {
     private static final ForgeConfigSpec.IntValue PAY_HOUR;
     private static final ForgeConfigSpec.ConfigValue<String> PAY_TIME_ZONE;
     private static final ForgeConfigSpec.IntValue PAY_MAX_MISSED_DAYS;
+    private static final ForgeConfigSpec.LongValue MOB_LOOT_JOURNAL_THRESHOLD;
+    private static final ForgeConfigSpec.LongValue RAID_LOOT_CAP;
+    private static final ForgeConfigSpec.IntValue BOSS_LOOT_PER_DAY;
     private static final ForgeConfigSpec.ConfigValue<List<? extends String>> EXTRA_ALLOWED_MENUS;
     private static final ForgeConfigSpec.ConfigValue<List<? extends String>> EXTRA_FORBIDDEN_MENUS;
 
@@ -166,6 +172,19 @@ public final class EconomyConfig {
                 .comment("Jours de paie manqués (serveur éteint) rattrapés au plus au démarrage ; les plus anciens",
                         "au-delà sont sautés avec un avertissement.")
                 .defineInRange("payMaxMissedDays", DEFAULT_PAY_MAX_MISSED_DAYS, 1, 3_650);
+        MOB_LOOT_JOURNAL_THRESHOLD = builder
+                .comment("Butin des mobs : un butin d'au moins ce montant, en cuivres, a sa ligne au registre (/eco ledger) ;",
+                        "en dessous, il ne compte que dans les totaux (/eco loot). 0 = une ligne pour chaque butin.")
+                .defineInRange("mobLootJournalThreshold", DEFAULT_MOB_LOOT_JOURNAL_THRESHOLD, 0L, 1_000_000_000L);
+        RAID_LOOT_CAP = builder
+                .comment("Butin des mobs nés d'un raid : un même raid paie au plus ce montant, en cuivres, tous joueurs",
+                        "confondus ; au-delà, ses mobs ne donnent plus rien. 0 = les raids ne paient rien.")
+                .defineInRange("raidLootCap", DEFAULT_RAID_LOOT_CAP, 0L, 1_000_000_000L);
+        BOSS_LOOT_PER_DAY = builder
+                .comment("Butin des boss (paliers qui ignorent l'origine du mob : Wither, dragon, gardien ancien...) : un joueur",
+                        "touche le butin d'un même type de boss au plus ce nombre de fois par jour de paie (payHour,",
+                        "payTimeZone). 0 = jamais.")
+                .defineInRange("bossLootPerDay", DEFAULT_BOSS_LOOT_PER_DAY, 0, 1_000);
         EXTRA_ALLOWED_MENUS = builder
                 .comment("Types d'écran (identifiants, ex. \"mod:coffre\") où une pièce a le droit d'être rangée, en plus",
                         "de l'inventaire du joueur, de la table de fabrication et des rangements de ce mod.")
@@ -386,6 +405,33 @@ public final class EconomyConfig {
             return PAY_MAX_MISSED_DAYS.get();
         } catch (IllegalStateException e) {
             return DEFAULT_PAY_MAX_MISSED_DAYS;
+        }
+    }
+
+    /** Butin d'au moins ce montant, en cuivres : une ligne au registre (100 par défaut ; 0 = chaque butin). */
+    public static long mobLootJournalThreshold() {
+        try {
+            return MOB_LOOT_JOURNAL_THRESHOLD.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_MOB_LOOT_JOURNAL_THRESHOLD;
+        }
+    }
+
+    /** Ce qu'un même raid paie au plus en butin, en cuivres, tous joueurs confondus (100 par défaut). */
+    public static long raidLootCap() {
+        try {
+            return RAID_LOOT_CAP.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_RAID_LOOT_CAP;
+        }
+    }
+
+    /** Butins d'un même type de boss par joueur et par jour de paie (1 par défaut ; 0 = jamais). */
+    public static int bossLootPerDay() {
+        try {
+            return BOSS_LOOT_PER_DAY.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_BOSS_LOOT_PER_DAY;
         }
     }
 

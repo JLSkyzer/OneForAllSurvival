@@ -776,4 +776,145 @@ public final class PackGameTests {
                 "reçu 12 (1 + 12) : " + mixte.subList(r2, mixte.size()));
         helper.succeed();
     }
+
+    // ---------------------------------------------------------------------------------------------
+    // Lot E4 : le butin des mobs
+    // ---------------------------------------------------------------------------------------------
+
+    /** La table livrée se charge avec tout le pack : paliers, boss par le tag de Forge, marchand ambulant à rien. */
+    @GameTest(template = "test/plancher", batch = "pack_butin")
+    public static void laTableLivreeSeChargeAvecLePack(GameTestHelper helper) {
+        dev.oneforallsurvival.economy.loot.MobCoinTables.setForTest(null);
+        var table = dev.oneforallsurvival.economy.loot.MobCoinTables.current();
+        helper.assertTrue(table.tierCount() == 4, "paliers : " + table.tierCount());
+        java.util.function.Function<net.minecraft.world.entity.EntityType<?>, String> palier = type -> {
+            var t = table.tierFor(ForgeRegistries.ENTITY_TYPES.getKey(type),
+                    type.builtInRegistryHolder().tags().map(net.minecraft.tags.TagKey::location)
+                            .collect(java.util.stream.Collectors.toSet()), type.getCategory(), false);
+            return t == null ? "none" : t.id();
+        };
+        helper.assertTrue(palier.apply(net.minecraft.world.entity.EntityType.ZOMBIE).equals("common"), "zombie");
+        helper.assertTrue(palier.apply(net.minecraft.world.entity.EntityType.WITHER).equals("boss"), "Wither");
+        helper.assertTrue(palier.apply(net.minecraft.world.entity.EntityType.ENDER_DRAGON).equals("boss"), "dragon");
+        helper.assertTrue(palier.apply(net.minecraft.world.entity.EntityType.COW).equals("wild_animal"), "vache");
+        helper.assertTrue(palier.apply(net.minecraft.world.entity.EntityType.WANDERING_TRADER).equals("none"),
+                "marchand ambulant");
+        helper.assertTrue(palier.apply(net.minecraft.world.entity.EntityType.TRADER_LLAMA).equals("none"),
+                "lama du marchand");
+        helper.assertTrue(palier.apply(net.minecraft.world.entity.EntityType.VILLAGER).equals("none"), "villageois");
+        helper.succeed();
+    }
+
+    /**
+     * Un déployeur de Create (faux joueur) qui tue un zombie sauvage d'une épée ne fait naître aucune pièce et ne
+     * touche pas au registre, même avec une table qui paie à coup sûr. Moteur créatif au nord, déployeur tourné vers
+     * l'est en mode frappe, zombie deux blocs devant lui.
+     */
+    @GameTest(template = "test/plancher", batch = "pack_butin", setupTicks = 20, timeoutTicks = 900)
+    public static void unDeployeurDeCreateNeDonneRien(GameTestHelper helper) {
+        if (!ModList.get().isLoaded("create")) {
+            helper.succeed();
+            return;
+        }
+        ButinGameTests.degager(helper);
+        var level = helper.getLevel();
+        var registre = dev.oneforallsurvival.economy.EconomyLedger.get(level.getServer());
+        long avant = registre.totalCreated(dev.oneforallsurvival.economy.MoneySource.MOB_LOOT);
+        long mortsAvant = registre.lootKills();
+        dev.oneforallsurvival.economy.loot.MobCoinTables.setForTest(ButinGameTests.tableCertaine());
+        BlockPos deployeur = new BlockPos(1, 1, 3);
+        BlockPos moteur = deployeur.north();
+        Block blocDeployeur = ForgeRegistries.BLOCKS.getValue(new ResourceLocation("create", "deployer"));
+        Block blocMoteur = ForgeRegistries.BLOCKS.getValue(new ResourceLocation("create", "creative_motor"));
+        helper.assertTrue(blocDeployeur != null && blocDeployeur != Blocks.AIR, "déployeur introuvable");
+        helper.assertTrue(blocMoteur != null && blocMoteur != Blocks.AIR, "moteur créatif introuvable");
+        helper.setBlock(deployeur, avec(avec(blocDeployeur.defaultBlockState(), "facing", "east"),
+                "axis_along_first", "false"));
+        helper.setBlock(moteur, avec(blocMoteur.defaultBlockState(), "facing", "south"));
+        net.minecraft.world.entity.monster.Zombie zombie =
+                ButinGameTests.creer(helper, net.minecraft.world.entity.EntityType.ZOMBIE, deployeur.east(2), true);
+        zombie.setNoAi(true);
+        // Un joueur d'essai à plus de 128 blocs ferait disparaître le zombie au tick suivant (checkDespawn).
+        zombie.setPersistenceRequired();
+        zombie.setHealth(1f);
+        // Qui a tué, lu à la mort même (la dernière source de dégâts s'efface au bout de 40 ticks).
+        java.util.List<String> morts = new java.util.concurrent.CopyOnWriteArrayList<>();
+        java.util.function.Consumer<net.minecraftforge.event.entity.living.LivingDeathEvent> temoin = event -> {
+            if (event.getEntity() == zombie) {
+                var tueur = event.getSource().getEntity();
+                morts.add((tueur instanceof net.minecraftforge.common.util.FakePlayer ? "faux:" : "autre:")
+                        + event.getSource().getMsgId() + ":" + (tueur == null ? "personne" : tueur.getClass().getName()));
+            }
+        };
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(net.minecraftforge.eventbus.api.EventPriority.LOWEST,
+                false, net.minecraftforge.event.entity.living.LivingDeathEvent.class, temoin);
+        Runnable rendre = () -> {
+            net.minecraftforge.common.MinecraftForge.EVENT_BUS.unregister(temoin);
+            dev.oneforallsurvival.economy.loot.MobCoinTables.setForTest(null);
+            helper.setBlock(deployeur, Blocks.AIR);
+            helper.setBlock(moteur, Blocks.AIR);
+            ButinGameTests.ranger(helper);
+        };
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(fauxJoueur(helper.getBlockEntity(deployeur)) != null,
+                        "le faux joueur du déployeur n'est pas prêt"))
+                .thenExecute(() -> {
+                    BlockEntity be = helper.getBlockEntity(deployeur);
+                    net.minecraft.world.entity.player.Player joueur = fauxJoueur(be);
+                    if (!(joueur instanceof net.minecraftforge.common.util.FakePlayer)) {
+                        rendre.run();
+                        helper.fail("le joueur du déployeur n'est pas un faux joueur : " + joueur);
+                    }
+                    joueur.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+                            new ItemStack(net.minecraft.world.item.Items.DIAMOND_SWORD));
+                    try {
+                        be.getClass().getMethod("changeMode").invoke(be);
+                    } catch (ReflectiveOperationException e) {
+                        rendre.run();
+                        throw new IllegalStateException(e);
+                    }
+                })
+                .thenWaitUntil(() -> helper.assertTrue(!zombie.isAlive(), "le déployeur n'a pas tué le zombie"))
+                .thenIdle(3)
+                .thenExecute(() -> {
+                    long pieces = ButinGameTests.valeur(helper);
+                    long apres = registre.totalCreated(dev.oneforallsurvival.economy.MoneySource.MOB_LOOT);
+                    long mortsApres = registre.lootKills();
+                    rendre.run();
+                    helper.assertTrue(morts.size() == 1 && morts.get(0).startsWith("faux:"),
+                            "le zombie n'a pas été tué par le faux joueur : " + morts + ", retiré " + zombie.getRemovalReason()
+                                    + ", vie " + zombie.getHealth());
+                    helper.assertTrue(pieces == 0, "pièces au sol : " + pieces);
+                    helper.assertTrue(apres == avant && mortsApres == mortsAvant,
+                            "registre : " + avant + " puis " + apres + ", morts " + mortsAvant + " puis " + mortsApres);
+                })
+                .thenSucceed();
+    }
+
+    /** Le faux joueur d'un déployeur de Create ({@code getPlayer}, lu par réflexion), ou {@code null}. */
+    private static net.minecraft.world.entity.player.Player fauxJoueur(BlockEntity be) {
+        if (be == null) {
+            return null;
+        }
+        try {
+            return (net.minecraft.world.entity.player.Player) be.getClass().getMethod("getPlayer").invoke(be);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /** L'état avec cette propriété (lue par son nom) à cette valeur. */
+    private static BlockState avec(BlockState etat, String nom, String valeur) {
+        var propriete = etat.getBlock().getStateDefinition().getProperty(nom);
+        if (propriete == null) {
+            throw new IllegalStateException("propriété absente : " + nom + " sur " + etat);
+        }
+        return regler(etat, propriete, valeur);
+    }
+
+    private static <T extends Comparable<T>> BlockState regler(BlockState etat,
+            net.minecraft.world.level.block.state.properties.Property<T> propriete, String valeur) {
+        return etat.setValue(propriete, propriete.getValue(valeur)
+                .orElseThrow(() -> new IllegalStateException("valeur " + valeur + " pour " + propriete.getName())));
+    }
 }

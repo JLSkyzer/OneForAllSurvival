@@ -30,6 +30,8 @@
   "rules": [
     { "match": "#forge:bosses", "tier": "boss" },
     { "match": "minecraft:elder_guardian", "tier": "boss" },
+    { "match": "minecraft:wandering_trader", "tier": "none" },
+    { "match": "minecraft:trader_llama", "tier": "none" },
     { "match": "minecraft:witch", "tier": "dangerous" },
     { "match": "minecraft:enderman", "tier": "dangerous" },
     { "match": "minecraft:vindicator", "tier": "dangerous" },

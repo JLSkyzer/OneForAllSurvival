@@ -132,6 +132,12 @@ public final class OneForAllSurvival {
                 dev.oneforallsurvival.economy.loot.MobOrigin::onConversion);
         MinecraftForge.EVENT_BUS.addListener(net.minecraftforge.eventbus.api.EventPriority.LOWEST,
                 dev.oneforallsurvival.economy.loot.MobOrigin::onBabySpawn);
+        // Raid d'un pillard recruté : noté au coup, avant que la mort ne le retire de son raid.
+        MinecraftForge.EVENT_BUS.addListener(net.minecraftforge.eventbus.api.EventPriority.LOWEST,
+                dev.oneforallsurvival.economy.loot.MobOrigin::onLivingDamage);
+        // Butin des mobs : le dernier à parler, jamais sur des objets déjà annulés (rien n'est alors lâché ni compté).
+        MinecraftForge.EVENT_BUS.addListener(net.minecraftforge.eventbus.api.EventPriority.LOWEST,
+                dev.oneforallsurvival.economy.loot.MobLoot::onLivingDrops);
         MinecraftForge.EVENT_BUS.addListener(BenchOverrides::onAddReloadListener);
         MinecraftForge.EVENT_BUS.addListener(BenchCatalog::onTagsUpdated);
         MinecraftForge.EVENT_BUS.addListener(BenchNetwork::onDatapackSync);

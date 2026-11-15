@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Map;
 import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
 import org.junit.jupiter.api.Test;
@@ -101,5 +102,69 @@ class EconomyLedgerTest {
         assertEquals(AUTHOR, back.entries(0).get(1).author());
         assertNull(back.entries(0).get(0).author());
         assertTrue(back.hasReceivedStarting(AUTHOR));
+    }
+
+    private static final UUID AUTRE = UUID.fromString("00000000-0000-0000-0000-00000000beef");
+
+    @Test
+    void leButinCompteALaSourceEtParJoueur() {
+        EconomyLedger ledger = new EconomyLedger();
+        ledger.lootCreated(AUTHOR, "common", 3, "butin : minecraft:zombie", true, 100, 1L);
+        ledger.lootCreated(AUTRE, "boss", 500, "butin : minecraft:wither", true, 100, 2L);
+        ledger.lootCreated(AUTHOR, "common", 2, "butin : minecraft:zombie", true, 100, 3L);
+        assertEquals(505, ledger.totalCreated(MoneySource.MOB_LOOT));
+        assertEquals(3, ledger.lootKills());
+        assertEquals(Map.of(AUTHOR, 5L, AUTRE, 500L), ledger.lootByPlayer());
+        assertEquals(Map.of("common", 5L, "boss", 500L), ledger.lootByTier());
+        assertEquals(505, ledger.inCirculation());
+        assertEquals(3, ledger.entryCount());
+        assertEquals("created.mob_loot", ledger.entries(0).get(0).kind());
+        assertEquals(AUTHOR, ledger.entries(0).get(0).author());
+        // Les copies rendues ne touchent pas au registre.
+        ledger.lootByPlayer().clear();
+        ledger.lootByTier().clear();
+        assertEquals(2, ledger.lootByPlayer().size());
+        assertEquals(2, ledger.lootByTier().size());
+    }
+
+    @Test
+    void pasDeLigneSousLeSeuil() {
+        EconomyLedger ledger = new EconomyLedger();
+        ledger.lootCreated(AUTHOR, "common", 3, "butin : minecraft:zombie", false, 100, 1L);
+        ledger.lootCreated(AUTHOR, "common", 0, "rien", true, 100, 2L);
+        assertEquals(0, ledger.entryCount());
+        assertEquals(3, ledger.totalCreated(MoneySource.MOB_LOOT));
+        assertEquals(1, ledger.lootKills());
+        assertEquals(Map.of(AUTHOR, 3L), ledger.lootByPlayer());
+        assertEquals(3, ledger.inCirculation());
+    }
+
+    @Test
+    void leButinSurvitALaSauvegarde() {
+        EconomyLedger ledger = new EconomyLedger();
+        ledger.lootCreated(AUTHOR, "common", 3, "butin : minecraft:zombie", false, 100, 1L);
+        ledger.lootCreated(AUTRE, "boss", 500, "butin : minecraft:wither", true, 100, 2L);
+        EconomyLedger back = EconomyLedger.load(ledger.save(new CompoundTag()));
+        assertEquals(503, back.totalCreated(MoneySource.MOB_LOOT));
+        assertEquals(2, back.lootKills());
+        assertEquals(Map.of(AUTHOR, 3L, AUTRE, 500L), back.lootByPlayer());
+        assertEquals(Map.of("common", 3L, "boss", 500L), back.lootByTier());
+        assertEquals(1, back.entryCount());
+    }
+
+    @Test
+    void unAncienRegistreSeRelitAZero() {
+        // Un registre d'avant le lot : ni composé « loot » ni total de butin.
+        EconomyLedger ancien = new EconomyLedger();
+        ancien.created(MoneySource.STAFF, 40, null, "geste", 100, 1L);
+        CompoundTag tag = ancien.save(new CompoundTag());
+        tag.remove("loot");
+        tag.getCompound("created").remove(MoneySource.MOB_LOOT.name());
+        EconomyLedger back = EconomyLedger.load(tag);
+        assertEquals(0, back.totalCreated(MoneySource.MOB_LOOT));
+        assertEquals(0, back.lootKills());
+        assertTrue(back.lootByPlayer().isEmpty());
+        assertTrue(back.lootByTier().isEmpty());
+        assertEquals(40, back.totalCreated(MoneySource.STAFF));
     }
 }

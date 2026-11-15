@@ -2,10 +2,12 @@ package dev.oneforallsurvival.economy;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
@@ -43,6 +45,12 @@ public final class EconomyLedger extends SavedData {
     /** Du plus ancien au plus récent. */
     private final ArrayDeque<Entry> entries = new ArrayDeque<>();
     private final Set<UUID> startingGiven = new HashSet<>();
+    /** Morts qui ont donné du butin. */
+    private long lootKills;
+    /** Butin total par joueur crédité, en cuivres. */
+    private final Map<UUID, Long> lootByPlayer = new HashMap<>();
+    /** Butin total par palier de la table, en cuivres. */
+    private final Map<String, Long> lootByTier = new HashMap<>();
 
     EconomyLedger() {}
 
@@ -94,6 +102,31 @@ public final class EconomyLedger extends SavedData {
         }
         destroyed[sink.ordinal()] = Math.addExact(destroyed[sink.ordinal()], amount);
         add(new Entry(now, author, amount, sink.kind(), clip(reason)), maxLines);
+    }
+
+    /**
+     * Compte le butin d'une mort : le total {@link MoneySource#MOB_LOOT}, le nombre de morts payantes, le total du
+     * joueur et celui du palier. Une ligne de journal seulement si {@code journal} (gros butin) : une ligne par mort
+     * pousserait dehors les autres lignes. Un montant nul ou négatif n'est pas noté.
+     */
+    public void lootCreated(UUID player, String tierId, long amount, String reason, boolean journal) {
+        lootCreated(player, tierId, amount, reason, journal, EconomyConfig.ledgerMaxLines(), System.currentTimeMillis());
+    }
+
+    void lootCreated(UUID player, String tierId, long amount, String reason, boolean journal, int maxLines, long now) {
+        if (amount <= 0L) {
+            return;
+        }
+        int i = MoneySource.MOB_LOOT.ordinal();
+        created[i] = Math.addExact(created[i], amount);
+        lootKills++;
+        lootByPlayer.merge(player, amount, Math::addExact);
+        lootByTier.merge(tierId, amount, Math::addExact);
+        if (journal) {
+            add(new Entry(now, player, amount, MoneySource.MOB_LOOT.kind(), clip(reason)), maxLines);
+        } else {
+            setDirty();
+        }
     }
 
     private void add(Entry entry, int maxLines) {
@@ -156,6 +189,21 @@ public final class EconomyLedger extends SavedData {
             total -= value;
         }
         return total;
+    }
+
+    /** Morts qui ont donné du butin, depuis le début. */
+    public long lootKills() {
+        return lootKills;
+    }
+
+    /** Butin total par joueur, en cuivres (copie). */
+    public Map<UUID, Long> lootByPlayer() {
+        return new HashMap<>(lootByPlayer);
+    }
+
+    /** Butin total par palier, en cuivres (copie). */
+    public Map<String, Long> lootByTier() {
+        return new HashMap<>(lootByTier);
     }
 
     public int entryCount() {
@@ -224,6 +272,20 @@ public final class EconomyLedger extends SavedData {
             started.add(NbtUtils.createUUID(uuid));
         }
         tag.put("starting", started);
+        CompoundTag loot = new CompoundTag();
+        loot.putLong("kills", lootKills);
+        ListTag players = new ListTag();
+        lootByPlayer.forEach((uuid, amount) -> {
+            CompoundTag line = new CompoundTag();
+            line.putUUID("u", uuid);
+            line.putLong("n", amount);
+            players.add(line);
+        });
+        loot.put("players", players);
+        CompoundTag tiers = new CompoundTag();
+        lootByTier.forEach(tiers::putLong);
+        loot.put("tiers", tiers);
+        tag.put("loot", loot);
         return tag;
     }
 
@@ -248,6 +310,19 @@ public final class EconomyLedger extends SavedData {
         }
         for (Tag raw : tag.getList("starting", Tag.TAG_INT_ARRAY)) {
             ledger.startingGiven.add(NbtUtils.loadUUID(raw));
+        }
+        // Un registre d'avant le lot E4 n'a pas de « loot » : tout se relit à zéro.
+        CompoundTag loot = tag.getCompound("loot");
+        ledger.lootKills = loot.getLong("kills");
+        for (Tag raw : loot.getList("players", Tag.TAG_COMPOUND)) {
+            CompoundTag line = (CompoundTag) raw;
+            if (line.hasUUID("u")) {
+                ledger.lootByPlayer.put(line.getUUID("u"), line.getLong("n"));
+            }
+        }
+        CompoundTag tiers = loot.getCompound("tiers");
+        for (String tier : tiers.getAllKeys()) {
+            ledger.lootByTier.put(tier, tiers.getLong(tier));
         }
         return ledger;
     }

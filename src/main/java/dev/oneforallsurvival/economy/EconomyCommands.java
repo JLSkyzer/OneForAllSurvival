@@ -29,7 +29,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Les commandes de l'équipe pour l'économie, toutes au niveau de permission 2 :
  * {@code /eco give|take <joueur> <montant> <motif>}, {@code /eco stats}, {@code /eco pending}, {@code /eco ledger [page]}, {@code /eco treasury ...},
- * {@code /eco salary list|set <clé> <taux>|owed [page]|resume|resetday}.
+ * {@code /eco salary list|set <clé> <taux>|owed [page]|resume|resetday}, {@code /eco loot}.
  * Les montants sont des cuivres ; l'affichage passe par {@link CoinMath#format}.
  */
 public final class EconomyCommands {
@@ -63,6 +63,7 @@ public final class EconomyCommands {
                                                 .executes(EconomyCommands::take)))))
                 .then(Commands.literal("stats").executes(EconomyCommands::stats))
                 .then(Commands.literal("pending").executes(EconomyCommands::pending))
+                .then(Commands.literal("loot").executes(EconomyCommands::loot))
                 .then(TreasuryCommands.ecoBranch())
                 .then(SalaryCommands.ecoBranch())
                 .then(Commands.literal("ledger")
@@ -181,6 +182,53 @@ public final class EconomyCommands {
         }
         source.sendSuccess(() -> out, false);
         return 1;
+    }
+
+    /** Joueurs au plus dans {@code /eco loot}. */
+    public static final int LOOT_TOP = 10;
+
+    /**
+     * Le butin des mobs : le total créé, le nombre de morts payantes, le total par palier et les {@value #LOOT_TOP}
+     * joueurs qui ont le plus gagné. Une ferme ou un abus se voit ici sans lire le journal.
+     */
+    private static int loot(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+        MinecraftServer server = source.getServer();
+        EconomyLedger ledger = EconomyLedger.get(server);
+        MutableComponent out = Component.translatable("command.oneforallsurvival.eco.loot.title",
+                CoinMath.format(ledger.totalCreated(MoneySource.MOB_LOOT)), ledger.lootKills());
+        java.util.Map<String, Long> tiers = new java.util.TreeMap<>(ledger.lootByTier());
+        out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.loot.tiers"));
+        if (tiers.isEmpty()) {
+            out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.loot.none"));
+        }
+        tiers.forEach((tier, amount) -> out.append("\n").append(Component.translatable(
+                "command.oneforallsurvival.eco.stats.line", tier, CoinMath.format(amount))));
+        List<java.util.Map.Entry<UUID, Long>> players = ledger.lootByPlayer().entrySet().stream()
+                .sorted(java.util.Map.Entry.<UUID, Long>comparingByValue().reversed()
+                        .thenComparing(e -> e.getKey().toString()))
+                .limit(LOOT_TOP).toList();
+        out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.loot.players", LOOT_TOP));
+        if (players.isEmpty()) {
+            out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.loot.none"));
+        }
+        for (java.util.Map.Entry<UUID, Long> line : players) {
+            out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.line",
+                    playerName(server, line.getKey()), CoinMath.format(line.getValue())));
+        }
+        source.sendSuccess(() -> out, false);
+        return 1;
+    }
+
+    /** Le nom d'un joueur : en ligne, sinon le cache des profils du serveur, sinon son identifiant entier. */
+    private static Component playerName(MinecraftServer server, UUID player) {
+        ServerPlayer online = server.getPlayerList().getPlayer(player);
+        if (online != null) {
+            return online.getName();
+        }
+        java.util.Optional<GameProfile> profile = server.getProfileCache() == null ? java.util.Optional.empty()
+                : server.getProfileCache().get(player);
+        return Component.literal(profile.map(GameProfile::getName).orElse(player.toString()));
     }
 
     /** Une page du registre, de la ligne la plus récente à la plus ancienne. */
