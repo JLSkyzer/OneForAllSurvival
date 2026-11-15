@@ -294,8 +294,10 @@ Demandé par Killian le 2026-11-08.
   trou entre le solde attendu et le contenu.
 
 **75. Salaires publics.**
-- Chaque rôle peut recevoir un **salaire**, réglé en config ou par commande. À la création, seuls les
-  rôles publics sont proposés : policier, médecin, maire.
+- Chaque rôle peut recevoir un **salaire**, réglé en config ou par commande. **Seule la police est
+  salariée par défaut** (décision de Killian, 2026-11-15) : les autres joueurs, médecin et maire compris,
+  gagnent leur argent eux-mêmes (commerce, services, factures). Leur salaire vaut 0 par défaut ; l'équipe
+  peut en fixer un par commande si le serveur le décide.
 - Le salaire est dû au **temps passé connecté dans le rôle**. Il est arrêté chaque jour à minuit et
   **envoyé à distance** au joueur : dans son **coffre-fort** ; s'il n'en a pas, dans son inventaire s'il
   est connecté ; sinon, il attend sa prochaine connexion.
