@@ -29,7 +29,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Les commandes de l'équipe pour l'économie, toutes au niveau de permission 2 :
  * {@code /eco give|take <joueur> <montant> <motif>}, {@code /eco stats}, {@code /eco pending}, {@code /eco ledger [page]}, {@code /eco treasury ...},
- * {@code /eco salary list|set <clé> <taux>|owed [page]|resume|resetday}, {@code /eco loot}, {@code /eco quests}.
+ * {@code /eco salary list|set <clé> <taux>|owed [page]|resume|resetday}, {@code /eco loot}, {@code /eco quests}, {@code /eco quest template|event|show ...}.
  * Les montants sont des cuivres ; l'affichage passe par {@link CoinMath#format}.
  */
 public final class EconomyCommands {
@@ -65,6 +65,7 @@ public final class EconomyCommands {
                 .then(Commands.literal("pending").executes(EconomyCommands::pending))
                 .then(Commands.literal("loot").executes(EconomyCommands::loot))
                 .then(Commands.literal("quests").executes(EconomyCommands::quests))
+                .then(dev.oneforallsurvival.economy.quest.QuestCommands.ecoBranch())
                 .then(TreasuryCommands.ecoBranch())
                 .then(SalaryCommands.ecoBranch())
                 .then(Commands.literal("ledger")
@@ -267,6 +268,8 @@ public final class EconomyCommands {
             out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.line", line.getKey(),
                     CoinMath.format(line.getValue())));
         }
+        out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.quests.events",
+                dev.oneforallsurvival.economy.quest.QuestBoard.get(server).activeEvents(EconomyClock.now()).size()));
         out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.quests.loaded",
                 dev.oneforallsurvival.economy.quest.QuestTemplates.current().size()));
         source.sendSuccess(() -> out, false);

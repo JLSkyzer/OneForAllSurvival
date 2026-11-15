@@ -487,7 +487,8 @@ public final class QuestProgressGameTests {
         JoueurDeTest simule = entrer(helper, "QueteSable");
         ServerPlayer joueur = simule.joueur();
         carnet(joueur, quete("essai_sable", QuestCategory.BREAK, "#minecraft:sand", 4),
-                quete("essai_pose_sable", QuestCategory.PLACE, "minecraft:sand", 4));
+                quete("essai_pose_sable", QuestCategory.PLACE, "minecraft:sand", 4),
+                quete("essai_pose_libre", QuestCategory.PLACE, null, 4));
         BlockPos sol = new BlockPos(2, 0, 2);
         BlockPos appui = new BlockPos(2, 2, 2);
         BlockPos pose = new BlockPos(2, 3, 2);
@@ -497,6 +498,7 @@ public final class QuestProgressGameTests {
         poser(helper, joueur, pose, Items.SAND);
         helper.assertBlockPresent(Blocks.SAND, pose);
         helper.assertTrue(progres(joueur, 1) == 1, "pose du sable : " + progres(joueur, 1));
+        helper.assertTrue(progres(joueur, 2) == 1, "pose sans cible : " + progres(joueur, 2));
         helper.setBlock(appui, Blocks.AIR);
         helper.startSequence()
                 .thenWaitUntil(() -> helper.assertBlockPresent(Blocks.SAND, arrivee))
@@ -506,6 +508,8 @@ public final class QuestProgressGameTests {
                                 "case d'atterrissage non marquée");
                         // La pose comptée ne tient pas : le bloc est parti de lui-même.
                         helper.assertTrue(progres(joueur, 1) == 0, "pose après la chute : " + progres(joueur, 1));
+                        // Une quête de pose sans cible (possible pour un événement) ne se remplit pas non plus.
+                        helper.assertTrue(progres(joueur, 2) == 0, "pose sans cible après la chute : " + progres(joueur, 2));
                         casser(helper, joueur, arrivee, new ItemStack(Items.IRON_SHOVEL));
                         helper.assertTrue(progres(joueur, 0) == 0, "casse du sable tombé : " + progres(joueur, 0));
                         helper.setBlock(new BlockPos(4, 1, 2), Blocks.SAND);

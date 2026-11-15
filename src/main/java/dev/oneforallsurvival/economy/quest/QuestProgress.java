@@ -128,7 +128,7 @@ public final class QuestProgress {
             if (advances(quest, category, matches)) {
                 Quest next = quest.withProgress((int) Math.min((long) quest.progress() + amount, quest.goal()));
                 entry.setValue(next);
-                keys.add("event|" + entry.getKey());
+                keys.add("event|" + entry.getKey() + "|" + book.eventStart(entry.getKey()));
                 finished |= next.complete();
             }
         }
@@ -156,8 +156,9 @@ public final class QuestProgress {
         String[] parts = key.split("\\|", 3);
         boolean changed = false;
         boolean wasComplete = false;
-        if (parts[0].equals("event") && parts.length == 2) {
-            Quest quest = book.events().get(parts[1]);
+        if (parts[0].equals("event") && parts.length == 3) {
+            // « event|<identifiant>|<début> » : un événement relancé sous le même identifiant n'est pas retouché.
+            Quest quest = String.valueOf(book.eventStart(parts[1])).equals(parts[2]) ? book.events().get(parts[1]) : null;
             if (quest != null && !quest.claimed() && quest.progress() > 0) {
                 wasComplete = quest.complete();
                 book.events().put(parts[1], quest.withProgress(quest.progress() - 1));

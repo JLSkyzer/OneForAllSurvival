@@ -124,8 +124,13 @@ public final class QuestService {
      * @return vrai si quelque chose a changé
      */
     public static boolean refresh(ServerPlayer player, long now) {
+        return refresh(player, now, activeEvents(player, now));
+    }
+
+    /** Comme {@link #refresh(ServerPlayer, long)}, avec les événements en cours donnés (essais, registre détaché). */
+    public static boolean refresh(ServerPlayer player, long now, List<QuestEvent> events) {
         QuestBook book = QuestBook.of(player);
-        if (!refresh(player, book, now)) {
+        if (!refresh(player, book, now, events)) {
             return false;
         }
         book.saveTo(player);
@@ -133,14 +138,25 @@ public final class QuestService {
         return true;
     }
 
-    private static boolean refresh(ServerPlayer player, QuestBook book, long now) {
+    /** Les événements de l'équipe en cours à cet instant (le tableau de l'équipe du monde du joueur). */
+    private static List<QuestEvent> activeEvents(ServerPlayer player, long now) {
+        return QuestBoard.get(player.server).activeEvents(now);
+    }
+
+    private static boolean refresh(ServerPlayer player, QuestBook book, long now, List<QuestEvent> events) {
         LocalDate today = today(now);
         LocalDate week = week(now);
-        boolean changed = book.refresh(today, week, drawer(player, today, week), EconomyConfig.questPendingMax());
+        boolean changed = book.refresh(today, week, drawer(player, today, week), EconomyConfig.questPendingMax(),
+                events);
         if (book.forgotten() > 0) {
             player.displayClientMessage(Component.translatable(MESSAGE + "pending_forgotten", book.forgotten()), false);
         }
         return changed;
+    }
+
+    /** Au démarrage du monde : charge le tableau de l'équipe, qui met en service ses modèles avant tout tirage. */
+    public static void onServerStarted(net.minecraftforge.event.server.ServerStartedEvent event) {
+        QuestBoard.get(event.getServer());
     }
 
     /** À la connexion. */
@@ -179,12 +195,18 @@ public final class QuestService {
      * carnet réécrit.
      */
     public static ClaimResult claim(ServerPlayer player, QuestRef ref, long now, EconomyLedger ledger) {
+        return claim(player, ref, now, ledger, activeEvents(player, now));
+    }
+
+    /** Comme {@link #claim(ServerPlayer, QuestRef, long, EconomyLedger)}, avec les événements en cours donnés. */
+    public static ClaimResult claim(ServerPlayer player, QuestRef ref, long now, EconomyLedger ledger,
+            List<QuestEvent> events) {
         if (player.isCreative()) {
             return ClaimResult.CREATIVE;
         }
         QuestBook book = QuestBook.of(player);
-        // Une série renouvelée entre l'affichage et le clic : la référence ne désigne plus rien.
-        if (refresh(player, book, now)) {
+        // Une série (ou un événement) renouvelée entre l'affichage et le clic : la référence ne désigne plus rien.
+        if (refresh(player, book, now, events)) {
             book.saveTo(player);
             markDirty(player);
         }
@@ -221,7 +243,9 @@ public final class QuestService {
         }
         book.markClaimed(ref);
         book.recordPaid(week, entered);
-        ledger.questCreated(player.getUUID(), quest.templateId(), entered,
+        boolean fromEvent = ref.kind() == QuestRef.Kind.EVENT
+                || ref.kind() == QuestRef.Kind.PENDING && ref.origin() == QuestRef.Kind.EVENT;
+        ledger.questCreated(player.getUUID(), fromEvent ? "event:" + quest.templateId() : quest.templateId(), entered,
                 entered >= EconomyConfig.questJournalThreshold());
         book.saveTo(player);
         markDirty(player);
@@ -257,7 +281,7 @@ public final class QuestService {
             return false;
         }
         QuestBook book = QuestBook.of(player);
-        boolean refreshed = refresh(player, book, now);
+        boolean refreshed = refresh(player, book, now, activeEvents(player, now));
         LocalDate today = today(now);
         Optional<Quest> found = book.find(ref);
         if (found.isEmpty() || found.get().complete() || found.get().claimed()

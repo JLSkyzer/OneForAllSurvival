@@ -87,6 +87,13 @@ public final class QuestTemplates extends SimpleJsonResourceReloadListener {
         return List.copyOf(usable(all, dead));
     }
 
+    /** Les identifiants du fichier de données (les modèles de l'équipe n'y comptent pas). */
+    public static Set<String> fileIds() {
+        Set<String> ids = new HashSet<>();
+        loaded.forEach(t -> ids.add(t.id()));
+        return ids;
+    }
+
     /** Les modèles de l'équipe déjà signalés comme écartés depuis le dernier chargement (essais). */
     static Set<String> warnedStaffCollisions() {
         return Set.copyOf(WARNED_COLLISIONS);

@@ -5,7 +5,9 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -14,6 +16,7 @@ import java.util.function.Function;
 import javax.annotation.Nullable;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
@@ -34,8 +37,20 @@ public final class QuestBook {
 
     public static final String KEY = "oneforallsurvival:quests";
 
-    /** Une quête finie d'une série remplacée, réclamable plus tard ; {@code seriesKey} est la clé de sa série. */
-    public record Pending(Quest quest, LocalDate seriesKey) {}
+    /** Événements vus au plus (identifiant#début) : de quoi ne jamais rendre un événement déjà retiré. */
+    private static final int SEEN_MAX = 64;
+
+    /**
+     * Une quête finie d'une liste remplacée, réclamable plus tard ; {@code seriesKey} est la clé de sa série,
+     * {@code origin} sa liste d'origine ({@code DAILY}, {@code WEEKLY} ou {@code EVENT}) et {@code eventKey} la date de
+     * début de l'événement (0 sinon).
+     */
+    public record Pending(Quest quest, LocalDate seriesKey, QuestRef.Kind origin, long eventKey) {
+
+        public Pending(Quest quest, LocalDate seriesKey) {
+            this(quest, seriesKey, QuestRef.Kind.DAILY, 0L);
+        }
+    }
 
     @Nullable
     private LocalDate dailyKey;
@@ -51,8 +66,12 @@ public final class QuestBook {
     private long capPaid;
     /** De la plus ancienne à la plus récente. */
     private final List<Pending> pending = new ArrayList<>();
-    /** Identifiant d'événement → progression du joueur (tâche 4). */
+    /** Identifiant d'événement → progression du joueur. */
     private final Map<String, Quest> events = new LinkedHashMap<>();
+    /** Identifiant d'événement → sa date de début (ms) : l'événement relancé n'est pas celui-ci. */
+    private final Map<String, Long> eventStarts = new LinkedHashMap<>();
+    /** Les événements déjà reçus, retirés ou non (« identifiant#début ») : un événement retiré ne revient pas. */
+    private final LinkedHashSet<String> eventsSeen = new LinkedHashSet<>();
     /** Récompenses en attente oubliées (au-delà du maximum) au dernier {@link #refresh} ; jamais sauvegardé. */
     private int forgotten;
 
@@ -102,9 +121,19 @@ public final class QuestBook {
         return List.copyOf(pending);
     }
 
-    /** Les quêtes d'événement du joueur ; modifiable (tâche 4). */
+    /** Les quêtes d'événement du joueur ; modifiable (la progression). */
     public Map<String, Quest> events() {
         return events;
+    }
+
+    /** La date de début de l'événement de cette quête, ou 0 s'il n'y en a pas. */
+    public long eventStart(String eventId) {
+        return eventStarts.getOrDefault(eventId, 0L);
+    }
+
+    /** Le jour (UTC) d'une date de début d'événement : la clé de série informative des références d'événement. */
+    public static LocalDate eventDay(long startMillis) {
+        return LocalDate.ofEpochDay(Math.floorDiv(startMillis, 86_400_000L));
     }
 
     /** Récompenses en attente oubliées au dernier {@link #refresh}, la plus ancienne d'abord. */
@@ -133,15 +162,26 @@ public final class QuestBook {
      * @return vrai si quelque chose a changé
      */
     public boolean refresh(LocalDate today, LocalDate week, Function<Series, List<Quest>> drawer, int pendingMax) {
+        return refresh(today, week, drawer, pendingMax, List.of());
+    }
+
+    /**
+     * Comme {@link #refresh(LocalDate, LocalDate, Function, int)}, avec les événements en cours : un événement en
+     * cours que le joueur n'a pas encore reçu lui est ajouté (une fois : jamais un événement déjà retiré), celui qui
+     * n'est plus en cours, ou qui a été relancé (autre date de début), est retiré, sa quête finie et non réclamée
+     * passant dans les récompenses en attente.
+     */
+    public boolean refresh(LocalDate today, LocalDate week, Function<Series, List<Quest>> drawer, int pendingMax,
+            List<QuestEvent> running) {
         forgotten = 0;
-        boolean changed = false;
+        boolean changed = refreshEvents(running);
         if (dailyKey == null || today.isAfter(dailyKey)) {
-            replace(daily, dailyKey, drawer.apply(Series.DAILY));
+            replace(daily, dailyKey, QuestRef.Kind.DAILY, drawer.apply(Series.DAILY));
             dailyKey = today;
             changed = true;
         }
         if (weeklyKey == null || week.isAfter(weeklyKey)) {
-            replace(weekly, weeklyKey, drawer.apply(Series.WEEKLY));
+            replace(weekly, weeklyKey, QuestRef.Kind.WEEKLY, drawer.apply(Series.WEEKLY));
             weeklyKey = week;
             changed = true;
         }
@@ -154,16 +194,51 @@ public final class QuestBook {
         return changed;
     }
 
-    private void replace(List<Quest> series, @Nullable LocalDate oldKey, List<Quest> fresh) {
+    private void replace(List<Quest> series, @Nullable LocalDate oldKey, QuestRef.Kind origin, List<Quest> fresh) {
         if (oldKey != null) {
             for (Quest quest : series) {
                 if (quest.complete() && !quest.claimed()) {
-                    pending.add(new Pending(quest, oldKey));
+                    pending.add(new Pending(quest, oldKey, origin, 0L));
                 }
             }
         }
         series.clear();
         series.addAll(fresh);
+    }
+
+    private boolean refreshEvents(List<QuestEvent> running) {
+        Map<String, QuestEvent> byId = new LinkedHashMap<>();
+        running.forEach(e -> byId.put(e.id(), e));
+        boolean changed = false;
+        for (Iterator<Map.Entry<String, Quest>> it = events.entrySet().iterator(); it.hasNext();) {
+            Map.Entry<String, Quest> entry = it.next();
+            long start = eventStart(entry.getKey());
+            QuestEvent live = byId.get(entry.getKey());
+            if (live != null && live.startMillis() == start) {
+                continue;
+            }
+            Quest quest = entry.getValue();
+            if (quest.complete() && !quest.claimed()) {
+                pending.add(new Pending(quest, eventDay(start), QuestRef.Kind.EVENT, start));
+            }
+            it.remove();
+            eventStarts.remove(entry.getKey());
+            changed = true;
+        }
+        for (QuestEvent event : byId.values()) {
+            String mark = event.id() + "#" + event.startMillis();
+            if (events.containsKey(event.id()) || eventsSeen.contains(mark)) {
+                continue;
+            }
+            events.put(event.id(), event.toQuest());
+            eventStarts.put(event.id(), event.startMillis());
+            eventsSeen.add(mark);
+            while (eventsSeen.size() > SEEN_MAX) {
+                eventsSeen.remove(eventsSeen.iterator().next());
+            }
+            changed = true;
+        }
+        return changed;
     }
 
     /** Remplace une série entière (essais, et équipe). */
@@ -185,7 +260,12 @@ public final class QuestBook {
 
     /** Ajoute une récompense en attente (essais) ; les plus anciennes au-delà de {@code max} sont oubliées. */
     public void addPending(Quest quest, LocalDate seriesKey, int max) {
-        pending.add(new Pending(quest, seriesKey));
+        addPending(new Pending(quest, seriesKey), max);
+    }
+
+    /** Comme {@link #addPending(Quest, LocalDate, int)}, avec la liste d'origine (essais). */
+    public void addPending(Pending line, int max) {
+        pending.add(line);
         while (pending.size() > Math.max(0, max)) {
             pending.remove(0);
         }
@@ -274,9 +354,11 @@ public final class QuestBook {
                 }
                 Pending p = pending.get(ref.index());
                 yield p.quest().templateId().equals(ref.templateId()) && p.seriesKey().equals(ref.seriesKey())
+                        && p.origin() == ref.origin() && p.eventKey() == ref.eventKey()
                         ? Optional.of(p.quest()) : Optional.empty();
             }
-            case EVENT -> Optional.ofNullable(events.get(ref.templateId()));
+            case EVENT -> events.containsKey(ref.templateId()) && eventStart(ref.templateId()) == ref.eventKey()
+                    ? Optional.of(events.get(ref.templateId())) : Optional.empty();
         };
     }
 
@@ -314,9 +396,17 @@ public final class QuestBook {
             case DAILY -> new QuestRef(kind, index, daily.get(index).templateId(), dailyKey);
             case WEEKLY -> new QuestRef(kind, index, weekly.get(index).templateId(), weeklyKey);
             case PENDING -> new QuestRef(kind, index, pending.get(index).quest().templateId(),
-                    pending.get(index).seriesKey());
+                    pending.get(index).seriesKey(), pending.get(index).origin(), pending.get(index).eventKey());
             case EVENT -> throw new IllegalArgumentException("une quête d'événement se désigne par son identifiant");
         };
+    }
+
+    /** La référence de la quête de cet événement ; {@code IllegalArgumentException} si le joueur ne l'a pas. */
+    public QuestRef eventRef(String eventId) {
+        if (!events.containsKey(eventId)) {
+            throw new IllegalArgumentException("pas de quête pour l'événement " + eventId);
+        }
+        return QuestRef.event(eventId, eventStart(eventId));
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -337,12 +427,21 @@ public final class QuestBook {
         for (Pending p : pending) {
             CompoundTag line = p.quest().save();
             line.putString("seriesKey", p.seriesKey().toString());
+            line.putString("origin", p.origin().name());
+            line.putLong("eventKey", p.eventKey());
             pendingTag.add(line);
         }
         tag.put("pending", pendingTag);
         CompoundTag eventsTag = new CompoundTag();
-        events.forEach((id, quest) -> eventsTag.put(id, quest.save()));
+        events.forEach((id, quest) -> {
+            CompoundTag line = quest.save();
+            line.putLong("eventStart", eventStart(id));
+            eventsTag.put(id, line);
+        });
         tag.put("events", eventsTag);
+        ListTag seen = new ListTag();
+        eventsSeen.forEach(mark -> seen.add(StringTag.valueOf(mark)));
+        tag.put("eventsSeen", seen);
         return tag;
     }
 
@@ -362,14 +461,28 @@ public final class QuestBook {
             LocalDate key = date(line, "seriesKey");
             Optional<Quest> quest = Quest.load(line);
             if (key != null && quest.isPresent()) {
-                book.pending.add(new Pending(quest.get(), key));
+                book.pending.add(new Pending(quest.get(), key, origin(line.getString("origin")),
+                        line.getLong("eventKey")));
             }
         }
         CompoundTag eventsTag = tag.getCompound("events");
         for (String id : eventsTag.getAllKeys()) {
-            Quest.load(eventsTag.getCompound(id)).ifPresent(q -> book.events.put(id, q));
+            CompoundTag line = eventsTag.getCompound(id);
+            Quest.load(line).ifPresent(q -> {
+                book.events.put(id, q);
+                book.eventStarts.put(id, line.getLong("eventStart"));
+            });
+        }
+        for (Tag raw : tag.getList("eventsSeen", Tag.TAG_STRING)) {
+            book.eventsSeen.add(raw.getAsString());
         }
         return book;
+    }
+
+    /** La liste d'origine d'une attente relue ; illisible ou absente (ancien carnet) : journalière. */
+    private static QuestRef.Kind origin(String name) {
+        return QuestRef.Kind.WEEKLY.name().equals(name) ? QuestRef.Kind.WEEKLY
+                : QuestRef.Kind.EVENT.name().equals(name) ? QuestRef.Kind.EVENT : QuestRef.Kind.DAILY;
     }
 
     private static ListTag list(List<Quest> quests) {

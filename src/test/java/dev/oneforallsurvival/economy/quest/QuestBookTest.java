@@ -161,7 +161,8 @@ class QuestBookTest {
         assertEquals(MERCREDI, book.pending().get(0).seriesKey());
         assertEquals(0, book.forgotten());
         // Elle se réclame par sa référence ; une seconde fois, elle n'existe plus.
-        QuestRef ref = new QuestRef(QuestRef.Kind.PENDING, 0, finie.templateId(), MERCREDI);
+        QuestRef ref = book.ref(QuestRef.Kind.PENDING, 0);
+        assertEquals(QuestRef.Kind.DAILY, ref.origin());
         assertEquals(Optional.of(finie), book.find(ref));
         assertTrue(book.markClaimed(ref));
         assertTrue(book.pending().isEmpty());
@@ -289,5 +290,120 @@ class QuestBookTest {
         QuestBook vide = QuestBook.load(new CompoundTag());
         assertTrue(vide.daily().isEmpty());
         assertEquals(null, vide.dailyKey());
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Événements et références d'attente
+    // ---------------------------------------------------------------------------------------------
+
+    private static final java.util.UUID AUTEUR = new java.util.UUID(1L, 2L);
+    private static final long DEBUT = 1_000_000L;
+    private static final long FIN = 5_000_000L;
+
+    private static QuestEvent evenement(String id, long debut, long fin) {
+        return new QuestEvent(id, QuestCategory.BREAK, null, 5, 30L, debut, fin, "La fête", AUTEUR);
+    }
+
+    @Test
+    void uneJournaliereEtUneHebdomadaireEnAttenteNeSeConfondentPas() {
+        QuestBook book = new QuestBook();
+        Quest finie = quest("meme").withProgress(10);
+        // Un lundi : la clé journalière et la clé hebdomadaire sont la même date, le modèle aussi.
+        book.setSeries(Series.DAILY, LUNDI, List.of(finie));
+        book.setSeries(Series.WEEKLY, LUNDI, List.of(finie));
+        book.refresh(LUNDI.plusDays(7), LUNDI.plusDays(7), new Tireur(), 8);
+        assertEquals(2, book.pending().size());
+        QuestRef journaliere = book.ref(QuestRef.Kind.PENDING, 0);
+        QuestRef hebdomadaire = book.ref(QuestRef.Kind.PENDING, 1);
+        assertEquals(QuestRef.Kind.DAILY, journaliere.origin());
+        assertEquals(QuestRef.Kind.WEEKLY, hebdomadaire.origin());
+        // Une référence sans origine, ou d'une autre liste, ne désigne rien.
+        assertTrue(book.find(new QuestRef(QuestRef.Kind.PENDING, 0, "meme", LUNDI)).isEmpty());
+        assertTrue(book.find(new QuestRef(QuestRef.Kind.PENDING, 0, "meme", LUNDI, QuestRef.Kind.WEEKLY, 0L)).isEmpty());
+        assertTrue(book.find(new QuestRef(QuestRef.Kind.PENDING, 1, "meme", LUNDI, QuestRef.Kind.DAILY, 0L)).isEmpty());
+        // La journalière réclamée, l'hebdomadaire change de place : le clic périmé sur l'ancienne place ne la prend pas.
+        assertTrue(book.markClaimed(journaliere));
+        assertEquals(1, book.pending().size());
+        assertTrue(book.find(journaliere).isEmpty());
+        assertFalse(book.markClaimed(journaliere));
+        assertEquals(QuestRef.Kind.WEEKLY, book.pending().get(0).origin());
+        assertTrue(book.find(book.ref(QuestRef.Kind.PENDING, 0)).isPresent());
+        // L'origine survit à la sauvegarde.
+        assertEquals(QuestRef.Kind.WEEKLY, QuestBook.load(book.save()).pending().get(0).origin());
+    }
+
+    @Test
+    void unEvenementApparaitUneFoisEtSonProgresEstPropre() {
+        Tireur tireur = new Tireur();
+        QuestBook book = new QuestBook();
+        List<QuestEvent> en = List.of(evenement("fete", DEBUT, FIN));
+        assertTrue(book.refresh(MERCREDI, LUNDI, tireur, 8, en));
+        assertEquals(5, book.events().get("fete").goal());
+        assertEquals("La fête", book.events().get("fete").titleKey());
+        assertEquals(DEBUT, book.eventStart("fete"));
+        book.events().put("fete", book.events().get("fete").withProgress(2));
+        // Une seconde vue ne la remet pas à zéro.
+        assertFalse(book.refresh(MERCREDI, LUNDI, tireur, 8, en));
+        assertEquals(2, book.events().get("fete").progress());
+        QuestBook back = QuestBook.load(book.save());
+        assertEquals(book.events(), back.events());
+        assertEquals(DEBUT, back.eventStart("fete"));
+        assertEquals(book.save(), back.save());
+    }
+
+    @Test
+    void unEvenementRelanceSousLeMemeIdentifiantEstDistingue() {
+        Tireur tireur = new Tireur();
+        QuestBook book = new QuestBook();
+        book.refresh(MERCREDI, LUNDI, tireur, 8, List.of(evenement("fete", DEBUT, FIN)));
+        QuestRef ancienne = book.eventRef("fete");
+        assertTrue(book.find(ancienne).isPresent());
+        book.events().put("fete", book.events().get("fete").withProgress(5));
+        // L'équipe l'arrête puis le relance (autre début) : la finie non réclamée attend, la neuve repart de zéro.
+        book.refresh(MERCREDI, LUNDI, tireur, 8, List.of(evenement("fete", DEBUT + 10, FIN)));
+        assertEquals(0, book.events().get("fete").progress());
+        assertEquals(1, book.pending().size());
+        assertEquals(QuestRef.Kind.EVENT, book.pending().get(0).origin());
+        assertEquals(DEBUT, book.pending().get(0).eventKey());
+        assertTrue(book.find(ancienne).isEmpty(), "un clic périmé sur l'ancien ne désigne pas le nouveau");
+        assertFalse(book.markClaimed(ancienne));
+        assertFalse(book.events().get("fete").claimed());
+        QuestRef nouvelle = book.eventRef("fete");
+        assertEquals(DEBUT + 10, nouvelle.eventKey());
+        assertTrue(book.find(nouvelle).isPresent());
+        // L'attente de l'ancien se réclame par sa propre référence.
+        assertTrue(book.find(book.ref(QuestRef.Kind.PENDING, 0)).isPresent());
+    }
+
+    @Test
+    void unEvenementTermineEstRetireEtLaFinieAttend() {
+        Tireur tireur = new Tireur();
+        QuestBook book = new QuestBook();
+        book.refresh(MERCREDI, LUNDI, tireur, 8, List.of(evenement("a", DEBUT, FIN), evenement("b", DEBUT, FIN)));
+        book.events().put("a", book.events().get("a").withProgress(5));
+        book.events().put("b", book.events().get("b").withProgress(5).claimedNow());
+        book.refresh(MERCREDI, LUNDI, tireur, 8, List.of());
+        assertTrue(book.events().isEmpty());
+        assertEquals(1, book.pending().size());
+        assertEquals("a", book.pending().get(0).quest().templateId());
+    }
+
+    @Test
+    void unEvenementRetireNeRevientPasSiLHorlogeRecule() {
+        Tireur tireur = new Tireur();
+        QuestBook book = new QuestBook();
+        List<QuestEvent> en = List.of(evenement("fete", DEBUT, FIN));
+        book.refresh(MERCREDI, LUNDI, tireur, 8, en);
+        book.events().put("fete", book.events().get("fete").withProgress(5).claimedNow());
+        // L'horloge saute après la fin, puis recule : l'événement est de nouveau « en cours », il ne se redonne pas.
+        book.refresh(MERCREDI, LUNDI, tireur, 8, List.of());
+        assertTrue(book.events().isEmpty());
+        assertFalse(book.refresh(MERCREDI, LUNDI, tireur, 8, en));
+        assertTrue(book.events().isEmpty());
+        assertTrue(book.pending().isEmpty());
+        // Même chose après une sauvegarde.
+        QuestBook back = QuestBook.load(book.save());
+        assertFalse(back.refresh(MERCREDI, LUNDI, tireur, 8, en));
+        assertTrue(back.events().isEmpty());
     }
 }
