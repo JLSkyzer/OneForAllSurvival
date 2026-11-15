@@ -114,10 +114,13 @@ public final class EconomyRegistry {
      * Le tableau de la mairie (lot E3) : posé par le maire (autant qu'il veut) ou l'équipe, déplacé par un ingénieur,
      * le maire ou l'équipe ; mêmes règles de casse que le trésor. Panneau sur pieds : {@code noOcclusion} et forme
      * exacte ({@link TownBoardBlock}). Aucune recette : l'onglet créatif et {@code /treasury board}.
+     * {@code forceSolidOn} : un panneau mince n'est pas « solide » pour le jeu, et l'eau ou la lave (seau, source
+     * voisine) remplaceraient sa partie maîtresse sans aucun droit (objet lâché pour n'importe qui, ou perdu).
      */
     public static final RegistryObject<Block> TOWN_BOARD = BLOCKS.register("town_board",
             () -> new TownBoardBlock(BlockBehaviour.Properties.of().mapColor(MapColor.WOOD)
-                    .strength(-1.0F, 3600000.0F).sound(SoundType.WOOD).pushReaction(PushReaction.BLOCK).noOcclusion()));
+                    .strength(-1.0F, 3600000.0F).sound(SoundType.WOOD).pushReaction(PushReaction.BLOCK).noOcclusion()
+                    .forceSolidOn()));
     public static final RegistryObject<Item> TOWN_BOARD_ITEM = ITEMS.register("town_board",
             () -> new BlockItem(TOWN_BOARD.get(), new Item.Properties()));
     public static final RegistryObject<BlockEntityType<TownBoardBlockEntity>> TOWN_BOARD_BE = BLOCK_ENTITIES

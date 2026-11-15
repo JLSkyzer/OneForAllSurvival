@@ -50,6 +50,9 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.BucketItem;
 import net.minecraft.world.item.context.DirectionalPlaceContext;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.GameType;
@@ -59,6 +62,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.piston.PistonBaseBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.level.material.PushReaction;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
@@ -960,5 +964,107 @@ public final class TableauMairieGameTests {
                     }
                 })
                 .thenSucceed();
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Lot des liquides : ni l'eau ni la lave ne remplacent un bloc de l'argent ou de la ville
+    // ---------------------------------------------------------------------------------------------
+
+    private static final String LOT_LIQUIDES = "tableau_mairie_liquides";
+
+    /** Les places autour d'un groupe de blocs (devant, derrière, côtés, dessus), dans la boîte, hors de ces blocs. */
+    private static List<BlockPos> autour(List<BlockPos> blocs) {
+        List<BlockPos> out = new ArrayList<>();
+        for (BlockPos b : blocs) {
+            for (Direction d : Direction.values()) {
+                BlockPos p = b.relative(d);
+                if (d != Direction.DOWN && !blocs.contains(p) && !out.contains(p) && p.getX() >= 1 && p.getX() <= 6
+                        && p.getZ() >= 1 && p.getZ() <= 6 && p.getY() >= 0 && p.getY() <= 3) {
+                    out.add(p);
+                }
+            }
+        }
+        return out;
+    }
+
+    /** Tout ce qui n'est pas {@code garder} dans l'intérieur de la boîte redevient de l'air (liquides compris). */
+    private static void viderSauf(GameTestHelper helper, List<BlockPos> garder) {
+        for (int x = 1; x <= 6; x++) {
+            for (int z = 1; z <= 6; z++) {
+                for (int y = 0; y <= 3; y++) {
+                    BlockPos p = new BlockPos(x, y, z);
+                    if (!garder.contains(p)) {
+                        helper.setBlock(p, Blocks.AIR);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Pour chaque bloc gardé : un seau vidé droit dessus ne passe pas, et aucun état ne se laisse remplacer par un
+     * liquide ; puis des sources d'eau (ou de lave) tout autour et au-dessus, le temps que le liquide coule.
+     */
+    private static void liquidesSansEffet(GameTestHelper helper, Essai essai, List<BlockPos> blocs, Runnable intact,
+            String quoi) {
+        JoueurDeTest citoyen = essai.citoyen("tm_liq_" + quoi);
+        for (BlockPos b : blocs) {
+            BlockState etat = helper.getBlockState(b);
+            helper.assertTrue(!etat.canBeReplaced(Fluids.WATER) && !etat.canBeReplaced(Fluids.LAVA),
+                    quoi + " " + etat + " : un liquide peut le remplacer");
+            for (Item seau : List.of(Items.WATER_BUCKET, Items.LAVA_BUCKET)) {
+                boolean verse = ((BucketItem) seau).emptyContents(citoyen.joueur(), helper.getLevel(), helper.absolutePos(b),
+                        null);
+                helper.assertTrue(!verse, quoi + " : " + seau + " vidé dans " + etat);
+                intact.run();
+            }
+        }
+        List<BlockPos> sources = autour(blocs);
+        List<Block> liquides = List.of(Blocks.WATER, Blocks.LAVA);
+        helper.startSequence()
+                .thenExecute(() -> sources.forEach(p -> helper.setBlock(p, liquides.get(0))))
+                .thenIdle(40)
+                .thenExecute(() -> {
+                    intact.run();
+                    helper.assertTrue(objets(helper).isEmpty(), quoi + " : l'eau a fait tomber " + objets(helper));
+                    viderSauf(helper, blocs);
+                    sources.forEach(p -> helper.setBlock(p, liquides.get(1)));
+                })
+                .thenIdle(100)
+                .thenExecute(() -> {
+                    try {
+                        intact.run();
+                        helper.assertTrue(objets(helper).isEmpty(), quoi + " : la lave a fait tomber " + objets(helper));
+                        viderSauf(helper, blocs);
+                    } finally {
+                        essai.close();
+                    }
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_LIQUIDES, timeoutTicks = 300)
+    public static void niEauNiLaveNeRemplacentLeTableau(GameTestHelper helper) {
+        Essai essai = new Essai(helper);
+        BlockPos maitresse = new BlockPos(3, 0, 3);
+        poserEntier(helper, maitresse, Direction.NORTH);
+        List<BlockPos> blocs = new ArrayList<>(parties(maitresse, Direction.NORTH).values());
+        liquidesSansEffet(helper, essai, blocs, () -> entier(helper, maitresse, Direction.NORTH), "tableau");
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_LIQUIDES, timeoutTicks = 300)
+    public static void niEauNiLaveNeRemplacentLEtalLeCoffreFortNiLeTresor(GameTestHelper helper) {
+        Essai essai = new Essai(helper);
+        BlockPos etal = new BlockPos(2, 0, 2);
+        BlockPos coffre = new BlockPos(5, 0, 2);
+        BlockPos tresor = new BlockPos(3, 0, 5);
+        helper.setBlock(etal, EconomyRegistry.MARKET_STALL.get());
+        helper.setBlock(coffre, EconomyRegistry.SAFE.get());
+        helper.setBlock(tresor, EconomyRegistry.TREASURY.get());
+        Map<BlockPos, Block> attendus = Map.of(etal, EconomyRegistry.MARKET_STALL.get(), coffre, EconomyRegistry.SAFE.get(),
+                tresor, EconomyRegistry.TREASURY.get());
+        liquidesSansEffet(helper, essai, List.of(etal, coffre, tresor), () -> attendus.forEach((pos, bloc) ->
+                helper.assertTrue(helper.getBlockState(pos).is(bloc), bloc + " remplacé en " + pos + " : "
+                        + helper.getBlockState(pos))), "etal");
     }
 }
