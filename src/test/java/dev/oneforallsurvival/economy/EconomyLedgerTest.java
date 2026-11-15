@@ -167,4 +167,67 @@ class EconomyLedgerTest {
         assertTrue(back.lootByTier().isEmpty());
         assertEquals(40, back.totalCreated(MoneySource.STAFF));
     }
+
+    @Test
+    void lesQuetesComptentALaSourceEtParJoueur() {
+        EconomyLedger ledger = new EconomyLedger();
+        ledger.questCreated(AUTHOR, "break_stone", 20, false, 100, 1L);
+        ledger.questCreated(AUTRE, "fish", 150, true, 100, 2L);
+        ledger.questCreated(AUTHOR, "fish", 30, false, 100, 3L);
+        assertEquals(200, ledger.totalCreated(MoneySource.QUEST));
+        assertEquals(3, ledger.questClaims());
+        assertEquals(Map.of(AUTHOR, 50L, AUTRE, 150L), ledger.questByPlayer());
+        assertEquals(Map.of("break_stone", 20L, "fish", 180L), ledger.questByTemplate());
+        assertEquals(200, ledger.inCirculation());
+        assertEquals(1, ledger.entryCount());
+        EconomyLedger.Entry line = ledger.entries(0).get(0);
+        assertEquals("created.quest", line.kind());
+        assertEquals(AUTRE, line.author());
+        assertEquals(150, line.amount());
+        assertEquals("quête : fish", line.reason());
+        // Les copies rendues ne touchent pas au registre.
+        ledger.questByPlayer().clear();
+        ledger.questByTemplate().clear();
+        assertEquals(2, ledger.questByPlayer().size());
+        assertEquals(2, ledger.questByTemplate().size());
+    }
+
+    @Test
+    void pasDeLigneDeQueteSousLeSeuil() {
+        EconomyLedger ledger = new EconomyLedger();
+        ledger.questCreated(AUTHOR, "break_stone", 20, false, 100, 1L);
+        ledger.questCreated(AUTHOR, "break_stone", 0, true, 100, 2L);
+        ledger.questCreated(AUTHOR, "break_stone", -5, true, 100, 3L);
+        assertEquals(0, ledger.entryCount());
+        assertEquals(20, ledger.totalCreated(MoneySource.QUEST));
+        assertEquals(1, ledger.questClaims());
+    }
+
+    @Test
+    void lesQuetesSurviventALaSauvegarde() {
+        EconomyLedger ledger = new EconomyLedger();
+        ledger.questCreated(AUTHOR, "break_stone", 20, false, 100, 1L);
+        ledger.questCreated(AUTRE, "fish", 150, true, 100, 2L);
+        EconomyLedger back = EconomyLedger.load(ledger.save(new CompoundTag()));
+        assertEquals(170, back.totalCreated(MoneySource.QUEST));
+        assertEquals(2, back.questClaims());
+        assertEquals(Map.of(AUTHOR, 20L, AUTRE, 150L), back.questByPlayer());
+        assertEquals(Map.of("break_stone", 20L, "fish", 150L), back.questByTemplate());
+        assertEquals(1, back.entryCount());
+    }
+
+    @Test
+    void unRegistreDAvantLesQuetesSeRelitAZero() {
+        EconomyLedger ancien = new EconomyLedger();
+        ancien.lootCreated(AUTHOR, "common", 3, "butin", false, 100, 1L);
+        CompoundTag tag = ancien.save(new CompoundTag());
+        tag.remove("quest");
+        tag.getCompound("created").remove(MoneySource.QUEST.name());
+        EconomyLedger back = EconomyLedger.load(tag);
+        assertEquals(0, back.totalCreated(MoneySource.QUEST));
+        assertEquals(0, back.questClaims());
+        assertTrue(back.questByPlayer().isEmpty());
+        assertTrue(back.questByTemplate().isEmpty());
+        assertEquals(3, back.totalCreated(MoneySource.MOB_LOOT));
+    }
 }

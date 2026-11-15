@@ -51,6 +51,12 @@ public final class EconomyLedger extends SavedData {
     private final Map<UUID, Long> lootByPlayer = new HashMap<>();
     /** Butin total par palier de la table, en cuivres. */
     private final Map<String, Long> lootByTier = new HashMap<>();
+    /** Réclamations de quêtes payées. */
+    private long questClaims;
+    /** Récompenses de quêtes par joueur, en cuivres. */
+    private final Map<UUID, Long> questByPlayer = new HashMap<>();
+    /** Récompenses de quêtes par modèle (ou événement), en cuivres. */
+    private final Map<String, Long> questByTemplate = new HashMap<>();
 
     EconomyLedger() {}
 
@@ -124,6 +130,31 @@ public final class EconomyLedger extends SavedData {
         lootByTier.merge(tierId, amount, Math::addExact);
         if (journal) {
             add(new Entry(now, player, amount, MoneySource.MOB_LOOT.kind(), clip(reason)), maxLines);
+        } else {
+            setDirty();
+        }
+    }
+
+    /**
+     * Compte une récompense de quête payée : le total {@link MoneySource#QUEST}, le nombre de réclamations, le total du
+     * joueur et celui du modèle. Une ligne de journal « quête : &lt;id&gt; » seulement si {@code journal} (grosse
+     * récompense). Un montant nul ou négatif n'est pas noté.
+     */
+    public void questCreated(UUID player, String templateId, long amount, boolean journal) {
+        questCreated(player, templateId, amount, journal, EconomyConfig.ledgerMaxLines(), System.currentTimeMillis());
+    }
+
+    void questCreated(UUID player, String templateId, long amount, boolean journal, int maxLines, long now) {
+        if (amount <= 0L) {
+            return;
+        }
+        int i = MoneySource.QUEST.ordinal();
+        created[i] = Math.addExact(created[i], amount);
+        questClaims++;
+        questByPlayer.merge(player, amount, Math::addExact);
+        questByTemplate.merge(templateId, amount, Math::addExact);
+        if (journal) {
+            add(new Entry(now, player, amount, MoneySource.QUEST.kind(), clip("quête : " + templateId)), maxLines);
         } else {
             setDirty();
         }
@@ -206,6 +237,21 @@ public final class EconomyLedger extends SavedData {
         return new HashMap<>(lootByTier);
     }
 
+    /** Réclamations de quêtes payées, depuis le début. */
+    public long questClaims() {
+        return questClaims;
+    }
+
+    /** Récompenses de quêtes par joueur, en cuivres (copie). */
+    public Map<UUID, Long> questByPlayer() {
+        return new HashMap<>(questByPlayer);
+    }
+
+    /** Récompenses de quêtes par modèle, en cuivres (copie). */
+    public Map<String, Long> questByTemplate() {
+        return new HashMap<>(questByTemplate);
+    }
+
     public int entryCount() {
         return entries.size();
     }
@@ -286,6 +332,20 @@ public final class EconomyLedger extends SavedData {
         lootByTier.forEach(tiers::putLong);
         loot.put("tiers", tiers);
         tag.put("loot", loot);
+        CompoundTag quest = new CompoundTag();
+        quest.putLong("claims", questClaims);
+        ListTag questPlayers = new ListTag();
+        questByPlayer.forEach((uuid, amount) -> {
+            CompoundTag line = new CompoundTag();
+            line.putUUID("u", uuid);
+            line.putLong("n", amount);
+            questPlayers.add(line);
+        });
+        quest.put("players", questPlayers);
+        CompoundTag templates = new CompoundTag();
+        questByTemplate.forEach(templates::putLong);
+        quest.put("templates", templates);
+        tag.put("quest", quest);
         return tag;
     }
 
@@ -323,6 +383,19 @@ public final class EconomyLedger extends SavedData {
         CompoundTag tiers = loot.getCompound("tiers");
         for (String tier : tiers.getAllKeys()) {
             ledger.lootByTier.put(tier, tiers.getLong(tier));
+        }
+        // Un registre d'avant le lot E5 n'a pas de « quest » : tout se relit à zéro.
+        CompoundTag quest = tag.getCompound("quest");
+        ledger.questClaims = quest.getLong("claims");
+        for (Tag raw : quest.getList("players", Tag.TAG_COMPOUND)) {
+            CompoundTag line = (CompoundTag) raw;
+            if (line.hasUUID("u")) {
+                ledger.questByPlayer.put(line.getUUID("u"), line.getLong("n"));
+            }
+        }
+        CompoundTag templates = quest.getCompound("templates");
+        for (String template : templates.getAllKeys()) {
+            ledger.questByTemplate.put(template, templates.getLong(template));
         }
         return ledger;
     }

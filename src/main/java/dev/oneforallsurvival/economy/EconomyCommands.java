@@ -29,7 +29,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Les commandes de l'équipe pour l'économie, toutes au niveau de permission 2 :
  * {@code /eco give|take <joueur> <montant> <motif>}, {@code /eco stats}, {@code /eco pending}, {@code /eco ledger [page]}, {@code /eco treasury ...},
- * {@code /eco salary list|set <clé> <taux>|owed [page]|resume|resetday}, {@code /eco loot}.
+ * {@code /eco salary list|set <clé> <taux>|owed [page]|resume|resetday}, {@code /eco loot}, {@code /eco quests}.
  * Les montants sont des cuivres ; l'affichage passe par {@link CoinMath#format}.
  */
 public final class EconomyCommands {
@@ -64,6 +64,7 @@ public final class EconomyCommands {
                 .then(Commands.literal("stats").executes(EconomyCommands::stats))
                 .then(Commands.literal("pending").executes(EconomyCommands::pending))
                 .then(Commands.literal("loot").executes(EconomyCommands::loot))
+                .then(Commands.literal("quests").executes(EconomyCommands::quests))
                 .then(TreasuryCommands.ecoBranch())
                 .then(SalaryCommands.ecoBranch())
                 .then(Commands.literal("ledger")
@@ -225,6 +226,49 @@ public final class EconomyCommands {
                             CoinMath.format(cap))
                     : Component.translatable("command.oneforallsurvival.eco.loot.hour.nocap", CoinMath.format(earned)));
         }
+        source.sendSuccess(() -> out, false);
+        return 1;
+    }
+
+    /** Joueurs et modèles au plus dans {@code /eco quests}. */
+    public static final int QUESTS_TOP = 10;
+
+    /**
+     * Les récompenses de quêtes : le total créé, le nombre de réclamations, les {@value #QUESTS_TOP} joueurs et les
+     * {@value #QUESTS_TOP} modèles qui ont le plus rapporté, et le nombre de modèles en service.
+     */
+    private static int quests(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+        MinecraftServer server = source.getServer();
+        EconomyLedger ledger = EconomyLedger.get(server);
+        MutableComponent out = Component.translatable("command.oneforallsurvival.eco.quests.title",
+                CoinMath.format(ledger.totalCreated(MoneySource.QUEST)), ledger.questClaims());
+        List<java.util.Map.Entry<UUID, Long>> players = ledger.questByPlayer().entrySet().stream()
+                .sorted(java.util.Map.Entry.<UUID, Long>comparingByValue().reversed()
+                        .thenComparing(e -> e.getKey().toString()))
+                .limit(QUESTS_TOP).toList();
+        out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.quests.players", QUESTS_TOP));
+        if (players.isEmpty()) {
+            out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.quests.none"));
+        }
+        for (java.util.Map.Entry<UUID, Long> line : players) {
+            out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.line",
+                    playerName(server, line.getKey()), CoinMath.format(line.getValue())));
+        }
+        List<java.util.Map.Entry<String, Long>> templates = ledger.questByTemplate().entrySet().stream()
+                .sorted(java.util.Map.Entry.<String, Long>comparingByValue().reversed()
+                        .thenComparing(java.util.Map.Entry::getKey))
+                .limit(QUESTS_TOP).toList();
+        out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.quests.templates", QUESTS_TOP));
+        if (templates.isEmpty()) {
+            out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.quests.none"));
+        }
+        for (java.util.Map.Entry<String, Long> line : templates) {
+            out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.line", line.getKey(),
+                    CoinMath.format(line.getValue())));
+        }
+        out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.quests.loaded",
+                dev.oneforallsurvival.economy.quest.QuestTemplates.current().size()));
         source.sendSuccess(() -> out, false);
         return 1;
     }

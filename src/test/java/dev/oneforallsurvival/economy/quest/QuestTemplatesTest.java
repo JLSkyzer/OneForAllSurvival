@@ -198,4 +198,35 @@ class QuestTemplatesTest {
         // hebdomadaire : 96 × 5 de quantité, 15 × 5 de récompense
         assertEquals(75L, stone.rewardFor(96) * 5);
     }
+
+    @Test
+    void uneReserveVideEstRefuseeEtLaPrecedenteGardee() {
+        try {
+            assertTrue(QuestTemplates.install(shipped));
+            assertEquals(shipped, QuestTemplates.current());
+            assertTrue(!QuestTemplates.install(List.of()), "réserve vide acceptée");
+            assertEquals(shipped, QuestTemplates.current());
+        } finally {
+            QuestTemplates.install(shipped);
+        }
+    }
+
+    @Test
+    void unModeleDEquipeEcarteNEstSignaleQuUneFois() {
+        QuestTemplate doublon = shipped("fish");
+        try {
+            QuestTemplates.install(shipped);
+            QuestTemplates.setStaffTemplates(List.of(doublon));
+            QuestTemplates.current();
+            QuestTemplates.current();
+            QuestTemplates.current();
+            assertEquals(Set.of("fish"), QuestTemplates.warnedStaffCollisions());
+            assertEquals(shipped.size(), QuestTemplates.current().size());
+            // Un nouveau chargement remet les avertissements à zéro.
+            QuestTemplates.install(shipped);
+            assertTrue(QuestTemplates.warnedStaffCollisions().isEmpty());
+        } finally {
+            QuestTemplates.setStaffTemplates(List.of());
+        }
+    }
 }

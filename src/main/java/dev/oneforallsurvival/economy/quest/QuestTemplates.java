@@ -54,6 +54,8 @@ public final class QuestTemplates extends SimpleJsonResourceReloadListener {
     private static volatile Set<String> deadTags = Set.of();
     @Nullable
     private static volatile List<QuestTemplate> forTest;
+    /** Modèles de l'équipe écartés (identifiant déjà pris) déjà signalés ; remis à zéro à chaque chargement. */
+    private static final Set<String> WARNED_COLLISIONS = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     public QuestTemplates() {
         super(GSON, "economy");
@@ -76,12 +78,18 @@ public final class QuestTemplates extends SimpleJsonResourceReloadListener {
         for (QuestTemplate template : extra) {
             if (ids.add(template.id())) {
                 all.add(template);
-            } else {
+            } else if (WARNED_COLLISIONS.add(template.id())) {
+                // current() est lu à chaque tirage : un avertissement par chargement, pas un par appel.
                 LOGGER.warn("Quetes : modele de l'equipe {} ecarte, son identifiant existe deja dans le fichier",
                         template.id());
             }
         }
         return List.copyOf(usable(all, dead));
+    }
+
+    /** Les modèles de l'équipe déjà signalés comme écartés depuis le dernier chargement (essais). */
+    static Set<String> warnedStaffCollisions() {
+        return Set.copyOf(WARNED_COLLISIONS);
     }
 
     /** Les modèles dont la cible n'est pas un tag mort : un tag inconnu ou vide ne peut jamais être rempli. */
@@ -145,6 +153,7 @@ public final class QuestTemplates extends SimpleJsonResourceReloadListener {
     /** Remplace les modèles de l'équipe (commande, tâche 4). */
     public static void setStaffTemplates(List<QuestTemplate> templates) {
         staff = List.copyOf(templates);
+        WARNED_COLLISIONS.clear();
         if (net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer() != null) {
             refreshDeadTags();
         }
@@ -169,13 +178,29 @@ public final class QuestTemplates extends SimpleJsonResourceReloadListener {
             return;
         }
         try {
-            List<QuestTemplate> templates = parse(GsonHelper.convertToJsonObject(file, "quests.json"));
-            loaded = templates;
-            deadTags = Set.of();
-            LOGGER.info("Quetes : {} modeles charges", templates.size());
+            install(parse(GsonHelper.convertToJsonObject(file, "quests.json")));
         } catch (RuntimeException e) {
             LOGGER.error("Quetes : quests.json invalide, reserve precedente conservee : {}", e.getMessage());
         }
+    }
+
+    /**
+     * Met en service une réserve lue ; une réserve vide (tous les modèles ignorés, ou tableau vide) est refusée et la
+     * précédente gardée : une réserve vide silencieuse ne donnerait plus aucune quête.
+     *
+     * @return faux si la réserve a été refusée
+     */
+    static boolean install(List<QuestTemplate> templates) {
+        if (templates.isEmpty()) {
+            LOGGER.error("Quetes : quests.json ne donne aucun modele utilisable, reserve precedente conservee ({} modeles)",
+                    loaded.size());
+            return false;
+        }
+        loaded = List.copyOf(templates);
+        deadTags = Set.of();
+        WARNED_COLLISIONS.clear();
+        LOGGER.info("Quetes : {} modeles charges", templates.size());
+        return true;
     }
 
     /** Lit le fichier ; lève {@link JsonParseException} en nommant le modèle et le champ fautif. */

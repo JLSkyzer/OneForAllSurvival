@@ -55,6 +55,16 @@ public final class EconomyConfig {
     static final long DEFAULT_RAID_LOOT_CAP = 100L;
     static final int DEFAULT_BOSS_LOOT_PER_DAY = 1;
     static final long DEFAULT_MOB_LOOT_HOURLY_CAP = 200L;
+    static final int DEFAULT_QUEST_DAILY_COUNT = 3;
+    static final int DEFAULT_QUEST_WEEKLY_COUNT = 5;
+    static final int DEFAULT_QUEST_WEEKLY_FACTOR = 5;
+    static final int DEFAULT_QUEST_RESET_HOUR = 6;
+    static final int DEFAULT_QUEST_REROLLS_PER_DAY = 1;
+    static final long DEFAULT_QUEST_WEEKLY_CAP = 1_000L;
+    static final int DEFAULT_QUEST_PENDING_MAX = 8;
+    static final long DEFAULT_QUEST_JOURNAL_THRESHOLD = 100L;
+    static final int DEFAULT_QUEST_PLACE_UNDO_SECONDS = 60;
+    static final int DEFAULT_QUEST_PLACED_MARKS_PER_CHUNK = 4_096;
     /** Plafond d'un taux de salaire, en cuivres par heure. */
     public static final long MAX_SALARY_PER_HOUR = 1_000_000L;
 
@@ -84,6 +94,16 @@ public final class EconomyConfig {
     private static final ForgeConfigSpec.LongValue RAID_LOOT_CAP;
     private static final ForgeConfigSpec.IntValue BOSS_LOOT_PER_DAY;
     private static final ForgeConfigSpec.LongValue MOB_LOOT_HOURLY_CAP;
+    private static final ForgeConfigSpec.IntValue QUEST_DAILY_COUNT;
+    private static final ForgeConfigSpec.IntValue QUEST_WEEKLY_COUNT;
+    private static final ForgeConfigSpec.IntValue QUEST_WEEKLY_FACTOR;
+    private static final ForgeConfigSpec.IntValue QUEST_RESET_HOUR;
+    private static final ForgeConfigSpec.IntValue QUEST_REROLLS_PER_DAY;
+    private static final ForgeConfigSpec.LongValue QUEST_WEEKLY_CAP;
+    private static final ForgeConfigSpec.IntValue QUEST_PENDING_MAX;
+    private static final ForgeConfigSpec.LongValue QUEST_JOURNAL_THRESHOLD;
+    private static final ForgeConfigSpec.IntValue QUEST_PLACE_UNDO_SECONDS;
+    private static final ForgeConfigSpec.IntValue QUEST_PLACED_MARKS_PER_CHUNK;
     private static final ForgeConfigSpec.ConfigValue<List<? extends String>> EXTRA_ALLOWED_MENUS;
     private static final ForgeConfigSpec.ConfigValue<List<? extends String>> EXTRA_FORBIDDEN_MENUS;
 
@@ -193,6 +213,40 @@ public final class EconomyConfig {
                         "est réduit à ce qui reste, puis plus rien. Les boss (palier qui ignore l'origine) en sont exemptés,",
                         "ils ont déjà bossLootPerDay. 0 = pas de plafond.")
                 .defineInRange("mobLootHourlyCap", DEFAULT_MOB_LOOT_HOURLY_CAP, 0L, 1_000_000_000L);
+        QUEST_DAILY_COUNT = builder
+                .comment("Quêtes journalières de chaque joueur (0 = aucune).")
+                .defineInRange("questDailyCount", DEFAULT_QUEST_DAILY_COUNT, 0, 10);
+        QUEST_WEEKLY_COUNT = builder
+                .comment("Quêtes hebdomadaires de chaque joueur (0 = aucune).")
+                .defineInRange("questWeeklyCount", DEFAULT_QUEST_WEEKLY_COUNT, 0, 10);
+        QUEST_WEEKLY_FACTOR = builder
+                .comment("Une hebdomadaire demande et rapporte ce nombre de fois une journalière (sauf facteur propre au modèle).")
+                .defineInRange("questWeeklyFactor", DEFAULT_QUEST_WEEKLY_FACTOR, 1, 20);
+        QUEST_RESET_HOUR = builder
+                .comment("Heure locale (0 à 23, fuseau payTimeZone) où les journalières sont remplacées, et les",
+                        "hebdomadaires le lundi.")
+                .defineInRange("questResetHour", DEFAULT_QUEST_RESET_HOUR, 0, 23);
+        QUEST_REROLLS_PER_DAY = builder
+                .comment("Relances par jour de quête, sur une quête non finie (0 = aucune).")
+                .defineInRange("questRerollsPerDay", DEFAULT_QUEST_REROLLS_PER_DAY, 0, 5);
+        QUEST_WEEKLY_CAP = builder
+                .comment("Ce qu'un joueur gagne au plus en récompenses de quêtes par semaine (du lundi à questResetHour),",
+                        "en cuivres. Une réclamation qui dépasserait est réduite à ce qui reste. 0 = aucun plafond.")
+                .defineInRange("questWeeklyCap", DEFAULT_QUEST_WEEKLY_CAP, 0L, 1_000_000_000L);
+        QUEST_PENDING_MAX = builder
+                .comment("Récompenses en attente (quêtes finies non réclamées avant leur renouvellement) gardées au plus",
+                        "par joueur ; les plus anciennes sont oubliées au-delà.")
+                .defineInRange("questPendingMax", DEFAULT_QUEST_PENDING_MAX, 0, 64);
+        QUEST_JOURNAL_THRESHOLD = builder
+                .comment("Une récompense de quête d'au moins ce montant, en cuivres, a sa ligne au registre (/eco ledger) ;",
+                        "en dessous, elle ne compte que dans les totaux (/eco quests). 0 = une ligne pour chaque récompense.")
+                .defineInRange("questJournalThreshold", DEFAULT_QUEST_JOURNAL_THRESHOLD, 0L, 1_000_000_000L);
+        QUEST_PLACE_UNDO_SECONDS = builder
+                .comment("Un bloc posé puis cassé par le même joueur dans ce délai, en secondes, ne compte pas comme pose.")
+                .defineInRange("questPlaceUndoSeconds", DEFAULT_QUEST_PLACE_UNDO_SECONDS, 0, 3_600);
+        QUEST_PLACED_MARKS_PER_CHUNK = builder
+                .comment("Blocs posés retenus au plus par chunk (leur casse ne compte pas) ; les plus anciens sont oubliés.")
+                .defineInRange("questPlacedMarksPerChunk", DEFAULT_QUEST_PLACED_MARKS_PER_CHUNK, 256, 65_536);
         EXTRA_ALLOWED_MENUS = builder
                 .comment("Types d'écran (identifiants, ex. \"mod:coffre\") où une pièce a le droit d'être rangée, en plus",
                         "de l'inventaire du joueur, de la table de fabrication et des rangements de ce mod.")
@@ -440,6 +494,96 @@ public final class EconomyConfig {
             return MOB_LOOT_HOURLY_CAP.get();
         } catch (IllegalStateException e) {
             return DEFAULT_MOB_LOOT_HOURLY_CAP;
+        }
+    }
+
+    /** Quêtes journalières par joueur (3 par défaut). */
+    public static int questDailyCount() {
+        try {
+            return QUEST_DAILY_COUNT.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_QUEST_DAILY_COUNT;
+        }
+    }
+
+    /** Quêtes hebdomadaires par joueur (5 par défaut). */
+    public static int questWeeklyCount() {
+        try {
+            return QUEST_WEEKLY_COUNT.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_QUEST_WEEKLY_COUNT;
+        }
+    }
+
+    /** Facteur d'une hebdomadaire sur une journalière (5 par défaut). */
+    public static int questWeeklyFactor() {
+        try {
+            return QUEST_WEEKLY_FACTOR.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_QUEST_WEEKLY_FACTOR;
+        }
+    }
+
+    /** Heure locale du renouvellement des quêtes (6 par défaut). */
+    public static int questResetHour() {
+        try {
+            return QUEST_RESET_HOUR.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_QUEST_RESET_HOUR;
+        }
+    }
+
+    /** Relances par jour de quête (1 par défaut). */
+    public static int questRerollsPerDay() {
+        try {
+            return QUEST_REROLLS_PER_DAY.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_QUEST_REROLLS_PER_DAY;
+        }
+    }
+
+    /** Plafond hebdomadaire des récompenses de quêtes, en cuivres (1 000 par défaut ; 0 = aucun plafond). */
+    public static long questWeeklyCap() {
+        try {
+            return QUEST_WEEKLY_CAP.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_QUEST_WEEKLY_CAP;
+        }
+    }
+
+    /** Récompenses en attente gardées au plus par joueur (8 par défaut). */
+    public static int questPendingMax() {
+        try {
+            return QUEST_PENDING_MAX.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_QUEST_PENDING_MAX;
+        }
+    }
+
+    /** Récompense de quête d'au moins ce montant : une ligne au registre (100 par défaut ; 0 = chacune). */
+    public static long questJournalThreshold() {
+        try {
+            return QUEST_JOURNAL_THRESHOLD.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_QUEST_JOURNAL_THRESHOLD;
+        }
+    }
+
+    /** Délai, en secondes, sous lequel un bloc posé puis cassé retire la pose (60 par défaut). */
+    public static int questPlaceUndoSeconds() {
+        try {
+            return QUEST_PLACE_UNDO_SECONDS.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_QUEST_PLACE_UNDO_SECONDS;
+        }
+    }
+
+    /** Blocs posés retenus au plus par chunk (4 096 par défaut). */
+    public static int questPlacedMarksPerChunk() {
+        try {
+            return QUEST_PLACED_MARKS_PER_CHUNK.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_QUEST_PLACED_MARKS_PER_CHUNK;
         }
     }
 
