@@ -8,7 +8,7 @@ Relevés du 2026-11-15, sur `main` (le travail est fait directement sur `main`).
 
 | Sujet | Décision |
 |---|---|
-| Butin (78) | Valeurs de départ du cahier : courant 1 à 3 cuivres une fois sur 3 ; dangereux 1 à 2 argent une fois sur 2 ; boss 5 or, plus 1 émeraude une fois sur 10 et 1 rubis une fois sur 100 ; animal sauvage 1 cuivre une fois sur 4. Pas de plafond hors raids et boss refaits. |
+| Butin (78) | Valeurs de départ du cahier : courant 1 à 3 cuivres une fois sur 3 ; dangereux 1 à 2 argent une fois sur 2 ; boss 5 or, plus 1 émeraude une fois sur 10 et 1 rubis une fois sur 100 ; animal sauvage 1 cuivre une fois sur 4. Plafond horaire par joueur ajouté à la passe finale (200 cuivres sur 60 minutes glissantes, boss exemptés) ; plafond de raid et délai des boss en plus. |
 | Table | Fichier de données `data/oneforallsurvival/economy/mob_coins.json`, remplaçable par un datapack du monde et `/reload` ; fichier invalide : la table précédente reste, erreur au journal. Marchand ambulant et ses lamas à `none` (ruling, RP). |
 | Origine | Marque positive `oneforallsurvival:wild` posée à `MobSpawnEvent.FinalizeSpawn` pour `NATURAL`, `CHUNK_GENERATION`, `STRUCTURE` (hors piglin né dans un portail), `PATROL`, `EVENT`, `TRIGGERED`. Tout le reste (générateur, œuf, distributeur, commande, seau, élevage, renfort, vex, jockey, slime divisé, mob créé sans événement) n'a pas de marque et ne donne rien. |
 | Qui a tué | Un vrai joueur (coup, flèche, trident, TNT allumée, animal apprivoisé : son maître), ou un mob frappé par un joueur dans les 5 s (règle de Minecraft). Jamais une `FakePlayer`, **ni un joueur absent de la liste des joueurs du serveur** (passe finale de la tâche 3, commit `34b0ffd`), ni un spectateur. `doMobLoot` faux : rien. |
@@ -128,7 +128,8 @@ Les chemins naturels qui ne passent pas par l'événement donnent « rien » : c
   - Des **loups apprivoisés** qui tuent seuls paient leur maître (crédit du maître d'un `OwnableEntity`).
   - Les **épines** d'une armure tuent au nom du joueur : une ferme où le joueur reste immobile paie.
   - Un **coup du joueur, puis une ferme qui achève** (chute, lave, cactus) **dans les 5 s**, paie ce joueur.
-  - Les **fermes actives** où le joueur achève chaque mob lui-même (salle de chute vers un point de frappe) sont permises, sans plafond, par décision.
+  - Une **boule de neige ou un bouchon de canne à pêche** (0 dégât) ouvre aussi les 5 s : un joueur qui en lance dans la chambre de mort d'une ferme automatique est payé. **Déduit des sources de Minecraft (`lastHurtByPlayer` posé même à 0 dégât), sans essai en jeu.**
+  - Les **fermes actives** où le joueur achève chaque mob lui-même (salle de chute vers un point de frappe) sont permises, mais **bornées par le plafond horaire par joueur** (200 cuivres sur 60 minutes glissantes, `mobLootHourlyCap`, décision de Killian du 2026-11-15 ; boss exemptés).
   - Ce qui ne paie pas : générateur, déployeur de Create et tout faux joueur, mob tué sans joueur, raids au-delà de 100 cuivres, Wither et dragon au-delà d'un par jour et par joueur.
 - **Équilibrage** : rien n'a été vécu en partie (taux de mort par heure, part du butin dans la masse en circulation). Les chances et montants de départ sont ceux du cahier ; l'équipe les change par datapack et `/reload`.
 
@@ -138,10 +139,45 @@ Les chemins naturels qui ne passent pas par l'événement donnent « rien » : c
 - **Mobs nés avant le lot** : ils n'ont pas de marque d'origine et ne donnent rien (sauf les boss). Prouvé en GameTest par un mob sans marque, pas sur un vrai ancien monde. Le serveur n'est pas encore ouvert.
 - **Mob d'un autre mod** : aucun mob moddé dans le pack d'aujourd'hui ; un futur mob suit sa catégorie (monstre : courant, créature : animal sauvage). Seul le chemin par catégorie est testé, avec des mobs vanilla.
 - **Pièce ajoutée par un datapack ou CraftTweaker à une table de butin vanilla** : elle tomberait sans passer par le registre (aucune source `MOB_LOOT` comptée) ; **non gardé**, comme les recettes l'étaient avant `CoinRecipeGuard`. À ne pas faire, ou à garder dans un lot à venir.
-- **Autre mod qui annulerait les objets après nous** : un écouteur `LOWEST` d'un autre mod, abonné après le nôtre, qui annulerait `LivingDropsEvent` laisserait le butin compté sans pièce lâchée (le registre gonfle, aucun argent n'est créé). Aucun cas connu dans le pack.
+- **Autre mod qui annulerait les objets après nous** : un écouteur `LOWEST` d'un autre mod, abonné après le nôtre, qui annulerait `LivingDropsEvent` **ou viderait la liste des objets lâchés** laisserait le butin compté sans pièce lâchée (le registre gonfle, aucun argent n'est créé). Aucun cas connu dans le pack.
 - **Dragon de l'End** : sa mort est prouvée en GameTest (un seul événement, 500 au sol) et par le bytecode, pas dans un vrai combat. Le butin tombe où le coup fatal a été porté ; **au-dessus du vide, il est compté puis détruit** (cause « sous le monde », `CoinDropEntity`) : aucune création d'argent, une perte pour le joueur.
-- **Raids et boss** : plafond et délai prouvés en GameTest seulement (`unRaidPlafonneSonButin`, `unBossUneFoisParJourEtParJoueur`, `unBossSauvagePaieAChaqueFois`), pas en vrai raid ni en vrai combat de boss. Le délai des boss se contourne si l'horloge du système recule (une entrée d'un jour antérieur remplace la plus récente) : seul l'hôte le peut.
+- **Raids et boss** : plafond et délai prouvés en GameTest seulement (`unRaidPlafonneSonButin`, `unBossUneFoisParJourEtParJoueur`, `unBossSauvagePaieAChaqueFois`), pas en vrai raid ni en vrai combat de boss. Le délai des boss ne se rouvre plus quand le jour de paie recule (horloge, `payHour` ou `payTimeZone` changés) : corrigé à la passe finale.
 - **Limite de Minecraft, pièce ramassée puis arrêt brutal** : un joueur ramasse des pièces du butin, se déconnecte (son playerdata est écrit, avec les pièces), puis le serveur s'arrête brutalement **avant la sauvegarde du monde** : la création n'est pas sur le disque (registre d'avant), la pièce si. Même classe de fenêtre que dans [`lot-e2.md`](lot-e2.md), « Seconde passe » ; elle dure au plus jusqu'à la sauvegarde automatique suivante. **Aucune écriture forcée**, par décision.
 - **Arrêt brutal** : l'essai fait un vrai `/stop`, pas un arrêt brutal du processus.
 - **Relance complète du banc** : toujours en échec sur la couveuse du lot 5 (défaut du banc, ouvert dans `tasks/todo.md`) ; la relance ciblée de l'économie est faite à la place.
 - **Jar livré** : jamais lancé hors du développement.
+
+## Passe finale
+
+Relevés du 2026-11-15, après la revue finale (`4ae4588..5834012`). Corrections et ajout de la décision de Killian du jour.
+
+| Point | Correction | Preuve |
+|---|---|---|
+| Délai des boss rouvert quand le jour de paie recule | `MobLootLimits` : une entrée plus récente n'est jamais remplacée par une plus ancienne, un jour antérieur au dernier noté compte comme épuisé | JUnit `unJourDePaieQuiReculeNeRouvrePasLeButinDuBoss` : rouge sur chacune des deux mutations (retour de l'ancien `bossCount`, retrait de la garde d'`addBoss`), vert avec la correction |
+| Identifiant ou tag inconnu accepté en silence | Avertissement au journal à chaque chargement des données (`TagsUpdatedEvent`, cause `SERVER_DATA_LOAD`), une ligne par règle sans effet ; la table reste acceptée | JUnit `unIdentifiantOuUnTagInconnuEstSignale` ; GameTest `uneRegleSansEffetEstSignaleeAuJournal` (vrai `/reload`, rouge quand l'avertissement est coupé) |
+| Tests « rien » sans preuve de mort | `!isAlive()` vérifié dans `unZombieSansMarqueNeDonneRien`, `unZombieDeGenerateurNeDonneRien`, `unFauxJoueurNeDonneRien`, `laLaveSansJoueurNeDonneRien` | GameTests verts |
+| Datapack d'essai resté en place | `butin_invalide` supprimé au début du test ; `@AfterBatch` qui retire et recharge pour les deux datapacks d'essai (un échec en route laissait la table à 1 palier au test suivant, observé pendant la mutation) | GameTests verts |
+| Documentation | liste d'objets vidée nommée, boule de neige et canne à pêche, jour de paie qui recule | ce document |
+
+Non fait : `lootCreated` daté par `EconomyClock` (optionnel, esthétique, seule la date des lignes du registre est touchée).
+
+### Plafond horaire par joueur (décision de Killian, 2026-11-15)
+
+200 cuivres de butin au plus par joueur sur 60 minutes glissantes (`mobLootHourlyCap`, 0 = aucun plafond), horloge `EconomyClock`, gains notés dans `MobLootLimits` (`SavedData` marqué sale, aucune écriture forcée). Paliers courant, dangereux, animal sauvage et ceux de l'équipe qui n'ignorent pas l'origine, raids compris (plafond par raid en plus : le plus petit des deux restes l'emporte) ; les paliers qui ignorent l'origine (boss) en sont exemptés. Un butin qui dépasse est réduit à ce qui reste (décomposé en pièces), puis plus rien ; le registre compte ce qui est lâché. `/eco loot` lancé par un joueur ajoute ses gains de l'heure glissante. Fenêtre : un gain sort exactement 60 minutes après (`instant <= maintenant - 60 min`).
+
+- JUnit : `lePlafondHoraireTronqueEtSeRouvreApresSoixanteMinutes`, `lePlafondHoraireSurvitALaSauvegarde`.
+- GameTests (horloge injectée) : `lePlafondHoraireTronqueEtSeRouvreApresUneHeure` (169 sous le plafond, tronqué à 200, rien au plafond, rien à 59 minutes, 3 de plus à 60 minutes, pièces au sol égales au registre), `lesBossNeSontPasLimitesParLePlafondHoraire` (Wither à 500 au plafond).
+- Rouge vu : plafond coupé (`hourly = false`) → « butin tronqué : 209, attendu 200 ».
+- Équilibre : 200 cuivres par heure = 20 argents ; la table livrée donne en moyenne 0,67 cuivre par mob courant (estimation), le plafond ne se touche qu'avec une ferme active.
+
+### Relevés de la passe finale
+
+| Commande | Résultat lu |
+|---|---|
+| `./gradlew --offline test runGameTestServer` | « All 854 required tests passed » (17:22:03) ; JUnit : 455 tests, 0 échec, 0 erreur |
+| `./gradlew --offline runGameTestServer -PwithPack` | « All 854 required tests passed » (17:24:41) |
+| Mutation (plafond coupé + avertissement coupé) | 3 échecs lus : `uneRegleSansEffetEstSignaleeAuJournal`, `lePlafondHoraireTronqueEtSeRouvreApresUneHeure`, et `laTableLivreeSeChargeAvecLePack` (conséquence : le datapack d'essai resté en place) |
+| E2E ciblé (`E2E_MONNAIE_SEULE=1 runE2eClient -PwithPack`, monde neuf) | « TOUT PASSE » à 17:35:56, 155 `PASS`, 0 `FAIL` ; `-Pe2eHorloge=4705` |
+| Relance (`runServer -PwithPack -Pe2eHorloge=4705`, puis `runE2eRelance`) | « TOUT PASSE » à 17:39:07, 36 `PASS`, 0 `FAIL` |
+
+L'essai de bout en bout ne gagne que 3 puis 6 cuivres d'un coup : bien sous le plafond, aucune adaptation. Le plafond n'est pas vécu en partie, il n'est prouvé qu'en JUnit et GameTest.
