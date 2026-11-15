@@ -10,7 +10,7 @@ Relevés du 2026-11-15, sur `main` (le travail est fait directement sur `main`).
 |---|---|
 | Trésor (73) | Bloc unique posé par l'équipe (onglet créatif, aucune recette) ; un second est refusé. Contenu et registre gardés par le serveur (`TreasuryAccount`, même `SavedData`). Ouvert par le maire et l'équipe (écran du coffre-fort). Déplaçable par l'ingénieur (le rôle suffit à ce lot), le maire et l'équipe ; en créatif, casser exige d'être accroupi. Sans emplacement, taxe et salaires continuent ; seule l'ouverture est impossible. |
 | Dépense publique | Un retrait du maire ou de l'équipe demande un motif (fenêtre « Motif de la dépense », 1 à 80 caractères), noté au registre du trésor (`SPEND`) et au registre global (`TREASURY_SPEND`). Dépôts notés (`DEPOSIT`, `TREASURY_DEPOSIT`). |
-| Injection (87) | `/eco treasury give|take <montant> <motif>` : source et puits déclarés de l'équipe, seuls changements de la masse en circulation par ce lot. |
+| Injection (87) | `/eco treasury give` ou `take <montant> <motif>` : source et puits déclarés de l'équipe, seuls changements de la masse en circulation par ce lot. |
 | Tableau de la mairie | 3 blocs de large, 2 de haut (Killian, 2026-11-14) ; solde public et salaires dus ; clic droit : le même texte au chat. Posé par le maire (`/treasury board`) ou l'équipe. |
 | Salaires (75) | Au temps passé connecté dans le rôle, à la seconde, côté serveur ; arrêtés à minuit au calendrier réel ; coffre-fort, sinon inventaire, sinon attente ; trésor insuffisant : dû, jamais en partie ; file payée par ancienneté à chaque minuit et au tick qui suit une entrée d'argent au trésor ; jours manqués serveur éteint rattrapés une fois chacun au démarrage (400 au plus). |
 | **Taux par défaut** | **Seule la police est salariée par défaut** (Killian, 2026-11-15) : policier 60 cuivres par heure, médecin 0, maire 0 ; les joueurs gagnent leur argent eux-mêmes, l'équipe fixe un autre salaire par `/eco salary set`. Commit `6173ed5`. |
@@ -147,6 +147,46 @@ Aucun échec : les quatre lancements ont passé au premier essai. « [souris] re
 ## Captures
 
 Les captures de la tâche 6 (`run-demo/visuels-captures/`, non commitées : trésor, tableau 3 x 2, écran du trésor, bulle, fenêtre du motif, grille) restent vraies : aucun écran ni rendu n'a changé depuis (la tâche 7 ne touche que les valeurs par défaut de la config, les essais et la documentation). Elles ne sont pas refaites.
+
+## Passe finale (revue finale)
+
+Relevés du 2026-11-15, 03:20 à 04:00, sur `main`. Commits `8df2bfa` (paie en pause sur saut d'horloge) et `756ffd9` (mineurs de la revue finale).
+
+### Ce qui change
+
+| Point de la revue | Correction |
+|---|---|
+| Important 1 : horloge qui avance par erreur puis revient | Pendant que le serveur tourne, si l'horloge a avancé de plus de 26 h depuis la vérification précédente (une par seconde), la **paie se met en pause** (`PayrollService.onClock`) : aucun jour clos, avertissement au journal et aux opérateurs connectés (et à la connexion d'un opérateur) avec la date vue et la date attendue, ligne « Paie en pause » dans `/eco stats`. La pause est gardée dans `Payroll` (une relance ne la lève pas). L'équipe choisit : `/eco salary resume` (l'heure est juste : les jours dus se closent, comme un rattrapage) ou `/eco salary resetday` (l'heure était fausse : dernier jour réglé ramené à la veille selon l'horloge actuelle, jamais avancé ; temps compté sur des jours futurs reporté sur aujourd'hui). Le rattrapage du démarrage reste normal : la première vérification après un chargement n'a pas de référence. L'avertissement de l'horloge qui recule dit maintenant de faire `/eco salary resetday`. |
+| M1 | `TreasuryActionPacket.apply` contrôle le droit (`NOT_ALLOWED`) avant l'emplacement (`NO_SAFE`). |
+| M2 | Le motif de `/eco treasury give` et `take` passe par `TreasuryActionPacket.validReason` : ni « § » ni caractère de contrôle. |
+| M3 | Le démarrage (`PayrollService.startUp`) paie la file après le rattrapage. |
+| M4 | `payToSafeFirst` renvoie `INVENTORY` dès qu'une part va à l'inventaire. |
+| M5 | GameTest `unMaireDestitueEcranOuvertNeRetireRien`. |
+| M6 | `TreasuryBlock.getDrops` : rien ne tombe si le bloc cassé n'était pas le trésor noté (relevé dans `playerWillDestroy`, avant le retrait). |
+| M7 | Le temps reporté d'un jour réglé (et celui ramené par `resetday`) respecte le plafond de 8 h du jour qui le reçoit ; les cuivre-secondes suivent au prorata. |
+| M10 | La barre verticale de « give, take » du tableau des décisions est retirée (« `give` ou `take` »). |
+| Trouvé en passant | `Payroll.carryClosedDays` levait une `ConcurrentModificationException` dès que deux jours étaient à reporter (ajout du jour cible pendant le parcours) ; vu rouge par `PayrollTest.leReportRespecteLePlafondDuJour`, corrigé en relevant les jours d'abord. |
+
+### Preuves
+
+| Commande | Résultat lu |
+|---|---|
+| Nouveaux tests sur l'ancien code (bouchons pour les nouvelles méthodes), JUnit (03:25) | 3 échecs : `leReportRespecteLePlafondDuJour` (`ConcurrentModificationException`), `laPauseSurvitALaSauvegarde`, `ramenerLaDateReporteLesJoursFutursSurAujourdHui` |
+| Idem, `runGameTestServer` (03:28 à 03:30) | « 10 required tests failed » : `unSautDHorlogeMetLaPaieEnPause` (« aucun jour clos pendant le saut, vu 10 »), `reprendreClotLesJoursUneFois`, `ramenerLaDateApresLeRetourDeLHeure`, `ramenerLaDateApresDesJoursClosParErreur`, `enPauseLeDemarrageNeClotRien`, `auDemarrageLaFileEstPayee`, `coffreFortAuPlafondLeResteVaALInventaire` (avis « coffre-fort »), `unBlocHorsEmplacementNOuvreRien` (objet lâché), `unAutrePaquetQueLeMenuOuvertEstRefuse` (`NO_SAFE`), `injectionDeLEquipeAuTresor` (« § » accepté). `unMaireDestitueEcranOuvertNeRetireRien` et `unDemarrageApresDixJoursEteintRattrapeSansPause` passaient déjà : ils gardent un comportement existant. |
+| `./gradlew --offline test runGameTestServer` (03:32 à 03:35) | « All 815 required tests passed » (03:34:50) ; JUnit : 422 tests, 0 échec, 0 erreur |
+| `./gradlew --offline runGameTestServer -PwithPack` (03:35 à 03:37) | « All 815 required tests passed » (03:37:14) ; pack chargé (69 lignes `createaddition`) |
+| Mutation : détection du saut désactivée dans `onClock` (03:37 à 03:39) | « 3 required tests failed » : `unSautDHorlogeMetLaPaieEnPause` (« aucun jour clos pendant le saut, vu 10 »), `reprendreClotLesJoursUneFois`, `ramenerLaDateApresLeRetourDeLHeure` ; restaurée |
+| E2E ciblé économie, monde neuf, avec le pack (`E2E_MONNAIE_SEULE=1 runE2eClient -PwithPack`, 03:43 à 03:53) | « [e2e] bilan : TOUT PASSE » (03:53:16), 134 `PASS`, 0 `FAIL` ; « -Pe2eHorloge=5528 » ; aucune pause au journal du serveur (les deux réglages d'horloge de l'essai sautent de moins de 24 h) |
+| Relance ciblée (`runServer -PwithPack -Pe2eHorloge=5528`, puis `E2E_MONNAIE_SEULE=1 runE2eRelance -PwithPack`, 03:56 à 03:59) | « [e2e] bilan : TOUT PASSE » (03:58:51), 23 `PASS`, 0 `FAIL` ; « [horloge] decalage de 5528 minutes » ; rattrapage de deux jours sans pause |
+
+« [fenetre] second écran (2600, 40) » et « [souris] rendue » lus dans le journal des deux clients ; aucun Java resté ouvert. Ancien monde du serveur rangé hors du dépôt.
+
+### Limites
+
+- Le seuil de 26 h laisse passer un saut plus court (une horloge en avance d'un jour clôt ce jour une fois) ; `resetday` ramène alors la date, sans double paiement.
+- Un serveur réellement figé plus de 26 h (machine en veille) met aussi la paie en pause : l'équipe fait `resume`.
+- Le temps reporté au-delà du plafond de 8 h n'est pas payé (règle du plafond), le journal le dit.
+- Le vrai saut d'horloge du système n'a pas été vécu : l'horloge est injectée dans les GameTests.
 
 ## Non prouvé
 

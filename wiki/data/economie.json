@@ -351,10 +351,10 @@
         {"k": "Motif d'une dépense", "v": "80 caractères"}
       ],
       "staff": [
-        "/eco treasury : solde, emplacement, dettes. /eco treasury give|take <montant> <motif> : injection ou retrait de l'équipe (source déclarée, noté aux deux registres). /eco treasury log [page].",
+        "/eco treasury : solde, emplacement, dettes. /eco treasury give|take <montant> <motif> : injection ou retrait de l'équipe (source déclarée, noté aux deux registres ; motif sans « § » ni caractère de contrôle). /eco treasury log [page].",
         "Config : treasuryLedgerLines (100 à 100 000), treasuryReasonMax (1 à 200).",
         "En créatif, casser le trésor exige d'être accroupi, pour tout le monde ; reposer un trésor neuf de l'onglet reprend le trésor unique.",
-        "Sans emplacement (bloc retiré), la taxe et les salaires continuent ; seule l'ouverture est impossible. Un bloc posé par /setblock hors de l'emplacement noté n'ouvre rien.",
+        "Sans emplacement (bloc retiré), la taxe et les salaires continuent ; seule l'ouverture est impossible. Un bloc posé par /setblock hors de l'emplacement noté n'ouvre rien et, cassé, ne lâche rien.",
         "Insensible aux explosions, au Wither, au dragon et aux pistons.",
         "Crochetage par le policier : lot du policier. Outil de maintenance de l'ingénieur : lot du téléphone (à ce lot, le rôle suffit)."
       ]
@@ -387,6 +387,7 @@
         "/eco salary list ; /eco salary set <rôle|mayor> <taux> (écrit la config) ; /eco salary owed [page] : la file des salaires dus.",
         "Config : salaryPerHour (\"policier=60\"), mayorSalaryPerHour (0), salaryMaxHoursPerDay (8), payHour (0 = minuit), payTimeZone (vide = fuseau du serveur), payMaxMissedDays (400).",
         "Serveur éteint : chaque jour manqué est clos une fois au démarrage ; une horloge qui recule ne paie rien deux fois.",
+        "Horloge qui saute de plus de 26 h pendant que le serveur tourne : la paie se met en pause (avis aux opérateurs, ligne « Paie en pause » dans /eco stats). /eco salary resume si l'heure est juste (les jours dus se closent) ; /eco salary resetday si elle était fausse (le dernier jour clos revient à la veille, le temps compté sur des jours futurs passe sur aujourd'hui, plafond de 8 h compris). resetday sert aussi après une horloge qui a reculé.",
         "Un salaire est un transfert du trésor, jamais une création d'argent. L'inactivité au clavier n'est pas détectée."
       ]
     },
