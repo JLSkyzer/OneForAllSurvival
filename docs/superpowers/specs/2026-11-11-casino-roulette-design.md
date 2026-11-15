@@ -118,7 +118,7 @@ La numérotation prolonge celle du cahier du maire.
 **112. PNJ vendeur de jetons.**
 - L'équipe le fait apparaître par commande, en le **reliant à un coffre de casino** dès son apparition.
   Le coffre doit donc être posé avant. Exemple : `/casino pnj vendeur <casino>`.
-- Il est invulnérable et immobile, comme le PNJ changeur. Son nom et son apparence sont réglables.
+- Il est invulnérable et immobile. Son nom et son apparence sont réglables.
 - Le joueur choisit un nombre de jetons. Le PNJ prend les pièces dans l'inventaire (bourse comprise),
   rend la monnaie, puis **verse le paiement dans le coffre** relié et donne les jetons.
 - L'échange est **tout ou rien** : si les pièces manquent, rien n'est pris ; si le versement au coffre
@@ -342,7 +342,7 @@ Demandé par Killian le 2026-11-11 : la police doit pouvoir contrôler qu'un jeu
 
 | Avec | Branchement |
 |---|---|
-| Économie | Le coffre du casino s'ajoute aux rangements de pièces autorisés (feature 84). Les deux PNJ du casino s'ajoutent au PNJ changeur (feature 80) comme seuls PNJ qui manient des pièces. Le casino ne crée ni ne détruit de pièces. |
+| Économie | Le coffre du casino s'ajoute aux rangements de pièces autorisés (feature 84). Les deux PNJ du casino sont les seuls PNJ qui manient des pièces (le PNJ changeur, feature 80, a été retiré le 2026-11-15). Le casino ne crée ni ne détruit de pièces. |
 | Policier | Les jetons se fouillent et se confisquent comme tout objet. Le contrôleur d'équité (123) s'ajoute aux recettes de l'établi de policier, et son procès-verbal aux preuves. |
 | Maire | Prévenu des alertes de trésorerie (feature 121). Une taxe sur le casino pourra s'ajouter plus tard. |
 | Téléphone | Les alertes de trésorerie arrivent en notification sur le téléphone des gérants et du maire. |

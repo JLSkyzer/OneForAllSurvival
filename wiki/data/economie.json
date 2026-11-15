@@ -61,8 +61,7 @@
         "À la table de fabrication, vers le bas seulement : une pièce dans la grille donne 10 pièces de la coupure du dessous.",
         "Dans la bourse ou le coffre-fort, panneau « Change » à droite de l'écran : « 1 or → 10 argent » casse une pièce, « 10 argent → 1 or » regroupe une paire. Clic : une fois ; Maj + clic : autant que possible.",
         "Le bouton « Regrouper » du même écran regroupe tout le contenu d'un coup, 10 pour 1, de proche en proche.",
-        "Un bouton grisé dit pourquoi dans sa bulle : pas assez de pièces, plus de place, ou valeurs de la config qui ne donnent pas un rapport de 10.",
-        "Plus tard, le changeur (lot E4) fera le change en ville."
+        "Un bouton grisé dit pourquoi dans sa bulle : pas assez de pièces, plus de place, ou valeurs de la config qui ne donnent pas un rapport de 10."
       ],
       "flow": ["Pièces en vrac", "Bourse ou coffre-fort", "Change", "Pièces en vrac"],
       "staff": [
@@ -472,27 +471,6 @@
         "Au-delà du plafond, plus rien jusqu'au lundi.",
         "Un bloc posé par un joueur ne compte pas en casse.",
         "Quêtes d'événement lancées par commande prévue."
-      ]
-    },
-    {
-      "id": "changeur",
-      "num": 80,
-      "name": "PNJ changeur",
-      "kind": "systeme",
-      "status": "prevu",
-      "lot": "Lot E4",
-      "image": null,
-      "what": "PNJ invulnérable qui change les pièces à valeur égale, sans frais.",
-      "who": {"pose": "Staff", "utilise": "Tous", "casse": "Invulnérable"},
-      "steps": [
-        "Lui donner des pièces.",
-        "Recevoir des coupures plus grosses ou plus petites.",
-        "Il ne vend et n'achète rien d'autre."
-      ],
-      "flow": ["10 argents", "Changeur", "1 or"],
-      "staff": [
-        "Nom et apparence réglables.",
-        "Plusieurs possibles, par exemple au port et à la mine."
       ]
     },
     {

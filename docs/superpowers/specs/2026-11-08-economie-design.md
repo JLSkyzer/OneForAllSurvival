@@ -5,7 +5,8 @@ Date : 2026-11-08. Statut : en attente de validation par Killian.
 Killian a demandé ce cahier le 2026-11-08, une fois les pièces de monnaie modélisées. Il veut le
 livrer **avant tous les autres lots**, pour que les métiers s'y branchent au fur et à mesure.
 Le même jour, il a ajouté le butin des mobs, les quêtes journalières et hebdomadaires, un PNJ changeur
-(features 78 à 80), puis les fournisseurs d'électricité (83). Il a enfin rendu la monnaie
+(features 78 à 80 ; le changeur a été retiré le 2026-11-15), puis les fournisseurs
+d'électricité (83). Il a enfin rendu la monnaie
 **entièrement physique** : plus de presse, de comptes, de distributeur ni de carte bancaire, mais un
 coffre-fort par joueur, des factures prélevées en pièces, une somme de départ et les injections de
 l'équipe (features 84 à 88). Ses réponses sont
@@ -50,9 +51,9 @@ l'argent qui circule a toujours une origine connue.**
 - **Bourse des valeurs, prêts à intérêt, actions** : trop modernes pour une ville naissante, et sources
   d'abus. (À ne pas confondre avec la bourse de la feature 69, le porte-monnaie.)
 - **Les villageois vanilla** gardent leurs émeraudes et n'acceptent pas les pièces. Les seuls PNJ qui
-  manient la monnaie sont le changeur (feature 80) et les deux PNJ du casino, qui vendent et rachètent
-  des jetons contre des pièces du coffre du casino ([cahier du casino](2026-11-11-casino-roulette-design.md)).
-  Tous sont placés par l'équipe du serveur.
+  manient la monnaie sont les deux PNJ du casino, qui vendent et rachètent des jetons contre des pièces
+  du coffre du casino ([cahier du casino](2026-11-11-casino-roulette-design.md)). Ils sont placés par
+  l'équipe du serveur.
 - **Fixer les prix** : ils relèvent des joueurs, sauf les tarifs publics (amendes) que la ville règle.
   Le prix de l'électricité est fixé par chaque fournisseur, sous un plafond fixé par le maire
   (feature 83).
@@ -116,7 +117,7 @@ Valeurs de départ, réglables :
 | Rubis | 10 000 |
 
 - **Le change** : 10 pièces d'une coupure s'échangent contre 1 de la coupure supérieure, et inversement, du cuivre au rubis,
-  sur une table de craft ou auprès du PNJ changeur (feature 80). Ces recettes ne créent rien, elles échangent à
+  sur une table de craft ou dans le panneau « Change » de la bourse et du coffre-fort. Ces recettes ne créent rien, elles échangent à
   valeur égale. C'est la seule exception à la règle « aucune recette ne produit une pièce ».
 - L'infobulle d'une pièce indique sa valeur. Une pile indique son total.
 - Une pièce ne se fond pas, ne se composte pas, ne se vend pas à un villageois.
@@ -141,7 +142,6 @@ Valeurs de départ, réglables :
 | Trésor de la ville (73) | — | l'équipe du serveur, un seul ; déplaçable par un ingénieur, le maire ou l'équipe | le maire | oui, au crochetage, avec trace |
 | Tableau de la mairie (73) | — | le maire, plusieurs ; déplaçable par un ingénieur, le maire ou l'équipe | affichage seul | — |
 | Poste de fournisseur (83) | l'ingénieur | n'importe quel joueur | le fournisseur | non, sa caisse se vide par le fournisseur |
-| PNJ changeur (80) | — | l'équipe, par commande | — | non, invulnérable |
 | Coffre du casino (cahier du casino) | — | l'équipe, incassable | le statut casino | non |
 | PNJ vendeur et racheteur de jetons (cahier du casino) | — | l'équipe, reliés au coffre | — | non, invulnérables |
 | Bureau du maire (cahier du maire) | — | l'équipe, un seul ; déplaçable par un ingénieur, le maire ou l'équipe | le maire | non |
@@ -158,6 +158,10 @@ La numérotation prolonge celle du policier. Toutes les valeurs chiffrées sont 
 
 **Features retirées le 2026-11-08 par Killian** : 68 (presse à monnaie), 74 (guichet), 76 (comptes au guichet), 81
 (distributeur), 82 (carte bancaire). Leurs numéros ne sont pas réutilisés.
+
+**Feature retirée le 2026-11-15 par Killian** : 80 (PNJ changeur). Elle faisait double emploi : le
+panneau « Change » de la bourse et du coffre-fort (lot E1) convertit déjà dans les deux sens à valeur
+égale, et la table de craft casse vers le bas. Son numéro n'est pas réutilisé.
 
 ### Garder son argent
 
@@ -438,15 +442,6 @@ Catégories proposées en plus, choisies pour ne pas être des corvées :
 - L'équipe du serveur peut ajouter des **modèles** et lancer des **quêtes d'événement** communes à tous,
   par commande.
 
-**80. PNJ changeur.**
-- C'est un personnage que l'équipe du serveur **fait apparaître** par commande où elle veut, au spawn par
-  exemple. Il est **invulnérable**, immobile, et ne disparaît jamais. Son nom et son apparence sont
-  réglables (skin de joueur ou modèle du mod).
-- Il ne fait **qu'une chose : le change**. Il convertit les pièces en plus grosses ou en plus petites
-  coupures (dix argents contre un or, un or contre dix argents), à valeur égale et sans frais.
-- Il ne vend rien et n'achète rien : il ne crée ni ne détruit d'argent.
-- L'équipe peut en poser plusieurs, par exemple au port et à la mine.
-
 **88. Somme de départ.**
 Demandé par Killian le 2026-11-08.
 - À sa **première connexion**, un joueur reçoit une petite somme dans son inventaire, de quoi acheter
@@ -506,7 +501,7 @@ compris.
 | E1 | Pièces déclarées, valeurs, change, vérification des recettes, registre partagé ; 84, 85, 69, 87, 88, 77 | L'argent existe, ne vient que de sources déclarées, ne se range qu'aux endroits permis, et l'équipe le voit |
 | E2 | 70, 71, 72 | Les joueurs commercent entre eux, même absents |
 | E3 | 73, 75 | La ville a des finances : elle encaisse, elle paie, elle peut manquer |
-| E4 | 78, 80 | On gagne sa vie en chassant, et on fait la monnaie auprès d'un changeur |
+| E4 | 78 | On gagne sa vie en chassant |
 | E5 | 79 | Des objectifs renouvelés chaque jour et chaque semaine |
 | E6 | 86, 83 | Les factures se paient seules en pièces, et chacun peut vendre son électricité |
 
@@ -547,7 +542,6 @@ leur métier. Celui de l'ingénieur vient avec le lot E6.
   - trois journalières différentes sont générées, et une relance en donne une autre ;
   - un bloc posé puis cassé ne fait avancer aucune quête ;
   - une quête de métier n'est pas proposée à un autre rôle ;
-  - le PNJ changeur rend exactement la même valeur dans les deux sens ;
   - un prélèvement prend d'abord dans l'inventaire, puis dans le coffre-fort, rend la monnaie, et
     n'est jamais partiel ;
   - un prélèvement sur un joueur déconnecté prend dans son coffre-fort, même zone non chargée ;
@@ -582,7 +576,9 @@ leur métier. Celui de l'ingénieur vient avec le lot E6.
 ### Décisions de Killian (2026-11-08)
 - Plus de **presse à monnaie** : l'argent vient des quêtes, du butin des mobs, de la somme de départ et
   des injections de l'équipe du serveur.
-- Le **PNJ ne fait que le change** de coupures : pas de boutique, ni achat ni vente.
+- Le **PNJ changeur** ne devait faire que le change de coupures, sans boutique ; il est **retiré** le
+  2026-11-15 (feature 80) : le panneau « Change » de la bourse et du coffre-fort et la table de craft
+  suffisent.
 - Le **butin des mobs** n'a pas de plafond : les mobs hostiles donnent des pièces, et les animaux aussi
   s'ils ne viennent pas d'un élevage (2026-11-11).
 - Les quêtes ne récompensent **qu'en pièces**.
