@@ -1,6 +1,7 @@
 package dev.oneforallsurvival.dev;
 
 import com.google.gson.JsonParser;
+import com.mojang.authlib.GameProfile;
 import dev.oneforallsurvival.economy.CoinDropEntity;
 import dev.oneforallsurvival.economy.CoinMath;
 import dev.oneforallsurvival.economy.EconomyClock;
@@ -20,6 +21,7 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -34,6 +36,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
@@ -41,6 +44,9 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.animal.Wolf;
+import net.minecraft.world.entity.boss.enderdragon.EnderDragon;
+import net.minecraft.world.entity.boss.enderdragon.phases.EnderDragonPhase;
+import net.minecraft.world.entity.monster.ElderGuardian;
 import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.entity.monster.Pillager;
 import net.minecraft.world.entity.monster.Zombie;
@@ -86,6 +92,7 @@ public final class ButinGameTests {
     private static final String LOT_HORLOGE = "butin_horloge";
     private static final String LOT_DEPART = "butin_depart";
     private static final String LOT_RELOAD = "butin_reload";
+    private static final String LOT_DRAGON = "butin_dragon";
 
     /** Courant 3 cuivres, dangereux 1 argent, boss 5 or, animal 1 cuivre, pillard 40 cuivres : tout à coup sûr. */
     static MobCoinTable tableCertaine() {
@@ -96,7 +103,8 @@ public final class ButinGameTests {
                   "boss": {"any_origin": true, "rolls": [{"coin": "gold", "chance": 1, "min": 5, "max": 5}]},
                   "wild_animal": {"rolls": [{"coin": "copper", "chance": 1, "min": 1, "max": 1}]},
                   "gros": {"rolls": [{"coin": "copper", "chance": 1, "min": 40, "max": 40}]}},
-                 "rules": [{"match": "#forge:bosses", "tier": "boss"}, {"match": "minecraft:pillager", "tier": "gros"}],
+                 "rules": [{"match": "#forge:bosses", "tier": "boss"}, {"match": "minecraft:elder_guardian", "tier": "boss"},
+                           {"match": "minecraft:pillager", "tier": "gros"}],
                  "category_defaults": {"monster": "common", "creature": "wild_animal"},
                  "charged_creeper": "dangerous"}
                 """).getAsJsonObject());
@@ -161,6 +169,16 @@ public final class ButinGameTests {
     @AfterBatch(batch = LOT_HORLOGE)
     public static void apresHorloge(ServerLevel level) {
         EconomyClock.reset();
+        MobCoinTables.setForTest(null);
+    }
+
+    @BeforeBatch(batch = LOT_DRAGON)
+    public static void avantDragon(ServerLevel level) {
+        MobCoinTables.setForTest(tableCertaine());
+    }
+
+    @AfterBatch(batch = LOT_DRAGON)
+    public static void apresDragon(ServerLevel level) {
         MobCoinTables.setForTest(null);
     }
 
@@ -239,7 +257,8 @@ public final class ButinGameTests {
     /** Retire ce que les morts ont laissé ; les pièces au sol sont réglées par leur retrait. */
     static void ranger(GameTestHelper helper) {
         Stream.of(EntityType.ITEM, EntityType.EXPERIENCE_ORB, EntityType.ZOMBIE, EntityType.COW, EntityType.WOLF,
-                        EntityType.WITHER, EntityType.PILLAGER, EntityType.CREEPER, EntityType.CHICKEN, EntityType.ARROW)
+                        EntityType.WITHER, EntityType.PILLAGER, EntityType.CREEPER, EntityType.CHICKEN, EntityType.ARROW,
+                        EntityType.ELDER_GUARDIAN, EntityType.ENDER_DRAGON)
                 .forEach(type -> helper.getLevel().getEntities(type, zone(helper), e -> true).forEach(Entity::discard));
         pieces(helper).forEach(Entity::discard);
     }
@@ -369,6 +388,7 @@ public final class ButinGameTests {
             veau.setBaby(true);
             helper.assertTrue(veau.isBaby(), "le veau n'est pas petit");
             frapper(veau, joueur, 1000f);
+            helper.assertTrue(!veau.isAlive(), "le veau n'est pas mort");
             frapper(creer(helper, EntityType.COW, LA, true), joueur, 1000f);
         });
     }
@@ -381,6 +401,7 @@ public final class ButinGameTests {
             chien.tame(joueur.joueur());
             helper.assertTrue(chien.isTame(), "le loup n'est pas apprivoisé");
             frapper(chien, joueur, 1000f);
+            helper.assertTrue(!chien.isAlive(), "le loup apprivoisé n'est pas mort");
             frapper(creer(helper, EntityType.WOLF, LA, true), joueur, 1000f);
         });
     }
@@ -395,10 +416,13 @@ public final class ButinGameTests {
         };
         MinecraftForge.EVENT_BUS.addListener(EventPriority.HIGH, false, LivingDropsEvent.class, annuleur);
         try {
-            essai(helper, "ButinAnnule", 0, joueur -> {
+            // Le témoin, un zombie sauvage dont les objets ne sont pas annulés, paie ses 3 cuivres : seul le visé ne donne rien.
+            essai(helper, "ButinAnnule", 3, joueur -> {
                 Zombie zombie = creer(helper, EntityType.ZOMBIE, ICI, true);
                 visees.add(zombie);
                 frapper(zombie, joueur, 1000f);
+                helper.assertTrue(!zombie.isAlive(), "le zombie visé n'est pas mort");
+                frapper(creer(helper, EntityType.ZOMBIE, LA, true), joueur, 1000f);
             });
         } finally {
             MinecraftForge.EVENT_BUS.unregister(annuleur);
@@ -503,6 +527,23 @@ public final class ButinGameTests {
         });
     }
 
+    @GameTest(template = "test/plancher", batch = LOT_B, setupTicks = 20)
+    public static void unJoueurAbsentDeLaListeNeDonneRien(GameTestHelper helper) {
+        // Un faux joueur d'un mod qui ne dérive pas de FakePlayer : un ServerPlayer jamais entré dans la liste des joueurs.
+        // Le témoin, le vrai joueur de l'essai, touche ses 3 cuivres.
+        essai(helper, "ButinFantome", 3, joueur -> {
+            ServerPlayer fantome = new ServerPlayer(helper.getLevel().getServer(), helper.getLevel(),
+                    new GameProfile(UUID.randomUUID(), "ButinFantomeFaux"));
+            helper.assertTrue(!(fantome instanceof FakePlayer)
+                    && helper.getLevel().getServer().getPlayerList().getPlayer(fantome.getUUID()) == null,
+                    "le fantôme devrait être un ServerPlayer hors de la liste");
+            Zombie zombie = creer(helper, EntityType.ZOMBIE, ICI, true);
+            zombie.hurt(zombie.damageSources().playerAttack(fantome), 1000f);
+            helper.assertTrue(!zombie.isAlive(), "le fantôme devait tuer le zombie");
+            frapper(creer(helper, EntityType.ZOMBIE, LA, true), joueur, 1000f);
+        });
+    }
+
     // ---------------------------------------------------------------------------------------------
     // Lots à eux
     // ---------------------------------------------------------------------------------------------
@@ -511,7 +552,19 @@ public final class ButinGameTests {
     public static void doMobLootFauxNeDonneRien(GameTestHelper helper) {
         helper.assertTrue(!helper.getLevel().getGameRules().getBoolean(GameRules.RULE_DOMOBLOOT),
                 "doMobLoot devrait être faux dans ce lot");
-        essai(helper, "ButinRegle", 0, joueur -> frapper(creer(helper, EntityType.ZOMBIE, ICI, true), joueur, 1000f));
+        // Le témoin : la règle rendue le temps d'un second zombie, qui paie ses 3 cuivres ; le premier, rien.
+        essai(helper, "ButinRegle", 3, joueur -> {
+            Zombie zombie = creer(helper, EntityType.ZOMBIE, ICI, true);
+            frapper(zombie, joueur, 1000f);
+            helper.assertTrue(!zombie.isAlive(), "le zombie n'est pas mort");
+            GameRules.BooleanValue regle = helper.getLevel().getGameRules().getRule(GameRules.RULE_DOMOBLOOT);
+            regle.set(true, helper.getLevel().getServer());
+            try {
+                frapper(creer(helper, EntityType.ZOMBIE, LA, true), joueur, 1000f);
+            } finally {
+                regle.set(false, helper.getLevel().getServer());
+            }
+        });
     }
 
     @GameTest(template = "test/plancher", batch = LOT_HORLOGE, setupTicks = 20)
@@ -547,6 +600,88 @@ public final class ButinGameTests {
             ranger(helper);
         }
         helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_HORLOGE, setupTicks = 20)
+    public static void unBossSauvagePaieAChaqueFois(GameTestHelper helper) {
+        // Décision de Killian : le délai d'un jour ne vise que les boss sans marque sauvage (Wither construit, dragon ranimé) ;
+        // les trois gardiens anciens d'un monument, nés avec lui, paient chacun.
+        degager(helper);
+        long midi = ZonedDateTime.of(2030, 2, 15, 12, 0, 0, 0,
+                dev.oneforallsurvival.economy.EconomyCalendar.configuredZone()).toInstant().toEpochMilli();
+        EconomyClock.setClock(() -> midi);
+        JoueurDeTest joueur = JoueurDeTest.rejoindre(helper.getLevel(), "ButinGardiens", helper.absoluteVec(LOIN));
+        Comptes comptes = ouvrir(joueur);
+        try {
+            for (int i = 0; i < 3; i++) {
+                ElderGuardian gardien = creer(helper, EntityType.ELDER_GUARDIAN, ICI, true);
+                frapper(gardien, joueur, 10_000f);
+                helper.assertTrue(!gardien.isAlive(), "le gardien " + (i + 1) + " n'est pas mort");
+            }
+            long gardiens = comptes.registre().totalCreated(MoneySource.MOB_LOOT);
+            for (int i = 0; i < 2; i++) {
+                frapper(creer(helper, EntityType.WITHER, LA, false), joueur, 10_000f);
+            }
+            long withers = comptes.registre().totalCreated(MoneySource.MOB_LOOT) - gardiens;
+            helper.assertTrue(gardiens == 1500, "trois gardiens anciens sauvages le même jour : " + gardiens + ", attendu 1500");
+            helper.assertTrue(withers == 500, "deux Withers construits le même jour : " + withers + ", attendu 500");
+        } finally {
+            EconomyClock.reset();
+            fermer(joueur);
+            ranger(helper);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_DRAGON, setupTicks = 20)
+    public static void leDragonNeDonneQuUneFois(GameTestHelper helper) {
+        // Le dragon meurt en deux temps : le coup fatal appelle die (LivingDropsEvent), puis il passe en phase DYING, vie
+        // remise à 1, et tickDeath (200 ticks, sans die) le retire. Il est retiré ici avant son premier tick : ailleurs que
+        // dans l'End, il casserait les blocs voisins (checkWalls).
+        degager(helper);
+        JoueurDeTest joueur = JoueurDeTest.rejoindre(helper.getLevel(), "ButinDragon", helper.absoluteVec(LOIN));
+        Comptes comptes = ouvrir(joueur);
+        int[] evenements = {0};
+        List<Entity> vise = new ArrayList<>();
+        Consumer<LivingDropsEvent> compteur = event -> {
+            if (vise.contains(event.getEntity())) {
+                evenements[0]++;
+            }
+        };
+        MinecraftForge.EVENT_BUS.addListener(EventPriority.HIGHEST, false, LivingDropsEvent.class, compteur);
+        try {
+            EnderDragon dragon = creer(helper, EntityType.ENDER_DRAGON, new BlockPos(4, 1, 4), false);
+            vise.add(dragon);
+            // Comme le dragon d'un combat de l'End (EndDragonFight.createNewDragon) : en vol, pas posé.
+            dragon.getPhaseManager().setPhase(EnderDragonPhase.HOLDING_PATTERN);
+            frapper(dragon, joueur, 10_000f);
+            helper.assertTrue(dragon.getPhaseManager().getCurrentPhase().getPhase() == EnderDragonPhase.DYING,
+                    "le dragon n'est pas en phase de mort : " + dragon.getPhaseManager().getCurrentPhase().getPhase());
+            // Des coups pendant la phase de mort ne le tuent pas une seconde fois.
+            for (int i = 0; i < 3; i++) {
+                frapper(dragon, joueur, 10_000f);
+            }
+            dragon.discard();
+        } catch (RuntimeException e) {
+            MinecraftForge.EVENT_BUS.unregister(compteur);
+            fermer(joueur);
+            ranger(helper);
+            throw e;
+        }
+        helper.startSequence()
+                .thenIdle(3)
+                .thenExecute(() -> {
+                    MinecraftForge.EVENT_BUS.unregister(compteur);
+                    long sol = valeur(helper);
+                    long registre = comptes.registre().totalCreated(MoneySource.MOB_LOOT);
+                    long morts = comptes.registre().lootKills();
+                    fermer(joueur);
+                    ranger(helper);
+                    helper.assertTrue(evenements[0] == 1, "LivingDropsEvent du dragon : " + evenements[0] + ", attendu 1");
+                    helper.assertTrue(morts == 1, "morts payantes : " + morts);
+                    helper.assertTrue(sol == 500 && registre == 500, "pièces au sol " + sol + ", registre " + registre + ", attendu 500");
+                })
+                .thenSucceed();
     }
 
     @GameTest(template = "test/plancher", batch = LOT_DEPART, setupTicks = 20, timeoutTicks = 200)

@@ -46,9 +46,10 @@ import net.minecraftforge.registries.ForgeRegistries;
  * objets sont annulés par un autre écouteur ne crée ni ne compte rien.
  *
  * <p>Bornes (décisions de Killian, 2026-11-15) : un raid paie au plus {@link EconomyConfig#raidLootCap()} cuivres tous
- * joueurs confondus, et un joueur touche le butin d'un même type de boss (palier qui ignore l'origine) au plus
- * {@link EconomyConfig#bossLootPerDay()} fois par jour de paie ({@link EconomyCalendar}). Les deux sont gardées dans
- * {@link MobLootLimits}, avec le monde.
+ * joueurs confondus, et un joueur touche le butin d'un même type de boss sans marque sauvage (palier qui ignore
+ * l'origine : Wither construit, dragon ranimé) au plus {@link EconomyConfig#bossLootPerDay()} fois par jour de paie
+ * ({@link EconomyCalendar}). Un boss né de lui-même (gardien ancien d'un monument, marqué sauvage) paie à chaque fois :
+ * il ne se refait pas en survie. Les deux bornes sont gardées dans {@link MobLootLimits}, avec le monde.
  */
 public final class MobLoot {
 
@@ -85,8 +86,9 @@ public final class MobLoot {
      * Le joueur crédité de la mort, ou {@code null} : la source du dégât si c'est un vrai joueur (coup, flèche,
      * trident, TNT allumée : {@code getEntity()}) ou le maître d'un animal apprivoisé qui a tué ; sinon, si le mob a
      * été frappé par un joueur dans les 5 dernières secondes ({@code recentlyHit}), ce joueur
-     * ({@code getKillCredit}). Un faux joueur (déployeur de Create compris) ou un spectateur n'est jamais crédité, et
-     * un faux joueur qui porte le dernier coup ne laisse le crédit à personne.
+     * ({@code getKillCredit}). Un faux joueur (déployeur de Create compris), un joueur absent de la liste des joueurs du
+     * serveur (faux joueur d'un mod qui ne dérive pas de {@link FakePlayer}) ou un spectateur n'est jamais crédité, et un
+     * faux joueur qui porte le dernier coup ne laisse le crédit à personne.
      */
     @Nullable
     public static ServerPlayer creditedPlayer(LivingEntity victim, DamageSource source, boolean recentlyHit) {
@@ -108,13 +110,17 @@ public final class MobLoot {
 
     @Nullable
     private static ServerPlayer real(ServerPlayer player) {
-        return player instanceof FakePlayer || player.isSpectator() ? null : player;
+        if (player instanceof FakePlayer || player.isSpectator()) {
+            return null;
+        }
+        // Un vrai joueur est connecté : il est dans la liste des joueurs du serveur, sous son identifiant.
+        return player.server.getPlayerList().getPlayer(player.getUUID()) == player ? player : null;
     }
 
     /**
      * Le butin de cette mort, ou rien. Dans l'ordre : vivant non joueur ; {@code doMobLoot} vrai ; joueur crédité ;
      * palier non nul ; origine sauvage sauf palier {@code anyOrigin} ; ni apprivoisé, ni petit au palier
-     * {@link #WILD_ANIMAL} ; boss pas encore payé à ce joueur ce jour ; tirage non vide ; plafond du raid (le butin
+     * {@link #WILD_ANIMAL} ; boss sans marque sauvage pas encore payé à ce joueur ce jour ; tirage non vide ; plafond du raid (le butin
      * est ramené à ce qui reste, rien s'il ne reste rien). Ne modifie rien : {@link #drop} écrit.
      */
     public static Optional<Award> decide(LivingEntity victim, DamageSource source, boolean recentlyHit,
@@ -149,7 +155,8 @@ public final class MobLoot {
         }
         LocalDate day = EconomyCalendar.payDay(nowMillis, EconomyCalendar.configuredZone(), EconomyConfig.payHour());
         String bossType = null;
-        if (tier.anyOrigin()) {
+        // Le délai ne vise que les boss qu'on peut refaire (sans marque sauvage) : un boss né de lui-même paie à chaque fois.
+        if (tier.anyOrigin() && !MobOrigin.isWild(victim)) {
             bossType = typeId.toString();
             if (!limits.bossAllowed(player.getUUID(), bossType, day, EconomyConfig.bossLootPerDay())) {
                 return Optional.empty();
