@@ -384,8 +384,12 @@ Demandé par Killian le 2026-11-08, sur le modèle des opérateurs du téléphon
   - un animal **né d'un élevage** (deux parents nourris) ne donne rien, ni ses descendants : élever ne
     doit pas devenir une planche à billets ;
   - le serveur marque chaque animal né d'un élevage à sa naissance, et la marque reste sur lui.
-- **Pas de plafond** (choix de Killian) : les mobs hostiles et les animaux sauvages donnent des pièces,
-  et chaque mob tué peut en donner.
+- **Plafond horaire par joueur** (décision de Killian, 2026-11-15, qui remplace « pas de plafond » du
+  2026-11-11) : les mobs hostiles et les animaux sauvages donnent des pièces, mais un joueur ne gagne au
+  plus que **200 cuivres par fenêtre glissante de 60 minutes** (`mobLootHourlyCap`, réglable, 0 = aucun
+  plafond). Un butin qui dépasserait est réduit à ce qui reste, puis plus rien. Les boss (palier qui
+  ignore l'origine) en sont exemptés : ils ont déjà leur limite d'un butin par jour. Les raids gardent en
+  plus leur plafond par raid.
 - **Seul garde-fou contre les fermes automatiques** : rien pour un mob tué sans joueur, ou apparu par un
   générateur (spawner) ou par un œuf d'apparition.
 - Le butin passe par un modificateur de butin global de Forge : les mobs des autres mods sont couverts par
@@ -579,8 +583,9 @@ leur métier. Celui de l'ingénieur vient avec le lot E6.
 - Le **PNJ changeur** ne devait faire que le change de coupures, sans boutique ; il est **retiré** le
   2026-11-15 (feature 80) : le panneau « Change » de la bourse et du coffre-fort et la table de craft
   suffisent.
-- Le **butin des mobs** n'a pas de plafond : les mobs hostiles donnent des pièces, et les animaux aussi
-  s'ils ne viennent pas d'un élevage (2026-11-11).
+- Le **butin des mobs** a un plafond horaire par joueur (200 cuivres sur 60 minutes glissantes, boss exemptés,
+  2026-11-15 ; il n'en avait pas le 2026-11-11) : les mobs hostiles donnent des pièces, et les animaux aussi
+  s'ils ne viennent pas d'un élevage.
 - Les quêtes ne récompensent **qu'en pièces**.
 - Le **rubis** s'obtient comme les autres pièces (change, butin, quêtes, injection) ; plus une pièce vaut cher, plus elle est rare au butin (2026-11-12, remplace « le rubis n'est donné que par l'équipe »).
 - Une **somme de départ** de 500 cuivres pour chaque nouveau joueur.

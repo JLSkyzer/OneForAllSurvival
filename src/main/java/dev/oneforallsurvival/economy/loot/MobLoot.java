@@ -61,7 +61,7 @@ public final class MobLoot {
      * boss compté pour {@code day}, ou {@code null}.
      */
     public record Award(ServerPlayer player, String tierId, EnumMap<Coin, Long> coins, long value,
-            @Nullable String raid, @Nullable String bossType, LocalDate day) {}
+            @Nullable String raid, @Nullable String bossType, LocalDate day, boolean hourly, long at) {}
 
     /** Les comptes où écrire le butin d'un joueur d'essai, au lieu de ceux du serveur. */
     private record Books(EconomyLedger ledger, MobLootLimits limits) {}
@@ -178,7 +178,19 @@ public final class MobLoot {
                 value = remaining;
             }
         }
-        return Optional.of(new Award(player, tier.id(), coins, value, raid, bossType, day));
+        // Le plafond horaire du joueur : tous les paliers sauf ceux qui ignorent l'origine (les boss, limités par jour).
+        boolean hourly = !tier.anyOrigin();
+        if (hourly) {
+            long left = limits.hourlyRemaining(player.getUUID(), nowMillis, EconomyConfig.mobLootHourlyCap());
+            if (left <= 0L) {
+                return Optional.empty();
+            }
+            if (value > left) {
+                coins = CoinMath.decompose(left);
+                value = left;
+            }
+        }
+        return Optional.of(new Award(player, tier.id(), coins, value, raid, bossType, day, hourly, nowMillis));
     }
 
     /** Un animal qui appartient à quelqu'un (chien, chat, cheval, lama...). */
@@ -215,6 +227,9 @@ public final class MobLoot {
                 award.value() >= EconomyConfig.mobLootJournalThreshold());
         if (award.raid() != null) {
             limits.addRaid(award.raid(), award.value());
+        }
+        if (award.hourly()) {
+            limits.addHourly(award.player().getUUID(), award.at(), award.value());
         }
         if (award.bossType() != null) {
             limits.addBoss(award.player().getUUID(), award.bossType(), award.day());

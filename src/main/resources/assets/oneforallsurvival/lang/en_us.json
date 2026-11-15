@@ -447,6 +447,8 @@
   "command.oneforallsurvival.eco.loot.tiers": "By tier:",
   "command.oneforallsurvival.eco.loot.players": "Top %s earners:",
   "command.oneforallsurvival.eco.loot.none": "  No loot.",
+  "command.oneforallsurvival.eco.loot.hour": "Your loot earnings over the last 60 minutes: %s out of %s at most.",
+  "command.oneforallsurvival.eco.loot.hour.nocap": "Your loot earnings over the last 60 minutes: %s (no cap).",
   "message.oneforallsurvival.commerce.pending": "A delivery is waiting for you: it will be handed over as soon as you have room.",
   "message.oneforallsurvival.commerce.delivered": "A pending delivery has been handed over to you.",
   "message.oneforallsurvival.commerce.safe": "Coins that did not fit on you went to your safe.",

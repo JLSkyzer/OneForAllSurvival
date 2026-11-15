@@ -441,13 +441,14 @@
         {"k": "Boss", "v": "5 or ; en plus 1 émeraude 1 fois sur 10, 1 rubis 1 fois sur 100"},
         {"k": "Animal sauvage", "v": "1 cuivre, 1 fois sur 4"},
         {"k": "Raid", "v": "100 cuivres au plus par raid, tous joueurs confondus"},
+        {"k": "Plafond horaire", "v": "200 cuivres au plus par joueur sur 60 minutes glissantes (boss exemptés) ; au-delà, le butin est réduit puis nul"},
         {"k": "Boss refait (Wither construit, dragon ranimé)", "v": "1 butin par joueur et par jour de paie"}
       ],
       "staff": [
         "La table est un fichier de données : data/oneforallsurvival/economy/mob_coins.json (paliers, tirages {coin, chance, min, max}, règles par identifiant ou #tag, palier par catégorie). L'équipe la remplace par un datapack du monde puis /reload ; un fichier invalide garde la table précédente et l'erreur est au journal.",
         "Un mob d'un autre mod suit sa catégorie (monstre : courant ; créature : animal sauvage) ; l'équipe le classe autrement dans la table.",
-        "/eco loot (niveau 2) : total créé par le butin, nombre de morts payantes, total par palier, les 10 joueurs qui ont le plus gagné. La ligne « Butin des créatures » de /eco stats donne le même total.",
-        "Config : mobLootJournalThreshold (100 : un butin d'au moins 100 cuivres a sa ligne au registre /eco ledger ; 0 = chaque butin), raidLootCap (100), bossLootPerDay (1).",
+        "/eco loot (niveau 2) : total créé par le butin, nombre de morts payantes, total par palier, les 10 joueurs qui ont le plus gagné. Lancée par un joueur, elle ajoute ce qu'il a gagné sur l'heure glissante. La ligne « Butin des créatures » de /eco stats donne le même total.",
+        "Config : mobLootJournalThreshold (100 : un butin d'au moins 100 cuivres a sa ligne au registre /eco ledger ; 0 = chaque butin), raidLootCap (100), bossLootPerDay (1), mobLootHourlyCap (200 : un joueur gagne au plus 200 cuivres de butin sur 60 minutes glissantes, boss exemptés ; 0 = aucun plafond).",
         "Rien ne paie sans vrai joueur : déployeur de Create et faux joueurs des mods, joueur absent de la liste des joueurs, lave, cactus, roue de broyage. doMobLoot à faux : aucun butin.",
         "Admis par la règle « tué par un joueur » (de Minecraft) : un loup apprivoisé qui tue paie son maître, les épines d'une armure paient le joueur, et une ferme qui achève dans les 5 s un mob frappé par un joueur paie ce joueur. Pas de plafond hors raids et boss refaits : à surveiller avec /eco loot.",
         "Les mobs nés avant la mise à jour n'ont pas de marque d'origine et ne donnent rien (sauf les boss)."

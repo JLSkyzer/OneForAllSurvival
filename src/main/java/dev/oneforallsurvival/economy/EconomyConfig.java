@@ -54,6 +54,7 @@ public final class EconomyConfig {
     static final long DEFAULT_MOB_LOOT_JOURNAL_THRESHOLD = 100L;
     static final long DEFAULT_RAID_LOOT_CAP = 100L;
     static final int DEFAULT_BOSS_LOOT_PER_DAY = 1;
+    static final long DEFAULT_MOB_LOOT_HOURLY_CAP = 200L;
     /** Plafond d'un taux de salaire, en cuivres par heure. */
     public static final long MAX_SALARY_PER_HOUR = 1_000_000L;
 
@@ -82,6 +83,7 @@ public final class EconomyConfig {
     private static final ForgeConfigSpec.LongValue MOB_LOOT_JOURNAL_THRESHOLD;
     private static final ForgeConfigSpec.LongValue RAID_LOOT_CAP;
     private static final ForgeConfigSpec.IntValue BOSS_LOOT_PER_DAY;
+    private static final ForgeConfigSpec.LongValue MOB_LOOT_HOURLY_CAP;
     private static final ForgeConfigSpec.ConfigValue<List<? extends String>> EXTRA_ALLOWED_MENUS;
     private static final ForgeConfigSpec.ConfigValue<List<? extends String>> EXTRA_FORBIDDEN_MENUS;
 
@@ -185,6 +187,12 @@ public final class EconomyConfig {
                         "ranimé...) : un joueur touche le butin d'un même type de boss au plus ce nombre de fois par jour de paie",
                         "(payHour, payTimeZone). 0 = jamais. Un boss né de lui-même (gardien ancien) paie à chaque fois.")
                 .defineInRange("bossLootPerDay", DEFAULT_BOSS_LOOT_PER_DAY, 0, 1_000);
+        MOB_LOOT_HOURLY_CAP = builder
+                .comment("Butin des mobs : un joueur gagne au plus ce montant, en cuivres, sur une fenêtre glissante de",
+                        "60 minutes (paliers courant, dangereux, animal sauvage, raids compris). Un butin qui dépasserait",
+                        "est réduit à ce qui reste, puis plus rien. Les boss (palier qui ignore l'origine) en sont exemptés,",
+                        "ils ont déjà bossLootPerDay. 0 = pas de plafond.")
+                .defineInRange("mobLootHourlyCap", DEFAULT_MOB_LOOT_HOURLY_CAP, 0L, 1_000_000_000L);
         EXTRA_ALLOWED_MENUS = builder
                 .comment("Types d'écran (identifiants, ex. \"mod:coffre\") où une pièce a le droit d'être rangée, en plus",
                         "de l'inventaire du joueur, de la table de fabrication et des rangements de ce mod.")
@@ -423,6 +431,15 @@ public final class EconomyConfig {
             return RAID_LOOT_CAP.get();
         } catch (IllegalStateException e) {
             return DEFAULT_RAID_LOOT_CAP;
+        }
+    }
+
+    /** Ce qu'un joueur gagne au plus en butin de mobs sur 60 minutes glissantes, en cuivres (200 par défaut ; 0 = aucun plafond). */
+    public static long mobLootHourlyCap() {
+        try {
+            return MOB_LOOT_HOURLY_CAP.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_MOB_LOOT_HOURLY_CAP;
         }
     }
 

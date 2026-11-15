@@ -447,6 +447,8 @@
   "command.oneforallsurvival.eco.loot.tiers": "Par palier :",
   "command.oneforallsurvival.eco.loot.players": "Les %s joueurs qui ont le plus gagné :",
   "command.oneforallsurvival.eco.loot.none": "  Aucun butin.",
+  "command.oneforallsurvival.eco.loot.hour": "Vos gains de butin sur l'heure glissante : %s sur %s au plus.",
+  "command.oneforallsurvival.eco.loot.hour.nocap": "Vos gains de butin sur l'heure glissante : %s (aucun plafond).",
   "message.oneforallsurvival.commerce.pending": "Une livraison vous attend : elle vous sera remise dès que vous aurez de la place.",
   "message.oneforallsurvival.commerce.delivered": "Une livraison en attente vous a été remise.",
   "message.oneforallsurvival.commerce.safe": "Des pièces qui ne tenaient pas sur vous sont allées dans votre coffre-fort.",

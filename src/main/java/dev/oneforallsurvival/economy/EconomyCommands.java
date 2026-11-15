@@ -216,6 +216,15 @@ public final class EconomyCommands {
             out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.line",
                     playerName(server, line.getKey()), CoinMath.format(line.getValue())));
         }
+        if (source.getEntity() instanceof ServerPlayer me) {
+            long earned = dev.oneforallsurvival.economy.loot.MobLootLimits.get(server)
+                    .hourlyEarned(me.getUUID(), EconomyClock.now());
+            long cap = EconomyConfig.mobLootHourlyCap();
+            out.append("\n").append(cap > 0L
+                    ? Component.translatable("command.oneforallsurvival.eco.loot.hour", CoinMath.format(earned),
+                            CoinMath.format(cap))
+                    : Component.translatable("command.oneforallsurvival.eco.loot.hour.nocap", CoinMath.format(earned)));
+        }
         source.sendSuccess(() -> out, false);
         return 1;
     }
