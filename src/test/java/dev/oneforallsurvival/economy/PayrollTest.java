@@ -160,4 +160,57 @@ class PayrollTest {
         assertEquals(0L, SalaryRates.rateFor("medecin"));
         assertEquals(0L, SalaryRates.rateFor(SalaryRates.MAYOR_KEY));
     }
+
+    @Test
+    void leReportRespecteLePlafondDuJour() {
+        // Revue finale E3, M7 : le temps reporté d'un jour réglé ne dépasse pas le plafond de 8 h du jour qui le reçoit.
+        Payroll paie = new Payroll();
+        paie.credit(POLICIER, "Agent", J, "policier", 6L * 3_600L, 60L, HUIT_HEURES);
+        paie.credit(POLICIER, "Agent", J.plusDays(1), "policier", 6L * 3_600L, 120L, HUIT_HEURES);
+        paie.setLastClosed(J.plusDays(1));
+        assertEquals(Map.of("policier", HUIT_HEURES), paie.secondsFor(POLICIER, J.plusDays(2)));
+        // 6 h à 60, puis les 2 h qui tiennent encore, au taux de leur jour (120).
+        assertEquals(Map.of("policier", 6L * 3_600L * 60L + 2L * 3_600L * 120L), paie.rateSecondsFor(POLICIER, J.plusDays(2)));
+    }
+
+    @Test
+    void laPauseSurvitALaSauvegarde() {
+        Payroll paie = new Payroll();
+        assertFalse(paie.paused());
+        paie.pause(J.plusDays(10), J);
+        assertTrue(paie.paused());
+        assertTrue(paie.isDirty());
+        Payroll relu = Payroll.load(paie.save(new CompoundTag()));
+        assertTrue(relu.paused());
+        assertEquals(J.plusDays(10), relu.pausedSeen());
+        assertEquals(J, relu.pausedExpected());
+        assertNull(relu.lastCheck(), "la dernière vérification de l'horloge ne se sauvegarde pas");
+        relu.unpause();
+        assertFalse(relu.paused());
+        assertFalse(Payroll.load(relu.save(new CompoundTag())).paused());
+    }
+
+    @Test
+    void ramenerLaDateReporteLesJoursFutursSurAujourdHui() {
+        Payroll paie = new Payroll();
+        // L'horloge était en avance : J + 9 a été clos par erreur, du temps a été compté sur J + 10 et J + 15.
+        paie.setLastClosed(J.plusDays(9));
+        paie.credit(POLICIER, "Agent", J.plusDays(10), "policier", 1_800L, 60L, HUIT_HEURES);
+        paie.credit(POLICIER, "Agent", J.plusDays(15), "policier", 1_200L, 60L, HUIT_HEURES);
+        paie.credit(MEDECIN, "Docteur", J, "medecin", 600L, 60L, HUIT_HEURES);
+        paie.pause(J.plusDays(15), J.plusDays(10));
+        paie.rewindTo(J);
+        assertEquals(J.minusDays(1), paie.lastClosed());
+        assertFalse(paie.paused());
+        assertEquals(Map.of("policier", 3_000L), paie.secondsFor(POLICIER, J));
+        assertEquals(Map.of("policier", 3_000L * 60L), paie.rateSecondsFor(POLICIER, J));
+        assertEquals(Map.of(), paie.secondsFor(POLICIER, J.plusDays(10)));
+        assertEquals(Map.of(), paie.secondsFor(POLICIER, J.plusDays(15)));
+        assertEquals(Map.of("medecin", 600L), paie.secondsFor(MEDECIN, J), "compté sur J clos, reporté sur J + 10, revenu sur J");
+        // Un dernier jour réglé plus ancien qu'hier ne recule pas plus et n'avance pas : les jours dus se closent.
+        Payroll retard = new Payroll();
+        retard.setLastClosed(J.minusDays(5));
+        retard.rewindTo(J);
+        assertEquals(J.minusDays(5), retard.lastClosed());
+    }
 }

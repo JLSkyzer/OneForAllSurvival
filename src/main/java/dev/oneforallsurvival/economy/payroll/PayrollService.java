@@ -79,8 +79,8 @@ public final class PayrollService {
         if (!today.isAfter(last)) {
             if (!today.equals(warnedBehind)) {
                 warnedBehind = today;
-                LOGGER.warn("Paie : l'horloge a recule (jour {} alors que le {} est deja regle) ; rien n'est regle",
-                        today, last);
+                LOGGER.warn("Paie : l'horloge a recule (jour {} alors que le {} est deja regle) ; rien n'est regle. "
+                        + "Si l'heure actuelle est juste : /eco salary resetday", today, last);
             }
             return 0;
         }
@@ -121,6 +121,107 @@ public final class PayrollService {
     /** Combien de jours le dernier rattrapage de {@link #closeDueDays} a sautés au-delà du plafond. */
     public static long lastSkippedDays() {
         return lastSkipped;
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Horloge qui saute : pause, reprise, remise à l'heure
+    // ---------------------------------------------------------------------------------------------
+
+    /** Un saut d'horloge plus grand que ceci, entre deux vérifications du serveur en marche, met la paie en pause. */
+    public static final long JUMP_MILLIS = 26L * 3_600_000L;
+
+    /**
+     * La vérification de chaque seconde du serveur en marche. Si l'horloge a avancé de plus de {@link #JUMP_MILLIS}
+     * depuis la vérification précédente (saut anormal : une horloge système réglée par erreur dans le futur), la paie
+     * se met en pause au lieu de clore des jours qui n'existent peut-être pas : rien n'est clos, l'avertissement va au
+     * journal et aux opérateurs connectés, et l'équipe choisit ({@code /eco salary resume} ou {@code resetday}). En
+     * pause, rien ne se clôt ; hors pause, les jours finis se closent ({@link #closeDueDays}). La première vérification
+     * après un chargement n'a pas de référence : le rattrapage du démarrage reste normal.
+     *
+     * @return le nombre de jours arrêtés
+     */
+    public static int onClock(MinecraftServer server, Payroll payroll, TreasuryAccount treasury, long now) {
+        Long previous = payroll.lastCheck();
+        payroll.markChecked(now);
+        if (payroll.paused()) {
+            return 0;
+        }
+        if (previous != null && now - previous > JUMP_MILLIS) {
+            ZoneId zone = EconomyCalendar.configuredZone();
+            LocalDate seen = EconomyCalendar.payDay(now, zone, EconomyConfig.payHour());
+            LocalDate expected = EconomyCalendar.payDay(previous, zone, EconomyConfig.payHour());
+            payroll.pause(seen, expected);
+            LOGGER.warn("Paie en pause : l'horloge a saute de {} h pendant que le serveur tournait (jour {} au lieu du {}) ; "
+                    + "rien n'est clos. Heure juste : /eco salary resume ; heure fausse : /eco salary resetday",
+                    (now - previous) / 3_600_000L, seen, expected);
+            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                warnPaused(player, payroll);
+            }
+            return 0;
+        }
+        return closeDueDays(server, payroll, treasury, now);
+    }
+
+    /**
+     * Le démarrage : rattrapage des jours manqués serveur éteint (sauf en pause : une relance ne lève pas la pause),
+     * puis paiement de la file (de l'argent arrivé au trésor juste avant un arrêt n'attend pas minuit), puis la
+     * référence des vérifications suivantes.
+     *
+     * @return le nombre de jours arrêtés
+     */
+    public static int startUp(MinecraftServer server, Payroll payroll, TreasuryAccount treasury, long now) {
+        int closed = 0;
+        if (payroll.paused()) {
+            LOGGER.warn("Paie en pause depuis un saut d'horloge (jour {} au lieu du {}) : rien n'est clos au demarrage. "
+                    + "Heure juste : /eco salary resume ; heure fausse : /eco salary resetday",
+                    payroll.pausedSeen(), payroll.pausedExpected());
+        } else {
+            closed = closeDueDays(server, payroll, treasury, now);
+        }
+        payDebts(server, payroll, treasury, now);
+        payroll.markChecked(now);
+        return closed;
+    }
+
+    /**
+     * {@code /eco salary resume} : l'heure est juste. La pause est levée et les jours dus se closent, comme un
+     * rattrapage (au plus {@link EconomyConfig#payMaxMissedDays()}).
+     *
+     * @return le nombre de jours arrêtés
+     */
+    public static int resume(MinecraftServer server, Payroll payroll, TreasuryAccount treasury, long now) {
+        payroll.unpause();
+        payroll.markChecked(now);
+        int closed = closeDueDays(server, payroll, treasury, now);
+        LOGGER.info("Paie reprise : {} jour(s) clos", closed);
+        return closed;
+    }
+
+    /**
+     * {@code /eco salary resetday} : l'heure était fausse. Le dernier jour réglé revient à la veille selon l'horloge
+     * actuelle ({@link Payroll#rewindTo}), le temps compté sur des jours futurs passe sur aujourd'hui, la pause est
+     * levée ; puis les jours éventuellement dus se closent. Rien n'est payé deux fois : un jour clos n'a plus de
+     * compteur, et ses dettes restent les mêmes.
+     *
+     * @return le nombre de jours arrêtés
+     */
+    public static int resetDay(MinecraftServer server, Payroll payroll, TreasuryAccount treasury, long now) {
+        LocalDate today = EconomyCalendar.payDay(now, EconomyCalendar.configuredZone(), EconomyConfig.payHour());
+        LocalDate before = payroll.lastClosed();
+        payroll.rewindTo(today);
+        payroll.markChecked(now);
+        warnedBehind = null;
+        LOGGER.warn("Paie remise a l'heure : dernier jour regle {} (avant : {}), temps des jours a venir reporte au {}",
+                payroll.lastClosed(), before, today);
+        return closeDueDays(server, payroll, treasury, now);
+    }
+
+    /** L'avis de pause, à un opérateur (niveau 2) : jour vu, jour attendu, et les deux commandes. */
+    public static void warnPaused(ServerPlayer player, Payroll payroll) {
+        if (payroll.paused() && player.hasPermissions(2)) {
+            player.sendSystemMessage(Component.translatable(MESSAGE + "paused", String.valueOf(payroll.pausedSeen()),
+                    String.valueOf(payroll.pausedExpected())));
+        }
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -222,15 +323,15 @@ public final class PayrollService {
     // Événements du serveur
     // ---------------------------------------------------------------------------------------------
 
-    /** Rattrapage des jours manqués serveur éteint. */
+    /** Rattrapage des jours manqués serveur éteint, puis paiement de la file ({@link #startUp}). */
     public static void onServerStarted(ServerStartedEvent event) {
         MinecraftServer server = event.getServer();
-        closeDueDays(server, Payroll.get(server), TreasuryAccount.get(server), EconomyClock.now());
+        startUp(server, Payroll.get(server), TreasuryAccount.get(server), EconomyClock.now());
     }
 
     /**
      * En fin de tick : toutes les {@link RoleTimeTracker#PERIOD_TICKS}, l'échantillon du temps de rôle puis la
-     * clôture des jours finis ; à chaque tick, la file est payée si de l'argent est arrivé au trésor depuis le tick
+     * vérification de l'horloge et la clôture des jours finis ({@link #onClock}) ; à chaque tick, la file est payée si de l'argent est arrivé au trésor depuis le tick
      * précédent.
      */
     public static void onServerTick(TickEvent.ServerTickEvent event) {
@@ -243,7 +344,7 @@ public final class PayrollService {
         if (server.getTickCount() % RoleTimeTracker.PERIOD_TICKS == 0) {
             long now = EconomyClock.now();
             RoleTimeTracker.server().sample(server, payroll, now);
-            closeDueDays(server, payroll, treasury, now);
+            onClock(server, payroll, treasury, now);
         }
         if (treasury.takeFundsArrived()) {
             payDebts(server, payroll, treasury);
@@ -253,7 +354,9 @@ public final class PayrollService {
     /** Branché après la livraison des attentes ({@link CommerceDelivery#onLoggedIn}). */
     public static void onLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
-            announce(player, Payroll.get(player.server));
+            Payroll payroll = Payroll.get(player.server);
+            announce(player, payroll);
+            warnPaused(player, payroll);
         }
     }
 }

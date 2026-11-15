@@ -6,7 +6,10 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import dev.oneforallsurvival.economy.CoinMath;
+import dev.oneforallsurvival.economy.EconomyCalendar;
+import dev.oneforallsurvival.economy.EconomyClock;
 import dev.oneforallsurvival.economy.EconomyConfig;
+import dev.oneforallsurvival.economy.TreasuryAccount;
 import dev.oneforallsurvival.role.Role;
 import dev.oneforallsurvival.role.RoleBook;
 import dev.oneforallsurvival.role.RoleSavedData;
@@ -20,12 +23,16 @@ import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.server.MinecraftServer;
 
 /**
  * La branche {@code salary} de {@code /eco} (niveau 2, exigé par {@code /eco}) : {@code list} (chaque clé, le libellé
  * du rôle et son taux par heure), {@code set <clé> <taux>} (clé = identifiant d'un rôle existant ou
  * {@link SalaryRates#MAYOR_KEY} ; taux de 0 à 1 000 000 cuivres par heure, écrit dans la configuration) et
- * {@code owed [page]} (la file des salaires dus, de la plus ancienne dette à la plus récente).
+ * {@code owed [page]} (la file des salaires dus, de la plus ancienne dette à la plus récente), et, après un saut
+ * d'horloge ({@link PayrollService#onClock}) : {@code resume} (l'heure est juste : les jours dus se closent) ou
+ * {@code resetday} (l'heure était fausse : le dernier jour réglé revient à la veille, le temps des jours futurs passe
+ * sur aujourd'hui).
  */
 public final class SalaryCommands {
 
@@ -39,6 +46,8 @@ public final class SalaryCommands {
                         .executes(ctx -> owed(ctx, 1))
                         .then(Commands.argument("page", IntegerArgumentType.integer(1))
                                 .executes(ctx -> owed(ctx, IntegerArgumentType.getInteger(ctx, "page")))))
+                .then(Commands.literal("resume").executes(SalaryCommands::resume))
+                .then(Commands.literal("resetday").executes(SalaryCommands::resetDay))
                 .then(Commands.literal("set")
                         .then(Commands.argument("key", StringArgumentType.word())
                                 .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(
@@ -88,6 +97,34 @@ public final class SalaryCommands {
         SalaryRates.set(key, rate);
         source.sendSuccess(() -> Component.translatable("command.oneforallsurvival.eco.salary.set.success",
                 label(book, key), rate(rate)), true);
+        return 1;
+    }
+
+    /** {@code /eco salary resume} : la paie en pause reprend, les jours dus se closent. */
+    private static int resume(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+        MinecraftServer server = source.getServer();
+        Payroll payroll = Payroll.get(server);
+        if (!payroll.paused()) {
+            source.sendFailure(Component.translatable("command.oneforallsurvival.eco.salary.resume.not_paused"));
+            return 0;
+        }
+        int closed = PayrollService.resume(server, payroll, TreasuryAccount.get(server), EconomyClock.now());
+        source.sendSuccess(() -> Component.translatable("command.oneforallsurvival.eco.salary.resume.success", closed),
+                true);
+        return 1;
+    }
+
+    /** {@code /eco salary resetday} : l'heure était fausse ; la date de paie revient à l'horloge actuelle. */
+    private static int resetDay(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+        MinecraftServer server = source.getServer();
+        Payroll payroll = Payroll.get(server);
+        long now = EconomyClock.now();
+        int closed = PayrollService.resetDay(server, payroll, TreasuryAccount.get(server), now);
+        String today = EconomyCalendar.payDay(now, EconomyCalendar.configuredZone(), EconomyConfig.payHour()).toString();
+        source.sendSuccess(() -> Component.translatable("command.oneforallsurvival.eco.salary.resetday.success",
+                String.valueOf(payroll.lastClosed()), today, closed), true);
         return 1;
     }
 

@@ -1,6 +1,7 @@
 package dev.oneforallsurvival.economy.payroll;
 
 import com.mojang.logging.LogUtils;
+import dev.oneforallsurvival.economy.EconomyConfig;
 import dev.oneforallsurvival.economy.CommerceDelivery.Destination;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
@@ -8,7 +9,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -63,7 +63,7 @@ public final class Payroll extends SavedData {
     public record Debt(long id, UUID player, String playerName, String key, LocalDate day, long seconds, long amount) {}
 
     /** Par jour, par joueur. */
-    private final Map<LocalDate, Map<UUID, PlayerDay>> days = new TreeMap<>();
+    private final TreeMap<LocalDate, Map<UUID, PlayerDay>> days = new TreeMap<>();
     @Nullable
     private LocalDate lastClosed;
     /** Les dettes, par id (donc par ancienneté). */
@@ -71,6 +71,17 @@ public final class Payroll extends SavedData {
     private long nextDebtId = 1L;
     /** Les salaires versés à un joueur absent, par destination, pas encore annoncés. */
     private final Map<UUID, EnumMap<Destination, Long>> unseenPaid = new HashMap<>();
+    /**
+     * Paie en pause (horloge qui a sauté pendant que le serveur tournait) : le jour de paie vu, et celui qu'on
+     * attendait ; nuls hors pause. Sauvegardés : une relance ne lève pas la pause, seule l'équipe la lève.
+     */
+    @Nullable
+    private LocalDate pausedSeen;
+    @Nullable
+    private LocalDate pausedExpected;
+    /** Transitoire : l'instant de la dernière vérification de l'horloge par le serveur en marche ; nul au démarrage. */
+    @Nullable
+    private Long lastCheck;
 
     /** Une paie vide (monde neuf, ou essai détaché). */
     public Payroll() {}
@@ -151,7 +162,8 @@ public final class Payroll extends SavedData {
     }
 
     /**
-     * Reporte sur le lendemain du dernier jour réglé les compteurs des jours au plus égaux à lui.
+     * Reporte sur le lendemain du dernier jour réglé les compteurs des jours au plus égaux à lui, sans dépasser le
+     * plafond du jour qui les reçoit ({@link #mergeInto}).
      *
      * @return vrai si un compteur a bougé
      */
@@ -160,30 +172,129 @@ public final class Payroll extends SavedData {
             return false;
         }
         LocalDate target = lastClosed.plusDays(1);
-        boolean moved = false;
-        Iterator<Map.Entry<LocalDate, Map<UUID, PlayerDay>>> it = days.entrySet().iterator();
-        while (it.hasNext()) {
-            Map.Entry<LocalDate, Map<UUID, PlayerDay>> old = it.next();
-            if (old.getKey().isAfter(lastClosed)) {
-                break;
+        // Les jours à reporter sont relevés d'abord : ajouter le jour cible pendant le parcours ferait échouer
+        // l'itérateur dès qu'il y a deux jours à reporter.
+        List<LocalDate> old = new ArrayList<>(days.headMap(target, false).keySet());
+        for (LocalDate day : old) {
+            LOGGER.warn("Paie : le temps du {} (jour deja regle) est reporte au {}", day, target);
+            mergeInto(target, days.remove(day));
+        }
+        return !old.isEmpty();
+    }
+
+    /**
+     * Ajoute ces compteurs à ceux du jour {@code target}, chacun sans dépasser le plafond de
+     * {@link EconomyConfig#salaryMaxHoursPerDay()} heures ; les cuivre-secondes suivent au prorata du temps gardé. Le
+     * temps au-delà du plafond n'est pas compté (comme pour un crédit ordinaire) et le journal le dit.
+     */
+    private void mergeInto(LocalDate target, Map<UUID, PlayerDay> from) {
+        long maxSeconds = EconomyConfig.salaryMaxHoursPerDay() * SalaryMath.SECONDS_PER_HOUR;
+        for (Map.Entry<UUID, PlayerDay> player : from.entrySet()) {
+            PlayerDay into = days.computeIfAbsent(target, d -> new LinkedHashMap<>())
+                    .computeIfAbsent(player.getKey(), p -> new PlayerDay());
+            if (into.name.isEmpty()) {
+                into.name = player.getValue().name;
             }
-            it.remove();
-            moved = true;
-            LOGGER.warn("Paie : le temps du {} (jour deja regle) est reporte au {}", old.getKey(), target);
-            for (Map.Entry<UUID, PlayerDay> player : old.getValue().entrySet()) {
-                PlayerDay into = days.computeIfAbsent(target, d -> new LinkedHashMap<>())
-                        .computeIfAbsent(player.getKey(), p -> new PlayerDay());
-                if (into.name.isEmpty()) {
-                    into.name = player.getValue().name;
+            player.getValue().counters.forEach((key, counter) -> {
+                Counter c = into.counters.computeIfAbsent(key, k -> new Counter());
+                long add = SalaryMath.creditable(c.seconds, counter.seconds, maxSeconds);
+                if (add < counter.seconds) {
+                    LOGGER.warn("Paie : {} s de {} ({}) au-dela du plafond du {} ne sont pas reportees",
+                            counter.seconds - add, player.getValue().name, key, target);
                 }
-                player.getValue().counters.forEach((key, counter) -> {
-                    Counter c = into.counters.computeIfAbsent(key, k -> new Counter());
-                    c.seconds = saturatedAdd(c.seconds, counter.seconds);
-                    c.rateSeconds = saturatedAdd(c.rateSeconds, counter.rateSeconds);
-                });
+                c.seconds += add;
+                c.rateSeconds = saturatedAdd(c.rateSeconds, share(counter.rateSeconds, add, counter.seconds));
+            });
+            into.counters.values().removeIf(c -> c.seconds <= 0L && c.rateSeconds <= 0L);
+        }
+        Map<UUID, PlayerDay> players = days.get(target);
+        if (players != null) {
+            players.values().removeIf(p -> p.counters.isEmpty());
+            if (players.isEmpty()) {
+                days.remove(target);
             }
         }
-        return moved;
+    }
+
+    /** {@code total × part ÷ whole}, arrondi vers le bas, sans débordement (part au plus whole). */
+    private static long share(long total, long part, long whole) {
+        if (part >= whole) {
+            return total;
+        }
+        if (part <= 0L || whole <= 0L) {
+            return 0L;
+        }
+        return total / whole * part + total % whole * part / whole;
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Pause sur saut d'horloge
+    // ---------------------------------------------------------------------------------------------
+
+    /** La paie est-elle en pause (horloge qui a sauté, en attente de l'équipe) ? */
+    public boolean paused() {
+        return pausedSeen != null;
+    }
+
+    /** Le jour de paie lu au saut ; nul hors pause. */
+    @Nullable
+    public LocalDate pausedSeen() {
+        return pausedSeen;
+    }
+
+    /** Le jour de paie attendu au saut (celui de la vérification d'avant) ; nul hors pause. */
+    @Nullable
+    public LocalDate pausedExpected() {
+        return pausedExpected;
+    }
+
+    /** Met la paie en pause : aucun jour n'est clos tant que l'équipe ne l'a pas levée. */
+    public void pause(LocalDate seen, LocalDate expected) {
+        pausedSeen = seen;
+        pausedExpected = expected;
+        setDirty();
+    }
+
+    /** Lève la pause. */
+    public void unpause() {
+        if (pausedSeen != null || pausedExpected != null) {
+            pausedSeen = null;
+            pausedExpected = null;
+            setDirty();
+        }
+    }
+
+    /** L'instant de la dernière vérification de l'horloge, nul depuis le chargement (transitoire, pas sauvegardé). */
+    @Nullable
+    public Long lastCheck() {
+        return lastCheck;
+    }
+
+    /** Note l'instant de cette vérification de l'horloge (transitoire). */
+    public void markChecked(long now) {
+        lastCheck = now;
+    }
+
+    /**
+     * L'horloge était fausse : ramène le dernier jour réglé à la veille de {@code today} (jamais plus tard que celui
+     * noté : un retard se rattrape normalement), reporte sur {@code today} le temps compté sur des jours postérieurs
+     * (au plafond du jour), et lève la pause. Rien n'est payé ici ; les dettes déjà créées restent dues ou payées une
+     * seule fois, et un jour déjà clos n'a plus de compteur à reclore.
+     */
+    public void rewindTo(LocalDate today) {
+        LocalDate yesterday = today.minusDays(1);
+        if (lastClosed == null || lastClosed.isAfter(yesterday)) {
+            lastClosed = yesterday;
+        }
+        List<LocalDate> future = new ArrayList<>(days.tailMap(today, false).keySet());
+        for (LocalDate day : future) {
+            LOGGER.warn("Paie : le temps du {} (jour a venir) est reporte au {}", day, today);
+            mergeInto(today, days.remove(day));
+        }
+        carryClosedDays();
+        pausedSeen = null;
+        pausedExpected = null;
+        setDirty();
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -340,6 +451,10 @@ public final class Payroll extends SavedData {
             }
         }
         tag.put("unseenPaid", unseen);
+        if (pausedSeen != null && pausedExpected != null) {
+            tag.putString("pausedSeen", pausedSeen.toString());
+            tag.putString("pausedExpected", pausedExpected.toString());
+        }
         return tag;
     }
 
@@ -405,6 +520,14 @@ public final class Payroll extends SavedData {
             if (u.hasUUID("player") && u.getLong("amount") > 0L) {
                 payroll.unseenPaid.computeIfAbsent(u.getUUID("player"), p -> new EnumMap<>(Destination.class))
                         .merge(to, u.getLong("amount"), Payroll::saturatedAdd);
+            }
+        }
+        if (tag.contains("pausedSeen", Tag.TAG_STRING) && tag.contains("pausedExpected", Tag.TAG_STRING)) {
+            LocalDate seen = parseDay(tag.getString("pausedSeen"));
+            LocalDate expected = parseDay(tag.getString("pausedExpected"));
+            if (seen != null && expected != null) {
+                payroll.pausedSeen = seen;
+                payroll.pausedExpected = expected;
             }
         }
         // Une sauvegarde d'avant le report : du temps laissé sur un jour réglé va au jour suivant.

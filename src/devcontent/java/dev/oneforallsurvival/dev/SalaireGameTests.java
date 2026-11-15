@@ -62,6 +62,7 @@ public final class SalaireGameTests {
     private static final String LOT_B = "salaire_b";
     private static final String LOT_C = "salaire_c";
     private static final String LOT_TICK = "salaire_tick";
+    private static final String LOT_PAUSE = "salaire_pause";
 
     /** Un jour de paie quelconque, au milieu de l'année (pas de changement d'heure autour). */
     private static final LocalDate J = LocalDate.of(2026, 6, 14);
@@ -334,11 +335,16 @@ public final class SalaireGameTests {
             paie.setLastClosed(J.minusDays(1));
             heure(paie, j.uuid(), "SalPlafond", J, "policier", 60L);
             TreasuryAccount tresor = tresor(100L);
+            j.textesRecus();
             PayrollService.closeDueDays(e.serveur, paie, tresor, minuit(J));
             helper.assertTrue(e.comptes().total(j.uuid()) - coffre == 20L, "2 argent au coffre-fort, vu "
                     + (e.comptes().total(j.uuid()) - coffre));
             helper.assertTrue(porte(j) == 40L, "4 argent dans l'inventaire, vu " + porte(j));
             helper.assertTrue(tresor.total() == 40L && enAttente(e.serveur, j.uuid()) == 0L, "rien en attente");
+            // Revue finale, M4 : une part est allée à l'inventaire, l'avis le dit.
+            String vers = Component.translatable(PayrollService.MESSAGE + "to.inventory").getString();
+            List<String> recus = j.textesRecus();
+            helper.assertTrue(recus.stream().anyMatch(s -> s.contains(vers)), "avis « " + vers + " » : " + recus);
         });
     }
 
@@ -700,6 +706,182 @@ public final class SalaireGameTests {
             String vous = texte("command.oneforallsurvival.treasury.owed_you", CoinMath.format(90L), 2);
             List<String> recus = retour.textesRecus();
             helper.assertTrue(recus.stream().anyMatch(s -> s.contains(vous)), "/treasury « " + vous + " » : " + recus);
+        });
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Lot de la pause : horloge qui saute pendant que le serveur tourne (revue finale, Important 1)
+    // ---------------------------------------------------------------------------------------------
+
+    @GameTest(template = "test/plancher", batch = LOT_PAUSE)
+    public static void unSautDHorlogeMetLaPaieEnPause(GameTestHelper helper) {
+        essai(helper, e -> {
+            JoueurDeTest j = e.joueur("SalSaut", "policier");
+            e.roles.removeMayor();
+            Payroll paie = Payroll.load(new CompoundTag());
+            paie.setLastClosed(J.minusDays(1));
+            heure(paie, j.uuid(), "SalSaut", J, "policier", 60L);
+            TreasuryAccount tresor = tresor(100L);
+            long t = debut(J) + HEURE;
+            helper.assertTrue(PayrollService.onClock(e.serveur, paie, tresor, t) == 0, "rien à clore au départ");
+            // L'horloge du système saute de dix jours pendant que le serveur tourne.
+            long saut = t + 10L * 24L * HEURE;
+            int clos = PayrollService.onClock(e.serveur, paie, tresor, saut);
+            helper.assertTrue(clos == 0, "aucun jour clos pendant le saut, vu " + clos);
+            helper.assertTrue(paie.paused(), "paie en pause");
+            helper.assertTrue(J.plusDays(10).equals(paie.pausedSeen()) && J.equals(paie.pausedExpected()),
+                    "date vue J + 10, attendue J : " + paie.pausedSeen() + " / " + paie.pausedExpected());
+            helper.assertTrue(porte(j) == 0L && tresor.total() == 100L && paie.debts().isEmpty(), "rien de payé");
+            helper.assertTrue(tresor.ledger().size() == 0, "registre intact : " + tresor.ledger().size());
+            helper.assertTrue(J.minusDays(1).equals(paie.lastClosed()), "dernier clos inchangé : " + paie.lastClosed());
+            helper.assertTrue(paie.secondsFor(j.uuid(), J).getOrDefault("policier", 0L) == 3_600L, "le temps de J reste");
+            // Toujours en pause aux vérifications suivantes, même sans nouveau saut.
+            helper.assertTrue(PayrollService.onClock(e.serveur, paie, tresor, saut + 1_000L) == 0 && paie.paused()
+                    && tresor.ledger().size() == 0, "la pause tient");
+            // /eco stats le dit (la paie du serveur n'est pas celle-ci : le texte se lit sur la clé de langue).
+            String ligne = texte("command.oneforallsurvival.eco.stats.paused", J.plusDays(10).toString(), J.toString());
+            helper.assertTrue(!ligne.equals("command.oneforallsurvival.eco.stats.paused"), "ligne « Paie en pause » traduite");
+        });
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_PAUSE)
+    public static void reprendreClotLesJoursUneFois(GameTestHelper helper) {
+        essai(helper, e -> {
+            JoueurDeTest j = e.joueur("SalReprise", "policier");
+            e.roles.removeMayor();
+            Payroll paie = Payroll.load(new CompoundTag());
+            paie.setLastClosed(J.minusDays(1));
+            heure(paie, j.uuid(), "SalReprise", J, "policier", 60L);
+            TreasuryAccount tresor = tresor(100L);
+            long t = debut(J) + HEURE;
+            PayrollService.onClock(e.serveur, paie, tresor, t);
+            long saut = t + 10L * 24L * HEURE;
+            PayrollService.onClock(e.serveur, paie, tresor, saut);
+            helper.assertTrue(paie.paused(), "en pause");
+            // L'heure est juste : on clôt les jours dus, comme un rattrapage.
+            int clos = PayrollService.resume(e.serveur, paie, tresor, saut + 1_000L);
+            helper.assertTrue(clos == 10, "dix jours clos (J à J + 9), vu " + clos);
+            helper.assertTrue(!paie.paused() && J.plusDays(9).equals(paie.lastClosed()), "reprise : " + paie.lastClosed());
+            helper.assertTrue(lignes(tresor, Kind.DAY_CLOSED).size() == 10 && porte(j) == 60L, "payé une fois");
+            helper.assertTrue(PayrollService.onClock(e.serveur, paie, tresor, saut + 2_000L) == 0 && !paie.paused(),
+                    "plus rien, pas de nouvelle pause");
+            helper.assertTrue(PayrollService.resume(e.serveur, paie, tresor, saut + 3_000L) == 0, "une seconde reprise : rien");
+            helper.assertTrue(lignes(tresor, Kind.DAY_CLOSED).size() == 10 && lignes(tresor, Kind.SALARY_PAID).size() == 1
+                    && porte(j) == 60L, "toujours une seule fois");
+        });
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_PAUSE)
+    public static void ramenerLaDateApresLeRetourDeLHeure(GameTestHelper helper) {
+        essai(helper, e -> {
+            JoueurDeTest j = e.joueur("SalRetour", "policier");
+            e.roles.removeMayor();
+            Payroll paie = Payroll.load(new CompoundTag());
+            paie.setLastClosed(J.minusDays(1));
+            heure(paie, j.uuid(), "SalRetour", J, "policier", 60L);
+            TreasuryAccount tresor = tresor(200L);
+            long t = debut(J) + HEURE;
+            PayrollService.onClock(e.serveur, paie, tresor, t);
+            long saut = t + 10L * 24L * HEURE;
+            PayrollService.onClock(e.serveur, paie, tresor, saut);
+            helper.assertTrue(paie.paused(), "en pause");
+            // Pendant le saut, une demi-heure comptée sur le jour faux (J + 10).
+            paie.credit(j.uuid(), "SalRetour", J.plusDays(10), "policier", 1_800L, 60L, maxSecondes());
+            // L'heure revient ; l'équipe ramène la date.
+            long retour = t + HEURE;
+            PayrollService.resetDay(e.serveur, paie, tresor, retour);
+            helper.assertTrue(!paie.paused(), "pause levée");
+            helper.assertTrue(J.minusDays(1).equals(paie.lastClosed()), "dernier clos : la veille, vu " + paie.lastClosed());
+            helper.assertTrue(paie.secondsFor(j.uuid(), J).getOrDefault("policier", 0L) == 5_400L,
+                    "1 h 30 sur J, rien de perdu : " + paie.secondsFor(j.uuid(), J));
+            helper.assertTrue(paie.secondsFor(j.uuid(), J.plusDays(10)).isEmpty(), "plus rien sur J + 10");
+            helper.assertTrue(porte(j) == 0L && tresor.ledger().size() == 0, "rien de payé ni noté");
+            helper.assertTrue(PayrollService.onClock(e.serveur, paie, tresor, retour + 1_000L) == 0 && !paie.paused(),
+                    "pas de nouvelle pause après le retour");
+            // Les clôtures reprennent dès le minuit suivant.
+            helper.assertTrue(PayrollService.onClock(e.serveur, paie, tresor, minuit(J)) == 1, "J se clôt à son minuit");
+            helper.assertTrue(porte(j) == 90L, "1 h 30 payée une fois : porte " + porte(j));
+            helper.assertTrue(PayrollService.onClock(e.serveur, paie, tresor, minuit(J) + 1_000L) == 0
+                    && lignes(tresor, Kind.SALARY_PAID).size() == 1 && porte(j) == 90L, "aucun double paiement");
+        });
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_PAUSE)
+    public static void ramenerLaDateApresDesJoursClosParErreur(GameTestHelper helper) {
+        essai(helper, e -> {
+            // Le scénario de la revue : des jours futurs ont été clos (horloge en avance d'une ancienne version), puis
+            // l'heure est revenue ; le temps compté depuis va au lendemain du dernier clos.
+            JoueurDeTest j = e.joueur("SalErreur", "policier");
+            e.roles.removeMayor();
+            Payroll paie = Payroll.load(new CompoundTag());
+            paie.setLastClosed(J.plusDays(9));
+            TreasuryAccount tresor = tresor(200L);
+            heure(paie, j.uuid(), "SalErreur", J, "policier", 60L);
+            helper.assertTrue(paie.secondsFor(j.uuid(), J.plusDays(10)).getOrDefault("policier", 0L) == 3_600L,
+                    "compté au lendemain du dernier clos");
+            long maintenant = debut(J) + 2L * HEURE;
+            helper.assertTrue(PayrollService.onClock(e.serveur, paie, tresor, maintenant) == 0, "rien ne se clôt");
+            PayrollService.resetDay(e.serveur, paie, tresor, maintenant);
+            helper.assertTrue(J.minusDays(1).equals(paie.lastClosed()), "dernier clos ramené : " + paie.lastClosed());
+            helper.assertTrue(paie.secondsFor(j.uuid(), J).getOrDefault("policier", 0L) == 3_600L, "1 h sur J");
+            helper.assertTrue(PayrollService.onClock(e.serveur, paie, tresor, minuit(J)) == 1 && porte(j) == 60L,
+                    "J se clôt à son vrai minuit");
+        });
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_PAUSE)
+    public static void unDemarrageApresDixJoursEteintRattrapeSansPause(GameTestHelper helper) {
+        essai(helper, e -> {
+            JoueurDeTest j = e.joueur("SalEteint10", "policier");
+            e.roles.removeMayor();
+            Payroll avant = Payroll.load(new CompoundTag());
+            avant.setLastClosed(J.minusDays(1));
+            heure(avant, j.uuid(), "SalEteint10", J, "policier", 60L);
+            avant.markChecked(debut(J) + HEURE);
+            // Arrêt, relance dix jours plus tard : la vérification d'avant ne survit pas à la relecture.
+            Payroll paie = Payroll.load(avant.save(new CompoundTag()));
+            TreasuryAccount tresor = tresor(100L);
+            long demarrage = debut(J.plusDays(10)) + HEURE;
+            int clos = PayrollService.startUp(e.serveur, paie, tresor, demarrage);
+            helper.assertTrue(clos == 10 && !paie.paused(), "rattrapage normal, sans pause : " + clos);
+            helper.assertTrue(porte(j) == 60L && lignes(tresor, Kind.DAY_CLOSED).size() == 10, "payé une fois");
+            helper.assertTrue(PayrollService.onClock(e.serveur, paie, tresor, demarrage + 1_000L) == 0 && !paie.paused(),
+                    "le premier tick ne prend pas le démarrage pour un saut");
+        });
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_PAUSE)
+    public static void auDemarrageLaFileEstPayee(GameTestHelper helper) {
+        essai(helper, e -> {
+            // Revue finale, M3 : de l'argent arrivé juste avant un arrêt paie la file dès le démarrage, même sans jour
+            // à clore.
+            JoueurDeTest j = e.joueur("SalFile", "policier");
+            Payroll paie = Payroll.load(new CompoundTag());
+            paie.setLastClosed(J);
+            heure(paie, j.uuid(), "SalFile", J, "policier", 60L);
+            paie.closeDay(J.plusDays(1));
+            helper.assertTrue(paie.debts().size() == 1, "une dette : " + paie.debts());
+            TreasuryAccount tresor = tresor(100L);
+            int clos = PayrollService.startUp(e.serveur, paie, tresor, debut(J.plusDays(1)) + HEURE);
+            helper.assertTrue(clos == 0, "aucun jour à clore, vu " + clos);
+            helper.assertTrue(paie.debts().isEmpty() && porte(j) == 60L && tresor.total() == 40L,
+                    "la file est payée au démarrage : dettes " + paie.debts() + ", porte " + porte(j));
+        });
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_PAUSE)
+    public static void enPauseLeDemarrageNeClotRien(GameTestHelper helper) {
+        essai(helper, e -> {
+            JoueurDeTest j = e.joueur("SalPauseRelance", "policier");
+            Payroll avant = Payroll.load(new CompoundTag());
+            avant.setLastClosed(J.minusDays(1));
+            heure(avant, j.uuid(), "SalPauseRelance", J, "policier", 60L);
+            avant.pause(J.plusDays(10), J);
+            Payroll paie = Payroll.load(avant.save(new CompoundTag()));
+            TreasuryAccount tresor = tresor(100L);
+            int clos = PayrollService.startUp(e.serveur, paie, tresor, debut(J.plusDays(10)) + HEURE);
+            helper.assertTrue(clos == 0 && paie.paused(), "une relance ne lève pas la pause : " + clos);
+            helper.assertTrue(porte(j) == 0L && tresor.ledger().size() == 0, "rien de payé ni noté");
         });
     }
 

@@ -29,7 +29,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Les commandes de l'équipe pour l'économie, toutes au niveau de permission 2 :
  * {@code /eco give|take <joueur> <montant> <motif>}, {@code /eco stats}, {@code /eco pending}, {@code /eco ledger [page]}, {@code /eco treasury ...},
- * {@code /eco salary list|set <clé> <taux>|owed [page]}.
+ * {@code /eco salary list|set <clé> <taux>|owed [page]|resume|resetday}.
  * Les montants sont des cuivres ; l'affichage passe par {@link CoinMath#format}.
  */
 public final class EconomyCommands {
@@ -133,6 +133,10 @@ public final class EconomyCommands {
                 dev.oneforallsurvival.economy.payroll.Payroll.get(source.getServer());
         out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.salaries_owed",
                 CoinMath.format(payroll.owedTotal()), payroll.debts().size()));
+        if (payroll.paused()) {
+            out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.paused",
+                    String.valueOf(payroll.pausedSeen()), String.valueOf(payroll.pausedExpected())));
+        }
         out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.circulation",
                 signed(ledger.inCirculation())));
         // Les transferts ne créent ni ne détruisent : ils suivent la ligne « en circulation », qui reste créé moins détruit.
