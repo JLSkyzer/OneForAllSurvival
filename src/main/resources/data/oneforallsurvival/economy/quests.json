@@ -1,0 +1,242 @@
+{
+  "templates": [
+    {
+      "id": "break_stone",
+      "category": "break",
+      "target": "#minecraft:base_stone_overworld",
+      "min": 64,
+      "max": 128,
+      "reward": 10,
+      "weight": 10,
+      "title": "quest.oneforallsurvival.template.break_stone"
+    },
+    {
+      "id": "break_logs",
+      "category": "break",
+      "target": "#minecraft:logs",
+      "min": 32,
+      "max": 64,
+      "reward": 12,
+      "weight": 10,
+      "title": "quest.oneforallsurvival.template.break_logs"
+    },
+    {
+      "id": "break_sand",
+      "category": "break",
+      "target": "#minecraft:sand",
+      "min": 32,
+      "max": 64,
+      "reward": 10,
+      "weight": 6,
+      "title": "quest.oneforallsurvival.template.break_sand"
+    },
+    {
+      "id": "mine_coal",
+      "category": "break",
+      "target": "#forge:ores/coal",
+      "min": 12,
+      "max": 24,
+      "reward": 10,
+      "weight": 8,
+      "title": "quest.oneforallsurvival.template.mine_coal"
+    },
+    {
+      "id": "mine_copper",
+      "category": "break",
+      "target": "#forge:ores/copper",
+      "min": 8,
+      "max": 16,
+      "reward": 12,
+      "weight": 6,
+      "title": "quest.oneforallsurvival.template.mine_copper"
+    },
+    {
+      "id": "mine_iron",
+      "category": "break",
+      "target": "#forge:ores/iron",
+      "min": 6,
+      "max": 12,
+      "reward": 15,
+      "weight": 8,
+      "title": "quest.oneforallsurvival.template.mine_iron"
+    },
+    {
+      "id": "mine_gold",
+      "category": "break",
+      "target": "#forge:ores/gold",
+      "min": 3,
+      "max": 6,
+      "reward": 18,
+      "weight": 4,
+      "title": "quest.oneforallsurvival.template.mine_gold"
+    },
+    {
+      "id": "place_planks",
+      "category": "place",
+      "target": "#minecraft:planks",
+      "min": 32,
+      "max": 64,
+      "reward": 10,
+      "weight": 8,
+      "title": "quest.oneforallsurvival.template.place_planks"
+    },
+    {
+      "id": "place_bricks",
+      "category": "place",
+      "target": "minecraft:bricks",
+      "min": 16,
+      "max": 32,
+      "reward": 12,
+      "weight": 5,
+      "title": "quest.oneforallsurvival.template.place_bricks"
+    },
+    {
+      "id": "kill_monsters",
+      "category": "kill",
+      "min": 10,
+      "max": 20,
+      "reward": 15,
+      "weight": 8,
+      "title": "quest.oneforallsurvival.template.kill_monsters"
+    },
+    {
+      "id": "kill_zombies",
+      "category": "kill",
+      "target": "minecraft:zombie",
+      "min": 5,
+      "max": 10,
+      "reward": 15,
+      "weight": 6,
+      "title": "quest.oneforallsurvival.template.kill_zombies"
+    },
+    {
+      "id": "kill_skeletons",
+      "category": "kill",
+      "target": "minecraft:skeleton",
+      "min": 5,
+      "max": 10,
+      "reward": 15,
+      "weight": 6,
+      "title": "quest.oneforallsurvival.template.kill_skeletons"
+    },
+    {
+      "id": "kill_spiders",
+      "category": "kill",
+      "target": "minecraft:spider",
+      "min": 4,
+      "max": 8,
+      "reward": 15,
+      "weight": 5,
+      "title": "quest.oneforallsurvival.template.kill_spiders"
+    },
+    {
+      "id": "harvest_wheat",
+      "category": "harvest",
+      "target": "minecraft:wheat",
+      "min": 32,
+      "max": 64,
+      "reward": 10,
+      "weight": 6,
+      "role_weights": {
+        "agriculteur": 3
+      },
+      "title": "quest.oneforallsurvival.template.harvest_wheat"
+    },
+    {
+      "id": "harvest_carrots",
+      "category": "harvest",
+      "target": "minecraft:carrots",
+      "min": 32,
+      "max": 64,
+      "reward": 10,
+      "weight": 5,
+      "role_weights": {
+        "agriculteur": 3
+      },
+      "title": "quest.oneforallsurvival.template.harvest_carrots"
+    },
+    {
+      "id": "harvest_potatoes",
+      "category": "harvest",
+      "target": "minecraft:potatoes",
+      "min": 32,
+      "max": 64,
+      "reward": 10,
+      "weight": 5,
+      "role_weights": {
+        "agriculteur": 3
+      },
+      "title": "quest.oneforallsurvival.template.harvest_potatoes"
+    },
+    {
+      "id": "fish",
+      "category": "fish",
+      "target": "#minecraft:fishes",
+      "min": 6,
+      "max": 12,
+      "reward": 15,
+      "weight": 6,
+      "title": "quest.oneforallsurvival.template.fish"
+    },
+    {
+      "id": "cook_food",
+      "category": "cook",
+      "min": 8,
+      "max": 16,
+      "reward": 12,
+      "weight": 6,
+      "role_weights": {
+        "agriculteur": 2
+      },
+      "title": "quest.oneforallsurvival.template.cook_food"
+    },
+    {
+      "id": "cook_meals",
+      "category": "cook",
+      "target": "#farmersdelight:meals",
+      "min": 3,
+      "max": 6,
+      "reward": 15,
+      "weight": 4,
+      "role_weights": {
+        "agriculteur": 2
+      },
+      "title": "quest.oneforallsurvival.template.cook_meals"
+    },
+    {
+      "id": "preserve_food",
+      "category": "preserve",
+      "min": 8,
+      "max": 16,
+      "reward": 12,
+      "weight": 5,
+      "role_weights": {
+        "agriculteur": 2
+      },
+      "title": "quest.oneforallsurvival.template.preserve_food"
+    },
+    {
+      "id": "breed_animals",
+      "category": "breed",
+      "min": 4,
+      "max": 8,
+      "reward": 12,
+      "weight": 5,
+      "role_weights": {
+        "agriculteur": 2
+      },
+      "title": "quest.oneforallsurvival.template.breed_animals"
+    },
+    {
+      "id": "repair_machines",
+      "category": "job",
+      "target": "oneforallsurvival:repair_machine",
+      "min": 2,
+      "max": 3,
+      "reward": 25,
+      "weight": 6,
+      "weekly_factor": 3,
+      "title": "quest.oneforallsurvival.template.repair_machines"
+    }
+  ]
+}
