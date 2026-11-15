@@ -1,8 +1,10 @@
 package dev.oneforallsurvival.dev;
 
 import dev.oneforallsurvival.economy.loot.MobOrigin;
+import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.core.BlockPos;
+import net.minecraft.gametest.framework.AfterBatch;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
@@ -46,7 +48,25 @@ public final class OrigineMobGameTests {
     private static final BlockPos ICI = new BlockPos(2, 1, 2);
     private static final BlockPos LA = new BlockPos(5, 1, 5);
 
+    /** Les joueurs d'essai d'un test à séquence : ceux qu'un délai dépassé laisserait en jeu sortent après le lot. */
+    private static final List<JoueurDeTest> A_FAIRE_SORTIR = new ArrayList<>();
+
     private OrigineMobGameTests() {}
+
+    /** Fait sortir le joueur s'il est encore là ; sans effet sinon. */
+    private static void sortir(JoueurDeTest joueur) {
+        A_FAIRE_SORTIR.remove(joueur);
+        if (joueur.joueur().getServer().getPlayerList().getPlayer(joueur.uuid()) == joueur.joueur()) {
+            joueur.quitter();
+        }
+    }
+
+    @AfterBatch(batch = "origine_a")
+    public static void apresLotA(ServerLevel level) {
+        for (JoueurDeTest joueur : List.copyOf(A_FAIRE_SORTIR)) {
+            sortir(joueur);
+        }
+    }
 
     /** Dégage l'espace d'essai et le couvre : rien ne tombe sur les vivants gardés plus d'une seconde. */
     private static void degager(GameTestHelper helper) {
@@ -179,17 +199,21 @@ public final class OrigineMobGameTests {
         be.setChanged();
         JoueurDeTest joueur = JoueurDeTest.rejoindre(helper.getLevel(), "OrigineGen",
                 helper.absoluteVec(new Vec3(6.5, 1, 6.5)));
+        A_FAIRE_SORTIR.add(joueur);
         helper.startSequence()
                 .thenWaitUntil(() -> helper.assertTrue(!tous(helper, EntityType.ZOMBIE).isEmpty(),
                         "aucun zombie du générateur"))
                 .thenExecute(() -> {
                     List<Zombie> nes = tous(helper, EntityType.ZOMBIE);
-                    joueur.quitter();
-                    helper.setBlock(pos, Blocks.AIR);
-                    for (Zombie z : nes) {
-                        sauvage(helper, z, false, "un zombie du générateur");
+                    try {
+                        helper.setBlock(pos, Blocks.AIR);
+                        for (Zombie z : nes) {
+                            sauvage(helper, z, false, "un zombie du générateur");
+                        }
+                    } finally {
+                        sortir(joueur);
+                        toutRetirer(helper);
                     }
-                    toutRetirer(helper);
                 })
                 .thenSucceed();
     }
