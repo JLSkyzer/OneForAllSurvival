@@ -15,15 +15,23 @@ import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.function.BiPredicate;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
+import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.tags.TagKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
 import net.minecraft.util.GsonHelper;
 import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraftforge.event.AddReloadListenerEvent;
+import net.minecraftforge.event.TagsUpdatedEvent;
+import net.minecraftforge.fml.ModList;
 import org.slf4j.Logger;
 
 /**
@@ -42,6 +50,8 @@ public final class QuestTemplates extends SimpleJsonResourceReloadListener {
 
     private static volatile List<QuestTemplate> loaded = List.of();
     private static volatile List<QuestTemplate> staff = List.of();
+    /** Les tags de cible inconnus ou vides au dernier chargement des données (« GENRE:identifiant »). */
+    private static volatile Set<String> deadTags = Set.of();
     @Nullable
     private static volatile List<QuestTemplate> forTest;
 
@@ -55,8 +65,9 @@ public final class QuestTemplates extends SimpleJsonResourceReloadListener {
         if (test != null) {
             return test;
         }
+        Set<String> dead = deadTags;
         List<QuestTemplate> extra = staff;
-        if (extra.isEmpty()) {
+        if (extra.isEmpty() && dead.isEmpty()) {
             return loaded;
         }
         List<QuestTemplate> all = new ArrayList<>(loaded);
@@ -65,14 +76,78 @@ public final class QuestTemplates extends SimpleJsonResourceReloadListener {
         for (QuestTemplate template : extra) {
             if (ids.add(template.id())) {
                 all.add(template);
+            } else {
+                LOGGER.warn("Quetes : modele de l'equipe {} ecarte, son identifiant existe deja dans le fichier",
+                        template.id());
             }
         }
-        return List.copyOf(all);
+        return List.copyOf(usable(all, dead));
+    }
+
+    /** Les modèles dont la cible n'est pas un tag mort : un tag inconnu ou vide ne peut jamais être rempli. */
+    public static List<QuestTemplate> usable(List<QuestTemplate> templates, Set<String> deadTags) {
+        if (deadTags.isEmpty()) {
+            return templates;
+        }
+        return templates.stream().filter(t -> t.target() == null || !t.target().tag()
+                || !deadTags.contains(tagKey(t.category().targetKind(), t.target().id()))).toList();
+    }
+
+    /** Les tags de cible des modèles dont {@code tagHasEntries} dit qu'ils ne contiennent rien. */
+    public static Set<String> findDeadTags(List<QuestTemplate> templates,
+            BiPredicate<QuestCategory.TargetKind, ResourceLocation> tagHasEntries) {
+        Set<String> dead = new HashSet<>();
+        for (QuestTemplate t : templates) {
+            if (t.target() != null && t.target().tag()
+                    && !tagHasEntries.test(t.category().targetKind(), t.target().id())) {
+                dead.add(tagKey(t.category().targetKind(), t.target().id()));
+            }
+        }
+        return dead;
+    }
+
+    private static String tagKey(QuestCategory.TargetKind kind, ResourceLocation id) {
+        return kind + ":" + id;
+    }
+
+    /** Vrai si le tag existe dans le registre du jeu et contient quelque chose. */
+    public static boolean tagHasEntries(QuestCategory.TargetKind kind, ResourceLocation id) {
+        return switch (kind) {
+            case BLOCK -> hasEntries(BuiltInRegistries.BLOCK, Registries.BLOCK, id);
+            case ENTITY -> hasEntries(BuiltInRegistries.ENTITY_TYPE, Registries.ENTITY_TYPE, id);
+            case ITEM -> hasEntries(BuiltInRegistries.ITEM, Registries.ITEM, id);
+            case ACTION -> false;
+        };
+    }
+
+    private static <T> boolean hasEntries(Registry<T> registry, ResourceKey<Registry<T>> key, ResourceLocation id) {
+        return registry.getTag(TagKey.create(key, id)).map(set -> set.size() > 0).orElse(false);
+    }
+
+    /** Après chaque chargement des données : les modèles à tag inconnu ou vide ne sont plus tirables. */
+    public static void onTagsUpdated(TagsUpdatedEvent event) {
+        if (event.getUpdateCause() != TagsUpdatedEvent.UpdateCause.SERVER_DATA_LOAD) {
+            return;
+        }
+        refreshDeadTags();
+    }
+
+    private static void refreshDeadTags() {
+        List<QuestTemplate> all = new ArrayList<>(loaded);
+        all.addAll(staff);
+        Set<String> dead = findDeadTags(all, QuestTemplates::tagHasEntries);
+        deadTags = dead;
+        for (String tag : dead) {
+            LOGGER.warn("Quetes : tag de cible inconnu ou vide {}, les modeles qui le visent ne sont pas tires", tag);
+        }
     }
 
     /** Remplace les modèles de l'équipe (commande, tâche 4). */
     public static void setStaffTemplates(List<QuestTemplate> templates) {
         staff = List.copyOf(templates);
+        if (net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer() != null) {
+            refreshDeadTags();
+        }
     }
 
     /** Impose une réserve (tests) tant qu'elle n'est pas rendue à {@code null}. */
@@ -96,6 +171,7 @@ public final class QuestTemplates extends SimpleJsonResourceReloadListener {
         try {
             List<QuestTemplate> templates = parse(GsonHelper.convertToJsonObject(file, "quests.json"));
             loaded = templates;
+            deadTags = Set.of();
             LOGGER.info("Quetes : {} modeles charges", templates.size());
         } catch (RuntimeException e) {
             LOGGER.error("Quetes : quests.json invalide, reserve precedente conservee : {}", e.getMessage());
@@ -104,7 +180,11 @@ public final class QuestTemplates extends SimpleJsonResourceReloadListener {
 
     /** Lit le fichier ; lève {@link JsonParseException} en nommant le modèle et le champ fautif. */
     public static List<QuestTemplate> parse(JsonObject json) {
-        return parse(json, QuestTemplates::inRegistry);
+        return parse(json, QuestTemplates::inRegistry, QuestTemplates::modLoaded);
+    }
+
+    private static boolean modLoaded(String modId) {
+        return ModList.get() != null && ModList.get().isLoaded(modId);
     }
 
     /** Ce que sait dire un registre : l'identifiant existe-t-il pour ce genre de cible ? */
@@ -123,18 +203,23 @@ public final class QuestTemplates extends SimpleJsonResourceReloadListener {
     }
 
     /** Comme {@link #parse(JsonObject)} avec un registre donné (les tests n'ont pas celui du jeu). */
-    public static List<QuestTemplate> parse(JsonObject json, RegistryCheck registry) {
+    public static List<QuestTemplate> parse(JsonObject json, RegistryCheck registry,
+            Predicate<String> modLoaded) {
         JsonArray array = array(json.get("templates"), "templates");
         List<QuestTemplate> out = new ArrayList<>();
         Set<String> ids = new HashSet<>();
         for (int i = 0; i < array.size(); i++) {
-            out.add(parseOne(array.get(i), i, ids, registry));
+            QuestTemplate template = parseOne(array.get(i), i, ids, registry, modLoaded);
+            if (template != null) {
+                out.add(template);
+            }
         }
         return List.copyOf(out);
     }
 
+    @Nullable
     private static QuestTemplate parseOne(JsonElement element, int index, Set<String> ids,
-            RegistryCheck registry) {
+            RegistryCheck registry, Predicate<String> modLoaded) {
         String slot = "templates[" + index + "]";
         if (!element.isJsonObject()) {
             throw new JsonParseException(slot + " : objet attendu");
@@ -145,7 +230,7 @@ public final class QuestTemplates extends SimpleJsonResourceReloadListener {
         if (!ID.matcher(id).matches()) {
             throw new JsonParseException(where + ".id : [a-z0-9_]{1,32} attendu");
         }
-        if (!ids.add(id)) {
+        if (ids.contains(id)) {
             throw new JsonParseException(where + ".id : identifiant en double");
         }
         String categoryKey = string(o.get("category"), where + ".category");
@@ -160,10 +245,11 @@ public final class QuestTemplates extends SimpleJsonResourceReloadListener {
             String text = string(o.get("target"), where + ".target");
             target = QuestTarget.parse(text)
                     .orElseThrow(() -> new JsonParseException(where + ".target : identifiant invalide « " + text + " »"));
-            checkTarget(category, target, where + ".target", registry);
+            checkTarget(category, target, where + ".target");
         } else if (category == QuestCategory.JOB) {
             throw new JsonParseException(where + ".target : obligatoire pour un modele de metier");
         }
+        String requires = o.has("requires") ? string(o.get("requires"), where + ".requires") : null;
         int min = integer(o.get("min"), where + ".min", 1, LIMIT);
         int max = integer(o.get("max"), where + ".max", 1, LIMIT);
         if (min > max) {
@@ -197,30 +283,25 @@ public final class QuestTemplates extends SimpleJsonResourceReloadListener {
             weeklyFactor = OptionalInt.of(integer(o.get("weekly_factor"), where + ".weekly_factor", 1, 20));
         }
         String title = o.has("title") ? string(o.get("title"), where + ".title") : null;
+        // La structure est valide ; reste ce qui dépend des mods et du registre : le modèle est alors ignoré.
+        if (requires != null && !modLoaded.test(requires)) {
+            LOGGER.debug("Quetes : modele {} ignore, mod {} absent", id, requires);
+            return null;
+        }
+        if (target != null && !target.tag() && category.targetKind() != QuestCategory.TargetKind.ACTION
+                && !registry.contains(category.targetKind(), target.id())) {
+            LOGGER.warn("Quetes : modele {} ignore, {} absent du registre", id, target.text());
+            return null;
+        }
+        ids.add(id);
         return new QuestTemplate(id, category, target, min, max, reward, weight, roleWeights, weeklyFactor, title);
     }
 
-    /** Une cible qui n'est pas un tag doit exister dans le registre de son genre ; une action, être enregistrée. */
-    private static void checkTarget(QuestCategory category, QuestTarget target, String path,
-            RegistryCheck registry) {
-        QuestCategory.TargetKind kind = category.targetKind();
-        if (kind == QuestCategory.TargetKind.ACTION) {
-            if (target.tag() || QuestJobs.roleOf(target.id()).isEmpty()) {
-                throw new JsonParseException(path + " : action de metier inconnue « " + target.text() + " »");
-            }
-            return;
-        }
-        if (target.tag()) {
-            return;
-        }
-        boolean known = registry.contains(kind, target.id());
-        if (!known) {
-            throw new JsonParseException(path + " : « " + target.text() + " » absent du registre des "
-                    + switch (kind) {
-                        case BLOCK -> "blocs";
-                        case ENTITY -> "creatures";
-                        default -> "objets";
-                    });
+    /** Une action de métier doit être enregistrée (faute de structure : le fichier est refusé). */
+    private static void checkTarget(QuestCategory category, QuestTarget target, String path) {
+        if (category.targetKind() == QuestCategory.TargetKind.ACTION
+                && (target.tag() || QuestJobs.roleOf(target.id()).isEmpty())) {
+            throw new JsonParseException(path + " : action de metier inconnue « " + target.text() + " »");
         }
     }
 

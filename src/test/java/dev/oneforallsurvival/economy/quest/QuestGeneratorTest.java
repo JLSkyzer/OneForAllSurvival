@@ -27,7 +27,7 @@ class QuestGeneratorTest {
     static void lire() throws IOException {
         pool = QuestTemplates.parse(
                 JsonParser.parseString(Files.readString(FILE, StandardCharsets.UTF_8)).getAsJsonObject(),
-                QuestTemplatesTest.REGISTRY);
+                QuestTemplatesTest.REGISTRY, QuestTemplatesTest.MODS);
     }
 
     private static List<Quest> draw(String role, Series series, int count, Set<String> excluded, RandomSource r) {
@@ -140,9 +140,26 @@ class QuestGeneratorTest {
     }
 
     @Test
+    void memeGraineMemeTirage() {
+        List<Quest> a = draw("agriculteur", Series.DAILY, 3, Set.of(), RandomSource.create(77L));
+        List<Quest> b = draw("agriculteur", Series.DAILY, 3, Set.of(), RandomSource.create(77L));
+        assertEquals(a, b);
+        List<Quest> w1 = draw("citoyen", Series.WEEKLY, 5, Set.of(), RandomSource.create(78L));
+        assertEquals(w1, draw("citoyen", Series.WEEKLY, 5, Set.of(), RandomSource.create(78L)));
+    }
+
+    @Test
+    void uneCategorieDisparueEcarteLaQuete() {
+        net.minecraft.nbt.CompoundTag tag = draw("citoyen", Series.DAILY, 1, Set.of(), RandomSource.create(9L))
+                .get(0).save();
+        tag.putString("category", "voler");
+        assertTrue(Quest.load(tag).isEmpty());
+    }
+
+    @Test
     void uneQueteSeSauveEtSeRelit() {
         Quest q = draw("citoyen", Series.DAILY, 1, Set.of(), RandomSource.create(9L)).get(0).withProgress(3);
-        Quest back = Quest.load(q.save());
+        Quest back = Quest.load(q.save()).orElseThrow();
         assertEquals(q, back);
         assertEquals(q.goal(), q.withProgress(10_000).progress());
         assertTrue(q.withProgress(10_000).complete());

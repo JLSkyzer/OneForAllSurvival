@@ -1,5 +1,6 @@
 package dev.oneforallsurvival.economy.quest;
 
+import java.util.Optional;
 import javax.annotation.Nullable;
 import net.minecraft.nbt.CompoundTag;
 
@@ -37,13 +38,18 @@ public record Quest(String templateId, QuestCategory category, @Nullable QuestTa
         return tag;
     }
 
-    public static Quest load(CompoundTag tag) {
-        QuestCategory category = QuestCategory.byKey(tag.getString("category")).orElse(QuestCategory.BREAK);
+    /** Relit une quête ; vide si sa catégorie n'existe plus (écartée, jamais devenue « casser »). */
+    public static Optional<Quest> load(CompoundTag tag) {
+        Optional<QuestCategory> found = QuestCategory.byKey(tag.getString("category"));
+        if (found.isEmpty()) {
+            return Optional.empty();
+        }
+        QuestCategory category = found.get();
         QuestTarget target =
                 tag.contains("target", 8) ? QuestTarget.parse(tag.getString("target")).orElse(null) : null;
         int goal = Math.max(1, tag.getInt("goal"));
-        return new Quest(tag.getString("template"), category, target, goal, Math.max(0L, tag.getLong("reward")),
-                Math.max(0, Math.min(goal, tag.getInt("progress"))), tag.getBoolean("claimed"),
-                tag.contains("title", 8) ? tag.getString("title") : null);
+        return Optional.of(new Quest(tag.getString("template"), category, target, goal,
+                Math.max(0L, tag.getLong("reward")), Math.max(0, Math.min(goal, tag.getInt("progress"))),
+                tag.getBoolean("claimed"), tag.contains("title", 8) ? tag.getString("title") : null));
     }
 }

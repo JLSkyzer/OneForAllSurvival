@@ -24,6 +24,9 @@ class QuestTemplatesTest {
     private static List<QuestTemplate> shipped;
 
     /** Les identifiants que connaît le « registre » des essais : ceux du fichier livré. */
+    /** Les mods « chargés » des essais. */
+    static final java.util.function.Predicate<String> MODS = "farmersdelight"::equals;
+
     static final QuestTemplates.RegistryCheck REGISTRY = (kind, id) -> java.util.Set.of(
             "BLOCK:minecraft:bricks", "BLOCK:minecraft:wheat", "BLOCK:minecraft:carrots", "BLOCK:minecraft:potatoes",
             "ENTITY:minecraft:zombie", "ENTITY:minecraft:skeleton", "ENTITY:minecraft:spider")
@@ -35,7 +38,7 @@ class QuestTemplatesTest {
     }
 
     private static List<QuestTemplate> parse(String json) {
-        return QuestTemplates.parse(JsonParser.parseString(json).getAsJsonObject(), REGISTRY);
+        return QuestTemplates.parse(JsonParser.parseString(json).getAsJsonObject(), REGISTRY, MODS);
     }
 
     private static QuestTemplate shipped(String id) {
@@ -83,11 +86,65 @@ class QuestTemplatesTest {
     }
 
     @Test
-    void uneCibleAbsenteDuRegistreEstRefusee() {
-        JsonParseException e = assertThrows(JsonParseException.class, () -> parse(
-                "{\"templates\":[{\"id\":\"x\",\"category\":\"break\",\"target\":\"minecraft:pas_un_bloc\","
-                        + "\"min\":1,\"max\":2,\"reward\":5}]}"));
-        assertTrue(e.getMessage().contains("target"), e.getMessage());
+    void uneCibleAbsenteDuRegistreIgnoreSeulementCeModele() {
+        List<QuestTemplate> out = parse("{\"templates\":["
+                + "{\"id\":\"x\",\"category\":\"break\",\"target\":\"minecraft:pas_un_bloc\",\"min\":1,\"max\":2,"
+                + "\"reward\":5},"
+                + "{\"id\":\"y\",\"category\":\"break\",\"target\":\"minecraft:wheat\",\"min\":1,\"max\":2,"
+                + "\"reward\":5}]}");
+        assertEquals(List.of("y"), out.stream().map(QuestTemplate::id).toList());
+    }
+
+    @Test
+    void unModeleIgnoreNeReservePasSonIdentifiant() {
+        List<QuestTemplate> out = parse("{\"templates\":["
+                + "{\"id\":\"x\",\"category\":\"break\",\"target\":\"minecraft:pas_un_bloc\",\"min\":1,\"max\":2,"
+                + "\"reward\":5},"
+                + "{\"id\":\"x\",\"category\":\"break\",\"min\":1,\"max\":2,\"reward\":5}]}");
+        assertEquals(1, out.size());
+    }
+
+    @Test
+    void unModeleDUnModAbsentEstIgnoreSansFaute() {
+        List<QuestTemplate> out = parse("{\"templates\":["
+                + "{\"id\":\"a\",\"category\":\"break\",\"requires\":\"create\",\"target\":\"create:cogwheel\","
+                + "\"min\":1,\"max\":2,\"reward\":5},"
+                + "{\"id\":\"b\",\"category\":\"break\",\"requires\":\"farmersdelight\",\"min\":1,\"max\":2,"
+                + "\"reward\":5}]}");
+        assertEquals(List.of("b"), out.stream().map(QuestTemplate::id).toList());
+    }
+
+    @Test
+    void uneFauteDeStructureRefuseToujoursLeFichier() {
+        // un modèle de mod absent n'excuse pas un min > max
+        assertThrows(JsonParseException.class, () -> parse("{\"templates\":["
+                + "{\"id\":\"a\",\"category\":\"break\",\"requires\":\"create\",\"min\":3,\"max\":2,\"reward\":5}]}"));
+    }
+
+    @Test
+    void unTagInconnuOuVideRendLeModeleIntirable() {
+        QuestTemplate meals = shipped("cook_meals");
+        QuestTemplate stone = shipped("break_stone");
+        java.util.Set<String> dead = QuestTemplates.findDeadTags(List.of(meals, stone),
+                (kind, id) -> !id.toString().equals("farmersdelight:meals"));
+        assertEquals(java.util.Set.of("ITEM:farmersdelight:meals"), dead);
+        assertEquals(List.of(stone), QuestTemplates.usable(List.of(meals, stone), dead));
+        assertEquals(List.of(meals, stone), QuestTemplates.usable(List.of(meals, stone), java.util.Set.of()));
+    }
+
+    @Test
+    void cookMealsExigeFarmersDelight() {
+        assertTrue(shipped.stream().anyMatch(t -> t.id().equals("cook_meals")));
+        String json;
+        try {
+            json = Files.readString(FILE, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new AssertionError(e);
+        }
+        List<QuestTemplate> sans = QuestTemplates.parse(JsonParser.parseString(json).getAsJsonObject(), REGISTRY,
+                mod -> false);
+        assertEquals(21, sans.size());
+        assertTrue(sans.stream().noneMatch(t -> t.id().equals("cook_meals")));
     }
 
     private static String one(String fields) {
@@ -104,8 +161,8 @@ class QuestTemplatesTest {
             "{\"templates\":[{\"id\":\"a\",\"category\":\"break\",\"min\":1,\"max\":2,\"reward\":0}]}|reward",
             "{\"templates\":[{\"id\":\"a\",\"category\":\"break\",\"min\":1,\"max\":2,\"reward\":5,\"weight\":0}]}|weight",
             "{\"templates\":[{\"id\":\"a\",\"category\":\"break\",\"min\":1,\"max\":2,\"reward\":5},"
-                    + "{\"id\":\"a\",\"category\":\"break\",\"min\":1,\"max\":2,\"reward\":5}]}|id",
-            "{\"templates\":[{\"id\":\"Mauvais Id\",\"category\":\"break\",\"min\":1,\"max\":2,\"reward\":5}]}|id",
+                    + "{\"id\":\"a\",\"category\":\"break\",\"min\":1,\"max\":2,\"reward\":5}]}|en double",
+            "{\"templates\":[{\"id\":\"Mauvais Id\",\"category\":\"break\",\"min\":1,\"max\":2,\"reward\":5}]}|[a-z0-9_]",
             "{\"templates\":[{\"id\":\"a\",\"category\":\"break\",\"min\":1,\"max\":2,\"reward\":5,"
                     + "\"weekly_factor\":30}]}|weekly_factor",
             "{\"templates\":[{\"id\":\"a\",\"category\":\"break\",\"min\":1,\"max\":2,\"reward\":5,"

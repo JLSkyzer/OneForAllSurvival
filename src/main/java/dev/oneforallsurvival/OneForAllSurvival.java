@@ -126,6 +126,7 @@ public final class OneForAllSurvival {
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.loot.MobCoinTables::onAddReloadListener);
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.loot.MobCoinTables::onTagsUpdated);
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.quest.QuestTemplates::onAddReloadListener);
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.quest.QuestTemplates::onTagsUpdated);
         // Origine des mobs : la dernière à parler, et même sur un événement annulé (le générateur fait quand même
         // apparaître son mob, avec son NBT, qu'il faut effacer).
         MinecraftForge.EVENT_BUS.addListener(net.minecraftforge.eventbus.api.EventPriority.LOWEST, true,

@@ -194,6 +194,7 @@
       "id": "cook_meals",
       "category": "cook",
       "target": "#farmersdelight:meals",
+      "requires": "farmersdelight",
       "min": 3,
       "max": 6,
       "reward": 15,
