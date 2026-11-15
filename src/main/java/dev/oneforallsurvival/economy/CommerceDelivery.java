@@ -323,7 +323,8 @@ public final class CommerceDelivery {
                     left.put(coin, count - entered);
                 }
             }
-            if (any && worst == null) {
+            if (any) {
+                // Une part au moins est dans l'inventaire : l'avis le dit, même si le reste est au coffre-fort.
                 worst = Destination.INVENTORY;
             }
         }

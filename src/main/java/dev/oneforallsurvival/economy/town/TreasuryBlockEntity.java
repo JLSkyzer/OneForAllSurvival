@@ -16,6 +16,8 @@ public final class TreasuryBlockEntity extends BlockEntity {
 
     @Nullable
     private Player breaker;
+    /** Transitoire : le bloc cassé était-il le trésor noté ? Sinon (bloc de {@code /setblock}), il ne lâche rien. */
+    private boolean notedWhenBroken;
 
     public TreasuryBlockEntity(BlockPos pos, BlockState state) {
         super(EconomyRegistry.TREASURY_BE.get(), pos, state);
@@ -29,5 +31,13 @@ public final class TreasuryBlockEntity extends BlockEntity {
     @Nullable
     Player breaker() {
         return breaker;
+    }
+
+    void setNotedWhenBroken(boolean noted) {
+        this.notedWhenBroken = noted;
+    }
+
+    boolean notedWhenBroken() {
+        return notedWhenBroken;
     }
 }

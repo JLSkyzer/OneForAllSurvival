@@ -109,11 +109,12 @@ public record TreasuryActionPacket(BlockPos pos, CoinRequest request, String rea
         if (pos == null || !level.isLoaded(pos) || player.distanceToSqr(Vec3.atCenterOf(pos)) > TreasuryBlock.MAX_DISTANCE_SQR) {
             return Result.TOO_FAR;
         }
-        if (!level.getBlockState(pos).is(EconomyRegistry.TREASURY.get()) || !TreasuryBlock.isNoted(level, pos)) {
-            return Result.NO_SAFE;
-        }
+        // Le droit d'abord, comme à l'ouverture : un joueur sans droit n'apprend pas où est le trésor.
         if (!TownBlockRules.mayOpenTreasury(player)) {
             return Result.NOT_ALLOWED;
+        }
+        if (!level.getBlockState(pos).is(EconomyRegistry.TREASURY.get()) || !TreasuryBlock.isNoted(level, pos)) {
+            return Result.NO_SAFE;
         }
         if (!(player.containerMenu instanceof TreasuryMenu menu) || !menu.pos().equals(pos) || !menu.stillValid(player)) {
             return Result.NOT_OPEN;

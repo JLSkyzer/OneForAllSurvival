@@ -3,6 +3,7 @@ package dev.oneforallsurvival.economy.town;
 import com.mojang.logging.LogUtils;
 import dev.oneforallsurvival.economy.EconomyRegistry;
 import dev.oneforallsurvival.economy.TreasuryAccount;
+import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
@@ -29,6 +30,8 @@ import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.storage.loot.LootParams;
+import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraftforge.common.util.FakePlayer;
 import net.minecraftforge.event.level.BlockEvent;
@@ -48,7 +51,8 @@ import org.slf4j.Logger;
  *   <li><b>Casse</b> : comme le coffre-fort, dureté -1, résistance maximale, piston bloqué, tags du Wither et du
  *       dragon ; la progression n'est rendue qu'à ceux qui peuvent le déplacer ({@link TownBlockRules#mayMove}),
  *       en créatif il faut être accroupi, et {@link #onBreak} annule tout autre bris. Cassé : l'emplacement est
- *       effacé, une ligne « Trésor retiré » va au registre, le solde ne bouge pas ; en survie l'objet tombe (le
+ *       effacé, une ligne « Trésor retiré » va au registre, le solde ne bouge pas ; en survie l'objet tombe (seul le
+ *       trésor noté le lâche, pas un bloc de {@code /setblock} ; le
  *       butin n'est que le bloc), en créatif rien. Reposé, il redevient le trésor unique, contenu et registre compris.
  * </ul>
  * Sans emplacement, la taxe et les salaires continuent ; seule l'ouverture est impossible.
@@ -169,10 +173,24 @@ public final class TreasuryBlock extends HorizontalDirectionalBlock implements E
     /** Retient le joueur qui casse, pour la ligne du registre (créatif compris : {@code removeBlock} passe ici). */
     @Override
     public void playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) {
-        if (!level.isClientSide && level.getBlockEntity(pos) instanceof TreasuryBlockEntity be) {
+        if (level instanceof ServerLevel server && server.getBlockEntity(pos) instanceof TreasuryBlockEntity be) {
             be.setBreaker(player);
+            be.setNotedWhenBroken(isNoted(server, pos));
         }
         super.playerWillDestroy(level, pos, state, player);
+    }
+
+    /**
+     * Le butin (l'objet du trésor) ne tombe que si le bloc cassé était le trésor noté, relevé juste avant le retrait
+     * ({@link #playerWillDestroy}) : un bloc posé par {@code /setblock} ailleurs ne fait pas naître d'objet de trésor.
+     */
+    @Override
+    public List<ItemStack> getDrops(BlockState state, LootParams.Builder params) {
+        BlockEntity be = params.getOptionalParameter(LootContextParams.BLOCK_ENTITY);
+        if (!(be instanceof TreasuryBlockEntity treasury) || !treasury.notedWhenBroken()) {
+            return List.of();
+        }
+        return super.getDrops(state, params);
     }
 
     @Override

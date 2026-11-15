@@ -160,6 +160,13 @@ public final class TresorSocleGameTests {
                     "motif de 81 caractères refusé");
             helper.assertTrue(tresor.ledger().size() == avantRefus && tresor.total() - avant == 500L,
                     "le refus ne change rien");
+            // Revue finale, M2 : le motif de l'équipe suit la règle de l'écran (ni « § » ni caractère de contrôle).
+            helper.assertTrue(lancer(serveur, equipe(serveur, ecoute), "eco treasury give 5 motif\u00a7cRouge") == 0,
+                    "motif avec § refusé");
+            helper.assertTrue(lancer(serveur, equipe(serveur, ecoute), "eco treasury take 5 motif\u0007bip") == 0,
+                    "motif avec un caractère de contrôle refusé");
+            helper.assertTrue(tresor.ledger().size() == avantRefus && tresor.total() - avant == 500L,
+                    "ces refus ne changent rien non plus");
         } finally {
             // Rendre le trésor et les totaux comme on les a trouvés.
             lancer(serveur, equipe(serveur, new Ecoute()), "eco treasury take 500 fin-de-l-essai");

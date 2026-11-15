@@ -30,6 +30,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.EnumMap;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import javax.annotation.Nullable;
 import net.minecraft.commands.CommandSourceStack;
@@ -239,16 +240,19 @@ public final class TreasuryCommands {
         return 1;
     }
 
-    /** Le motif, ou nul (et l'échec dit) s'il est vide ou plus long que {@link EconomyConfig#treasuryReasonMax()}. */
+    /**
+     * Le motif, ou nul (et l'échec dit) s'il est vide, plus long que {@link EconomyConfig#treasuryReasonMax()}, ou
+     * s'il porte « § » ou un caractère de contrôle : la règle de l'écran ({@link TreasuryActionPacket#validReason}).
+     */
     @Nullable
     private static String reasonOf(CommandContext<CommandSourceStack> ctx) {
-        String reason = StringArgumentType.getString(ctx, "reason").trim();
-        int max = EconomyConfig.treasuryReasonMax();
-        if (reason.isEmpty() || reason.length() > max) {
-            ctx.getSource().sendFailure(Component.translatable("command.oneforallsurvival.eco.treasury.reason", max));
+        Optional<String> reason = TreasuryActionPacket.validReason(StringArgumentType.getString(ctx, "reason"));
+        if (reason.isEmpty()) {
+            ctx.getSource().sendFailure(Component.translatable("command.oneforallsurvival.eco.treasury.reason",
+                    EconomyConfig.treasuryReasonMax()));
             return null;
         }
-        return reason;
+        return reason.get();
     }
 
     @Nullable

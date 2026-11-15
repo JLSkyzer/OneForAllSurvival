@@ -746,8 +746,11 @@ public final class TresorBlocGameTests {
             helper.assertTrue(ouvert(chef), "B s'ouvre");
             helper.assertTrue(agir(chef, helper.absolutePos(A), CoinRequest.groupAll(), "") == Result.NO_SAFE,
                     "le paquet vers A est refusé");
-            // Casser le bloc muet n'efface pas l'emplacement du vrai.
-            helper.setBlock(A, Blocks.AIR);
+            // Casser le bloc muet n'efface pas l'emplacement du vrai, et (revue finale, M6) ne lâche aucun objet.
+            ramasserLesObjets(helper);
+            helper.assertTrue(chef.joueur().gameMode.destroyBlock(helper.absolutePos(A)) && helper.getBlockState(A).isAir(),
+                    "le bloc muet se casse");
+            helper.assertTrue(objets(helper).isEmpty(), "un bloc hors emplacement ne lâche rien : " + objets(helper));
             helper.assertTrue(essai.tresor().position().equals(Optional.of(global(helper, B))), "B reste noté");
             helper.succeed();
         }
@@ -822,7 +825,37 @@ public final class TresorBlocGameTests {
             helper.assertTrue(agir(chef, abs, new CoinRequest(CoinRequest.WITHDRAW, 0, 7, false), "essai")
                     == Result.BAD_REQUEST, "un montant hors des boutons");
             helper.assertTrue(agir(chef, helper.absolutePos(B), retrait, "essai") == Result.NO_SAFE, "pas de trésor en B");
+            // Revue finale, M1 : le droit d'abord, comme à l'ouverture ; un citoyen n'apprend pas où est le trésor.
+            helper.assertTrue(agir(citoyen, helper.absolutePos(B), retrait, "essai") == Result.NOT_ALLOWED,
+                    "un citoyen sans droit, devant un bloc qui n'est pas le trésor : NOT_ALLOWED");
             helper.assertTrue(tresor.count(Coin.COPPER) == 9L && porte(chef, Coin.COPPER) == 1L, "un seul retrait a passé");
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void unMaireDestitueEcranOuvertNeRetireRien(GameTestHelper helper) {
+        // Revue finale, M5 : le droit se relit à chaque paquet ; l'écran ouvert ne vaut pas droit.
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest chef = essai.equipe("tb_destitue_chef");
+            JoueurDeTest maire = essai.maire("tb_destitue_maire");
+            TreasuryAccount tresor = essai.garderTresor();
+            tresor.add(Coin.GOLD, 2L);
+            poserEtVerifier(helper, chef, A);
+            clicDroit(helper, maire, A);
+            helper.assertTrue(ouvert(maire), "le maire ouvre");
+            BlockPos abs = helper.absolutePos(A);
+            CoinRequest retrait = CoinRequest.withdraw(Coin.GOLD, 1);
+            helper.assertTrue(agir(maire, abs, retrait, "avant") == Result.DONE, "maire : retrait permis");
+            Map<Coin, Long> avant = tresor.balance();
+            int lignes = tresor.ledger().size();
+            essai.roles().removeMayor();
+            TreasuryMenu menu = (TreasuryMenu) maire.joueur().containerMenu;
+            helper.assertTrue(!menu.stillValid(maire.joueur()), "l'écran ne tient plus : il se ferme au tick suivant");
+            Result r = agir(maire, abs, retrait, "apres");
+            helper.assertTrue(r == Result.NOT_ALLOWED, "destitué, écran encore ouvert : refusé, vu " + r);
+            helper.assertTrue(tresor.balance().equals(avant) && porte(maire, Coin.GOLD) == 1L
+                    && tresor.ledger().size() == lignes, "rien n'a bougé ni n'est noté");
             helper.succeed();
         }
     }
