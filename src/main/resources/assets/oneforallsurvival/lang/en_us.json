@@ -842,5 +842,15 @@
   "command.oneforallsurvival.eco.quest.show.events": "Events:",
   "command.oneforallsurvival.eco.quest.show.pending": "Waiting to be claimed:",
   "command.oneforallsurvival.eco.quest.show.line": "  %s: %s / %s, %s",
-  "command.oneforallsurvival.eco.quest.show.line.claimed": "  %s: %s / %s, %s (claimed)"
+  "command.oneforallsurvival.eco.quest.show.line.claimed": "  %s: %s / %s, %s (claimed)",
+  "command.oneforallsurvival.eco.quest.category.break": "breaking",
+  "command.oneforallsurvival.eco.quest.category.place": "placing",
+  "command.oneforallsurvival.eco.quest.category.kill": "combat",
+  "command.oneforallsurvival.eco.quest.category.harvest": "harvest",
+  "command.oneforallsurvival.eco.quest.category.fish": "fishing",
+  "command.oneforallsurvival.eco.quest.category.cook": "cooking",
+  "command.oneforallsurvival.eco.quest.category.preserve": "preserving",
+  "command.oneforallsurvival.eco.quest.category.breed": "breeding",
+  "command.oneforallsurvival.eco.quest.category.job": "job",
+  "command.oneforallsurvival.eco.quest.category.deliver": "delivery"
 }

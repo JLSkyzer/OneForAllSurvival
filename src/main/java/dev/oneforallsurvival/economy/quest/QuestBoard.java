@@ -45,6 +45,9 @@ public final class QuestBoard extends SavedData {
         }
     }
 
+    /** Longueur maximale du titre libre d'un événement. */
+    public static final int MAX_TITLE = 64;
+
     private final Map<String, QuestTemplate> templates = new LinkedHashMap<>();
     private final Map<String, QuestEvent> events = new LinkedHashMap<>();
 
@@ -107,6 +110,9 @@ public final class QuestBoard extends SavedData {
      * fin n'est pas après le début.
      */
     public Result startEvent(QuestEvent event) {
+        if (!validTitle(event.title())) {
+            return Result.refused(LANG + "refused.invalid", "titre : " + MAX_TITLE + " caractères au plus, sans caractère de contrôle ni §");
+        }
         if (event.endMillis() <= event.startMillis()) {
             return Result.refused(LANG + "refused.invalid", "fin avant le début");
         }
@@ -122,6 +128,11 @@ public final class QuestBoard extends SavedData {
         events.put(event.id(), event);
         changed();
         return Result.accepted();
+    }
+
+    /** Un titre borné, sans caractère de contrôle ni « § » (code de mise en forme) ; il s'affiche en texte brut. */
+    public static boolean validTitle(String title) {
+        return title.length() <= MAX_TITLE && title.chars().noneMatch(c -> c < 0x20 || c == 0x7f || c == 0xA7);
     }
 
     /** Arrête un événement ; vrai s'il existait. Les joueurs qui l'avaient fini le gardent en attente. */

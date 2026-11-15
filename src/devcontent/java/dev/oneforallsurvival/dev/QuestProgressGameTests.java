@@ -10,6 +10,7 @@ import dev.oneforallsurvival.economy.quest.PlacedBlocks;
 import dev.oneforallsurvival.economy.quest.Quest;
 import dev.oneforallsurvival.economy.quest.QuestBook;
 import dev.oneforallsurvival.economy.quest.QuestCategory;
+import dev.oneforallsurvival.economy.quest.QuestEvent;
 import dev.oneforallsurvival.economy.quest.QuestGenerator.Series;
 import dev.oneforallsurvival.economy.quest.QuestJobs;
 import dev.oneforallsurvival.economy.quest.QuestProgress;
@@ -520,6 +521,76 @@ public final class QuestProgressGameTests {
                     }
                 })
                 .thenSucceed();
+    }
+
+    private static QuestEvent evenementPose(long debut) {
+        return new QuestEvent("fete", QuestCategory.PLACE, null, 4, 30L, debut, debut + 100_000_000L, "",
+                new UUID(1L, 1L));
+    }
+
+    /** Un carnet neuf qui ne porte que cet événement (aucune série). */
+    private static void carnetEvenement(ServerPlayer joueur, QuestEvent evenement) {
+        QuestBook book = new QuestBook();
+        book.setSeries(Series.DAILY, QuestService.today(MAINTENANT), List.of());
+        book.setSeries(Series.WEEKLY, QuestService.week(MAINTENANT), List.of());
+        book.refresh(QuestService.today(MAINTENANT), QuestService.week(MAINTENANT), s -> List.of(), 8,
+                List.of(evenement));
+        book.saveTo(joueur);
+    }
+
+    private static int progresEvenement(ServerPlayer joueur) {
+        return QuestBook.of(joueur).events().get("fete").progress();
+    }
+
+    /** Une quête d'événement de pose (sans cible) : poser puis casser dans la minute n'avance rien. */
+    @GameTest(template = "test/plancher", batch = LOT_BLOCS2)
+    public static void uneQueteDEvenementDePoseSAnnuleSiOnCasse(GameTestHelper helper) {
+        ButinGameTests.degager(helper);
+        JoueurDeTest simule = entrer(helper, "QueteEvPose");
+        try {
+            ServerPlayer joueur = simule.joueur();
+            carnetEvenement(joueur, evenementPose(1000L));
+            BlockPos pos = new BlockPos(2, 1, 2);
+            poser(helper, joueur, pos, Items.STONE);
+            helper.assertTrue(progresEvenement(joueur) == 1, "pose : " + progresEvenement(joueur));
+            casser(helper, joueur, pos, pioche());
+            helper.assertTrue(progresEvenement(joueur) == 0, "pose après la casse : " + progresEvenement(joueur));
+            for (int i = 0; i < 6; i++) {
+                poser(helper, joueur, pos, Items.STONE);
+                casser(helper, joueur, pos, pioche());
+            }
+            helper.assertTrue(progresEvenement(joueur) == 0, "bloc recyclé : " + progresEvenement(joueur));
+        } finally {
+            sortir(helper, simule);
+        }
+        helper.succeed();
+    }
+
+    /** L'événement est relancé entre la pose et la casse : la quête neuve n'est pas retouchée. */
+    @GameTest(template = "test/plancher", batch = LOT_BLOCS2)
+    public static void unEvenementRelanceNEstPasRetouchePourUneCasse(GameTestHelper helper) {
+        ButinGameTests.degager(helper);
+        JoueurDeTest simule = entrer(helper, "QueteEvRelance");
+        try {
+            ServerPlayer joueur = simule.joueur();
+            carnetEvenement(joueur, evenementPose(1000L));
+            BlockPos premier = new BlockPos(2, 1, 2);
+            poser(helper, joueur, premier, Items.STONE);
+            helper.assertTrue(progresEvenement(joueur) == 1, "pose : " + progresEvenement(joueur));
+            // Relancé sous le même identifiant (autre début) : la quête neuve repart de zéro.
+            QuestBook book = QuestBook.of(joueur);
+            book.refresh(QuestService.today(MAINTENANT), QuestService.week(MAINTENANT), s -> List.of(), 8,
+                    List.of(evenementPose(2000L)));
+            book.saveTo(joueur);
+            helper.assertTrue(progresEvenement(joueur) == 0, "la neuve a hérité : " + progresEvenement(joueur));
+            poser(helper, joueur, new BlockPos(4, 1, 2), Items.STONE);
+            helper.assertTrue(progresEvenement(joueur) == 1, "pose de la neuve : " + progresEvenement(joueur));
+            casser(helper, joueur, premier, pioche());
+            helper.assertTrue(progresEvenement(joueur) == 1, "la casse a retouché la neuve : " + progresEvenement(joueur));
+        } finally {
+            sortir(helper, simule);
+        }
+        helper.succeed();
     }
 
     /**

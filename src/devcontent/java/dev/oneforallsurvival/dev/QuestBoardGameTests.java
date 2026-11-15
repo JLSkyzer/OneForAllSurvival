@@ -262,6 +262,38 @@ public final class QuestBoardGameTests {
         helper.succeed();
     }
 
+    /** Chaque changement réussi marque le tableau sale (sinon le monde ne l'écrit pas) ; un refus ne le touche pas. */
+    @GameTest(template = "test/plancher", batch = LOT_MODELES)
+    public static void leTableauEstMarqueSale(GameTestHelper helper) {
+        QuestBoard board = neuf();
+        helper.assertTrue(!board.isDirty(), "tableau neuf déjà sale");
+        helper.assertTrue(board.addTemplate(modele("essai_sale", QuestCategory.BREAK, null, 5, 10, 20L)).ok(), "ajout");
+        helper.assertTrue(board.isDirty(), "pas sale après un ajout");
+        board.setDirty(false);
+        helper.assertTrue(!board.addTemplate(modele("essai_sale", QuestCategory.BREAK, null, 5, 10, 20L)).ok(), "doublon");
+        helper.assertTrue(!board.addTemplate(modele("essai_livre", QuestCategory.DELIVER, null, 5, 10, 20L)).ok(), "livraison");
+        helper.assertTrue(!board.removeTemplate("inconnu") && !board.isDirty(), "sale après un refus de modèle");
+        helper.assertTrue(board.removeTemplate("essai_sale") && board.isDirty(), "pas sale après un retrait");
+        board.setDirty(false);
+        QuestEvent fete = evenement("essai_sale", QuestCategory.BREAK, 5, 30L, MAINTENANT);
+        helper.assertTrue(board.startEvent(fete).ok() && board.isDirty(), "pas sale après un lancement");
+        board.setDirty(false);
+        helper.assertTrue(!board.startEvent(fete).ok() && !board.isDirty(), "sale après un doublon d'événement");
+        for (String titre : List.of("x".repeat(QuestBoard.MAX_TITLE + 1), "§cRouge", "deux\nlignes", "tab\tulation")) {
+            QuestEvent mauvais = new QuestEvent("essai_titre", QuestCategory.BREAK, null, 5, 30L, MAINTENANT,
+                    QuestCommands.endOf(MAINTENANT, 1), titre, AUTEUR);
+            helper.assertTrue(!board.startEvent(mauvais).ok(), "titre accepté : " + titre);
+        }
+        helper.assertTrue(!board.isDirty(), "sale après des titres refusés");
+        QuestEvent bon = new QuestEvent("essai_titre", QuestCategory.BREAK, null, 5, 30L, MAINTENANT,
+                QuestCommands.endOf(MAINTENANT, 1), "x".repeat(QuestBoard.MAX_TITLE), AUTEUR);
+        helper.assertTrue(board.startEvent(bon).ok(), "titre de la longueur maximale refusé");
+        board.setDirty(false);
+        helper.assertTrue(!board.stopEvent("inconnu") && !board.isDirty(), "sale après un arrêt sans événement");
+        helper.assertTrue(board.stopEvent("essai_sale") && board.isDirty(), "pas sale après un arrêt");
+        helper.succeed();
+    }
+
     // ---------------------------------------------------------------------------------------------
     // Événements
     // ---------------------------------------------------------------------------------------------

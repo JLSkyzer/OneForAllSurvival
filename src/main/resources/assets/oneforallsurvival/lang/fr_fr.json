@@ -842,5 +842,15 @@
   "command.oneforallsurvival.eco.quest.show.events": "Événements :",
   "command.oneforallsurvival.eco.quest.show.pending": "En attente de réclamation :",
   "command.oneforallsurvival.eco.quest.show.line": "  %s : %s / %s, %s",
-  "command.oneforallsurvival.eco.quest.show.line.claimed": "  %s : %s / %s, %s (réclamée)"
+  "command.oneforallsurvival.eco.quest.show.line.claimed": "  %s : %s / %s, %s (réclamée)",
+  "command.oneforallsurvival.eco.quest.category.break": "casse",
+  "command.oneforallsurvival.eco.quest.category.place": "pose",
+  "command.oneforallsurvival.eco.quest.category.kill": "combat",
+  "command.oneforallsurvival.eco.quest.category.harvest": "récolte",
+  "command.oneforallsurvival.eco.quest.category.fish": "pêche",
+  "command.oneforallsurvival.eco.quest.category.cook": "cuisine",
+  "command.oneforallsurvival.eco.quest.category.preserve": "conserve",
+  "command.oneforallsurvival.eco.quest.category.breed": "élevage",
+  "command.oneforallsurvival.eco.quest.category.job": "métier",
+  "command.oneforallsurvival.eco.quest.category.deliver": "livraison"
 }

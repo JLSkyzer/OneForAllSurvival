@@ -203,6 +203,10 @@ public final class QuestCommands {
         return TIME.format(Instant.ofEpochMilli(millis).atZone(EconomyCalendar.configuredZone()));
     }
 
+    private static Component categoryName(QuestCategory category) {
+        return Component.translatable(LANG + "category." + category.key());
+    }
+
     private static String targetText(@Nullable QuestTarget target) {
         return target == null ? "*" : target.text();
     }
@@ -245,7 +249,7 @@ public final class QuestCommands {
             out.append("\n").append(Component.translatable(LANG + "list.none"));
         }
         for (QuestTemplate t : list) {
-            out.append("\n").append(Component.translatable(LANG + "template.list.line", t.id(), t.category().key(),
+            out.append("\n").append(Component.translatable(LANG + "template.list.line", t.id(), categoryName(t.category()),
                     targetText(t.target()), t.min(), t.max(), CoinMath.format(t.reward()), t.weight()));
         }
         ctx.getSource().sendSuccess(() -> out, false);
@@ -297,7 +301,8 @@ public final class QuestCommands {
         }
         for (QuestEvent e : list) {
             out.append("\n").append(Component.translatable(LANG + "event.list.line", e.id(), e.goal(),
-                    e.category().key() + " " + targetText(e.target()), CoinMath.format(e.reward()), time(e.endMillis())));
+                    Component.empty().append(categoryName(e.category())).append(" " + targetText(e.target())),
+                    CoinMath.format(e.reward()), time(e.endMillis())));
         }
         ctx.getSource().sendSuccess(() -> out, false);
         return list.size();
