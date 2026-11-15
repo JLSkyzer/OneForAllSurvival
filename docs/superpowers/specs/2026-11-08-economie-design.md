@@ -388,7 +388,7 @@ Demandé par Killian le 2026-11-08, sur le modèle des opérateurs du téléphon
   2026-11-11) : les mobs hostiles et les animaux sauvages donnent des pièces, mais un joueur ne gagne au
   plus que **200 cuivres par fenêtre glissante de 60 minutes** (`mobLootHourlyCap`, réglable, 0 = aucun
   plafond). Un butin qui dépasserait est réduit à ce qui reste, puis plus rien. Les boss (palier qui
-  ignore l'origine) en sont exemptés : ils ont déjà leur limite d'un butin par jour. Les raids gardent en
+  ignore l'origine) en sont exemptés : un Wither construit ou un dragon ranimé a déjà sa limite d’un butin par jour ; un boss né naturellement (gardien ancien) paie à chaque fois. Les raids gardent en
   plus leur plafond par raid.
 - **Seul garde-fou contre les fermes automatiques** : rien pour un mob tué sans joueur, ou apparu par un
   générateur (spawner) ou par un œuf d'apparition.
