@@ -181,9 +181,9 @@ public final class EconomyConfig {
                         "confondus ; au-delà, ses mobs ne donnent plus rien. 0 = les raids ne paient rien.")
                 .defineInRange("raidLootCap", DEFAULT_RAID_LOOT_CAP, 0L, 1_000_000_000L);
         BOSS_LOOT_PER_DAY = builder
-                .comment("Butin des boss (paliers qui ignorent l'origine du mob : Wither, dragon, gardien ancien...) : un joueur",
-                        "touche le butin d'un même type de boss au plus ce nombre de fois par jour de paie (payHour,",
-                        "payTimeZone). 0 = jamais.")
+                .comment("Butin des boss sans marque sauvage (paliers qui ignorent l'origine du mob : Wither construit, dragon",
+                        "ranimé...) : un joueur touche le butin d'un même type de boss au plus ce nombre de fois par jour de paie",
+                        "(payHour, payTimeZone). 0 = jamais. Un boss né de lui-même (gardien ancien) paie à chaque fois.")
                 .defineInRange("bossLootPerDay", DEFAULT_BOSS_LOOT_PER_DAY, 0, 1_000);
         EXTRA_ALLOWED_MENUS = builder
                 .comment("Types d'écran (identifiants, ex. \"mod:coffre\") où une pièce a le droit d'être rangée, en plus",

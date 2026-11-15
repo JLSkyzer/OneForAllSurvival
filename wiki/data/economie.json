@@ -126,11 +126,11 @@
       "status": "prevu",
       "lot": "Lot E1",
       "image": null,
-      "what": "Seules quatre sources créent de l'argent ; la somme de départ et l'injection de l'équipe sont livrées, le butin et les quêtes manquent encore.",
+      "what": "Seules quatre sources créent de l'argent ; la somme de départ, l'injection de l'équipe et le butin des mobs sont livrés, seules les quêtes manquent encore.",
       "steps": [
         "Somme de départ : livrée (500 cuivres, une fois par joueur).",
         "Injection de l'équipe : livrée (/eco give).",
-        "Butin des mobs : lot E4. Récompenses de quêtes : lot E5."
+        "Butin des mobs : livré (lot E4). Récompenses de quêtes : lot E5."
       ],
       "flow": ["Source", "Pièces", "Inventaire"],
       "staff": [
@@ -422,27 +422,35 @@
       "num": 78,
       "name": "Butin des mobs",
       "kind": "systeme",
-      "status": "prevu",
+      "status": "dispo",
       "lot": "Lot E4",
       "image": null,
-      "what": "Un mob hostile ou un animal sauvage tué par un joueur peut lâcher des pièces.",
+      "what": "Un mob hostile ou un animal sauvage tué par un joueur peut lâcher des pièces, qui tombent au sol avec le reste de son butin.",
       "who": {"utilise": "Tous"},
       "steps": [
-        "Mob courant (zombie, araignée…) : 1 chance sur 3.",
-        "Mob dangereux (sorcière, enderman…) : 1 chance sur 2.",
-        "Boss : toujours."
+        "Le mob doit être tué par un vrai joueur : coup, flèche, trident, TNT allumée, ou son loup ; ou mourir dans les 5 secondes qui suivent le coup d'un joueur (chute, lave…).",
+        "Seuls les mobs nés d'eux-mêmes paient : apparition naturelle, génération du monde, structure, patrouille, raid. Un mob de générateur, d'œuf, de distributeur ou de commande ne donne rien.",
+        "Un animal né d'un élevage ne donne rien, ni ses petits ; un petit animal ou un animal apprivoisé non plus.",
+        "Le tirage suit le palier du mob : courant (zombie, squelette, araignée…), dangereux (sorcière, enderman, creeper chargé…), boss (Wither, dragon, gardien ancien), animal sauvage.",
+        "Les pièces se ramassent comme tout objet ; un butin tombé dans le vide ou la lave est perdu."
       ],
-      "flow": ["Mob tué", "Pièces au sol", "Inventaire"],
+      "flow": ["Mob tué par un joueur", "Pièces au sol", "Inventaire"],
       "numbers": [
-        {"k": "Mob courant", "v": "1 à 3 cuivres"},
-        {"k": "Mob dangereux", "v": "1 à 2 argent"},
-        {"k": "Boss", "v": "5 or"},
-        {"k": "Animal sauvage", "v": "1 cuivre, 1 fois sur 4"}
+        {"k": "Mob courant", "v": "1 à 3 cuivres, 1 fois sur 3"},
+        {"k": "Mob dangereux", "v": "1 à 2 argent, 1 fois sur 2"},
+        {"k": "Boss", "v": "5 or ; en plus 1 émeraude 1 fois sur 10, 1 rubis 1 fois sur 100"},
+        {"k": "Animal sauvage", "v": "1 cuivre, 1 fois sur 4"},
+        {"k": "Raid", "v": "100 cuivres au plus par raid, tous joueurs confondus"},
+        {"k": "Boss refait (Wither construit, dragon ranimé)", "v": "1 butin par joueur et par jour de paie"}
       ],
       "staff": [
-        "Table de chance et montant par mob, en données.",
-        "Rien pour un mob de générateur, d'œuf ou sans joueur.",
-        "Un animal né d'un élevage ne donne rien, ni ses petits."
+        "La table est un fichier de données : data/oneforallsurvival/economy/mob_coins.json (paliers, tirages {coin, chance, min, max}, règles par identifiant ou #tag, palier par catégorie). L'équipe la remplace par un datapack du monde puis /reload ; un fichier invalide garde la table précédente et l'erreur est au journal.",
+        "Un mob d'un autre mod suit sa catégorie (monstre : courant ; créature : animal sauvage) ; l'équipe le classe autrement dans la table.",
+        "/eco loot (niveau 2) : total créé par le butin, nombre de morts payantes, total par palier, les 10 joueurs qui ont le plus gagné. La ligne « Butin des créatures » de /eco stats donne le même total.",
+        "Config : mobLootJournalThreshold (100 : un butin d'au moins 100 cuivres a sa ligne au registre /eco ledger ; 0 = chaque butin), raidLootCap (100), bossLootPerDay (1).",
+        "Rien ne paie sans vrai joueur : déployeur de Create et faux joueurs des mods, joueur absent de la liste des joueurs, lave, cactus, roue de broyage. doMobLoot à faux : aucun butin.",
+        "Admis par la règle « tué par un joueur » (de Minecraft) : un loup apprivoisé qui tue paie son maître, les épines d'une armure paient le joueur, et une ferme qui achève dans les 5 s un mob frappé par un joueur paie ce joueur. Pas de plafond hors raids et boss refaits : à surveiller avec /eco loot.",
+        "Les mobs nés avant la mise à jour n'ont pas de marque d'origine et ne donnent rien (sauf les boss)."
       ]
     },
     {
@@ -529,13 +537,14 @@
       "who": {"utilise": "Staff"},
       "staff": [
         "Masse en circulation : total créé moins total détruit.",
-        "Depuis le lot E2 : un total par genre de transfert (échanges, ventes, taxe, rachats, factures, retraits et dépôts de l'équipe), le solde du trésor et la masse en attente ; depuis le lot E3, la ligne « Salaires dus » : total et nombre des salaires que la ville doit encore.",
+        "Depuis le lot E2 : un total par genre de transfert (échanges, ventes, taxe, rachats, factures, retraits et dépôts de l'équipe), le solde du trésor et la masse en attente ; depuis le lot E3, la ligne « Salaires dus » : total et nombre des salaires que la ville doit encore ; depuis le lot E4, la ligne « Butin des créatures » en service et /eco loot pour le détail.",
         "Inventaires, bourses et étals ne sont pas comptés un à un."
       ],
       "steps": [
         "/eco stats : créé par source, détruit par cause, masse des coffres-forts, en circulation, puis les transferts (dont dépôts, dépenses publiques et salaires), le trésor, l'attente et les salaires dus.",
         "/eco pending : ce qui attend, joueur par joueur (valeur des pièces et bourses, nombre d'objets), du plus gros au plus petit, 20 lignes au plus.",
-        "/eco ledger [page] : dix lignes par page, de la plus récente à la plus ancienne."
+        "/eco ledger [page] : dix lignes par page, de la plus récente à la plus ancienne.",
+        "/eco loot : le butin des mobs, total, morts payantes, total par palier et les 10 joueurs qui ont le plus gagné (lot E4)."
       ],
       "numbers": [
         {"k": "Registre", "v": "10 000 lignes au plus ; les totaux ne sont jamais effacés"}
