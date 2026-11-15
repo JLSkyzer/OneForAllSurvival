@@ -368,6 +368,11 @@ minecraft {
             // Un dossier à part : un client lancé en même temps tourne dans `run`.
             workingDirectory project.file('run-server')
             property 'forge.enabledGameTestNamespaces', mod_id
+            // `-Pe2eHorloge=<minutes>` : l'horloge de l'économie (paie de minuit) avancée d'autant dès le démarrage, pour la
+            // relance de l'essai de bout en bout du trésor (dev/HorlogeDEssai). Sans ce réglage, l'heure du système.
+            if (project.hasProperty('e2eHorloge')) {
+                property 'oneforallsurvival.e2e.horloge', project.property('e2eHorloge').toString()
+            }
             args '--nogui'
         }
 

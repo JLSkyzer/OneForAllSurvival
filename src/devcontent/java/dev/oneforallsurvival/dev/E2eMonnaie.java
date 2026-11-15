@@ -1107,7 +1107,9 @@ final class E2eMonnaie {
             try {
                 Map<String, String> lu = lireFichier();
                 String stats = rcon("eco stats").trim().replace('\n', '|');
-                if (valeurTotale() != 0 || !stats.equals(lu.get("stats"))) {
+                // La ligne « Salaires dus » est hors de la comparaison : le rattrapage du démarrage (lot E3) y change les
+                // dettes de la ville, que l'étape du trésor contrôle exactement à sa relance.
+                if (valeurTotale() != 0 || !sansSalaires(stats).equals(sansSalaires(lu.get("stats")))) {
                     E2eClient.fail("relance : le joueur porte " + valeurTotale() + " cuivres (attendu 0, rien de redonne), stats : " + stats
                             + " ; avant l'arret : " + lu.get("stats"));
                     return Suite.FINI;
@@ -1184,6 +1186,22 @@ final class E2eMonnaie {
         return new BlockPos(Integer.parseInt(t[0]), Integer.parseInt(t[1]), Integer.parseInt(t[2]));
     }
 
+    /**
+     * Le texte de {@code /eco stats} (lignes séparées par « | ») sans la ligne « Salaires dus » : le rattrapage des jours
+     * manqués au démarrage (lot E3) change les dettes de la ville entre l'arrêt et la relance ; l'étape du trésor les
+     * contrôle exactement, les étapes de la monnaie et du commerce comparent le reste.
+     */
+    static String sansSalaires(String stats) {
+        StringBuilder out = new StringBuilder();
+        for (String ligne : stats.split("\\|")) {
+            String l = ligne.trim();
+            if (!l.startsWith("Wages owed:") && !l.startsWith("Salaires dus")) {
+                out.append(out.length() == 0 ? "" : "|").append(ligne);
+            }
+        }
+        return out.toString();
+    }
+
     /** Le texte de {@code /eco stats} (lignes séparées par « | ») sans la ligne « en attente ». */
     static String sansAttente(String stats) {
         StringBuilder out = new StringBuilder();
@@ -1205,6 +1223,29 @@ final class E2eMonnaie {
         lu.put("stats", stats);
         lu.put("ledger", ledger);
         lu.put("autreporte", Long.toString(autrePorte));
+        ecrire(lu);
+    }
+
+    /**
+     * L'étape du trésor (lot E3), qui suit celle du commerce, paie des salaires au coffre-fort de Dev et y range ce qu'il
+     * a reçu : elle note ici le total que la relance de cette étape doit relire, et l'état du registre d'avant l'arrêt.
+     */
+    static void noterCoffreAvantArret(Minecraft minecraft, long coffre, String stats, String ledger) {
+        mc = minecraft;
+        Map<String, String> lu = lireFichier();
+        lu.put("coffre", Long.toString(coffre));
+        lu.put("stats", stats);
+        lu.put("ledger", ledger);
+        ecrire(lu);
+    }
+
+    /** L'origine de l'aire de la monnaie notée avant l'arrêt (le coffre-fort de Dev y est en (30, 0, 10)). */
+    static BlockPos coffreFortNote(Minecraft minecraft) {
+        mc = minecraft;
+        return position(lireFichier().get("origine")).offset(30, 0, 10);
+    }
+
+    private static void ecrire(Map<String, String> lu) {
         List<String> lignes = new ArrayList<>();
         lu.forEach((k, v) -> lignes.add(k + "=" + v));
         try {
@@ -1212,6 +1253,24 @@ final class E2eMonnaie {
         } catch (IOException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    /**
+     * Range l'aire de la monnaie (relance) : appelé par l'étape du trésor à la fin de sa relance, car elle relit le
+     * coffre-fort de Dev, qui est sur cette aire.
+     */
+    static void rangerAire(Minecraft minecraft) {
+        mc = minecraft;
+        if (o == null) {
+            o = position(lireFichier().get("origine"));
+        }
+        rcon("fill " + xyz(p(-4, 0, -8)) + " " + xyz(p(44, 8, 22)) + " air");
+        airePrete = false;
+    }
+
+    /** L'aire de la monnaie est-elle vide (le coffre-fort de Dev retiré) ? Vu par le client. */
+    static boolean aireRangee(Minecraft minecraft) {
+        return minecraft.level.getBlockState(coffreFort()).isAir();
     }
 
     static void relance() {
@@ -1234,8 +1293,10 @@ final class E2eMonnaie {
             clic(coffreFort(), Direction.NORTH);
         }, () -> ecranOuvert(SafeMenu.class) && ecoule() >= 1.0, () -> "ecran " + mc.screen, () -> {
             long total = ((SafeMenu) ((AbstractContainerScreen<?>) mc.screen).getMenu()).total();
-            if (total != COFFRE_FINAL) {
-                throw new IllegalStateException("compte " + total + " au lieu de " + COFFRE_FINAL);
+            // Après l'étape du trésor (lot E3), qui y verse des salaires, le total qu'elle a noté avant l'arrêt.
+            long attendu = Long.parseLong(lu.getOrDefault("coffre", "" + COFFRE_FINAL));
+            if (total != attendu) {
+                throw new IllegalStateException("compte " + total + " au lieu de " + attendu);
             }
             return "relance : le compte du coffre-fort est relu a l'identique : " + total + " cuivres (" + fmt(total) + ")";
         });
@@ -1245,7 +1306,9 @@ final class E2eMonnaie {
                     String ledger = rcon("eco ledger").split("\n")[0].trim();
                     // La ligne « en attente » est hors de la comparaison : l'étape du commerce, relue juste avant, a fait revenir le
                     // second joueur, qui a reçu son attente (elle le vérifie elle-même) ; les totaux du registre, eux, ne bougent pas.
-                    if (!sansAttente(stats).equals(sansAttente(lu.get("stats"))) || !ledger.equals(lu.get("ledger"))) {
+                    // La ligne « Salaires dus » aussi : le rattrapage du démarrage (lot E3) y a changé les dettes de la ville.
+                    if (!sansAttente(sansSalaires(stats)).equals(sansAttente(sansSalaires(lu.get("stats"))))
+                            || !ledger.equals(lu.get("ledger"))) {
                         throw new IllegalStateException("stats " + stats + " (avant " + lu.get("stats") + "), registre " + ledger + " (avant " + lu.get("ledger") + ")");
                     }
                     return "relance : totaux du registre identiques a ceux d'avant l'arret : " + stats + " ; " + ledger;
@@ -1263,13 +1326,14 @@ final class E2eMonnaie {
             return "relance : le second joueur revient apres le redemarrage : somme de depart redonnee " + r.get("depart1") + ", il porte toujours "
                     + r.get("porte1") + " cuivres, ouvert=" + r.get("ouvert") + ", retrait " + r.get("retrait");
         });
-        pasC("Relance : rangement de l'aire de la monnaie", () -> {
-            rcon("fill " + xyz(p(-4, 0, -8)) + " " + xyz(p(44, 8, 22)) + " air");
+        // L'aire reste en place : l'étape du trésor (lot E3), relue après celle-ci, paie des salaires au coffre-fort de Dev et
+        // range l'aire à sa fin (rangerAire).
+        pasC("Relance : le joueur rentre ; l'aire de la monnaie reste pour l'étape du trésor", () -> {
             airePrete = false;
             rcon("tp " + nom() + " " + (depart.getX() + 0.5) + " " + depart.getY() + " " + (depart.getZ() + 0.5));
             rcon("gamerule doMobSpawning true");
-        }, () -> ecoule() >= 2 && mc.level.getBlockState(coffreFort()).isAir(), () -> "bloc " + mc.level.getBlockState(coffreFort()),
-                () -> "aire videe, regles du monde rendues");
+        }, () -> ecoule() >= 2 && mc.player.blockPosition().distSqr(depart) < 9, () -> "joueur en " + mc.player.blockPosition(),
+                () -> "relance de la monnaie finie, regles du monde rendues");
     }
 
     // ================================================================================================

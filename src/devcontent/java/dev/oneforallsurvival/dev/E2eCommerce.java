@@ -1352,6 +1352,24 @@ final class E2eCommerce {
         return new BlockPos(Integer.parseInt(t[0]), Integer.parseInt(t[1]), Integer.parseInt(t[2]));
     }
 
+    /**
+     * L'étape du trésor (lot E3), qui suit celle-ci, change {@code /eco stats} (injection au trésor, dépôts, dépenses,
+     * salaires) : elle note ici le texte d'avant l'arrêt que la relance de cette étape doit relire. Les étals et les
+     * factures, qu'elle ne touche pas, gardent leur référence.
+     */
+    static void noterStatsAvantArret(Minecraft minecraft, String stats) {
+        mc = minecraft;
+        Map<String, String> lu = lireFichier();
+        lu.put("stats", stats);
+        List<String> lignes = new ArrayList<>();
+        lu.forEach((k, v) -> lignes.add(k + "=" + v));
+        try {
+            Files.write(fichier(), lignes, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
     /** La ligne « en attente » remplacée par la valeur donnée. */
     private static String avecAttente(String stats, long attente) {
         StringBuilder out = new StringBuilder();
@@ -1373,7 +1391,8 @@ final class E2eCommerce {
         }, () -> pres(etalDev().south(2)) && etalClient(etalDev()) != null && etalClient(etalAutre()) != null && ecoule() >= 2.0,
                 () -> "joueur en " + mc.player.blockPosition() + ", etals vus " + (etalClient(etalDev()) != null) + " " + (etalClient(etalAutre()) != null),
                 () -> {
-                    if (!reponse.equals(lu.get("stats"))) {
+                    // Sans la ligne « Salaires dus » : le rattrapage du démarrage (lot E3) y change les dettes de la ville.
+                    if (!E2eMonnaie.sansSalaires(reponse).equals(E2eMonnaie.sansSalaires(lu.get("stats")))) {
                         throw new IllegalStateException("stats " + reponse + " ; avant l'arret : " + lu.get("stats"));
                     }
                     return "relance du commerce : /eco stats identique a celui d'avant l'arret (attente comprise) : " + reponse;
@@ -1439,7 +1458,7 @@ final class E2eCommerce {
             reponse2 = rcon("e2ecommerce factures").replace(" FIN_E2E", "").trim();
         }, () -> ecoule() >= 0.3, () -> "", () -> {
             String attendu = avecAttente(lu.get("stats"), 0);
-            if (!reponse.equals(attendu) || !reponse2.equals(lu.get("factures"))) {
+            if (!E2eMonnaie.sansSalaires(reponse).equals(E2eMonnaie.sansSalaires(attendu)) || !reponse2.equals(lu.get("factures"))) {
                 throw new IllegalStateException("stats " + reponse + " (attendu " + attendu + ") ; factures " + reponse2 + " (avant " + lu.get("factures") + ")");
             }
             return "relance : registre des factures identique (" + reponse2 + ") ; /eco stats identique a celui d'avant l'arret, attente passee a "
