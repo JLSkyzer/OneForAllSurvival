@@ -327,22 +327,36 @@
       "num": 73,
       "name": "Trésor de la ville",
       "kind": "bloc",
-      "status": "prevu",
+      "status": "dispo",
       "lot": "Lot E3",
-      "image": null,
-      "what": "Banque de l'île, unique, tenue par le maire ; encaisse et paie à distance.",
-      "who": {"pose": "Staff, un seul", "utilise": "Maire, staff", "casse": "Ingénieur, maire, staff"},
+      "image": {
+        "type": "block",
+        "top": "treasury_top.png",
+        "side": "treasury_side.png",
+        "front": "treasury_front.png"
+      },
+      "what": "Banque unique de l'île, tenue par le maire : la taxe y arrive, les salaires en partent à distance.",
+      "who": {"fabrique": "Personne (onglet créatif)", "pose": "Équipe ; maire ou ingénieur seulement s'il n'y en a plus", "utilise": "Maire, équipe", "casse": "Ingénieur, maire, équipe"},
       "steps": [
-        "Taxes, amendes et impôt y arrivent à distance.",
-        "Les salaires en partent à distance.",
-        "Le solde s'affiche sur les tableaux de la mairie."
+        "L'équipe pose le trésor (onglet créatif) ; un second trésor est refusé tant que le premier existe.",
+        "Clic droit du maire ou de l'équipe : l'écran du coffre-fort (déposer, retirer, Change). Un citoyen ne l'ouvre pas.",
+        "Un retrait est une dépense publique : la fenêtre « Motif de la dépense » demande un motif (1 à 80 caractères), noté au registre.",
+        "/treasury : solde, salaires dus par la ville, ce qu'elle vous doit et votre temps compté aujourd'hui. /treasury log [page] : le registre (maire et équipe).",
+        "Déplacé (cassé puis reposé), il garde son contenu et son registre ; le registre note « Trésor retiré » et « Trésor posé »."
       ],
-      "flow": ["Taxes et amendes", "Trésor", "Salaires"],
+      "flow": ["Taxe, dépôts, injection", "Trésor", "Salaires, dépenses"],
+      "numbers": [
+        {"k": "Trésors", "v": "un seul"},
+        {"k": "Registre", "v": "1 000 lignes"},
+        {"k": "Motif d'une dépense", "v": "80 caractères"}
+      ],
       "staff": [
-        "Déplacé, il garde contenu et registre ; les pièces ne tombent pas.",
-        "En créatif : casser accroupi, reposer depuis l'onglet du mod.",
-        "Sans emplacement, il fonctionne ; seule l'ouverture est impossible.",
-        "Après un vol, le registre montre le trou."
+        "/eco treasury : solde, emplacement, dettes. /eco treasury give|take <montant> <motif> : injection ou retrait de l'équipe (source déclarée, noté aux deux registres). /eco treasury log [page].",
+        "Config : treasuryLedgerLines (100 à 100 000), treasuryReasonMax (1 à 200).",
+        "En créatif, casser le trésor exige d'être accroupi, pour tout le monde ; reposer un trésor neuf de l'onglet reprend le trésor unique.",
+        "Sans emplacement (bloc retiré), la taxe et les salaires continuent ; seule l'ouverture est impossible. Un bloc posé par /setblock hors de l'emplacement noté n'ouvre rien.",
+        "Insensible aux explosions, au Wither, au dragon et aux pistons.",
+        "Crochetage par le policier : lot du policier. Outil de maintenance de l'ingénieur : lot du téléphone (à ce lot, le rôle suffit)."
       ]
     },
     {
@@ -350,21 +364,30 @@
       "num": 75,
       "name": "Salaires publics",
       "kind": "systeme",
-      "status": "prevu",
+      "status": "dispo",
       "lot": "Lot E3",
       "image": null,
-      "what": "Payés chaque minuit sur le trésor, selon le temps connecté dans le rôle.",
+      "what": "Payés chaque minuit (heure réelle) sur le trésor, selon le temps passé connecté dans le rôle.",
       "who": {"utilise": "Policier (par défaut) ; tout rôle et le maire si l'équipe leur fixe un salaire"},
       "steps": [
-        "Le salaire est arrêté chaque minuit.",
-        "Il arrive au coffre-fort, sinon dans l'inventaire.",
-        "Trésor vide : dette visible de la ville."
+        "Le temps connecté dans un rôle payé se compte à la seconde, côté serveur ; un rôle changé en cours de journée compte pour chacun.",
+        "À minuit, le salaire du jour (taux × heures, arrondi vers le bas) part du trésor : au coffre-fort du joueur, sinon dans son inventaire s'il est connecté, sinon en attente jusqu'à sa connexion.",
+        "Trésor insuffisant : le salaire reste dû, jamais payé en partie ; la file des dettes se paie par ancienneté à chaque minuit et dès que de l'argent arrive au trésor.",
+        "La dette de la ville s'affiche sur les tableaux de la mairie et dans /treasury ; le joueur est prévenu à la connexion."
       ],
-      "flow": ["Trésor", "Salaire", "Coffre-fort"],
+      "flow": ["Temps dans le rôle", "Minuit", "Trésor", "Coffre-fort"],
+      "numbers": [
+        {"k": "Policier", "v": "60 cuivres par heure"},
+        {"k": "Médecin, maire", "v": "0 par défaut"},
+        {"k": "Plafond", "v": "8 h par jour et par salaire"},
+        {"k": "Jours rattrapés", "v": "400 au plus"}
+      ],
       "staff": [
-        "Réglable en config ou par commande prévue.",
         "Par défaut, seule la police est salariée (60 cuivres par heure) ; médecin et maire à 0 : les joueurs gagnent leur argent eux-mêmes.",
-        "Un salaire impayé reste dû."
+        "/eco salary list ; /eco salary set <rôle|mayor> <taux> (écrit la config) ; /eco salary owed [page] : la file des salaires dus.",
+        "Config : salaryPerHour (\"policier=60\"), mayorSalaryPerHour (0), salaryMaxHoursPerDay (8), payHour (0 = minuit), payTimeZone (vide = fuseau du serveur), payMaxMissedDays (400).",
+        "Serveur éteint : chaque jour manqué est clos une fois au démarrage ; une horloge qui recule ne paie rien deux fois.",
+        "Un salaire est un transfert du trésor, jamais une création d'argent. L'inactivité au clavier n'est pas détectée."
       ]
     },
     {
@@ -506,7 +529,8 @@
         "Source de rubis (avec le regroupement de 10 émeraudes).",
         "Usages : relancer une ville pauvre, récompenser un événement.",
         "Auteur, montant, heure et motif inscrits au registre.",
-        "Les pièces d'un /give vanilla ou du mode créatif ne sont pas comptées."
+        "Les pièces d'un /give vanilla ou du mode créatif ne sont pas comptées.",
+        "Depuis le lot E3 : /eco treasury give|take <montant> <motif> injecte au trésor de la ville ou en retire (même source déclarée)."
       ],
       "steps": [
         "/eco give <joueur> <montant> <motif> : crée la somme chez le joueur.",
@@ -526,11 +550,11 @@
       "who": {"utilise": "Staff"},
       "staff": [
         "Masse en circulation : total créé moins total détruit.",
-        "Depuis le lot E2 : un total par genre de transfert (échanges, ventes, taxe, rachats, factures, retraits et dépôts de l'équipe), le solde du trésor et la masse en attente ; les salaires restent « pas encore en service ».",
+        "Depuis le lot E2 : un total par genre de transfert (échanges, ventes, taxe, rachats, factures, retraits et dépôts de l'équipe), le solde du trésor et la masse en attente ; depuis le lot E3, la ligne « Salaires dus » : total et nombre des salaires que la ville doit encore.",
         "Inventaires, bourses et étals ne sont pas comptés un à un."
       ],
       "steps": [
-        "/eco stats : créé par source, détruit par cause, masse des coffres-forts, en circulation, puis les transferts, le trésor et l'attente.",
+        "/eco stats : créé par source, détruit par cause, masse des coffres-forts, en circulation, puis les transferts (dont dépôts, dépenses publiques et salaires), le trésor, l'attente et les salaires dus.",
         "/eco pending : ce qui attend, joueur par joueur (valeur des pièces et bourses, nombre d'objets), du plus gros au plus petit, 20 lignes au plus.",
         "/eco ledger [page] : dix lignes par page, de la plus récente à la plus ancienne."
       ],
