@@ -25,6 +25,9 @@ public final class MobCoinTables extends SimpleJsonResourceReloadListener {
     private static final Gson GSON = new GsonBuilder().create();
     /** Le fichier lu : {@code data/oneforallsurvival/economy/mob_coins.json}. */
     private static final ResourceLocation FILE = new ResourceLocation("oneforallsurvival", "mob_coins");
+    /** Le même fichier, nommé comme le gestionnaire de ressources le connaît. */
+    private static final ResourceLocation RESOURCE =
+            new ResourceLocation("oneforallsurvival", "economy/mob_coins.json");
 
     private static volatile MobCoinTable loaded = MobCoinTable.EMPTY;
     @Nullable
@@ -52,7 +55,7 @@ public final class MobCoinTables extends SimpleJsonResourceReloadListener {
     protected void apply(Map<ResourceLocation, JsonElement> files, ResourceManager manager, ProfilerFiller profiler) {
         JsonElement file = files.get(FILE);
         if (file == null) {
-            LOGGER.error("Butin des mobs : economy/mob_coins.json absent, table precedente conservee");
+            LOGGER.error("Butin des mobs : {}, table precedente conservee", missingReason(manager));
             return;
         }
         try {
@@ -63,5 +66,15 @@ public final class MobCoinTables extends SimpleJsonResourceReloadListener {
         } catch (RuntimeException e) {
             LOGGER.error("Butin des mobs : mob_coins.json invalide, table precedente conservee : {}", e.getMessage());
         }
+    }
+
+    /**
+     * Pourquoi le fichier manque à {@link #apply} : le chargeur de Minecraft écarte un JSON mal formé (en écrivant
+     * la cause juste avant) sans le transmettre, et il ne faut pas dire « absent » d'un fichier qui est là.
+     */
+    static String missingReason(ResourceManager manager) {
+        return manager.getResource(RESOURCE).isPresent()
+                ? "economy/mob_coins.json illisible (JSON mal forme, voir l'erreur de chargement juste avant)"
+                : "economy/mob_coins.json absent";
     }
 }

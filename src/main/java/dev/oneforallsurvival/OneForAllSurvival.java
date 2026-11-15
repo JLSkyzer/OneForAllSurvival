@@ -124,6 +124,14 @@ public final class OneForAllSurvival {
         MinecraftForge.EVENT_BUS.addListener(BenchCatalog::onAddReloadListener);
         // Le butin des mobs : table de données, rechargée avec /reload.
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.loot.MobCoinTables::onAddReloadListener);
+        // Origine des mobs : la dernière à parler, et même sur un événement annulé (le générateur fait quand même
+        // apparaître son mob, avec son NBT, qu'il faut effacer).
+        MinecraftForge.EVENT_BUS.addListener(net.minecraftforge.eventbus.api.EventPriority.LOWEST, true,
+                dev.oneforallsurvival.economy.loot.MobOrigin::onFinalizeSpawn);
+        MinecraftForge.EVENT_BUS.addListener(net.minecraftforge.eventbus.api.EventPriority.LOWEST,
+                dev.oneforallsurvival.economy.loot.MobOrigin::onConversion);
+        MinecraftForge.EVENT_BUS.addListener(net.minecraftforge.eventbus.api.EventPriority.LOWEST,
+                dev.oneforallsurvival.economy.loot.MobOrigin::onBabySpawn);
         MinecraftForge.EVENT_BUS.addListener(BenchOverrides::onAddReloadListener);
         MinecraftForge.EVENT_BUS.addListener(BenchCatalog::onTagsUpdated);
         MinecraftForge.EVENT_BUS.addListener(BenchNetwork::onDatapackSync);
