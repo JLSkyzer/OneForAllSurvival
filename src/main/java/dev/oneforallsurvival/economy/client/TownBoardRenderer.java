@@ -1,6 +1,8 @@
 package dev.oneforallsurvival.economy.client;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import dev.oneforallsurvival.economy.town.TownBoardBlock;
@@ -8,6 +10,7 @@ import dev.oneforallsurvival.economy.town.TownBoardBlockEntity;
 import dev.oneforallsurvival.economy.town.TownFinances;
 import dev.oneforallsurvival.economy.town.TownFinances.Parts;
 import dev.oneforallsurvival.economy.town.TownFinances.Snapshot;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
@@ -17,35 +20,39 @@ import net.minecraft.network.chat.Component;
 import org.joml.Matrix4f;
 
 /**
- * Le texte du tableau de la mairie, sur sa face avant : « Trésor de la ville », « Solde : … » et « Salaires dus : … » ou
- * « Aucun salaire dû ». Les comptes viennent de {@link TownFinancesCache} (« … » tant que rien n'est reçu). La face
- * n'offre que 56 x 32 pixels de texte au dedans du cadre de bois : {@link TownBoardLayout} range le solde et les
- * salaires par coupures sur autant de lignes qu'il en faut, à la plus grande échelle (de 1 à 0,7) qui les fait tenir,
- * sans jamais couper une coupure ni descendre sous le seuil de lecture à quatre blocs : au pire, le titre disparaît,
- * puis les plus petites coupures sont laissées de côté (« … »). Dessiné dans les {@value #RANGE}
- * blocs seulement.
+ * Le texte du tableau de la mairie (3 x 2 blocs), dessiné depuis sa partie maîtresse (le bas du milieu) sur tout le
+ * parchemin de la face avant : « Trésor de la ville », « Solde : … », « Salaires dus : N (…) » ou « Aucun salaire dû »,
+ * puis les annonces du maire ({@link TownBoardBlockEntity#notices()}, aucune à ce lot). Les comptes viennent de
+ * {@link TownFinancesCache} (« … » tant que rien n'est reçu) ; {@link TownBoardLayout} range les lignes. La mise en page
+ * est gardée tant que comptes, annonces et langue ne changent pas. Dessiné dans les {@value #RANGE} blocs seulement.
  */
 public final class TownBoardRenderer implements BlockEntityRenderer<TownBoardBlockEntity> {
 
     /** Distance de rendu, en blocs. */
-    static final int RANGE = 16;
+    static final int RANGE = 24;
 
     /** Pixels de texte par bloc : un caractère de 8 px mesure 0,125 bloc. */
     private static final float PIXELS_PER_BLOCK = 64.0F;
-    /** Le haut du panneau (15/16) par rapport au centre du bloc, et l'avance de la face (6/16) sur le centre. */
-    private static final float TOP_FROM_CENTER = 15.0F / 16.0F - 0.5F;
+    /** Le haut du panneau (30/16 au-dessus du bas de la maîtresse) par rapport au centre de la maîtresse. */
+    private static final float TOP_FROM_CENTER = 30.0F / 16.0F - 0.5F;
+    /** L'avance de la face (z = 6/16 dans le modèle tourné vers le nord) sur le centre du bloc. */
     private static final float FACE_FROM_CENTER = 0.5F - 6.0F / 16.0F;
     /** Un souffle devant la face, pour ne pas se confondre avec elle. */
     private static final float EPSILON = 0.004F;
-    /** Le haut de la zone de texte sous le haut du panneau, en pixels de texte : le cadre de bois en prend 4. */
-    private static final float TEXT_TOP = 4.0F;
+    /** Le haut de la zone de texte sous le haut du panneau : 2 px de cadre (8 px de texte) et une marge de 2. */
+    private static final float TEXT_TOP = 10.0F;
 
     private static final int TITLE_COLOR = 0x2B1B0E;
     private static final int BALANCE_COLOR = 0x1E5A1E;
     private static final int OWED_COLOR = 0x8B1A1A;
     private static final int NONE_COLOR = 0x1E5A1E;
+    private static final int NOTICE_COLOR = 0x2B1B0E;
 
     private final Font font;
+
+    /** La dernière mise en page et ce dont elle dépend (tous les tableaux montrent les mêmes comptes). */
+    private Object cachedKey;
+    private TownBoardLayout.Result cached;
 
     public TownBoardRenderer(BlockEntityRendererProvider.Context context) {
         this.font = context.getFont();
@@ -63,14 +70,7 @@ public final class TownBoardRenderer implements BlockEntityRenderer<TownBoardBlo
             return;
         }
         Direction facing = be.getBlockState().getValue(TownBoardBlock.FACING);
-        Snapshot snapshot = TownFinancesCache.get();
-        boolean owed = snapshot != null && snapshot.owedCount() > 0;
-        Parts balance = TownFinances.balanceParts(snapshot);
-        Parts due = TownFinances.owedParts(snapshot);
-        TownBoardLayout.Result layout = TownBoardLayout.layout(List.of(
-                new TownBoardLayout.Section(TownFinances.titleLine(), List.of(), TITLE_COLOR, true, false),
-                new TownBoardLayout.Section(balance.head(), balance.amount(), BALANCE_COLOR, false, false),
-                new TownBoardLayout.Section(due.head(), due.amount(), owed ? OWED_COLOR : NONE_COLOR, false, true)), font::width);
+        TownBoardLayout.Result layout = layout(TownFinancesCache.get(), be.notices());
         pose.pushPose();
         pose.translate(0.5D, 0.5D, 0.5D);
         // Le texte regarde vers +z : le bloc est tourné pour que sa face avant y soit.
@@ -78,7 +78,7 @@ public final class TownBoardRenderer implements BlockEntityRenderer<TownBoardBlo
         pose.translate(0.0D, TOP_FROM_CENTER, FACE_FROM_CENTER + EPSILON);
         float scale = 1.0F / PIXELS_PER_BLOCK;
         pose.scale(scale, -scale, scale);
-        // Le bloc de lignes est centré dans la zone de texte, chaque ligne sur son axe.
+        // Le bloc de lignes est centré dans la zone de texte, chaque ligne sur l'axe du tableau (celui de la maîtresse).
         float top = TEXT_TOP + (TownBoardLayout.HEIGHT - layout.height()) / 2.0F;
         for (int i = 0; i < layout.lines().size(); i++) {
             TownBoardLayout.Line line = layout.lines().get(i);
@@ -86,6 +86,27 @@ public final class TownBoardRenderer implements BlockEntityRenderer<TownBoardBlo
                     line.color());
         }
         pose.popPose();
+    }
+
+    private TownBoardLayout.Result layout(Snapshot snapshot, List<Component> notices) {
+        Object key = List.of(Objects.requireNonNullElse((Object) snapshot, "rien"), notices,
+                Minecraft.getInstance().getLanguageManager().getSelected());
+        if (cached != null && key.equals(cachedKey)) {
+            return cached;
+        }
+        boolean owed = snapshot != null && snapshot.owedCount() > 0;
+        Parts balance = TownFinances.balanceParts(snapshot);
+        Parts due = TownFinances.owedParts(snapshot);
+        List<TownBoardLayout.Section> sections = new ArrayList<>();
+        sections.add(new TownBoardLayout.Section(TownFinances.titleLine(), List.of(), TITLE_COLOR, true, false));
+        sections.add(new TownBoardLayout.Section(balance.head(), balance.amount(), BALANCE_COLOR, false, false));
+        sections.add(new TownBoardLayout.Section(due.head(), due.amount(), owed ? OWED_COLOR : NONE_COLOR, false, true));
+        for (Component notice : notices) {
+            sections.add(new TownBoardLayout.Section(notice, List.of(), NOTICE_COLOR, true, false));
+        }
+        cached = TownBoardLayout.layout(sections, font::width);
+        cachedKey = key;
+        return cached;
     }
 
     /** Une ligne centrée, à l'échelle choisie par la mise en page. */

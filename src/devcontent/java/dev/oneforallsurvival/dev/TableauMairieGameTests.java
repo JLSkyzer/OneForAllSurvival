@@ -13,6 +13,7 @@ import dev.oneforallsurvival.economy.TreasuryAccount;
 import dev.oneforallsurvival.economy.payroll.Payroll;
 import dev.oneforallsurvival.economy.town.TownBoardBlock;
 import dev.oneforallsurvival.economy.town.TownBoardBlockEntity;
+import dev.oneforallsurvival.economy.town.TownBoardPart;
 import dev.oneforallsurvival.economy.town.TownFinances;
 import dev.oneforallsurvival.economy.town.TownFinances.Snapshot;
 import dev.oneforallsurvival.economy.town.TownFinancesPacket;
@@ -55,6 +56,7 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.piston.PistonBaseBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.PushReaction;
@@ -75,6 +77,9 @@ import net.minecraftforge.gametest.PrefixGameTestTemplate;
  * le maire ou l'équipe, forme exacte, instantané du trésor et des dettes, paquet vers les clients, clic droit,
  * {@code /treasury board}.
  *
+ * <p>Le tableau fait 3 x 2 blocs (tour 1 de la tâche 6) : le lot C prouve la place exigée, la casse d'une partie qui
+ * retire tout en rendant un seul objet, le créatif, {@code /setblock} et le tableau incomplet (ancien format).
+ *
  * <p>Le tableau ne touche ni l'emplacement ni le registre du trésor : seuls les essais qui lisent ou changent le solde
  * du serveur le rendent en fin de test. Les lots sont de 8 au plus ; le paquet a un lot à lui (il attend des ticks).
  */
@@ -88,10 +93,16 @@ public final class TableauMairieGameTests {
 
     private static final String MSG = TownBoardBlock.MESSAGE;
 
-    private static final BlockPos A = new BlockPos(1, 0, 1);
-    private static final BlockPos B = new BlockPos(1, 0, 6);
-    private static final BlockPos C = new BlockPos(6, 0, 1);
-    private static final Vec3 JOUEUR = new Vec3(4.5, 0, 4.5);
+    private static final String LOT_C = "tableau_mairie_c";
+
+    /**
+     * Les maîtresses des tableaux posés : un joueur qui regarde le sud pose un tableau tourné vers le nord, qui va de
+     * x - 1 à x + 1 et de y 0 à 1 (la boîte d'essai est vide de x 1 à 6, de y 0 à 3).
+     */
+    private static final BlockPos A = new BlockPos(3, 0, 1);
+    private static final BlockPos B = new BlockPos(3, 0, 6);
+    private static final BlockPos C = new BlockPos(3, 0, 3);
+    private static final Vec3 JOUEUR = new Vec3(5.5, 0, 4.5);
 
     /** L'essai du lot du paquet, rendu par {@code @AfterBatch} s'il a échoué avant de se fermer. */
     @Nullable
@@ -248,6 +259,7 @@ public final class TableauMairieGameTests {
 
     private static InteractionResult poser(GameTestHelper helper, JoueurDeTest j, ItemStack pile, BlockPos pos) {
         ServerPlayer p = j.joueur();
+        p.setYRot(0.0F); // il regarde le sud : le tableau se tourne vers le nord, vers lui
         p.setItemInHand(InteractionHand.MAIN_HAND, pile);
         BlockPos sol = helper.absolutePos(pos.below());
         BlockHitResult tir = new BlockHitResult(Vec3.atCenterOf(sol).add(0, 0.5, 0), Direction.UP, sol, false);
@@ -262,6 +274,52 @@ public final class TableauMairieGameTests {
         InteractionResult r = poser(helper, j, pos);
         helper.assertTrue(r.consumesAction() && helper.getBlockState(pos).is(EconomyRegistry.TOWN_BOARD.get()),
                 "le tableau devait se poser : " + r + ", vu " + helper.getBlockState(pos));
+        entier(helper, pos, Direction.NORTH);
+    }
+
+    private static TownBoardBlock bloc() {
+        return (TownBoardBlock) EconomyRegistry.TOWN_BOARD.get();
+    }
+
+    /** Les six emplacements (relatifs) du tableau de maîtresse {@code maitresse}, par partie. */
+    private static Map<TownBoardPart, BlockPos> parties(BlockPos maitresse, Direction face) {
+        Map<TownBoardPart, BlockPos> out = new EnumMap<>(TownBoardPart.class);
+        for (TownBoardPart partie : TownBoardPart.values()) {
+            out.put(partie, partie.from(maitresse, face));
+        }
+        return out;
+    }
+
+    /** Les six parties sont là, tournées vers {@code face} ; seule la maîtresse porte une entité de bloc. */
+    private static void entier(GameTestHelper helper, BlockPos maitresse, Direction face) {
+        parties(maitresse, face).forEach((partie, pos) -> {
+            BlockState etat = helper.getBlockState(pos);
+            helper.assertTrue(etat.is(EconomyRegistry.TOWN_BOARD.get()) && etat.getValue(TownBoardBlock.PART) == partie
+                    && etat.getValue(TownBoardBlock.FACING) == face, partie + " attendue en " + pos + ", vu " + etat);
+            BlockEntity be = helper.getLevel().getBlockEntity(helper.absolutePos(pos));
+            helper.assertTrue(partie.isMaster() ? be instanceof TownBoardBlockEntity : be == null,
+                    "entité de bloc de " + partie + " : " + be);
+            helper.assertTrue(TownBoardBlock.masterPos(etat, helper.absolutePos(pos)).equals(helper.absolutePos(maitresse)),
+                    partie + " renvoie vers la maîtresse");
+        });
+    }
+
+    /** Aucune des six places du tableau ne porte plus une partie. */
+    private static void plusRien(GameTestHelper helper, BlockPos maitresse, Direction face, String quoi) {
+        parties(maitresse, face).forEach((partie, pos) -> helper.assertTrue(
+                !helper.getBlockState(pos).is(EconomyRegistry.TOWN_BOARD.get()),
+                quoi + " : " + partie + " restée en " + pos));
+    }
+
+    /** Pose un tableau entier, sans joueur (comme la démonstration). */
+    private static void poserEntier(GameTestHelper helper, BlockPos maitresse, Direction face) {
+        bloc().placeWhole(helper.getLevel(), helper.absolutePos(maitresse), face);
+        entier(helper, maitresse, face);
+    }
+
+    private static long tableauxAuSol(GameTestHelper helper) {
+        return objets(helper).stream().filter(o -> o.getItem().is(EconomyRegistry.TOWN_BOARD_ITEM.get()))
+                .mapToLong(o -> o.getItem().getCount()).sum();
     }
 
     private static InteractionResult clicDroit(GameTestHelper helper, JoueurDeTest j, BlockPos pos) {
@@ -378,6 +436,7 @@ public final class TableauMairieGameTests {
                         nom + " a une progression");
                 helper.assertTrue(casseur.joueur().gameMode.destroyBlock(abs) && helper.getBlockState(A).isAir(),
                         nom + " le casse");
+                plusRien(helper, A, Direction.NORTH, nom);
                 seulLeTableauTombe(helper);
                 ramasserLesObjets(helper);
             }
@@ -405,6 +464,9 @@ public final class TableauMairieGameTests {
             helper.assertTrue(citoyen.messagesRecus().contains(MSG + "break_denied"), "message de refus attendu");
             helper.assertTrue(!createur.joueur().gameMode.destroyBlock(abs)
                     && helper.getBlockState(A).is(EconomyRegistry.TOWN_BOARD.get()), "un citoyen en créatif non plus");
+            BlockPos haut = helper.absolutePos(TownBoardPart.TOP_RIGHT.from(A, Direction.NORTH));
+            helper.assertTrue(!citoyen.joueur().gameMode.destroyBlock(haut), "ni par une autre partie");
+            entier(helper, A, Direction.NORTH);
             helper.assertTrue(objets(helper).isEmpty(), "rien au sol");
             helper.succeed();
         }
@@ -425,17 +487,18 @@ public final class TableauMairieGameTests {
             chef.joueur().setShiftKeyDown(true);
             helper.assertTrue(chef.joueur().gameMode.destroyBlock(abs) && helper.getBlockState(A).isAir(),
                     "accroupi : cassé");
+            plusRien(helper, A, Direction.NORTH, "créatif accroupi");
             helper.assertTrue(objets(helper).isEmpty(), "en créatif, aucun objet ne tombe");
             helper.succeed();
         }
     }
 
-    /** Les boîtes du modèle de bloc, lues du JSON livré, en forme de voxels (orientation nord). */
-    private static VoxelShape formeDuModele() {
-        try (InputStream in = TableauMairieGameTests.class
-                .getResourceAsStream("/assets/oneforallsurvival/models/block/town_board.json")) {
+    /** Les boîtes du modèle d'une partie, lues du JSON livré, en forme de voxels (orientation nord). */
+    private static VoxelShape formeDuModele(TownBoardPart partie) {
+        String chemin = "/assets/oneforallsurvival/models/block/town_board_" + partie.getSerializedName() + ".json";
+        try (InputStream in = TableauMairieGameTests.class.getResourceAsStream(chemin)) {
             if (in == null) {
-                throw new AssertionError("modèle town_board.json introuvable");
+                throw new AssertionError("modèle introuvable : " + chemin);
             }
             JsonObject json = JsonParser.parseReader(new InputStreamReader(in, StandardCharsets.UTF_8)).getAsJsonObject();
             VoxelShape forme = Shapes.empty();
@@ -472,33 +535,42 @@ public final class TableauMairieGameTests {
     @GameTest(template = "test/plancher", batch = LOT_A)
     public static void laFormeSuitLeModele(GameTestHelper helper) {
         try (Essai essai = new Essai(helper)) {
-            VoxelShape modele = formeDuModele();
-            helper.assertTrue(Shapes.joinIsNotEmpty(modele, Shapes.block(), BooleanOp.NOT_SAME),
-                    "le modèle n'est pas un cube plein : le test doit pouvoir échouer");
             BlockPos abs = helper.absolutePos(A);
-            for (Direction direction : Direction.Plane.HORIZONTAL) {
-                BlockState etat = EconomyRegistry.TOWN_BOARD.get().defaultBlockState().setValue(TownBoardBlock.FACING,
-                        direction);
-                VoxelShape forme = etat.getShape(helper.getLevel(), abs, CollisionContext.empty());
-                VoxelShape attendue = tourne(modele, direction);
-                helper.assertTrue(!Shapes.joinIsNotEmpty(forme, attendue, BooleanOp.NOT_SAME),
-                        "la forme diffère du modèle vers " + direction + " : " + forme.bounds() + " / " + attendue.bounds());
-                helper.assertTrue(forme.bounds().maxY < 1.0D && forme.bounds().maxY > 0.5D, "ni cube ni vide : " + forme.bounds());
-                helper.assertTrue(!etat.isSolidRender(helper.getLevel(), abs) && !etat.canOcclude(),
-                        "le bloc n'occulte pas ses voisins (noOcclusion)");
+            for (TownBoardPart partie : TownBoardPart.values()) {
+                VoxelShape modele = formeDuModele(partie);
+                helper.assertTrue(!modele.isEmpty() && Shapes.joinIsNotEmpty(modele, Shapes.block(), BooleanOp.NOT_SAME),
+                        partie + " : le modèle n'est ni vide ni un cube plein (le test doit pouvoir échouer)");
+                for (Direction direction : Direction.Plane.HORIZONTAL) {
+                    BlockState etat = bloc().partState(direction, partie);
+                    VoxelShape forme = etat.getShape(helper.getLevel(), abs, CollisionContext.empty());
+                    VoxelShape attendue = tourne(modele, direction);
+                    helper.assertTrue(!Shapes.joinIsNotEmpty(forme, attendue, BooleanOp.NOT_SAME),
+                            partie + " vers " + direction + " : la forme diffère du modèle : " + forme.bounds() + " / "
+                                    + attendue.bounds());
+                    helper.assertTrue(!etat.isSolidRender(helper.getLevel(), abs) && !etat.canOcclude(),
+                            "le bloc n'occulte pas ses voisins (noOcclusion)");
+                }
             }
+            // Panneau mince sur pieds : un pied sous chaque colonne de côté, rien sous le milieu.
+            VoxelShape basGauche = bloc().partState(Direction.NORTH, TownBoardPart.BOTTOM_LEFT)
+                    .getShape(helper.getLevel(), abs, CollisionContext.empty());
+            VoxelShape basMilieu = bloc().partState(Direction.NORTH, TownBoardPart.MASTER)
+                    .getShape(helper.getLevel(), abs, CollisionContext.empty());
+            VoxelShape sol = Shapes.box(0, 0, 0, 1, 0.25, 1);
+            helper.assertTrue(Shapes.joinIsNotEmpty(basGauche, sol, BooleanOp.AND)
+                    && !Shapes.joinIsNotEmpty(basMilieu, sol, BooleanOp.AND), "un pied sous la colonne de gauche, rien sous le milieu");
+            helper.assertTrue(basMilieu.bounds().maxZ - basMilieu.bounds().minZ <= 2.0D / 16.0D + 1.0E-6,
+                    "panneau mince : " + basMilieu.bounds());
             // Un bloc plein voisin garde sa face contre le tableau (leçon du 2026-11-10 : la capture collée à un mur).
-            helper.setBlock(A, EconomyRegistry.TOWN_BOARD.get());
-            helper.setBlock(A.east(), Blocks.STONE);
-            BlockState voisin = helper.getBlockState(A.east());
-            helper.assertTrue(Block.shouldRenderFace(voisin, helper.getLevel(), helper.absolutePos(A.east()), Direction.WEST,
-                    helper.absolutePos(A)), "la face de la pierre contre le tableau reste affichée");
-            // Il se tient sur pieds : la forme laisse passer sous le panneau, entre les pieds.
-            BlockState nord = EconomyRegistry.TOWN_BOARD.get().defaultBlockState().setValue(TownBoardBlock.FACING,
-                    Direction.NORTH);
-            VoxelShape forme = nord.getShape(helper.getLevel(), abs, CollisionContext.empty());
-            helper.assertTrue(Shapes.joinIsNotEmpty(forme, Shapes.box(0.45, 0.0, 0.3, 0.55, 0.2, 0.7), BooleanOp.AND) == false,
-                    "vide entre les pieds, sous le panneau");
+            poserEntier(helper, C, Direction.NORTH);
+            BlockPos cote = TownBoardPart.BOTTOM_LEFT.from(C, Direction.NORTH).east();
+            helper.setBlock(cote, Blocks.STONE);
+            helper.assertTrue(Block.shouldRenderFace(helper.getBlockState(cote), helper.getLevel(), helper.absolutePos(cote),
+                    Direction.WEST, helper.absolutePos(cote.west())), "la face de la pierre contre le tableau reste affichée");
+            BlockPos derriere = C.south();
+            helper.setBlock(derriere, Blocks.STONE);
+            helper.assertTrue(Block.shouldRenderFace(helper.getBlockState(derriere), helper.getLevel(),
+                    helper.absolutePos(derriere), Direction.NORTH, helper.absolutePos(C)), "et celle du mur derrière");
             helper.succeed();
         }
     }
@@ -552,9 +624,9 @@ public final class TableauMairieGameTests {
     public static void explosionEtPistonSansEffet(GameTestHelper helper) {
         Essai essai = new Essai(helper);
         BlockPos tableau = new BlockPos(3, 0, 3);
-        BlockPos temoin = new BlockPos(2, 0, 3);
-        BlockPos centre = new BlockPos(2, 0, 4);
-        helper.setBlock(tableau, EconomyRegistry.TOWN_BOARD.get());
+        BlockPos temoin = new BlockPos(3, 0, 5);
+        BlockPos centre = new BlockPos(3, 0, 4);
+        poserEntier(helper, tableau, Direction.NORTH);
         helper.setBlock(temoin, Blocks.DIRT);
         BlockState etat = helper.getBlockState(tableau);
         helper.assertTrue(etat.is(BlockTags.WITHER_IMMUNE) && etat.is(BlockTags.DRAGON_IMMUNE), "tags Wither et dragon");
@@ -562,26 +634,28 @@ public final class TableauMairieGameTests {
         Vec3 pos = helper.absoluteVec(Vec3.atCenterOf(centre));
         helper.getLevel().explode(null, pos.x, pos.y, pos.z, 3.0F, Level.ExplosionInteraction.BLOCK);
         helper.assertTrue(helper.getBlockState(temoin).isAir(), "le témoin devait sauter : l'explosion a eu lieu");
-        helper.assertTrue(helper.getBlockState(tableau).is(EconomyRegistry.TOWN_BOARD.get()), "le tableau résiste");
+        entier(helper, tableau, Direction.NORTH);
+        helper.assertTrue(tableauxAuSol(helper) == 0, "l'explosion ne fait tomber aucun tableau");
         boite(helper);
-        BlockPos piston = new BlockPos(1, 0, 2);
-        BlockPos bloc = new BlockPos(2, 0, 2);
-        BlockPos pistonTemoin = new BlockPos(1, 0, 4);
-        helper.setBlock(bloc, EconomyRegistry.TOWN_BOARD.get());
-        helper.setBlock(new BlockPos(2, 0, 4), Blocks.DIRT);
-        helper.setBlock(piston, Blocks.PISTON.defaultBlockState().setValue(PistonBaseBlock.FACING, Direction.EAST));
-        helper.setBlock(pistonTemoin, Blocks.PISTON.defaultBlockState().setValue(PistonBaseBlock.FACING, Direction.EAST));
-        helper.setBlock(new BlockPos(1, 1, 2), Blocks.REDSTONE_BLOCK);
-        helper.setBlock(new BlockPos(1, 1, 4), Blocks.REDSTONE_BLOCK);
+        // Un piston pousse vers l'ouest la partie du bas à gauche (à l'est de la maîtresse) : bloqué, rien ne bouge.
+        BlockPos maitresse = new BlockPos(3, 0, 2);
+        poserEntier(helper, maitresse, Direction.NORTH);
+        BlockPos piston = new BlockPos(5, 0, 2);
+        BlockPos pistonTemoin = new BlockPos(5, 0, 5);
+        helper.setBlock(new BlockPos(4, 0, 5), Blocks.DIRT);
+        helper.setBlock(piston, Blocks.PISTON.defaultBlockState().setValue(PistonBaseBlock.FACING, Direction.WEST));
+        helper.setBlock(pistonTemoin, Blocks.PISTON.defaultBlockState().setValue(PistonBaseBlock.FACING, Direction.WEST));
+        helper.setBlock(new BlockPos(6, 0, 2), Blocks.REDSTONE_BLOCK);
+        helper.setBlock(new BlockPos(6, 0, 5), Blocks.REDSTONE_BLOCK);
         helper.startSequence()
-                .thenWaitUntil(() -> helper.assertTrue(helper.getBlockState(new BlockPos(3, 0, 4)).is(Blocks.DIRT),
+                .thenWaitUntil(() -> helper.assertTrue(helper.getBlockState(new BlockPos(3, 0, 5)).is(Blocks.DIRT),
                         "le piston témoin devait pousser la terre"))
                 .thenExecute(() -> {
                     try {
-                        helper.assertTrue(helper.getBlockState(bloc).is(EconomyRegistry.TOWN_BOARD.get()),
-                                "le tableau ne devait pas bouger");
+                        entier(helper, maitresse, Direction.NORTH);
                         helper.assertTrue(!helper.getBlockState(piston).getValue(PistonBaseBlock.EXTENDED),
                                 "le piston bloqué ne devait pas s'étendre");
+                        helper.assertTrue(tableauxAuSol(helper) == 0, "aucun tableau au sol");
                     } finally {
                         essai.close();
                     }
@@ -625,6 +699,10 @@ public final class TableauMairieGameTests {
                     helper.assertTrue(joueur.joueur().containerMenu == joueur.joueur().inventoryMenu,
                             "aucun écran ne s'ouvre");
                 }
+                // Une autre partie que la maîtresse répond de même.
+                chef.textesRecus();
+                clicDroit(helper, chef, TownBoardPart.TOP_RIGHT.from(A, Direction.NORTH));
+                helper.assertTrue(chef.textesRecus().size() == 1, "la partie du haut donne aussi les comptes");
                 // Une pièce en main n'y change rien : le bloc est un usage permis.
                 citoyen.joueur().setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Coin.GOLD.item(), 1));
                 citoyen.textesRecus();
@@ -739,6 +817,147 @@ public final class TableauMairieGameTests {
                     helper.assertTrue(en_plus.isEmpty(), "rien n'a changé, rien ne doit repartir : " + en_plus);
                     essai.close();
                     paquetOuvert = null;
+                })
+                .thenSucceed();
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Lot C : le tableau de 3 x 2 (place, casse d'une partie, créatif, /setblock, tableau incomplet)
+    // ---------------------------------------------------------------------------------------------
+
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void laPoseDemandeSixPlacesLibres(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest maire = essai.maire("tm_place_maire");
+            for (TownBoardPart partie : TownBoardPart.values()) {
+                if (partie.isMaster()) {
+                    continue;
+                }
+                BlockPos gene = partie.from(A, Direction.NORTH);
+                helper.setBlock(gene, Blocks.STONE);
+                maire.messagesRecus();
+                ItemStack pile = new ItemStack(EconomyRegistry.TOWN_BOARD_ITEM.get());
+                InteractionResult r = poser(helper, maire, pile, A);
+                helper.assertTrue(!r.consumesAction() && helper.getBlockState(A).isAir(),
+                        "pierre en " + partie + " : pose refusée (" + r + ")");
+                helper.assertTrue(helper.getBlockState(gene).is(Blocks.STONE), "la pierre reste");
+                plusRien(helper, A, Direction.NORTH, "pose refusée");
+                helper.assertTrue(pile.getCount() == 1 && maire.joueur().getMainHandItem() == pile, "l'objet reste en main");
+                helper.assertTrue(maire.messagesRecus().contains(MSG + "no_room"), "le manque de place est dit");
+                helper.setBlock(gene, Blocks.AIR);
+            }
+            // Un emplacement remplaçable (une couche de neige) ne gêne pas : elle est remplacée.
+            helper.setBlock(TownBoardPart.BOTTOM_LEFT.from(A, Direction.NORTH), Blocks.SNOW);
+            poserEtVerifier(helper, maire, A);
+            helper.assertTrue(maire.joueur().getMainHandItem().isEmpty(), "l'objet est posé");
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void casserUnePartieCasseToutEtRendUnSeulObjet(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest maire = essai.maire("tm_partie_maire");
+            for (TownBoardPart partie : TownBoardPart.values()) {
+                poserEtVerifier(helper, maire, A);
+                BlockPos pos = helper.absolutePos(partie.from(A, Direction.NORTH));
+                helper.assertTrue(maire.joueur().gameMode.destroyBlock(pos), "le maire casse " + partie);
+                plusRien(helper, A, Direction.NORTH, "casse de " + partie);
+                helper.assertTrue(tableauxAuSol(helper) == 1L, partie + " cassée : un seul tableau rendu, vu "
+                        + tableauxAuSol(helper));
+                ramasserLesObjets(helper);
+            }
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void enCreatifUnePartieCasseeNeRendRien(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest chef = essai.equipe("tm_partie_chef");
+            for (TownBoardPart partie : TownBoardPart.values()) {
+                chef.joueur().gameMode.changeGameModeForPlayer(GameType.SURVIVAL);
+                poserEtVerifier(helper, chef, A);
+                chef.joueur().gameMode.changeGameModeForPlayer(GameType.CREATIVE);
+                BlockPos pos = helper.absolutePos(partie.from(A, Direction.NORTH));
+                chef.joueur().setShiftKeyDown(false);
+                helper.assertTrue(!chef.joueur().gameMode.destroyBlock(pos), "non accroupi : refusé (" + partie + ")");
+                entier(helper, A, Direction.NORTH);
+                chef.joueur().setShiftKeyDown(true);
+                helper.assertTrue(chef.joueur().gameMode.destroyBlock(pos), "accroupi : cassé (" + partie + ")");
+                plusRien(helper, A, Direction.NORTH, "créatif, " + partie);
+                helper.assertTrue(tableauxAuSol(helper) == 0L, "en créatif, rien ne tombe (" + partie + ") : "
+                        + tableauxAuSol(helper));
+            }
+            helper.succeed();
+        }
+    }
+
+    private static void setblock(GameTestHelper helper, BlockPos pos, String bloc) {
+        BlockPos abs = helper.absolutePos(pos);
+        try {
+            MinecraftServer serveur = helper.getLevel().getServer();
+            serveur.getCommands().getDispatcher().execute("setblock " + abs.getX() + " " + abs.getY() + " " + abs.getZ()
+                    + " " + bloc, serveur.createCommandSourceStack().withLevel(helper.getLevel()).withSuppressedOutput());
+        } catch (CommandSyntaxException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void setblockNeDupliquePas(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            // Une partie remplacée par de l'air : tout part, un seul objet (celui de la maîtresse).
+            poserEntier(helper, A, Direction.NORTH);
+            setblock(helper, TownBoardPart.TOP_RIGHT.from(A, Direction.NORTH), "minecraft:air");
+            plusRien(helper, A, Direction.NORTH, "/setblock air");
+            helper.assertTrue(tableauxAuSol(helper) == 1L, "/setblock air sur une partie : un seul objet, vu " + tableauxAuSol(helper));
+            ramasserLesObjets(helper);
+            // La maîtresse remplacée par de la pierre : tout part, rien ne tombe.
+            poserEntier(helper, A, Direction.NORTH);
+            setblock(helper, A, "minecraft:stone");
+            plusRien(helper, A, Direction.NORTH, "/setblock pierre");
+            helper.assertTrue(tableauxAuSol(helper) == 0L, "maîtresse remplacée : rien ne tombe");
+            helper.setBlock(A, Blocks.AIR);
+            // « destroy » sur une partie : comme une casse, un seul objet.
+            poserEntier(helper, A, Direction.NORTH);
+            setblock(helper, TownBoardPart.BOTTOM_LEFT.from(A, Direction.NORTH), "minecraft:air destroy");
+            plusRien(helper, A, Direction.NORTH, "/setblock destroy");
+            helper.assertTrue(tableauxAuSol(helper) == 1L, "/setblock destroy : un seul objet, vu " + tableauxAuSol(helper));
+            helper.succeed();
+        }
+    }
+
+    /**
+     * Une maîtresse seule (ancien tableau d'un bloc relu, ou {@code /setblock}) : complétée si la place est libre,
+     * sinon retirée en rendant un seul objet ; une autre partie seule se retire sans rien rendre.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_C, timeoutTicks = 100)
+    public static void unTableauIncompletSeCompleteOuSeRetire(GameTestHelper helper) {
+        Essai essai = new Essai(helper);
+        BlockPos libre = A;
+        BlockPos gene = B;
+        BlockPos orpheline = new BlockPos(3, 2, 3);
+        helper.setBlock(libre, bloc().partState(Direction.NORTH, TownBoardPart.MASTER));
+        helper.setBlock(gene, bloc().partState(Direction.NORTH, TownBoardPart.MASTER));
+        helper.setBlock(TownBoardPart.TOP_LEFT.from(gene, Direction.NORTH), Blocks.STONE);
+        helper.setBlock(orpheline, bloc().partState(Direction.NORTH, TownBoardPart.TOP_RIGHT));
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(helper.getBlockState(gene).isAir()
+                        && helper.getBlockState(orpheline).isAir()
+                        && helper.getBlockState(TownBoardPart.TOP_RIGHT.from(libre, Direction.NORTH))
+                                .is(EconomyRegistry.TOWN_BOARD.get()), "en attente de la vérification"))
+                .thenExecute(() -> {
+                    try {
+                        entier(helper, libre, Direction.NORTH);
+                        plusRien(helper, gene, Direction.NORTH, "sans place");
+                        helper.assertTrue(helper.getBlockState(TownBoardPart.TOP_LEFT.from(gene, Direction.NORTH))
+                                .is(Blocks.STONE), "la pierre reste");
+                        helper.assertTrue(tableauxAuSol(helper) == 1L, "un seul objet rendu (la maîtresse sans place) : "
+                                + tableauxAuSol(helper));
+                    } finally {
+                        essai.close();
+                    }
                 })
                 .thenSucceed();
     }

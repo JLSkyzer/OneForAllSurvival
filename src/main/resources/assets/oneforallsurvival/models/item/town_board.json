@@ -1,3 +1,6 @@
 {
-  "parent": "oneforallsurvival:block/town_board"
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "oneforallsurvival:item/town_board"
+  }
 }

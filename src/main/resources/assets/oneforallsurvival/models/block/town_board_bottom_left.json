@@ -1,0 +1,182 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "oneforallsurvival:block/town_board_wood",
+    "wood": "oneforallsurvival:block/town_board_wood",
+    "front": "oneforallsurvival:block/town_board_front_bottom_left"
+  },
+  "elements": [
+    {
+      "name": "panneau",
+      "from": [
+        0,
+        4,
+        6
+      ],
+      "to": [
+        16,
+        16,
+        8
+      ],
+      "faces": {
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            12
+          ],
+          "texture": "#wood"
+        },
+        "east": {
+          "uv": [
+            8,
+            0,
+            10,
+            12
+          ],
+          "texture": "#wood"
+        },
+        "down": {
+          "uv": [
+            0,
+            8,
+            16,
+            10
+          ],
+          "texture": "#wood"
+        },
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            12
+          ],
+          "texture": "#front"
+        }
+      }
+    },
+    {
+      "name": "pied",
+      "from": [
+        9,
+        1,
+        6
+      ],
+      "to": [
+        11,
+        4,
+        8
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            5,
+            12,
+            7,
+            15
+          ],
+          "texture": "#wood"
+        },
+        "south": {
+          "uv": [
+            9,
+            12,
+            11,
+            15
+          ],
+          "texture": "#wood"
+        },
+        "east": {
+          "uv": [
+            8,
+            12,
+            10,
+            15
+          ],
+          "texture": "#wood"
+        },
+        "west": {
+          "uv": [
+            6,
+            12,
+            8,
+            15
+          ],
+          "texture": "#wood"
+        }
+      }
+    },
+    {
+      "name": "patin",
+      "from": [
+        8,
+        0,
+        5
+      ],
+      "to": [
+        12,
+        1,
+        9
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            4,
+            15,
+            8,
+            16
+          ],
+          "texture": "#wood"
+        },
+        "south": {
+          "uv": [
+            8,
+            15,
+            12,
+            16
+          ],
+          "texture": "#wood"
+        },
+        "east": {
+          "uv": [
+            7,
+            15,
+            11,
+            16
+          ],
+          "texture": "#wood"
+        },
+        "west": {
+          "uv": [
+            5,
+            15,
+            9,
+            16
+          ],
+          "texture": "#wood"
+        },
+        "up": {
+          "uv": [
+            8,
+            5,
+            12,
+            9
+          ],
+          "texture": "#wood"
+        },
+        "down": {
+          "uv": [
+            8,
+            7,
+            12,
+            11
+          ],
+          "texture": "#wood",
+          "cullface": "down"
+        }
+      }
+    }
+  ]
+}

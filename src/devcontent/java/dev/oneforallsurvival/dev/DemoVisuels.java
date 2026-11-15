@@ -1990,32 +1990,35 @@ public final class DemoVisuels {
         vueTresor(mc, "tresor_contre_un_mur_jour.png", 8, new Vec3(1.4, 1.1, 2.1), false, 1500);
         vueTresor(mc, "tresor_contre_un_mur_face.png", 8, new Vec3(0.0, 0.5, 1.6), false, 1500);
 
-        // Le tableau collé à un mur, de près et à quatre blocs, avec les comptes les plus longs, moyens, sans dette.
+        // Le tableau (3 x 2) collé à un mur, de près et à quatre blocs du parchemin, avec les comptes les plus longs,
+        // moyens, sans dette, vides. Le centre du panneau est 0,56 bloc au-dessus du centre de la maîtresse, la face
+        // 0,125 bloc devant lui : « à 4 blocs » met l'œil à 4 blocs de la face.
         comptes(mc, "les plus longs", new dev.oneforallsurvival.economy.town.TownFinances.Snapshot(99_999_999L, 99_999_999L, 99));
-        vueTresor(mc, "tableau_pire_pres.png", 16, new Vec3(0.0, 0.13, 1.25), false, 1800);
-        vueTresor(mc, "tableau_pire_4_blocs.png", 16, new Vec3(0.0, 0.3, 4.0), false, 1500);
-        vueTresor(mc, "tableau_pire_trois_quarts.png", 16, new Vec3(1.6, 0.5, 2.2), false, 1500);
-        vueTresor(mc, "tableau_pire_nuit_4_blocs.png", 16, new Vec3(0.0, 0.3, 4.0), true, 1500);
-        vueTresor(mc, "tableau_pire_6_blocs.png", 16, new Vec3(0.0, 0.4, 6.0), false, 1500);
+        vueTresor(mc, "tableau_pire_pres.png", 16, new Vec3(0.0, 0.56, 2.2), false, 1800);
+        vueTresor(mc, "tableau_pire_4_blocs.png", 16, new Vec3(0.0, 0.56, 4.125), false, 1500);
+        vueTresor(mc, "tableau_pire_trois_quarts.png", 16, new Vec3(2.4, 1.0, 3.0), false, 1500);
+        vueTresor(mc, "tableau_pire_nuit_4_blocs.png", 16, new Vec3(0.0, 0.56, 4.125), true, 1500);
+        vueTresor(mc, "tableau_pire_6_blocs.png", 16, new Vec3(0.0, 0.8, 6.125), false, 1500);
         comptes(mc, "moyens", new dev.oneforallsurvival.economy.town.TownFinances.Snapshot(13_957L, 600L, 2));
-        vueTresor(mc, "tableau_moyen_pres.png", 16, new Vec3(0.0, 0.13, 1.25), false, 1200);
-        vueTresor(mc, "tableau_moyen_4_blocs.png", 16, new Vec3(0.0, 0.3, 4.0), false, 1500);
+        vueTresor(mc, "tableau_moyen_pres.png", 16, new Vec3(0.0, 0.56, 2.2), false, 1200);
+        vueTresor(mc, "tableau_moyen_4_blocs.png", 16, new Vec3(0.0, 0.56, 4.125), false, 1500);
         comptes(mc, "sans dette", new dev.oneforallsurvival.economy.town.TownFinances.Snapshot(99_999_999L, 0L, 0));
-        vueTresor(mc, "tableau_sans_dette_pres.png", 16, new Vec3(0.0, 0.13, 1.25), false, 1200);
-        vueTresor(mc, "tableau_sans_dette_4_blocs.png", 16, new Vec3(0.0, 0.3, 4.0), false, 1500);
+        vueTresor(mc, "tableau_sans_dette_pres.png", 16, new Vec3(0.0, 0.56, 2.2), false, 1200);
+        vueTresor(mc, "tableau_sans_dette_4_blocs.png", 16, new Vec3(0.0, 0.56, 4.125), false, 1500);
         comptes(mc, "vide", new dev.oneforallsurvival.economy.town.TownFinances.Snapshot(0L, 0L, 0));
-        vueTresor(mc, "tableau_vide_pres.png", 16, new Vec3(0.0, 0.13, 1.25), false, 1200);
+        vueTresor(mc, "tableau_vide_pres.png", 16, new Vec3(0.0, 0.56, 2.2), false, 1200);
+        vueTresor(mc, "tableau_vide_4_blocs.png", 16, new Vec3(0.0, 0.56, 4.125), false, 1500);
         comptes(mc, "rien recu", null);
-        vueTresor(mc, "tableau_rien_recu_pres.png", 16, new Vec3(0.0, 0.13, 1.25), false, 1200);
+        vueTresor(mc, "tableau_rien_recu_pres.png", 16, new Vec3(0.0, 0.56, 2.2), false, 1200);
         comptes(mc, "les plus longs, encore", new dev.oneforallsurvival.economy.town.TownFinances.Snapshot(99_999_999L, 99_999_999L, 99));
-        // Les quatre orientations côte à côte (sud, est, nord, ouest), puis un tableau seul, devant et derrière.
-        vueTresor(mc, "tableau_quatre_orientations.png", 26, new Vec3(0.0, 2.6, 6.4), false, 1800);
-        // Chacun des trois autres vu de face : le texte se lit à l'endroit sur les quatre orientations.
-        vueTresor(mc, "tableau_face_est.png", 28, new Vec3(1.3, 0.13, 0.0), false, 1500);
-        vueTresor(mc, "tableau_face_nord.png", 32, new Vec3(0.0, 0.13, -1.3), false, 1500);
-        vueTresor(mc, "tableau_face_ouest.png", 36, new Vec3(-1.3, 0.13, 0.0), false, 1500);
-        vueTresor(mc, "tableau_seul_trois_quarts.png", 40, new Vec3(1.5, 0.9, 2.2), false, 1500);
-        vueTresor(mc, "tableau_seul_arriere.png", 40, new Vec3(-1.2, 0.8, -2.2), false, 1500);
+        // Les quatre orientations (sud, est, nord, ouest) vues d'en haut, puis chacune de face, puis un tableau seul.
+        vueTresor(mc, "tableau_quatre_orientations.png", 33, new Vec3(0.0, 6.0, 8.0), false, 1800);
+        vueTresor(mc, "tableau_face_sud.png", 24, new Vec3(0.0, 0.56, 2.2), false, 1500);
+        vueTresor(mc, "tableau_face_est.png", 30, new Vec3(2.2, 0.56, 0.0), false, 1500);
+        vueTresor(mc, "tableau_face_nord.png", 36, new Vec3(0.0, 0.56, -2.2), false, 1500);
+        vueTresor(mc, "tableau_face_ouest.png", 42, new Vec3(-2.2, 0.56, 0.0), false, 1500);
+        vueTresor(mc, "tableau_seul_trois_quarts.png", 50, new Vec3(2.6, 1.3, 3.2), false, 1500);
+        vueTresor(mc, "tableau_seul_arriere.png", 50, new Vec3(-1.8, 1.2, -3.2), false, 1500);
 
         // L'écran du trésor (cadre, panneau Change, inventaire), la bulle d'un retrait, la fenêtre du motif.
         etape("tresor ecran", () -> {
@@ -2086,21 +2089,21 @@ public final class DemoVisuels {
         BlockPos mur = z.offset(8, 0, 0);
         monde.setBlock(mur, tresor, 3);
         pierreAutour(monde, mur);
-        // Le tableau contre un mur, les quatre orientations, un tableau seul.
-        BlockState tableau = EconomyRegistry.TOWN_BOARD.get().defaultBlockState();
+        // Le tableau (3 x 2) contre un mur, les quatre orientations, un tableau seul.
+        dev.oneforallsurvival.economy.town.TownBoardBlock tableau =
+                (dev.oneforallsurvival.economy.town.TownBoardBlock) EconomyRegistry.TOWN_BOARD.get();
         BlockPos contre = z.offset(16, 0, 0);
-        monde.setBlock(contre, tableau.setValue(dev.oneforallsurvival.economy.town.TownBoardBlock.FACING, Direction.SOUTH), 3);
-        pierreAutour(monde, contre);
+        tableau.placeWhole(monde, contre, Direction.SOUTH);
+        murAutourDuTableau(monde, contre, Direction.SOUTH);
         Direction[] faces = {Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST};
         for (int i = 0; i < faces.length; i++) {
-            monde.setBlock(z.offset(24 + 4 * i, 0, 0),
-                    tableau.setValue(dev.oneforallsurvival.economy.town.TownBoardBlock.FACING, faces[i]), 3);
+            tableau.placeWhole(monde, z.offset(24 + 6 * i, 0, 0), faces[i]);
         }
-        monde.setBlock(z.offset(40, 0, 0),
-                tableau.setValue(dev.oneforallsurvival.economy.town.TownBoardBlock.FACING, Direction.SOUTH), 3);
+        tableau.placeWhole(monde, z.offset(50, 0, 0), Direction.SOUTH);
         // Des lanternes : la nuit, les faces se voient sans être au grand jour.
         for (BlockPos l : List.of(z.offset(-2, 0, 2), z.offset(2, 0, 2), z.offset(6, 0, 3), z.offset(10, 0, 3),
-                z.offset(14, 0, 3), z.offset(18, 0, 3), z.offset(26, 0, 3), z.offset(38, 0, 3), z.offset(42, 0, 3))) {
+                z.offset(13, 0, 3), z.offset(19, 0, 3), z.offset(27, 0, 3), z.offset(39, 0, 3), z.offset(47, 0, 3),
+                z.offset(53, 0, 3))) {
             monde.setBlock(l, Blocks.LANTERN.defaultBlockState(), 3);
         }
         // L'inventaire : les cinq pièces et une bourse, comme à la monnaie.
@@ -2113,6 +2116,21 @@ public final class DemoVisuels {
         remplirBourse(bourse);
         joueur.getInventory().setItem(5, bourse);
         tresorPose = true;
+    }
+
+    /** De la pierre derrière, sur les côtés et au-dessus du tableau de 3 x 2 (la face avant et le sol restent libres). */
+    private static void murAutourDuTableau(ServerLevel monde, BlockPos maitresse, Direction face) {
+        for (dev.oneforallsurvival.economy.town.TownBoardPart partie : dev.oneforallsurvival.economy.town.TownBoardPart.values()) {
+            BlockPos p = partie.from(maitresse, face);
+            monde.setBlock(p.relative(face.getOpposite()), Blocks.STONE.defaultBlockState(), 3);
+            if (partie.column() != 0) {
+                monde.setBlock(p.relative(dev.oneforallsurvival.economy.town.TownBoardPart.right(face), partie.column()),
+                        Blocks.STONE.defaultBlockState(), 3);
+            }
+            if (partie.row() == 1) {
+                monde.setBlock(p.above(), Blocks.STONE.defaultBlockState(), 3);
+            }
+        }
     }
 
     /** De la pierre au nord, à l'est, à l'ouest et au-dessus du bloc (la face avant et le sol restent libres). */

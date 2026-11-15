@@ -3,39 +3,45 @@ package dev.oneforallsurvival.economy.client;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.ToIntFunction;
+import javax.annotation.Nullable;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 
 /**
- * La mise en page du texte du tableau de la mairie, sans rien de graphique (testable). Le panneau n'offre que
- * {@link #WIDTH} x {@link #HEIGHT} pixels de texte (un bloc en compte 64) : un texte plus petit que
- * {@link #MIN_SCALE} ne se lit plus à quatre blocs. La mise en page cherche donc, dans l'ordre :
+ * La mise en page du texte du tableau de la mairie (3 blocs de large, 2 de haut), sans rien de graphique (testable). Le
+ * parchemin offre {@link #WIDTH} x {@link #HEIGHT} pixels de texte (un bloc en compte 64) ; sous {@link #MIN_SCALE} le
+ * texte ne se lit plus à quatre blocs. La mise en page cherche, dans l'ordre :
  * <ol>
- * <li>tout le texte, avec son titre, à la plus grande échelle (de 1 à {@link #MIN_SCALE}) qui le fait tenir ;</li>
- * <li>sans les sections facultatives (le titre) ;</li>
+ * <li>tout le texte, avec ses sections facultatives (le titre, les annonces du maire), à la plus grande échelle (de 1 à
+ * {@link #MIN_SCALE}) qui le fait tenir ;</li>
+ * <li>sans les sections facultatives ;</li>
  * <li>puis en gardant de moins en moins de coupures de chaque montant (les plus grandes d'abord, suivies de « … »), le
  * chiffre exact se lisant au chat (clic droit).</li>
  * </ol>
- * Les mots de la phrase qui précède un montant et les coupures (« 9 rubis ») sont des morceaux que la mise en page range
- * sur les lignes sans jamais en couper un ; une phrase sans montant (le titre, « Aucun salaire dû ») reste d'un bloc tant
- * qu'elle tient à l'échelle minimale (le titre s'efface plutôt que de se couper), et une ligne plus large que le panneau
- * n'est jamais acceptée.
+ * Une section est une tête (« Solde : », « Salaires dus : 99 », « Aucun salaire dû ») suivie de coupures (« 9999 rubis
+ * »). La tête ne se coupe jamais (sauf si elle est à elle seule plus large que le panneau : alors mot à mot), une coupure
+ * jamais ; la section prend le moins de lignes possible, et ses coupures se répartissent de façon équilibrée sur ces
+ * lignes (somme des carrés de la place perdue la plus petite), ce qui évite un mot seul en bout de section. Une ligne
+ * plus large que le panneau n'est jamais acceptée.
  */
 final class TownBoardLayout {
 
-    /** Largeur utile du panneau en pixels de texte (14/16 de bloc : le cadre de bois en prend 4 de chaque côté). */
-    static final float WIDTH = 56.0F;
-    /** Hauteur utile du panneau, en pixels de texte (le panneau en compte 40, le cadre 4 en haut et en bas). */
-    static final float HEIGHT = 32.0F;
-    /** Hauteur d'une ligne de texte, en pixels de texte non rétrécis, et part de cette hauteur sous la dernière ligne qui ne se voit pas. */
+    /** Largeur utile du parchemin en pixels de texte (43 px de texture sur 48 : le cadre de bois et une marge). */
+    static final float WIDTH = 172.0F;
+    /** Hauteur utile du parchemin en pixels de texte (21 px de texture sur les 26 du panneau). */
+    static final float HEIGHT = 84.0F;
+    /** Hauteur d'une ligne de texte, en pixels de texte non rétrécis. */
     static final float LINE_HEIGHT = 9.0F;
+    /** Part de la hauteur d'une ligne, sous la dernière, qui ne se voit pas. */
     private static final float LEADING = 2.0F;
+    /** L'échelle la plus grande (un pixel de texte = 1/64 de bloc). */
+    static final float MAX_SCALE = 1.0F;
     /** L'échelle la plus petite qui reste lisible à quatre blocs. */
-    static final float MIN_SCALE = 0.7F;
+    static final float MIN_SCALE = 0.75F;
     private static final float STEP = 0.05F;
 
     /**
-     * Une section : {@code head} (une phrase, rangée mot à mot), puis {@code amount} (des coupures, jamais coupées, entre
+     * Une section : {@code head} (une phrase d'un bloc), puis {@code amount} (des coupures, jamais coupées, entre
      * parenthèses si {@code parentheses}) ; une section facultative disparaît quand la place manque.
      */
     record Section(Component head, List<Component> amount, int color, boolean optional, boolean parentheses) {}
@@ -58,81 +64,146 @@ final class TownBoardLayout {
         for (Section section : sections) {
             most = Math.max(most, section.amount().size());
         }
-        // D'abord les phrases d'un bloc (« Aucun salaire dû ») ; si l'une d'elles ne tient pas à l'échelle minimale, ses mots.
-        for (boolean splitPhrases : new boolean[] {false, true}) {
-            for (int keep = most; keep >= 1; keep--) {
-                for (boolean withOptional : new boolean[] {true, false}) {
-                    List<Section> used = withOptional ? sections : sections.stream().filter(s -> !s.optional()).toList();
-                    if (used.isEmpty()) {
-                        continue;
-                    }
-                    for (float scale = 1.0F; scale >= MIN_SCALE - 1.0E-4F; scale -= STEP) {
-                        List<Line> lines = pack(used, keep, splitPhrases, WIDTH / scale, width);
-                        if ((lines.size() * LINE_HEIGHT - LEADING) * scale <= HEIGHT + 1.0E-3F
-                                && fits(lines, scale, width)) {
-                            return new Result(scale, lines, keep < most);
-                        }
+        for (int keep = most; keep >= 1; keep--) {
+            for (boolean withOptional : new boolean[] {true, false}) {
+                List<Section> used = withOptional ? sections : sections.stream().filter(s -> !s.optional()).toList();
+                if (used.isEmpty()) {
+                    continue;
+                }
+                for (float scale = MAX_SCALE; scale >= MIN_SCALE - 1.0E-4F; scale -= STEP) {
+                    List<Line> lines = pack(used, keep, WIDTH / scale, width);
+                    if (lines != null && (lines.size() * LINE_HEIGHT - LEADING) * scale <= HEIGHT + 1.0E-3F) {
+                        return new Result(scale, lines, keep < most);
                     }
                 }
             }
         }
-        // Rien ne tient (ne devrait pas arriver) : à l'échelle la plus petite, ce qui entre dans le panneau.
-        List<Line> lines = pack(sections.stream().filter(s -> !s.optional()).toList(), 1, true, WIDTH / MIN_SCALE, width);
+        // Rien ne tient (ne devrait pas arriver avec les textes du jeu) : à l'échelle la plus petite, ce qui entre.
+        List<Line> lines = new ArrayList<>();
+        for (Section section : sections.stream().filter(s -> !s.optional()).toList()) {
+            lines.add(new Line(section.head(), section.color()));
+        }
         int fit = Math.max(1, (int) ((HEIGHT / MIN_SCALE + LEADING) / LINE_HEIGHT));
         return new Result(MIN_SCALE, lines.subList(0, Math.min(fit, lines.size())), true);
     }
 
-    /** Aucune ligne ne dépasse le panneau à cette échelle. */
-    private static boolean fits(List<Line> lines, float scale, ToIntFunction<Component> width) {
-        for (Line line : lines) {
-            if (width.applyAsInt(line.text()) * scale > WIDTH + 1.0E-3F) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    /** Range les sections sur des lignes de {@code limit} pixels au plus (un morceau seul plus large garde sa ligne). */
-    private static List<Line> pack(List<Section> sections, int keep, boolean splitPhrases, float limit,
-            ToIntFunction<Component> width) {
+    /**
+     * Range les sections sur des lignes de {@code limit} pixels au plus ; nul si un morceau seul est plus large (la tête
+     * se range alors mot à mot, mais un mot ou une coupure trop large ne tient pas à cette échelle).
+     */
+    @Nullable
+    private static List<Line> pack(List<Section> sections, int keep, float limit, ToIntFunction<Component> width) {
         List<Line> lines = new ArrayList<>();
         for (Section section : sections) {
-            // Une phrase sans montant (le titre, « Aucun salaire dû ») reste d'un bloc tant que {@code splitPhrases} est faux
-            // (et le titre toujours : il disparaît plutôt que de se couper) ; celle qui précède un montant se range mot à mot.
-            boolean block = section.amount().isEmpty() && (!splitPhrases || section.optional());
-            List<Component> tokens = new ArrayList<>(block ? List.of(section.head()) : words(section.head()));
-            List<Component> amount = section.amount();
-            List<Component> kept = new ArrayList<>(amount.size() > keep ? amount.subList(0, keep) : amount);
-            if (!kept.isEmpty()) {
-                // Le signe « … » et les parenthèses restent collés aux coupures : jamais seuls au bout d'une ligne.
-                if (amount.size() > keep) {
-                    kept.set(kept.size() - 1, Component.empty().append(kept.get(kept.size() - 1)).append(" …"));
-                }
-                if (section.parentheses()) {
-                    kept.set(0, Component.literal("(").append(kept.get(0)));
-                    kept.set(kept.size() - 1, Component.empty().append(kept.get(kept.size() - 1)).append(")"));
-                }
+            List<Component> tokens = new ArrayList<>();
+            if (width.applyAsInt(section.head()) <= limit) {
+                tokens.add(section.head());
+            } else if (section.optional()) {
+                return null; // une section facultative trop large s'efface plutôt que de se couper
+            } else {
+                tokens.addAll(words(section.head()));
             }
-            tokens.addAll(kept);
-            MutableComponent current = null;
-            for (Component token : tokens) {
-                if (current == null) {
-                    current = Component.empty().append(token);
-                    continue;
-                }
-                MutableComponent joined = Component.empty().append(current).append(" ").append(token);
-                if (width.applyAsInt(joined) > limit) {
-                    lines.add(new Line(current, section.color()));
-                    current = Component.empty().append(token);
-                } else {
-                    current = joined;
-                }
+            tokens.addAll(kept(section, keep));
+            List<Component> packed = balance(tokens, limit, width);
+            if (packed == null) {
+                return null;
             }
-            if (current != null) {
-                lines.add(new Line(current, section.color()));
+            for (Component text : packed) {
+                lines.add(new Line(text, section.color()));
             }
         }
         return lines;
+    }
+
+    /** Les coupures gardées : « … » et les parenthèses restent collés aux coupures, jamais seuls en bout de ligne. */
+    private static List<Component> kept(Section section, int keep) {
+        List<Component> amount = section.amount();
+        List<Component> kept = new ArrayList<>(amount.size() > keep ? amount.subList(0, keep) : amount);
+        if (!kept.isEmpty()) {
+            if (amount.size() > keep) {
+                kept.set(kept.size() - 1, Component.empty().append(kept.get(kept.size() - 1)).append(" …"));
+            }
+            if (section.parentheses()) {
+                kept.set(0, Component.literal("(").append(kept.get(0)));
+                kept.set(kept.size() - 1, Component.empty().append(kept.get(kept.size() - 1)).append(")"));
+            }
+        }
+        return kept;
+    }
+
+    /**
+     * Les morceaux sur le moins de lignes possible, coupés là où les lignes sont les plus égales (somme des carrés de la
+     * place perdue, la dernière ligne comprise) ; nul si un morceau seul dépasse {@code limit}.
+     */
+    @Nullable
+    static List<Component> balance(List<Component> tokens, float limit, ToIntFunction<Component> width) {
+        if (tokens.isEmpty()) {
+            return List.of();
+        }
+        for (Component token : tokens) {
+            if (width.applyAsInt(token) > limit) {
+                return null;
+            }
+        }
+        int n = tokens.size();
+        // Le moins de lignes possible : celui du rangement glouton.
+        int needed = 1;
+        Component current = tokens.get(0);
+        for (int i = 1; i < n; i++) {
+            Component joined = join(current, tokens.get(i));
+            if (width.applyAsInt(joined) > limit) {
+                needed++;
+                current = tokens.get(i);
+            } else {
+                current = joined;
+            }
+        }
+        // Parmi les coupures en {@code needed} lignes, la plus équilibrée : programmation dynamique sur (morceaux rangés,
+        // lignes faites), en O(n² x lignes). cost[k][i] : le coût le plus petit des i premiers morceaux sur k lignes.
+        double[][] cost = new double[needed + 1][n + 1];
+        int[][] from = new int[needed + 1][n + 1];
+        for (double[] row : cost) {
+            java.util.Arrays.fill(row, Double.MAX_VALUE);
+        }
+        cost[0][0] = 0.0D;
+        for (int k = 1; k <= needed; k++) {
+            for (int i = k; i <= n; i++) {
+                for (int j = i - 1; j >= k - 1; j--) {
+                    if (cost[k - 1][j] == Double.MAX_VALUE) {
+                        continue;
+                    }
+                    int w = width.applyAsInt(line(tokens, j, i));
+                    if (w > limit) {
+                        break; // plus de morceaux sur la ligne ne la rendent pas plus courte
+                    }
+                    double c = cost[k - 1][j] + (limit - w) * (double) (limit - w);
+                    if (c < cost[k][i]) {
+                        cost[k][i] = c;
+                        from[k][i] = j;
+                    }
+                }
+            }
+        }
+        List<Component> out = new ArrayList<>();
+        int end = n;
+        for (int k = needed; k >= 1; k--) {
+            int start = from[k][end];
+            out.add(0, line(tokens, start, end));
+            end = start;
+        }
+        return out;
+    }
+
+    private static Component line(List<Component> tokens, int from, int to) {
+        MutableComponent out = Component.empty().append(tokens.get(from));
+        for (int i = from + 1; i < to; i++) {
+            out = join(out, tokens.get(i));
+        }
+        return out;
+    }
+
+    private static MutableComponent join(Component a, Component b) {
+        return Component.empty().append(a).append(" ").append(b);
     }
 
     /** Les mots d'une phrase ; un signe seul (« : ») reste collé au mot qui le précède. */

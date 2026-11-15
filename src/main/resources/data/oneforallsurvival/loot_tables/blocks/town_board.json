@@ -12,6 +12,13 @@
       ],
       "conditions": [
         {
+          "condition": "minecraft:block_state_property",
+          "block": "oneforallsurvival:town_board",
+          "properties": {
+            "part": "bottom_center"
+          }
+        },
+        {
           "condition": "minecraft:survives_explosion"
         }
       ]

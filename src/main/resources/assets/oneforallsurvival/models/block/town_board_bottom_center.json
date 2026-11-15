@@ -1,0 +1,52 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "oneforallsurvival:block/town_board_wood",
+    "wood": "oneforallsurvival:block/town_board_wood",
+    "front": "oneforallsurvival:block/town_board_front_bottom_center"
+  },
+  "elements": [
+    {
+      "name": "panneau",
+      "from": [
+        0,
+        4,
+        6
+      ],
+      "to": [
+        16,
+        16,
+        8
+      ],
+      "faces": {
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            12
+          ],
+          "texture": "#wood"
+        },
+        "down": {
+          "uv": [
+            0,
+            8,
+            16,
+            10
+          ],
+          "texture": "#wood"
+        },
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            12
+          ],
+          "texture": "#front"
+        }
+      }
+    }
+  ]
+}

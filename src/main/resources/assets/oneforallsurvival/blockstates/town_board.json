@@ -1,8 +1,94 @@
 {
   "variants": {
-    "facing=north": { "model": "oneforallsurvival:block/town_board" },
-    "facing=east": { "model": "oneforallsurvival:block/town_board", "y": 90 },
-    "facing=south": { "model": "oneforallsurvival:block/town_board", "y": 180 },
-    "facing=west": { "model": "oneforallsurvival:block/town_board", "y": 270 }
+    "facing=north,part=bottom_left": {
+      "model": "oneforallsurvival:block/town_board_bottom_left"
+    },
+    "facing=north,part=bottom_center": {
+      "model": "oneforallsurvival:block/town_board_bottom_center"
+    },
+    "facing=north,part=bottom_right": {
+      "model": "oneforallsurvival:block/town_board_bottom_right"
+    },
+    "facing=north,part=top_left": {
+      "model": "oneforallsurvival:block/town_board_top_left"
+    },
+    "facing=north,part=top_center": {
+      "model": "oneforallsurvival:block/town_board_top_center"
+    },
+    "facing=north,part=top_right": {
+      "model": "oneforallsurvival:block/town_board_top_right"
+    },
+    "facing=east,part=bottom_left": {
+      "model": "oneforallsurvival:block/town_board_bottom_left",
+      "y": 90
+    },
+    "facing=east,part=bottom_center": {
+      "model": "oneforallsurvival:block/town_board_bottom_center",
+      "y": 90
+    },
+    "facing=east,part=bottom_right": {
+      "model": "oneforallsurvival:block/town_board_bottom_right",
+      "y": 90
+    },
+    "facing=east,part=top_left": {
+      "model": "oneforallsurvival:block/town_board_top_left",
+      "y": 90
+    },
+    "facing=east,part=top_center": {
+      "model": "oneforallsurvival:block/town_board_top_center",
+      "y": 90
+    },
+    "facing=east,part=top_right": {
+      "model": "oneforallsurvival:block/town_board_top_right",
+      "y": 90
+    },
+    "facing=south,part=bottom_left": {
+      "model": "oneforallsurvival:block/town_board_bottom_left",
+      "y": 180
+    },
+    "facing=south,part=bottom_center": {
+      "model": "oneforallsurvival:block/town_board_bottom_center",
+      "y": 180
+    },
+    "facing=south,part=bottom_right": {
+      "model": "oneforallsurvival:block/town_board_bottom_right",
+      "y": 180
+    },
+    "facing=south,part=top_left": {
+      "model": "oneforallsurvival:block/town_board_top_left",
+      "y": 180
+    },
+    "facing=south,part=top_center": {
+      "model": "oneforallsurvival:block/town_board_top_center",
+      "y": 180
+    },
+    "facing=south,part=top_right": {
+      "model": "oneforallsurvival:block/town_board_top_right",
+      "y": 180
+    },
+    "facing=west,part=bottom_left": {
+      "model": "oneforallsurvival:block/town_board_bottom_left",
+      "y": 270
+    },
+    "facing=west,part=bottom_center": {
+      "model": "oneforallsurvival:block/town_board_bottom_center",
+      "y": 270
+    },
+    "facing=west,part=bottom_right": {
+      "model": "oneforallsurvival:block/town_board_bottom_right",
+      "y": 270
+    },
+    "facing=west,part=top_left": {
+      "model": "oneforallsurvival:block/town_board_top_left",
+      "y": 270
+    },
+    "facing=west,part=top_center": {
+      "model": "oneforallsurvival:block/town_board_top_center",
+      "y": 270
+    },
+    "facing=west,part=top_right": {
+      "model": "oneforallsurvival:block/town_board_top_right",
+      "y": 270
+    }
   }
 }

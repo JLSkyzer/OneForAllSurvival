@@ -495,6 +495,7 @@
   "block.oneforallsurvival.town_board": "Tableau de la mairie",
   "message.oneforallsurvival.town_board.place_denied": "Seuls le maire et l'équipe posent un tableau de la mairie",
   "message.oneforallsurvival.town_board.break_denied": "Seuls le maire, l'équipe et un ingénieur déplacent le tableau de la mairie",
+  "message.oneforallsurvival.town_board.no_room": "Pas assez de place : le tableau fait 3 blocs de large et 2 de haut, face à vous",
   "message.oneforallsurvival.town_board.crouch": "En créatif, accroupissez-vous pour casser ce bloc",
   "gui.oneforallsurvival.town_board.title": "Trésor de la ville",
   "gui.oneforallsurvival.town_board.balance": "Solde : %s",
