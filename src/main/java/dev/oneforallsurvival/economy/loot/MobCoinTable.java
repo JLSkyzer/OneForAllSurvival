@@ -11,6 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
@@ -96,6 +97,23 @@ public final class MobCoinTable {
                 if (count > 0L) {
                     out.merge(roll.coin(), count, Long::sum);
                 }
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Les règles dont l'identifiant ne désigne aucun type de mob, ou dont le tag est inconnu ou vide : une faute de
+     * frappe laisserait sinon la règle sans effet, en silence. La table reste acceptée (un mod peut être absent).
+     */
+    public List<String> unknownTargets(Predicate<ResourceLocation> typeExists,
+            Predicate<ResourceLocation> tagHasEntries) {
+        List<String> out = new ArrayList<>();
+        for (int i = 0; i < rules.size(); i++) {
+            Rule rule = rules.get(i);
+            if (rule.tag() ? !tagHasEntries.test(rule.target()) : !typeExists.test(rule.target())) {
+                out.add("rules[" + i + "].match : " + (rule.tag() ? "tag inconnu ou vide #" : "identifiant inconnu ")
+                        + rule.target());
             }
         }
         return out;

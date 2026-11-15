@@ -93,6 +93,8 @@ public final class ButinGameTests {
     private static final String LOT_DEPART = "butin_depart";
     private static final String LOT_RELOAD = "butin_reload";
     private static final String LOT_DRAGON = "butin_dragon";
+    private static final String LOT_PLAFOND = "butin_plafond";
+    private static final String LOT_AVERTI = "butin_averti";
 
     /** Courant 3 cuivres, dangereux 1 argent, boss 5 or, animal 1 cuivre, pillard 40 cuivres : tout à coup sûr. */
     static MobCoinTable tableCertaine() {
@@ -180,6 +182,36 @@ public final class ButinGameTests {
     @AfterBatch(batch = LOT_DRAGON)
     public static void apresDragon(ServerLevel level) {
         MobCoinTables.setForTest(null);
+    }
+
+    @BeforeBatch(batch = LOT_PLAFOND)
+    public static void avantPlafond(ServerLevel level) {
+        MobCoinTables.setForTest(tableCertaine());
+    }
+
+    @AfterBatch(batch = LOT_PLAFOND)
+    public static void apresPlafond(ServerLevel level) {
+        EconomyClock.reset();
+        MobCoinTables.setForTest(null);
+    }
+
+    /** Un essai qui a échoué en route laisse son datapack : on le retire et on recharge, pour les lots suivants. */
+    private static void retirerDatapack(ServerLevel level, String nom) {
+        Path pack = level.getServer().getWorldPath(LevelResource.DATAPACK_DIR).resolve(nom);
+        if (Files.exists(pack)) {
+            supprimer(pack);
+            level.getServer().getCommands().performPrefixedCommand(level.getServer().createCommandSourceStack(), "reload");
+        }
+    }
+
+    @AfterBatch(batch = LOT_RELOAD)
+    public static void apresReload(ServerLevel level) {
+        retirerDatapack(level, "butin_invalide");
+    }
+
+    @AfterBatch(batch = LOT_AVERTI)
+    public static void apresAverti(ServerLevel level) {
+        retirerDatapack(level, "butin_inconnu");
     }
 
     @BeforeBatch(batch = LOT_DEPART)
@@ -304,8 +336,11 @@ public final class ButinGameTests {
 
     @GameTest(template = "test/plancher", batch = LOT_A, setupTicks = 20)
     public static void unZombieSansMarqueNeDonneRien(GameTestHelper helper) {
-        essai(helper, "ButinSansMarque", 0,
-                joueur -> frapper(creer(helper, EntityType.ZOMBIE, ICI, false), joueur, 1000f));
+        essai(helper, "ButinSansMarque", 0, joueur -> {
+            Zombie zombie = creer(helper, EntityType.ZOMBIE, ICI, false);
+            frapper(zombie, joueur, 1000f);
+            helper.assertTrue(!zombie.isAlive(), "le zombie sans marque n'est pas mort");
+        });
     }
 
     @GameTest(template = "test/plancher", batch = LOT_A, setupTicks = 20)
@@ -318,6 +353,7 @@ public final class ButinGameTests {
                 zombie.getVehicle().discard();
             }
             frapper(zombie, joueur, 1000f);
+            helper.assertTrue(!zombie.isAlive(), "le zombie du générateur n'est pas mort");
         });
     }
 
@@ -333,6 +369,7 @@ public final class ButinGameTests {
             Zombie zombie = creer(helper, EntityType.ZOMBIE, ICI, true);
             FakePlayer faux = FakePlayerFactory.getMinecraft(helper.getLevel());
             zombie.hurt(zombie.damageSources().playerAttack(faux), 1000f);
+            helper.assertTrue(!zombie.isAlive(), "le faux joueur devait tuer le zombie");
         });
     }
 
@@ -353,6 +390,7 @@ public final class ButinGameTests {
         essai(helper, "ButinLave", 0, joueur -> {
             Zombie zombie = creer(helper, EntityType.ZOMBIE, ICI, true);
             zombie.hurt(zombie.damageSources().lava(), 1000f);
+            helper.assertTrue(!zombie.isAlive(), "la lave devait tuer le zombie");
         });
     }
 
@@ -795,6 +833,10 @@ public final class ButinGameTests {
         MinecraftServer server = helper.getLevel().getServer();
         Path pack = server.getWorldPath(LevelResource.DATAPACK_DIR).resolve("butin_invalide");
         Path fichier = pack.resolve("data/oneforallsurvival/economy/mob_coins.json");
+        // Un passage précédent interrompu peut avoir laissé son datapack : il démarrerait ce passage avec une table invalide.
+        if (Files.exists(pack)) {
+            supprimer(pack);
+        }
         Files.createDirectories(fichier.getParent());
         Files.writeString(pack.resolve("pack.mcmeta"),
                 "{\"pack\": {\"pack_format\": 15, \"description\": \"essai du butin\"}}", StandardCharsets.UTF_8);
@@ -839,6 +881,155 @@ public final class ButinGameTests {
                             "le datapack d'essai est resté actif");
                 })
                 .thenSucceed();
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_AVERTI, timeoutTicks = 1200)
+    public static void uneRegleSansEffetEstSignaleeAuJournal(GameTestHelper helper) throws IOException {
+        MinecraftServer server = helper.getLevel().getServer();
+        Path pack = server.getWorldPath(LevelResource.DATAPACK_DIR).resolve("butin_inconnu");
+        Path fichier = pack.resolve("data/oneforallsurvival/economy/mob_coins.json");
+        if (Files.exists(pack)) {
+            supprimer(pack);
+        }
+        Files.createDirectories(fichier.getParent());
+        Files.writeString(pack.resolve("pack.mcmeta"),
+                "{\"pack\": {\"pack_format\": 15, \"description\": \"essai du butin\"}}", StandardCharsets.UTF_8);
+        // Valide, mais deux règles qui ne visent rien : une faute de frappe d'identifiant et une de tag.
+        Files.writeString(fichier, "{\"tiers\": {\"common\": {\"rolls\": [{\"coin\": \"copper\", \"chance\": 1, "
+                + "\"min\": 1, \"max\": 1}]}}, \"rules\": [{\"match\": \"minecraft:endermen\", \"tier\": \"none\"}, "
+                + "{\"match\": \"#minecraft:raidres\", \"tier\": \"none\"}, "
+                + "{\"match\": \"minecraft:zombie\", \"tier\": \"common\"}, "
+                + "{\"match\": \"#minecraft:raiders\", \"tier\": \"common\"}]}", StandardCharsets.UTF_8);
+        org.apache.logging.log4j.core.Logger logger =
+                (org.apache.logging.log4j.core.Logger) LogManager.getLogger(MobCoinTables.class.getName());
+        Journal journal = new Journal();
+        journal.start();
+        logger.addAppender(journal);
+        MobCoinTable avant = MobCoinTables.current();
+        Runnable rendre = () -> {
+            logger.removeAppender(journal);
+            journal.stop();
+        };
+        server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), "reload");
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(journal.vu("WARN", "minecraft:endermen"),
+                        "aucun avertissement pour l'identifiant inconnu : " + journal.lignes))
+                .thenExecute(() -> {
+                    boolean tag = journal.vu("WARN", "minecraft:raidres");
+                    boolean connus = journal.lignes.stream().noneMatch(l -> l.startsWith("WARN")
+                            && (l.contains("minecraft:zombie") || l.contains("minecraft:raiders")));
+                    boolean acceptee = MobCoinTables.current() != avant && MobCoinTables.current().tier("common") != null;
+                    supprimer(pack);
+                    server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), "reload");
+                    if (!tag || !connus || !acceptee) {
+                        rendre.run();
+                    }
+                    helper.assertTrue(tag, "aucun avertissement pour le tag inconnu : " + journal.lignes);
+                    helper.assertTrue(connus, "une règle valide est signalée : " + journal.lignes);
+                    helper.assertTrue(acceptee, "la table n'a pas été acceptée malgré les règles sans effet");
+                })
+                .thenWaitUntil(() -> helper.assertTrue(MobCoinTables.current().tier("boss") != null
+                        && !server.getPackRepository().getSelectedIds().contains("file/butin_inconnu"),
+                        "la table livrée n'est pas revenue"))
+                .thenExecute(rendre)
+                .thenSucceed();
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Plafond horaire par joueur (200 cuivres sur 60 minutes glissantes, boss exemptés)
+    // ---------------------------------------------------------------------------------------------
+
+    private static void tuerPillards(GameTestHelper helper, JoueurDeTest joueur, int nombre) {
+        for (int i = 0; i < nombre; i++) {
+            Pillager pillard = creer(helper, EntityType.PILLAGER, ICI, true);
+            frapper(pillard, joueur, 10_000f);
+            helper.assertTrue(!pillard.isAlive(), "le pillard " + (i + 1) + " n'est pas mort");
+        }
+    }
+
+    private static void tuerZombie(GameTestHelper helper, JoueurDeTest joueur) {
+        Zombie zombie = creer(helper, EntityType.ZOMBIE, LA, true);
+        frapper(zombie, joueur, 10_000f);
+        helper.assertTrue(!zombie.isAlive(), "le zombie n'est pas mort");
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_PLAFOND, setupTicks = 20)
+    public static void lePlafondHoraireTronqueEtSeRouvreApresUneHeure(GameTestHelper helper) {
+        degager(helper);
+        long t0 = ZonedDateTime.of(2030, 3, 15, 12, 0, 0, 0,
+                dev.oneforallsurvival.economy.EconomyCalendar.configuredZone()).toInstant().toEpochMilli();
+        EconomyClock.setClock(() -> t0);
+        JoueurDeTest joueur = JoueurDeTest.rejoindre(helper.getLevel(), "ButinPlafond", helper.absoluteVec(LOIN));
+        Comptes comptes = ouvrir(joueur);
+        long[] vu = new long[6];
+        try {
+            // Sous le plafond : 4 pillards (160) et 3 zombies (9) paient tout.
+            tuerPillards(helper, joueur, 4);
+            for (int i = 0; i < 3; i++) {
+                tuerZombie(helper, joueur);
+            }
+            vu[0] = comptes.registre().totalCreated(MoneySource.MOB_LOOT);
+            // Un pillard de 40 pour 31 restants : tronqué à 31, pile 200.
+            tuerPillards(helper, joueur, 1);
+            vu[1] = comptes.registre().totalCreated(MoneySource.MOB_LOOT);
+            // Au plafond : rien.
+            tuerZombie(helper, joueur);
+            vu[2] = comptes.registre().totalCreated(MoneySource.MOB_LOOT);
+            // 59 minutes après : rien encore ; 60 minutes après : le premier gain est sorti de la fenêtre.
+            EconomyClock.setClock(() -> t0 + 59 * 60_000L);
+            tuerZombie(helper, joueur);
+            vu[3] = comptes.registre().totalCreated(MoneySource.MOB_LOOT);
+            EconomyClock.setClock(() -> t0 + 60 * 60_000L);
+            tuerZombie(helper, joueur);
+            vu[4] = comptes.registre().totalCreated(MoneySource.MOB_LOOT);
+            vu[5] = comptes.limites().hourlyEarned(joueur.uuid(), t0 + 60 * 60_000L);
+        } catch (RuntimeException e) {
+            EconomyClock.reset();
+            fermer(joueur);
+            ranger(helper);
+            throw e;
+        }
+        EconomyClock.reset();
+        helper.startSequence()
+                .thenIdle(3)
+                .thenExecute(() -> {
+                    long sol = valeur(helper);
+                    fermer(joueur);
+                    ranger(helper);
+                    helper.assertTrue(vu[0] == 169, "sous le plafond : " + vu[0] + ", attendu 169");
+                    helper.assertTrue(vu[1] == 200, "butin tronqué : " + vu[1] + ", attendu 200");
+                    helper.assertTrue(vu[2] == 200, "au plafond : " + vu[2] + ", attendu 200");
+                    helper.assertTrue(vu[3] == 200, "59 minutes plus tard : " + vu[3] + ", attendu 200");
+                    helper.assertTrue(vu[4] == 203, "60 minutes plus tard : " + vu[4] + ", attendu 203");
+                    helper.assertTrue(vu[5] == 3, "gains de l'heure glissante : " + vu[5] + ", attendu 3");
+                    helper.assertTrue(sol == vu[4], "pièces au sol : " + sol + ", registre " + vu[4]);
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_PLAFOND, setupTicks = 20)
+    public static void lesBossNeSontPasLimitesParLePlafondHoraire(GameTestHelper helper) {
+        degager(helper);
+        long t0 = ZonedDateTime.of(2030, 4, 15, 12, 0, 0, 0,
+                dev.oneforallsurvival.economy.EconomyCalendar.configuredZone()).toInstant().toEpochMilli();
+        EconomyClock.setClock(() -> t0);
+        JoueurDeTest joueur = JoueurDeTest.rejoindre(helper.getLevel(), "ButinPlafondBoss", helper.absoluteVec(LOIN));
+        Comptes comptes = ouvrir(joueur);
+        long avant;
+        long apres;
+        try {
+            tuerPillards(helper, joueur, 5);
+            avant = comptes.registre().totalCreated(MoneySource.MOB_LOOT);
+            frapper(creer(helper, EntityType.WITHER, LA, false), joueur, 10_000f);
+            apres = comptes.registre().totalCreated(MoneySource.MOB_LOOT);
+        } finally {
+            EconomyClock.reset();
+            fermer(joueur);
+            ranger(helper);
+        }
+        helper.assertTrue(avant == 200, "plafond atteint : " + avant + ", attendu 200");
+        helper.assertTrue(apres - avant == 500, "Wither au plafond : " + (apres - avant) + ", attendu 500");
+        helper.succeed();
     }
 
     private static void supprimer(Path dossier) {

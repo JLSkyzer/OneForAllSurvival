@@ -155,4 +155,25 @@ class MobCoinTableTest {
     void unJsonMalFormeEstRefuse() {
         assertThrows(JsonParseException.class, () -> JsonParser.parseString("{\"tiers\": {"));
     }
+
+    @Test
+    void unIdentifiantOuUnTagInconnuEstSignale() {
+        MobCoinTable table = MobCoinTable.parse(JsonParser.parseString("""
+                {"tiers": {"common": {"rolls": [{"coin": "copper", "chance": 1, "min": 1, "max": 1}]}},
+                 "rules": [
+                   {"match": "minecraft:zombie", "tier": "common"},
+                   {"match": "minecraft:endermen", "tier": "none"},
+                   {"match": "#minecraft:raiders", "tier": "common"},
+                   {"match": "#minecraft:raidres", "tier": "none"}]}
+                """).getAsJsonObject());
+        java.util.List<String> inconnus = table.unknownTargets(
+                t -> t.equals(id("minecraft:zombie")), t -> t.equals(id("minecraft:raiders")));
+        assertEquals(2, inconnus.size(), inconnus.toString());
+        assertTrue(inconnus.get(0).contains("rules[1]") && inconnus.get(0).contains("minecraft:endermen"),
+                inconnus.toString());
+        assertTrue(inconnus.get(1).contains("rules[3]") && inconnus.get(1).contains("minecraft:raidres"),
+                inconnus.toString());
+        // Tout est connu : rien à dire.
+        assertTrue(table.unknownTargets(t -> true, t -> true).isEmpty());
+    }
 }

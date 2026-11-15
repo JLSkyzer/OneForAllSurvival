@@ -47,6 +47,26 @@ public final class MobCoinTables extends SimpleJsonResourceReloadListener {
         forTest = table;
     }
 
+    /**
+     * Après chaque chargement des données (tags liés), une ligne d'avertissement par règle qui ne vise rien ; la table
+     * reste en service (un mod absent est un cas normal).
+     */
+    public static void onTagsUpdated(net.minecraftforge.event.TagsUpdatedEvent event) {
+        if (event.getUpdateCause() != net.minecraftforge.event.TagsUpdatedEvent.UpdateCause.SERVER_DATA_LOAD) {
+            return;
+        }
+        warnUnknown(loaded);
+    }
+
+    static void warnUnknown(MobCoinTable table) {
+        var types = net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE;
+        for (String line : table.unknownTargets(types::containsKey, tag -> types
+                .getTag(net.minecraft.tags.TagKey.create(net.minecraft.core.registries.Registries.ENTITY_TYPE, tag))
+                .map(set -> set.size() > 0).orElse(false))) {
+            LOGGER.warn("Butin des mobs : regle sans effet, {}", line);
+        }
+    }
+
     public static void onAddReloadListener(AddReloadListenerEvent event) {
         event.addListener(new MobCoinTables());
     }
