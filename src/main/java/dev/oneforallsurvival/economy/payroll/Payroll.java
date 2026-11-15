@@ -150,8 +150,8 @@ public final class Payroll extends SavedData {
 
     /**
      * Déclare {@code day} réglé. Le temps qui resterait sur un jour au plus égal à {@code day} (jours sautés au-delà
-     * du plafond de rattrapage) est reporté sur le jour suivant : jamais perdu, jamais laissé sur un jour qui ne
-     * sera plus clos.
+     * du plafond de rattrapage) est reporté sur le jour suivant, jamais laissé sur un jour qui ne sera plus clos ;
+     * le report reste soumis au plafond de 8 h par jour et par salaire (le surplus n'est pas payé, le journal le dit).
      */
     public void setLastClosed(LocalDate day) {
         if (!day.equals(lastClosed)) {

@@ -183,13 +183,16 @@ Relevés du 2026-11-15, 03:20 à 04:00, sur `main`. Commits `8df2bfa` (paie en p
 
 ### Limites
 
-- Le seuil de 26 h laisse passer un saut plus court (une horloge en avance d'un jour clôt ce jour une fois) ; `resetday` ramène alors la date, sans double paiement.
+- Le seuil de 26 h laisse passer un saut plus court : une horloge en avance de 26 h au plus peut clore **un ou deux jours** (selon l'heure du saut par rapport à minuit) ; `resetday` ramène alors la date, sans double paiement.
+- `resetday` lancé **pendant** que l'horloge est encore dans le futur agit comme `resume` (il ne voit pas encore l'heure juste) et ne prévient pas ; le faire une fois l'heure corrigée répare, mais le plafond de 8 h d'un même jour peut alors avoir compté deux fois. À faire après avoir remis l'heure.
+- Une horloge qui **recule** puis est remise à l'heure peut déclencher une pause à tort : `resume` ou `resetday` en sortent sans rien clore de trop ; seul le message peut dérouter.
 - Un serveur réellement figé plus de 26 h (machine en veille) met aussi la paie en pause : l'équipe fait `resume`.
 - Le temps reporté au-delà du plafond de 8 h n'est pas payé (règle du plafond), le journal le dit.
 - Le vrai saut d'horloge du système n'a pas été vécu : l'horloge est injectée dans les GameTests.
 
 ## Non prouvé
 
+- **Avis de la pause de la paie** : l'avertissement aux opérateurs (au saut et à la connexion d'un opérateur) et la ligne « Paie en pause » réellement affichée par `/eco stats` ne sont exercés par aucun test (la pause elle-même l'est).
 - **Vrai minuit jamais attendu** : toute la paie de l'essai passe par l'horloge décalée (`EconomyClock`, `dev/HorlogeDEssai`) ; le passage d'un vrai minuit sur un serveur en marche n'a pas été vécu.
 - **Changement d'heure** (heure d'été, heure d'hiver) : prouvé en JUnit seulement (`EconomyCalendarTest`), jamais en vrai.
 - **Inactivité au clavier** : non détectée, par décision (plafond de 8 h par jour et par salaire) ; un joueur laissé connecté dans son rôle est payé.
