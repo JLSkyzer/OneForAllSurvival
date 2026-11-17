@@ -123,14 +123,14 @@
       "id": "sources",
       "name": "Les 4 sources d'argent",
       "kind": "systeme",
-      "status": "prevu",
+      "status": "dispo",
       "lot": "Lot E1",
       "image": null,
-      "what": "Seules quatre sources créent de l'argent ; la somme de départ, l'injection de l'équipe et le butin des mobs sont livrés, seules les quêtes manquent encore.",
+      "what": "Seules quatre sources créent de l'argent, toutes en service : la somme de départ, l'injection de l'équipe, le butin des mobs et les récompenses de quêtes.",
       "steps": [
         "Somme de départ : livrée (500 cuivres, une fois par joueur).",
         "Injection de l'équipe : livrée (/eco give).",
-        "Butin des mobs : livré (lot E4). Récompenses de quêtes : lot E5."
+        "Butin des mobs : livré (lot E4). Récompenses de quêtes : livrées (lot E5)."
       ],
       "flow": ["Source", "Pièces", "Inventaire"],
       "staff": [
@@ -459,27 +459,36 @@
       "num": 79,
       "name": "Quêtes",
       "kind": "systeme",
-      "status": "prevu",
+      "status": "dispo",
       "lot": "Lot E5",
       "image": null,
-      "what": "Quêtes journalières et hebdomadaires tirées au sort, payées en pièces.",
+      "what": "Chaque joueur a 3 quêtes du jour et 5 de la semaine, tirées au sort parmi des modèles (casser, poser, combattre, récolter, pêcher, cuisiner, élever, conserver, métier) ; une quête finie se réclame dans l'écran et paie en pièces.",
       "who": {"utilise": "Tous"},
       "steps": [
-        "Ouvrir l'écran de quêtes avec sa touche.",
-        "Une relance par jour remplace une quête.",
-        "Réclamer la récompense dans l'écran."
+        "Touche J (réglable dans Contrôles, catégorie Lost Island) : l'écran montre « Aujourd'hui » et « Cette semaine », la progression, la récompense, le plafond de la semaine et l'heure des prochains renouvellements ; un onglet « Événements » s'il y en a.",
+        "Une quête finie affiche « Quête terminée » dans le coin de l'écran ; « Réclamer » met les pièces dans la bourse, sinon dans l'inventaire (il faut de la place).",
+        "« Relancer » remplace une quête en cours par une autre, une fois par jour.",
+        "Une quête finie mais non réclamée au renouvellement passe en attente : « Réclamer l'attente (N) » la paie plus tard (8 attentes au plus, les plus anciennes sont perdues).",
+        "Une quête non finie expire au renouvellement, sans pénalité.",
+        "Un bloc posé par un joueur ne compte pas quand on le casse ; poser puis casser aussitôt n'avance pas une quête de pose."
       ],
+      "flow": ["Geste", "Quête finie", "Réclamer", "Bourse ou inventaire"],
       "numbers": [
-        {"k": "Par jour", "v": "3 quêtes"},
-        {"k": "Par semaine", "v": "5 quêtes, lundi"},
+        {"k": "Par jour", "v": "3 quêtes, renouvelées chaque jour à 6 h"},
+        {"k": "Par semaine", "v": "5 quêtes, renouvelées le lundi à 6 h"},
         {"k": "Relance", "v": "1 par jour"},
-        {"k": "Plafond", "v": "1 000 cuivres / semaine"}
+        {"k": "Récompense", "v": "~20 cuivres une journalière, ~100 une hebdomadaire (5 fois plus de travail)"},
+        {"k": "Plafond", "v": "1 000 cuivres par joueur et par semaine ; au-delà, la quête attend le lundi"},
+        {"k": "Attente", "v": "8 récompenses au plus"}
       ],
       "staff": [
-        "Modèles en données, tirage pondéré.",
-        "Au-delà du plafond, plus rien jusqu'au lundi.",
-        "Un bloc posé par un joueur ne compte pas en casse.",
-        "Quêtes d'événement lancées par commande prévue."
+        "Les modèles sont un fichier de données : data/oneforallsurvival/economy/quests.json (catégorie, cible par identifiant ou #tag, quantité min et max, récompense, poids et poids par rôle, facteur hebdomadaire, mod requis). L'équipe le remplace par un datapack du monde puis /reload ; un modèle dont la cible n'existe pas est écarté (avertissement au journal).",
+        "/eco quest template add|remove|list : modèles de l'équipe ajoutés en jeu (mêmes contrôles que le fichier) ; /eco quest event start|stop|list : quête d'événement pour tous, sur une durée en jours, titre libre ; /eco quest show <joueur> : le carnet d'un joueur. Une cible s'écrit entre guillemets (\"minecraft:stone\", \"#minecraft:logs\", \"*\").",
+        "/eco quests (niveau 2) : total créé par les quêtes, nombre de réclamations, les 10 joueurs et les 10 modèles qui ont le plus rapporté, événements en cours, modèles en service. La ligne « Quêtes » de /eco stats donne le même total.",
+        "Garde-fous : bloc posé par un joueur marqué dans son chunk (piston, bloc qui tombe, contraptions, rouleau, rails, tuyaux et Schematicannon de Create compris) ; pose annulée si le bloc est cassé dans la minute ; faux joueurs et mode créatif exclus ; seul un mob sauvage compte au combat. Un chunk qui atteint 4 096 marques ne compte plus aucune casse.",
+        "Bûches d'un arbre qui pousse : non marquées (ressource du monde), bornées par le plafond.",
+        "Config : questDailyCount (3), questWeeklyCount (5), questWeeklyFactor (5), questResetHour (6), questRerollsPerDay (1), questWeeklyCap (1 000), questPendingMax (8), questJournalThreshold (100 : une réclamation d'au moins 100 cuivres a sa ligne au registre), questPlaceUndoSeconds (60), questPlacedMarksPerChunk (4 096).",
+        "Pas de livraison au grenier tant que le grenier n'existe pas ; les quêtes de métier du médecin et du policier viendront avec leurs lots."
       ]
     },
     {
@@ -538,14 +547,15 @@
       "who": {"utilise": "Staff"},
       "staff": [
         "Masse en circulation : total créé moins total détruit.",
-        "Depuis le lot E2 : un total par genre de transfert (échanges, ventes, taxe, rachats, factures, retraits et dépôts de l'équipe), le solde du trésor et la masse en attente ; depuis le lot E3, la ligne « Salaires dus » : total et nombre des salaires que la ville doit encore ; depuis le lot E4, la ligne « Butin des créatures » en service et /eco loot pour le détail.",
+        "Depuis le lot E2 : un total par genre de transfert (échanges, ventes, taxe, rachats, factures, retraits et dépôts de l'équipe), le solde du trésor et la masse en attente ; depuis le lot E3, la ligne « Salaires dus » : total et nombre des salaires que la ville doit encore ; depuis le lot E4, la ligne « Butin des créatures » en service et /eco loot pour le détail ; depuis le lot E5, la ligne « Quêtes » en service et /eco quests pour le détail.",
         "Inventaires, bourses et étals ne sont pas comptés un à un."
       ],
       "steps": [
         "/eco stats : créé par source, détruit par cause, masse des coffres-forts, en circulation, puis les transferts (dont dépôts, dépenses publiques et salaires), le trésor, l'attente et les salaires dus.",
         "/eco pending : ce qui attend, joueur par joueur (valeur des pièces et bourses, nombre d'objets), du plus gros au plus petit, 20 lignes au plus.",
         "/eco ledger [page] : dix lignes par page, de la plus récente à la plus ancienne.",
-        "/eco loot : le butin des mobs, total, morts payantes, total par palier et les 10 joueurs qui ont le plus gagné (lot E4)."
+        "/eco loot : le butin des mobs, total, morts payantes, total par palier et les 10 joueurs qui ont le plus gagné (lot E4).",
+        "/eco quests : les récompenses de quêtes, total, réclamations, les 10 joueurs et les 10 modèles qui ont le plus rapporté, événements en cours, modèles en service (lot E5)."
       ],
       "numbers": [
         {"k": "Registre", "v": "10 000 lignes au plus ; les totaux ne sont jamais effacés"}
