@@ -1,0 +1,38 @@
+{
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "create"
+    }
+  ],
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "PRP",
+    "MBK",
+    "CPC"
+  ],
+  "key": {
+    "P": {
+      "tag": "forge:plates/copper"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    },
+    "M": {
+      "item": "oneforallsurvival:meter"
+    },
+    "B": {
+      "item": "create:brass_casing"
+    },
+    "K": {
+      "item": "oneforallsurvival:breaker"
+    },
+    "C": {
+      "item": "oneforallsurvival:coil"
+    }
+  },
+  "result": {
+    "item": "oneforallsurvival:power_station"
+  }
+}

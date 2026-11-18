@@ -155,6 +155,21 @@ public abstract class CoinAccountScreen<M extends CoinAccountMenu> extends Abstr
         return Component.translatable(GUI + "right_withdraw", amount, unit);
     }
 
+    /**
+     * Pourquoi aucun dépôt n'est possible sur ce contenant (suffixe de {@code why.}), ou nul. La caisse d'un poste de
+     * fournisseur ne reçoit que des pièces prélevées. Le serveur refuse de toute façon ; l'écran le dit d'avance.
+     */
+    @Nullable
+    protected String depositBlocked() {
+        return null;
+    }
+
+    /** Pourquoi ni retrait ni change ne sont possibles pour ce joueur (suffixe de {@code why.}), ou nul. */
+    @Nullable
+    protected String takeBlocked() {
+        return null;
+    }
+
     /** Tous les éléments de l'écran, à leur place : la même liste sert au rendu et aux clics. */
     protected List<Element> elements() {
         List<Element> out = new ArrayList<>();
@@ -163,16 +178,19 @@ public abstract class CoinAccountScreen<M extends CoinAccountMenu> extends Abstr
         Component where = Component.translatable(GUI + (menu.usesPurses() ? "row.safe" : "row.purse"))
                 .withStyle(ChatFormatting.DARK_GRAY);
         boolean anyToDeposit = false;
+        String noDeposit = depositBlocked();
+        String noTake = takeBlocked();
         for (int row = 0; row < Coin.values().length; row++) {
             Coin coin = coinOfRow(row);
             long count = counts.getOrDefault(coin, 0L);
             long carried = menu.carried(coin);
             long room = Math.max(0L, CoinStore.MAX_PER_COIN - count);
-            String depositWhy = carried <= 0L ? "none_carried" : room <= 0L ? "store_full" : null;
+            String depositWhy = noDeposit != null ? noDeposit
+                    : carried <= 0L ? "none_carried" : room <= 0L ? "store_full" : null;
             anyToDeposit |= depositWhy == null;
             for (int i = 0; i < amounts.length; i++) {
                 int amount = amounts[i];
-                String withdrawWhy = count >= amount ? null : "not_enough";
+                String withdrawWhy = noTake != null ? noTake : count >= amount ? null : "not_enough";
                 List<Component> tip = new ArrayList<>();
                 line(tip, Component.translatable(GUI + "left_deposit", amount, unit(coin, amount)), depositWhy);
                 line(tip, withdrawLine(amount, unit(coin, amount)), withdrawWhy);
@@ -189,9 +207,9 @@ public abstract class CoinAccountScreen<M extends CoinAccountMenu> extends Abstr
                 List.of(Component.translatable(GUI + "deposit_all.tooltip." + (menu.usesPurses() ? "safe" : "purse"))),
                 anyToDeposit ? CoinRequest.depositAll() : null, null, null,
                 label(Component.translatable(GUI + "deposit_all").getString(), true)));
-        boolean group = canGroup(counts);
+        boolean group = noTake == null && canGroup(counts);
         List<Component> groupTip = new ArrayList<>();
-        line(groupTip, Component.translatable(GUI + "group.tooltip"), group ? null : "nothing");
+        line(groupTip, Component.translatable(GUI + "group.tooltip"), group ? null : noTake != null ? noTake : "nothing");
         out.add(new Element("group", leftPos + PAD + FOOT_W + 4, footY, FOOT_W, FOOT_H, groupTip,
                 group ? CoinRequest.groupAll() : null, null, null,
                 label(Component.translatable(GUI + "group").getString(), false)));
@@ -201,10 +219,10 @@ public abstract class CoinAccountScreen<M extends CoinAccountMenu> extends Abstr
             Coin lower = Coin.values()[upper.ordinal() - 1];
             int y = topPos + CHANGE_Y + row * CHANGE_ROW;
             boolean rate = CoinMath.atPar(upper, Coin::value);
-            String breakWhy = !rate ? "rate"
+            String breakWhy = noTake != null ? noTake : !rate ? "rate"
                     : CoinMath.maxBreaks(counts, upper, Coin::value, CoinStore.MAX_PER_COIN) > 0L ? null
                     : counts.getOrDefault(upper, 0L) <= 0L ? "not_enough" : "store_full";
-            String groupWhy = !rate ? "rate"
+            String groupWhy = noTake != null ? noTake : !rate ? "rate"
                     : CoinMath.maxGroups(counts, upper, Coin::value, CoinStore.MAX_PER_COIN) > 0L ? null
                     : counts.getOrDefault(lower, 0L) < 10L ? "not_enough" : "store_full";
             List<Component> breakTip = new ArrayList<>();

@@ -18,7 +18,10 @@ public final class GridClient {
 
     @SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent event) {
-        event.enqueueWork(() -> MenuScreens.register(GridRegistry.LOAD_SHEDDER_MENU.get(), LoadShedderScreen::new));
+        event.enqueueWork(() -> {
+            MenuScreens.register(GridRegistry.LOAD_SHEDDER_MENU.get(), LoadShedderScreen::new);
+            MenuScreens.register(GridRegistry.POWER_TILL_MENU.get(), PowerTillScreen::new);
+        });
     }
 
     /** Ouvre l'écran d'inscription de l'abonné du bloc en {@code pos} ; appelé à la réception du paquet du serveur. */

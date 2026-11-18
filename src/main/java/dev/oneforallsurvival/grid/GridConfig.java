@@ -12,6 +12,7 @@ public final class GridConfig {
     private static final int DEFAULT_SHEDDER_MAX_PER_TICK = 4096;
     private static final int DEFAULT_METER_MAX_PER_TICK = 4096;
     private static final int DEFAULT_BREAKER_MAX_PER_TICK = 4096;
+    private static final int DEFAULT_STATION_MAX_PER_TICK = 65_536;
     /** Borne haute des débits : la somme d'un tick tient dans un {@code int}. */
     private static final int MAX_FLOW = 1_000_000_000;
     private static final int DEFAULT_LIGHTNING_RADIUS = 16;
@@ -35,6 +36,7 @@ public final class GridConfig {
     private static final ForgeConfigSpec.IntValue SHEDDER_MAX_PER_TICK;
     private static final ForgeConfigSpec.IntValue METER_MAX_PER_TICK;
     private static final ForgeConfigSpec.IntValue BREAKER_MAX_PER_TICK;
+    private static final ForgeConfigSpec.IntValue STATION_MAX_PER_TICK;
     private static final ForgeConfigSpec.IntValue LIGHTNING_RADIUS;
     private static final ForgeConfigSpec.DoubleValue LIGHTNING_DAMAGE;
     private static final ForgeConfigSpec.DoubleValue LIGHTNING_FUSE_CHANCE;
@@ -56,6 +58,9 @@ public final class GridConfig {
         BREAKER_MAX_PER_TICK = builder
                 .comment("Énergie (FE) qu'un disjoncteur fermé laisse passer au plus par tick.")
                 .defineInRange("breakerMaxPerTick", DEFAULT_BREAKER_MAX_PER_TICK, 1, MAX_FLOW);
+        STATION_MAX_PER_TICK = builder
+                .comment("Énergie (FE) qu'un poste de fournisseur laisse passer au plus par tick, vers tout son réseau.")
+                .defineInRange("stationMaxPerTick", DEFAULT_STATION_MAX_PER_TICK, 1, MAX_FLOW);
         LIGHTNING_RADIUS = builder
                 .comment("Distance (blocs) jusqu'à laquelle un éclair abîme les machines du mod.")
                 .defineInRange("lightningRadius", DEFAULT_LIGHTNING_RADIUS, 0, MAX_RADIUS);
@@ -96,6 +101,10 @@ public final class GridConfig {
 
     public static int breakerMaxPerTick() {
         return read(BREAKER_MAX_PER_TICK, DEFAULT_BREAKER_MAX_PER_TICK);
+    }
+
+    public static int stationMaxPerTick() {
+        return read(STATION_MAX_PER_TICK, DEFAULT_STATION_MAX_PER_TICK);
     }
 
     public static int lightningRadius() {

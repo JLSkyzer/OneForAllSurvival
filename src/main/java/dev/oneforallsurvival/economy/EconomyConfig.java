@@ -65,6 +65,11 @@ public final class EconomyConfig {
     static final long DEFAULT_QUEST_JOURNAL_THRESHOLD = 100L;
     static final int DEFAULT_QUEST_PLACE_UNDO_SECONDS = 60;
     static final int DEFAULT_QUEST_PLACED_MARKS_PER_CHUNK = 4_096;
+    static final long DEFAULT_POWER_PRICE_UNIT_FE = 100_000L;
+    static final long DEFAULT_POWER_DEFAULT_PRICE_CAP = 20L;
+    static final long DEFAULT_POWER_MAX_SUBSCRIPTION = 50L;
+    static final int DEFAULT_POWER_TAX_MAX_PERCENT = 20;
+    static final int DEFAULT_POWER_GAP_WARN_PERCENT = 10;
     /** Plafond d'un taux de salaire, en cuivres par heure. */
     public static final long MAX_SALARY_PER_HOUR = 1_000_000L;
 
@@ -104,6 +109,11 @@ public final class EconomyConfig {
     private static final ForgeConfigSpec.LongValue QUEST_JOURNAL_THRESHOLD;
     private static final ForgeConfigSpec.IntValue QUEST_PLACE_UNDO_SECONDS;
     private static final ForgeConfigSpec.IntValue QUEST_PLACED_MARKS_PER_CHUNK;
+    private static final ForgeConfigSpec.LongValue POWER_PRICE_UNIT_FE;
+    private static final ForgeConfigSpec.LongValue POWER_DEFAULT_PRICE_CAP;
+    private static final ForgeConfigSpec.LongValue POWER_MAX_SUBSCRIPTION;
+    private static final ForgeConfigSpec.IntValue POWER_TAX_MAX_PERCENT;
+    private static final ForgeConfigSpec.IntValue POWER_GAP_WARN_PERCENT;
     private static final ForgeConfigSpec.ConfigValue<List<? extends String>> EXTRA_ALLOWED_MENUS;
     private static final ForgeConfigSpec.ConfigValue<List<? extends String>> EXTRA_FORBIDDEN_MENUS;
 
@@ -248,6 +258,23 @@ public final class EconomyConfig {
                 .comment("Blocs posés retenus au plus par chunk (leur casse ne compte pas). Au-delà, le chunk se sature :",
                         "plus aucune casse n'y compte, pour toujours (rien n'est oublié).")
                 .defineInRange("questPlacedMarksPerChunk", DEFAULT_QUEST_PLACED_MARKS_PER_CHUNK, 256, 65_536);
+        POWER_PRICE_UNIT_FE = builder
+                .comment("Électricité : le prix d'un fournisseur se donne en cuivres par tranche de ce nombre de FE.")
+                .defineInRange("powerPriceUnitFe", DEFAULT_POWER_PRICE_UNIT_FE, 1L, 1_000_000_000L);
+        POWER_DEFAULT_PRICE_CAP = builder
+                .comment("Plafond de départ du prix de l'électricité, en cuivres par tranche de powerPriceUnitFe ;",
+                        "le maire le change ensuite (noté avec le monde).")
+                .defineInRange("powerDefaultPriceCap", DEFAULT_POWER_DEFAULT_PRICE_CAP, 0L, 1_000_000_000L);
+        POWER_MAX_SUBSCRIPTION = builder
+                .comment("Abonnement le plus haut qu'un fournisseur peut demander, en cuivres par jour.")
+                .defineInRange("powerMaxSubscription", DEFAULT_POWER_MAX_SUBSCRIPTION, 0L, 1_000_000_000L);
+        POWER_TAX_MAX_PERCENT = builder
+                .comment("Taxe sur l'électricité la plus haute que le maire peut fixer, en pour cent.")
+                .defineInRange("powerTaxMaxPercent", DEFAULT_POWER_TAX_MAX_PERCENT, 0, 100);
+        POWER_GAP_WARN_PERCENT = builder
+                .comment("Écart entre la sortie d'un poste et la somme de ses compteurs, en pour cent, au-delà duquel",
+                        "le panneau du poste l'affiche en rouge (s'il dépasse aussi une tranche de powerPriceUnitFe).")
+                .defineInRange("powerGapWarnPercent", DEFAULT_POWER_GAP_WARN_PERCENT, 0, 100);
         EXTRA_ALLOWED_MENUS = builder
                 .comment("Types d'écran (identifiants, ex. \"mod:coffre\") où une pièce a le droit d'être rangée, en plus",
                         "de l'inventaire du joueur, de la table de fabrication et des rangements de ce mod.")
@@ -603,6 +630,51 @@ public final class EconomyConfig {
             return INVOICE_ISSUE_COOLDOWN_TICKS.get();
         } catch (IllegalStateException e) {
             return DEFAULT_INVOICE_ISSUE_COOLDOWN_TICKS;
+        }
+    }
+
+    /** Tranche de prix de l'électricité, en FE (100 000 par défaut). */
+    public static long powerPriceUnitFe() {
+        try {
+            return POWER_PRICE_UNIT_FE.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_POWER_PRICE_UNIT_FE;
+        }
+    }
+
+    /** Plafond de départ du prix de l'électricité, en cuivres par tranche (20 par défaut). */
+    public static long powerDefaultPriceCap() {
+        try {
+            return POWER_DEFAULT_PRICE_CAP.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_POWER_DEFAULT_PRICE_CAP;
+        }
+    }
+
+    /** Abonnement le plus haut, en cuivres par jour (50 par défaut). */
+    public static long powerMaxSubscription() {
+        try {
+            return POWER_MAX_SUBSCRIPTION.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_POWER_MAX_SUBSCRIPTION;
+        }
+    }
+
+    /** Taxe sur l'électricité la plus haute, en pour cent (20 par défaut). */
+    public static int powerTaxMaxPercent() {
+        try {
+            return POWER_TAX_MAX_PERCENT.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_POWER_TAX_MAX_PERCENT;
+        }
+    }
+
+    /** Seuil d'alerte de l'écart d'un poste, en pour cent (10 par défaut). */
+    public static int powerGapWarnPercent() {
+        try {
+            return POWER_GAP_WARN_PERCENT.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_POWER_GAP_WARN_PERCENT;
         }
     }
 

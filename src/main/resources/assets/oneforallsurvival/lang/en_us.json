@@ -919,5 +919,18 @@
   "quest.oneforallsurvival.target.any.preserve": "foods",
   "quest.oneforallsurvival.target.any.breed": "young animals",
   "quest.oneforallsurvival.target.any.job": "actions",
-  "quest.oneforallsurvival.target.any.deliver": "items"
+  "quest.oneforallsurvival.target.any.deliver": "items",
+  "block.oneforallsurvival.power_station": "Power station",
+  "container.oneforallsurvival.power_till": "%s till",
+  "tooltip.oneforallsurvival.power_station.supplier": "Supplier: %s",
+  "tooltip.oneforallsurvival.power_station.new": "New station, no supplier yet. Placed at the head of the grid: power comes in at the back and out at the front.",
+  "message.oneforallsurvival.power_station.not_yours": "This station belongs to supplier %s.",
+  "message.oneforallsurvival.power_station.has_station": "Supplier %s already has its station, at %s %s %s.",
+  "message.oneforallsurvival.power_station.unnamed": "This station has no supplier yet.",
+  "message.oneforallsurvival.power_station.no_supplier": "Station without a supplier.",
+  "message.oneforallsurvival.power_station.of": "Station of %s.",
+  "message.oneforallsurvival.power_station.break_denied": "Only the supplier, an engineer, the mayor or staff can take this station down.",
+  "message.oneforallsurvival.power_station.till_denied": "Only the supplier and staff take money from this till.",
+  "gui.oneforallsurvival.coins.why.till_deposit": "the till only receives collected bills",
+  "gui.oneforallsurvival.coins.why.till_not_yours": "only the supplier and staff touch it"
 }

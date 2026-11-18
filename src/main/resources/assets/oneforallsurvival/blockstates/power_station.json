@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "oneforallsurvival:block/power_station",
+      "y": 180
+    },
+    "facing=east": {
+      "model": "oneforallsurvival:block/power_station",
+      "y": 270
+    },
+    "facing=south": {
+      "model": "oneforallsurvival:block/power_station"
+    },
+    "facing=west": {
+      "model": "oneforallsurvival:block/power_station",
+      "y": 90
+    }
+  }
+}

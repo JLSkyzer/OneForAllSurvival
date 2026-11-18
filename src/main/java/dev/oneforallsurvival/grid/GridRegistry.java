@@ -1,6 +1,11 @@
 package dev.oneforallsurvival.grid;
 
 import dev.oneforallsurvival.OneForAllSurvival;
+import dev.oneforallsurvival.economy.MoneyStorageRules;
+import dev.oneforallsurvival.grid.supplier.PowerStationBlock;
+import dev.oneforallsurvival.grid.supplier.PowerStationBlockEntity;
+import dev.oneforallsurvival.grid.supplier.PowerStationItem;
+import dev.oneforallsurvival.grid.supplier.PowerTillMenu;
 import java.util.List;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.BlockItem;
@@ -10,8 +15,10 @@ import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
+import net.minecraft.world.level.material.PushReaction;
 import net.minecraftforge.common.extensions.IForgeMenuType;
 import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
@@ -79,6 +86,21 @@ public final class GridRegistry {
             BLOCK_ENTITIES.register("weather_station", () -> BlockEntityType.Builder
                     .of(WeatherStationBlockEntity::new, WEATHER_STATION.get()).build(null));
 
+    /**
+     * Le poste de fournisseur (lot E6) : protégé comme le coffre-fort (dureté -1, résistance maximale, piston bloqué ;
+     * la casse est rendue aux ayants droit par {@link PowerStationBlock#getDestroyProgress}). Cube plein.
+     */
+    public static final RegistryObject<Block> POWER_STATION = BLOCKS.register("power_station",
+            () -> new PowerStationBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL)
+                    .strength(-1.0F, 3600000.0F).sound(SoundType.METAL).pushReaction(PushReaction.BLOCK)));
+    public static final RegistryObject<Item> POWER_STATION_ITEM = ITEMS.register("power_station",
+            () -> new PowerStationItem(POWER_STATION.get(), new Item.Properties()));
+    public static final RegistryObject<BlockEntityType<PowerStationBlockEntity>> POWER_STATION_BE =
+            BLOCK_ENTITIES.register("power_station", () -> BlockEntityType.Builder
+                    .of(PowerStationBlockEntity::new, POWER_STATION.get()).build(null));
+    public static final RegistryObject<MenuType<PowerTillMenu>> POWER_TILL_MENU =
+            MENUS.register("power_till", () -> IForgeMenuType.create(PowerTillMenu::fromNetwork));
+
     private GridRegistry() {}
 
     public static void register(IEventBus modEventBus) {
@@ -86,10 +108,17 @@ public final class GridRegistry {
         ITEMS.register(modEventBus);
         BLOCK_ENTITIES.register(modEventBus);
         MENUS.register(modEventBus);
+        modEventBus.addListener(GridRegistry::onCommonSetup);
+    }
+
+    /** La caisse d'un poste est un rangement permis pour l'argent (des deux côtés, comme le coffre-fort). */
+    private static void onCommonSetup(FMLCommonSetupEvent event) {
+        event.enqueueWork(() -> MoneyStorageRules.register(POWER_TILL_MENU.get()));
     }
 
     /** Les objets que l'onglet créatif affiche, dans l'ordre. */
     public static List<RegistryObject<? extends Item>> tabItems() {
-        return List.of(LOAD_SHEDDER_ITEM, METER_ITEM, BREAKER_ITEM, SEAL, SURGE_ARRESTER_ITEM, WEATHER_STATION_ITEM);
+        return List.of(LOAD_SHEDDER_ITEM, METER_ITEM, BREAKER_ITEM, SEAL, SURGE_ARRESTER_ITEM, WEATHER_STATION_ITEM,
+                POWER_STATION_ITEM);
     }
 }

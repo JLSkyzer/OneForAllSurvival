@@ -1155,6 +1155,76 @@ public final class PackGameTests {
         helper.succeed();
     }
 
+    // ---------------------------------------------------------------------------------------------
+    // Lot E6 : le poste de fournisseur
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * Deux déployeurs de Create (faux joueurs) en mode frappe, pioche de diamant en main : l'un devant une pierre
+     * (témoin : elle tombe), l'autre devant un poste de fournisseur, qui ne se casse jamais (aucune progression pour un
+     * faux joueur, bris annulé). Le témoin cassé, on laisse encore 100 ticks au second.
+     */
+    @GameTest(template = "test/plancher", batch = "pack_poste", setupTicks = 20, timeoutTicks = 1200)
+    public static void unDeployeurNeCassePasLePoste(GameTestHelper helper) {
+        if (!ModList.get().isLoaded("create")) {
+            helper.succeed();
+            return;
+        }
+        ButinGameTests.degager(helper);
+        Block blocDeployeur = ForgeRegistries.BLOCKS.getValue(new ResourceLocation("create", "deployer"));
+        Block blocMoteur = ForgeRegistries.BLOCKS.getValue(new ResourceLocation("create", "creative_motor"));
+        helper.assertTrue(blocDeployeur != null && blocDeployeur != Blocks.AIR, "déployeur introuvable");
+        helper.assertTrue(blocMoteur != null && blocMoteur != Blocks.AIR, "moteur créatif introuvable");
+        BlockPos temoin = new BlockPos(1, 1, 2);
+        BlockPos casseur = new BlockPos(1, 1, 5);
+        BlockPos pierre = temoin.east(2);
+        BlockPos poste = casseur.east(2);
+        helper.setBlock(pierre, Blocks.STONE);
+        helper.setBlock(poste, dev.oneforallsurvival.grid.GridRegistry.POWER_STATION.get().defaultBlockState());
+        for (BlockPos deployeur : List.of(temoin, casseur)) {
+            helper.setBlock(deployeur, avec(avec(blocDeployeur.defaultBlockState(), "facing", "east"),
+                    "axis_along_first", "false"));
+            helper.setBlock(deployeur.north(), avec(blocMoteur.defaultBlockState(), "facing", "south"));
+        }
+        Runnable rendre = () -> {
+            for (BlockPos deployeur : List.of(temoin, casseur)) {
+                helper.setBlock(deployeur, Blocks.AIR);
+                helper.setBlock(deployeur.north(), Blocks.AIR);
+            }
+            helper.setBlock(poste, Blocks.AIR);
+            ButinGameTests.ranger(helper);
+        };
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(fauxJoueur(helper.getBlockEntity(temoin)) != null
+                        && fauxJoueur(helper.getBlockEntity(casseur)) != null, "faux joueurs des déployeurs pas prêts"))
+                .thenExecute(() -> {
+                    for (BlockPos deployeur : List.of(temoin, casseur)) {
+                        BlockEntity be = helper.getBlockEntity(deployeur);
+                        net.minecraft.world.entity.player.Player joueur = fauxJoueur(be);
+                        if (!(joueur instanceof net.minecraftforge.common.util.FakePlayer)) {
+                            rendre.run();
+                            helper.fail("le joueur du déployeur n'est pas un faux joueur : " + joueur);
+                        }
+                        joueur.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+                                new ItemStack(net.minecraft.world.item.Items.DIAMOND_PICKAXE));
+                        try {
+                            be.getClass().getMethod("changeMode").invoke(be);
+                        } catch (ReflectiveOperationException e) {
+                            rendre.run();
+                            throw new IllegalStateException(e);
+                        }
+                    }
+                })
+                .thenWaitUntil(() -> helper.assertBlockPresent(Blocks.AIR, pierre))
+                .thenIdle(100)
+                .thenExecute(() -> {
+                    boolean present = helper.getBlockState(poste).is(dev.oneforallsurvival.grid.GridRegistry.POWER_STATION.get());
+                    rendre.run();
+                    helper.assertTrue(present, "le déployeur ne devait pas casser le poste");
+                })
+                .thenSucceed();
+    }
+
     /** La vitesse d'un bloc cinétique de Create ({@code getSpeed}, lue par réflexion), pour les messages d'échec. */
     private static String vitesse(BlockEntity be) {
         if (be == null) {

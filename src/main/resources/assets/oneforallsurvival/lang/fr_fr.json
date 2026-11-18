@@ -919,5 +919,18 @@
   "quest.oneforallsurvival.target.any.preserve": "aliments",
   "quest.oneforallsurvival.target.any.breed": "petits",
   "quest.oneforallsurvival.target.any.job": "gestes",
-  "quest.oneforallsurvival.target.any.deliver": "objets"
+  "quest.oneforallsurvival.target.any.deliver": "objets",
+  "block.oneforallsurvival.power_station": "Poste de fournisseur",
+  "container.oneforallsurvival.power_till": "Caisse de %s",
+  "tooltip.oneforallsurvival.power_station.supplier": "Fournisseur : %s",
+  "tooltip.oneforallsurvival.power_station.new": "Poste neuf, sans fournisseur. Posé en tête du réseau : le courant entre derrière et sort devant.",
+  "message.oneforallsurvival.power_station.not_yours": "Ce poste appartient au fournisseur %s.",
+  "message.oneforallsurvival.power_station.has_station": "Le fournisseur %s a déjà son poste, en %s %s %s.",
+  "message.oneforallsurvival.power_station.unnamed": "Ce poste n'a pas encore de fournisseur.",
+  "message.oneforallsurvival.power_station.no_supplier": "Poste sans fournisseur.",
+  "message.oneforallsurvival.power_station.of": "Poste de %s.",
+  "message.oneforallsurvival.power_station.break_denied": "Seuls le fournisseur, un ingénieur, le maire ou l'équipe démontent ce poste.",
+  "message.oneforallsurvival.power_station.till_denied": "Seuls le fournisseur et l'équipe retirent de cette caisse.",
+  "gui.oneforallsurvival.coins.why.till_deposit": "la caisse ne reçoit que les factures prélevées",
+  "gui.oneforallsurvival.coins.why.till_not_yours": "seuls le fournisseur et l'équipe y touchent"
 }

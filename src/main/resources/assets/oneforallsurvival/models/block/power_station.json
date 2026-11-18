@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "particle": "oneforallsurvival:block/power_station_side",
+    "north": "oneforallsurvival:block/power_station_front",
+    "south": "oneforallsurvival:block/power_station_output",
+    "east": "oneforallsurvival:block/power_station_side",
+    "west": "oneforallsurvival:block/power_station_side",
+    "up": "oneforallsurvival:block/power_station_top",
+    "down": "oneforallsurvival:block/power_station_top"
+  }
+}

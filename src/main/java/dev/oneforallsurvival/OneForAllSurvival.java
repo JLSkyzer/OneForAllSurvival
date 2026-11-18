@@ -123,6 +123,7 @@ public final class OneForAllSurvival {
         MinecraftForge.EVENT_BUS.addListener(MarketStallBlock::onBreak);
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.town.TreasuryBlock::onBreak);
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.town.TownBoardBlock::onBreak);
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.grid.supplier.PowerStationBlock::onBreak);
         // Le tableau de la mairie : les comptes publics partent à la connexion puis quand ils changent (1 fois par seconde).
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.town.TownFinances::onLoggedIn);
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.town.TownFinances::onServerTick);

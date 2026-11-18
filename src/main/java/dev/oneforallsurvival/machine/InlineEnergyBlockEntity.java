@@ -95,9 +95,16 @@ public abstract class InlineEnergyBlockEntity extends BlockEntity {
             usedThisTick = used + accepted;
             totalTransferred += accepted;
             setChanged();
+            onPassed(accepted);
         }
         return accepted;
     }
+
+    /**
+     * Appelé côté serveur après chaque passage réel (jamais pour une simulation), avec ce que le voisin a accepté :
+     * une sous-classe le note ailleurs (le poste de fournisseur, sa sortie du jour). Rien par défaut.
+     */
+    protected void onPassed(int accepted) {}
 
     /** Face d'entrée : se contente de relayer ce que le voisin de sortie rapporte. */
     private final class InputStorage implements IEnergyStorage {
