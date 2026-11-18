@@ -80,6 +80,29 @@ public interface CoinStore {
         return times;
     }
 
+    /**
+     * Regroupe dix pièces d'une coupure en une du dessus, à valeur égale, pour les seules paires au rapport de 10
+     * selon la configuration vivante ({@link CoinMath#group}). Rien ne bouge si un résultat dépasserait le plafond.
+     * L'implémentation commune de {@link #groupAll} pour les contenants qui n'ont que {@code add} et {@code remove}
+     * (la caisse d'un étal, celle d'un poste de fournisseur).
+     *
+     * @return vrai si le contenu a changé
+     */
+    default boolean groupByTens() {
+        EnumMap<Coin, Long> before = contents();
+        EnumMap<Coin, Long> after = CoinMath.group(before, Coin::value);
+        if (after.equals(before)) {
+            return false;
+        }
+        for (long count : after.values()) {
+            if (count > MAX_PER_COIN) {
+                return false;
+            }
+        }
+        replace(before, after);
+        return true;
+    }
+
     /** Passe de {@code before} (le contenu actuel) à {@code after} : les retraits d'abord, puis les ajouts. */
     private void replace(EnumMap<Coin, Long> before, EnumMap<Coin, Long> after) {
         for (Coin coin : Coin.values()) {

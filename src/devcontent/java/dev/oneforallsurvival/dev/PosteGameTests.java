@@ -173,7 +173,10 @@ public final class PosteGameTests {
             return j;
         }
 
-        /** Retire le fournisseur de ce joueur (caisse vidée d'abord : les pièces de l'essai ne comptent pas). */
+        /**
+         * Retire le fournisseur de ce joueur, caisse vidée d'abord. Exception voulue à « ni créé ni détruit », propre aux
+         * essais : leurs pièces sont posées dans la caisse sans source et en sortent sans destinataire.
+         */
         void oublier(UUID fondateur) {
             PowerSuppliers registre = registre();
             registre.byFounder(fondateur).ifPresent(s -> {
@@ -432,6 +435,29 @@ public final class PosteGameTests {
             helper.assertTrue(!copie.isOpen() && pousser(copie, Direction.EAST, 100, false) == 0
                     && machineCopie.energy().getEnergyStored() == 0, "la copie ne laisse rien passer");
             helper.assertTrue(essai.registre().byId(s.id()).orElseThrow().outToday() == 0L, "rien n'est compté");
+
+            // Un objet neuf qui porterait l'identifiant dans ses données de bloc (pioche créative) ne le transmet pas.
+            ItemStack trafique = objetNeuf();
+            CompoundTag donneesBloc = new CompoundTag();
+            donneesBloc.putString("supplier", s.id());
+            trafique.getOrCreateTag().put("BlockEntityTag", donneesBloc);
+            BlockPos e = new BlockPos(5, 0, 4);
+            helper.assertTrue(poser(helper, poseur.joueur(), e, trafique).consumesAction(), "pose de l'objet trafiqué");
+            helper.assertTrue(poste(helper, e).supplierId() == null && poseur.uuid().equals(poste(helper, e).founder()),
+                    "un poste neuf ne garde aucun identifiant de l'objet : " + poste(helper, e).supplierId());
+
+            // Un poste sans poseur noté (/setblock, structure) : ni un citoyen ni son voisin ne le fondent ; un ingénieur oui.
+            BlockPos d = new BlockPos(5, 0, 6);
+            helper.setBlock(d, GridRegistry.POWER_STATION.get().defaultBlockState());
+            helper.assertTrue(poste(helper, d).founder() == null, "poste sans poseur");
+            JoueurDeTest ingenieur = essai.ingenieur("po_sans_ing");
+            BlockPos absD = helper.absolutePos(d);
+            helper.assertTrue(PowerStationBlock.found(poseur.joueur(), absD, "Sans Maitre").isEmpty(),
+                    "un citoyen ne fonde pas un poste sans poseur");
+            Optional<PowerSuppliers.Result> parIngenieur = PowerStationBlock.found(ingenieur.joueur(), absD, "Poste Trouvé");
+            helper.assertTrue(parIngenieur.map(PowerSuppliers.Result::founded).orElse(false)
+                    && parIngenieur.get().supplier().founder().equals(ingenieur.uuid()),
+                    "l'ingénieur le fonde, à son nom : " + parIngenieur);
             helper.succeed();
         }
     }

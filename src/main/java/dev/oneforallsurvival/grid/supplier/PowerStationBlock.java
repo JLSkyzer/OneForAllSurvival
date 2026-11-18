@@ -185,13 +185,16 @@ public final class PowerStationBlock extends InlineEnergyBlock {
             LOGGER.info("Electricite : {} a pose le poste du fournisseur {} en {} ({})", player.getGameProfile().getName(),
                     supplier.get().name(), pos.toShortString(), server.dimension().location());
         } else {
+            // Un poste neuf ne garde aucun identifiant venu de l'objet (un BlockEntityTag copié en créatif).
+            be.setSupplierId(null);
             be.setFounder(player.getUUID(), player.getGameProfile().getName());
         }
     }
 
     /**
      * Fonde le fournisseur du poste neuf en {@code pos}, au nom de celui qui l'a posé, et le note comme son poste.
-     * Réservé aux ayants droit de ce poste ; refusé si le poste a déjà un fournisseur.
+     * Réservé aux ayants droit de ce poste ; un poste sans poseur noté, à l'ingénieur, au maire et à l'équipe seulement
+     * (le fondateur est alors l'acteur). Refusé si le poste a déjà un fournisseur.
      *
      * @return l'issue ; vide si le geste n'est pas permis (pas de poste, pas le droit, déjà fondé)
      */
@@ -201,11 +204,13 @@ public final class PowerStationBlock extends InlineEnergyBlock {
                 || !(level.getBlockEntity(pos) instanceof PowerStationBlockEntity be) || be.supplier().isPresent()) {
             return Optional.empty();
         }
-        UUID founder = be.founder() == null ? actor.getUUID() : be.founder();
-        String founderName = be.founder() == null ? actor.getGameProfile().getName() : be.founderName();
-        if (!PowerRules.mayManage(actor, founder)) {
+        // Un poste sans poseur noté (/setblock, structure) n'appartient à personne : seuls l'ingénieur, le maire et
+        // l'équipe le fondent (à leur nom). Sinon, les ayants droit du poseur, au nom du poseur.
+        if (!PowerRules.mayManage(actor, be.founder())) {
             return Optional.empty();
         }
+        UUID founder = be.founder() == null ? actor.getUUID() : be.founder();
+        String founderName = be.founder() == null ? actor.getGameProfile().getName() : be.founderName();
         PowerSuppliers registry = PowerSuppliers.get(level.getServer());
         PowerSuppliers.Result result = registry.found(founder, founderName, name);
         if (result.founded()) {
