@@ -65,7 +65,9 @@ public final class EconomyCommands {
                                         .then(Commands.argument("reason", StringArgumentType.greedyString())
                                                 .executes(EconomyCommands::take)))))
                 .then(Commands.literal("stats").executes(EconomyCommands::stats))
-                .then(Commands.literal("power").executes(EconomyCommands::power))
+                .then(Commands.literal("power").executes(ctx -> power(ctx, 1))
+                        .then(Commands.argument("page", IntegerArgumentType.integer(1))
+                                .executes(ctx -> power(ctx, IntegerArgumentType.getInteger(ctx, "page")))))
                 .then(Commands.literal("pending").executes(EconomyCommands::pending))
                 .then(Commands.literal("loot").executes(EconomyCommands::loot))
                 .then(Commands.literal("quests").executes(EconomyCommands::quests))
@@ -128,9 +130,10 @@ public final class EconomyCommands {
     }
 
     /** {@code /eco power} : chaque fournisseur d'électricité, sa caisse, l'écart d'hier et ses factures dues. */
-    private static int power(CommandContext<CommandSourceStack> ctx) {
+    private static int power(CommandContext<CommandSourceStack> ctx, int page) {
         MinecraftServer server = ctx.getSource().getServer();
-        MutableComponent out = PowerCommands.boardReport(server, PowerSuppliers.get(server), InvoiceRegistry.get(server));
+        MutableComponent out = PowerCommands.boardReport(server, PowerSuppliers.get(server), InvoiceRegistry.get(server),
+                page);
         ctx.getSource().sendSuccess(() -> out, false);
         return 1;
     }

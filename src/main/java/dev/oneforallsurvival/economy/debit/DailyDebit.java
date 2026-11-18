@@ -19,9 +19,10 @@ import net.minecraftforge.event.server.ServerStartedEvent;
 import org.slf4j.Logger;
 
 /**
- * La clôture de minuit du prélèvement : chaque jour fini depuis le dernier clos, chaque genre émet ses factures du jour
- * ({@link DayIssuer}), puis toutes les factures publiques dues sont présentées, de la plus ancienne à la plus récente
- * ({@link DirectDebit#present}), puis le jour est noté clos ({@link InvoiceRegistry#setLastDebitDay}). Jours par
+ * La clôture de minuit du prélèvement : chaque jour fini depuis le dernier présenté, chaque genre émet ses factures du
+ * jour ({@link DayIssuer}) s'il est postérieur au plus grand jour déjà émis ({@link InvoiceRegistry#lastIssuedDay}),
+ * puis toutes les factures publiques dues sont présentées, de la plus ancienne à la plus récente
+ * ({@link DirectDebit#present}), puis le jour est noté présenté ({@link InvoiceRegistry#setLastDebitDay}). Jours par
  * {@link EconomyCalendar#payDay} (heure {@link EconomyConfig#payHour()}, minuit par défaut), rattrapage borné par
  * {@link EconomyConfig#payMaxMissedDays()}, comme la paie (E3).
  *
@@ -59,10 +60,11 @@ public final class DailyDebit {
     }
 
     /**
-     * {@code /eco salary resetday} (l'heure était fausse) : le dernier jour clos du prélèvement revient à la veille de
-     * {@code today} s'il est plus tard, comme celui de la paie ({@code Payroll.rewindTo}). Sinon le prélèvement
-     * sauterait tous les jours jusqu'à ce jour du futur. Un jour en retard n'est pas avancé : les jours dus se closent
-     * (rattrapage borné), comme pour la paie. Rien n'est émis ni prélevé ici.
+     * {@code /eco salary resetday} (l'heure était fausse) : le dernier jour <b>présenté</b> revient à la veille de
+     * {@code today} s'il est plus tard, comme celui de la paie ({@code Payroll.rewindTo}) ; sinon plus aucune facture
+     * due ne serait présentée jusqu'à ce jour du futur. Le plus grand jour <b>émis</b> ne bouge jamais : un jour déjà
+     * facturé (abonnement compris) ne l'est pas une seconde fois ; la consommation des jours qui suivent s'accumule
+     * ({@code feToday}) jusqu'à la prochaine émission. Un jour en retard n'est pas avancé. Rien n'est émis ni prélevé ici.
      */
     public static void rewindTo(InvoiceRegistry registry, LocalDate today) {
         LocalDate last = registry.lastDebitDay();
@@ -109,13 +111,20 @@ public final class DailyDebit {
                     EconomyConfig.payMaxMissedDays(), last.plusDays(1), due.get(0).minusDays(1));
         }
         for (LocalDate day : due) {
-            for (DayIssuer issuer : issuers()) {
-                try {
-                    issuer.issue(server, day, now);
-                } catch (RuntimeException e) {
-                    // Un émetteur en faute ne bloque ni les autres ni le prélèvement des factures déjà dues.
-                    LOGGER.error("Prelevement : emetteur en echec pour le {}", day, e);
+            LocalDate issued = registry.lastIssuedDay();
+            if (issued == null || day.isAfter(issued)) {
+                for (DayIssuer issuer : issuers()) {
+                    try {
+                        issuer.issue(server, day, now);
+                    } catch (RuntimeException e) {
+                        // Un émetteur en faute ne bloque ni les autres ni le prélèvement des factures déjà dues.
+                        LOGGER.error("Prelevement : emetteur en echec pour le {}", day, e);
+                    }
                 }
+                registry.noteIssuedDay(day);
+            } else {
+                // Jour déjà émis (horloge en avance puis /eco salary resetday) : on présente seulement les factures dues.
+                LOGGER.info("Prelevement du {} : deja emis (jusqu'au {}), presentation seule", day, issued);
             }
             int paid = 0;
             int refused = 0;

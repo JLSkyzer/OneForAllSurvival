@@ -101,9 +101,18 @@ public final class InvoiceRegistry extends SavedData {
     private final java.util.LinkedHashSet<UUID> refusedUnseen = new java.util.LinkedHashSet<>();
     /** Les prélèvements payés en l'absence du débiteur : facture, source (nom de {@code DebitPlan.Source}). */
     private final LinkedHashMap<UUID, String> debitedUnseen = new LinkedHashMap<>();
-    /** Le dernier jour clos par le prélèvement de minuit ({@code DailyDebit}) ; nul avant le premier passage. */
+    /**
+     * Le dernier jour dont les factures dues ont été présentées par le prélèvement de minuit ({@code DailyDebit}) ; nul
+     * avant le premier passage. {@code /eco salary resetday} peut le ramener en arrière.
+     */
     @javax.annotation.Nullable
     private java.time.LocalDate lastDebitDay;
+    /**
+     * Le plus grand jour pour lequel les émetteurs ont émis leurs factures ; jamais ramené en arrière (un jour émis ne
+     * l'est pas deux fois, même après une horloge en avance puis {@code resetday}). Nul : aucun jour émis noté.
+     */
+    @javax.annotation.Nullable
+    private java.time.LocalDate lastIssuedDay;
 
     /** Vrai une fois le premier oubli fait après le chargement (en mémoire seulement). */
     private boolean pruned;
@@ -306,6 +315,20 @@ public final class InvoiceRegistry extends SavedData {
         return lastDebitDay;
     }
 
+    /** Le plus grand jour déjà émis ; nul si aucun n'est noté. */
+    @javax.annotation.Nullable
+    public java.time.LocalDate lastIssuedDay() {
+        return lastIssuedDay;
+    }
+
+    /** Note un jour émis ; ne fait jamais reculer le plus grand jour émis. */
+    public void noteIssuedDay(java.time.LocalDate day) {
+        if (day != null && (lastIssuedDay == null || day.isAfter(lastIssuedDay))) {
+            lastIssuedDay = day;
+            setDirty();
+        }
+    }
+
     public void setLastDebitDay(java.time.LocalDate day) {
         if (!java.util.Objects.equals(lastDebitDay, day)) {
             lastDebitDay = day;
@@ -434,6 +457,9 @@ public final class InvoiceRegistry extends SavedData {
         if (lastDebitDay != null) {
             tag.putString("lastDebitDay", lastDebitDay.toString());
         }
+        if (lastIssuedDay != null) {
+            tag.putString("lastIssuedDay", lastIssuedDay.toString());
+        }
         return tag;
     }
 
@@ -476,6 +502,16 @@ public final class InvoiceRegistry extends SavedData {
             } catch (java.time.format.DateTimeParseException e) {
                 registry.lastDebitDay = null; // relu comme un premier passage : la veille sera notée close
             }
+        }
+        if (tag.contains("lastIssuedDay", Tag.TAG_STRING)) {
+            try {
+                registry.lastIssuedDay = java.time.LocalDate.parse(tag.getString("lastIssuedDay"));
+            } catch (java.time.format.DateTimeParseException e) {
+                registry.lastIssuedDay = registry.lastDebitDay;
+            }
+        } else {
+            // Une sauvegarde d'avant le tour 1 de la tâche 6 n'a qu'un jour : tout jour clos y avait été émis.
+            registry.lastIssuedDay = registry.lastDebitDay;
         }
         return registry;
     }

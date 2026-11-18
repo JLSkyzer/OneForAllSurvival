@@ -86,8 +86,8 @@ public final class PowerCommands {
     /** Longueur gardée d'un motif de suppression. */
     public static final int MAX_REASON = 100;
 
-    /** Clé des demandes de la console (ou d'une source sans joueur). */
-    private static final UUID CONSOLE = new UUID(0L, 0L);
+    /** Lignes par page de {@code /power suppliers} et {@code /eco power}. */
+    public static final int PAGE_SIZE = 10;
 
     /** Issue d'un geste du maire ou de l'équipe. */
     public enum Result { DONE, REQUESTED, NOT_ALLOWED, UNKNOWN_SUPPLIER, OUT_OF_RANGE, ABOVE_CAP, UNKNOWN_PLAYER,
@@ -97,6 +97,16 @@ public final class PowerCommands {
     private record PendingRemoval(String supplierId, String reason, long until) {}
 
     private static final Map<UUID, PendingRemoval> PENDING = new HashMap<>();
+
+    /** À l'arrêt du serveur : les demandes en attente ne passent pas d'un monde à l'autre (même JVM). */
+    public static void onServerStopped(net.minecraftforge.event.server.ServerStoppedEvent event) {
+        PENDING.clear();
+    }
+
+    /** Le nombre de pages pour {@code count} lignes (au moins une). */
+    public static int pages(int count) {
+        return Math.max(1, (count + PAGE_SIZE - 1) / PAGE_SIZE);
+    }
 
     private static final SuggestionProvider<CommandSourceStack> SUPPLIERS = (ctx, builder) -> {
         List<String> names = new ArrayList<>();
@@ -119,7 +129,10 @@ public final class PowerCommands {
                         .then(Commands.argument("supplier", StringArgumentType.greedyString())
                                 .executes(ctx -> resign(ctx, StringArgumentType.getString(ctx, "supplier")))))
                 .then(Commands.literal("list").executes(PowerCommands::list))
-                .then(Commands.literal("suppliers").executes(ctx -> suppliers(ctx.getSource(), server(ctx))))
+                .then(Commands.literal("suppliers").executes(ctx -> suppliers(ctx.getSource(), server(ctx), 1))
+                        .then(Commands.argument("page", IntegerArgumentType.integer(1))
+                                .executes(ctx -> suppliers(ctx.getSource(), server(ctx),
+                                        IntegerArgumentType.getInteger(ctx, "page")))))
                 .then(Commands.literal("cap").then(Commands.argument("copper", LongArgumentType.longArg())
                         .executes(ctx -> code(setCap(ctx.getSource(), server(ctx),
                                 LongArgumentType.getLong(ctx, "copper"))))))
@@ -238,9 +251,19 @@ public final class PowerCommands {
         return source.getEntity() instanceof ServerPlayer player ? player.getUUID() : null;
     }
 
+    /**
+     * La clé de confirmation d'une source : le joueur, sinon le nom de la source (console, RCON, bloc de commande nommé) ;
+     * deux sources sans joueur de noms différents ne se confirment pas l'une l'autre.
+     */
     private static UUID requester(CommandSourceStack source) {
         UUID author = author(source);
-        return author == null ? CONSOLE : author;
+        return author != null ? author : UUID.nameUUIDFromBytes(("source:" + source.getTextName())
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    /** Le motif d'une ligne de journal : préfixé du nom de la source quand aucun joueur n'en est l'auteur. */
+    private static String byWhom(CommandSourceStack source, String reason) {
+        return author(source) != null ? reason : "[" + source.getTextName() + "] " + reason;
     }
 
     private static Result fail(CommandSourceStack source, Result result, Component message) {
@@ -248,16 +271,9 @@ public final class PowerCommands {
         return result;
     }
 
-    /**
-     * Un refus, en rouge. À un joueur, le texte lui est envoyé tel quel (sa clé de langue reste en tête du message, comme
-     * pour les autres avis du mod) ; à la console, par {@link CommandSourceStack#sendFailure}.
-     */
+    /** Un refus, par {@link CommandSourceStack#sendFailure} (qui respecte une source muette). */
     private static void refuse(CommandSourceStack source, Component message) {
-        if (source.getEntity() instanceof ServerPlayer player) {
-            player.sendSystemMessage(message.copy().withStyle(ChatFormatting.RED));
-        } else {
-            source.sendFailure(message);
-        }
+        source.sendFailure(message);
     }
 
     private static Result denied(CommandSourceStack source) {
@@ -273,7 +289,7 @@ public final class PowerCommands {
     }
 
     private static void note(CommandSourceStack source, String kind, long amount, String reason) {
-        EconomyLedger.get(source.getServer()).noted(kind, author(source), amount, reason);
+        EconomyLedger.get(source.getServer()).noted(kind, author(source), amount, byWhom(source, reason));
         LOGGER.info("Electricite : {} ({}) : {}", source.getTextName(), kind, reason);
     }
 
@@ -325,19 +341,30 @@ public final class PowerCommands {
     // Fournisseurs : liste, tarif, propriétaire
     // ---------------------------------------------------------------------------------------------
 
-    /** {@code /power suppliers} : chaque fournisseur, son fondateur, ses clients, son prix et son abonnement. */
-    public static int suppliers(CommandSourceStack source, PowerSuppliers registry) {
+    /**
+     * {@code /power suppliers [page]} : chaque fournisseur, son fondateur, ses clients, son prix et son abonnement,
+     * {@value #PAGE_SIZE} par page (ordre de fondation), avec le total.
+     *
+     * @return le nombre de lignes montrées (au moins 1), 0 si refusé
+     */
+    public static int suppliers(CommandSourceStack source, PowerSuppliers registry, int page) {
         if (!mayGovern(source)) {
             denied(source);
             return 0;
         }
         long unit = EconomyConfig.powerPriceUnitFe();
         List<PowerSupplier> all = new ArrayList<>(registry.all());
-        source.sendSuccess(() -> Component.translatable(KEY + "suppliers_title", all.size()), false);
+        int pages = pages(all.size());
+        if (page < 1 || page > pages) {
+            refuse(source, Component.translatable(KEY + "no_page", page, pages));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.translatable(KEY + "suppliers_title", all.size(), page, pages), false);
         if (all.isEmpty()) {
             source.sendSuccess(() -> Component.translatable(KEY + "suppliers_none"), false);
         }
-        for (PowerSupplier supplier : all) {
+        List<PowerSupplier> shown = all.subList((page - 1) * PAGE_SIZE, Math.min(all.size(), page * PAGE_SIZE));
+        for (PowerSupplier supplier : shown) {
             boolean changed = supplier.nextPrice() != null || supplier.nextSubscription() != null;
             long nextPrice = supplier.nextPrice() != null ? supplier.nextPrice() : supplier.price();
             long nextSubscription = supplier.nextSubscription() != null ? supplier.nextSubscription()
@@ -349,7 +376,7 @@ public final class PowerCommands {
                     CoinMath.format(supplier.subscription()), next);
             source.sendSuccess(() -> line, false);
         }
-        return Math.max(1, all.size());
+        return Math.max(1, shown.size());
     }
 
     /**
@@ -506,7 +533,7 @@ public final class PowerCommands {
             return fail(source, Result.EXPIRED, Component.translatable(KEY + "remove_expired"));
         }
         Removal done = remove(source.getServer(), registry, invoices, supplier.get(), pending.reason(), author(source),
-                now);
+                author(source) == null ? source.getTextName() : null, now);
         source.sendSuccess(() -> Component.translatable(KEY + "removed", supplier.get().name(), done.clients(),
                 done.cancelled(), CoinMath.format(done.cancelledTotal()), CoinMath.format(done.till())), true);
         return Result.DONE;
@@ -532,6 +559,15 @@ public final class PowerCommands {
      */
     public static Removal remove(MinecraftServer server, PowerSuppliers registry, InvoiceRegistry invoices,
             PowerSupplier supplier, String reason, @Nullable UUID author, long now) {
+        return remove(server, registry, invoices, supplier, reason, author, null, now);
+    }
+
+    /**
+     * Comme {@link #remove(MinecraftServer, PowerSuppliers, InvoiceRegistry, PowerSupplier, String, UUID, long)} ;
+     * {@code sourceName} (console, RCON, bloc de commande) est noté au journal quand aucun joueur n'en est l'auteur.
+     */
+    public static Removal remove(MinecraftServer server, PowerSuppliers registry, InvoiceRegistry invoices,
+            PowerSupplier supplier, String reason, @Nullable UUID author, @Nullable String sourceName, long now) {
         String id = supplier.id();
         // 1. Factures dues : annulées (aucune pièce ne bouge), comptées par débiteur pour l'avis.
         Map<UUID, Integer> cancelledBy = new LinkedHashMap<>();
@@ -578,7 +614,8 @@ public final class PowerCommands {
         PowerPairing.tell(server, registry, current.founder(), Component.translatable(
                 MESSAGE + "supplier_removed_founder", supplier.name(), reason, clients.size(), CoinMath.format(value),
                 Component.translatable(MESSAGE + "dest." + destination.name().toLowerCase(Locale.ROOT))));
-        EconomyLedger.get(server).noted(EconomyLedger.KIND_POWER_REMOVE, author, value, supplier.name() + " : "
+        EconomyLedger.get(server).noted(EconomyLedger.KIND_POWER_REMOVE, author, value,
+                (author == null && sourceName != null ? "[" + sourceName + "] " : "") + supplier.name() + " : "
                 + reason + " (" + clients.size() + " client(s), " + cancelled + " facture(s) annulee(s), caisse a "
                 + current.founderName() + ")");
         LOGGER.warn("Electricite : fournisseur {} supprime ({}) : {} client(s) detache(s), {} facture(s) annulee(s), "
@@ -600,18 +637,19 @@ public final class PowerCommands {
     public record SupplierRow(PowerSupplier supplier, int clients, long gapYesterday, int dueCount, long dueTotal) {}
 
     /**
-     * Le tableau de bord de l'électricité.
+     * Le tableau de bord de l'électricité. Les totaux sont la somme exacte des lignes (de toutes les pages) ; les
+     * factures d'électricité dues d'un fournisseur qui n'est plus au registre sont comptées à part.
      *
-     * @param tillTotal la valeur de toutes les caisses des postes
-     * @param dueCount toutes les factures d'électricité dues ({@code dueTotal} : leur total)
+     * @param tillTotal la valeur des caisses de toutes les lignes
+     * @param dueCount les factures dues de toutes les lignes ({@code dueTotal} : leur total)
+     * @param orphanCount les factures d'électricité dues sans fournisseur au registre ({@code orphanTotal} : leur total)
      */
-    public record Board(List<SupplierRow> rows, long tillTotal, int dueCount, long dueTotal) {}
+    public record Board(List<SupplierRow> rows, long tillTotal, int dueCount, long dueTotal, int orphanCount,
+            long orphanTotal) {}
 
     /** Le tableau de bord, lu dans ces registres. */
     public static Board board(PowerSuppliers registry, InvoiceRegistry invoices) {
         Map<String, long[]> due = new HashMap<>();
-        int dueCount = 0;
-        long dueTotal = 0L;
         for (Invoice invoice : invoices.duePublic()) {
             Optional<PowerBilling.Ref> ref = PowerBilling.ref(invoice);
             if (ref.isEmpty()) {
@@ -620,34 +658,66 @@ public final class PowerCommands {
             long[] line = due.computeIfAbsent(ref.get().supplierId(), k -> new long[2]);
             line[0]++;
             line[1] = saturatedAdd(line[1], invoice.amount());
-            dueCount++;
-            dueTotal = saturatedAdd(dueTotal, invoice.amount());
         }
         List<SupplierRow> rows = new ArrayList<>();
         long tills = 0L;
+        int dueCount = 0;
+        long dueTotal = 0L;
         for (PowerSupplier supplier : registry.all()) {
-            long[] line = due.getOrDefault(supplier.id(), new long[2]);
+            long[] line = due.remove(supplier.id());
+            if (line == null) {
+                line = new long[2];
+            }
             rows.add(new SupplierRow(supplier, registry.clients(supplier.id()).size(),
                     supplier.outYesterday() - supplier.metersYesterday(), (int) line[0], line[1]));
             tills = saturatedAdd(tills, supplier.tillValue());
+            dueCount += (int) line[0];
+            dueTotal = saturatedAdd(dueTotal, line[1]);
         }
-        return new Board(List.copyOf(rows), tills, dueCount, dueTotal);
+        int orphanCount = 0;
+        long orphanTotal = 0L;
+        for (long[] line : due.values()) {
+            orphanCount += (int) line[0];
+            orphanTotal = saturatedAdd(orphanTotal, line[1]);
+        }
+        return new Board(List.copyOf(rows), tills, dueCount, dueTotal, orphanCount, orphanTotal);
     }
 
-    /** {@code /eco power} : tous les fournisseurs, leur caisse, l'écart d'hier et leurs factures dues. */
+    /** {@code /eco power} : la première page. */
     public static MutableComponent boardReport(MinecraftServer server, PowerSuppliers registry,
             InvoiceRegistry invoices) {
+        return boardReport(server, registry, invoices, 1);
+    }
+
+    /**
+     * {@code /eco power [page]} : les totaux de toutes les pages, puis {@value #PAGE_SIZE} fournisseurs (caisse, écart
+     * d'hier, factures dues), puis les factures dues sans fournisseur s'il y en a. Une page hors limites ne montre que
+     * les totaux et la page la plus haute.
+     */
+    public static MutableComponent boardReport(MinecraftServer server, PowerSuppliers registry,
+            InvoiceRegistry invoices, int page) {
         Board board = board(registry, invoices);
+        int pages = pages(board.rows().size());
         MutableComponent out = Component.translatable("command.oneforallsurvival.eco.power.title", board.rows().size(),
                 CoinMath.format(board.tillTotal()), board.dueCount(), CoinMath.format(board.dueTotal()));
+        if (page < 1 || page > pages) {
+            out.append("\n").append(Component.translatable(KEY + "no_page", page, pages));
+            return out;
+        }
+        out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.power.page", page, pages));
         if (board.rows().isEmpty()) {
             out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.power.none"));
         }
-        for (SupplierRow row : board.rows()) {
+        for (SupplierRow row : board.rows().subList((page - 1) * PAGE_SIZE,
+                Math.min(board.rows().size(), page * PAGE_SIZE))) {
             PowerSupplier s = row.supplier();
             out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.power.line", s.name(),
                     s.founderName(), row.clients(), CoinMath.format(s.tillValue()), signed(row.gapYesterday()),
                     row.dueCount(), CoinMath.format(row.dueTotal())));
+        }
+        if (board.orphanCount() > 0) {
+            out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.power.orphans",
+                    board.orphanCount(), CoinMath.format(board.orphanTotal())));
         }
         return out;
     }

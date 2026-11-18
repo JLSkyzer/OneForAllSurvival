@@ -62,6 +62,22 @@ public final class PowerStationBlockEntity extends InlineEnergyBlockEntity {
         setChanged();
     }
 
+    /**
+     * À qui appartient ce poste tant qu'il n'a pas de fournisseur en service : le fondateur actuel de son fournisseur
+     * s'il a été supprimé (même après un {@code /power owner}), sinon qui l'a posé. Côté serveur ; côté client, le poseur.
+     */
+    @Nullable
+    public PowerSuppliers.FormerFounder idleOwner() {
+        if (supplierId != null && level instanceof ServerLevel server) {
+            Optional<PowerSuppliers.FormerFounder> former =
+                    PowerSuppliers.get(server.getServer()).formerFounder(supplierId);
+            if (former.isPresent()) {
+                return former.get();
+            }
+        }
+        return founder == null ? null : new PowerSuppliers.FormerFounder(founder, founderName);
+    }
+
     /** Le fournisseur de ce poste, s'il existe et que ce poste est son poste noté (côté serveur seulement). */
     public Optional<PowerSupplier> supplier() {
         if (supplierId == null || !(level instanceof ServerLevel server)) {

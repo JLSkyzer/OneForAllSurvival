@@ -206,7 +206,20 @@ public final class PayrollService {
      * @return le nombre de jours arrêtés
      */
     public static int resetDay(MinecraftServer server, Payroll payroll, TreasuryAccount treasury, long now) {
+        return resetDay(server, payroll, treasury, null, now);
+    }
+
+    /**
+     * Comme {@link #resetDay(MinecraftServer, Payroll, TreasuryAccount, long)}, et le prélèvement automatique de
+     * {@code invoices} (s'il est donné) revient au même jour ({@code DailyDebit.rewindTo} : jour présenté seulement,
+     * jamais le jour émis). Une seule horloge : la commande passe le registre du serveur.
+     */
+    public static int resetDay(MinecraftServer server, Payroll payroll, TreasuryAccount treasury,
+            @javax.annotation.Nullable dev.oneforallsurvival.economy.invoice.InvoiceRegistry invoices, long now) {
         LocalDate today = EconomyCalendar.payDay(now, EconomyCalendar.configuredZone(), EconomyConfig.payHour());
+        if (invoices != null) {
+            dev.oneforallsurvival.economy.debit.DailyDebit.rewindTo(invoices, today);
+        }
         LocalDate before = payroll.lastClosed();
         payroll.rewindTo(today);
         payroll.markChecked(now);

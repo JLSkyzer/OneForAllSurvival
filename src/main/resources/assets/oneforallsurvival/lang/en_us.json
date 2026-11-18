@@ -1069,7 +1069,7 @@
   "command.oneforallsurvival.power.remove_no_request": "No removal of this supplier awaits your confirmation: request it first, with a reason.",
   "command.oneforallsurvival.power.remove_expired": "Request expired (over 60 seconds): nothing removed. Start again.",
   "command.oneforallsurvival.power.removed": "%s removed: %s customer(s) detached, %s due bill(s) cancelled (%s), till of %s paid to the founder.",
-  "command.oneforallsurvival.power.suppliers_title": "Electricity suppliers: %s",
+  "command.oneforallsurvival.power.suppliers_title": "Electricity suppliers: %s (page %s of %s)",
   "command.oneforallsurvival.power.suppliers_line": "%s: founder %s, %s customer(s), price %s per %s FE, subscription %s per day%s",
   "command.oneforallsurvival.power.suppliers_next": " (tomorrow: %s, subscription %s)",
   "command.oneforallsurvival.power.suppliers_none": "No electricity supplier.",
@@ -1085,7 +1085,7 @@
   "message.oneforallsurvival.power.dest.pending": "as pending goods (delivered as soon as you have room)",
   "command.oneforallsurvival.eco.stats.tills": "Electricity station tills: %s (%s supplier(s))",
   "command.oneforallsurvival.eco.stats.electricity": "Electricity: %s bill(s) paid (%s), including tax paid to the treasury %s",
-  "command.oneforallsurvival.eco.power.title": "Electricity: %s supplier(s), tills %s, bills due %s (%s)",
+  "command.oneforallsurvival.eco.power.title": "Electricity, all pages: %s supplier(s), tills %s, bills due %s (%s)",
   "command.oneforallsurvival.eco.power.line": "%s (founder %s): %s customer(s), till %s, yesterday's gap %s FE, bills due %s (%s)",
   "command.oneforallsurvival.eco.power.none": "No electricity supplier.",
   "economy.oneforallsurvival.kind.power.cap": "Electricity price cap (town hall)",
@@ -1093,5 +1093,8 @@
   "economy.oneforallsurvival.kind.power.price": "Supplier price (town hall)",
   "economy.oneforallsurvival.kind.power.subscription": "Supplier subscription (town hall)",
   "economy.oneforallsurvival.kind.power.owner": "Supplier owner (town hall)",
-  "economy.oneforallsurvival.kind.power.remove": "Supplier removed, till to the founder (town hall)"
+  "economy.oneforallsurvival.kind.power.remove": "Supplier removed, till to the founder (town hall)",
+  "command.oneforallsurvival.power.no_page": "No page %s: %s page(s) in all.",
+  "command.oneforallsurvival.eco.power.page": "Page %s of %s:",
+  "command.oneforallsurvival.eco.power.orphans": "Electricity bills due without a supplier in the registry: %s (%s)"
 }

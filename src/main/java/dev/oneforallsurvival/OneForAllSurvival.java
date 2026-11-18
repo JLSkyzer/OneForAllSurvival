@@ -111,6 +111,8 @@ public final class OneForAllSurvival {
         // pause posée par la vérification d'horloge de la paie au même tic, et rattrape au démarrage après elle.
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.debit.DailyDebit::onServerTick);
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.debit.DailyDebit::onServerStarted);
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.debit.DirectDebit::onServerStopped);
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.grid.supplier.PowerCommands::onServerStopped);
         // Après la livraison des attentes (CommerceDelivery::onLoggedIn, plus haut) : salaires versés pendant
         // l'absence, dettes dues au joueur.
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.payroll.PayrollService::onLoggedIn);

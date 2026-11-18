@@ -70,6 +70,15 @@ public final class PowerSuppliers extends SavedData {
     private final Map<UUID, GlobalPos> pairedAt = new HashMap<>();
     /** Le relevé de chaque client jumelé (sauvegardé), borné à {@link #STATEMENT_LINES} lignes. */
     private final Map<UUID, List<StatementLine>> statements = new HashMap<>();
+    /**
+     * Le fondateur de chaque fournisseur supprimé, tel qu'il était à la suppression (identifiant du fournisseur →
+     * fondateur) : son poste, resté posé, redevient « poste neuf » pour lui, et non pour celui qui l'avait posé.
+     */
+    private final Map<String, FormerFounder> formerFounders = new HashMap<>();
+
+    /** Le fondateur d'un fournisseur supprimé. */
+    public record FormerFounder(UUID uuid, String name) {}
+
     /** Avis à donner à un joueur absent (texte sérialisé), lus à sa connexion ; au plus {@link #MAX_NOTICES} chacun. */
     private final Map<UUID, List<String>> notices = new HashMap<>();
     @Nullable
@@ -184,6 +193,7 @@ public final class PowerSuppliers extends SavedData {
             return false;
         }
         suppliers.remove(id);
+        formerFounders.put(id, new FormerFounder(supplier.founder(), supplier.founderName()));
         for (PowerClient client : clients(id)) {
             removeClient(client.meterSerial());
         }
@@ -204,6 +214,11 @@ public final class PowerSuppliers extends SavedData {
         }
         replace(supplier.withFounder(founder, founderName));
         return true;
+    }
+
+    /** Le fondateur, à sa suppression, de ce fournisseur qui n'existe plus ; vide s'il existe ou est inconnu. */
+    public Optional<FormerFounder> formerFounder(@Nullable String id) {
+        return id == null || suppliers.containsKey(id) ? Optional.empty() : Optional.ofNullable(formerFounders.get(id));
     }
 
     /** Note l'emplacement du poste de ce fournisseur (rien si le fournisseur n'existe pas). */
@@ -773,6 +788,15 @@ public final class PowerSuppliers extends SavedData {
             noticeList.add(entry);
         });
         tag.put("notices", noticeList);
+        ListTag formerList = new ListTag();
+        formerFounders.forEach((id, former) -> {
+            CompoundTag entry = new CompoundTag();
+            entry.putString("id", id);
+            entry.putUUID("founder", former.uuid());
+            entry.putString("name", former.name());
+            formerList.add(entry);
+        });
+        tag.put("formerFounders", formerList);
         if (priceCap != null) {
             tag.putLong("priceCap", priceCap);
         }
@@ -843,6 +867,13 @@ public final class PowerSuppliers extends SavedData {
                 if (!lines.isEmpty()) {
                     registry.notices.put(line.getUUID("player"), lines);
                 }
+            }
+        }
+        for (Tag entry : tag.getList("formerFounders", Tag.TAG_COMPOUND)) {
+            CompoundTag line = (CompoundTag) entry;
+            if (!line.getString("id").isEmpty() && line.hasUUID("founder")) {
+                registry.formerFounders.put(line.getString("id"),
+                        new FormerFounder(line.getUUID("founder"), line.getString("name")));
             }
         }
         registry.reindexBreakers();

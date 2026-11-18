@@ -63,6 +63,11 @@ public final class DirectDebit {
     /** Genres non inscrits déjà signalés au journal (un avertissement par genre). */
     private static final java.util.Set<String> WARNED = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
+    /** À l'arrêt du serveur : les avertissements repartent à neuf pour le monde suivant (même JVM). */
+    public static void onServerStopped(net.minecraftforge.event.server.ServerStoppedEvent event) {
+        WARNED.clear();
+    }
+
     private static void warnUnregistered(String kind) {
         if (WARNED.add(kind)) {
             LOGGER.warn("Prelevement : genre de facture publique '{}' non inscrit ; ses factures restent dues", kind);

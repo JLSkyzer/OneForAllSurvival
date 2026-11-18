@@ -384,10 +384,10 @@ public final class MaireElectriciteGameTests {
             helper.assertTrue(panneau(fondateur.joueur(), PowerActionPacket.price(poste, 5L))
                     == PowerActionPacket.Result.DONE && e.lire(s).nextPrice() == 5L, "panneau : le plafond pile passe");
 
-            maire.messagesRecus();
+            maire.clesRecues();
             helper.assertTrue(e.commande(maire, "power set " + q(s) + " price 6") == 0,
                     "/power set : 6 au-dessus du plafond, refusé");
-            helper.assertTrue(maire.messagesRecus().contains(KEY + "set_above_cap"), "le refus est dit");
+            helper.assertTrue(maire.clesRecues().contains(KEY + "set_above_cap"), "le refus est dit");
             helper.assertTrue(e.lire(s).nextPrice() == 5L, "/power set refusé : le prix du lendemain reste 5");
             helper.assertTrue(e.commande(maire, "power set " + q(s) + " price 4") == 1 && e.lire(s).nextPrice() == 4L,
                     "/power set : 4 sous le plafond, accepté pour demain");
@@ -412,12 +412,12 @@ public final class MaireElectriciteGameTests {
             Optional<Long> plafond = e.registre().nextPriceCap();
             Optional<Integer> taxe = e.registre().nextTaxPercent();
             for (JoueurDeTest sansDroit : List.of(citoyen, ingenieur, fondateur)) {
-                sansDroit.messagesRecus();
+                sansDroit.clesRecues();
                 helper.assertTrue(e.commande(sansDroit, "power cap 7") == 0, "plafond refusé à " + sansDroit.uuid());
                 helper.assertTrue(e.commande(sansDroit, "power tax 5") == 0, "taxe refusée");
                 helper.assertTrue(e.commande(sansDroit, "power set " + q(s) + " price 1") == 0, "set refusé");
                 helper.assertTrue(e.commande(sansDroit, "power suppliers") == 0, "liste refusée");
-                helper.assertTrue(sansDroit.messagesRecus().contains(KEY + "not_mayor"), "le refus est clair");
+                helper.assertTrue(sansDroit.clesRecues().contains(KEY + "not_mayor"), "le refus est clair");
                 helper.assertTrue(e.registre().nextPriceCap().equals(plafond) && e.registre().nextTaxPercent().equals(taxe)
                         && e.lire(s).nextPrice() == null, "rien n'a bougé");
             }
@@ -585,9 +585,9 @@ public final class MaireElectriciteGameTests {
             PowerSuppliers registre = e.registre();
             InvoiceRegistry factures = InvoiceRegistry.get(e.serveur());
 
-            maire.messagesRecus();
+            maire.clesRecues();
             helper.assertTrue(e.commande(maire, "power remove " + q(s) + " confirm") == 0, "confirmer sans demande");
-            helper.assertTrue(maire.messagesRecus().contains(KEY + "remove_no_request"), "le refus est dit");
+            helper.assertTrue(maire.clesRecues().contains(KEY + "remove_no_request"), "le refus est dit");
             helper.assertTrue(e.commande(citoyen, "power remove " + q(s) + " pour rire") == 0, "un citoyen ne demande pas");
             helper.assertTrue(e.commande(maire, "power remove " + q(s) + " fraude") == 1, "demande");
             helper.assertTrue(registre.byId(s.id()).isPresent(), "demandé : toujours là");
@@ -605,6 +605,16 @@ public final class MaireElectriciteGameTests {
             helper.assertTrue(registre.byId(s.id()).isPresent(), "échue : toujours là");
             helper.assertTrue(PowerCommands.confirmRemove(source, registre, factures, s.name(), now + 2L)
                     == PowerCommands.Result.NO_REQUEST, "une demande échue est oubliée");
+
+            CommandSourceStack console = e.serveur().createCommandSourceStack();
+            CommandSourceStack bloc = new CommandSourceStack(net.minecraft.commands.CommandSource.NULL, Vec3.ZERO,
+                    net.minecraft.world.phys.Vec2.ZERO, helper.getLevel(), 2, "Bloc_" + e.sfx,
+                    Component.literal("Bloc"), e.serveur(), null);
+            helper.assertTrue(PowerCommands.requestRemove(console, registre, s.name(), "console", now)
+                    == PowerCommands.Result.REQUESTED, "la console demande");
+            helper.assertTrue(PowerCommands.confirmRemove(bloc, registre, factures, s.name(), now)
+                    == PowerCommands.Result.NO_REQUEST && registre.byId(s.id()).isPresent(),
+                    "un bloc de commande ne confirme pas la demande de la console");
 
             helper.assertTrue(e.commande(maire, "power remove " + q(s) + " fraude") == 1, "nouvelle demande");
             helper.assertTrue(e.commande(maire, "power remove " + q(s) + " confirm") == 1, "confirmée à temps");
@@ -683,6 +693,11 @@ public final class MaireElectriciteGameTests {
                         && (geste.motif() == null || ligne.reason().contains(geste.motif())),
                         "ligne de « " + geste.commande() + " » : " + ligne);
             }
+            CommandSourceStack console = e.serveur().createCommandSourceStack();
+            helper.assertTrue(e.serveur().getCommands().performPrefixedCommand(console, "power cap 4") == 1, "console");
+            EconomyLedger.Entry parConsole = derniereLigne(e);
+            helper.assertTrue(parConsole.author() == null && parConsole.reason().startsWith("[" + console.getTextName()
+                    + "]"), "un geste sans joueur est noté avec le nom de sa source : " + parConsole);
             e.registre().deposit(s.id(), Coin.SILVER, 4L);
             helper.assertTrue(e.commande(maire, "power remove " + q(s) + " ligne pirate") == 1, "demande");
             helper.assertTrue(e.commande(maire, "power remove " + q(s) + " confirm") == 1, "confirmation");
@@ -769,6 +784,7 @@ public final class MaireElectriciteGameTests {
         try (Essai e = new Essai(helper)) {
             InvoiceRegistry factures = InvoiceRegistry.get(e.serveur());
             LocalDate avant = factures.lastDebitDay();
+            LocalDate emisAvant = factures.lastIssuedDay();
             LocalDate aujourdhui = EconomyCalendar.payDay(EconomyClock.now(), EconomyCalendar.configuredZone(),
                     EconomyConfig.payHour());
             CommandSourceStack console = e.serveur().createCommandSourceStack();
@@ -778,6 +794,8 @@ public final class MaireElectriciteGameTests {
                         "resetday répond");
                 helper.assertTrue(aujourdhui.minusDays(1).equals(factures.lastDebitDay()),
                         "jour du prélèvement ramené à la veille : " + factures.lastDebitDay());
+                helper.assertTrue(java.util.Objects.equals(emisAvant, factures.lastIssuedDay()),
+                        "le jour émis ne recule jamais : " + factures.lastIssuedDay());
 
                 factures.setLastDebitDay(aujourdhui.minusDays(3));
                 e.serveur().getCommands().performPrefixedCommand(console, "eco salary resetday");
@@ -830,5 +848,190 @@ public final class MaireElectriciteGameTests {
             }
             helper.succeed();
         }
+    }
+
+    /**
+     * C1 du tour 1 : horloge en avance, trois jours clos et facturés (abonnement compris), puis {@code resetday} et
+     * trois minuits réels : exactement une facture par jour et par contrat, aucun abonnement prélevé deux fois ; la
+     * consommation des jours remis s'accumule jusqu'à la facture suivante.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_B)
+    public static void unResetdayNeRefacturePasLesJoursDejaEmis(GameTestHelper helper) {
+        try (Essai e = new Essai(helper)) {
+            MinecraftServer serveur = e.serveur();
+            JoueurDeTest client = e.joueur("mz_c");
+            PlayerCoins.receive(client.joueur(), Coin.GOLD, 5L);
+            long porte = CoinMath.valueOf(PlayerCoins.held(client.joueur()));
+            PowerSuppliers fournisseurs = new PowerSuppliers();
+            InvoiceRegistry registre = InvoiceRegistry.load(new CompoundTag());
+            PowerBilling facturation = new PowerBilling(fournisseurs, registre);
+            PowerSupplier s = fournisseurs.found(UUID.randomUUID(), "Fz", "Remise " + e.sfx).supplier();
+            UUID compteur = UUID.randomUUID();
+            String nom = client.joueur().getGameProfile().getName();
+            fournisseurs.putClient(new PowerClient(compteur, s.id(), client.uuid(), nom, nom, PowerClient.State.ACTIVE,
+                    0L, 0L, Set.of(), false));
+            fournisseurs.setNextPrice(s.id(), 1L);
+            fournisseurs.setNextSubscription(s.id(), 10L);
+            PowerBilling.install(facturation);
+            try {
+                registre.setLastDebitDay(J.minusDays(2));
+                helper.assertTrue(clore(serveur, registre, J.minusDays(1)) == 1 && registre.duePublic().isEmpty()
+                        && registre.owedBy(client.uuid()).isEmpty(), "la veille : tarifs en vigueur, rien à facturer");
+
+                helper.assertTrue(clore(serveur, registre, J.plusDays(2)) == 3, "horloge en avance : 3 jours clos");
+                List<Invoice> avant = registre.owedBy(client.uuid());
+                helper.assertTrue(avant.size() == 3 && avant.stream().allMatch(f -> f.status() == Status.PAID),
+                        "3 factures émises et prélevées : " + avant);
+                long caisse = fournisseurs.byId(s.id()).orElseThrow().tillValue();
+                helper.assertTrue(caisse == 30L, "trois abonnements : " + caisse);
+
+                long midiJ = minuit(J.minusDays(1)) + 12L * 60L * MINUTE;
+                dev.oneforallsurvival.economy.payroll.PayrollService.resetDay(serveur, new Payroll(),
+                        dev.oneforallsurvival.economy.TreasuryAccount.get(serveur), registre, midiJ);
+                helper.assertTrue(J.minusDays(1).equals(registre.lastDebitDay())
+                        && J.plusDays(2).equals(registre.lastIssuedDay()),
+                        "resetday : présentation à la veille, jour émis gardé : " + registre.lastDebitDay() + " / "
+                                + registre.lastIssuedDay());
+
+                fournisseurs.recordMeter(compteur, 200_000);
+                for (int i = 0; i <= 2; i++) {
+                    helper.assertTrue(clore(serveur, registre, J.plusDays(i)) == 1, "minuit réel " + i);
+                }
+                helper.assertTrue(registre.owedBy(client.uuid()).size() == 3
+                        && fournisseurs.byId(s.id()).orElseThrow().tillValue() == 30L,
+                        "aucune facture de plus, aucun abonnement prélevé deux fois : "
+                                + registre.owedBy(client.uuid()).size());
+
+                helper.assertTrue(clore(serveur, registre, J.plusDays(3)) == 1, "le jour suivant");
+                List<Invoice> toutes = registre.owedBy(client.uuid());
+                helper.assertTrue(toutes.size() == 4, "une facture nouvelle : " + toutes.size());
+                java.util.Map<Long, Long> parJour = new java.util.HashMap<>();
+                for (Invoice f : toutes) {
+                    PowerBilling.Ref ref = PowerBilling.ref(f).orElseThrow();
+                    parJour.merge(ref.epochDay(), 1L, Long::sum);
+                }
+                helper.assertTrue(parJour.size() == 4 && parJour.values().stream().allMatch(n -> n == 1L),
+                        "une facture par jour et par contrat : " + parJour);
+                Invoice derniere = toutes.get(toutes.size() - 1);
+                PowerBilling.Ref ref = PowerBilling.ref(derniere).orElseThrow();
+                helper.assertTrue(ref.epochDay() == J.plusDays(3).toEpochDay() && ref.fe() == 200_000L
+                        && derniere.amount() == 12L, "la consommation des jours remis est facturée ensuite : " + ref
+                        + " / " + derniere.amount());
+                long caisseFin = fournisseurs.byId(s.id()).orElseThrow().tillValue();
+                helper.assertTrue(caisseFin == 42L && CoinMath.valueOf(PlayerCoins.held(client.joueur()))
+                        == porte - 42L, "somme conservée : caisse " + caisseFin);
+            } finally {
+                PowerBilling.install(PowerBilling.SERVER);
+            }
+            helper.succeed();
+        }
+    }
+
+    /** I1 du tour 1 : {@code /power suppliers} et {@code /eco power} sont paginés ; les totaux couvrent toutes les pages. */
+    @GameTest(template = "test/plancher", batch = LOT_B)
+    public static void lesListesSontPaginees(GameTestHelper helper) {
+        try (Essai e = new Essai(helper)) {
+            MinecraftServer serveur = e.serveur();
+            JoueurDeTest equipe = e.equipe("mq_e");
+            PowerSuppliers registre = new PowerSuppliers();
+            InvoiceRegistry factures = InvoiceRegistry.load(new CompoundTag());
+            int n = PowerCommands.PAGE_SIZE + 3;
+            long now = EconomyClock.now();
+            for (int i = 0; i < n; i++) {
+                PowerSupplier s = registre.found(UUID.randomUUID(), "F" + i, "Page " + i + " " + e.sfx).supplier();
+                registre.deposit(s.id(), Coin.COPPER, 1L + i);
+                facture(factures, s, UUID.randomUUID(), UUID.randomUUID(), "D", 10L, now);
+            }
+            PowerSupplier disparu = new PowerSupplier("perdu0000000", "Perdu", UUID.randomUUID(), "X", 0L, 0L, null,
+                    null, null, new EnumMap<>(Coin.class), 0L, 0L, 0L);
+            facture(factures, disparu, UUID.randomUUID(), UUID.randomUUID(), "D", 99L, now);
+
+            PowerCommands.Board tableau = PowerCommands.board(registre, factures);
+            helper.assertTrue(tableau.rows().size() == n && tableau.dueCount() == n && tableau.dueTotal() == 10L * n
+                    && tableau.orphanCount() == 1 && tableau.orphanTotal() == 99L,
+                    "totaux = somme des lignes, orphelines à part : " + tableau);
+            Component page1 = PowerCommands.boardReport(serveur, registre, factures, 1);
+            Component page2 = PowerCommands.boardReport(serveur, registre, factures, 2);
+            helper.assertTrue(compter(page1, "command.oneforallsurvival.eco.power.line") == PowerCommands.PAGE_SIZE
+                    && compter(page2, "command.oneforallsurvival.eco.power.line") == 3,
+                    "10 lignes puis 3");
+            Object[] titre = arguments(page2, "command.oneforallsurvival.eco.power.title");
+            helper.assertTrue(titre != null && texte(titre[0]).equals(String.valueOf(n))
+                    && texte(titre[2]).equals(String.valueOf(n)), "le titre porte les totaux de toutes les pages");
+            helper.assertTrue(arguments(page2, "command.oneforallsurvival.eco.power.orphans") != null,
+                    "les factures sans fournisseur sont dites");
+            helper.assertTrue(compter(PowerCommands.boardReport(serveur, registre, factures, 3),
+                    "command.oneforallsurvival.eco.power.line") == 0, "page hors limites : aucune ligne");
+
+            CommandSourceStack source = equipe.joueur().createCommandSourceStack();
+            equipe.messagesRecus();
+            helper.assertTrue(PowerCommands.suppliers(source, registre, 1) == PowerCommands.PAGE_SIZE,
+                    "/power suppliers : 10 lignes en page 1");
+            List<String> recus = equipe.messagesRecus();
+            helper.assertTrue(recus.stream().filter((KEY + "suppliers_line")::equals).count() == PowerCommands.PAGE_SIZE
+                    && recus.contains(KEY + "suppliers_title"), "titre et 10 lignes : " + recus.size());
+            helper.assertTrue(PowerCommands.suppliers(source, registre, 2) == 3, "page 2 : 3 lignes");
+            helper.assertTrue(PowerCommands.suppliers(source, registre, 3) == 0, "page 3 : refusée");
+            helper.assertTrue(e.commande(equipe, "power suppliers 1") >= 1 && e.commande(equipe, "eco power 1") == 1,
+                    "les commandes prennent la page");
+            helper.succeed();
+        }
+    }
+
+    /**
+     * M5 du tour 1 : après {@code /power owner} puis la suppression, le poste revient au fondateur actuel (qui peut le
+     * refonder), pas à celui qui l'avait posé.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_A)
+    public static void apresUnChangementDeProprietaireLePosteRevientAuFondateurActuel(GameTestHelper helper) {
+        try (Essai e = new Essai(helper)) {
+            JoueurDeTest poseur = e.joueur("mo_a");
+            JoueurDeTest repreneur = e.joueur("mo_b");
+            JoueurDeTest maire = e.maire("mo_m");
+            PowerSupplier s = poste(helper, poseur, e.nom("Poste"));
+            helper.assertTrue(e.commande(maire, "power owner " + q(s) + " "
+                    + repreneur.joueur().getGameProfile().getName()) == 1, "propriétaire changé");
+            helper.assertTrue(e.commande(maire, "power remove " + q(s) + " essai") == 1
+                    && e.commande(maire, "power remove " + q(s) + " confirm") == 1, "supprimé");
+            dev.oneforallsurvival.grid.supplier.PowerStationBlockEntity be =
+                    (dev.oneforallsurvival.grid.supplier.PowerStationBlockEntity) helper.getBlockEntity(POSTE);
+            PowerSuppliers.FormerFounder proprietaire = be.idleOwner();
+            helper.assertTrue(proprietaire != null && proprietaire.uuid().equals(repreneur.uuid()),
+                    "le poste revient au fondateur actuel : " + proprietaire);
+            BlockPos poste = helper.absolutePos(POSTE);
+            helper.assertTrue(PowerStationBlock.found(poseur.joueur(), poste, e.nom("Ancien")).isEmpty(),
+                    "l'ancien poseur ne le refonde pas");
+            Optional<PowerSuppliers.Result> refonde = PowerStationBlock.found(repreneur.joueur(), poste, e.nom("Neuf"));
+            helper.assertTrue(refonde.isPresent() && refonde.get().founded()
+                    && refonde.get().supplier().founder().equals(repreneur.uuid()), "le fondateur actuel le refonde");
+            helper.succeed();
+        }
+    }
+
+    private static int compter(Component c, String key) {
+        int n = 0;
+        if (c.getContents() instanceof TranslatableContents t) {
+            if (t.getKey().equals(key)) {
+                n++;
+            }
+            for (Object arg : t.getArgs()) {
+                if (arg instanceof Component inner) {
+                    n += compter(inner, key);
+                }
+            }
+        }
+        for (Component sibling : c.getSiblings()) {
+            n += compter(sibling, key);
+        }
+        return n;
+    }
+
+    private static long minuit(LocalDate jour) {
+        return EconomyCalendar.boundaryAfter(jour, EconomyCalendar.configuredZone(), EconomyConfig.payHour());
+    }
+
+    /** Clôt jusqu'au jour {@code jour} compris, à minuit plus une minute. */
+    private static int clore(MinecraftServer serveur, InvoiceRegistry registre, LocalDate jour) {
+        return DailyDebit.closeDueDays(serveur, registre, new Payroll(), minuit(jour) + MINUTE);
     }
 }

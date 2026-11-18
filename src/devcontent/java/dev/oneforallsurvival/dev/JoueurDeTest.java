@@ -62,6 +62,7 @@ public final class JoueurDeTest {
     private final List<dev.oneforallsurvival.economy.town.TownFinancesPacket> financesALaConnexion = new ArrayList<>();
     /** Les clés des messages (chat ou barre d'action) reçus, dans l'ordre ; un texte brut est gardé tel quel. */
     private final List<String> messages = new ArrayList<>();
+    private final List<String> cles = new ArrayList<>();
     /** Les textes des messages reçus (chat ou barre d'action), traduits par la langue du serveur, dans l'ordre. */
     private final List<String> textes = new ArrayList<>();
     /** Les hauteurs des sons joués au joueur (paquets de son), dans l'ordre. */
@@ -118,6 +119,7 @@ public final class JoueurDeTest {
         simule.formulairesFacture.clear();
         simule.menus.clear();
         simule.messages.clear();
+        simule.cles.clear();
         simule.textes.clear();
         return simule;
     }
@@ -190,6 +192,7 @@ public final class JoueurDeTest {
         } else if (message instanceof ClientboundSystemChatPacket chat) {
             messages.add(chat.content().getContents() instanceof TranslatableContents t ? t.getKey()
                     : chat.content().getString());
+            cles(chat.content(), cles);
             textes.add(chat.content().getString());
         } else if (message instanceof ClientboundSoundPacket son) {
             sons.add(son.getPitch());
@@ -232,6 +235,32 @@ public final class JoueurDeTest {
         lire();
         List<Float> out = new ArrayList<>(sons);
         sons.clear();
+        return out;
+    }
+
+    /** Les clés de langue de ce composant, de ses enfants et de ses arguments, dans l'ordre. */
+    private static void cles(net.minecraft.network.chat.Component c, List<String> out) {
+        if (c.getContents() instanceof TranslatableContents t) {
+            out.add(t.getKey());
+            for (Object arg : t.getArgs()) {
+                if (arg instanceof net.minecraft.network.chat.Component inner) {
+                    cles(inner, out);
+                }
+            }
+        }
+        for (net.minecraft.network.chat.Component enfant : c.getSiblings()) {
+            cles(enfant, out);
+        }
+    }
+
+    /**
+     * Toutes les clés de langue des messages reçus depuis le dernier appel (y compris celles qu'enveloppe
+     * {@code sendFailure}), retirées.
+     */
+    public List<String> clesRecues() {
+        lire();
+        List<String> out = new ArrayList<>(cles);
+        cles.clear();
         return out;
     }
 

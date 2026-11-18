@@ -130,11 +130,10 @@ public final class SalaryCommands {
         MinecraftServer server = source.getServer();
         Payroll payroll = Payroll.get(server);
         long now = EconomyClock.now();
-        int closed = PayrollService.resetDay(server, payroll, TreasuryAccount.get(server), now);
-        java.time.LocalDate day = EconomyCalendar.payDay(now, EconomyCalendar.configuredZone(), EconomyConfig.payHour());
         // Une seule horloge : le prélèvement automatique (lot E6) revient au même jour que la paie.
-        DailyDebit.rewindTo(InvoiceRegistry.get(server), day);
-        String today = day.toString();
+        int closed = PayrollService.resetDay(server, payroll, TreasuryAccount.get(server), InvoiceRegistry.get(server),
+                now);
+        String today = EconomyCalendar.payDay(now, EconomyCalendar.configuredZone(), EconomyConfig.payHour()).toString();
         source.sendSuccess(() -> Component.translatable("command.oneforallsurvival.eco.salary.resetday.success",
                 String.valueOf(payroll.lastClosed()), today, closed), true);
         return 1;

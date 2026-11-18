@@ -1069,7 +1069,7 @@
   "command.oneforallsurvival.power.remove_no_request": "Aucune suppression de ce fournisseur n'attend votre confirmation : demandez-la d'abord, avec un motif.",
   "command.oneforallsurvival.power.remove_expired": "Demande échue (plus de 60 secondes) : rien n'est supprimé. Recommencez.",
   "command.oneforallsurvival.power.removed": "%s supprimé : %s client(s) détaché(s), %s facture(s) due(s) annulée(s) (%s), caisse de %s versée au fondateur.",
-  "command.oneforallsurvival.power.suppliers_title": "Fournisseurs d'électricité : %s",
+  "command.oneforallsurvival.power.suppliers_title": "Fournisseurs d'électricité : %s (page %s sur %s)",
   "command.oneforallsurvival.power.suppliers_line": "%s : fondateur %s, %s client(s), prix %s par %s FE, abonnement %s par jour%s",
   "command.oneforallsurvival.power.suppliers_next": " (demain : %s, abonnement %s)",
   "command.oneforallsurvival.power.suppliers_none": "Aucun fournisseur d'électricité.",
@@ -1085,7 +1085,7 @@
   "message.oneforallsurvival.power.dest.pending": "en attente (elle vous est remise dès que vous avez de la place)",
   "command.oneforallsurvival.eco.stats.tills": "Caisses des postes d'électricité : %s (%s fournisseur(s))",
   "command.oneforallsurvival.eco.stats.electricity": "Électricité : %s facture(s) payée(s) (%s), dont taxe versée au trésor %s",
-  "command.oneforallsurvival.eco.power.title": "Électricité : %s fournisseur(s), caisses %s, factures dues %s (%s)",
+  "command.oneforallsurvival.eco.power.title": "Électricité, toutes pages : %s fournisseur(s), caisses %s, factures dues %s (%s)",
   "command.oneforallsurvival.eco.power.line": "%s (fondateur %s) : %s client(s), caisse %s, écart d'hier %s FE, factures dues %s (%s)",
   "command.oneforallsurvival.eco.power.none": "Aucun fournisseur d'électricité.",
   "economy.oneforallsurvival.kind.power.cap": "Plafond du prix de l'électricité (mairie)",
@@ -1093,5 +1093,8 @@
   "economy.oneforallsurvival.kind.power.price": "Prix d'un fournisseur (mairie)",
   "economy.oneforallsurvival.kind.power.subscription": "Abonnement d'un fournisseur (mairie)",
   "economy.oneforallsurvival.kind.power.owner": "Propriétaire d'un fournisseur (mairie)",
-  "economy.oneforallsurvival.kind.power.remove": "Fournisseur supprimé, caisse au fondateur (mairie)"
+  "economy.oneforallsurvival.kind.power.remove": "Fournisseur supprimé, caisse au fondateur (mairie)",
+  "command.oneforallsurvival.power.no_page": "Pas de page %s : %s page(s) en tout.",
+  "command.oneforallsurvival.eco.power.page": "Page %s sur %s :",
+  "command.oneforallsurvival.eco.power.orphans": "Factures d'électricité dues sans fournisseur au registre : %s (%s)"
 }

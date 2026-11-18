@@ -207,11 +207,12 @@ public final class PowerStationBlock extends InlineEnergyBlock {
         }
         // Un poste sans poseur noté (/setblock, structure) n'appartient à personne : seuls l'ingénieur, le maire et
         // l'équipe le fondent (à leur nom). Sinon, les ayants droit du poseur, au nom du poseur.
-        if (!PowerRules.mayManage(actor, be.founder())) {
+        PowerSuppliers.FormerFounder idle = be.idleOwner();
+        if (!PowerRules.mayManage(actor, idle == null ? null : idle.uuid())) {
             return Optional.empty();
         }
-        UUID founder = be.founder() == null ? actor.getUUID() : be.founder();
-        String founderName = be.founder() == null ? actor.getGameProfile().getName() : be.founderName();
+        UUID founder = idle == null ? actor.getUUID() : idle.uuid();
+        String founderName = idle == null ? actor.getGameProfile().getName() : idle.name();
         PowerSuppliers registry = PowerSuppliers.get(level.getServer());
         PowerSuppliers.Result result = registry.found(founder, founderName, name);
         if (result.founded()) {
@@ -258,7 +259,8 @@ public final class PowerStationBlock extends InlineEnergyBlock {
         }
         Optional<PowerSupplier> supplier = be.supplier();
         if (supplier.isEmpty()) {
-            if (!PowerRules.mayManage(player, be.founder())) {
+            PowerSuppliers.FormerFounder idle = be.idleOwner();
+            if (!PowerRules.mayManage(player, idle == null ? null : idle.uuid())) {
                 player.displayClientMessage(Component.translatable(MESSAGE + "no_supplier"), true);
                 return false;
             }
@@ -300,13 +302,17 @@ public final class PowerStationBlock extends InlineEnergyBlock {
     // Casse
     // ---------------------------------------------------------------------------------------------
 
-    /** Le propriétaire du poste : le fondateur de son fournisseur, ou qui l'a posé tant qu'il n'en a pas. */
+    /**
+     * Le propriétaire du poste : le fondateur de son fournisseur ; sans fournisseur en service, le fondateur actuel à la
+     * suppression ({@link PowerStationBlockEntity#idleOwner}), ou qui l'a posé.
+     */
     @Nullable
     private static UUID owner(BlockGetter level, BlockPos pos) {
         if (!(level.getBlockEntity(pos) instanceof PowerStationBlockEntity be)) {
             return null;
         }
-        return be.supplier().map(PowerSupplier::founder).orElse(be.founder());
+        PowerSuppliers.FormerFounder idle = be.idleOwner();
+        return be.supplier().map(PowerSupplier::founder).orElse(idle == null ? null : idle.uuid());
     }
 
     /**
