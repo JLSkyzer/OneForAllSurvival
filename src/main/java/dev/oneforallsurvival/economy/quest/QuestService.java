@@ -57,7 +57,9 @@ public final class QuestService {
     private static final Map<UUID, Integer> LAST_OPEN = new ConcurrentHashMap<>();
     static final String MESSAGE = "message.oneforallsurvival.quest.";
 
-    public enum ClaimResult { PAID, CAPPED_PARTIAL, CAP_REACHED, NO_ROOM, NOT_COMPLETE, ALREADY_CLAIMED, STALE, CREATIVE }
+    public enum ClaimResult {
+        PAID, CAPPED_PARTIAL, CAP_REACHED, NO_ROOM, NOT_COMPLETE, ALREADY_CLAIMED, STALE, CREATIVE, SPECTATOR
+    }
 
     private QuestService() {}
 
@@ -263,6 +265,9 @@ public final class QuestService {
             List<QuestEvent> events) {
         if (player.isCreative()) {
             return ClaimResult.CREATIVE;
+        }
+        if (player.isSpectator()) {
+            return ClaimResult.SPECTATOR;
         }
         QuestBook book = QuestBook.of(player);
         // Une série (ou un événement) renouvelée entre l'affichage et le clic : la référence ne désigne plus rien.

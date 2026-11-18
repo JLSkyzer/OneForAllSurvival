@@ -296,6 +296,26 @@ public final class QuestClaimGameTests {
         helper.succeed();
     }
 
+    /** Un spectateur ne réclame pas non plus : refus avant tout mouvement, rien payé, quête non marquée. */
+    @GameTest(template = "test/plancher", batch = LOT)
+    public static void leSpectateurNeReclamePas(GameTestHelper helper) {
+        JoueurDeTest simule = JoueurDeTest.rejoindre(helper.getLevel(), "QueteSpectateur", helper.absoluteVec(ICI));
+        try {
+            ServerPlayer joueur = simule.joueur();
+            joueur.setGameMode(GameType.SPECTATOR);
+            QuestRef ref = poser(joueur, finie("essai_a", 25L));
+            EconomyLedger registre = EconomyLedger.load(new CompoundTag());
+            ClaimResult r = QuestService.claim(joueur, ref, MAINTENANT, registre);
+            helper.assertTrue(r == ClaimResult.SPECTATOR, "résultat : " + r);
+            helper.assertTrue(porte(joueur) == 0L && registre.totalCreated(MoneySource.QUEST) == 0L, "payé");
+            helper.assertTrue(!QuestBook.of(joueur).daily().get(0).claimed(), "quête marquée");
+            joueur.setGameMode(GameType.SURVIVAL);
+        } finally {
+            simule.quitter();
+        }
+        helper.succeed();
+    }
+
     @GameTest(template = "test/plancher", batch = LOT)
     public static void laQueteSuitLeJoueurApresSaMort(GameTestHelper helper) {
         JoueurDeTest simule = JoueurDeTest.rejoindre(helper.getLevel(), "QueteMort", helper.absoluteVec(ICI));

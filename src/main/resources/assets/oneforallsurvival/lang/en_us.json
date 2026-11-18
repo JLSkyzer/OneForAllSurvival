@@ -886,6 +886,7 @@
   "message.oneforallsurvival.quest.claim.not_complete": "This quest is not complete",
   "message.oneforallsurvival.quest.claim.already_claimed": "Already claimed",
   "message.oneforallsurvival.quest.claim.creative": "No quest reward in creative mode",
+  "message.oneforallsurvival.quest.claim.spectator": "No quest reward in spectator mode",
   "message.oneforallsurvival.quest.reroll.done": "Quest rerolled",
   "message.oneforallsurvival.quest.reroll.none_left": "No reroll left today",
   "message.oneforallsurvival.quest.reroll.refused": "This quest cannot be rerolled",

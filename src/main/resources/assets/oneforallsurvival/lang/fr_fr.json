@@ -886,6 +886,7 @@
   "message.oneforallsurvival.quest.claim.not_complete": "Cette quête n'est pas finie",
   "message.oneforallsurvival.quest.claim.already_claimed": "Déjà réclamée",
   "message.oneforallsurvival.quest.claim.creative": "Pas de récompense de quête en mode créatif",
+  "message.oneforallsurvival.quest.claim.spectator": "Pas de récompense de quête en mode spectateur",
   "message.oneforallsurvival.quest.reroll.done": "Quête relancée",
   "message.oneforallsurvival.quest.reroll.none_left": "Plus de relance aujourd'hui",
   "message.oneforallsurvival.quest.reroll.refused": "Cette quête ne peut pas être relancée",

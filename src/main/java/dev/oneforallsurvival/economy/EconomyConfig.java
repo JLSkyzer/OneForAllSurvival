@@ -245,7 +245,8 @@ public final class EconomyConfig {
                 .comment("Un bloc posé puis cassé par le même joueur dans ce délai, en secondes, ne compte pas comme pose.")
                 .defineInRange("questPlaceUndoSeconds", DEFAULT_QUEST_PLACE_UNDO_SECONDS, 0, 3_600);
         QUEST_PLACED_MARKS_PER_CHUNK = builder
-                .comment("Blocs posés retenus au plus par chunk (leur casse ne compte pas) ; les plus anciens sont oubliés.")
+                .comment("Blocs posés retenus au plus par chunk (leur casse ne compte pas). Au-delà, le chunk se sature :",
+                        "plus aucune casse n'y compte, pour toujours (rien n'est oublié).")
                 .defineInRange("questPlacedMarksPerChunk", DEFAULT_QUEST_PLACED_MARKS_PER_CHUNK, 256, 65_536);
         EXTRA_ALLOWED_MENUS = builder
                 .comment("Types d'écran (identifiants, ex. \"mod:coffre\") où une pièce a le droit d'être rangée, en plus",
