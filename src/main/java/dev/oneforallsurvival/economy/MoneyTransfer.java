@@ -26,7 +26,9 @@ public enum MoneyTransfer {
     /** Dépense publique : pièces retirées du trésor par le maire ou l'équipe. */
     TREASURY_SPEND,
     /** Salaire versé par le trésor à un joueur. */
-    SALARY;
+    SALARY,
+    /** Facture publique prélevée (inventaire, attente ou coffre-fort du débiteur) et versée à son créancier. */
+    PUBLIC_BILL;
 
     /** Genre de la ligne du registre pour un transfert : {@code transfer.trade}. */
     public String kind() {

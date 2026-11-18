@@ -107,9 +107,15 @@ public final class OneForAllSurvival {
         // seconde et la paie de minuit passent par le tick de PayrollService (échantillon, clôture, dettes).
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.payroll.PayrollService::onServerTick);
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.payroll.PayrollService::onServerStarted);
+        // Prélèvement de minuit (E6) : inscrit juste après la paie (même priorité, donc appelé après elle) ; il lit la
+        // pause posée par la vérification d'horloge de la paie au même tic, et rattrape au démarrage après elle.
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.debit.DailyDebit::onServerTick);
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.debit.DailyDebit::onServerStarted);
         // Après la livraison des attentes (CommerceDelivery::onLoggedIn, plus haut) : salaires versés pendant
         // l'absence, dettes dues au joueur.
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.payroll.PayrollService::onLoggedIn);
+        // Prélèvements refusés non lus, et prélevés pendant l'absence.
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.debit.DirectDebit::onLoggedIn);
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.payroll.RoleTimeTracker::onLoggedInEvent);
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.payroll.RoleTimeTracker::onLoggedOutEvent);
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.payroll.RoleTimeTracker::onServerStopped);

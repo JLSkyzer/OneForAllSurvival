@@ -57,6 +57,11 @@ public final class EconomyLedger extends SavedData {
     private final Map<UUID, Long> questByPlayer = new HashMap<>();
     /** Récompenses de quêtes par modèle (ou événement), en cuivres. */
     private final Map<String, Long> questByTemplate = new HashMap<>();
+    /** Prélèvements de factures publiques refusés (aucune pièce n'a bougé). */
+    private long refusedDebits;
+
+    /** Genre de la ligne du journal d'un prélèvement refusé (rien n'est créé, détruit ni transféré). */
+    public static final String KIND_DEBIT_REFUSED = "debit.refused";
 
     EconomyLedger() {}
 
@@ -158,6 +163,21 @@ public final class EconomyLedger extends SavedData {
         } else {
             setDirty();
         }
+    }
+
+    /**
+     * Compte un prélèvement refusé (total insuffisant) : le compteur {@link #refusedDebits()} et une ligne du journal
+     * ({@link #KIND_DEBIT_REFUSED}, montant de la facture). Aucune pièce n'a bougé : aucun total ne change.
+     */
+    public void debitRefused(@Nullable UUID debtor, long amount, String reason) {
+        refusedDebits++;
+        add(new Entry(System.currentTimeMillis(), debtor, Math.max(0L, amount), KIND_DEBIT_REFUSED, clip(reason)),
+                EconomyConfig.ledgerMaxLines());
+    }
+
+    /** Prélèvements refusés depuis le début. */
+    public long refusedDebits() {
+        return refusedDebits;
     }
 
     private void add(Entry entry, int maxLines) {
@@ -346,6 +366,9 @@ public final class EconomyLedger extends SavedData {
         questByTemplate.forEach(templates::putLong);
         quest.put("templates", templates);
         tag.put("quest", quest);
+        CompoundTag debit = new CompoundTag();
+        debit.putLong("refused", refusedDebits);
+        tag.put("debit", debit);
         return tag;
     }
 
@@ -397,6 +420,8 @@ public final class EconomyLedger extends SavedData {
         for (String template : templates.getAllKeys()) {
             ledger.questByTemplate.put(template, templates.getLong(template));
         }
+        // Un registre d'avant le lot E6 n'a pas de « debit » : zéro refus.
+        ledger.refusedDebits = tag.getCompound("debit").getLong("refused");
         return ledger;
     }
 }

@@ -24,12 +24,14 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 /**
  * {@code /invoice list} : ses factures émises et reçues, dues ou réglées, avec l'identifiant court et, pour une
  * facture émise encore due, un lien {@code [Réglée]} ; {@code /invoice settle <id>} : l'émetteur la déclare réglée de
- * main à main (identifiant complet, ou les 8 premiers caractères). Ouvert à tous (niveau 0).
+ * main à main (identifiant complet, ou les 8 premiers caractères) ; {@code /invoice copy <id>} : le débiteur reçoit
+ * l'objet d'une de ses factures publiques dues (lien de l'avis de prélèvement refusé). Ouvert à tous (niveau 0).
  */
 public final class InvoiceCommands {
 
     private static final String LIST = InvoiceService.MESSAGE + "list.";
     private static final String SETTLE = InvoiceService.MESSAGE + "settle.";
+    private static final String COPY = InvoiceService.MESSAGE + "copy.";
     /** Lignes montrées au plus par liste (les plus récentes). */
     private static final int MAX_LINES = 20;
 
@@ -42,7 +44,9 @@ public final class InvoiceCommands {
         dispatcher.register(Commands.literal("invoice")
                 .then(Commands.literal("list").executes(InvoiceCommands::list))
                 .then(Commands.literal("settle").then(Commands.argument("id", StringArgumentType.word())
-                        .executes(InvoiceCommands::settle))));
+                        .executes(InvoiceCommands::settle)))
+                .then(Commands.literal("copy").then(Commands.argument("id", StringArgumentType.word())
+                        .executes(InvoiceCommands::copy))));
     }
 
     private static int list(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
@@ -78,7 +82,7 @@ public final class InvoiceCommands {
         String status = invoice.status().name().toLowerCase(Locale.ROOT);
         out.append(Component.translatable(LIST + "status." + status)
                 .withStyle(invoice.status() == Status.DUE ? ChatFormatting.YELLOW : ChatFormatting.GREEN));
-        if (issued && invoice.status() == Status.DUE) {
+        if (issued && invoice.status() == Status.DUE && !invoice.isPublic()) {
             out.append(" ");
             out.append(Component.translatable(LIST + "settle_link").withStyle(Style.EMPTY.withColor(ChatFormatting.AQUA)
                     .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/invoice settle " + invoice.id()))
@@ -86,6 +90,20 @@ public final class InvoiceCommands {
                             Component.translatable(LIST + "settle_hover")))));
         }
         return out;
+    }
+
+    /** {@code /invoice copy <id>} : le débiteur reçoit l'objet d'une de ses factures publiques dues. */
+    private static int copy(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer self = context.getSource().getPlayerOrException();
+        String id = StringArgumentType.getString(context, "id");
+        InvoiceService.CopyResult result = InvoiceService.copy(self, id);
+        Component message = Component.translatable(COPY + result.name().toLowerCase(Locale.ROOT), id);
+        if (result == InvoiceService.CopyResult.DONE) {
+            context.getSource().sendSuccess(() -> message, false);
+            return 1;
+        }
+        context.getSource().sendFailure(message);
+        return 0;
     }
 
     private static int settle(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {

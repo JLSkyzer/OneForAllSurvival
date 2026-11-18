@@ -70,8 +70,12 @@ public final class Receipt {
             dev.oneforallsurvival.economy.invoice.InvoiceRegistry.Status status) {
         ItemStack stack = new ItemStack(EconomyRegistry.RECEIPT.get());
         CompoundTag tag = new CompoundTag();
-        tag.putString("Kind", status == dev.oneforallsurvival.economy.invoice.InvoiceRegistry.Status.SETTLED_BY_HAND
-                ? KIND_INVOICE_BY_HAND : KIND_INVOICE_PAID);
+        // Une facture annulée (créancier disparu) n'a pas été payée : reçu de facture close, qui ne se paie plus.
+        tag.putString("Kind", switch (status) {
+            case SETTLED_BY_HAND -> KIND_INVOICE_BY_HAND;
+            case CANCELLED -> KIND_INVOICE_CLOSED;
+            default -> KIND_INVOICE_PAID;
+        });
         tag.putLong("When", invoice.settledAt() > 0L ? invoice.settledAt() : System.currentTimeMillis());
         tag.putString("Zone", ZoneId.systemDefault().getId());
         tag.putString("Issuer", invoice.issuerName());

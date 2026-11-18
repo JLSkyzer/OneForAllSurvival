@@ -103,6 +103,88 @@ public final class HeldGoods extends SavedData {
         return line;
     }
 
+    // ---------------------------------------------------------------------------------------------
+    // Les pièces en attente comme argent porté (prélèvement, lot E6)
+    // ---------------------------------------------------------------------------------------------
+
+    /** Les pièces qui attendent ce joueur : en vrac, plus le contenu des bourses en attente, coupure par coupure. */
+    public EnumMap<Coin, Long> pendingCoins(UUID owner) {
+        EnumMap<Coin, Long> out = new EnumMap<>(Coin.class);
+        Pending line = pending.get(owner);
+        if (line == null) {
+            return out;
+        }
+        line.coins().forEach((coin, count) -> out.merge(coin, count, Long::sum));
+        for (ItemStack stack : line.items()) {
+            if (Purse.isPurse(stack)) {
+                Purse.contents(stack).forEach((coin, count) -> out.merge(coin, count, Long::sum));
+            }
+        }
+        out.values().removeIf(count -> count <= 0L);
+        return out;
+    }
+
+    /**
+     * Retire exactement ces pièces de l'attente de ce joueur : en vrac d'abord, puis dans les bourses en attente (une
+     * bourse vidée reste en attente, vide). Tout ou rien.
+     *
+     * @throws IllegalStateException sans rien toucher, si l'attente n'a pas toutes ces pièces ({@link #pendingCoins})
+     */
+    public void takeCoins(UUID owner, Map<Coin, Long> coins) {
+        EnumMap<Coin, Long> have = pendingCoins(owner);
+        for (Map.Entry<Coin, Long> entry : coins.entrySet()) {
+            if (entry.getValue() < 0L || have.getOrDefault(entry.getKey(), 0L) < entry.getValue()) {
+                throw new IllegalStateException("attente de " + owner + " : " + have + ", demande " + coins);
+            }
+        }
+        Pending line = pending.get(owner);
+        if (line == null) {
+            return; // rien à prendre : toutes les quantités demandées sont nulles
+        }
+        boolean changed = false;
+        for (Map.Entry<Coin, Long> entry : coins.entrySet()) {
+            long left = entry.getValue();
+            if (left <= 0L) {
+                continue;
+            }
+            long loose = line.coins().getOrDefault(entry.getKey(), 0L);
+            long fromLoose = Math.min(loose, left);
+            if (fromLoose > 0L) {
+                if (loose == fromLoose) {
+                    line.coins().remove(entry.getKey());
+                } else {
+                    line.coins().put(entry.getKey(), loose - fromLoose);
+                }
+                left -= fromLoose;
+                changed = true;
+            }
+            for (ItemStack stack : line.items()) {
+                if (left <= 0L) {
+                    break;
+                }
+                if (!Purse.isPurse(stack)) {
+                    continue;
+                }
+                long moved = Math.min(left, Purse.count(stack, entry.getKey()));
+                if (moved > 0L && Purse.remove(stack, entry.getKey(), moved)) {
+                    left -= moved;
+                    changed = true;
+                }
+            }
+        }
+        if (line.isEmpty()) {
+            pending.remove(owner);
+        }
+        if (changed) {
+            setDirty();
+        }
+    }
+
+    /** Ajoute ces pièces, en vrac, à l'attente de ce joueur (les quantités nulles sont ignorées). */
+    public void addCoins(UUID owner, Map<Coin, Long> coins) {
+        addPending(owner, List.of(), coins);
+    }
+
     /** Les joueurs qui ont quelque chose en attente. */
     public List<UUID> pendingOwners() {
         return new ArrayList<>(pending.keySet());

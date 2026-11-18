@@ -140,6 +140,18 @@ public final class EconomyCommands {
             out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.paused",
                     String.valueOf(payroll.pausedSeen()), String.valueOf(payroll.pausedExpected())));
         }
+        // Factures publiques (prélevées à minuit) encore dues : nombre et total ; et les refus de prélèvement.
+        List<dev.oneforallsurvival.economy.invoice.InvoiceRegistry.Invoice> publicDue =
+                dev.oneforallsurvival.economy.invoice.InvoiceRegistry.get(source.getServer()).duePublic();
+        long publicTotal = 0L;
+        for (dev.oneforallsurvival.economy.invoice.InvoiceRegistry.Invoice invoice : publicDue) {
+            long next = publicTotal + invoice.amount();
+            publicTotal = next < publicTotal ? Long.MAX_VALUE : next;
+        }
+        out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.public_due",
+                publicDue.size(), CoinMath.format(publicTotal)));
+        out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.refused_debits",
+                ledger.refusedDebits()));
         out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.circulation",
                 signed(ledger.inCirculation())));
         // Les transferts ne créent ni ne détruisent : ils suivent la ligne « en circulation », qui reste créé moins détruit.

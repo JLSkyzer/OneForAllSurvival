@@ -100,7 +100,8 @@ public final class InvoiceService {
         int pair = 0;
         int all = 0;
         for (Invoice invoice : InvoiceRegistry.get(issuer.server).owedBy(debtor.getUUID())) {
-            if (invoice.status() == Status.DUE) {
+            // Les factures publiques (prélevées) ne comptent pas : elles ne bornent que les factures entre joueurs.
+            if (invoice.status() == Status.DUE && !invoice.isPublic()) {
                 all++;
                 if (invoice.issuer().equals(issuer.getUUID())) {
                     pair++;
@@ -248,6 +249,16 @@ public final class InvoiceService {
         if (!payer.isAlive()) {
             return PayResult.CANNOT_PAY;
         }
+        if (invoice.isPublic()) {
+            // Facture publique (électricité…) : payée tout de suite par l'inventaire, versée à son créancier par le
+            // prélèvement ; la même règle tout ou rien, la même place pour la monnaie.
+            PayResult result = dev.oneforallsurvival.economy.debit.DirectDebit.payNow(payer, invoice);
+            Optional<Invoice> after = registry.get(invoice.id());
+            if (after.isPresent() && after.get().status() != Status.DUE) {
+                inventory.setItem(slot, Receipt.forInvoice(after.get(), after.get().status()));
+            }
+            return result;
+        }
         Optional<CoinMath.Payment> payment = paymentOf(payer, invoice.amount());
         if (payment.isEmpty()) {
             return PayResult.CANNOT_PAY;
@@ -353,6 +364,9 @@ public final class InvoiceService {
         List<Invoice> found = new ArrayList<>();
         String wanted = text.trim().toLowerCase(Locale.ROOT);
         for (Invoice invoice : mine) {
+            if (invoice.isPublic()) {
+                continue; // une facture publique ne se règle pas de main à main
+            }
             String full = invoice.id().toString();
             if (full.equals(wanted) || (wanted.length() == 8 && invoice.shortId().equals(wanted))) {
                 found.add(invoice);
@@ -375,6 +389,41 @@ public final class InvoiceService {
         }
         LOGGER.debug("Economie : facture {} reglee de main a main par {}", invoice.shortId(), invoice.issuerName());
         return SettleResult.DONE;
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Copie d'une facture publique due
+    // ---------------------------------------------------------------------------------------------
+
+    /** {@link #NOT_FOUND} : aucune facture de ce joueur ne porte cet identifiant (celles des autres comprises). */
+    public enum CopyResult { DONE, NOT_FOUND, NOT_PUBLIC, NOT_DUE }
+
+    /**
+     * {@code /invoice copy <id>} : le débiteur reçoit l'objet facture d'une de ses factures <b>publiques dues</b>
+     * (identifiant complet, ou les 8 premiers caractères s'ils n'en désignent qu'une), dans l'inventaire, sinon en
+     * attente. Le papier n'est qu'une vue : une copie ne paie jamais deux fois.
+     */
+    public static CopyResult copy(ServerPlayer debtor, String text) {
+        InvoiceRegistry registry = InvoiceRegistry.get(debtor.server);
+        String wanted = text.trim().toLowerCase(Locale.ROOT);
+        List<Invoice> found = new ArrayList<>();
+        for (Invoice invoice : registry.owedBy(debtor.getUUID())) {
+            if (invoice.id().toString().equals(wanted) || (wanted.length() == 8 && invoice.shortId().equals(wanted))) {
+                found.add(invoice);
+            }
+        }
+        if (found.size() != 1) {
+            return CopyResult.NOT_FOUND;
+        }
+        Invoice invoice = found.get(0);
+        if (!invoice.isPublic()) {
+            return CopyResult.NOT_PUBLIC;
+        }
+        if (invoice.status() != Status.DUE) {
+            return CopyResult.NOT_DUE;
+        }
+        CommerceDelivery.giveBack(debtor, List.of(InvoiceItem.of(invoice)));
+        return CopyResult.DONE;
     }
 
     // ---------------------------------------------------------------------------------------------
