@@ -2,6 +2,7 @@ package dev.oneforallsurvival.grid;
 
 import dev.oneforallsurvival.bench.BenchNetwork;
 import dev.oneforallsurvival.grid.client.GridClient;
+import dev.oneforallsurvival.grid.supplier.PowerPairing;
 import dev.oneforallsurvival.role.RoleGate;
 import java.util.function.Supplier;
 import net.minecraft.core.BlockPos;
@@ -47,13 +48,23 @@ public record SubscriberNamePacket(BlockPos pos, String name) {
     /** Sur le thread du serveur : un client n'est jamais cru sur parole. */
     public static void handle(SubscriberNamePacket packet, Supplier<NetworkEvent.Context> context) {
         ServerPlayer sender = context.get().getSender();
-        if (sender == null || !RoleGate.requireEngineer(sender)) {
+        if (sender == null) {
             return;
         }
         ServerLevel level = sender.serverLevel();
         BlockPos pos = packet.pos();
-        if (!level.isLoaded(pos) || sender.distanceToSqr(Vec3.atCenterOf(pos)) > MAX_DISTANCE_SQR
-                || !(level.getBlockEntity(pos) instanceof SubscriberHolder holder)) {
+        if (!level.isLoaded(pos) || !(level.getBlockEntity(pos) instanceof SubscriberHolder holder)) {
+            RoleGate.requireEngineer(sender);
+            return;
+        }
+        // Le droit d'abord (message de refus), puis la distance.
+        if (!holder.mayInscribe(sender)) {
+            sender.sendSystemMessage(PowerPairing.ownerOf(level, pos).isPresent()
+                    ? PowerPairing.refusal(sender, level, pos)
+                    : Component.translatable(RoleGate.ENGINEER_ONLY_KEY));
+            return;
+        }
+        if (sender.distanceToSqr(Vec3.atCenterOf(pos)) > MAX_DISTANCE_SQR) {
             return;
         }
         BlockState state = level.getBlockState(pos);

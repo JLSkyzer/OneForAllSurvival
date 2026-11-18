@@ -124,6 +124,10 @@ public final class OneForAllSurvival {
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.town.TreasuryBlock::onBreak);
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.town.TownBoardBlock::onBreak);
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.grid.supplier.PowerStationBlock::onBreak);
+        // Lot E6, tâche 3 : compteurs et disjoncteurs jumelés à un fournisseur, accord des clients.
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.grid.supplier.PowerPairing::onBreak);
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.grid.supplier.PowerPairing::onLoggedIn);
+        MinecraftForge.EVENT_BUS.register(new dev.oneforallsurvival.grid.supplier.PowerCommands());
         // Le tableau de la mairie : les comptes publics partent à la connexion puis quand ils changent (1 fois par seconde).
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.town.TownFinances::onLoggedIn);
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.town.TownFinances::onServerTick);

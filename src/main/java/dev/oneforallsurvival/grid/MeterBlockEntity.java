@@ -1,15 +1,19 @@
 package dev.oneforallsurvival.grid;
 
 import dev.oneforallsurvival.grid.MeterLedger.Reading;
+import dev.oneforallsurvival.grid.supplier.PowerPairing;
+import dev.oneforallsurvival.grid.supplier.PowerSuppliers;
 import dev.oneforallsurvival.machine.InlineEnergyBlockEntity;
 import dev.oneforallsurvival.role.RoleGate;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
@@ -30,6 +34,64 @@ public final class MeterBlockEntity extends InlineEnergyBlockEntity implements S
 
     public MeterBlockEntity(BlockPos pos, BlockState state) {
         super(GridRegistry.METER_BE.get(), pos, state, GridConfig.meterMaxPerTick());
+    }
+
+    /** A-t-il déjà un numéro ? (Une lecture qui ne le tire pas.) */
+    public boolean hasSerial() {
+        return serial != null;
+    }
+
+    /**
+     * Le courant ne passe que par un compteur jumelé à un fournisseur et accepté (lot E6) :
+     * {@link PowerSuppliers#passes}. Un compteur nu ne laisse plus rien passer.
+     */
+    @Override
+    public boolean isOpen() {
+        return level instanceof ServerLevel server && serial != null
+                && PowerSuppliers.get(server.getServer()).passes(serial);
+    }
+
+    /** Chaque FE réellement passé s'ajoute à la consommation du jour du client (facturée à minuit). */
+    @Override
+    protected void onPassed(int accepted) {
+        if (serial != null && level instanceof ServerLevel server) {
+            PowerSuppliers.get(server.getServer()).recordMeter(serial, accepted);
+        }
+    }
+
+    /** Un compteur chargé se fait connaître du registre : il préviendra ses voisins quand son état changera. */
+    @Override
+    public void onLoad() {
+        super.onLoad();
+        if (serial != null && level instanceof ServerLevel server) {
+            PowerSuppliers.get(server.getServer()).noteMeterLoaded(serial, GlobalPos.of(server.dimension(), worldPosition));
+        }
+    }
+
+    @Override
+    public void setRemoved() {
+        super.setRemoved();
+        forgetLoaded();
+    }
+
+    @Override
+    public void onChunkUnloaded() {
+        super.onChunkUnloaded();
+        forgetLoaded();
+    }
+
+    private void forgetLoaded() {
+        if (serial != null && level instanceof ServerLevel server) {
+            PowerSuppliers.get(server.getServer()).forgetMeterLoaded(serial, GlobalPos.of(server.dimension(), worldPosition));
+        }
+    }
+
+    /** Jumelé : les ayants droit du fournisseur ; sinon l'ingénieur (lot 4). */
+    @Override
+    public boolean mayInscribe(ServerPlayer player) {
+        return PowerPairing.ownerOf(player.serverLevel(), worldPosition).isPresent()
+                ? PowerPairing.mayTouch(player, player.serverLevel(), worldPosition)
+                : RoleGate.canDoEngineerWork(player);
     }
 
     /** Le numéro du compteur, tiré une fois pour toutes à la première demande (la pose) puis gardé. */

@@ -157,6 +157,7 @@ public final class CompteurGameTests {
     public static void ilCompteLesFEQuiPassent(GameTestHelper helper) {
         TestMachineBlockEntity machine = poserMachine(helper);
         MeterBlockEntity be = poserCompteur(helper);
+        FournisseurDEssai.raccorder(helper, be); // lot E6 : un compteur nu ne laisse rien passer
         int passe = pousser(be, 100) + pousser(be, 60);
         verifier(passe == 160, "retour : " + passe);
         verifier(machine.energy().getEnergyStored() == 160, "machine : " + machine.energy().getEnergyStored());
@@ -261,6 +262,7 @@ public final class CompteurGameTests {
         poserMachine(helper);
         MeterBlockEntity be = poserCompteur(helper);
         be.setSubscriber("Dupont");
+        FournisseurDEssai.raccorder(helper, be); // lot E6 : un compteur nu ne laisse rien passer
         JoueurDeTest j = joueur(helper, "Releveur", true);
         try {
             pousser(be, 100);
@@ -297,6 +299,7 @@ public final class CompteurGameTests {
         MeterBlockEntity be = poserCompteur(helper);
         BlockPos pos = helper.absolutePos(COMPTEUR);
         UUID numero = be.serial();
+        FournisseurDEssai.raccorder(helper, be); // lot E6 : un compteur nu ne laisse rien passer
         pousser(be, 100); // compté avant toute inscription
         JoueurDeTest ingenieur = joueur(helper, "Inscripteur", true);
         try {
@@ -363,6 +366,7 @@ public final class CompteurGameTests {
         poserMachine(helper);
         MeterBlockEntity be = poserCompteur(helper);
         be.setSubscriber("Roux");
+        FournisseurDEssai.raccorder(helper, be); // lot E6 : un compteur nu ne laisse rien passer
         pousser(be, 40);
         BlockPos pos = helper.absolutePos(COMPTEUR);
         JoueurDeTest ingenieur = joueur(helper, "Plein", true);
@@ -466,6 +470,7 @@ public final class CompteurGameTests {
         poserMachine(helper);
         MeterBlockEntity be = poserCompteur(helper);
         be.setSubscriber("Durand");
+        FournisseurDEssai.raccorder(helper, be); // lot E6 : un compteur nu ne laisse rien passer
         UUID numero = be.serial();
         pousser(be, 100);
         JoueurDeTest j = joueur(helper, "Demonteur", true);
@@ -500,6 +505,7 @@ public final class CompteurGameTests {
             verifier(numero.equals(repose.serial()), "le numéro devait suivre l'objet");
             verifier("Durand".equals(repose.subscriber()), "abonné reposé " + repose.subscriber());
 
+            FournisseurDEssai.raccorder(helper, repose); // démonté, il a été détaché (lot E6)
             pousser(repose, 30);
             tester(helper, j.joueur());
             Reading r = releve(j.joueur());
@@ -516,6 +522,7 @@ public final class CompteurGameTests {
         poserMachine(helper);
         MeterBlockEntity ancien = poserCompteur(helper);
         ancien.setSubscriber("Petit");
+        FournisseurDEssai.raccorder(helper, ancien); // lot E6
         pousser(ancien, 100);
         JoueurDeTest j = joueur(helper, "Fraudeur2", true);
         try {
@@ -525,6 +532,7 @@ public final class CompteurGameTests {
             MeterBlockEntity neuf = poserCompteur(helper);
             verifier(!neuf.serial().equals(ancien.serial()), "un compteur neuf a son propre numéro");
             neuf.setSubscriber("Petit");
+            FournisseurDEssai.raccorder(helper, neuf); // lot E6
             pousser(neuf, 40);
             tester(helper, j.joueur());
             Reading r = releve(j.joueur());
@@ -542,6 +550,7 @@ public final class CompteurGameTests {
         poserMachine(helper);
         MeterBlockEntity be = poserCompteur(helper);
         be.setSubscriber("Leroy");
+        FournisseurDEssai.raccorder(helper, be); // lot E6 : un compteur nu ne laisse rien passer
         pousser(be, 70);
         JoueurDeTest j = joueur(helper, "Archiviste", true);
         try {
@@ -586,6 +595,7 @@ public final class CompteurGameTests {
         poserMachine(helper);
         MeterBlockEntity be = poserCompteur(helper);
         verifier(!((Object) be instanceof ElectricMachineBlockEntity), "le compteur n'est pas une machine à usure");
+        FournisseurDEssai.raccorder(helper, be); // lot E6 : un compteur nu ne laisse rien passer
         verifier(((MeterBlock) GridRegistry.METER.get()).getTicker(helper.getLevel(), be.getBlockState(),
                 GridRegistry.METER_BE.get()) == null, "le compteur ne tique pas : rien ne s'use");
         helper.runAfterDelay(1, () -> pousser(be, 100));

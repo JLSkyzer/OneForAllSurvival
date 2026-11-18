@@ -1,5 +1,7 @@
 package dev.oneforallsurvival.grid;
 
+import dev.oneforallsurvival.role.RoleGate;
+
 import net.minecraft.server.level.ServerPlayer;
 
 /**
@@ -21,5 +23,13 @@ public interface SubscriberHolder {
      */
     default void inscribe(String name, ServerPlayer engineer) {
         setSubscriber(name);
+    }
+
+    /**
+     * {@code player} peut-il inscrire l'abonné ? Par défaut l'ingénieur (lot 4) ; un bloc jumelé à un fournisseur (lot
+     * E6) le réserve aux ayants droit du fournisseur.
+     */
+    default boolean mayInscribe(ServerPlayer player) {
+        return RoleGate.canDoEngineerWork(player);
     }
 }

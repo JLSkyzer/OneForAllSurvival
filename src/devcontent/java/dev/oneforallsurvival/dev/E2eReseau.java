@@ -152,6 +152,7 @@ final class E2eReseau {
     private static final Map<String, Double> ETATS = new LinkedHashMap<>();
     private static long ticMeteo;
     private static String rangsAvantArret = "";
+    private static String reponseRaccord;
 
     private E2eReseau() {}
 
@@ -615,6 +616,11 @@ final class E2eReseau {
                 () -> "blocs absents : tableau " + etat(tableau) + ", alternateur " + etat(alternateur) + ", m4 " + etat(m4),
                 () -> "setblock : moteur creatif " + RPM_PLEIN + " tr/min -> alternateur Crafts & Additions -> tableau (entree a l'arriere, ouest) ; "
                         + "devant : compteur puis machine 1 ; gauche : machine 2 ; droite : disjoncteur puis machine 3 ; dessus : machine 4");
+        // Lot E6 : un compteur ne laisse passer le courant que raccordé à un fournisseur (accord et acceptation compris).
+        pas("Compteur raccordé à un fournisseur d'essai (console, FournisseurDEssai)",
+                () -> reponseRaccord = rcon("fournisseurdessai raccorder " + xyz(compteur) + " " + nom()),
+                () -> reponseRaccord != null && reponseRaccord.contains("raccorde"), () -> "reponse : " + reponseRaccord,
+                () -> "console : " + reponseRaccord);
     }
 
     private static void penurie() {

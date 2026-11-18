@@ -145,6 +145,7 @@ public final class IslandDebugGameTests {
                 .setValue(InlineEnergyBlock.FACING, Direction.NORTH));
         MeterBlockEntity compteur = (MeterBlockEntity) helper.getBlockEntity(COMPTEUR);
         compteur.setSubscriber("Mme Essai");
+        FournisseurDEssai.raccorder(helper, compteur); // lot E6 : un compteur nu ne laisse rien passer
         IEnergyStorage entree = compteur.getCapability(ForgeCapabilities.ENERGY, Direction.SOUTH).resolve().orElse(null);
         verifier(entree != null && entree.receiveEnergy(60, false) == 60, "le courant devait passer");
         BlockPos cible = helper.absolutePos(COMPTEUR);

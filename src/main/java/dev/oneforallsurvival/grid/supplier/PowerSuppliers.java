@@ -8,11 +8,13 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import javax.annotation.Nullable;
 import net.minecraft.core.GlobalPos;
@@ -20,6 +22,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.saveddata.SavedData;
 
 /**
@@ -51,6 +54,15 @@ public final class PowerSuppliers extends SavedData {
 
     private final Map<String, PowerSupplier> suppliers = new LinkedHashMap<>();
     private final Map<UUID, PowerClient> clients = new HashMap<>();
+    /** Clients détachés (compteur démonté) dont la consommation du jour reste à facturer à la clôture. */
+    private final List<PowerClient> detached = new ArrayList<>();
+    /** Codes d'accord à usage unique : code → numéro du compteur en attente de l'accord du joueur. */
+    private final Map<String, UUID> consentCodes = new HashMap<>();
+    /** Index (non sauvegardé, refait à la lecture) : disjoncteur jumelé → compteur de son client. */
+    private final Map<UUID, UUID> breakerIndex = new HashMap<>();
+    /** Où sont les compteurs et disjoncteurs chargés (non sauvegardé, tenu par leurs block entities). */
+    private final Map<UUID, GlobalPos> loadedMeters = new HashMap<>();
+    private final Map<UUID, GlobalPos> loadedBreakers = new HashMap<>();
     @Nullable
     private Long priceCap;
     @Nullable
@@ -162,6 +174,8 @@ public final class PowerSuppliers extends SavedData {
         }
         suppliers.remove(id);
         clients.values().removeIf(client -> client.supplierId().equals(id));
+        consentCodes.values().removeIf(meter -> !clients.containsKey(meter));
+        reindexBreakers();
         setDirty();
         return true;
     }
@@ -214,19 +228,148 @@ public final class PowerSuppliers extends SavedData {
         return out;
     }
 
-    /** Ajoute ou remplace le client de ce compteur. */
+    /** Ajoute ou remplace le client de ce compteur. Un disjoncteur ne sert qu'un client : il quitte l'ancien. */
     public void putClient(PowerClient client) {
-        clients.put(client.meterSerial(), client);
+        PowerClient before = clients.put(client.meterSerial(), client);
+        if (before != null) {
+            before.breakers().forEach(breakerIndex::remove);
+        }
+        for (UUID breaker : client.breakers()) {
+            UUID other = breakerIndex.put(breaker, client.meterSerial());
+            PowerClient old = other == null || other.equals(client.meterSerial()) ? null : clients.get(other);
+            if (old != null) {
+                Set<UUID> rest = new HashSet<>(old.breakers());
+                rest.remove(breaker);
+                clients.put(other, old.withBreakers(rest));
+            }
+        }
         setDirty();
     }
 
-    /** Détache ce compteur. @return le client retiré, s'il y en avait un */
+    /** Retire ce compteur (et son code d'accord), sans rien garder. @return le client retiré, s'il y en avait un */
     public Optional<PowerClient> removeClient(UUID meterSerial) {
         PowerClient removed = clients.remove(meterSerial);
         if (removed != null) {
+            removed.breakers().forEach(breakerIndex::remove);
+            consentCodes.values().removeIf(meterSerial::equals);
             setDirty();
         }
         return Optional.ofNullable(removed);
+    }
+
+    /**
+     * Détache ce compteur (démonté) : il ne laisse plus rien passer et son client quitte la liste. La consommation du
+     * jour, s'il y en a, est gardée à part ({@link #detached()}) pour la clôture de minuit.
+     *
+     * @return le client détaché, s'il y en avait un
+     */
+    public Optional<PowerClient> detach(UUID meterSerial) {
+        Optional<PowerClient> removed = removeClient(meterSerial);
+        if (removed.isPresent() && removed.get().feToday() > 0) {
+            detached.add(removed.get().withBreakers(Set.of()));
+            setDirty();
+        }
+        return removed;
+    }
+
+    /** Les clients détachés dont la consommation du jour attend la clôture (copie). */
+    public List<PowerClient> detached() {
+        return List.copyOf(detached);
+    }
+
+    /** Oublie un client détaché, une fois sa consommation facturée par la clôture. */
+    public boolean removeDetached(PowerClient client) {
+        boolean removed = detached.remove(client);
+        if (removed) {
+            setDirty();
+        }
+        return removed;
+    }
+
+    /** Le client dont ce disjoncteur est jumelé, s'il l'est. Une lecture de table. */
+    public Optional<PowerClient> clientOfBreaker(UUID breakerSerial) {
+        UUID meter = breakerIndex.get(breakerSerial);
+        return meter == null ? Optional.empty() : Optional.ofNullable(clients.get(meter));
+    }
+
+    private void reindexBreakers() {
+        breakerIndex.clear();
+        for (PowerClient client : clients.values()) {
+            for (UUID breaker : client.breakers()) {
+                breakerIndex.put(breaker, client.meterSerial());
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Codes d'accord (usage unique)
+    // ---------------------------------------------------------------------------------------------
+
+    /** Un code neuf (8 lettres et chiffres) pour l'accord du joueur de ce compteur ; l'ancien code du compteur tombe. */
+    public String newConsentCode(UUID meterSerial, RandomSource random) {
+        consentCodes.values().removeIf(meterSerial::equals);
+        String alphabet = "abcdefghjkmnpqrstuvwxyz23456789";
+        String code;
+        do {
+            StringBuilder b = new StringBuilder();
+            for (int i = 0; i < 8; i++) {
+                b.append(alphabet.charAt(random.nextInt(alphabet.length())));
+            }
+            code = b.toString();
+        } while (consentCodes.containsKey(code));
+        consentCodes.put(code, meterSerial);
+        setDirty();
+        return code;
+    }
+
+    /** Le compteur que vise ce code, s'il est encore valable. */
+    public Optional<UUID> meterOfCode(String code) {
+        return Optional.ofNullable(consentCodes.get(code.toLowerCase(Locale.ROOT)));
+    }
+
+    /** Le code en cours pour ce compteur, s'il y en a un. */
+    public Optional<String> codeOf(UUID meterSerial) {
+        for (Map.Entry<String, UUID> e : consentCodes.entrySet()) {
+            if (e.getValue().equals(meterSerial)) {
+                return Optional.of(e.getKey());
+            }
+        }
+        return Optional.empty();
+    }
+
+    /** Consomme ce code. */
+    public void dropCode(String code) {
+        if (consentCodes.remove(code.toLowerCase(Locale.ROOT)) != null) {
+            setDirty();
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Blocs chargés (non sauvegardé, tenu par les block entities)
+    // ---------------------------------------------------------------------------------------------
+
+    public void noteMeterLoaded(UUID serial, GlobalPos pos) {
+        loadedMeters.put(serial, pos);
+    }
+
+    public void forgetMeterLoaded(UUID serial, GlobalPos pos) {
+        loadedMeters.remove(serial, pos);
+    }
+
+    public Optional<GlobalPos> loadedMeter(UUID serial) {
+        return Optional.ofNullable(loadedMeters.get(serial));
+    }
+
+    public void noteBreakerLoaded(UUID serial, GlobalPos pos) {
+        loadedBreakers.put(serial, pos);
+    }
+
+    public void forgetBreakerLoaded(UUID serial, GlobalPos pos) {
+        loadedBreakers.remove(serial, pos);
+    }
+
+    public Optional<GlobalPos> loadedBreaker(UUID serial) {
+        return Optional.ofNullable(loadedBreakers.get(serial));
     }
 
     /**
@@ -346,6 +489,14 @@ public final class PowerSuppliers extends SavedData {
             clientList.add(client.save());
         }
         tag.put("clients", clientList);
+        ListTag detachedList = new ListTag();
+        for (PowerClient client : detached) {
+            detachedList.add(client.save());
+        }
+        tag.put("detached", detachedList);
+        CompoundTag codes = new CompoundTag();
+        consentCodes.forEach(codes::putUUID);
+        tag.put("consentCodes", codes);
         if (priceCap != null) {
             tag.putLong("priceCap", priceCap);
         }
@@ -374,6 +525,19 @@ public final class PowerSuppliers extends SavedData {
                 registry.clients.put(client.meterSerial(), client);
             }
         }
+        for (Tag entry : tag.getList("detached", Tag.TAG_COMPOUND)) {
+            PowerClient client = PowerClient.load((CompoundTag) entry);
+            if (client != null) {
+                registry.detached.add(client);
+            }
+        }
+        CompoundTag codes = tag.getCompound("consentCodes");
+        for (String code : codes.getAllKeys()) {
+            if (codes.hasUUID(code) && registry.clients.containsKey(codes.getUUID(code))) {
+                registry.consentCodes.put(code, codes.getUUID(code));
+            }
+        }
+        registry.reindexBreakers();
         registry.priceCap = tag.contains("priceCap") ? Math.max(0L, tag.getLong("priceCap")) : null;
         registry.nextPriceCap = tag.contains("nextPriceCap") ? Math.max(0L, tag.getLong("nextPriceCap")) : null;
         registry.taxPercent = Math.max(0, tag.getInt("taxPercent"));

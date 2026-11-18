@@ -1,6 +1,7 @@
 package dev.oneforallsurvival.grid;
 
 import dev.oneforallsurvival.grid.MeterLedger.EventKind;
+import dev.oneforallsurvival.grid.supplier.PowerPairing;
 import dev.oneforallsurvival.machine.InlineEnergyBlock;
 import dev.oneforallsurvival.role.RoleGate;
 import java.util.List;
@@ -11,10 +12,13 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Explosion;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.Rotation;
@@ -68,7 +72,14 @@ public final class MeterBlock extends InlineEnergyBlock {
             return InteractionResult.SUCCESS;
         }
         if (player instanceof ServerPlayer serverPlayer && level.getBlockEntity(pos) instanceof MeterBlockEntity meter) {
-            if (RoleGate.canDoEngineerWork(serverPlayer)) {
+            if (PowerPairing.ownerOf(level, pos).isPresent()) {
+                // Jumelé : l'écran aux ayants droit du fournisseur ; aux autres (client compris), à qui il est.
+                if (PowerPairing.mayTouch(serverPlayer, level, pos)) {
+                    SubscriberNamePacket.openScreen(serverPlayer, pos, meter);
+                } else {
+                    serverPlayer.displayClientMessage(PowerPairing.refusal(serverPlayer, level, pos), true);
+                }
+            } else if (RoleGate.canDoEngineerWork(serverPlayer)) {
                 SubscriberNamePacket.openScreen(serverPlayer, pos, meter);
             } else {
                 serverPlayer.displayClientMessage(meter.subscriber().isEmpty()
@@ -105,9 +116,55 @@ public final class MeterBlock extends InlineEnergyBlock {
     @Override
     public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean isMoving) {
         if (!state.is(newState.getBlock()) && !isMoving && level instanceof ServerLevel serverLevel
-                && level.getBlockEntity(pos) instanceof MeterBlockEntity meter && !meter.subscriber().isEmpty()) {
-            SubscriberSavedData.note(serverLevel.getServer(), meter.subscriber(), EventKind.REMOVED, meter.serial());
+                && level.getBlockEntity(pos) instanceof MeterBlockEntity meter) {
+            if (!meter.subscriber().isEmpty()) {
+                SubscriberSavedData.note(serverLevel.getServer(), meter.subscriber(), EventKind.REMOVED, meter.serial());
+            }
+            // Jumelé : détaché. Reposé ailleurs, il ne facture plus ce client (sa consommation du jour reste due).
+            if (meter.hasSerial()) {
+                PowerPairing.detachMeter(serverLevel.getServer(), meter.serial());
+            }
         }
         super.onRemove(state, level, pos, newState, isMoving);
     }
+
+    // ---------------------------------------------------------------------------------------------
+    // Jumelé à un fournisseur (lot E6) : à lui seul
+    // ---------------------------------------------------------------------------------------------
+
+    /** Jumelé : seuls les ayants droit du fournisseur en ont une progression (le serveur tranche). */
+    @Override
+    public float getDestroyProgress(BlockState state, Player player, BlockGetter level, BlockPos pos) {
+        if (level instanceof Level real && !PowerPairing.mayTouch(player, real, pos)) {
+            return 0.0F;
+        }
+        return super.getDestroyProgress(state, player, level, pos);
+    }
+
+    @Override
+    public void attack(BlockState state, Level level, BlockPos pos, Player player) {
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer && !PowerPairing.mayTouch(player, level, pos)) {
+            serverPlayer.displayClientMessage(PowerPairing.refusal(player, level, pos), true);
+        }
+        super.attack(state, level, pos, player);
+    }
+
+    /** Jumelé : aucune explosion ne l'emporte. */
+    @Override
+    public float getExplosionResistance(BlockState state, BlockGetter level, BlockPos pos, Explosion explosion) {
+        if (level instanceof Level real && PowerPairing.ownerOf(real, pos).isPresent()) {
+            return 3600000.0F;
+        }
+        return super.getExplosionResistance(state, level, pos, explosion);
+    }
+
+    /** Jumelé : ni le Wither ni le dragon ni aucune entité ne le détruit. */
+    @Override
+    public boolean canEntityDestroy(BlockState state, BlockGetter level, BlockPos pos, Entity entity) {
+        if (level instanceof Level real && PowerPairing.ownerOf(real, pos).isPresent()) {
+            return false;
+        }
+        return super.canEntityDestroy(state, level, pos, entity);
+    }
+
 }

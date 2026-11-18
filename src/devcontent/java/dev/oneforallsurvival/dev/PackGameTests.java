@@ -1263,4 +1263,215 @@ public final class PackGameTests {
         return etat.setValue(propriete, propriete.getValue(valeur)
                 .orElseThrow(() -> new IllegalStateException("valeur " + valeur + " pour " + propriete.getName())));
     }
+
+    // ---------------------------------------------------------------------------------------------
+    // Lot E6, tâche 3 : la mesure du compteur jumelé, quel que soit le câble
+    // ---------------------------------------------------------------------------------------------
+
+    /** Une chaîne « source → poste → câble → compteur → disjoncteur → charge » le long de +X, sur une rangée. */
+    private record Chaine(String nom, ReseauxDev.Reseau reseau, BlockPos poste, BlockPos compteur, BlockPos disjoncteur,
+            BlockPos charge, BlockPos pointA, BlockPos pointB) {}
+
+    /**
+     * Même source (la créative de Crafts &amp; Additions, collée à l'arrière du poste), même charge d'essai (machine en
+     * panne : une réserve de 1 000 FE qui ne consomme rien), même durée (200 ticks après le câblage) : poste → câble →
+     * compteur jumelé → disjoncteur → charge, une fois en liaison directe et une fois par câble (fil de Crafts &amp;
+     * Additions, câble de New Age, fil de Crafts &amp; Additions jusqu'à la boîte d'Advanced Electricity, comme
+     * {@link ReseauxDev}). Pour chaque chaîne : consommation du jour du client = index du compteur = ce que la charge a
+     * reçu, et rien de nul ; les quatre consommations sont égales. Un mod absent : sa chaîne est écartée (journal), sans
+     * échec.
+     */
+    @GameTest(template = "test/plancher", batch = "pack_mesure_cable", setupTicks = 20, timeoutTicks = 400)
+    public static void laMesureNeDependPasDuCable(GameTestHelper helper) {
+        if (!ReseauxDev.Reseau.TEMOIN.disponible()) {
+            helper.succeed();
+            return;
+        }
+        var log = org.apache.logging.log4j.LogManager.getLogger("oneforallsurvival-reseaux");
+        var level = helper.getLevel();
+        var serveur = level.getServer();
+        Block creative = ForgeRegistries.BLOCKS.getValue(new ResourceLocation("createaddition", "creative_energy"));
+        java.util.List<Chaine> chaines = new java.util.ArrayList<>();
+        int z = 1;
+        for (ReseauxDev.Reseau r : new ReseauxDev.Reseau[] {ReseauxDev.Reseau.TEMOIN, ReseauxDev.Reseau.CREATE_ADDITION,
+                ReseauxDev.Reseau.NEW_AGE, ReseauxDev.Reseau.ADVANCED_ELECTRICITY}) {
+            String nom = r == ReseauxDev.Reseau.TEMOIN ? "direct" : r.name().toLowerCase(java.util.Locale.ROOT);
+            if (!r.disponible()) {
+                log.info("[reseau] mesure_{} | IGNORE, mod {} absent", nom, r.modId);
+                continue;
+            }
+            BlockPos source = helper.absolutePos(new BlockPos(0, 2, z));
+            BlockPos poste = source.east(1);
+            int premier = r == ReseauxDev.Reseau.TEMOIN ? 2 : 5;
+            chaines.add(new Chaine(nom, r, poste, source.east(premier), source.east(premier + 1), source.east(premier + 2),
+                    source.east(2), source.east(4)));
+            z += 2;
+        }
+        java.util.List<String> journal = new java.util.ArrayList<>();
+        java.util.Map<String, dev.oneforallsurvival.grid.supplier.PowerSupplier> fournisseurs = new java.util.HashMap<>();
+        dev.oneforallsurvival.grid.supplier.PowerSuppliers registre =
+                dev.oneforallsurvival.grid.supplier.PowerSuppliers.get(serveur);
+        for (Chaine c : chaines) {
+            BlockPos source = c.poste().west();
+            // La charge, puis le disjoncteur et le compteur (sorties à l'est), le poste fondé, la source.
+            level.setBlock(c.charge(), DevBlocks.testMachine().defaultBlockState(), Block.UPDATE_ALL);
+            ((TestMachineBlockEntity) level.getBlockEntity(c.charge())).panne(true);
+            level.setBlock(c.disjoncteur(), dev.oneforallsurvival.grid.GridRegistry.BREAKER.get().defaultBlockState()
+                    .setValue(dev.oneforallsurvival.machine.InlineEnergyBlock.FACING, Direction.EAST), Block.UPDATE_ALL);
+            level.setBlock(c.compteur(), dev.oneforallsurvival.grid.GridRegistry.METER.get().defaultBlockState()
+                    .setValue(dev.oneforallsurvival.machine.InlineEnergyBlock.FACING, Direction.EAST), Block.UPDATE_ALL);
+            var compteur = (dev.oneforallsurvival.grid.MeterBlockEntity) level.getBlockEntity(c.compteur());
+            compteur.setSubscriber("Mesure " + c.nom());
+            FournisseurDEssai.raccorder(serveur, compteur, java.util.UUID.randomUUID(), "Mesure " + c.nom());
+            level.setBlock(c.poste(), dev.oneforallsurvival.grid.GridRegistry.POWER_STATION.get().defaultBlockState()
+                    .setValue(dev.oneforallsurvival.machine.InlineEnergyBlock.FACING, Direction.EAST), Block.UPDATE_ALL);
+            var fonde = registre.found(java.util.UUID.randomUUID(), "Mesure",
+                    "Mesure " + java.util.UUID.randomUUID().toString().substring(0, 8));
+            registre.setStation(fonde.supplier().id(), net.minecraft.core.GlobalPos.of(level.dimension(), c.poste()));
+            net.minecraft.nbt.CompoundTag donnees = new net.minecraft.nbt.CompoundTag();
+            donnees.putString("supplier", fonde.supplier().id());
+            level.getBlockEntity(c.poste()).load(donnees);
+            fournisseurs.put(c.nom(), fonde.supplier());
+            level.setBlock(source, creative.defaultBlockState(), Block.UPDATE_ALL);
+            switch (c.reseau()) {
+                case CREATE_ADDITION -> {
+                    ReseauxDev.cliquer(level, "createaddition:connector", c.poste(), Direction.EAST, Direction.WEST, 1, journal);
+                    ReseauxDev.cliquer(level, "createaddition:connector", c.compteur(), Direction.WEST, Direction.EAST, 1,
+                            journal);
+                }
+                case NEW_AGE -> {
+                    ReseauxDev.cliquer(level, "create_new_age:electrical_connector", c.poste(), Direction.EAST,
+                            Direction.WEST, 1, journal);
+                    ReseauxDev.cliquer(level, "create_new_age:electrical_connector", c.compteur(), Direction.WEST,
+                            Direction.EAST, 1, journal);
+                }
+                case ADVANCED_ELECTRICITY -> {
+                    ReseauxDev.cliquer(level, "createaddition:connector", c.poste(), Direction.EAST, Direction.WEST, 1, journal);
+                    ReseauxDev.cliquer(level, "light_bulb_addon_create_crafts_and__addions:power_box", c.compteur(),
+                            Direction.WEST, Direction.EAST, 1, journal);
+                }
+                default -> {
+                }
+            }
+        }
+        // Le câblage 5 ticks plus tard (les connecteurs ont eu leur premier tic), comme la preuve du lot 0.
+        helper.runAfterDelay(5, () -> {
+            for (Chaine c : chaines) {
+                switch (c.reseau()) {
+                    case CREATE_ADDITION, ADVANCED_ELECTRICITY -> {
+                        // Le connecteur du poste reçoit en passif (mode « pull ») ; celui du compteur pousse.
+                        level.setBlock(c.pointA(), ReseauxDev.avec(level.getBlockState(c.pointA()), "mode", "pull"),
+                                Block.UPDATE_ALL);
+                        if (c.reseau() == ReseauxDev.Reseau.CREATE_ADDITION) {
+                            level.setBlock(c.pointB(), ReseauxDev.avec(level.getBlockState(c.pointB()), "mode", "push"),
+                                    Block.UPDATE_ALL);
+                        }
+                        ReseauxDev.tirerFil(level, "createaddition:copper_spool", c.pointA(), c.pointB(), journal);
+                    }
+                    case NEW_AGE -> ReseauxDev.tirerFil(level, "create_new_age:copper_wire", c.pointA(), c.pointB(), journal);
+                    default -> {
+                    }
+                }
+            }
+        });
+        helper.runAfterDelay(205, () -> {
+            java.util.Set<Long> mesures = new java.util.HashSet<>();
+            StringBuilder bilan = new StringBuilder();
+            for (Chaine c : chaines) {
+                var compteur = (dev.oneforallsurvival.grid.MeterBlockEntity) level.getBlockEntity(c.compteur());
+                var charge = (TestMachineBlockEntity) level.getBlockEntity(c.charge());
+                long jour = registre.clientOf(compteur.serial()).map(dev.oneforallsurvival.grid.supplier.PowerClient::feToday)
+                        .orElse(-1L);
+                long recu = charge.energy().getEnergyStored();
+                long sorti = registre.byId(fournisseurs.get(c.nom()).id()).map(
+                        dev.oneforallsurvival.grid.supplier.PowerSupplier::outToday).orElse(-1L);
+                String ligne = c.nom() + " : consommation du jour " + jour + ", index " + compteur.totalTransferred()
+                        + ", reçu par la charge " + recu + ", sortie du poste " + sorti;
+                log.info("[reseau] mesure_{} | {}", c.nom(), ligne);
+                bilan.append(ligne).append(" ; ");
+                helper.assertTrue(recu > 0, ligne + " : rien n'est arrivé, journal " + journal);
+                helper.assertTrue(jour == recu && compteur.totalTransferred() == recu, ligne);
+                mesures.add(jour);
+            }
+            helper.assertTrue(mesures.size() == 1, "les consommations diffèrent : " + bilan);
+            for (Chaine c : chaines) {
+                for (BlockPos p : List.of(c.poste().west(), c.poste(), c.pointA(), c.pointB(), c.compteur(), c.disjoncteur(),
+                        c.charge())) {
+                    level.setBlock(p, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+                }
+            }
+            helper.succeed();
+        });
+    }
+
+    /**
+     * Un déployeur de Create (faux joueur) en mode frappe, pioche de diamant en main, devant un compteur jumelé : il ne
+     * le casse pas (aucune progression pour un faux joueur, bris annulé) et le compteur reste raccordé. Un témoin devant
+     * une pierre prouve qu'il casse ; on laisse encore 100 ticks au second.
+     */
+    @GameTest(template = "test/plancher", batch = "pack_compteur_jumele", setupTicks = 20, timeoutTicks = 1200)
+    public static void unDeployeurNeCasseNiNOuvreUnCompteurJumele(GameTestHelper helper) {
+        if (!ModList.get().isLoaded("create")) {
+            helper.succeed();
+            return;
+        }
+        ButinGameTests.degager(helper);
+        Block blocDeployeur = ForgeRegistries.BLOCKS.getValue(new ResourceLocation("create", "deployer"));
+        Block blocMoteur = ForgeRegistries.BLOCKS.getValue(new ResourceLocation("create", "creative_motor"));
+        BlockPos temoin = new BlockPos(1, 1, 2);
+        BlockPos casseur = new BlockPos(1, 1, 5);
+        BlockPos pierre = temoin.east(2);
+        BlockPos compteur = casseur.east(2);
+        helper.setBlock(pierre, Blocks.STONE);
+        helper.setBlock(compteur, dev.oneforallsurvival.grid.GridRegistry.METER.get().defaultBlockState());
+        var be = (dev.oneforallsurvival.grid.MeterBlockEntity) helper.getBlockEntity(compteur);
+        be.setSubscriber("Deployeur");
+        FournisseurDEssai.raccorder(helper, be);
+        java.util.UUID numero = be.serial();
+        var registre = dev.oneforallsurvival.grid.supplier.PowerSuppliers.get(helper.getLevel().getServer());
+        for (BlockPos deployeur : List.of(temoin, casseur)) {
+            helper.setBlock(deployeur, avec(avec(blocDeployeur.defaultBlockState(), "facing", "east"),
+                    "axis_along_first", "false"));
+            helper.setBlock(deployeur.north(), avec(blocMoteur.defaultBlockState(), "facing", "south"));
+        }
+        Runnable rendre = () -> {
+            for (BlockPos deployeur : List.of(temoin, casseur)) {
+                helper.setBlock(deployeur, Blocks.AIR);
+                helper.setBlock(deployeur.north(), Blocks.AIR);
+            }
+            helper.setBlock(compteur, Blocks.AIR);
+            ButinGameTests.ranger(helper);
+        };
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(fauxJoueur(helper.getBlockEntity(temoin)) != null
+                        && fauxJoueur(helper.getBlockEntity(casseur)) != null, "faux joueurs des déployeurs pas prêts"))
+                .thenExecute(() -> {
+                    for (BlockPos deployeur : List.of(temoin, casseur)) {
+                        BlockEntity d = helper.getBlockEntity(deployeur);
+                        net.minecraft.world.entity.player.Player joueur = fauxJoueur(d);
+                        if (!(joueur instanceof net.minecraftforge.common.util.FakePlayer)) {
+                            rendre.run();
+                            helper.fail("le joueur du déployeur n'est pas un faux joueur : " + joueur);
+                        }
+                        joueur.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+                                new ItemStack(net.minecraft.world.item.Items.DIAMOND_PICKAXE));
+                        try {
+                            d.getClass().getMethod("changeMode").invoke(d);
+                        } catch (ReflectiveOperationException e) {
+                            rendre.run();
+                            throw new IllegalStateException(e);
+                        }
+                    }
+                })
+                .thenWaitUntil(() -> helper.assertBlockPresent(Blocks.AIR, pierre))
+                .thenIdle(100)
+                .thenExecute(() -> {
+                    boolean present = helper.getBlockState(compteur).is(dev.oneforallsurvival.grid.GridRegistry.METER.get());
+                    boolean jumele = registre.clientOf(numero).isPresent();
+                    rendre.run();
+                    helper.assertTrue(present, "le déployeur ne devait pas casser le compteur jumelé");
+                    helper.assertTrue(jumele, "le compteur devait rester raccordé");
+                })
+                .thenSucceed();
+    }
 }

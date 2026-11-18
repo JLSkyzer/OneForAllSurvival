@@ -53,6 +53,21 @@ public record PowerClient(UUID meterSerial, String supplierId, UUID player, Stri
                 cut);
     }
 
+    PowerClient withState(State next) {
+        return new PowerClient(meterSerial, supplierId, player, playerName, subscriber, next, feToday, feYesterday,
+                breakers, cut);
+    }
+
+    PowerClient withBreakers(Set<UUID> next) {
+        return new PowerClient(meterSerial, supplierId, player, playerName, subscriber, state, feToday, feYesterday, next,
+                cut);
+    }
+
+    PowerClient withCut(boolean next) {
+        return new PowerClient(meterSerial, supplierId, player, playerName, subscriber, state, feToday, feYesterday,
+                breakers, next);
+    }
+
     CompoundTag save() {
         CompoundTag tag = new CompoundTag();
         tag.putUUID("meter", meterSerial);
