@@ -175,6 +175,20 @@ public final class InvoiceRegistry extends SavedData {
         return true;
     }
 
+    /**
+     * Payée → de nouveau due : seulement pour défaire un prélèvement dont le créancier a échoué à recevoir les pièces
+     * (rendues au débiteur par l'appelant). Vrai si la facture était payée.
+     */
+    public boolean reopen(UUID id) {
+        Invoice invoice = invoices.get(id);
+        if (invoice == null || invoice.status() != Status.PAID) {
+            return false;
+        }
+        invoices.put(id, invoice.settled(Status.DUE, 0L));
+        setDirty();
+        return true;
+    }
+
     /** Due → annulée (créancier disparu) ; vrai seulement si la facture était due. Aucune pièce ne bouge. */
     public boolean cancel(UUID id, long now) {
         Invoice invoice = invoices.get(id);

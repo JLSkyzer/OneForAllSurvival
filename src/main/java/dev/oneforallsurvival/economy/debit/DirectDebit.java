@@ -52,8 +52,11 @@ public final class DirectDebit {
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    /** Ce qu'a donné une présentation. */
-    public enum Outcome { PAID_HELD, PAID_PENDING, PAID_SAFE, PAID_MIXED, REFUSED, CANCELLED, NOT_DUE }
+    /**
+     * Ce qu'a donné une présentation. {@link #FAILED} : le créancier a échoué à recevoir ; le montant a été rendu au
+     * débiteur et la facture est de nouveau due.
+     */
+    public enum Outcome { PAID_HELD, PAID_PENDING, PAID_SAFE, PAID_MIXED, REFUSED, CANCELLED, NOT_DUE, FAILED }
 
     private DirectDebit() {}
 
@@ -122,7 +125,9 @@ public final class DirectDebit {
         giveChange(server, debtorId, present ? online : null, plan);
         registry.markPaid(due.id(), now);
         Invoice paid = registry.get(due.id()).orElse(due);
-        payee.get().receive(server, paid, due.amount());
+        if (!deliver(server, registry, payee.get(), paid)) {
+            return Outcome.FAILED;
+        }
         EconomyLedger.get(server).transferred(MoneyTransfer.PUBLIC_BILL, due.amount(), debtorId,
                 "facture publique " + due.payee() + " " + due.shortId() + " " + due.debtorName() + " ("
                         + plan.single().name().toLowerCase(Locale.ROOT) + ")");
@@ -139,6 +144,26 @@ public final class DirectDebit {
             case SAFE -> Outcome.PAID_SAFE;
             case MIXED -> Outcome.PAID_MIXED;
         };
+    }
+
+    /**
+     * Verse le montant au créancier. S'il lève une exception, rien n'est perdu ni ne plante : le montant est rendu au
+     * débiteur ({@link CommerceDelivery#payTo} : inventaire, coffre-fort, sinon attente ; jamais au sol), la facture
+     * redevient due ({@link InvoiceRegistry#reopen}) et l'erreur va au journal.
+     *
+     * @return vrai si le créancier a reçu les pièces
+     */
+    private static boolean deliver(MinecraftServer server, InvoiceRegistry registry, DebitPayee payee, Invoice paid) {
+        try {
+            payee.receive(server, paid, paid.amount());
+            return true;
+        } catch (RuntimeException e) {
+            CommerceDelivery.payTo(server, paid.debtor(), paid.amount());
+            registry.reopen(paid.id());
+            LOGGER.error("Prelevement : le creancier {} a echoue a recevoir la facture {} ; {} cuivres rendus a {}, "
+                    + "facture de nouveau due", paid.payee(), paid.shortId(), paid.amount(), paid.debtorName(), e);
+            return false;
+        }
     }
 
     /**
@@ -232,7 +257,9 @@ public final class DirectDebit {
         PlayerCoins.giveOrDrop(payer, plan.change()); // la place a été vérifiée : rien ne tombe
         registry.markPaid(due.id(), now);
         Invoice paid = registry.get(due.id()).orElse(due);
-        payee.get().receive(server, paid, due.amount());
+        if (!deliver(server, registry, payee.get(), paid)) {
+            return PayResult.CANNOT_PAY;
+        }
         EconomyLedger.get(server).transferred(MoneyTransfer.PUBLIC_BILL, due.amount(), payer.getUUID(),
                 "facture publique " + due.payee() + " " + due.shortId() + " " + due.debtorName() + " (objet)");
         LOGGER.debug("Prelevement : facture {} payee par l'objet ({} cuivres, {})", due.shortId(), due.amount(),

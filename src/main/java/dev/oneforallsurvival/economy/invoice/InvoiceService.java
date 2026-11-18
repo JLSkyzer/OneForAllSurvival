@@ -396,12 +396,17 @@ public final class InvoiceService {
     // ---------------------------------------------------------------------------------------------
 
     /** {@link #NOT_FOUND} : aucune facture de ce joueur ne porte cet identifiant (celles des autres comprises). */
-    public enum CopyResult { DONE, NOT_FOUND, NOT_PUBLIC, NOT_DUE }
+    /**
+     * {@link #ALREADY_HELD} : un papier de cette facture est déjà dans l'inventaire du joueur ou dans son attente ;
+     * {@link #NO_ROOM} : inventaire plein (la copie ne va jamais en attente).
+     */
+    public enum CopyResult { DONE, NOT_FOUND, NOT_PUBLIC, NOT_DUE, ALREADY_HELD, NO_ROOM }
 
     /**
      * {@code /invoice copy <id>} : le débiteur reçoit l'objet facture d'une de ses factures <b>publiques dues</b>
-     * (identifiant complet, ou les 8 premiers caractères s'ils n'en désignent qu'une), dans l'inventaire, sinon en
-     * attente. Le papier n'est qu'une vue : une copie ne paie jamais deux fois.
+     * (identifiant complet, ou les 8 premiers caractères s'ils n'en désignent qu'une), dans l'inventaire seulement. Au
+     * plus un papier par facture chez lui (inventaire et attente) : des appels répétés ne font pas grossir l'attente.
+     * Le papier n'est qu'une vue : une copie ne paie jamais deux fois.
      */
     public static CopyResult copy(ServerPlayer debtor, String text) {
         InvoiceRegistry registry = InvoiceRegistry.get(debtor.server);
@@ -422,8 +427,32 @@ public final class InvoiceService {
         if (invoice.status() != Status.DUE) {
             return CopyResult.NOT_DUE;
         }
-        CommerceDelivery.giveBack(debtor, List.of(InvoiceItem.of(invoice)));
+        if (holdsPaper(debtor, invoice.id())) {
+            return CopyResult.ALREADY_HELD;
+        }
+        ItemStack paper = InvoiceItem.of(invoice);
+        if (!debtor.isAlive() || !InventoryFit.fits(debtor, List.of(paper))) {
+            return CopyResult.NO_ROOM;
+        }
+        debtor.getInventory().add(paper);
         return CopyResult.DONE;
+    }
+
+    /** Un papier de cette facture est-il dans l'inventaire de ce joueur, ou dans son attente ? */
+    private static boolean holdsPaper(ServerPlayer player, UUID id) {
+        Inventory inventory = player.getInventory();
+        for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
+            if (InvoiceItem.idOf(inventory.getItem(slot)).filter(id::equals).isPresent()) {
+                return true;
+            }
+        }
+        for (ItemStack stack : dev.oneforallsurvival.economy.HeldGoods.get(player.server).pendingFor(player.getUUID())
+                .items()) {
+            if (InvoiceItem.idOf(stack).filter(id::equals).isPresent()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // ---------------------------------------------------------------------------------------------

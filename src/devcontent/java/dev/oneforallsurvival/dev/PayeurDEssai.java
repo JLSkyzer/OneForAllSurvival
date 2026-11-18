@@ -32,6 +32,8 @@ final class PayeurDEssai implements DebitPayee {
     private static final Map<String, Long> RECU = new HashMap<>();
     private static final Map<String, Integer> RECUS = new HashMap<>();
     private static final Map<String, Integer> REFUS = new HashMap<>();
+    /** Les créanciers piégés : leur {@code receive} lève une exception (créancier en faute). */
+    private static final Set<String> PIEGES = new HashSet<>();
     /** Les émissions quotidiennes confiées par les essais : un registre, un débiteur, un montant par jour. */
     private static final List<Emission> EMISSIONS = new ArrayList<>();
 
@@ -56,6 +58,15 @@ final class PayeurDEssai implements DebitPayee {
     /** Le créancier {@code ref} n'existe plus (comme un fournisseur supprimé). */
     static void disparaitre(String ref) {
         EXISTANTS.remove(ref);
+    }
+
+    /** Le créancier {@code ref} échoue désormais à recevoir (ou plus, si {@code piege} est faux). */
+    static void pieger(String ref, boolean piege) {
+        if (piege) {
+            PIEGES.add(ref);
+        } else {
+            PIEGES.remove(ref);
+        }
     }
 
     /** Ce que le créancier {@code ref} a reçu, en cuivres. */
@@ -90,6 +101,7 @@ final class PayeurDEssai implements DebitPayee {
         RECU.remove(ref);
         RECUS.remove(ref);
         REFUS.remove(ref);
+        PIEGES.remove(ref);
     }
 
     private static void emettre(MinecraftServer server, LocalDate jour, long now) {
@@ -107,6 +119,9 @@ final class PayeurDEssai implements DebitPayee {
 
     @Override
     public void receive(MinecraftServer server, Invoice invoice, long amount) {
+        if (PIEGES.contains(invoice.payeeRef())) {
+            throw new IllegalStateException("créancier d'essai piégé : " + invoice.payeeRef());
+        }
         RECU.merge(invoice.payeeRef(), amount, Long::sum);
         RECUS.merge(invoice.payeeRef(), 1, Integer::sum);
     }

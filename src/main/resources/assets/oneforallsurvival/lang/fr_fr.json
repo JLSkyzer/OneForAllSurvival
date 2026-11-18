@@ -737,6 +737,8 @@
   "message.oneforallsurvival.invoice.copy.not_found": "Aucune de vos factures ne porte l'identifiant %s",
   "message.oneforallsurvival.invoice.copy.not_public": "La facture %s n'est pas prélevée : son papier vous a été remis à l'émission",
   "message.oneforallsurvival.invoice.copy.not_due": "La facture %s n'est plus due",
+  "message.oneforallsurvival.invoice.copy.already_held": "Vous avez déjà le papier de la facture %s (inventaire ou attente)",
+  "message.oneforallsurvival.invoice.copy.no_room": "Pas de place pour le papier de la facture %s : libérez une case",
   "message.oneforallsurvival.debit.paid.held": "Facture %s (n° %s) prélevée : %s, pris sur vous",
   "message.oneforallsurvival.debit.paid.pending": "Facture %s (n° %s) prélevée : %s, pris dans ce qui vous attend",
   "message.oneforallsurvival.debit.paid.safe": "Facture %s (n° %s) prélevée : %s, pris dans votre coffre-fort",

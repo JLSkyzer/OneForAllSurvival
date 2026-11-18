@@ -105,7 +105,14 @@ public final class DailyDebit {
             int paid = 0;
             int refused = 0;
             for (Invoice invoice : registry.duePublic()) {
-                DirectDebit.Outcome outcome = DirectDebit.present(server, registry, invoice, now);
+                DirectDebit.Outcome outcome;
+                try {
+                    outcome = DirectDebit.present(server, registry, invoice, now);
+                } catch (RuntimeException e) {
+                    // Jamais un plantage du tic (qui recommencerait à chaque démarrage) : la facture suivante passe.
+                    LOGGER.error("Prelevement : presentation de la facture {} en echec", invoice.shortId(), e);
+                    continue;
+                }
                 if (outcome == DirectDebit.Outcome.REFUSED) {
                     refused++;
                 } else if (outcome.name().startsWith("PAID_")) {

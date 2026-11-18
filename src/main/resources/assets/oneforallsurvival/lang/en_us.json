@@ -737,6 +737,8 @@
   "message.oneforallsurvival.invoice.copy.not_found": "None of your bills has the id %s",
   "message.oneforallsurvival.invoice.copy.not_public": "Bill %s is not a direct-debit bill: its paper was handed to you when issued",
   "message.oneforallsurvival.invoice.copy.not_due": "Bill %s is no longer due",
+  "message.oneforallsurvival.invoice.copy.already_held": "You already have the paper of bill %s (inventory or waiting)",
+  "message.oneforallsurvival.invoice.copy.no_room": "No room for the paper of bill %s: free a slot",
   "message.oneforallsurvival.debit.paid.held": "Bill %s (no. %s) debited: %s, taken from you",
   "message.oneforallsurvival.debit.paid.pending": "Bill %s (no. %s) debited: %s, taken from what is waiting for you",
   "message.oneforallsurvival.debit.paid.safe": "Bill %s (no. %s) debited: %s, taken from your safe",

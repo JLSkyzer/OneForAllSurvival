@@ -589,8 +589,8 @@ public final class PrelevementGameTests {
             helper.assertTrue(caseDe(autre, f.id()) < 0, "rien chez l'autre");
             helper.assertTrue(InvoiceService.copy(j.joueur(), f.id().toString()) == CopyResult.DONE, "copie 1");
             int premiere = caseDe(j, f.id());
+            // Un second papier de la même facture (comme une copie faite avant le tour 1, ou un papier dupliqué).
             j.joueur().getInventory().setItem(8, j.joueur().getInventory().getItem(premiere).copy());
-            helper.assertTrue(InvoiceService.copy(j.joueur(), f.shortId()) == CopyResult.DONE, "copie 2 (identifiant court)");
             long avant = e.somme(u, j);
 
             helper.assertTrue(InvoiceService.pay(j.joueur(), premiere) == PayResult.PAID_TO_INVENTORY, "la première paie");
@@ -602,6 +602,92 @@ public final class PrelevementGameTests {
             helper.assertTrue(InvoiceService.copy(j.joueur(), f.id().toString()) == CopyResult.NOT_DUE,
                     "plus de copie d'une facture payée");
             helper.assertTrue(e.somme(u, j) == avant, "somme conservée");
+        });
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_B)
+    public static void uneCopieAuPlusParFacture(GameTestHelper helper) {
+        essai(helper, e -> {
+            JoueurDeTest j = e.joueur("pr_cp1", POS_A);
+            UUID u = j.uuid();
+            Invoice f = e.factureGlobale(u, j.joueur().getGameProfile().getName(), 250L);
+            HeldGoods held = HeldGoods.get(e.serveur);
+
+            // Appels répétés (par l'identifiant complet ou court) : un seul papier au total.
+            helper.assertTrue(InvoiceService.copy(j.joueur(), f.id().toString()) == CopyResult.DONE, "première copie");
+            for (int i = 0; i < 20; i++) {
+                CopyResult r = InvoiceService.copy(j.joueur(), i % 2 == 0 ? f.id().toString() : f.shortId());
+                helper.assertTrue(r == CopyResult.ALREADY_HELD, "copie " + (i + 2) + " : " + r);
+            }
+            helper.assertTrue(j.joueur().getInventory().countItem(EconomyRegistry.INVOICE.get()) == 1,
+                    "un seul papier dans l'inventaire");
+            helper.assertTrue(!held.hasPending(u), "rien en attente");
+
+            // Le papier en attente compte aussi : pas de second papier dans l'inventaire.
+            int c = caseDe(j, f.id());
+            ItemStack papier = j.joueur().getInventory().getItem(c);
+            j.joueur().getInventory().setItem(c, ItemStack.EMPTY);
+            held.addPending(u, List.of(papier), Map.of());
+            helper.assertTrue(InvoiceService.copy(j.joueur(), f.id().toString()) == CopyResult.ALREADY_HELD,
+                    "papier en attente : refus");
+            helper.assertTrue(j.joueur().getInventory().countItem(EconomyRegistry.INVOICE.get()) == 0, "rien ajouté");
+            held.takePending(u);
+
+            // Inventaire plein : refus, et jamais d'envoi en attente.
+            for (int i = 0; i < 36; i++) {
+                j.joueur().getInventory().setItem(i, new ItemStack(net.minecraft.world.item.Items.DIRT, 64));
+            }
+            for (int i = 0; i < 5; i++) {
+                CopyResult r = InvoiceService.copy(j.joueur(), f.id().toString());
+                helper.assertTrue(r == CopyResult.NO_ROOM, "inventaire plein : " + r);
+            }
+            helper.assertTrue(!held.hasPending(u), "l'attente ne grossit pas : " + held.pendingFor(u).items().size());
+        });
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_B)
+    public static void unCreancierEnFauteNeDetruitRien(GameTestHelper helper) {
+        essai(helper, e -> {
+            JoueurDeTest j = e.joueur("pr_err", POS_A);
+            UUID u = j.uuid();
+            j.joueur().getInventory().setItem(3, new ItemStack(Coin.GOLD.item(), 2));
+            e.attente(u, List.of(bourse(Coin.SILVER, 9)), pieces(Coin.SILVER, 3));
+            e.coffreFort(u, pieces(Coin.GOLD, 4));
+            PayeurDEssai.pieger(e.ref, true);
+            long avant = e.somme(u, j);
+            long publicAvant = EconomyLedger.get(e.serveur).totalTransferred(MoneyTransfer.PUBLIC_BILL);
+
+            // Par la présentation (sources mêlées : inventaire, attente avec bourse, coffre-fort).
+            Invoice f = e.facture(u, j.joueur().getGameProfile().getName(), 450L);
+            Outcome r = DirectDebit.present(e.serveur, e.registre, f, System.currentTimeMillis());
+            helper.assertTrue(r == Outcome.FAILED, "créancier en faute : " + r);
+            helper.assertTrue(e.statut(e.registre, f) == Status.DUE, "la facture reste due");
+            helper.assertTrue(e.somme(u, j) == avant, "aucune pièce détruite : " + avant + " -> " + e.somme(u, j));
+
+            // Par la clôture de minuit : pas de plantage, la facture reste due.
+            e.registre.setLastDebitDay(J.minusDays(1));
+            int clos = DailyDebit.closeDueDays(e.serveur, e.registre, new Payroll(), minuit(J) + MINUTE);
+            helper.assertTrue(clos == 1 && e.statut(e.registre, f) == Status.DUE, "clôture sans plantage : " + clos);
+            helper.assertTrue(e.somme(u, j) == avant, "toujours rien de détruit");
+
+            // Par l'objet.
+            Invoice g = e.factureGlobale(u, j.joueur().getGameProfile().getName(), 100L);
+            j.joueur().getInventory().setItem(30, InvoiceItem.of(g));
+            long porte = e.porte(j);
+            PayResult p = InvoiceService.pay(j.joueur(), 30);
+            helper.assertTrue(p == PayResult.CANNOT_PAY, "objet, créancier en faute : " + p);
+            helper.assertTrue(e.statut(InvoiceRegistry.get(e.serveur), g) == Status.DUE, "toujours due");
+            helper.assertTrue(InvoiceItem.idOf(j.joueur().getInventory().getItem(30)).isPresent(), "pas de reçu");
+            helper.assertTrue(e.porte(j) + e.enAttente(u) + e.auCoffre(u) == porte + e.enAttente(u) + e.auCoffre(u)
+                    && e.somme(u, j) == avant, "rien de détruit par l'objet : " + e.somme(u, j));
+            helper.assertTrue(EconomyLedger.get(e.serveur).totalTransferred(MoneyTransfer.PUBLIC_BILL) == publicAvant,
+                    "aucun transfert noté");
+
+            // Le créancier réparé : la même facture se paie normalement.
+            PayeurDEssai.pieger(e.ref, false);
+            helper.assertTrue(DirectDebit.present(e.serveur, e.registre, f, System.currentTimeMillis()).name()
+                    .startsWith("PAID_"), "payée une fois le créancier réparé");
+            helper.assertTrue(PayeurDEssai.recu(e.ref) == 450L && e.somme(u, j) == avant, "somme conservée");
         });
     }
 
