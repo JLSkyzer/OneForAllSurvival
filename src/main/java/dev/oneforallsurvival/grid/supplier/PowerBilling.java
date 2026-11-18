@@ -20,6 +20,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -38,8 +39,8 @@ import org.slf4j.Logger;
  * <p><b>Émission</b> ({@link #issue}, à la clôture de chaque jour par {@link DailyDebit}) : chaque client accepté
  * ({@code ACTIVE} ou {@code RESIGNING}), et chaque client détaché dans la journée qui l'était, reçoit une facture
  * publique de {@link PowerBillMath#amount} (consommation du jour × prix du jour + abonnement du jour), si elle n'est pas
- * nulle. Un client coupé à distance toute la journée ne consomme rien mais doit l'abonnement : c'est un contrat, le
- * cahier ne l'en dispense pas. Puis la consommation passe à « hier », un client en résiliation est détaché (son
+ * nulle. Un client coupé à distance au moment de la clôture ne paie pas l'abonnement du jour (décision de Killian du
+ * 2026-11-18) ; sa consommation d'avant la coupure reste facturée ; coupé toute la journée, il n'a pas de facture. Puis la consommation passe à « hier », un client en résiliation est détaché (son
  * jumelage oublié), les détachés sont oubliés, le plafond et la taxe du lendemain entrent en vigueur, puis les tarifs du
  * lendemain de chaque fournisseur (prix ramené au plafond, fondateur prévenu ; clients prévenus d'un changement), et la
  * sortie du poste et la somme des compteurs passent à « hier ». Une facture garde dans sa référence le taux de taxe du
@@ -67,19 +68,25 @@ public final class PowerBilling implements DebitPayee, DailyDebit.DayIssuer {
 
     private static volatile PowerBilling installed = SERVER;
 
+    /** L'heure de la clôture en cours (celle passée à {@link #issue}) : elle date aussi les refus de cette clôture. */
+    private volatile long closingNow;
+
     /**
      * La référence d'une facture d'électricité : tout ce qui la décrit, figé à l'émission. Écrite
-     * {@code <fournisseur>/<compteur>/<taxe>/<jour>/<FE>/<prix>/<tranche>/<abonnement>/<nom du fournisseur>} (le nom
+     * {@code 1/<fournisseur>/<compteur>/<taxe>/<jour>/<FE>/<prix>/<tranche>/<abonnement>/<nom du fournisseur>} (le nom
      * vient en dernier : il peut contenir « / »).
      *
      * @param taxPercent la taxe du jour facturé, retenue au paiement quel que soit le jour où il arrive
      * @param epochDay le jour facturé
      */
+    /** Version du format de la référence, écrite en tête. */
+    static final String VERSION = "1";
+
     public record Ref(String supplierId, UUID meter, int taxPercent, long epochDay, long fe, long price, long unitFe,
             long subscription, String supplierName) {
 
         String encode() {
-            return String.join("/", supplierId, meter.toString(), Integer.toString(taxPercent), Long.toString(epochDay),
+            return String.join("/", VERSION, supplierId, meter.toString(), Integer.toString(taxPercent), Long.toString(epochDay),
                     Long.toString(fe), Long.toString(price), Long.toString(unitFe), Long.toString(subscription),
                     supplierName);
         }
@@ -89,7 +96,11 @@ public final class PowerBilling implements DebitPayee, DailyDebit.DayIssuer {
             if (text == null) {
                 return Optional.empty();
             }
-            String[] parts = text.split("/", 9);
+            // Version 1 : « 1/ » en tête. Sans version : le format de la première livraison (4b803f6), toujours lu,
+            // pour qu'une facture due ne devienne jamais illisible (elle serait annulée à sa présentation). Un
+            // identifiant de fournisseur fait 12 caractères : jamais « 1 ».
+            String body = text.startsWith(VERSION + "/") ? text.substring(VERSION.length() + 1) : text;
+            String[] parts = body.split("/", 9);
             if (parts.length != 9 || parts[0].isEmpty()) {
                 return Optional.empty();
             }
@@ -150,18 +161,57 @@ public final class PowerBilling implements DebitPayee, DailyDebit.DayIssuer {
     // Émission (clôture du jour)
     // ---------------------------------------------------------------------------------------------
 
+    /** Un contrat du jour : un fournisseur, un compteur, un joueur. Clé du regroupement de la clôture. */
+    private record Contract(String supplierId, UUID meter, UUID player) {}
+
+    /** Ce qu'un contrat a cumulé dans la journée : son débiteur (nul : rien à facturer) et sa consommation. */
+    private static final class Day {
+        @Nullable
+        PowerClient debtor;
+        long fe;
+    }
+
     @Override
     public void issue(MinecraftServer server, LocalDate day, long now) {
+        closingNow = now;
         PowerSuppliers registry = suppliers(server);
         InvoiceRegistry bills = invoices(server);
         long unit = EconomyConfig.powerPriceUnitFe();
         Map<String, Long> metered = new HashMap<>();
+        // Regroupement par contrat (fournisseur, compteur, joueur) : un compteur détaché puis rejumelé le même jour, ou
+        // détaché deux fois, reste UNE facture du jour (consommation cumulée, un seul abonnement). Un autre fournisseur
+        // ou un autre joueur est un autre contrat.
+        Map<Contract, Day> contracts = new LinkedHashMap<>();
         for (PowerSupplier supplier : registry.all()) {
             for (PowerClient client : registry.clients(supplier.id())) {
                 metered.merge(supplier.id(), client.feToday(), PowerBilling::saturatedAdd);
+                Day d = contracts.computeIfAbsent(contractOf(client), k -> new Day());
+                d.fe = saturatedAdd(d.fe, client.feToday());
                 if (client.state().passes()) {
-                    bill(registry, bills, supplier, client, day, now, unit);
+                    d.debtor = client; // le contrat en cours est le débiteur
                 }
+            }
+        }
+        for (PowerClient client : registry.detached()) {
+            if (registry.byId(client.supplierId()).isEmpty()) {
+                continue;
+            }
+            metered.merge(client.supplierId(), client.feToday(), PowerBilling::saturatedAdd);
+            Day d = contracts.computeIfAbsent(contractOf(client), k -> new Day());
+            d.fe = saturatedAdd(d.fe, client.feToday());
+            if (client.state().passes() && d.debtor == null) {
+                d.debtor = client;
+            }
+        }
+        for (Map.Entry<Contract, Day> entry : contracts.entrySet()) {
+            Day d = entry.getValue();
+            Optional<PowerSupplier> supplier = registry.byId(entry.getKey().supplierId());
+            if (d.debtor != null && supplier.isPresent()) {
+                bill(registry, bills, supplier.get(), d.debtor, d.fe, day, now, unit);
+            }
+        }
+        for (PowerSupplier supplier : registry.all()) {
+            for (PowerClient client : registry.clients(supplier.id())) {
                 registry.closeClientDay(client.meterSerial());
                 if (client.state() == PowerClient.State.RESIGNING) {
                     // Dernière facture émise : détaché pour de bon (jumelage du compteur et des disjoncteurs oublié).
@@ -178,13 +228,6 @@ public final class PowerBilling implements DebitPayee, DailyDebit.DayIssuer {
             }
         }
         for (PowerClient client : registry.detached()) {
-            Optional<PowerSupplier> supplier = registry.byId(client.supplierId());
-            if (supplier.isPresent()) {
-                metered.merge(client.supplierId(), client.feToday(), PowerBilling::saturatedAdd);
-                if (client.state().passes()) {
-                    bill(registry, bills, supplier.get(), client, day, now, unit);
-                }
-            }
             registry.removeDetached(client);
         }
         registry.applyNextCapAndTax();
@@ -194,26 +237,35 @@ public final class PowerBilling implements DebitPayee, DailyDebit.DayIssuer {
         }
     }
 
+    private static Contract contractOf(PowerClient client) {
+        return new Contract(client.supplierId(), client.meterSerial(), client.player());
+    }
+
     private void bill(PowerSuppliers registry, InvoiceRegistry bills, PowerSupplier supplier, PowerClient client,
-            LocalDate day, long now, long unit) {
-        long amount = PowerBillMath.amount(client.feToday(), supplier.price(), unit, supplier.subscription());
+            long fe, LocalDate day, long now, long unit) {
+        // Coupé à distance au moment de la clôture : pas d'abonnement ce jour-là (décision de Killian, 2026-11-18) ;
+        // ce qui est passé avant la coupure a été reçu et reste facturé.
+        long subscription = client.cut() ? 0L : supplier.subscription();
+        long amount = PowerBillMath.amount(fe, supplier.price(), unit, subscription);
         if (amount <= 0L) {
             return; // une journée à 0 cuivre n'émet pas de papier
         }
-        Ref ref = new Ref(supplier.id(), client.meterSerial(), registry.taxPercent(), day.toEpochDay(), client.feToday(),
-                supplier.price(), unit, supplier.subscription(), supplier.name());
+        Ref ref = new Ref(supplier.id(), client.meterSerial(), registry.taxPercent(), day.toEpochDay(), fe,
+                supplier.price(), unit, subscription, supplier.name());
         Invoice invoice = bills.issuePublic(KIND, ref.encode(), supplier.founder(), supplier.founderName(),
                 client.player(), client.playerName(), amount, reason(ref), now);
-        registry.noteStatement(client.meterSerial(),
+        registry.noteStatement(client.meterSerial(), supplier.id(), client.player(),
                 new StatementLine(now, StatementKind.BILLED, amount, invoice.shortId()));
         LOGGER.info("Electricite : facture {} de {} pour {} ({} FE le {}) : {} cuivres", invoice.shortId(),
-                supplier.name(), client.playerName(), client.feToday(), day, amount);
+                supplier.name(), client.playerName(), fe, day, amount);
     }
 
-    /** Le motif écrit sur la facture (lu tel quel sur le papier) : fournisseur, jour, kFE, prix, abonnement. */
+    /**
+     * Le motif brut gardé au registre : neutre (nom du fournisseur et date), sans mot d'aucune langue. Le papier, le
+     * reçu et {@code /invoice} affichent pour une facture publique le motif traduit ({@link #describe}).
+     */
     private static String reason(Ref ref) {
-        return "Électricité " + ref.supplierName() + " du " + DAY.format(ref.day()) + " : " + kfe(ref.fe())
-                + " kFE à " + ref.price() + " c les " + ref.unitFe() + " FE, abonnement " + ref.subscription() + " c";
+        return ref.supplierName() + " " + DAY.format(ref.day());
     }
 
     /** Des FE en milliers, au dixième inférieur : « 2300,0 ». */
@@ -283,8 +335,9 @@ public final class PowerBilling implements DebitPayee, DailyDebit.DayIssuer {
                     "taxe sur l'electricite " + invoice.shortId() + " " + invoice.debtorName() + " -> tresor");
         }
         toTill.forEach((coin, count) -> registry.deposit(supplier.id(), coin, count));
-        registry.noteStatement(ref.meter(),
-                new StatementLine(System.currentTimeMillis(), StatementKind.PAID, amount, invoice.shortId()));
+        long when = invoice.settledAt() > 0L ? invoice.settledAt() : System.currentTimeMillis();
+        registry.noteStatement(ref.meter(), ref.supplierId(), invoice.debtor(),
+                new StatementLine(when, StatementKind.PAID, amount, invoice.shortId()));
     }
 
     @Override
@@ -294,8 +347,9 @@ public final class PowerBilling implements DebitPayee, DailyDebit.DayIssuer {
             return;
         }
         PowerSuppliers registry = suppliers(server);
-        registry.noteStatement(ref.get().meter(), new StatementLine(System.currentTimeMillis(), StatementKind.REFUSED,
-                invoice.amount(), invoice.shortId()));
+        long when = closingNow > 0L ? closingNow : System.currentTimeMillis();
+        registry.noteStatement(ref.get().meter(), ref.get().supplierId(), invoice.debtor(),
+                new StatementLine(when, StatementKind.REFUSED, invoice.amount(), invoice.shortId()));
         registry.byId(ref.get().supplierId()).ifPresent(supplier -> tellFounder(server, supplier,
                 Component.translatable(MESSAGE + "founder_unpaid", invoice.debtorName(), invoice.shortId(),
                         CoinMath.format(invoice.amount()))));

@@ -60,7 +60,7 @@ public final class InvoiceScreen extends Screen {
     /** Lignes : titre (8), filet, de, à, date, motif (n lignes), montant, aide, boutons. */
     @Override
     protected void init() {
-        reasonLines = font.split(Component.literal(InvoiceItem.reason(invoice)), PANEL_W - 2 * PAD - 8);
+        reasonLines = font.split(InvoiceItem.reasonText(invoice), PANEL_W - 2 * PAD - 8);
         int y = 24 + 3 * LINE + 4 + LINE + reasonLines.size() * LINE + 6;
         y += 14; // montant
         y += LINE + 4; // aide (débiteur ou non)

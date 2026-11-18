@@ -328,8 +328,17 @@ public final class FactureElectriciteGameTests {
             helper.assertTrue(e.tresor() == 0L, "taxe à 0 % : rien au trésor");
             helper.assertTrue(c.messagesRecus().contains(DirectDebit.MESSAGE + "paid.held"), "le client est prévenu");
             String motif = e.facturation.describe(facture).getString();
-            helper.assertTrue(motif.contains("2") && facture.reason().contains(e.fournisseur().name()),
+            helper.assertTrue(motif.contains("2300") && facture.reason().contains(e.fournisseur().name()),
                     "motif : " + motif + " / " + facture.reason());
+            helper.assertTrue(facture.payeeRef().startsWith("1/"), "référence versionnée : " + facture.payeeRef());
+            // Une référence de la première livraison (sans version) se lit toujours : une dette n'est jamais effacée.
+            String ancienne = e.fournisseur().id() + "/" + compteur + "/0/" + J.toEpochDay() + "/100000/5/100000/0/"
+                    + e.fournisseur().name();
+            Invoice vieille = e.registre.issuePublic(PowerBilling.KIND, ancienne, f.uuid(), "fondateur", c.uuid(), nomC,
+                    5L, "ancienne", minuit(J));
+            helper.assertTrue(PowerBilling.ref(vieille).map(r -> r.meter().equals(compteur)).orElse(false)
+                    && e.facturation.exists(e.serveur, ancienne), "ancienne référence lue");
+            e.registre.cancel(vieille.id(), minuit(J));
             PowerClient client = e.fournisseurs.clientOf(compteur).orElseThrow();
             helper.assertTrue(client.feToday() == 0L && client.feYesterday() == 2_300_000L,
                     "consommation remise à zéro, gardée pour hier : " + client);
@@ -476,6 +485,40 @@ public final class FactureElectriciteGameTests {
         });
     }
 
+    @GameTest(template = "test/plancher", batch = LOT_A)
+    public static void unCompteurRejumeleLeMemeJourNePaieQuUnAbonnement(GameTestHelper helper) {
+        essai(helper, e -> {
+            String nom = e.nom("fe_rej");
+            UUID u = identifiant(nom);
+            e.fonder(identifiant(e.nom("fe_frj")), "fondateur");
+            UUID compteur = e.compteur(u, nom);
+            e.coffreFort(u, pieces(Coin.GOLD, 5));
+            e.demarrer(5L, 10L);
+            long avant = e.auCoffre(u) + e.caisse() + e.tresor();
+
+            // Le fournisseur déplace deux fois le compteur dans la journée : détaché, rejumelé, accepté, deux fois.
+            e.consommer(compteur, 1_000_000);
+            for (int fe : new int[] {800_000, 500_000}) {
+                helper.assertTrue(e.fournisseurs.detach(compteur).isPresent(), "détaché");
+                e.fournisseurs.putClient(new PowerClient(compteur, e.fournisseur.id(), u, nom, nom,
+                        PowerClient.State.ACTIVE, 0L, 0L, Set.of(), false));
+                e.consommer(compteur, fe);
+            }
+            helper.assertTrue(e.fournisseurs.detached().size() == 2, "deux morceaux détachés de la journée");
+
+            helper.assertTrue(e.clore(J) == 1, "J clos");
+            List<Invoice> factures = e.factures(compteur);
+            helper.assertTrue(factures.size() == 1, "une seule facture pour le compteur et le jour : " + factures);
+            helper.assertTrue(factures.get(0).amount() == 125L,
+                    "2 300 000 FE cumulés à 5 c + un seul abonnement de 10 : " + factures.get(0).amount());
+            helper.assertTrue(e.statut(factures.get(0)) == Status.PAID && e.caisse() == 125L, "prélevée une fois");
+            helper.assertTrue(e.fournisseurs.detached().isEmpty(), "morceaux oubliés une fois facturés");
+            helper.assertTrue(e.fournisseur().metersYesterday() == 2_300_000L, "compteurs d'hier : "
+                    + e.fournisseur().metersYesterday());
+            helper.assertTrue(e.auCoffre(u) + e.caisse() + e.tresor() == avant, "somme conservée");
+        });
+    }
+
     // ---------------------------------------------------------------------------------------------
     // Lot B
     // ---------------------------------------------------------------------------------------------
@@ -613,6 +656,12 @@ public final class FactureElectriciteGameTests {
             helper.assertTrue(e.facturation.unpaid(e.serveur, compteur) == 0L, "plus d'impayé");
             helper.assertTrue(e.releve(compteur).equals(List.of(StatementKind.BILLED, StatementKind.REFUSED,
                     StatementKind.BILLED, StatementKind.PAID, StatementKind.PAID)), "relevé : " + e.releve(compteur));
+            List<Long> dates = e.fournisseurs.statement(compteur).stream()
+                    .map(PowerSuppliers.StatementLine::epochMillis).collect(Collectors.toList());
+            long j0 = minuit(J) + MINUTE;
+            long j1 = minuit(J.plusDays(1)) + MINUTE;
+            helper.assertTrue(dates.equals(List.of(j0, j0, j1, j1, j1)), "relevé daté par l'heure de la clôture : "
+                    + dates);
             helper.assertTrue(e.somme(c.uuid(), c) == avant, "somme conservée");
         });
     }
@@ -626,6 +675,7 @@ public final class FactureElectriciteGameTests {
             UUID resilie = e.compteur(u, nom);
             UUID detache = e.compteur(u, nom);
             UUID coupe = e.compteur(u, nom);
+            UUID coupeEnCours = e.compteur(u, nom);
             UUID disjoncteur = UUID.randomUUID();
             GlobalPos ici = GlobalPos.of(Level.OVERWORLD, new BlockPos(3_000_000, 64, 3_000_000));
             e.coffreFort(u, pieces(Coin.GOLD, 5));
@@ -641,32 +691,93 @@ public final class FactureElectriciteGameTests {
             e.consommer(resilie, 200_000);
             // Démonté dans la journée sans rien consommer : l'abonnement du jour reste dû.
             helper.assertTrue(e.fournisseurs.detach(detache).isPresent(), "compteur détaché");
-            // Coupé à distance toute la journée : rien ne passe, l'abonnement (le contrat) reste dû.
+            // Coupé à distance toute la journée : rien ne passe, et pas d'abonnement (décision de Killian) : aucune facture.
             PowerClient k = e.fournisseurs.clientOf(coupe).orElseThrow();
             e.fournisseurs.putClient(new PowerClient(coupe, k.supplierId(), u, nom, nom, PowerClient.State.ACTIVE, 0L,
                     0L, Set.of(), true));
+            // Coupé en cours de journée : ce qu'il a reçu avant la coupure est facturé, sans abonnement.
+            e.consommer(coupeEnCours, 300_000);
+            PowerClient kc = e.fournisseurs.clientOf(coupeEnCours).orElseThrow();
+            e.fournisseurs.putClient(new PowerClient(coupeEnCours, kc.supplierId(), u, nom, nom,
+                    PowerClient.State.ACTIVE, kc.feToday(), 0L, Set.of(), true));
 
             helper.assertTrue(e.clore(J) == 1, "J clos");
             helper.assertTrue(e.factures(resilie).size() == 1 && e.factures(resilie).get(0).amount() == 20L,
                     "résilié : 200 000 FE à 5 c + 10 : " + e.factures(resilie));
             helper.assertTrue(e.factures(detache).size() == 1 && e.factures(detache).get(0).amount() == 10L,
                     "détaché : l'abonnement du jour : " + e.factures(detache));
-            helper.assertTrue(e.factures(coupe).size() == 1 && e.factures(coupe).get(0).amount() == 10L,
-                    "coupé : l'abonnement du jour : " + e.factures(coupe));
+            helper.assertTrue(e.factures(coupe).isEmpty(), "coupé toute la journée : aucune facture : "
+                    + e.factures(coupe));
+            helper.assertTrue(e.factures(coupeEnCours).size() == 1 && e.factures(coupeEnCours).get(0).amount() == 15L,
+                    "coupé en cours de journée : 300 000 FE à 5 c, sans abonnement : " + e.factures(coupeEnCours));
             helper.assertTrue(e.fournisseurs.clientOf(resilie).isEmpty(), "le résilié est détaché à la clôture");
             helper.assertTrue(!e.fournisseurs.isPairedAt(resilie, ici) && !e.fournisseurs.isPairedAt(disjoncteur, ici),
                     "son jumelage est oublié (compteur et disjoncteur)");
             helper.assertTrue(!e.fournisseurs.passes(resilie), "le courant ne passe plus");
             helper.assertTrue(e.fournisseurs.detached().isEmpty(), "le détaché est oublié une fois facturé");
-            helper.assertTrue(e.fournisseur().metersYesterday() == 200_000L, "compteurs d'hier : "
+            helper.assertTrue(e.fournisseur().metersYesterday() == 500_000L, "compteurs d'hier : "
                     + e.fournisseur().metersYesterday());
 
             helper.assertTrue(e.clore(J.plusDays(1)) == 1, "J + 1 clos");
             helper.assertTrue(e.factures(resilie).size() == 1 && e.factures(detache).size() == 1,
                     "ni le résilié ni le détaché ne sont plus facturés");
-            helper.assertTrue(e.factures(coupe).size() == 2, "le coupé reste abonné : " + e.factures(coupe));
-            helper.assertTrue(e.caisse() == 50L, "20 + 10 + 10 + 10 : " + e.caisse());
+            helper.assertTrue(e.factures(coupe).isEmpty() && e.factures(coupeEnCours).size() == 1,
+                    "toujours coupés : pas d'abonnement : " + e.factures(coupe) + " / " + e.factures(coupeEnCours));
+            helper.assertTrue(e.caisse() == 45L, "20 + 10 + 15 : " + e.caisse());
             helper.assertTrue(e.auCoffre(u) + e.caisse() + e.tresor() == avant, "somme conservée");
+        });
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_B)
+    public static void uneCaissePleineRendLeMontantEtLaFactureResteDue(GameTestHelper helper) {
+        essai(helper, e -> {
+            JoueurDeTest f = e.joueur("fe_fpl", POS_A);
+            JoueurDeTest c = e.joueur("fe_cpl", POS_B);
+            String nomC = c.joueur().getGameProfile().getName();
+            e.fonder(f.uuid(), f.joueur().getGameProfile().getName());
+            UUID compteur = e.compteur(c.uuid(), nomC);
+            c.joueur().getInventory().setItem(0, new ItemStack(Coin.GOLD.item(), 2));
+            e.fournisseurs.setNextTaxPercent(10);
+            e.demarrer(5L, 10L);
+            // La caisse du poste pleine en cuivres : 113 à verser = 1 or, 1 argent, 3 cuivres ; les cuivres n'entrent pas.
+            String id = e.fournisseur.id();
+            long remplissage = e.fournisseurs.tillRoom(id, Coin.COPPER);
+            e.fournisseurs.deposit(id, Coin.COPPER, remplissage);
+            helper.assertTrue(e.fournisseurs.tillRoom(id, Coin.COPPER) == 0L, "caisse pleine en cuivres");
+            EconomyLedger registre = EconomyLedger.get(e.serveur);
+            long publicAvant = registre.totalTransferred(MoneyTransfer.PUBLIC_BILL);
+            long taxeAvant = registre.totalTransferred(MoneyTransfer.POWER_TAX);
+            long caisseAvant = e.caisse();
+            long avant = e.porte(c) + e.enAttente(c.uuid()) + e.auCoffre(c.uuid()) + caisseAvant + e.tresor();
+            e.consommer(compteur, 2_300_000);
+            f.messagesRecus();
+
+            helper.assertTrue(e.clore(J) == 1, "J clos");
+            Invoice facture = e.factures(compteur).get(0);
+            helper.assertTrue(facture.amount() == 125L && e.statut(facture) == Status.DUE,
+                    "la facture reste due : " + e.statut(facture));
+            helper.assertTrue(e.caisse() == caisseAvant && e.tresor() == 0L, "caisse et trésor inchangés : "
+                    + (e.caisse() - caisseAvant) + " / " + e.tresor());
+            helper.assertTrue(e.porte(c) + e.enAttente(c.uuid()) + e.auCoffre(c.uuid()) == 200L,
+                    "le débiteur a tout récupéré : " + e.porte(c));
+            helper.assertTrue(e.porte(c) + e.enAttente(c.uuid()) + e.auCoffre(c.uuid()) + e.caisse() + e.tresor()
+                    == avant, "somme conservée au cuivre près");
+            helper.assertTrue(registre.totalTransferred(MoneyTransfer.PUBLIC_BILL) == publicAvant
+                    && registre.totalTransferred(MoneyTransfer.POWER_TAX) == taxeAvant, "rien noté au registre");
+            helper.assertTrue(f.messagesRecus().contains(PowerPairing.MESSAGE + "till_full"), "fondateur prévenu");
+
+            // Caisse vidée, trésor plein en cuivres : la taxe (12 = 1 argent, 2 cuivres) n'entre pas.
+            helper.assertTrue(e.fournisseurs.withdraw(id, Coin.COPPER, remplissage), "caisse vidée");
+            TreasuryAccount tresor = TreasuryAccount.get(e.serveur);
+            tresor.add(Coin.COPPER, tresor.room(Coin.COPPER));
+            long tresorPlein = tresor.total();
+            long avant2 = e.porte(c) + e.enAttente(c.uuid()) + e.auCoffre(c.uuid()) + e.caisse() + tresorPlein;
+            helper.assertTrue(e.clore(J.plusDays(1)) == 1, "J + 1 clos");
+            helper.assertTrue(e.statut(facture) == Status.DUE, "trésor plein : la facture reste due");
+            helper.assertTrue(e.caisse() == 0L && tresor.total() == tresorPlein, "caisse et trésor inchangés");
+            helper.assertTrue(e.porte(c) + e.enAttente(c.uuid()) + e.auCoffre(c.uuid()) + e.caisse() + tresor.total()
+                    == avant2, "somme conservée au cuivre près (trésor plein)");
+            helper.assertTrue(f.messagesRecus().contains(PowerPairing.MESSAGE + "till_full"), "fondateur prévenu");
         });
     }
 }

@@ -596,9 +596,14 @@ public final class PowerSuppliers extends SavedData {
         }
     }
 
-    /** Ajoute une ligne au relevé de ce compteur, s'il est encore jumelé (rien sinon). */
-    public void noteStatement(UUID meterSerial, StatementLine line) {
-        if (!clients.containsKey(meterSerial)) {
+    /**
+     * Ajoute une ligne au relevé de ce compteur, seulement s'il est encore jumelé au même contrat (même fournisseur,
+     * même joueur) : le paiement tardif d'un contrat passé ne s'inscrit pas au relevé d'un nouveau contrat du même
+     * compteur.
+     */
+    public void noteStatement(UUID meterSerial, String supplierId, UUID player, StatementLine line) {
+        PowerClient client = clients.get(meterSerial);
+        if (client == null || !client.supplierId().equals(supplierId) || !client.player().equals(player)) {
             return;
         }
         List<StatementLine> lines = statements.computeIfAbsent(meterSerial, k -> new ArrayList<>());

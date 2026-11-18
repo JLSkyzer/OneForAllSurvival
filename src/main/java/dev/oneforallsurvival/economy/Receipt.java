@@ -81,7 +81,7 @@ public final class Receipt {
         tag.putString("Issuer", invoice.issuerName());
         tag.putString("Debtor", invoice.debtorName());
         tag.putLong("Amount", invoice.amount());
-        tag.putString("Reason", invoice.reason());
+        dev.oneforallsurvival.economy.invoice.InvoiceItem.putReason(tag, invoice);
         tag.putLong("IssuedAt", invoice.issuedAt());
         tag.putString("Invoice", invoice.shortId());
         stack.getOrCreateTag().put(TAG, tag);
@@ -100,6 +100,10 @@ public final class Receipt {
         tag.putString("Debtor", source.getString("DebtorName"));
         tag.putLong("Amount", source.getLong("Amount"));
         tag.putString("Reason", source.getString("Reason"));
+        if (source.contains(dev.oneforallsurvival.economy.invoice.InvoiceItem.REASON_TEXT)) {
+            tag.putString(dev.oneforallsurvival.economy.invoice.InvoiceItem.REASON_TEXT,
+                    source.getString(dev.oneforallsurvival.economy.invoice.InvoiceItem.REASON_TEXT));
+        }
         tag.putLong("IssuedAt", source.getLong("IssuedAt"));
         tag.putString("Invoice", dev.oneforallsurvival.economy.invoice.InvoiceItem.shortId(invoice));
         stack.getOrCreateTag().put(TAG, tag);
@@ -180,7 +184,8 @@ public final class Receipt {
             String issued = dev.oneforallsurvival.economy.invoice.InvoiceItem.formatDate(data.getLong("IssuedAt"), zone);
             out.add(Component.translatable(TOOLTIP + "invoice.issuer", data.getString("Issuer")).withStyle(ChatFormatting.GRAY));
             out.add(Component.translatable(TOOLTIP + "invoice.debtor", data.getString("Debtor")).withStyle(ChatFormatting.GRAY));
-            out.add(Component.translatable(TOOLTIP + "invoice.reason", data.getString("Reason")).withStyle(ChatFormatting.WHITE));
+            out.add(Component.translatable(TOOLTIP + "invoice.reason",
+                    dev.oneforallsurvival.economy.invoice.InvoiceItem.reasonText(data)).withStyle(ChatFormatting.WHITE));
             out.add(Component.translatable(TOOLTIP + "invoice.amount", CoinMath.format(data.getLong("Amount")))
                     .withStyle(ChatFormatting.GOLD));
             out.add(Component.translatable(TOOLTIP + "invoice.issued", issued).withStyle(ChatFormatting.GRAY));

@@ -55,10 +55,40 @@ public final class InvoiceItem extends Item {
         tag.putUUID("Debtor", invoice.debtor());
         tag.putString("DebtorName", invoice.debtorName());
         tag.putLong("Amount", invoice.amount());
-        tag.putString("Reason", invoice.reason());
+        putReason(tag, invoice);
         tag.putLong("IssuedAt", invoice.issuedAt());
         tag.putString("Zone", ZoneId.systemDefault().getId());
         return stack;
+    }
+
+    /** Clé du motif traduit d'une facture publique (composant JSON), à côté du motif brut {@code Reason}. */
+    public static final String REASON_TEXT = "ReasonText";
+
+    /**
+     * Écrit le motif : brut ({@code Reason}) et, pour une facture publique, traduit chez le client
+     * ({@code ReasonText}, le motif du créancier : {@code DebitPayee.describe}).
+     */
+    public static void putReason(CompoundTag tag, Invoice invoice) {
+        tag.putString("Reason", invoice.reason());
+        if (invoice.isPublic()) {
+            tag.putString(REASON_TEXT,
+                    Component.Serializer.toJson(dev.oneforallsurvival.economy.debit.DirectDebit.describe(invoice)));
+        }
+    }
+
+    /** Le motif à afficher : le traduit s'il y en a un (facture publique), sinon le motif brut. */
+    public static Component reasonText(CompoundTag tag) {
+        if (tag.contains(REASON_TEXT)) {
+            try {
+                Component text = Component.Serializer.fromJson(tag.getString(REASON_TEXT));
+                if (text != null) {
+                    return text;
+                }
+            } catch (RuntimeException e) {
+                // motif traduit illisible : le brut
+            }
+        }
+        return Component.literal(tag.getString("Reason"));
     }
 
     /** L'identifiant que porte cette pile, si c'est une facture qui en porte un. */
@@ -99,6 +129,11 @@ public final class InvoiceItem extends Item {
 
     public static String reason(ItemStack stack) {
         return tag(stack).getString("Reason");
+    }
+
+    /** Le motif à afficher (traduit pour une facture publique). */
+    public static Component reasonText(ItemStack stack) {
+        return reasonText(tag(stack));
     }
 
     /** La date d'émission, {@code dd/MM/yyyy HH:mm}, au fuseau du serveur qui l'a émise. */
@@ -154,7 +189,7 @@ public final class InvoiceItem extends Item {
         }
         tooltip.add(Component.translatable(TOOLTIP + "issuer", issuerName(stack)).withStyle(ChatFormatting.GRAY));
         tooltip.add(Component.translatable(TOOLTIP + "debtor", debtorName(stack)).withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(TOOLTIP + "reason", reason(stack)).withStyle(ChatFormatting.WHITE));
+        tooltip.add(Component.translatable(TOOLTIP + "reason", reasonText(stack)).withStyle(ChatFormatting.WHITE));
         tooltip.add(Component.translatable(TOOLTIP + "amount", CoinMath.format(amount(stack))).withStyle(ChatFormatting.GOLD));
         tooltip.add(Component.translatable(TOOLTIP + "date", date(stack)).withStyle(ChatFormatting.GRAY));
         tooltip.add(Component.translatable(TOOLTIP + "id", shortId(stack)).withStyle(ChatFormatting.DARK_GRAY));

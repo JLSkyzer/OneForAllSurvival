@@ -77,7 +77,8 @@ public final class InvoiceCommands {
         MutableComponent out = Component.literal("[" + invoice.shortId() + "] ").withStyle(ChatFormatting.DARK_GRAY);
         out.append(Component.translatable(LIST + (issued ? "to" : "from"),
                 issued ? invoice.debtorName() : invoice.issuerName(), CoinMath.format(invoice.amount()),
-                invoice.reason()).withStyle(ChatFormatting.GRAY));
+                invoice.isPublic() ? dev.oneforallsurvival.economy.debit.DirectDebit.describe(invoice)
+                        : Component.literal(invoice.reason())).withStyle(ChatFormatting.GRAY));
         out.append(" ");
         String status = invoice.status().name().toLowerCase(Locale.ROOT);
         out.append(Component.translatable(LIST + "status." + status)
