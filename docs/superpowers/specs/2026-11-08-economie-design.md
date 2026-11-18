@@ -442,7 +442,8 @@ Catégories proposées en plus, choisies pour ne pas être des corvées :
   - un bloc **posé par un joueur** ne compte pas pour une quête de casse, et un bloc posé puis cassé
     aussitôt ne compte pas pour une quête de pose ;
   - les mobs comptent selon les mêmes règles que le butin (pas de générateur, pas de ferme) ;
-  Le suivi des blocs posés est limité en taille et oublie les plus anciens.
+  Le suivi des blocs posés est limité en taille. *Décision du lot E5 (I2) : au-delà de la limite, le chunk se
+  sature (plus aucune casse n'y compte) au lieu d'oublier les plus anciens.*
 - L'équipe du serveur peut ajouter des **modèles** et lancer des **quêtes d'événement** communes à tous,
   par commande.
 

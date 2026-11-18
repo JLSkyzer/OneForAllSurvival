@@ -470,7 +470,7 @@
         "« Relancer » remplace une quête en cours par une autre, une fois par jour.",
         "Une quête finie mais non réclamée au renouvellement passe en attente : « Réclamer l'attente (N) » la paie plus tard (8 attentes au plus, les plus anciennes sont perdues).",
         "Une quête non finie expire au renouvellement, sans pénalité.",
-        "Un bloc posé par un joueur ne compte pas quand on le casse ; poser puis casser aussitôt n'avance pas une quête de pose."
+        "Un bloc posé par un joueur ne compte pas quand on le casse ; poser puis casser soi-même dans la minute n'avance pas une quête de pose. Une quête de cuisine ne compte que ce qu'on a mis soi-même à cuire."
       ],
       "flow": ["Geste", "Quête finie", "Réclamer", "Bourse ou inventaire"],
       "numbers": [
@@ -485,7 +485,7 @@
         "Les modèles sont un fichier de données : data/oneforallsurvival/economy/quests.json (catégorie, cible par identifiant ou #tag, quantité min et max, récompense, poids et poids par rôle, facteur hebdomadaire, mod requis). L'équipe le remplace par un datapack du monde puis /reload ; un modèle dont la cible n'existe pas est écarté (avertissement au journal).",
         "/eco quest template add|remove|list : modèles de l'équipe ajoutés en jeu (mêmes contrôles que le fichier) ; /eco quest event start|stop|list : quête d'événement pour tous, sur une durée en jours, titre libre ; /eco quest show <joueur> : le carnet d'un joueur. Une cible s'écrit entre guillemets (\"minecraft:stone\", \"#minecraft:logs\", \"*\").",
         "/eco quests (niveau 2) : total créé par les quêtes, nombre de réclamations, les 10 joueurs et les 10 modèles qui ont le plus rapporté, événements en cours, modèles en service. La ligne « Quêtes » de /eco stats donne le même total.",
-        "Garde-fous : bloc posé par un joueur marqué dans son chunk (piston, bloc qui tombe, contraptions, rouleau, rails, tuyaux et Schematicannon de Create compris) ; pose annulée si le bloc est cassé dans la minute ; faux joueurs et mode créatif exclus ; seul un mob sauvage compte au combat. Un chunk qui atteint 4 096 marques ne compte plus aucune casse.",
+        "Garde-fous : bloc posé par un joueur marqué dans son chunk (piston, bloc qui tombe, contraptions, rouleau, rails, tuyaux et Schematicannon de Create compris) ; pose annulée si le même joueur casse le bloc dans la minute, avant d'avoir réclamé (un autre joueur, une perceuse ou une explosion ne retirent rien) ; cuisine et conserve comptées seulement pour ce que le joueur a mis lui-même dans le four, le fumoir, le séchoir, la marmite ou le Cooking Pot (une trémie ne compte pas) ; faux joueurs, spectateur et mode créatif exclus ; seul un mob sauvage compte au combat. Un chunk qui atteint 4 096 marques ne compte plus aucune casse.",
         "Bûches d'un arbre qui pousse : non marquées (ressource du monde), bornées par le plafond.",
         "Config : questDailyCount (3), questWeeklyCount (5), questWeeklyFactor (5), questResetHour (6), questRerollsPerDay (1), questWeeklyCap (1 000), questPendingMax (8), questJournalThreshold (100 : une réclamation d'au moins 100 cuivres a sa ligne au registre), questPlaceUndoSeconds (60), questPlacedMarksPerChunk (4 096).",
         "Pas de livraison au grenier tant que le grenier n'existe pas ; les quêtes de métier du médecin et du policier viendront avec leurs lots."
