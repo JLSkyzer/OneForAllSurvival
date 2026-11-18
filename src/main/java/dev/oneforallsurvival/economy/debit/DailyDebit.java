@@ -58,6 +58,21 @@ public final class DailyDebit {
         ISSUERS.put(kind, issuer);
     }
 
+    /**
+     * {@code /eco salary resetday} (l'heure était fausse) : le dernier jour clos du prélèvement revient à la veille de
+     * {@code today} s'il est plus tard, comme celui de la paie ({@code Payroll.rewindTo}). Sinon le prélèvement
+     * sauterait tous les jours jusqu'à ce jour du futur. Un jour en retard n'est pas avancé : les jours dus se closent
+     * (rattrapage borné), comme pour la paie. Rien n'est émis ni prélevé ici.
+     */
+    public static void rewindTo(InvoiceRegistry registry, LocalDate today) {
+        LocalDate last = registry.lastDebitDay();
+        LocalDate yesterday = today.minusDays(1);
+        if (last != null && last.isAfter(yesterday)) {
+            registry.setLastDebitDay(yesterday);
+            LOGGER.warn("Prelevement remis a l'heure : dernier jour clos {} (avant : {})", yesterday, last);
+        }
+    }
+
     private static synchronized List<DayIssuer> issuers() {
         return new ArrayList<>(ISSUERS.values());
     }

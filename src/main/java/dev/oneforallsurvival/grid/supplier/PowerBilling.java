@@ -85,7 +85,7 @@ public final class PowerBilling implements DebitPayee, DailyDebit.DayIssuer {
     public record Ref(String supplierId, UUID meter, int taxPercent, long epochDay, long fe, long price, long unitFe,
             long subscription, String supplierName) {
 
-        String encode() {
+        public String encode() {
             return String.join("/", VERSION, supplierId, meter.toString(), Integer.toString(taxPercent), Long.toString(epochDay),
                     Long.toString(fe), Long.toString(price), Long.toString(unitFe), Long.toString(subscription),
                     supplierName);
@@ -335,6 +335,7 @@ public final class PowerBilling implements DebitPayee, DailyDebit.DayIssuer {
                     "taxe sur l'electricite " + invoice.shortId() + " " + invoice.debtorName() + " -> tresor");
         }
         toTill.forEach((coin, count) -> registry.deposit(supplier.id(), coin, count));
+        EconomyLedger.get(server).electricityPaid(amount);
         long when = invoice.settledAt() > 0L ? invoice.settledAt() : System.currentTimeMillis();
         registry.noteStatement(ref.meter(), ref.supplierId(), invoice.debtor(),
                 new StatementLine(when, StatementKind.PAID, amount, invoice.shortId()));

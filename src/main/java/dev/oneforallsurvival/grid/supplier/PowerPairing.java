@@ -710,12 +710,19 @@ public final class PowerPairing {
         });
     }
 
-    /** À la connexion : les demandes d'accord qui attendent ce joueur, et les demandes à accepter de son fournisseur. */
+    /**
+     * À la connexion : les avis gardés pendant son absence (suppression d'un fournisseur, changement de propriétaire,
+     * tarif réglé par la mairie), les demandes d'accord qui attendent ce joueur, et les demandes à accepter de son
+     * fournisseur.
+     */
     public static void onLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) {
             return;
         }
         PowerSuppliers registry = PowerSuppliers.get(player.server);
+        for (Component notice : registry.takeNotices(player.getUUID())) {
+            player.sendSystemMessage(notice);
+        }
         for (PowerSupplier supplier : registry.all()) {
             int waiting = 0;
             for (PowerClient client : registry.clients(supplier.id())) {
@@ -732,6 +739,19 @@ public final class PowerPairing {
             if (waiting > 0 && supplier.founder().equals(player.getUUID())) {
                 player.sendSystemMessage(Component.translatable(MESSAGE + "founder_waiting", supplier.name(), waiting));
             }
+        }
+    }
+
+    /**
+     * Prévient ce joueur : tout de suite s'il est connecté, sinon à sa connexion (avis gardé dans {@code registry}, qui
+     * doit être celui du serveur pour être lu).
+     */
+    public static void tell(MinecraftServer server, PowerSuppliers registry, UUID player, Component message) {
+        ServerPlayer online = server.getPlayerList().getPlayer(player);
+        if (online != null) {
+            online.sendSystemMessage(message);
+        } else {
+            registry.addNotice(player, message);
         }
     }
 

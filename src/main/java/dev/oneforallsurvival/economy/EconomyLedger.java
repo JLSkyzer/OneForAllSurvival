@@ -63,6 +63,22 @@ public final class EconomyLedger extends SavedData {
     /** Genre de la ligne du journal d'un prélèvement refusé (rien n'est créé, détruit ni transféré). */
     public static final String KIND_DEBIT_REFUSED = "debit.refused";
 
+    /**
+     * Genres des lignes du journal des gestes du maire et de l'équipe sur l'électricité (lot E6, tâche 6) : rien n'est
+     * créé, détruit ni transféré par ces lignes ; le montant est le réglage en cuivres (plafond, prix, abonnement), la
+     * caisse versée au fondateur (suppression), ou 0.
+     */
+    public static final String KIND_POWER_CAP = "power.cap";
+    public static final String KIND_POWER_TAX = "power.tax";
+    public static final String KIND_POWER_PRICE = "power.price";
+    public static final String KIND_POWER_SUBSCRIPTION = "power.subscription";
+    public static final String KIND_POWER_OWNER = "power.owner";
+    public static final String KIND_POWER_REMOVE = "power.remove";
+
+    /** Factures d'électricité payées (prélevées ou réglées par l'objet), et leur total en cuivres. */
+    private long electricityBills;
+    private long electricityTotal;
+
     EconomyLedger() {}
 
     public static EconomyLedger get(MinecraftServer server) {
@@ -173,6 +189,36 @@ public final class EconomyLedger extends SavedData {
         refusedDebits++;
         add(new Entry(System.currentTimeMillis(), debtor, Math.max(0L, amount), KIND_DEBIT_REFUSED, clip(reason)),
                 EconomyConfig.ledgerMaxLines());
+    }
+
+    /**
+     * Note une ligne au journal sans toucher aux totaux (un geste qui ne crée, ne détruit ni ne transfère rien : les
+     * réglages du maire sur l'électricité, par exemple). Montant négatif : 0.
+     */
+    public void noted(String kind, @Nullable UUID author, long amount, String reason) {
+        add(new Entry(System.currentTimeMillis(), author, Math.max(0L, amount), kind, clip(reason)),
+                EconomyConfig.ledgerMaxLines());
+    }
+
+    /** Compte une facture d'électricité payée (son montant entier, taxe comprise). */
+    public void electricityPaid(long amount) {
+        if (amount <= 0L) {
+            return;
+        }
+        electricityBills++;
+        long sum = electricityTotal + amount;
+        electricityTotal = sum < electricityTotal ? Long.MAX_VALUE : sum;
+        setDirty();
+    }
+
+    /** Factures d'électricité payées depuis le début. */
+    public long electricityBillsPaid() {
+        return electricityBills;
+    }
+
+    /** Total des factures d'électricité payées, en cuivres (taxe comprise). */
+    public long electricityPaidTotal() {
+        return electricityTotal;
     }
 
     /** Prélèvements refusés depuis le début. */
@@ -369,6 +415,10 @@ public final class EconomyLedger extends SavedData {
         CompoundTag debit = new CompoundTag();
         debit.putLong("refused", refusedDebits);
         tag.put("debit", debit);
+        CompoundTag power = new CompoundTag();
+        power.putLong("bills", electricityBills);
+        power.putLong("total", electricityTotal);
+        tag.put("power", power);
         return tag;
     }
 
@@ -422,6 +472,9 @@ public final class EconomyLedger extends SavedData {
         }
         // Un registre d'avant le lot E6 n'a pas de « debit » : zéro refus.
         ledger.refusedDebits = tag.getCompound("debit").getLong("refused");
+        // Un registre d'avant la tâche 6 d'E6 n'a pas de « power » : zéro facture d'électricité payée.
+        ledger.electricityBills = Math.max(0L, tag.getCompound("power").getLong("bills"));
+        ledger.electricityTotal = Math.max(0L, tag.getCompound("power").getLong("total"));
         return ledger;
     }
 }

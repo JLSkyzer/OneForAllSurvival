@@ -8,8 +8,11 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import dev.oneforallsurvival.economy.invoice.InvoiceRegistry;
 import dev.oneforallsurvival.economy.payroll.SalaryCommands;
 import dev.oneforallsurvival.economy.town.TreasuryCommands;
+import dev.oneforallsurvival.grid.supplier.PowerCommands;
+import dev.oneforallsurvival.grid.supplier.PowerSuppliers;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -28,7 +31,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Les commandes de l'équipe pour l'économie, toutes au niveau de permission 2 :
- * {@code /eco give|take <joueur> <montant> <motif>}, {@code /eco stats}, {@code /eco pending}, {@code /eco ledger [page]}, {@code /eco treasury ...},
+ * {@code /eco give|take <joueur> <montant> <motif>}, {@code /eco stats}, {@code /eco power}, {@code /eco pending}, {@code /eco ledger [page]}, {@code /eco treasury ...},
  * {@code /eco salary list|set <clé> <taux>|owed [page]|resume|resetday}, {@code /eco loot}, {@code /eco quests}, {@code /eco quest template|event|show ...}.
  * Les montants sont des cuivres ; l'affichage passe par {@link CoinMath#format}.
  */
@@ -62,6 +65,7 @@ public final class EconomyCommands {
                                         .then(Commands.argument("reason", StringArgumentType.greedyString())
                                                 .executes(EconomyCommands::take)))))
                 .then(Commands.literal("stats").executes(EconomyCommands::stats))
+                .then(Commands.literal("power").executes(EconomyCommands::power))
                 .then(Commands.literal("pending").executes(EconomyCommands::pending))
                 .then(Commands.literal("loot").executes(EconomyCommands::loot))
                 .then(Commands.literal("quests").executes(EconomyCommands::quests))
@@ -117,8 +121,28 @@ public final class EconomyCommands {
 
     /** Le tableau de bord : créé, détruit, coffres-forts, salaires dus, circulation, échanges, trésor, attente. */
     private static int stats(CommandContext<CommandSourceStack> ctx) {
-        CommandSourceStack source = ctx.getSource();
-        EconomyLedger ledger = EconomyLedger.get(source.getServer());
+        MinecraftServer server = ctx.getSource().getServer();
+        MutableComponent out = statsReport(server, InvoiceRegistry.get(server), PowerSuppliers.get(server));
+        ctx.getSource().sendSuccess(() -> out, false);
+        return 1;
+    }
+
+    /** {@code /eco power} : chaque fournisseur d'électricité, sa caisse, l'écart d'hier et ses factures dues. */
+    private static int power(CommandContext<CommandSourceStack> ctx) {
+        MinecraftServer server = ctx.getSource().getServer();
+        MutableComponent out = PowerCommands.boardReport(server, PowerSuppliers.get(server), InvoiceRegistry.get(server));
+        ctx.getSource().sendSuccess(() -> out, false);
+        return 1;
+    }
+
+    /**
+     * Le texte de {@code /eco stats}, lu dans ces registres des factures et des fournisseurs (ceux du serveur pour la
+     * commande) : créé, détruit, coffres-forts, salaires dus, factures publiques dues, refus, caisses des postes,
+     * électricité (factures payées, taxe), circulation, échanges, trésor, attente.
+     */
+    public static MutableComponent statsReport(MinecraftServer server, InvoiceRegistry invoices,
+            PowerSuppliers suppliers) {
+        EconomyLedger ledger = EconomyLedger.get(server);
         MutableComponent out = Component.translatable("command.oneforallsurvival.eco.stats.title");
         out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.created"));
         for (MoneySource kind : MoneySource.values()) {
@@ -131,9 +155,9 @@ public final class EconomyCommands {
                     Component.translatable(kind.langKey()), CoinMath.format(ledger.totalDestroyed(kind))));
         }
         out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.vaults",
-                CoinMath.format(SafeAccounts.get(source.getServer()).totalMass())));
+                CoinMath.format(SafeAccounts.get(server).totalMass())));
         dev.oneforallsurvival.economy.payroll.Payroll payroll =
-                dev.oneforallsurvival.economy.payroll.Payroll.get(source.getServer());
+                dev.oneforallsurvival.economy.payroll.Payroll.get(server);
         out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.salaries_owed",
                 CoinMath.format(payroll.owedTotal()), payroll.debts().size()));
         if (payroll.paused()) {
@@ -141,10 +165,9 @@ public final class EconomyCommands {
                     String.valueOf(payroll.pausedSeen()), String.valueOf(payroll.pausedExpected())));
         }
         // Factures publiques (prélevées à minuit) encore dues : nombre et total ; et les refus de prélèvement.
-        List<dev.oneforallsurvival.economy.invoice.InvoiceRegistry.Invoice> publicDue =
-                dev.oneforallsurvival.economy.invoice.InvoiceRegistry.get(source.getServer()).duePublic();
+        List<InvoiceRegistry.Invoice> publicDue = invoices.duePublic();
         long publicTotal = 0L;
-        for (dev.oneforallsurvival.economy.invoice.InvoiceRegistry.Invoice invoice : publicDue) {
+        for (InvoiceRegistry.Invoice invoice : publicDue) {
             long next = publicTotal + invoice.amount();
             publicTotal = next < publicTotal ? Long.MAX_VALUE : next;
         }
@@ -152,6 +175,13 @@ public final class EconomyCommands {
                 publicDue.size(), CoinMath.format(publicTotal)));
         out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.refused_debits",
                 ledger.refusedDebits()));
+        // Électricité : ce que gardent les caisses des postes, les factures payées et la taxe versée au trésor.
+        PowerCommands.Board board = PowerCommands.board(suppliers, invoices);
+        out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.tills",
+                CoinMath.format(board.tillTotal()), board.rows().size()));
+        out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.electricity",
+                ledger.electricityBillsPaid(), CoinMath.format(ledger.electricityPaidTotal()),
+                CoinMath.format(ledger.totalTransferred(MoneyTransfer.POWER_TAX))));
         out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.circulation",
                 signed(ledger.inCirculation())));
         // Les transferts ne créent ni ne détruisent : ils suivent la ligne « en circulation », qui reste créé moins détruit.
@@ -161,11 +191,10 @@ public final class EconomyCommands {
                     Component.translatable(kind.langKey()), CoinMath.format(ledger.totalTransferred(kind))));
         }
         out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.treasury",
-                CoinMath.format(TreasuryAccount.get(source.getServer()).total())));
+                CoinMath.format(TreasuryAccount.get(server).total())));
         out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.pending",
-                CoinMath.format(HeldGoods.get(source.getServer()).pendingMass())));
-        source.sendSuccess(() -> out, false);
-        return 1;
+                CoinMath.format(HeldGoods.get(server).pendingMass())));
+        return out;
     }
 
     /** Lignes au plus de {@code /eco pending} ; au-delà, le nombre des autres. */

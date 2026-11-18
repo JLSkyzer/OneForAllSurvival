@@ -275,7 +275,7 @@ public record PowerActionPacket(int action, BlockPos pos, @Nullable UUID meter, 
         LOGGER.info("Electricite : {} fixe le prix de {} a {} pour demain", player.getGameProfile().getName(),
                 supplier.name(), price);
         if (price != before) {
-            announceTariff(player, registry, supplier.id());
+            announceTariff(player.server, registry, supplier.id());
         }
         return Result.DONE;
     }
@@ -297,13 +297,16 @@ public record PowerActionPacket(int action, BlockPos pos, @Nullable UUID meter, 
         LOGGER.info("Electricite : {} fixe l'abonnement de {} a {} pour demain", player.getGameProfile().getName(),
                 supplier.name(), subscription);
         if (subscription != before) {
-            announceTariff(player, registry, supplier.id());
+            announceTariff(player.server, registry, supplier.id());
         }
         return Result.DONE;
     }
 
-    /** Les clients connectés sont prévenus tout de suite du tarif du lendemain (une fois par joueur). */
-    private static void announceTariff(ServerPlayer actor, PowerSuppliers registry, String supplierId) {
+    /**
+     * Les clients connectés sont prévenus tout de suite du tarif du lendemain (une fois par joueur). Aussi pour un tarif
+     * réglé par le maire ou l'équipe ({@link PowerCommands}).
+     */
+    static void announceTariff(net.minecraft.server.MinecraftServer server, PowerSuppliers registry, String supplierId) {
         Optional<PowerSupplier> supplier = registry.byId(supplierId);
         if (supplier.isEmpty()) {
             return;
@@ -316,7 +319,7 @@ public record PowerActionPacket(int action, BlockPos pos, @Nullable UUID meter, 
             if (!client.state().passes() || !told.add(client.player())) {
                 continue;
             }
-            ServerPlayer debtor = actor.server.getPlayerList().getPlayer(client.player());
+            ServerPlayer debtor = server.getPlayerList().getPlayer(client.player());
             if (debtor != null) {
                 debtor.sendSystemMessage(Component.translatable(MESSAGE + "tariff_next", s.name(),
                         CoinMath.format(price), EconomyConfig.powerPriceUnitFe(), CoinMath.format(subscription)));

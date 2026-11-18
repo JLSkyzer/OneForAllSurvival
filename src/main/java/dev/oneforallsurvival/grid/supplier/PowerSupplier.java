@@ -65,6 +65,11 @@ public record PowerSupplier(String id, String name, UUID founder, String founder
                 till, outToday, outYesterday, metersYesterday);
     }
 
+    PowerSupplier withFounder(UUID newFounder, String newFounderName) {
+        return new PowerSupplier(id, name, newFounder, newFounderName, price, subscription, nextPrice, nextSubscription,
+                station, till, outToday, outYesterday, metersYesterday);
+    }
+
     PowerSupplier withTill(EnumMap<Coin, Long> newTill) {
         return new PowerSupplier(id, name, founder, founderName, price, subscription, nextPrice, nextSubscription,
                 station, newTill, outToday, outYesterday, metersYesterday);

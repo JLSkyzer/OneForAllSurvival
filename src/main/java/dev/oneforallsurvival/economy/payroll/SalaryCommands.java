@@ -10,6 +10,8 @@ import dev.oneforallsurvival.economy.EconomyCalendar;
 import dev.oneforallsurvival.economy.EconomyClock;
 import dev.oneforallsurvival.economy.EconomyConfig;
 import dev.oneforallsurvival.economy.TreasuryAccount;
+import dev.oneforallsurvival.economy.debit.DailyDebit;
+import dev.oneforallsurvival.economy.invoice.InvoiceRegistry;
 import dev.oneforallsurvival.role.Role;
 import dev.oneforallsurvival.role.RoleBook;
 import dev.oneforallsurvival.role.RoleSavedData;
@@ -32,7 +34,8 @@ import net.minecraft.server.MinecraftServer;
  * {@code owed [page]} (la file des salaires dus, de la plus ancienne dette à la plus récente), et, après un saut
  * d'horloge ({@link PayrollService#onClock}) : {@code resume} (l'heure est juste : les jours dus se closent) ou
  * {@code resetday} (l'heure était fausse : le dernier jour réglé revient à la veille, le temps des jours futurs passe
- * sur aujourd'hui).
+ * sur aujourd'hui). La pause vaut aussi pour le prélèvement automatique des factures publiques (lot E6,
+ * {@link DailyDebit}) : les deux commandes la lèvent pour les deux, et {@code resetday} ramène aussi son jour.
  */
 public final class SalaryCommands {
 
@@ -100,7 +103,10 @@ public final class SalaryCommands {
         return 1;
     }
 
-    /** {@code /eco salary resume} : la paie en pause reprend, les jours dus se closent. */
+    /**
+     * {@code /eco salary resume} : la paie en pause reprend, les jours dus se closent ; le prélèvement automatique, qui
+     * partage la pause, reprend aussi (au tic suivant).
+     */
     private static int resume(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack source = ctx.getSource();
         MinecraftServer server = source.getServer();
@@ -115,14 +121,20 @@ public final class SalaryCommands {
         return 1;
     }
 
-    /** {@code /eco salary resetday} : l'heure était fausse ; la date de paie revient à l'horloge actuelle. */
+    /**
+     * {@code /eco salary resetday} : l'heure était fausse ; la date de paie, et celle du prélèvement automatique
+     * ({@link DailyDebit#rewindTo}), reviennent à l'horloge actuelle.
+     */
     private static int resetDay(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack source = ctx.getSource();
         MinecraftServer server = source.getServer();
         Payroll payroll = Payroll.get(server);
         long now = EconomyClock.now();
         int closed = PayrollService.resetDay(server, payroll, TreasuryAccount.get(server), now);
-        String today = EconomyCalendar.payDay(now, EconomyCalendar.configuredZone(), EconomyConfig.payHour()).toString();
+        java.time.LocalDate day = EconomyCalendar.payDay(now, EconomyCalendar.configuredZone(), EconomyConfig.payHour());
+        // Une seule horloge : le prélèvement automatique (lot E6) revient au même jour que la paie.
+        DailyDebit.rewindTo(InvoiceRegistry.get(server), day);
+        String today = day.toString();
         source.sendSuccess(() -> Component.translatable("command.oneforallsurvival.eco.salary.resetday.success",
                 String.valueOf(payroll.lastClosed()), today, closed), true);
         return 1;

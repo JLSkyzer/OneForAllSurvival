@@ -21,6 +21,8 @@ import net.minecraft.core.GlobalPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.StringTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.RandomSource;
@@ -68,6 +70,8 @@ public final class PowerSuppliers extends SavedData {
     private final Map<UUID, GlobalPos> pairedAt = new HashMap<>();
     /** Le relevé de chaque client jumelé (sauvegardé), borné à {@link #STATEMENT_LINES} lignes. */
     private final Map<UUID, List<StatementLine>> statements = new HashMap<>();
+    /** Avis à donner à un joueur absent (texte sérialisé), lus à sa connexion ; au plus {@link #MAX_NOTICES} chacun. */
+    private final Map<UUID, List<String>> notices = new HashMap<>();
     @Nullable
     private Long priceCap;
     @Nullable
@@ -168,7 +172,9 @@ public final class PowerSuppliers extends SavedData {
 
     /**
      * Retire ce fournisseur et détache ses compteurs, seulement si sa caisse est vide : le registre ne détruit jamais
-     * de pièce. (La suppression par le maire, qui verse d'abord la caisse au fondateur, s'appuie sur ce geste.)
+     * de pièce. (La suppression par le maire, qui verse d'abord la caisse au fondateur, s'appuie sur ce geste.) Les
+     * jumelages de ses compteurs et disjoncteurs, leurs codes d'accord et leurs relevés sont oubliés, comme ses clients
+     * détachés du jour (plus rien à facturer pour un fournisseur qui n'existe plus).
      *
      * @return faux, et rien ne bouge, si le fournisseur n'existe pas ou si sa caisse n'est pas vide
      */
@@ -178,11 +184,25 @@ public final class PowerSuppliers extends SavedData {
             return false;
         }
         suppliers.remove(id);
-        clients.values().removeIf(client -> client.supplierId().equals(id));
-        statements.keySet().removeIf(meter -> !clients.containsKey(meter));
-        consentCodes.values().removeIf(meter -> !clients.containsKey(meter));
-        reindexBreakers();
+        for (PowerClient client : clients(id)) {
+            removeClient(client.meterSerial());
+        }
+        detached.removeIf(client -> client.supplierId().equals(id));
         setDirty();
+        return true;
+    }
+
+    /**
+     * Le fournisseur passe à un autre fondateur (geste du maire ou de l'équipe) : caisse, poste et clients le suivent.
+     *
+     * @return faux, et rien ne bouge, si le fournisseur n'existe pas ou si ce joueur en a déjà un (un par joueur)
+     */
+    public boolean setFounder(String id, UUID founder, String founderName) {
+        PowerSupplier supplier = suppliers.get(id);
+        if (supplier == null || byFounder(founder).isPresent()) {
+            return false;
+        }
+        replace(supplier.withFounder(founder, founderName));
         return true;
     }
 
@@ -633,6 +653,16 @@ public final class PowerSuppliers extends SavedData {
         return Optional.ofNullable(nextPriceCap);
     }
 
+    /**
+     * Remet le plafond et la taxe du lendemain tels quels (nul : aucun changement prévu). Pour rendre l'état d'avant
+     * (essais) ; un geste du maire passe par {@link #setNextPriceCap} et {@link #setNextTaxPercent}.
+     */
+    public void resetNextCapAndTax(@Nullable Long cap, @Nullable Integer tax) {
+        nextPriceCap = cap == null ? null : Math.max(0L, cap);
+        nextTaxPercent = tax == null ? null : Math.max(0, Math.min(tax, EconomyConfig.powerTaxMaxPercent()));
+        setDirty();
+    }
+
     public void setNextPriceCap(long cap) {
         nextPriceCap = Math.max(0L, cap);
         setDirty();
@@ -651,6 +681,44 @@ public final class PowerSuppliers extends SavedData {
     public void setNextTaxPercent(int percent) {
         nextTaxPercent = Math.max(0, Math.min(percent, EconomyConfig.powerTaxMaxPercent()));
         setDirty();
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Avis aux absents
+    // ---------------------------------------------------------------------------------------------
+
+    /** Avis gardés par joueur absent ; les plus anciens tombent. */
+    public static final int MAX_NOTICES = 16;
+
+    /** Garde un avis pour ce joueur, à lui donner à sa connexion ({@link #takeNotices}). */
+    public void addNotice(UUID player, Component message) {
+        List<String> list = notices.computeIfAbsent(player, k -> new ArrayList<>());
+        list.add(Component.Serializer.toJson(message));
+        while (list.size() > MAX_NOTICES) {
+            list.remove(0);
+        }
+        setDirty();
+    }
+
+    /** Les avis gardés pour ce joueur, retirés (un avis illisible est ignoré). */
+    public List<Component> takeNotices(UUID player) {
+        List<String> list = notices.remove(player);
+        if (list == null) {
+            return List.of();
+        }
+        setDirty();
+        List<Component> out = new ArrayList<>();
+        for (String json : list) {
+            try {
+                Component c = Component.Serializer.fromJson(json);
+                if (c != null) {
+                    out.add(c);
+                }
+            } catch (RuntimeException e) {
+                // avis abîmé : ignoré
+            }
+        }
+        return out;
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -695,6 +763,16 @@ public final class PowerSuppliers extends SavedData {
             statementList.add(entry);
         });
         tag.put("statements", statementList);
+        ListTag noticeList = new ListTag();
+        notices.forEach((player, lines) -> {
+            CompoundTag entry = new CompoundTag();
+            entry.putUUID("player", player);
+            ListTag saved = new ListTag();
+            lines.forEach(line -> saved.add(StringTag.valueOf(line)));
+            entry.put("lines", saved);
+            noticeList.add(entry);
+        });
+        tag.put("notices", noticeList);
         if (priceCap != null) {
             tag.putLong("priceCap", priceCap);
         }
@@ -753,6 +831,18 @@ public final class PowerSuppliers extends SavedData {
                     }
                 }
                 registry.statements.put(line.getUUID("meter"), lines);
+            }
+        }
+        for (Tag entry : tag.getList("notices", Tag.TAG_COMPOUND)) {
+            CompoundTag line = (CompoundTag) entry;
+            if (line.hasUUID("player")) {
+                List<String> lines = new ArrayList<>();
+                for (Tag saved : line.getList("lines", Tag.TAG_STRING)) {
+                    lines.add(saved.getAsString());
+                }
+                if (!lines.isEmpty()) {
+                    registry.notices.put(line.getUUID("player"), lines);
+                }
             }
         }
         registry.reindexBreakers();

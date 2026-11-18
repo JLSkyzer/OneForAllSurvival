@@ -60,13 +60,23 @@ public final class DirectDebit {
 
     private DirectDebit() {}
 
+    /** Genres non inscrits déjà signalés au journal (un avertissement par genre). */
+    private static final java.util.Set<String> WARNED = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    private static void warnUnregistered(String kind) {
+        if (WARNED.add(kind)) {
+            LOGGER.warn("Prelevement : genre de facture publique '{}' non inscrit ; ses factures restent dues", kind);
+        }
+    }
+
     // ---------------------------------------------------------------------------------------------
     // Présenter une facture (minuit)
     // ---------------------------------------------------------------------------------------------
 
     /**
-     * Présente cette facture publique à son débiteur. Créancier disparu (genre non inscrit ou référence inconnue) : la
-     * facture est annulée ({@link Outcome#CANCELLED}). Total insuffisant : rien ne bouge, le créancier est prévenu
+     * Présente cette facture publique à son débiteur. Genre pas (encore) inscrit : rien ne bouge, la facture reste due
+     * ({@link Outcome#NOT_DUE}) ; un genre inscrit après le démarrage la retrouvera. Créancier disparu (référence
+     * inconnue de son genre) : la facture est annulée ({@link Outcome#CANCELLED}). Total insuffisant : rien ne bouge, le créancier est prévenu
      * ({@link DebitPayee#refused}), le débiteur aussi (tout de suite s'il est connecté, sinon à sa connexion), le refus
      * est compté au registre ({@link Outcome#REFUSED}). Sinon, payée.
      *
@@ -79,7 +89,13 @@ public final class DirectDebit {
         }
         Invoice due = current.get();
         Optional<DebitPayee> payee = DebitPayees.get(due.payeeKind());
-        if (payee.isEmpty() || !payee.get().exists(server, due.payeeRef())) {
+        if (payee.isEmpty()) {
+            // Genre pas (encore) inscrit : un genre inscrit après le démarrage, ou un lot retiré. On ne sait rien du
+            // créancier, donc on ne l'annule pas (ce serait irréversible) : la facture reste due, présentée plus tard.
+            warnUnregistered(due.payeeKind());
+            return Outcome.NOT_DUE;
+        }
+        if (!payee.get().exists(server, due.payeeRef())) {
             registry.cancel(due.id(), now);
             ServerPlayer debtor = server.getPlayerList().getPlayer(due.debtor());
             if (debtor != null) {
@@ -238,7 +254,11 @@ public final class DirectDebit {
         }
         long now = System.currentTimeMillis();
         Optional<DebitPayee> payee = DebitPayees.get(due.payeeKind());
-        if (payee.isEmpty() || !payee.get().exists(server, due.payeeRef())) {
+        if (payee.isEmpty()) {
+            warnUnregistered(due.payeeKind());
+            return PayResult.CANNOT_PAY; // genre pas inscrit : ni payée ni annulée
+        }
+        if (!payee.get().exists(server, due.payeeRef())) {
             registry.cancel(due.id(), now);
             return PayResult.ALREADY_SETTLED;
         }
