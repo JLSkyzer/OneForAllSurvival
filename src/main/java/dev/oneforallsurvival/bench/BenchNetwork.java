@@ -40,7 +40,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 import org.slf4j.Logger;
 
 /**
- * Le canal réseau du mod (né avec l'établi), protocole « 8 » : client et serveur doivent concorder. Chaque paquet du
+ * Le canal réseau du mod (né avec l'établi), protocole « 9 » : client et serveur doivent concorder. Chaque paquet du
  * client est traité sur le thread du serveur, et revalide tout : rôle, distance, menu ouvert. Un client
  * n'est jamais cru sur parole.
  */
@@ -48,10 +48,10 @@ public final class BenchNetwork {
 
     public static final ResourceLocation CHANNEL_ID = new ResourceLocation(OneForAllSurvival.MODID, "bench");
     /**
-     * « 8 » depuis l'écran des quêtes (lot E5, une seule montée pour tout le lot) : un client ou un serveur plus ancien
-     * ne le lit pas.
+     * « 9 » depuis le panneau du poste de fournisseur (lot E6, une seule montée pour tout le lot ; « 8 » : écran des
+     * quêtes, lot E5) : un client ou un serveur plus ancien ne le lit pas.
      */
-    private static final String PROTOCOL = "8";
+    private static final String PROTOCOL = "9";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(CHANNEL_ID, () -> PROTOCOL,
             PROTOCOL::equals, PROTOCOL::equals);
@@ -93,6 +93,9 @@ public final class BenchNetwork {
     /** Lot E5 : l'état des quêtes d'un joueur (serveur vers client) et un geste de son écran (client vers serveur). */
     public static final int ID_QUEST_SYNC = 22;
     public static final int ID_QUEST_ACTION = 23;
+    /** Lot E6 : le panneau du poste de fournisseur (serveur vers client) et un geste du panneau (client vers serveur). */
+    public static final int ID_POWER_PANEL = 24;
+    public static final int ID_POWER_ACTION = 25;
 
     /** Clé de traduction d'un refus : {@code message.oneforallsurvival.bench.refused.<résultat>}. */
     public static final String REFUSED_KEY = "message.oneforallsurvival.bench.refused.";
@@ -177,6 +180,16 @@ public final class BenchNetwork {
         CHANNEL.messageBuilder(QuestActionPacket.class, ID_QUEST_ACTION, NetworkDirection.PLAY_TO_SERVER)
                 .encoder(QuestActionPacket::encode).decoder(QuestActionPacket::decode)
                 .consumerMainThread(QuestActionPacket::handle).add();
+        CHANNEL.messageBuilder(dev.oneforallsurvival.grid.supplier.PowerPanelPacket.class, ID_POWER_PANEL,
+                        NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(dev.oneforallsurvival.grid.supplier.PowerPanelPacket::encode)
+                .decoder(dev.oneforallsurvival.grid.supplier.PowerPanelPacket::decode)
+                .consumerMainThread(dev.oneforallsurvival.grid.supplier.PowerPanelPacket::handle).add();
+        CHANNEL.messageBuilder(dev.oneforallsurvival.grid.supplier.PowerActionPacket.class, ID_POWER_ACTION,
+                        NetworkDirection.PLAY_TO_SERVER)
+                .encoder(dev.oneforallsurvival.grid.supplier.PowerActionPacket::encode)
+                .decoder(dev.oneforallsurvival.grid.supplier.PowerActionPacket::decode)
+                .consumerMainThread(dev.oneforallsurvival.grid.supplier.PowerActionPacket::handle).add();
     }
 
     // --- Serveur vers client -----------------------------------------------------------------

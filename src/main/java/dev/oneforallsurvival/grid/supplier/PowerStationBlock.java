@@ -45,8 +45,9 @@ import org.slf4j.Logger;
  *       clients gardés par le serveur. Un objet neuf posé par un joueur qui a déjà un fournisseur reprend le sien.
  *       Un second poste du même fournisseur est refusé tant que le premier tient. Sinon le poste est neuf : il
  *       appartient à qui l'a posé, qui le fonde en lui donnant un nom ({@link #found}).
- *   <li><b>Ouverture</b> : un ayant droit ({@link PowerRules#mayManage}) voit la caisse ({@link PowerTillMenu}), dont
- *       seuls le fondateur et l'équipe retirent ; les autres lisent à qui il est.
+ *   <li><b>Ouverture</b> : un ayant droit ({@link PowerRules#mayManage}) voit le panneau du poste (nom d'un poste neuf,
+ *       tarifs, écart, clients ; {@link PowerPanelPacket}, {@link PowerActionPacket}), d'où il ouvre la caisse
+ *       ({@link PowerTillMenu}), dont seuls le fondateur et l'équipe retirent ; les autres lisent à qui il est.
  *   <li><b>Casse</b> : comme le coffre-fort, dureté -1, résistance maximale, piston bloqué, tags du Wither et du
  *       dragon ; la progression n'est rendue qu'aux ayants droit, et {@link #onBreak} annule tout autre bris. Il lâche
  *       son objet, qui garde le fournisseur ; l'emplacement noté s'efface.
@@ -243,9 +244,11 @@ public final class PowerStationBlock extends InlineEnergyBlock {
     }
 
     /**
-     * Ouvre la caisse du poste en {@code pos} pour un ayant droit ; sinon dit à qui est le poste.
+     * Ouvre le panneau du poste en {@code pos} pour un ayant droit (un poste neuf : le champ du nom, pour un ayant droit
+     * de son poseur) ; sinon dit à qui est le poste. Le panneau est un écran du client, rempli par
+     * {@link PowerPanelPacket} ; ses gestes reviennent par {@link PowerActionPacket}.
      *
-     * @return vrai si l'écran s'est ouvert
+     * @return vrai si le panneau a été envoyé
      */
     public static boolean open(ServerPlayer player, BlockPos pos) {
         ServerLevel level = player.serverLevel();
@@ -255,12 +258,32 @@ public final class PowerStationBlock extends InlineEnergyBlock {
         }
         Optional<PowerSupplier> supplier = be.supplier();
         if (supplier.isEmpty()) {
-            player.displayClientMessage(Component.translatable(MESSAGE
-                    + (PowerRules.mayManage(player, be.founder()) ? "unnamed" : "no_supplier")), true);
+            if (!PowerRules.mayManage(player, be.founder())) {
+                player.displayClientMessage(Component.translatable(MESSAGE + "no_supplier"), true);
+                return false;
+            }
+        } else if (!PowerRules.mayManage(player, supplier.get())) {
+            player.displayClientMessage(Component.translatable(MESSAGE + "of", supplier.get().name()), true);
             return false;
         }
-        if (!PowerRules.mayManage(player, supplier.get())) {
-            player.displayClientMessage(Component.translatable(MESSAGE + "of", supplier.get().name()), true);
+        PowerActionPacket.sendState(player, pos);
+        return true;
+    }
+
+    /**
+     * Ouvre la caisse du poste en {@code pos} pour un ayant droit de son fournisseur (bouton « Caisse » du panneau) ;
+     * seuls le fondateur et l'équipe y retirent ({@link PowerTillMenu}).
+     *
+     * @return vrai si l'écran s'est ouvert
+     */
+    public static boolean openTill(ServerPlayer player, BlockPos pos) {
+        ServerLevel level = player.serverLevel();
+        if (!level.getBlockState(pos).is(GridRegistry.POWER_STATION.get())
+                || !(level.getBlockEntity(pos) instanceof PowerStationBlockEntity be)) {
+            return false;
+        }
+        Optional<PowerSupplier> supplier = be.supplier();
+        if (supplier.isEmpty() || !PowerRules.mayManage(player, supplier.get())) {
             return false;
         }
         PowerSuppliers registry = PowerSuppliers.get(level.getServer());

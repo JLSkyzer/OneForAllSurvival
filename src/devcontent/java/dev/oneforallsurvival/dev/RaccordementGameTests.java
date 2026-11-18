@@ -6,7 +6,9 @@ import dev.oneforallsurvival.grid.BreakerBlockEntity;
 import dev.oneforallsurvival.grid.GridRegistry;
 import dev.oneforallsurvival.grid.MeterBlockEntity;
 import dev.oneforallsurvival.grid.SubscriberNamePacket;
+import dev.oneforallsurvival.grid.supplier.PowerActionPacket;
 import dev.oneforallsurvival.grid.supplier.PowerClient;
+import dev.oneforallsurvival.grid.supplier.PowerPanelPacket;
 import dev.oneforallsurvival.grid.supplier.PowerPairing;
 import dev.oneforallsurvival.grid.supplier.PowerStationBlock;
 import dev.oneforallsurvival.grid.supplier.PowerSupplier;
@@ -63,6 +65,7 @@ public final class RaccordementGameTests {
 
     private static final String LOT_A = "raccord_a";
     private static final String LOT_B = "raccord_b";
+    private static final String LOT_C = "raccord_c";
 
     private static final BlockPos POSTE = new BlockPos(2, 0, 2);
     private static final BlockPos COMPTEUR = new BlockPos(2, 0, 5);
@@ -776,6 +779,223 @@ public final class RaccordementGameTests {
             helper.assertTrue(pousser(c, 30, false) == 30 && m.energy().getEnergyStored() == 30
                     && client(essai, c).feToday() == 30, "le courant passe encore et se compte");
             helper.assertTrue(commande(helper, client, "power list") == 1, "/power list montre le raccordement");
+            helper.succeed();
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Lot C : le panneau du poste (tâche 5), par les vrais paquets traités sur place
+    // ---------------------------------------------------------------------------------------------
+
+    /** Les panneaux reçus depuis le dernier appel, pour ce poste. */
+    private static List<PowerPanelPacket> panneaux(GameTestHelper helper, JoueurDeTest j) {
+        BlockPos poste = helper.absolutePos(POSTE);
+        return j.panneauxRecus().stream().filter(p -> p.pos().equals(poste)).toList();
+    }
+
+    /**
+     * Un joueur sans droit (citoyen, client lui-même, faux joueur) ne fait rien par paquet : ni nom, ni prix, ni
+     * acceptation, ni coupure, ni détachement, ni caisse ; il n'apprend que « Poste de … » et ne reçoit aucun état. Un
+     * ayant droit trop loin non plus. Le clic droit ouvre le panneau du fondateur seulement.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void unPaquetDUnSansDroitNeFaitRien(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest fondateur = essai.joueur("rc_pd_fond");
+            JoueurDeTest client = essai.joueur("rc_pd_client");
+            JoueurDeTest citoyen = essai.joueur("rc_pd_cit");
+            MeterBlockEntity c = compteur(helper, COMPTEUR, "rc_pd_client");
+            BlockPos poste = helper.absolutePos(POSTE);
+
+            // Un poste neuf : le citoyen ne le fonde pas à la place du poseur.
+            ServerPlayer p = fondateur.joueur();
+            ItemStack pile = new ItemStack(GridRegistry.POWER_STATION_ITEM.get());
+            p.setItemInHand(InteractionHand.MAIN_HAND, pile);
+            BlockPos sol = helper.absolutePos(POSTE.below());
+            pile.useOn(new UseOnContext(p.serverLevel(), p, InteractionHand.MAIN_HAND, pile,
+                    new BlockHitResult(Vec3.atCenterOf(sol).add(0, 0.5, 0), Direction.UP, sol, false)));
+            helper.assertTrue(PowerActionPacket.apply(citoyen.joueur(), PowerActionPacket.name(poste, "Vol de Nom"))
+                    == PowerActionPacket.Result.NOT_ALLOWED && essai.registre().byName("Vol de Nom").isEmpty(),
+                    "un citoyen ne fonde pas le poste d'un autre");
+            fondateur.panneauxRecus();
+            clicDroit(helper, fondateur.joueur(), POSTE);
+            List<PowerPanelPacket> neuf = panneaux(helper, fondateur);
+            helper.assertTrue(neuf.size() == 1 && neuf.get(0).name().isEmpty(), "le poseur voit le panneau du poste neuf");
+            fondateur.envoyer(PowerActionPacket.name(poste, "Panneau Prive"));
+            PowerSupplier s = essai.registre().byFounder(fondateur.uuid()).orElseThrow(
+                    () -> new IllegalStateException("le fondateur devait fonder par le paquet du nom"));
+            helper.assertTrue(s.name().equals("Panneau Prive"), "nom donné au premier panneau : " + s.name());
+            List<PowerPanelPacket> fonde = panneaux(helper, fondateur);
+            helper.assertTrue(!fonde.isEmpty() && fonde.get(fonde.size() - 1).name().equals("Panneau Prive"),
+                    "le panneau revient fondé");
+
+            ItemStack t = testeur();
+            tester(helper, fondateur.joueur(), t, POSTE);
+            tester(helper, fondateur.joueur(), t, COMPTEUR);
+            commande(helper, client, "power consent " + essai.registre().codeOf(c.serial()).orElseThrow());
+            helper.assertTrue(client(essai, c).state() == PowerClient.State.AWAITING_ACCEPT, "demande à accepter");
+
+            // Le citoyen et le client, par le vrai canal : rien ne bouge, aucun état reçu.
+            for (JoueurDeTest sansDroit : List.of(citoyen, client)) {
+                sansDroit.messagesRecus();
+                sansDroit.panneauxRecus();
+                sansDroit.envoyer(PowerActionPacket.price(poste, 7L));
+                sansDroit.envoyer(PowerActionPacket.subscription(poste, 3L));
+                sansDroit.envoyer(PowerActionPacket.onMeter(PowerActionPacket.ACCEPT, poste, c.serial()));
+                sansDroit.envoyer(PowerActionPacket.onMeter(PowerActionPacket.CUT, poste, c.serial()));
+                sansDroit.envoyer(PowerActionPacket.onMeter(PowerActionPacket.DETACH, poste, c.serial()));
+                sansDroit.envoyer(PowerActionPacket.onMeter(PowerActionPacket.REFUSE, poste, c.serial()));
+                sansDroit.envoyer(PowerActionPacket.openTill(poste));
+                sansDroit.envoyer(PowerActionPacket.name(poste, "Autre Nom"));
+                clicDroit(helper, sansDroit.joueur(), POSTE);
+                PowerSupplier apres = essai.registre().byId(s.id()).orElseThrow();
+                helper.assertTrue(apres.nextPrice() == null && apres.nextSubscription() == null
+                        && apres.name().equals("Panneau Prive"), "tarif et nom inchangés");
+                helper.assertTrue(client(essai, c).state() == PowerClient.State.AWAITING_ACCEPT && !client(essai, c).cut(),
+                        "la demande attend toujours");
+                helper.assertTrue(panneaux(helper, sansDroit).isEmpty(), "aucun état au sans-droit");
+                helper.assertTrue(!(sansDroit.joueur().containerMenu instanceof dev.oneforallsurvival.grid.supplier
+                        .PowerTillMenu), "la caisse ne s'ouvre pas");
+                helper.assertTrue(sansDroit.messagesRecus().contains(PowerStationBlock.MESSAGE + "of"),
+                        "il apprend seulement à qui est le poste");
+            }
+            // Un faux joueur (automate) : rien.
+            FakePlayer automate = FakePlayerFactory.get(helper.getLevel(),
+                    new GameProfile(fondateur.uuid(), "rc_pd_fond"));
+            Vec3 ici = helper.absoluteVec(JOUEUR);
+            automate.moveTo(ici.x, ici.y, ici.z);
+            helper.assertTrue(PowerActionPacket.apply(automate, PowerActionPacket.onMeter(PowerActionPacket.ACCEPT,
+                    poste, c.serial())) == PowerActionPacket.Result.GONE
+                    && client(essai, c).state() == PowerClient.State.AWAITING_ACCEPT, "un automate n'accepte rien");
+            // Le fondateur trop loin : rien.
+            Vec3 loin = ici.add(40, 0, 0);
+            fondateur.joueur().teleportTo(loin.x, loin.y, loin.z);
+            helper.assertTrue(PowerActionPacket.apply(fondateur.joueur(), PowerActionPacket.onMeter(
+                    PowerActionPacket.ACCEPT, poste, c.serial())) == PowerActionPacket.Result.TOO_FAR
+                    && client(essai, c).state() == PowerClient.State.AWAITING_ACCEPT, "trop loin : rien");
+            helper.succeed();
+        }
+    }
+
+    /**
+     * Le prix du lendemain ne dépasse jamais le plafond (celui du lendemain, s'il change) ; négatif, refusé ;
+     * l'abonnement est borné à {@code powerMaxSubscription}. Le panneau revient avec le tarif du lendemain.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void unPrixAuDessusDuPlafondEstRefuse(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest fondateur = essai.joueur("rc_pp_fond");
+            PowerSupplier s = fonder(helper, fondateur, "Prix Plafond");
+            BlockPos poste = helper.absolutePos(POSTE);
+            long plafond = essai.registre().nextPriceCap().orElse(essai.registre().priceCap());
+            long maxAbonnement = dev.oneforallsurvival.economy.EconomyConfig.powerMaxSubscription();
+            fondateur.messagesRecus();
+            fondateur.panneauxRecus();
+
+            fondateur.envoyer(PowerActionPacket.price(poste, plafond + 1L));
+            helper.assertTrue(essai.registre().byId(s.id()).orElseThrow().nextPrice() == null,
+                    "au-dessus du plafond : refusé");
+            helper.assertTrue(fondateur.messagesRecus().contains(PowerActionPacket.MESSAGE + "price_above_cap"),
+                    "le refus est dit");
+            helper.assertTrue(PowerActionPacket.apply(fondateur.joueur(), PowerActionPacket.price(poste, Long.MAX_VALUE))
+                    == PowerActionPacket.Result.REFUSED, "un prix démesuré est refusé");
+            helper.assertTrue(PowerActionPacket.apply(fondateur.joueur(), PowerActionPacket.price(poste, -1L))
+                    == PowerActionPacket.Result.REFUSED, "un prix négatif est refusé");
+            helper.assertTrue(essai.registre().byId(s.id()).orElseThrow().nextPrice() == null, "toujours rien");
+
+            fondateur.envoyer(PowerActionPacket.price(poste, plafond));
+            PowerSupplier apres = essai.registre().byId(s.id()).orElseThrow();
+            helper.assertTrue(apres.nextPrice() != null && apres.nextPrice() == plafond && apres.price() == 0L,
+                    "le plafond pile est accepté, pour demain seulement : " + apres.nextPrice() + " / " + apres.price());
+            List<PowerPanelPacket> etats = panneaux(helper, fondateur);
+            helper.assertTrue(!etats.isEmpty() && etats.get(etats.size() - 1).nextPrice() == plafond,
+                    "le panneau revient avec le prix du lendemain");
+
+            helper.assertTrue(PowerActionPacket.apply(fondateur.joueur(), PowerActionPacket.subscription(poste,
+                    maxAbonnement + 1L)) == PowerActionPacket.Result.REFUSED
+                    && essai.registre().byId(s.id()).orElseThrow().nextSubscription() == null,
+                    "abonnement au-dessus du maximum : refusé");
+            helper.assertTrue(PowerActionPacket.apply(fondateur.joueur(), PowerActionPacket.subscription(poste,
+                    maxAbonnement)) == PowerActionPacket.Result.DONE
+                    && essai.registre().byId(s.id()).orElseThrow().nextSubscription() == maxAbonnement,
+                    "abonnement au maximum : accepté");
+            helper.succeed();
+        }
+    }
+
+    /**
+     * Le fournisseur accepte au panneau (seul appel en jeu de {@link PowerPairing#accept}), coupe, rétablit, puis
+     * détache ; une seconde demande est refusée au panneau. Un compteur inconnu ne fait que renvoyer l'état.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void accepterEtCouperParPaquet(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest fondateur = essai.joueur("rc_ap_fond");
+            JoueurDeTest client = essai.joueur("rc_ap_client");
+            JoueurDeTest second = essai.joueur("rc_ap_second");
+            MeterBlockEntity c = compteur(helper, COMPTEUR, "rc_ap_client");
+            disjoncteur(helper, "rc_ap_client");
+            TestMachineBlockEntity m = charge(helper, CHARGE);
+            BlockPos poste = helper.absolutePos(POSTE);
+            PowerSupplier s = jumeler(helper, essai, fondateur, "Panneau Gestes", c);
+            commande(helper, client, "power consent " + essai.registre().codeOf(c.serial()).orElseThrow());
+            ItemStack t = testeur();
+            tester(helper, fondateur.joueur(), t, POSTE);
+            tester(helper, fondateur.joueur(), t, DISJONCTEUR);
+            helper.assertTrue(pousser(c, 40, false) == 0, "avant l'acceptation, rien ne passe");
+
+            // Un compteur inconnu : rien d'autre que l'état.
+            fondateur.panneauxRecus();
+            helper.assertTrue(PowerActionPacket.apply(fondateur.joueur(), PowerActionPacket.onMeter(
+                    PowerActionPacket.ACCEPT, poste, UUID.randomUUID())) == PowerActionPacket.Result.STALE,
+                    "compteur inconnu : périmé");
+            helper.assertTrue(panneaux(helper, fondateur).size() == 1, "l'état est renvoyé");
+
+            client.messagesRecus();
+            fondateur.envoyer(PowerActionPacket.onMeter(PowerActionPacket.ACCEPT, poste, c.serial()));
+            helper.assertTrue(client(essai, c).state() == PowerClient.State.ACTIVE, "accepté au panneau");
+            helper.assertTrue(client.messagesRecus().contains(PowerPairing.MESSAGE + "accepted"), "le client est prévenu");
+            helper.assertTrue(pousser(c, 40, false) == 40 && m.energy().getEnergyStored() == 40, "le courant passe");
+            fondateur.envoyer(PowerActionPacket.onMeter(-1, poste, c.serial()));
+            List<PowerPanelPacket> etats = panneaux(helper, fondateur);
+            helper.assertTrue(!etats.isEmpty(), "un geste inconnu renvoie l'état");
+            PowerPanelPacket dernier = etats.get(etats.size() - 1);
+            helper.assertTrue(dernier.clients().size() == 1 && dernier.clients().get(0).meter().equals(c.serial())
+                    && dernier.clients().get(0).state() == PowerClient.State.ACTIVE
+                    && dernier.clients().get(0).feToday() == 40 && dernier.clients().get(0).breaker()
+                    && dernier.metersToday() == 40, "le panneau montre le client actif, 40 FE, disjoncteur jumelé");
+
+            fondateur.envoyer(PowerActionPacket.onMeter(PowerActionPacket.CUT, poste, c.serial()));
+            helper.assertTrue(client(essai, c).cut() && !helper.getBlockState(DISJONCTEUR).getValue(BreakerBlock.CLOSED),
+                    "coupé au panneau : le disjoncteur s'ouvre");
+            helper.assertTrue(pousser(c, 40, false) == 0 && m.energy().getEnergyStored() == 40, "rien ne passe");
+            fondateur.envoyer(PowerActionPacket.onMeter(PowerActionPacket.RESTORE, poste, c.serial()));
+            helper.assertTrue(!client(essai, c).cut() && helper.getBlockState(DISJONCTEUR).getValue(BreakerBlock.CLOSED),
+                    "rétabli au panneau");
+            helper.assertTrue(pousser(c, 40, false) == 40 && m.energy().getEnergyStored() == 80, "le courant repasse");
+
+            // Une seconde demande, refusée au panneau : retirée, personne n'est facturé.
+            MeterBlockEntity c2 = compteur(helper, AUTRE_COMPTEUR, "rc_ap_second");
+            tester(helper, fondateur.joueur(), t, POSTE);
+            tester(helper, fondateur.joueur(), t, AUTRE_COMPTEUR);
+            commande(helper, second, "power consent " + essai.registre().codeOf(c2.serial()).orElseThrow());
+            fondateur.envoyer(PowerActionPacket.onMeter(PowerActionPacket.REFUSE, poste, c2.serial()));
+            helper.assertTrue(essai.registre().clientOf(c2.serial()).isEmpty()
+                    && essai.registre().detached().stream().noneMatch(d -> d.meterSerial().equals(c2.serial())),
+                    "la demande refusée est retirée sans rien garder");
+            // Refuser un client déjà actif : ce n'est pas une demande, rien.
+            helper.assertTrue(PowerActionPacket.apply(fondateur.joueur(), PowerActionPacket.onMeter(
+                    PowerActionPacket.REFUSE, poste, c.serial())) == PowerActionPacket.Result.REFUSED
+                    && client(essai, c).state() == PowerClient.State.ACTIVE, "on ne refuse pas un client actif");
+
+            // Détacher : le client quitte la liste, sa journée reste due, le courant ne passe plus.
+            fondateur.envoyer(PowerActionPacket.onMeter(PowerActionPacket.DETACH, poste, c.serial()));
+            helper.assertTrue(essai.registre().clientOf(c.serial()).isEmpty(), "détaché");
+            helper.assertTrue(essai.registre().detached().stream().anyMatch(d -> d.meterSerial().equals(c.serial())
+                    && d.feToday() == 80), "sa journée (80 FE) reste due à la clôture");
+            helper.assertTrue(pousser(c, 40, false) == 0, "un compteur détaché ne laisse rien passer");
+            essai.registre().detached().stream().filter(d -> d.supplierId().equals(s.id()))
+                    .forEach(essai.registre()::removeDetached);
             helper.succeed();
         }
     }

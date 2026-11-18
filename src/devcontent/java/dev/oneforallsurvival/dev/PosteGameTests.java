@@ -242,6 +242,13 @@ public final class PosteGameTests {
         return fonde.get().supplier();
     }
 
+    /** Clic droit sur le poste (le panneau), puis le bouton « Caisse » du panneau, par le paquet du panneau. */
+    private static void ouvrirCaisse(GameTestHelper helper, ServerPlayer p, BlockPos pos) {
+        clicDroit(helper, p, pos);
+        dev.oneforallsurvival.grid.supplier.PowerActionPacket.apply(p,
+                dev.oneforallsurvival.grid.supplier.PowerActionPacket.openTill(helper.absolutePos(pos)));
+    }
+
     /** Un clic droit réel, par le jeu, main vide. */
     private static void clicDroit(GameTestHelper helper, ServerPlayer p, BlockPos pos) {
         p.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
@@ -505,7 +512,7 @@ public final class PosteGameTests {
 
             // Les ayants droit ouvrent ; seuls le fondateur et l'équipe peuvent retirer.
             for (JoueurDeTest j : List.of(fondateur, ingenieur, maire, chef)) {
-                clicDroit(helper, j.joueur(), A);
+                ouvrirCaisse(helper, j.joueur(), A);
                 helper.assertTrue(j.joueur().containerMenu instanceof PowerTillMenu,
                         j.joueur().getGameProfile().getName() + " devait ouvrir la caisse");
                 helper.assertTrue(etat.getDestroyProgress(j.joueur(), level, abs) > 0.0F,
@@ -567,7 +574,7 @@ public final class PosteGameTests {
             helper.assertTrue(PowerTillMenu.request(9_999_999).isEmpty() && PowerTillMenu.request(-1).isEmpty(),
                     "numéros hors bouton");
 
-            clicDroit(helper, p, A);
+            ouvrirCaisse(helper, p, A);
             helper.assertTrue(p.containerMenu instanceof PowerTillMenu menu && menu instanceof CoinAccountMenu,
                     "le fondateur ouvre l'écran commun de la caisse");
             PowerTillMenu menu = (PowerTillMenu) p.containerMenu;

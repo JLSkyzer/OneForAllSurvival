@@ -435,7 +435,7 @@ public final class PowerPairing {
 
     /**
      * Le fournisseur (ou un ayant droit) accepte une demande de raccordement : le courant passe et la consommation se
-     * compte dès maintenant. Le client est prévenu. (Appelé par le panneau du poste, tâche 5.)
+     * compte dès maintenant. Le client est prévenu. (Appelé par le panneau du poste, {@link PowerActionPacket}.)
      */
     public static Outcome accept(ServerPlayer actor, UUID meterSerial) {
         PowerSuppliers registry = PowerSuppliers.get(actor.server);
@@ -459,6 +459,67 @@ public final class PowerPairing {
         }
         LOGGER.info("Electricite : {} accepte le raccordement du compteur {} ({})", actor.getGameProfile().getName(),
                 meterSerial, client.get().playerName());
+        return Outcome.DONE;
+    }
+
+    /**
+     * Le fournisseur (ou un ayant droit) refuse au panneau une demande de raccordement pas encore acceptée (qu'elle
+     * attende l'accord du joueur ou le fournisseur) : le compteur est retiré sans rien garder, personne n'est facturé.
+     * Le joueur est prévenu. Un raccordement accepté ne se refuse pas : il se détache ({@link #detachFromPanel}).
+     */
+    public static Outcome refuseRequest(ServerPlayer actor, UUID meterSerial) {
+        PowerSuppliers registry = PowerSuppliers.get(actor.server);
+        Optional<PowerClient> client = registry.clientOf(meterSerial);
+        Optional<PowerSupplier> supplier = client.flatMap(c -> registry.byId(c.supplierId()));
+        if (client.isEmpty() || supplier.isEmpty()) {
+            return Outcome.UNKNOWN_CODE;
+        }
+        if (!mayActOn(actor, supplier.get(), client.get())) {
+            return Outcome.NOT_ALLOWED;
+        }
+        if (client.get().state().passes()) {
+            return Outcome.WRONG_STATE;
+        }
+        registry.removeClient(meterSerial);
+        refreshMeter(actor.server, meterSerial);
+        ServerPlayer debtor = actor.server.getPlayerList().getPlayer(client.get().player());
+        if (debtor != null) {
+            debtor.sendSystemMessage(Component.translatable(MESSAGE + "request_refused", supplier.get().name(),
+                    client.get().subscriber()));
+        }
+        LOGGER.info("Electricite : {} refuse la demande du compteur {} ({})", actor.getGameProfile().getName(),
+                meterSerial, client.get().playerName());
+        return Outcome.DONE;
+    }
+
+    /**
+     * Le fournisseur (ou un ayant droit) détache au panneau un client accepté, sans démonter son compteur : le courant
+     * ne passe plus, la consommation et l'abonnement du jour restent dus à la clôture ({@link PowerSuppliers#detach},
+     * comme un compteur démonté). Le client est prévenu. Une demande pas encore acceptée se refuse
+     * ({@link #refuseRequest}).
+     */
+    public static Outcome detachFromPanel(ServerPlayer actor, UUID meterSerial) {
+        PowerSuppliers registry = PowerSuppliers.get(actor.server);
+        Optional<PowerClient> client = registry.clientOf(meterSerial);
+        Optional<PowerSupplier> supplier = client.flatMap(c -> registry.byId(c.supplierId()));
+        if (client.isEmpty() || supplier.isEmpty()) {
+            return Outcome.UNKNOWN_CODE;
+        }
+        if (!mayActOn(actor, supplier.get(), client.get())) {
+            return Outcome.NOT_ALLOWED;
+        }
+        if (!client.get().state().passes()) {
+            return Outcome.WRONG_STATE;
+        }
+        registry.detach(meterSerial);
+        refreshMeter(actor.server, meterSerial);
+        ServerPlayer debtor = actor.server.getPlayerList().getPlayer(client.get().player());
+        if (debtor != null) {
+            debtor.sendSystemMessage(Component.translatable(MESSAGE + "detached_by_supplier", supplier.get().name(),
+                    client.get().subscriber()));
+        }
+        LOGGER.info("Electricite : {} detache le compteur {} ({}, {} FE du jour gardes)",
+                actor.getGameProfile().getName(), meterSerial, client.get().playerName(), client.get().feToday());
         return Outcome.DONE;
     }
 

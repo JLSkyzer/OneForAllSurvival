@@ -130,7 +130,9 @@ public final class DemoVisuels {
     private static final boolean ACTIF = System.getProperty("oneforallsurvival.demo.visuels") != null;
     /**
      * {@code etal} ou {@code commerce} : ne jouer que les captures du commerce ; {@code tresor} : que celles du trésor et du
-     * tableau de la mairie ; {@code quetes} : que celles de l'écran des quêtes (contrôle rapide d'une tâche), sans les autres.
+     * tableau de la mairie ; {@code quetes} : que celles de l'écran des quêtes (contrôle rapide d'une tâche) ;
+     * {@code electricite} : que celles du panneau du poste, de la facture d'électricité et du poste posé (lot E6) ; sans
+     * les autres.
      */
     private static final String SEUL = System.getProperty("oneforallsurvival.demo.visuels.seul", "");
     private static final String MONDE = "demo_visuels";
@@ -818,6 +820,10 @@ public final class DemoVisuels {
         }
         if ("quetes".equals(SEUL)) {
             construireQuetes(mc);
+            return;
+        }
+        if ("electricite".equals(SEUL)) {
+            construireElectricite(mc);
             return;
         }
         Vec3 sudEst = new Vec3(1.35, 1.0, 1.75);
@@ -2450,5 +2456,188 @@ public final class DemoVisuels {
                 finie ? dev.oneforallsurvival.economy.quest.QuestSyncPacket.State.COMPLETE
                         : dev.oneforallsurvival.economy.quest.QuestSyncPacket.State.IN_PROGRESS));
         return new dev.oneforallsurvival.economy.quest.QuestSyncPacket(0L, 1_000L, 1, 3_600_000L, 3_600_000L, 0, q);
+    }
+
+    // ================================================================================================
+    // Lot E6 : le panneau du poste de fournisseur, la facture d'électricité, le poste posé
+    // ================================================================================================
+
+    private static BlockPos zoneElectricite;
+    private static volatile boolean electricitePosee;
+    private static final java.util.Set<String> PANNEAU_JOURNAL = new java.util.HashSet<>();
+    private static final String NOM_24 = "Compagnie des Eaux Vives";
+    private static final String NOM_16 = "Abcdefghijklmnop";
+
+    /**
+     * Le panneau du poste avec un état imposé chez le client (le contenu le plus long : nom de 24 caractères, 70 clients
+     * dont 64 montrés aux noms de 16 caractères, montants à cinq coupures, écart en alerte ; le plus court, avec un client
+     * coupé et des impayés ; un poste neuf, vide puis nommé), la bulle d'un nom coupé et celle des impayés, la fin de la
+     * liste, dans l'interface de 320 × 240 puis dans une grande (640 × 360) ; l'écran d'une facture d'électricité (motif
+     * traduit) ; puis le poste posé seul et collé à un mur, sous deux angles, de jour.
+     */
+    private static void construireElectricite(Minecraft mc) {
+        MinecraftServer serveur = mc.getSingleplayerServer();
+        etape("electricite pose", () -> {
+            fermer(mc);
+            mc.options.hideGui = false;
+            mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+            zoneElectricite = origine.offset(-24, 0, 360);
+            serveur.execute(() -> preparerElectricite(serveur));
+        }, () -> electricitePosee, 4000, null);
+        // Le joueur se tient devant le poste : le panneau se ferme au-delà de huit blocs.
+        etape("electricite devant le poste", () -> {
+            fermer(mc);
+            mc.options.hideGui = false;
+            serveur.execute(() -> {
+                ServerLevel monde = serveur.overworld();
+                ServerPlayer joueur = serveur.getPlayerList().getPlayers().get(0);
+                monde.setDayTime(6000);
+                BlockPos z = zoneElectricite;
+                joueur.teleportTo(monde, z.getX() + 0.5, z.getY(), z.getZ() + 3.5, 180F, 20F);
+            });
+        }, () -> mc.player != null && mc.player.blockPosition().distSqr(zoneElectricite) < 30, 1500, null);
+        taille(mc, 960, 720, 3, 320, 240);
+        panneau(mc, "320 long", () -> panneauLePlusLong(), null, 0, "panneau_320_long.png");
+        panneau(mc, "320 bulle nom", () -> panneauLePlusLong(), "name:0", 0, "panneau_320_bulle_nom.png");
+        panneau(mc, "320 bulle impayes", () -> panneauLePlusLong(), "unpaid:1", 0, "panneau_320_bulle_impayes.png");
+        panneau(mc, "320 bulle ecart", () -> panneauLePlusLong(), "gap", 0, "panneau_320_bulle_ecart.png");
+        panneau(mc, "320 fin de liste", () -> panneauLePlusLong(), null, 99_999, "panneau_320_fin_de_liste.png");
+        panneau(mc, "320 court", () -> panneauLePlusCourt(), null, 0, "panneau_320_court_coupe_impayes.png");
+        panneau(mc, "320 bulle sans disjoncteur", () -> panneauLePlusCourt(), "button:2:0", 0,
+                "panneau_320_bulle_sans_disjoncteur.png");
+        panneau(mc, "320 neuf", () -> panneauNeuf(), null, 0, "panneau_320_neuf.png");
+        panneauNomme(mc, "panneau_320_neuf_nom_saisi.png");
+        factureElectricite(mc, "facture_electricite_320.png");
+        taille(mc, 1280, 720, 2, 640, 360);
+        panneau(mc, "grand long", () -> panneauLePlusLong(), null, 0, "panneau_grand_long.png");
+        panneau(mc, "grand bulle nom", () -> panneauLePlusLong(), "name:0", 0, "panneau_grand_bulle_nom.png");
+        panneau(mc, "grand court", () -> panneauLePlusCourt(), null, 0, "panneau_grand_court_coupe_impayes.png");
+        panneau(mc, "grand neuf", () -> panneauNeuf(), null, 0, "panneau_grand_neuf.png");
+        factureElectricite(mc, "facture_electricite_grand.png");
+        // Le poste posé : seul, puis collé à un mur (pierre derrière, à l'est, à l'ouest et au-dessus).
+        etape("electricite vues", () -> fermer(mc), () -> true, 300, null);
+        etape("vue poste_seul_trois_quarts.png", () -> regarder(mc, zoneElectricite, new Vec3(2.2, 1.3, 2.6), false),
+                () -> true, 2500, "poste_seul_trois_quarts.png");
+        etape("vue poste_seul_arriere.png", () -> regarder(mc, zoneElectricite, new Vec3(-1.8, 1.2, -2.6), false),
+                () -> true, 1500, "poste_seul_arriere.png");
+        etape("vue poste_contre_un_mur_trois_quarts.png", () -> regarder(mc, zoneElectricite.offset(8, 0, 0),
+                new Vec3(1.6, 1.1, 2.2), false), () -> true, 1500, "poste_contre_un_mur_trois_quarts.png");
+        etape("vue poste_contre_un_mur_autre_cote.png", () -> regarder(mc, zoneElectricite.offset(8, 0, 0),
+                new Vec3(-1.6, 0.6, 2.0), false), () -> true, 1500, "poste_contre_un_mur_autre_cote.png");
+        etape("vue poste_contre_un_mur_face.png", () -> regarder(mc, zoneElectricite.offset(8, 0, 0),
+                new Vec3(0.0, 0.5, 1.8), false), () -> true, 1500, "poste_contre_un_mur_face.png");
+        etape("fin de l'electricite", () -> fermer(mc), () -> true, 300, null);
+    }
+
+    private static void preparerElectricite(MinecraftServer serveur) {
+        ServerLevel monde = serveur.overworld();
+        BlockPos z = zoneElectricite;
+        BlockState poste = GridRegistry.POWER_STATION.get().defaultBlockState()
+                .setValue(dev.oneforallsurvival.machine.InlineEnergyBlock.FACING, Direction.SOUTH);
+        for (int dx = -3; dx <= 11; dx++) {
+            for (int dz = -3; dz <= 4; dz++) {
+                monde.setBlock(z.offset(dx, -1, dz), Blocks.GRASS_BLOCK.defaultBlockState(), 3);
+                for (int dy = 0; dy <= 3; dy++) {
+                    monde.setBlock(z.offset(dx, dy, dz), Blocks.AIR.defaultBlockState(), 3);
+                }
+            }
+        }
+        monde.setBlock(z, poste, 3);
+        BlockPos mur = z.offset(8, 0, 0);
+        monde.setBlock(mur, poste, 3);
+        pierreAutour(monde, mur);
+        electricitePosee = true;
+    }
+
+    /** Un état imposé au panneau, ouvert sur le poste devant lequel se tient le joueur. */
+    private static void panneau(Minecraft mc, String nom,
+            java.util.function.Supplier<dev.oneforallsurvival.grid.supplier.PowerPanelPacket> etat, String bulle,
+            int defilement, String image) {
+        etape("panneau " + nom, () -> {
+            fermer(mc);
+            mc.options.hideGui = false;
+            dev.oneforallsurvival.grid.supplier.client.PowerPanelScreen.accept(etat.get());
+            if (mc.screen instanceof dev.oneforallsurvival.grid.supplier.client.PowerPanelScreen ecran) {
+                ecran.pinHover(bulle);
+                ecran.scrollTo(defilement);
+            }
+        }, () -> {
+            if (!(mc.screen instanceof dev.oneforallsurvival.grid.supplier.client.PowerPanelScreen ecran)
+                    || ecran.layout() == null) {
+                return false;
+            }
+            if (PANNEAU_JOURNAL.add(nom)) {
+                var l = ecran.layout();
+                LOG.info("[visuels] panneau {} : cadre {}x{} en ({}, {}) dans une interface de {}x{}, defilement {}",
+                        nom, l.frame().w(), l.frame().h(), l.frame().x(), l.frame().y(),
+                        mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight(), l.scrollMax());
+            }
+            return true;
+        }, 1000, image);
+    }
+
+    /** Le poste neuf, son nom de 24 caractères saisi. */
+    private static void panneauNomme(Minecraft mc, String image) {
+        etape("panneau neuf nomme", () -> {
+            if (mc.screen instanceof dev.oneforallsurvival.grid.supplier.client.PowerPanelScreen ecran) {
+                ecran.type("name", NOM_24);
+            }
+        }, () -> mc.screen instanceof dev.oneforallsurvival.grid.supplier.client.PowerPanelScreen, 800, image);
+    }
+
+    private static BlockPos posteDemo() {
+        return zoneElectricite;
+    }
+
+    private static dev.oneforallsurvival.grid.supplier.PowerPanelPacket panneauLePlusLong() {
+        List<dev.oneforallsurvival.grid.supplier.PowerPanelPacket.Client> clients = new ArrayList<>();
+        var etats = dev.oneforallsurvival.grid.supplier.PowerClient.State.values();
+        for (int i = 0; i < 64; i++) {
+            var etat = etats[i % etats.length];
+            clients.add(new dev.oneforallsurvival.grid.supplier.PowerPanelPacket.Client(
+                    new java.util.UUID(0x0E6L, i), NOM_16.substring(0, 12) + String.format("%04d", i),
+                    "Zyxwvutsrqponmlk", etat, 99_999_999_999L, 99_999_999_999L, CINQ_COUPURES, i % 5 != 2,
+                    etat.passes() && i % 3 == 0));
+        }
+        return new dev.oneforallsurvival.grid.supplier.PowerPanelPacket(posteDemo(), NOM_24, CINQ_COUPURES, 50L,
+                CINQ_COUPURES, CINQ_COUPURES, CINQ_COUPURES, CINQ_COUPURES, 20, 20, 100_000L, 50L, 10,
+                99_999_999_999L, 12_345_678_901L, 4_000_000L, 99_999_999_999L, 999_999_999L, true, 70, clients);
+    }
+
+    private static dev.oneforallsurvival.grid.supplier.PowerPanelPacket panneauLePlusCourt() {
+        var actif = dev.oneforallsurvival.grid.supplier.PowerClient.State.ACTIVE;
+        var attente = dev.oneforallsurvival.grid.supplier.PowerClient.State.AWAITING_ACCEPT;
+        List<dev.oneforallsurvival.grid.supplier.PowerPanelPacket.Client> clients = List.of(
+                new dev.oneforallsurvival.grid.supplier.PowerPanelPacket.Client(new java.util.UUID(0x0E6L, 100), "Bob",
+                        "Bob", attente, 0L, 0L, 0L, false, false),
+                new dev.oneforallsurvival.grid.supplier.PowerPanelPacket.Client(new java.util.UUID(0x0E6L, 101), "Alice",
+                        "Alice", actif, 0L, 1_240_000L, 125L, true, true),
+                new dev.oneforallsurvival.grid.supplier.PowerPanelPacket.Client(new java.util.UUID(0x0E6L, 102), "Atelier",
+                        "Eve", actif, 840L, 15_000L, 0L, false, false));
+        return new dev.oneforallsurvival.grid.supplier.PowerPanelPacket(posteDemo(), "Ab", 1L, 0L, 1L, 0L, 20L, 20L,
+                0, 0, 100_000L, 50L, 10, 0L, 840L, 1_300_000L, 1_255_000L, 0L, false, 3, clients);
+    }
+
+    private static dev.oneforallsurvival.grid.supplier.PowerPanelPacket panneauNeuf() {
+        return dev.oneforallsurvival.grid.supplier.PowerPanelPacket.unnamed(posteDemo());
+    }
+
+    /** L'écran d'une facture d'électricité dont le joueur est le débiteur : le motif est traduit chez le client. */
+    private static void factureElectricite(Minecraft mc, String image) {
+        etape("facture electricite " + image, () -> {
+            fermer(mc);
+            mc.options.hideGui = false;
+            var moi = mc.player.getUUID();
+            long jour = java.time.LocalDate.of(2026, 11, 17).toEpochDay();
+            String ref = String.join("/", "1", "e6demo000001", new java.util.UUID(0x0E6L, 7).toString(), "10",
+                    Long.toString(jour), "5800000", "1", "100000", "2", NOM_24);
+            var facture = new dev.oneforallsurvival.economy.invoice.InvoiceRegistry.Invoice(
+                    java.util.UUID.fromString("e6e6e6e6-0000-4000-8000-000000000001"), moi, "Fondateur", moi,
+                    mc.player.getGameProfile().getName(), 60L, NOM_24 + " 17/11/2026", System.currentTimeMillis(),
+                    dev.oneforallsurvival.economy.invoice.InvoiceRegistry.Status.DUE, 0L,
+                    dev.oneforallsurvival.grid.supplier.PowerBilling.KIND + ":" + ref);
+            dev.oneforallsurvival.economy.client.InvoiceScreen.open(
+                    dev.oneforallsurvival.economy.invoice.InvoiceItem.of(facture), 0);
+        }, () -> mc.screen instanceof dev.oneforallsurvival.economy.client.InvoiceScreen, 1200, image);
     }
 }

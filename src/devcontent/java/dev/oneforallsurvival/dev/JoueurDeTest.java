@@ -56,6 +56,8 @@ public final class JoueurDeTest {
     /** Les instantanés des comptes de la ville reçus (tableau de la mairie), décodés depuis les octets réellement envoyés. */
     private final List<dev.oneforallsurvival.economy.town.TownFinancesPacket> finances = new ArrayList<>();
     private final List<dev.oneforallsurvival.economy.quest.QuestSyncPacket> etatsQuetes = new ArrayList<>();
+    /** Les états du panneau du poste de fournisseur reçus, décodés depuis les octets réellement envoyés. */
+    private final List<dev.oneforallsurvival.grid.supplier.PowerPanelPacket> panneaux = new ArrayList<>();
     /** Ceux que l'entrée en jeu elle-même a envoyés, avant qu'on ne les oublie. */
     private final List<dev.oneforallsurvival.economy.town.TownFinancesPacket> financesALaConnexion = new ArrayList<>();
     /** Les clés des messages (chat ou barre d'action) reçus, dans l'ordre ; un texte brut est gardé tel quel. */
@@ -214,6 +216,8 @@ public final class JoueurDeTest {
                     finances.add(dev.oneforallsurvival.economy.town.TownFinancesPacket.decode(donnees));
                 } else if (discriminant == BenchNetwork.ID_QUEST_SYNC) {
                     etatsQuetes.add(dev.oneforallsurvival.economy.quest.QuestSyncPacket.decode(donnees));
+                } else if (discriminant == BenchNetwork.ID_POWER_PANEL) {
+                    panneaux.add(dev.oneforallsurvival.grid.supplier.PowerPanelPacket.decode(donnees));
                 } else if (discriminant == BenchNetwork.ID_INVOICE_FORM) {
                     formulairesFacture.add(dev.oneforallsurvival.economy.invoice.InvoiceFormPacket.decode(donnees));
                 }
@@ -276,6 +280,14 @@ public final class JoueurDeTest {
         lire();
         List<dev.oneforallsurvival.economy.stall.StallLedgerPacket> out = new ArrayList<>(registresEtal);
         registresEtal.clear();
+        return out;
+    }
+
+    /** Les états du panneau du poste reçus depuis le dernier appel, retirés. */
+    public List<dev.oneforallsurvival.grid.supplier.PowerPanelPacket> panneauxRecus() {
+        lire();
+        List<dev.oneforallsurvival.grid.supplier.PowerPanelPacket> out = new ArrayList<>(panneaux);
+        panneaux.clear();
         return out;
     }
 
