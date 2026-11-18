@@ -314,7 +314,11 @@ public final class RaccordementGameTests {
         try (Essai essai = new Essai(helper)) {
             JoueurDeTest fondateur = essai.joueur("rc_sa_fond");
             JoueurDeTest client = essai.joueur("rc_sa_client");
-            MeterBlockEntity c = compteur(helper, COMPTEUR, "rc_sa_client");
+            JoueurDeTest ingenieur = essai.ingenieur("rc_sa_ing");
+            MeterBlockEntity c = compteur(helper, COMPTEUR, "");
+            // Un pseudo avec « _ » s'inscrit par le vrai paquet de l'écran.
+            ingenieur.envoyer(new SubscriberNamePacket(helper.absolutePos(COMPTEUR), "rc_sa_client"));
+            helper.assertTrue(c.subscriber().equals("rc_sa_client"), "« _ » admis à l'inscription : " + c.subscriber());
             TestMachineBlockEntity m = charge(helper, DISJONCTEUR);
             client.messagesRecus();
             PowerSupplier s = jumeler(helper, essai, fondateur, "Sans Accord", c);
@@ -377,6 +381,16 @@ public final class RaccordementGameTests {
             long jour = client(essai, c).feToday();
             helper.assertTrue(recu == 1000 && passe == 1000, "la charge devait saturer : reçu " + recu + ", passé " + passe);
             helper.assertTrue(jour == recu, "consommation du jour " + jour + ", reçu par la charge " + recu);
+
+            // Une copie de ses données posée ailleurs (pioche créative) : même numéro, mais ni passage ni détachement.
+            MeterBlockEntity copie = compteur(helper, AUTRE_COMPTEUR, "");
+            copie.load(c.saveWithoutMetadata());
+            TestMachineBlockEntity m2 = charge(helper, AUTRE_COMPTEUR.east());
+            helper.assertTrue(copie.serial().equals(c.serial()) && !copie.isOpen() && pousser(copie, 50, false) == 0
+                    && m2.energy().getEnergyStored() == 0, "une copie ailleurs ne laisse rien passer");
+            helper.setBlock(AUTRE_COMPTEUR, Blocks.AIR);
+            helper.assertTrue(essai.registre().clientOf(c.serial()).isPresent() && c.isOpen(),
+                    "la casse de la copie ne détache pas le vrai compteur");
             helper.succeed();
         }
     }
@@ -397,6 +411,10 @@ public final class RaccordementGameTests {
             helper.assertTrue(commande(helper, fondateur, "power consent " + code) == 0
                     && PowerPairing.consent(fondateur.joueur(), code) == PowerPairing.Outcome.NOT_YOURS,
                     "le fournisseur ne consent pas à la place du joueur");
+            FakePlayer faux = FakePlayerFactory.get(helper.getLevel(), victime.joueur().getGameProfile());
+            helper.assertTrue(PowerPairing.consent(faux, code) == PowerPairing.Outcome.NOT_YOURS
+                    && PowerPairing.refuse(faux, code) == PowerPairing.Outcome.NOT_YOURS,
+                    "un faux joueur au nom du débiteur ne répond pas à sa place");
             helper.assertTrue(client(essai, c).state() == PowerClient.State.AWAITING_CONSENT, "toujours en attente");
             helper.assertTrue(commande(helper, victime, "power refuse " + code) == 1, "refus par /power refuse");
             helper.assertTrue(essai.registre().clientOf(c.serial()).isEmpty(), "le client est retiré");
@@ -494,6 +512,12 @@ public final class RaccordementGameTests {
             helper.assertTrue(pousser(c, 50, false) == 50 && m.energy().getEnergyStored() == 50, "compteur puis disjoncteur");
             helper.assertTrue(PowerPairing.pairBreaker(fondateur.joueur(), s, d) == PowerPairing.PairResult.ALREADY_PAIRED,
                     "déjà jumelé");
+            // Une copie de ses données ailleurs, puis cassée : le vrai reste jumelé.
+            helper.setBlock(AUTRE_COMPTEUR, GridRegistry.BREAKER.get().defaultBlockState());
+            helper.getBlockEntity(AUTRE_COMPTEUR).load(d.saveWithoutMetadata());
+            helper.setBlock(AUTRE_COMPTEUR, Blocks.AIR);
+            helper.assertTrue(client(essai, c).breakers().contains(d.serial()),
+                    "la casse d'une copie ne défait pas le jumelage du vrai disjoncteur");
 
             // Un disjoncteur au nom de personne chez ce fournisseur : refusé.
             helper.setBlock(DISJONCTEUR, Blocks.AIR);
@@ -509,7 +533,9 @@ public final class RaccordementGameTests {
     public static void lePosteCoupeADistance(GameTestHelper helper) {
         try (Essai essai = new Essai(helper)) {
             JoueurDeTest fondateur = essai.joueur("rc_cd_fond");
-            JoueurDeTest client = essai.joueur("rc_cd_client");
+            // Le client est ingénieur (métier ouvert à tous) : il n'est pas maître de sa propre coupure pour autant.
+            JoueurDeTest client = essai.ingenieur("rc_cd_client");
+            JoueurDeTest autreIngenieur = essai.ingenieur("rc_cd_ing");
             MeterBlockEntity c = compteur(helper, COMPTEUR, "rc_cd_client");
             BreakerBlockEntity d = disjoncteur(helper, "rc_cd_client");
             TestMachineBlockEntity m = charge(helper, CHARGE);
@@ -528,9 +554,14 @@ public final class RaccordementGameTests {
             helper.assertTrue(!etat.getValue(BreakerBlock.CLOSED) && client(essai, c).cut(), "le disjoncteur s'ouvre");
             helper.assertTrue(pousser(c, 40, false) == 0 && m.energy().getEnergyStored() == 40, "rien ne passe");
 
-            // Le client ne le réenclenche pas.
+            // Le client (ingénieur) ne le réenclenche pas, ni par le bloc ni par l'API, ni ne le casse.
             clicDroit(helper, client.joueur(), DISJONCTEUR);
             helper.assertTrue(!helper.getBlockState(DISJONCTEUR).getValue(BreakerBlock.CLOSED), "le client ne réenclenche pas");
+            helper.assertTrue(PowerPairing.setCut(client.joueur(), c.serial(), false) == PowerPairing.Outcome.NOT_ALLOWED
+                    && client(essai, c).cut(), "le client ingénieur ne se rétablit pas");
+            helper.assertTrue(helper.getBlockState(DISJONCTEUR).getDestroyProgress(client.joueur(), helper.getLevel(),
+                    helper.absolutePos(DISJONCTEUR)) == 0.0F && !client.joueur().gameMode.destroyBlock(
+                    helper.absolutePos(DISJONCTEUR)), "le client ingénieur ne casse pas son disjoncteur");
             // Même refermé de force (état du bloc), un client coupé ne passe pas.
             helper.setBlock(DISJONCTEUR, helper.getBlockState(DISJONCTEUR).setValue(BreakerBlock.CLOSED, true));
             BreakerBlockEntity force = (BreakerBlockEntity) helper.getBlockEntity(DISJONCTEUR);
@@ -542,6 +573,18 @@ public final class RaccordementGameTests {
             helper.assertTrue(helper.getBlockState(DISJONCTEUR).getValue(BreakerBlock.CLOSED) && !client(essai, c).cut(),
                     "le fournisseur réenclenche et rétablit");
             helper.assertTrue(pousser(c, 40, false) == 40 && m.energy().getEnergyStored() == 80, "le courant repasse");
+
+            // Un autre ingénieur (pas le client) peut rétablir.
+            PowerPairing.setCut(fondateur.joueur(), c.serial(), true);
+            helper.assertTrue(PowerPairing.setCut(autreIngenieur.joueur(), c.serial(), false) == PowerPairing.Outcome.DONE
+                    && !client(essai, c).cut() && helper.getBlockState(DISJONCTEUR).getValue(BreakerBlock.CLOSED),
+                    "un ingénieur qui n'est pas le client rétablit");
+
+            // Contournement : coupé, puis la charge collée directement à la sortie du compteur, sans disjoncteur.
+            PowerPairing.setCut(fondateur.joueur(), c.serial(), true);
+            TestMachineBlockEntity directe = charge(helper, DISJONCTEUR);
+            helper.assertTrue(!c.isOpen() && pousser(c, 40, false) == 0 && directe.energy().getEnergyStored() == 0,
+                    "coupé : rien ne passe même en contournant le disjoncteur");
             helper.succeed();
         }
     }
@@ -565,6 +608,12 @@ public final class RaccordementGameTests {
             ServerLevel level = helper.getLevel();
             BlockPos absC = helper.absolutePos(COMPTEUR);
             BlockPos absD = helper.absolutePos(DISJONCTEUR);
+            helper.assertTrue(helper.getBlockState(COMPTEUR).getDestroySpeed(level, absC) < 0
+                    && helper.getBlockState(DISJONCTEUR).getDestroySpeed(level, absD) < 0
+                    && helper.getBlockState(COMPTEUR).getPistonPushReaction() == net.minecraft.world.level.material.PushReaction.BLOCK
+                    && helper.getBlockState(DISJONCTEUR).getPistonPushReaction()
+                            == net.minecraft.world.level.material.PushReaction.BLOCK,
+                    "dureté -1 et poussée bloquée : aucun automate ne les casse ni ne les emporte");
             helper.assertTrue(helper.getBlockState(COMPTEUR).getExplosionResistance(level, absC, null) >= 3600000.0F
                     && helper.getBlockState(DISJONCTEUR).getExplosionResistance(level, absD, null) >= 3600000.0F,
                     "jumelés : aucune explosion ne les emporte");
@@ -600,12 +649,14 @@ public final class RaccordementGameTests {
             helper.assertTrue(helper.getBlockState(DISJONCTEUR).getValue(BreakerBlock.CLOSED), "un faux joueur ne bascule pas");
             helper.assertTrue(c.isOpen(), "rien n'a bougé");
 
-            // Fournisseur, ingénieur, maire, équipe : ouvrir, basculer, progression.
+            // Fournisseur, ingénieur, maire, équipe : basculer, progression ; pas de réinscription d'un compteur jumelé.
             for (JoueurDeTest j : List.of(fondateur, ingenieur, maire, chef)) {
                 String nom = j.joueur().getGameProfile().getName();
                 j.ecransAbonneRecus();
+                j.messagesRecus();
                 clicDroit(helper, j.joueur(), COMPTEUR);
-                helper.assertTrue(j.ecransAbonneRecus().size() == 1, nom + " ouvre l'écran du compteur");
+                helper.assertTrue(j.ecransAbonneRecus().isEmpty() && j.messagesRecus()
+                        .contains(PowerPairing.MESSAGE + "reinscribe_paired"), nom + " : détacher d'abord");
                 helper.assertTrue(helper.getBlockState(COMPTEUR).getDestroyProgress(j.joueur(), level, absC) > 0.0F,
                         nom + " : progression");
                 clicDroit(helper, j.joueur(), DISJONCTEUR);
@@ -613,9 +664,11 @@ public final class RaccordementGameTests {
                 clicDroit(helper, j.joueur(), DISJONCTEUR);
                 helper.assertTrue(helper.getBlockState(DISJONCTEUR).getValue(BreakerBlock.CLOSED), nom + " referme");
             }
-            // Le fondateur (sans être ingénieur) inscrit l'abonné d'un compteur jumelé.
+            // Réinscrire un compteur jumelé est refusé, même au fondateur.
+            fondateur.messagesRecus();
             fondateur.envoyer(new SubscriberNamePacket(absC, "Client Deux"));
-            helper.assertTrue(c.subscriber().equals("Client Deux"), "le fondateur inscrit : " + c.subscriber());
+            helper.assertTrue(c.subscriber().equals("rc_sd_client") && fondateur.messagesRecus()
+                    .contains(PowerPairing.MESSAGE + "reinscribe_paired"), "réinscription refusée : " + c.subscriber());
             // Le maire démonte le disjoncteur, l'ingénieur le compteur.
             helper.assertTrue(maire.joueur().gameMode.destroyBlock(absD), "le maire démonte le disjoncteur");
             helper.assertTrue(ingenieur.joueur().gameMode.destroyBlock(absC), "l'ingénieur démonte le compteur");
@@ -632,6 +685,12 @@ public final class RaccordementGameTests {
             charge(helper, DISJONCTEUR);
             PowerSupplier s = raccorder(helper, essai, fondateur, client, "Casse", c);
             UUID numero = c.serial();
+            // Un autre compteur du même client, sans consommation, démonté : sa journée reste due (abonnement).
+            MeterBlockEntity vide = compteur(helper, AUTRE_COMPTEUR, "rc_cs_client");
+            FournisseurDEssai.raccorder(helper.getLevel().getServer(), vide, client.uuid(), "rc_cs_client");
+            helper.setBlock(AUTRE_COMPTEUR, Blocks.AIR);
+            helper.assertTrue(essai.registre().detached().stream().anyMatch(d -> d.meterSerial().equals(vide.serial())
+                    && d.feToday() == 0), "détaché sans consommation : gardé pour la clôture");
             helper.assertTrue(pousser(c, 90, false) == 90 && client(essai, c).feToday() == 90, "90 FE comptés");
             client.messagesRecus();
             fondateur.joueur().setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(net.minecraft.world.item.Items.DIAMOND_PICKAXE));
@@ -688,6 +747,9 @@ public final class RaccordementGameTests {
                     "tout le monde bascule un disjoncteur non jumelé");
             helper.assertTrue(helper.getBlockState(COMPTEUR).getExplosionResistance(level, absC, null) < 100.0F,
                     "résistance ordinaire");
+            float attendu = citoyen.joueur().getDigSpeed(helper.getBlockState(COMPTEUR), absC) / 3.0F / 100.0F;
+            helper.assertTrue(Math.abs(helper.getBlockState(COMPTEUR).getDestroyProgress(citoyen.joueur(), level, absC)
+                    - attendu) < 1.0E-6F, "progression d'un bloc de dureté 3, à mains nues");
             helper.assertTrue(helper.getBlockState(COMPTEUR).getDestroyProgress(citoyen.joueur(), level, absC) > 0.0F
                     && citoyen.joueur().gameMode.destroyBlock(absC), "un citoyen casse un compteur non jumelé");
             helper.assertTrue(!c.hasSerial() || essai.registre().clientOf(c.serial()).isEmpty(), "jamais jumelé");

@@ -303,6 +303,7 @@ public final class CompteurGameTests {
         pousser(be, 100); // compté avant toute inscription
         JoueurDeTest ingenieur = joueur(helper, "Inscripteur", true);
         try {
+            FournisseurDEssai.detacher(helper, be); // un compteur jumelé ne se réinscrit pas (lot E6)
             ingenieur.envoyer(new SubscriberNamePacket(pos, "Lefevre"));
         } catch (RuntimeException e) {
             quitter(ingenieur);
@@ -315,6 +316,7 @@ public final class CompteurGameTests {
                 MeterLedger.Previous depart = data.previous("Lefevre", numero);
                 verifier(depart != null && depart.baseline() && depart.index() == 100,
                         "l'inscription devait noter l'index 100 au registre, vu " + depart);
+                FournisseurDEssai.raccorder(helper, be); // de nouveau raccordé après l'inscription
                 pousser(be, 30);
                 tester(helper, ingenieur.joueur());
                 Reading r = releve(ingenieur.joueur());
@@ -322,6 +324,7 @@ public final class CompteurGameTests {
                         "seul l'après-inscription est facturé : index " + r.index() + ", consommation " + r.consumption());
                 verifier(r.anomalies().isEmpty(), "anomalies " + r.anomalies());
                 pousser(be, 20); // non relevé quand le compteur change d'abonné
+                FournisseurDEssai.detacher(helper, be); // un compteur jumelé ne se réinscrit pas (lot E6)
                 ingenieur.envoyer(new SubscriberNamePacket(pos, "Moreau"));
             } catch (RuntimeException e) {
                 quitter(ingenieur);
@@ -346,6 +349,7 @@ public final class CompteurGameTests {
                 verifier(data.previous("Lefevre", numero) == null, "le compteur devait quitter le compte de Lefevre");
                 verifier(data.events("Lefevre").isEmpty(), "rien ne devait attendre au compte de Lefevre : "
                         + data.events("Lefevre"));
+                FournisseurDEssai.raccorder(helper, be); // de nouveau raccordé après l'inscription
                 pousser(be, 5);
                 tester(helper, ingenieur.joueur());
                 Reading r = releve(ingenieur.joueur());
@@ -374,6 +378,7 @@ public final class CompteurGameTests {
             for (int i = 0; i < ingenieur.joueur().getInventory().items.size(); i++) {
                 ingenieur.joueur().getInventory().items.set(i, new ItemStack(Blocks.DIRT, 64));
             }
+            FournisseurDEssai.detacher(helper, be); // un compteur jumelé ne se réinscrit pas (lot E6)
             ingenieur.envoyer(new SubscriberNamePacket(pos, "Fabre"));
         } catch (RuntimeException e) {
             quitter(ingenieur);

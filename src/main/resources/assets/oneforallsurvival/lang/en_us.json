@@ -969,5 +969,6 @@
   "command.oneforallsurvival.power.state.awaiting_consent": "awaiting your consent",
   "command.oneforallsurvival.power.state.awaiting_accept": "awaiting the supplier",
   "command.oneforallsurvival.power.state.active": "active",
-  "command.oneforallsurvival.power.state.resigning": "cancelled, last bill at midnight"
+  "command.oneforallsurvival.power.state.resigning": "cancelled, last bill at midnight",
+  "message.oneforallsurvival.power.reinscribe_paired": "This connection binds its subscriber: remove it first (it will be detached) to register another name."
 }

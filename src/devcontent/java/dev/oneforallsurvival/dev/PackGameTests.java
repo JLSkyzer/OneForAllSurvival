@@ -1273,13 +1273,16 @@ public final class PackGameTests {
             BlockPos charge, BlockPos pointA, BlockPos pointB) {}
 
     /**
-     * Même source (la créative de Crafts &amp; Additions, collée à l'arrière du poste), même charge d'essai (machine en
-     * panne : une réserve de 1 000 FE qui ne consomme rien), même durée (200 ticks après le câblage) : poste → câble →
-     * compteur jumelé → disjoncteur → charge, une fois en liaison directe et une fois par câble (fil de Crafts &amp;
-     * Additions, câble de New Age, fil de Crafts &amp; Additions jusqu'à la boîte d'Advanced Electricity, comme
-     * {@link ReseauxDev}). Pour chaque chaîne : consommation du jour du client = index du compteur = ce que la charge a
-     * reçu, et rien de nul ; les quatre consommations sont égales. Un mod absent : sa chaîne est écartée (journal), sans
-     * échec.
+     * Même source (la créative de Crafts &amp; Additions, collée à l'arrière du poste), même charge d'essai, même durée
+     * (200 ticks après le câblage) : poste → câble → compteur jumelé → disjoncteur → charge, une fois en liaison directe
+     * et une fois par câble (fil de Crafts &amp; Additions, câble de New Age, fil de Crafts &amp; Additions jusqu'à la
+     * boîte d'Advanced Electricity, comme {@link ReseauxDev}).
+     *
+     * <p>La charge ne sature jamais : c'est une machine en panne (elle ne consomme rien) que l'essai vide à chaque tic ;
+     * ce qu'elle a reçu est la somme des vidanges et de son reste. Pour chaque chaîne : consommation du jour du client =
+     * index du compteur = ce que la charge a reçu, non nul et différent de sa réserve (1 000 FE). Les chaînes ne livrent
+     * pas la même quantité (débits des câbles) : l'essai ne compare pas les chaînes entre elles, il prouve que la mesure
+     * est exacte sur chacune. Un mod absent : sa chaîne est écartée (journal), sans échec.
      */
     @GameTest(template = "test/plancher", batch = "pack_mesure_cable", setupTicks = 20, timeoutTicks = 400)
     public static void laMesureNeDependPasDuCable(GameTestHelper helper) {
@@ -1325,7 +1328,7 @@ public final class PackGameTests {
             FournisseurDEssai.raccorder(serveur, compteur, java.util.UUID.randomUUID(), "Mesure " + c.nom());
             level.setBlock(c.poste(), dev.oneforallsurvival.grid.GridRegistry.POWER_STATION.get().defaultBlockState()
                     .setValue(dev.oneforallsurvival.machine.InlineEnergyBlock.FACING, Direction.EAST), Block.UPDATE_ALL);
-            var fonde = registre.found(java.util.UUID.randomUUID(), "Mesure",
+            var fonde = registre.found(java.util.UUID.randomUUID(), FournisseurDEssai.FONDATEUR,
                     "Mesure " + java.util.UUID.randomUUID().toString().substring(0, 8));
             registre.setStation(fonde.supplier().id(), net.minecraft.core.GlobalPos.of(level.dimension(), c.poste()));
             net.minecraft.nbt.CompoundTag donnees = new net.minecraft.nbt.CompoundTag();
@@ -1354,6 +1357,19 @@ public final class PackGameTests {
                 }
             }
         }
+        // La vidange des charges à chaque tic, posée au début du test (jamais depuis un rappel : leçon du 2026-11-10).
+        java.util.Map<String, long[]> vidange = new java.util.HashMap<>();
+        for (Chaine c : chaines) {
+            vidange.put(c.nom(), new long[1]);
+        }
+        helper.onEachTick(() -> {
+            for (Chaine c : chaines) {
+                if (level.getBlockEntity(c.charge()) instanceof TestMachineBlockEntity m
+                        && m.energy() instanceof dev.oneforallsurvival.machine.MachineEnergyStorage reserve) {
+                    vidange.get(c.nom())[0] += reserve.consume(reserve.getEnergyStored());
+                }
+            }
+        });
         // Le câblage 5 ticks plus tard (les connecteurs ont eu leur premier tic), comme la preuve du lot 0.
         helper.runAfterDelay(5, () -> {
             for (Chaine c : chaines) {
@@ -1375,14 +1391,13 @@ public final class PackGameTests {
             }
         });
         helper.runAfterDelay(205, () -> {
-            java.util.Set<Long> mesures = new java.util.HashSet<>();
             StringBuilder bilan = new StringBuilder();
             for (Chaine c : chaines) {
                 var compteur = (dev.oneforallsurvival.grid.MeterBlockEntity) level.getBlockEntity(c.compteur());
                 var charge = (TestMachineBlockEntity) level.getBlockEntity(c.charge());
                 long jour = registre.clientOf(compteur.serial()).map(dev.oneforallsurvival.grid.supplier.PowerClient::feToday)
                         .orElse(-1L);
-                long recu = charge.energy().getEnergyStored();
+                long recu = vidange.get(c.nom())[0] + charge.energy().getEnergyStored();
                 long sorti = registre.byId(fournisseurs.get(c.nom()).id()).map(
                         dev.oneforallsurvival.grid.supplier.PowerSupplier::outToday).orElse(-1L);
                 String ligne = c.nom() + " : consommation du jour " + jour + ", index " + compteur.totalTransferred()
@@ -1390,10 +1405,10 @@ public final class PackGameTests {
                 log.info("[reseau] mesure_{} | {}", c.nom(), ligne);
                 bilan.append(ligne).append(" ; ");
                 helper.assertTrue(recu > 0, ligne + " : rien n'est arrivé, journal " + journal);
+                helper.assertTrue(recu != 1000, ligne + " : la mesure ne doit pas venir de la réserve pleine");
                 helper.assertTrue(jour == recu && compteur.totalTransferred() == recu, ligne);
-                mesures.add(jour);
             }
-            helper.assertTrue(mesures.size() == 1, "les consommations diffèrent : " + bilan);
+            log.info("[reseau] mesure | {}", bilan);
             for (Chaine c : chaines) {
                 for (BlockPos p : List.of(c.poste().west(), c.poste(), c.pointA(), c.pointB(), c.compteur(), c.disjoncteur(),
                         c.charge())) {
@@ -1402,6 +1417,116 @@ public final class PackGameTests {
             }
             helper.succeed();
         });
+    }
+
+    /**
+     * Une perceuse mécanique de Create devant un compteur jumelé : elle ne le casse pas (dureté -1, la perceuse ne passe
+     * par aucun joueur). Un témoin, la même perceuse devant une pierre, prouve qu'elle perce. 100 ticks de plus au second.
+     */
+    @GameTest(template = "test/plancher", batch = "pack_compteur_perceuse", setupTicks = 20, timeoutTicks = 1200)
+    public static void unePerceuseNeCassePasUnCompteurJumele(GameTestHelper helper) {
+        if (!ModList.get().isLoaded("create")) {
+            helper.succeed();
+            return;
+        }
+        ButinGameTests.degager(helper);
+        Block perceuse = ForgeRegistries.BLOCKS.getValue(new ResourceLocation("create", "mechanical_drill"));
+        Block moteur = ForgeRegistries.BLOCKS.getValue(new ResourceLocation("create", "creative_motor"));
+        helper.assertTrue(perceuse != null && perceuse != Blocks.AIR, "perceuse introuvable");
+        BlockPos temoin = new BlockPos(2, 1, 2);
+        BlockPos casseur = new BlockPos(2, 1, 5);
+        BlockPos pierre = temoin.east();
+        BlockPos compteur = casseur.east();
+        helper.setBlock(pierre, Blocks.STONE);
+        var be = poserCompteurJumele(helper, compteur);
+        java.util.UUID numero = be.serial();
+        for (BlockPos p : List.of(temoin, casseur)) {
+            helper.setBlock(p, avec(perceuse.defaultBlockState(), "facing", "east"));
+            helper.setBlock(p.west(), avec(moteur.defaultBlockState(), "facing", "east"));
+        }
+        Runnable rendre = () -> {
+            for (BlockPos p : List.of(temoin, casseur)) {
+                helper.setBlock(p, Blocks.AIR);
+                helper.setBlock(p.west(), Blocks.AIR);
+            }
+            helper.setBlock(compteur, Blocks.AIR);
+            ButinGameTests.ranger(helper);
+        };
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertBlockPresent(Blocks.AIR, pierre))
+                .thenIdle(100)
+                .thenExecute(() -> {
+                    boolean present = helper.getBlockState(compteur).is(dev.oneforallsurvival.grid.GridRegistry.METER.get());
+                    boolean jumele = jumele(helper, numero, compteur);
+                    rendre.run();
+                    helper.assertTrue(present && jumele, "la perceuse ne devait ni casser ni détacher le compteur jumelé");
+                })
+                .thenSucceed();
+    }
+
+    /**
+     * Un engin de Create (un roulement mécanique, qui prend dans son engin le bloc collé devant lui dès qu'il tourne)
+     * contre un compteur jumelé : il ne l'emporte pas, le compteur reste en place et jumelé. Un témoin, le même roulement
+     * devant une pierre, prouve qu'il assemble (la pierre quitte le monde pour l'engin).
+     */
+    @GameTest(template = "test/plancher", batch = "pack_compteur_engin", setupTicks = 20, timeoutTicks = 1200)
+    public static void unEnginNEmportePasUnCompteurJumele(GameTestHelper helper) {
+        if (!ModList.get().isLoaded("create")) {
+            helper.succeed();
+            return;
+        }
+        ButinGameTests.degager(helper);
+        Block roulement = ForgeRegistries.BLOCKS.getValue(new ResourceLocation("create", "mechanical_bearing"));
+        Block moteur = ForgeRegistries.BLOCKS.getValue(new ResourceLocation("create", "creative_motor"));
+        helper.assertTrue(roulement != null && roulement != Blocks.AIR, "roulement mécanique introuvable");
+        BlockPos temoin = new BlockPos(2, 1, 2);
+        BlockPos tourneur = new BlockPos(2, 1, 5);
+        BlockPos pierre = temoin.east();
+        BlockPos compteur = tourneur.east();
+        helper.setBlock(pierre, Blocks.STONE);
+        var be = poserCompteurJumele(helper, compteur);
+        java.util.UUID numero = be.serial();
+        for (BlockPos p : List.of(temoin, tourneur)) {
+            helper.setBlock(p, avec(roulement.defaultBlockState(), "facing", "east"));
+            helper.setBlock(p.west(), avec(moteur.defaultBlockState(), "facing", "east"));
+        }
+        Runnable rendre = () -> {
+            for (BlockPos p : List.of(temoin, tourneur)) {
+                helper.setBlock(p.west(), Blocks.AIR);
+                helper.setBlock(p, Blocks.AIR);
+            }
+            helper.setBlock(compteur, Blocks.AIR);
+            helper.setBlock(pierre, Blocks.AIR);
+            ButinGameTests.ranger(helper);
+        };
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(!helper.getBlockState(pierre).is(Blocks.STONE),
+                        "le roulement témoin n'a pas encore pris sa pierre dans son engin"))
+                .thenIdle(100)
+                .thenExecute(() -> {
+                    boolean present = helper.getBlockState(compteur).is(dev.oneforallsurvival.grid.GridRegistry.METER.get());
+                    boolean jumele = jumele(helper, numero, compteur);
+                    rendre.run();
+                    helper.assertTrue(present && jumele, "l'engin ne devait ni emporter ni détacher le compteur jumelé");
+                })
+                .thenSucceed();
+    }
+
+    /** Un compteur posé en {@code pos} (sortie à l'est) et raccordé par un fournisseur d'essai. */
+    private static dev.oneforallsurvival.grid.MeterBlockEntity poserCompteurJumele(GameTestHelper helper, BlockPos pos) {
+        helper.setBlock(pos, dev.oneforallsurvival.grid.GridRegistry.METER.get().defaultBlockState()
+                .setValue(dev.oneforallsurvival.machine.InlineEnergyBlock.FACING, Direction.EAST));
+        var be = (dev.oneforallsurvival.grid.MeterBlockEntity) helper.getBlockEntity(pos);
+        be.setSubscriber("Automate");
+        FournisseurDEssai.raccorder(helper, be);
+        return be;
+    }
+
+    /** Ce compteur est-il encore jumelé, à cet endroit ? */
+    private static boolean jumele(GameTestHelper helper, java.util.UUID numero, BlockPos pos) {
+        var registre = dev.oneforallsurvival.grid.supplier.PowerSuppliers.get(helper.getLevel().getServer());
+        return registre.clientOf(numero).isPresent() && registre.isPairedAt(numero,
+                net.minecraft.core.GlobalPos.of(helper.getLevel().dimension(), helper.absolutePos(pos)));
     }
 
     /**

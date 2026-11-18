@@ -149,7 +149,8 @@ public final class MeterLedger {
 
     /** Un caractère admis dans le nom d'un abonné : lettre, chiffre, espace ou tiret. */
     public static boolean isNameChar(int codePoint) {
-        return Character.isLetterOrDigit(codePoint) || codePoint == ' ' || codePoint == '-';
+        // « _ » admis (lot E6) : les pseudos Minecraft sont [A-Za-z0-9_], et le débiteur se trouve par ce nom.
+        return Character.isLetterOrDigit(codePoint) || codePoint == ' ' || codePoint == '-' || codePoint == '_';
     }
 
     /** Le jour de jeu, à partir de 1. */

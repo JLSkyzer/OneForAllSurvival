@@ -47,8 +47,12 @@ public final class GridRegistry {
             MENUS.register("load_shedder", () -> IForgeMenuType.create(LoadShedderMenu::fromNetwork));
 
     public static final RegistryObject<Block> METER = BLOCKS.register("meter",
+            // Dureté -1 et poussée bloquée (lot E6) : aucun automate (perceuse, engin de Create) ne le casse ni ne
+            // l'emporte ; les joueurs le cassent à la vitesse d'un bloc de dureté 3 (MeterBlock.getDestroyProgress),
+            // un compteur jumelé seulement par les ayants droit de son fournisseur.
             () -> new MeterBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL)
-                    .strength(3.0F).sound(SoundType.METAL).requiresCorrectToolForDrops()));
+                    .strength(-1.0F, 3.0F).pushReaction(PushReaction.BLOCK).sound(SoundType.METAL)
+                    .requiresCorrectToolForDrops()));
     public static final RegistryObject<Item> METER_ITEM = ITEMS.register("meter",
             () -> new BlockItem(METER.get(), new Item.Properties()));
     public static final RegistryObject<BlockEntityType<MeterBlockEntity>> METER_BE =
@@ -58,8 +62,10 @@ public final class GridRegistry {
             () -> new MeterReadingItem(new Item.Properties().stacksTo(1)));
 
     public static final RegistryObject<Block> BREAKER = BLOCKS.register("breaker",
+            // Comme le compteur : dureté -1 et poussée bloquée, progression rendue par BreakerBlock.getDestroyProgress.
             () -> new BreakerBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL)
-                    .strength(3.0F).sound(SoundType.METAL).requiresCorrectToolForDrops()));
+                    .strength(-1.0F, 3.0F).pushReaction(PushReaction.BLOCK).sound(SoundType.METAL)
+                    .requiresCorrectToolForDrops()));
     public static final RegistryObject<Item> BREAKER_ITEM = ITEMS.register("breaker",
             () -> new BlockItem(BREAKER.get(), new Item.Properties()));
     public static final RegistryObject<BlockEntityType<BreakerBlockEntity>> BREAKER_BE =

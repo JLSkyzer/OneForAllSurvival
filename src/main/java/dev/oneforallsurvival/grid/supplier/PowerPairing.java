@@ -72,6 +72,12 @@ public final class PowerPairing {
     public static final String TAG_HOLD_SUPPLIER = "oneforallsurvival_hold_supplier";
     public static final String TAG_HOLD_UNTIL = "oneforallsurvival_hold_until";
 
+    /** Dureté avec laquelle un joueur casse un compteur ou un disjoncteur (le bloc lui-même est à -1). */
+    public static final float PLAYER_HARDNESS = 3.0F;
+
+    /** La réflexion sur le cache des profils a déjà échoué une fois (avertissement unique). */
+    private static volatile boolean cacheWarned;
+
     /** Issue d'un jumelage. */
     public enum PairResult { PAIRED, NOT_ALLOWED, NO_SUPPLIER, NO_SUBSCRIBER, UNKNOWN_PLAYER, ALREADY_PAIRED, NO_CLIENT,
         AMBIGUOUS }
@@ -90,38 +96,80 @@ public final class PowerPairing {
         return PowerSuppliers.get(server).clientOf(meterSerial);
     }
 
-    /** Le fournisseur à qui appartient ce bloc (compteur ou disjoncteur jumelé), ou vide (côté serveur seulement). */
-    public static Optional<PowerSupplier> ownerOf(Level level, BlockPos pos) {
+    /**
+     * Le client dont ce bloc (compteur ou disjoncteur) est jumelé, s'il l'est **à cet endroit** (une copie de ses données
+     * posée ailleurs ne l'est pas). Côté serveur seulement.
+     */
+    public static Optional<PowerClient> clientAt(Level level, BlockPos pos) {
         if (!(level instanceof ServerLevel server)) {
             return Optional.empty();
         }
         PowerSuppliers registry = PowerSuppliers.get(server.getServer());
         BlockEntity be = level.getBlockEntity(pos);
-        Optional<PowerClient> client = Optional.empty();
-        if (be instanceof MeterBlockEntity meter && meter.hasSerial()) {
-            client = registry.clientOf(meter.serial());
-        } else if (be instanceof BreakerBlockEntity breaker && breaker.hasSerial()) {
-            client = registry.clientOfBreaker(breaker.serial());
+        GlobalPos here = GlobalPos.of(server.dimension(), pos);
+        if (be instanceof MeterBlockEntity meter && meter.hasSerial() && registry.isPairedAt(meter.serial(), here)) {
+            return registry.clientOf(meter.serial());
         }
-        return client.flatMap(c -> registry.byId(c.supplierId()));
+        if (be instanceof BreakerBlockEntity breaker && breaker.hasSerial() && registry.isPairedAt(breaker.serial(), here)) {
+            return registry.clientOfBreaker(breaker.serial());
+        }
+        return Optional.empty();
+    }
+
+    /** Le fournisseur à qui appartient ce bloc (compteur ou disjoncteur jumelé ici), ou vide (côté serveur seulement). */
+    public static Optional<PowerSupplier> ownerOf(Level level, BlockPos pos) {
+        if (!(level instanceof ServerLevel server)) {
+            return Optional.empty();
+        }
+        PowerSuppliers registry = PowerSuppliers.get(server.getServer());
+        return clientAt(level, pos).flatMap(c -> registry.byId(c.supplierId()));
+    }
+
+    /**
+     * {@code player} peut-il agir sur le raccordement de {@code client} (basculer, casser, couper, rétablir, accepter) ?
+     * Le fondateur du fournisseur et l'équipe, toujours ; le client lui-même, jamais (même ingénieur ou maire) ; sinon
+     * les ayants droit ({@link PowerRules#mayManage} : ingénieur, maire). Jamais un faux joueur.
+     */
+    public static boolean mayActOn(Player player, PowerSupplier supplier, PowerClient client) {
+        if (player instanceof FakePlayer) {
+            return false;
+        }
+        if (!(player instanceof ServerPlayer server)) {
+            return true;
+        }
+        if (server.hasPermissions(2) || supplier.founder().equals(server.getUUID())) {
+            return true;
+        }
+        if (client.player().equals(server.getUUID())) {
+            return false;
+        }
+        return PowerRules.mayManage(player, supplier);
     }
 
     /**
      * {@code player} peut-il toucher à ce bloc (ouvrir, inscrire, basculer, casser) ? Non jumelé : oui (les règles du lot
-     * 4 s'appliquent ensuite). Jumelé : les ayants droit du fournisseur seulement, jamais le client en tant que tel, ni
-     * un faux joueur. Côté client, oui : le serveur tranche.
+     * 4 s'appliquent ensuite). Jumelé : {@link #mayActOn}. Côté client, oui : le serveur tranche.
      */
     public static boolean mayTouch(Player player, Level level, BlockPos pos) {
-        Optional<PowerSupplier> owner = ownerOf(level, pos);
-        return owner.isEmpty() || PowerRules.mayManage(player, owner.get());
+        Optional<PowerClient> client = clientAt(level, pos);
+        if (client.isEmpty() || !(level instanceof ServerLevel server)) {
+            return true;
+        }
+        Optional<PowerSupplier> supplier = PowerSuppliers.get(server.getServer()).byId(client.get().supplierId());
+        return supplier.isEmpty() || mayActOn(player, supplier.get(), client.get());
+    }
+
+    /** La progression de casse d'un joueur, comme pour un bloc de dureté {@link #PLAYER_HARDNESS}. */
+    public static float playerProgress(BlockState state, Player player, BlockPos pos) {
+        int divisor = net.minecraftforge.common.ForgeHooks.isCorrectToolForDrops(state, player) ? 30 : 100;
+        return player.getDigSpeed(state, pos) / PLAYER_HARDNESS / divisor;
     }
 
     /** Le message de refus à un joueur sans droit sur un bloc jumelé : au client, son raccordement ; aux autres, à qui. */
     public static Component refusal(Player player, Level level, BlockPos pos) {
         Optional<PowerSupplier> owner = ownerOf(level, pos);
         String name = owner.map(PowerSupplier::name).orElse("?");
-        boolean client = owner.isPresent() && level instanceof ServerLevel server
-                && PowerRules.isClientOf(player, owner.get(), PowerSuppliers.get(server.getServer()));
+        boolean client = clientAt(level, pos).map(c -> c.player().equals(player.getUUID())).orElse(false);
         return Component.translatable(MESSAGE + (client ? "touch_client" : "touch_denied"), name);
     }
 
@@ -238,7 +286,9 @@ public final class PowerPairing {
                         false);
                 registry.putClient(client);
                 if (meter.getLevel() instanceof ServerLevel level) {
-                    registry.noteMeterLoaded(meter.serial(), GlobalPos.of(level.dimension(), meter.getBlockPos()));
+                    GlobalPos here = GlobalPos.of(level.dimension(), meter.getBlockPos());
+                    registry.setPairedAt(meter.serial(), here);
+                    registry.noteMeterLoaded(meter.serial(), here);
                 }
                 String code = registry.newConsentCode(meter.serial(), actor.getRandom());
                 ServerPlayer online = server.getPlayerList().getPlayer(client.player());
@@ -291,7 +341,9 @@ public final class PowerPairing {
                 breakers.add(breaker.serial());
                 registry.putClient(target.withBreakers(breakers));
                 if (breaker.getLevel() instanceof ServerLevel level) {
-                    registry.noteBreakerLoaded(breaker.serial(), GlobalPos.of(level.dimension(), breaker.getBlockPos()));
+                    GlobalPos here = GlobalPos.of(level.dimension(), breaker.getBlockPos());
+                    registry.setPairedAt(breaker.serial(), here);
+                    registry.noteBreakerLoaded(breaker.serial(), here);
                     if (target.cut()) {
                         openBreaker(level, breaker.getBlockPos());
                     }
@@ -332,6 +384,9 @@ public final class PowerPairing {
 
     /** Le joueur donne son accord : il demande le raccordement ; le fondateur est prévenu. Le code est consommé. */
     public static Outcome consent(ServerPlayer player, String code) {
+        if (player instanceof FakePlayer) {
+            return Outcome.NOT_YOURS; // un automate ne donne jamais d'accord, même au nom de son propriétaire
+        }
         PowerSuppliers registry = PowerSuppliers.get(player.server);
         Optional<PowerClient> client = registry.meterOfCode(code).flatMap(registry::clientOf);
         if (client.isEmpty()) {
@@ -355,6 +410,9 @@ public final class PowerPairing {
 
     /** Le joueur refuse : le compteur est détaché, personne n'est facturé. Le code est consommé. */
     public static Outcome refuse(ServerPlayer player, String code) {
+        if (player instanceof FakePlayer) {
+            return Outcome.NOT_YOURS;
+        }
         PowerSuppliers registry = PowerSuppliers.get(player.server);
         Optional<PowerClient> client = registry.meterOfCode(code).flatMap(registry::clientOf);
         if (client.isEmpty()) {
@@ -386,7 +444,7 @@ public final class PowerPairing {
         if (client.isEmpty() || supplier.isEmpty()) {
             return Outcome.UNKNOWN_CODE;
         }
-        if (!PowerRules.mayManage(actor, supplier.get())) {
+        if (!mayActOn(actor, supplier.get(), client.get())) {
             return Outcome.NOT_ALLOWED;
         }
         if (client.get().state() != PowerClient.State.AWAITING_ACCEPT) {
@@ -451,11 +509,12 @@ public final class PowerPairing {
      */
     public static Outcome setCut(ServerPlayer actor, UUID meterSerial, boolean cut) {
         PowerSuppliers registry = PowerSuppliers.get(actor.server);
-        Optional<PowerSupplier> supplier = registry.clientOf(meterSerial).flatMap(c -> registry.byId(c.supplierId()));
+        Optional<PowerClient> client = registry.clientOf(meterSerial);
+        Optional<PowerSupplier> supplier = client.flatMap(c -> registry.byId(c.supplierId()));
         if (supplier.isEmpty()) {
             return Outcome.UNKNOWN_CODE;
         }
-        if (!PowerRules.mayManage(actor, supplier.get())) {
+        if (!mayActOn(actor, supplier.get(), client.get())) {
             return Outcome.NOT_ALLOWED;
         }
         return setCut(actor.server, meterSerial, cut);
@@ -489,6 +548,7 @@ public final class PowerPairing {
                 }
             });
         }
+        refreshMeter(server, meterSerial); // le compteur lui-même ne passe plus (ou de nouveau) : ses voisins le revoient
         ServerPlayer debtor = server.getPlayerList().getPlayer(client.get().player());
         if (debtor != null) {
             String name = registry.byId(client.get().supplierId()).map(PowerSupplier::name).orElse("?");
@@ -516,9 +576,14 @@ public final class PowerPairing {
     // Casse et détachement
     // ---------------------------------------------------------------------------------------------
 
-    /** Un compteur jumelé démonté : détaché (sa consommation du jour reste due), client et fondateur prévenus. */
-    public static void detachMeter(MinecraftServer server, UUID meterSerial) {
+    /**
+     * Un compteur jumelé à cet endroit, démonté ou déplacé : détaché (sa journée reste due), client et fondateur prévenus.
+     */
+    public static void detachMeter(MinecraftServer server, UUID meterSerial, GlobalPos at) {
         PowerSuppliers registry = PowerSuppliers.get(server);
+        if (!registry.isPairedAt(meterSerial, at)) {
+            return; // une copie de ses données posée ailleurs : le vrai compteur reste jumelé
+        }
         Optional<PowerClient> removed = registry.detach(meterSerial);
         if (removed.isEmpty()) {
             return;
@@ -536,8 +601,12 @@ public final class PowerPairing {
     }
 
     /** Un disjoncteur jumelé démonté quitte son client. */
-    public static void detachBreaker(MinecraftServer server, UUID breakerSerial) {
+    public static void detachBreaker(MinecraftServer server, UUID breakerSerial, GlobalPos at) {
         PowerSuppliers registry = PowerSuppliers.get(server);
+        if (!registry.isPairedAt(breakerSerial, at)) {
+            return; // une copie : le vrai disjoncteur reste jumelé et tient la coupure
+        }
+        registry.clearPairedAt(breakerSerial);
         registry.clientOfBreaker(breakerSerial).ifPresent(client -> {
             Set<UUID> rest = new HashSet<>(client.breakers());
             rest.remove(breakerSerial);
@@ -640,7 +709,10 @@ public final class PowerPairing {
             Method profile = ObfuscationReflectionHelper.findMethod(info.getClass(), "m_11028_");
             return Optional.ofNullable((GameProfile) profile.invoke(info));
         } catch (ReflectiveOperationException | RuntimeException e) {
-            LOGGER.warn("Electricite : cache des profils illisible, seuls les joueurs connectes sont reconnus", e);
+            if (!cacheWarned) {
+                cacheWarned = true;
+                LOGGER.warn("Electricite : cache des profils illisible, seuls les joueurs connectes sont reconnus", e);
+            }
             return Optional.empty();
         }
     }

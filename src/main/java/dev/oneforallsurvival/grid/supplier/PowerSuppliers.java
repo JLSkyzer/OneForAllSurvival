@@ -20,6 +20,7 @@ import javax.annotation.Nullable;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.RandomSource;
@@ -63,6 +64,8 @@ public final class PowerSuppliers extends SavedData {
     /** Où sont les compteurs et disjoncteurs chargés (non sauvegardé, tenu par leurs block entities). */
     private final Map<UUID, GlobalPos> loadedMeters = new HashMap<>();
     private final Map<UUID, GlobalPos> loadedBreakers = new HashMap<>();
+    /** Où chaque compteur et disjoncteur jumelé a été jumelé (sauvegardé) : une copie posée ailleurs ne compte pas. */
+    private final Map<UUID, GlobalPos> pairedAt = new HashMap<>();
     @Nullable
     private Long priceCap;
     @Nullable
@@ -251,6 +254,8 @@ public final class PowerSuppliers extends SavedData {
         PowerClient removed = clients.remove(meterSerial);
         if (removed != null) {
             removed.breakers().forEach(breakerIndex::remove);
+            removed.breakers().forEach(pairedAt::remove);
+            pairedAt.remove(meterSerial);
             consentCodes.values().removeIf(meterSerial::equals);
             setDirty();
         }
@@ -259,13 +264,14 @@ public final class PowerSuppliers extends SavedData {
 
     /**
      * Détache ce compteur (démonté) : il ne laisse plus rien passer et son client quitte la liste. La consommation du
-     * jour, s'il y en a, est gardée à part ({@link #detached()}) pour la clôture de minuit.
+     * jour (et l'abonnement du jour) est gardée à part ({@link #detached()}) pour la clôture de minuit.
      *
      * @return le client détaché, s'il y en avait un
      */
     public Optional<PowerClient> detach(UUID meterSerial) {
         Optional<PowerClient> removed = removeClient(meterSerial);
-        if (removed.isPresent() && removed.get().feToday() > 0) {
+        // Gardé même sans consommation : l'abonnement du jour reste dû à la clôture (tâche 4).
+        if (removed.isPresent()) {
             detached.add(removed.get().withBreakers(Set.of()));
             setDirty();
         }
@@ -348,6 +354,24 @@ public final class PowerSuppliers extends SavedData {
     // Blocs chargés (non sauvegardé, tenu par les block entities)
     // ---------------------------------------------------------------------------------------------
 
+    /** Note où ce compteur ou ce disjoncteur a été jumelé. */
+    public void setPairedAt(UUID serial, GlobalPos pos) {
+        pairedAt.put(serial, pos);
+        setDirty();
+    }
+
+    /** Retire la position de jumelage d'un disjoncteur détaché. */
+    public void clearPairedAt(UUID serial) {
+        if (pairedAt.remove(serial) != null) {
+            setDirty();
+        }
+    }
+
+    /** Ce numéro a-t-il été jumelé à cet endroit ? */
+    public boolean isPairedAt(UUID serial, GlobalPos pos) {
+        return pos.equals(pairedAt.get(serial));
+    }
+
     public void noteMeterLoaded(UUID serial, GlobalPos pos) {
         loadedMeters.put(serial, pos);
     }
@@ -373,12 +397,13 @@ public final class PowerSuppliers extends SavedData {
     }
 
     /**
-     * Le courant passe-t-il par ce compteur ? Seulement s'il est jumelé à un client accepté (actif ou en résiliation)
-     * d'un fournisseur qui existe. Deux lectures de table, sans parcours.
+     * Le courant passe-t-il par ce compteur ? Seulement s'il est jumelé à un client accepté (actif ou en résiliation),
+     * non coupé à distance (la coupure tient même si un câble contourne le disjoncteur), d'un fournisseur qui existe.
+     * Deux lectures de table, sans parcours.
      */
     public boolean passes(UUID meterSerial) {
         PowerClient client = clients.get(meterSerial);
-        return client != null && client.state().passes() && suppliers.containsKey(client.supplierId());
+        return client != null && client.state().passes() && !client.cut() && suppliers.containsKey(client.supplierId());
     }
 
     /** Ajoute ce qui est passé par ce compteur à la consommation du jour de son client (rien s'il n'est pas jumelé). */
@@ -497,6 +522,14 @@ public final class PowerSuppliers extends SavedData {
         CompoundTag codes = new CompoundTag();
         consentCodes.forEach(codes::putUUID);
         tag.put("consentCodes", codes);
+        ListTag paired = new ListTag();
+        pairedAt.forEach((serial, pos) -> GlobalPos.CODEC.encodeStart(NbtOps.INSTANCE, pos).result().ifPresent(saved -> {
+            CompoundTag line = new CompoundTag();
+            line.putUUID("serial", serial);
+            line.put("pos", saved);
+            paired.add(line);
+        }));
+        tag.put("pairedAt", paired);
         if (priceCap != null) {
             tag.putLong("priceCap", priceCap);
         }
@@ -535,6 +568,13 @@ public final class PowerSuppliers extends SavedData {
         for (String code : codes.getAllKeys()) {
             if (codes.hasUUID(code) && registry.clients.containsKey(codes.getUUID(code))) {
                 registry.consentCodes.put(code, codes.getUUID(code));
+            }
+        }
+        for (Tag entry : tag.getList("pairedAt", Tag.TAG_COMPOUND)) {
+            CompoundTag line = (CompoundTag) entry;
+            if (line.hasUUID("serial")) {
+                GlobalPos.CODEC.parse(NbtOps.INSTANCE, line.get("pos")).result()
+                        .ifPresent(pos -> registry.pairedAt.put(line.getUUID("serial"), pos));
             }
         }
         registry.reindexBreakers();

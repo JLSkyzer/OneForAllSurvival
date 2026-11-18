@@ -7,6 +7,7 @@ import dev.oneforallsurvival.role.RoleGate;
 import java.util.List;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -75,7 +76,9 @@ public final class MeterBlock extends InlineEnergyBlock {
             if (PowerPairing.ownerOf(level, pos).isPresent()) {
                 // Jumelé : l'écran aux ayants droit du fournisseur ; aux autres (client compris), à qui il est.
                 if (PowerPairing.mayTouch(serverPlayer, level, pos)) {
-                    SubscriberNamePacket.openScreen(serverPlayer, pos, meter);
+                    // Le débiteur est lié au jumelage : on ne réinscrit pas un compteur jumelé.
+                    serverPlayer.displayClientMessage(Component.translatable(PowerPairing.MESSAGE + "reinscribe_paired"),
+                            true);
                 } else {
                     serverPlayer.displayClientMessage(PowerPairing.refusal(serverPlayer, level, pos), true);
                 }
@@ -115,14 +118,15 @@ public final class MeterBlock extends InlineEnergyBlock {
      */
     @Override
     public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean isMoving) {
-        if (!state.is(newState.getBlock()) && !isMoving && level instanceof ServerLevel serverLevel
+        if (!state.is(newState.getBlock()) && level instanceof ServerLevel serverLevel
                 && level.getBlockEntity(pos) instanceof MeterBlockEntity meter) {
-            if (!meter.subscriber().isEmpty()) {
+            if (!isMoving && !meter.subscriber().isEmpty()) {
                 SubscriberSavedData.note(serverLevel.getServer(), meter.subscriber(), EventKind.REMOVED, meter.serial());
             }
-            // Jumelé : détaché. Reposé ailleurs, il ne facture plus ce client (sa consommation du jour reste due).
+            // Jumelé ici (pas une copie posée ailleurs) : détaché, même déplacé. Reposé ailleurs, il ne facture plus ce
+            // client (sa journée reste due à la clôture).
             if (meter.hasSerial()) {
-                PowerPairing.detachMeter(serverLevel.getServer(), meter.serial());
+                PowerPairing.detachMeter(serverLevel.getServer(), meter.serial(), GlobalPos.of(serverLevel.dimension(), pos));
             }
         }
         super.onRemove(state, level, pos, newState, isMoving);
@@ -132,13 +136,17 @@ public final class MeterBlock extends InlineEnergyBlock {
     // Jumelé à un fournisseur (lot E6) : à lui seul
     // ---------------------------------------------------------------------------------------------
 
-    /** Jumelé : seuls les ayants droit du fournisseur en ont une progression (le serveur tranche). */
+    /**
+     * La dureté du bloc est -1 (aucun automate ne le casse) ; un joueur le casse comme un bloc de dureté
+     * {@link PowerPairing#PLAYER_HARDNESS}. Jumelé : seuls les ayants droit du fournisseur, jamais son client (le
+     * serveur tranche ; côté client, la progression s'affiche).
+     */
     @Override
     public float getDestroyProgress(BlockState state, Player player, BlockGetter level, BlockPos pos) {
         if (level instanceof Level real && !PowerPairing.mayTouch(player, real, pos)) {
             return 0.0F;
         }
-        return super.getDestroyProgress(state, player, level, pos);
+        return PowerPairing.playerProgress(state, player, pos);
     }
 
     @Override

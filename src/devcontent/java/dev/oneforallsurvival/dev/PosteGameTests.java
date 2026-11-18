@@ -685,8 +685,9 @@ public final class PosteGameTests {
             registre.recordMeter(actif, 900);
             registre.recordMeter(attente, 10);
             registre.recordMeter(UUID.randomUUID(), 10);
-            helper.assertTrue(registre.passes(actif) && !registre.passes(attente) && !registre.passes(UUID.randomUUID()),
-                    "seul un client accepté laisse passer");
+            // Le client actif est coupé à distance : il ne passe pas non plus (tâche 3, tour 1 : la coupure tient au compteur).
+            helper.assertTrue(!registre.passes(actif) && !registre.passes(attente) && !registre.passes(UUID.randomUUID()),
+                    "seul un client accepté et non coupé laisse passer");
             try {
                 // Écrit sur le disque, puis relu par un stockage neuf : c'est ce que fait un redémarrage.
                 serveur.overworld().getDataStorage().save();
@@ -705,7 +706,7 @@ public final class PosteGameTests {
                         && relu.clientOf(actif).orElseThrow().breakers().equals(Set.of(disjoncteur))
                         && relu.clientOf(actif).orElseThrow().cut(), "client relu : " + relu.clientOf(actif));
                 helper.assertTrue(relu.clientOf(attente).orElseThrow().feToday() == 10L, "consommation d'un client en attente");
-                helper.assertTrue(relu.passes(actif) && !relu.passes(attente), "règle de passage relue");
+                helper.assertTrue(!relu.passes(actif) && !relu.passes(attente), "règle de passage relue (coupé, en attente)");
                 helper.assertTrue(relu.priceCap() == registre.priceCap() && relu.taxPercent() == registre.taxPercent()
                         && relu.nextPriceCap().equals(registre.nextPriceCap())
                         && relu.nextTaxPercent().equals(registre.nextTaxPercent()), "plafond et taxe relus");

@@ -34,7 +34,40 @@ import net.minecraftforge.fml.common.Mod;
 @Mod.EventBusSubscriber(modid = "oneforallsurvival", bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class FournisseurDEssai {
 
+    /** Nom du fondateur fictif de tout fournisseur d'essai : c'est par lui qu'on les retrouve pour les ranger. */
+    public static final String FONDATEUR = "Essai";
+
     private FournisseurDEssai() {}
+
+    /**
+     * Retire les fournisseurs d'essai (caisse vide) et leurs clients : au démarrage du serveur de GameTest, pour ne rien
+     * garder d'un passage précédent, et à son arrêt. Les clients détachés restent (rien à facturer en essai).
+     *
+     * @return combien ont été retirés
+     */
+    public static int ranger(MinecraftServer server) {
+        if (!(server instanceof net.minecraft.gametest.framework.GameTestServer)) {
+            return 0; // jamais hors du serveur de GameTest (l'E2E garde son fournisseur d'essai d'une phase à l'autre)
+        }
+        PowerSuppliers registre = PowerSuppliers.get(server);
+        int n = 0;
+        for (PowerSupplier s : registre.all()) {
+            if (FONDATEUR.equals(s.founderName()) && registre.removeIfEmpty(s.id())) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    @SubscribeEvent
+    public static void onServerStarted(net.minecraftforge.event.server.ServerStartedEvent event) {
+        ranger(event.getServer());
+    }
+
+    @SubscribeEvent
+    public static void onServerStopping(net.minecraftforge.event.server.ServerStoppingEvent event) {
+        ranger(event.getServer());
+    }
 
     /** Raccorde ce compteur au nom de ce joueur d'essai ; le fournisseur créé. */
     public static PowerSupplier raccorder(GameTestHelper helper, MeterBlockEntity compteur, JoueurDeTest joueur) {
@@ -55,17 +88,27 @@ public final class FournisseurDEssai {
         PowerSuppliers registre = PowerSuppliers.get(server);
         PowerSuppliers.Result fonde;
         do {
-            fonde = registre.found(UUID.randomUUID(), "Essai", "Essai " + UUID.randomUUID().toString().substring(0, 8));
+            fonde = registre.found(UUID.randomUUID(), FONDATEUR, "Essai " + UUID.randomUUID().toString().substring(0, 8));
         } while (!fonde.founded());
         PowerSupplier fournisseur = fonde.supplier();
         String abonne = compteur.subscriber().isEmpty() ? nom : compteur.subscriber();
         registre.putClient(new PowerClient(compteur.serial(), fournisseur.id(), joueur, nom, abonne,
                 PowerClient.State.ACTIVE, 0L, 0L, Set.of(), false));
         if (compteur.getLevel() instanceof ServerLevel level) {
-            registre.noteMeterLoaded(compteur.serial(), GlobalPos.of(level.dimension(), compteur.getBlockPos()));
+            GlobalPos ici = GlobalPos.of(level.dimension(), compteur.getBlockPos());
+            registre.setPairedAt(compteur.serial(), ici);
+            registre.noteMeterLoaded(compteur.serial(), ici);
         }
         PowerPairing.refreshMeter(server, compteur.serial());
         return fournisseur;
+    }
+
+    /**
+     * Défait le raccordement de ce compteur (sans le garder pour la clôture : essais seulement). Un compteur jumelé ne se
+     * réinscrit pas ; les essais du lot 4 qui changent d'abonné le détachent d'abord, puis le raccordent de nouveau.
+     */
+    public static void detacher(GameTestHelper helper, MeterBlockEntity compteur) {
+        PowerSuppliers.get(helper.getLevel().getServer()).removeClient(compteur.serial());
     }
 
     @SubscribeEvent

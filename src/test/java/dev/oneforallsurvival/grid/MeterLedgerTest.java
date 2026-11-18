@@ -271,7 +271,7 @@ class MeterLedgerTest {
         assertFalse(MeterLedger.isValidName(""));
         assertFalse(MeterLedger.isValidName("   "));
         assertFalse(MeterLedger.isValidName("Bob!"));
-        assertFalse(MeterLedger.isValidName("a_b"));
+        assertTrue(MeterLedger.isValidName("a_b"), "« _ » admis : les pseudos Minecraft en portent (lot E6)");
         assertFalse(MeterLedger.isValidName("§cRouge"));
         assertFalse(MeterLedger.isValidName(null));
     }

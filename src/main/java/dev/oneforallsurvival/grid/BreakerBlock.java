@@ -7,6 +7,7 @@ import dev.oneforallsurvival.machine.InlineEnergyBlock;
 import dev.oneforallsurvival.role.RoleGate;
 import java.util.List;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -144,6 +145,8 @@ public final class BreakerBlock extends InlineEnergyBlock {
             level.setBlock(pos, state.setValue(SEALED, false), Block.UPDATE_ALL);
             level.playSound(null, pos, SoundEvents.ITEM_BREAK, SoundSource.BLOCKS, 0.5F, 1.0F);
             player.displayClientMessage(Component.translatable(MESSAGE + "unsealed"), true);
+        } else if (paired) {
+            player.displayClientMessage(Component.translatable(PowerPairing.MESSAGE + "reinscribe_paired"), true);
         } else if (level.getBlockEntity(pos) instanceof BreakerBlockEntity breaker) {
             SubscriberNamePacket.openScreen(player, pos, breaker);
         }
@@ -201,13 +204,14 @@ public final class BreakerBlock extends InlineEnergyBlock {
      */
     @Override
     public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean isMoving) {
-        if (!state.is(newState.getBlock()) && !isMoving && level instanceof ServerLevel serverLevel
+        if (!state.is(newState.getBlock()) && level instanceof ServerLevel serverLevel
                 && level.getBlockEntity(pos) instanceof BreakerBlockEntity breaker) {
-            if (state.getValue(SEALED) && !breaker.subscriber().isEmpty()) {
+            if (!isMoving && state.getValue(SEALED) && !breaker.subscriber().isEmpty()) {
                 SubscriberSavedData.note(serverLevel.getServer(), breaker.subscriber(), EventKind.SEAL_BROKEN);
             }
             if (breaker.hasSerial()) {
-                PowerPairing.detachBreaker(serverLevel.getServer(), breaker.serial());
+                PowerPairing.detachBreaker(serverLevel.getServer(), breaker.serial(),
+                        GlobalPos.of(serverLevel.dimension(), pos));
             }
         }
         super.onRemove(state, level, pos, newState, isMoving);
@@ -226,13 +230,17 @@ public final class BreakerBlock extends InlineEnergyBlock {
     // Jumelé à un fournisseur (lot E6) : à lui seul
     // ---------------------------------------------------------------------------------------------
 
-    /** Jumelé : seuls les ayants droit du fournisseur en ont une progression (le serveur tranche). */
+    /**
+     * La dureté du bloc est -1 (aucun automate ne le casse) ; un joueur le casse comme un bloc de dureté
+     * {@link PowerPairing#PLAYER_HARDNESS}. Jumelé : seuls les ayants droit du fournisseur, jamais son client (le
+     * serveur tranche ; côté client, la progression s'affiche).
+     */
     @Override
     public float getDestroyProgress(BlockState state, Player player, BlockGetter level, BlockPos pos) {
         if (level instanceof Level real && !PowerPairing.mayTouch(player, real, pos)) {
             return 0.0F;
         }
-        return super.getDestroyProgress(state, player, level, pos);
+        return PowerPairing.playerProgress(state, player, pos);
     }
 
     @Override

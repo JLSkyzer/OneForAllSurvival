@@ -47,8 +47,12 @@ public final class MeterBlockEntity extends InlineEnergyBlockEntity implements S
      */
     @Override
     public boolean isOpen() {
-        return level instanceof ServerLevel server && serial != null
-                && PowerSuppliers.get(server.getServer()).passes(serial);
+        if (!(level instanceof ServerLevel server) || serial == null) {
+            return false;
+        }
+        PowerSuppliers registry = PowerSuppliers.get(server.getServer());
+        // Seulement là où il a été jumelé : une copie de ses données posée ailleurs ne facture personne.
+        return registry.passes(serial) && registry.isPairedAt(serial, GlobalPos.of(server.dimension(), worldPosition));
     }
 
     /** Chaque FE réellement passé s'ajoute à la consommation du jour du client (facturée à minuit). */

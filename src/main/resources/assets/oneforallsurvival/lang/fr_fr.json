@@ -969,5 +969,6 @@
   "command.oneforallsurvival.power.state.awaiting_consent": "attend votre accord",
   "command.oneforallsurvival.power.state.awaiting_accept": "attend le fournisseur",
   "command.oneforallsurvival.power.state.active": "actif",
-  "command.oneforallsurvival.power.state.resigning": "résilié, dernière facture à minuit"
+  "command.oneforallsurvival.power.state.resigning": "résilié, dernière facture à minuit",
+  "message.oneforallsurvival.power.reinscribe_paired": "Ce raccordement lie son abonné : démontez-le d'abord (il sera détaché) pour inscrire un autre nom."
 }

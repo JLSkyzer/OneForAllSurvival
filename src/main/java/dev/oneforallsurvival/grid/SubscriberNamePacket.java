@@ -67,6 +67,11 @@ public record SubscriberNamePacket(BlockPos pos, String name) {
         if (sender.distanceToSqr(Vec3.atCenterOf(pos)) > MAX_DISTANCE_SQR) {
             return;
         }
+        // Jumelé : le débiteur est lié au jumelage ; le détacher d'abord (le démonter) pour inscrire un autre abonné.
+        if (PowerPairing.ownerOf(level, pos).isPresent()) {
+            sender.sendSystemMessage(Component.translatable(PowerPairing.MESSAGE + "reinscribe_paired"));
+            return;
+        }
         BlockState state = level.getBlockState(pos);
         if (state.is(GridRegistry.BREAKER.get()) && state.getValue(BreakerBlock.SEALED)) {
             sender.sendSystemMessage(Component.translatable(MESSAGE + "sealed"));
