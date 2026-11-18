@@ -72,6 +72,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.CropBlock;
 import net.minecraft.world.level.block.LiquidBlock;
+import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.FurnaceBlockEntity;
 import net.minecraft.world.level.block.entity.HopperBlockEntity;
@@ -83,12 +84,14 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.util.FakePlayer;
 import net.minecraftforge.common.util.FakePlayerFactory;
 import net.minecraftforge.event.entity.player.ItemFishedEvent;
 import net.minecraftforge.event.level.BlockEvent;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
+import net.minecraftforge.items.IItemHandler;
 import vectorwing.farmersdelight.common.block.entity.CookingPotBlockEntity;
 import vectorwing.farmersdelight.common.block.entity.container.CookingPotMenu;
 import vectorwing.farmersdelight.common.registry.ModBlocks;
@@ -190,7 +193,7 @@ public final class QuestProgressGameTests {
 
     /** Une quête neuve du modèle de la réserve de cette catégorie, au but donné (de 2 à 4). */
     private static Quest quete(QuestCategory categorie, int but) {
-        QuestTemplate t = reserve().stream().filter(m -> m.category() == categorie).findFirst().orElseThrow();
+        QuestTemplate t = reserve().stream().filter(m -> m.category() == categorie).findFirst().orElseThrow(IllegalStateException::new);
         return quete(t.id(), categorie, t.target() == null ? null : t.target().text(), but);
     }
 
@@ -611,7 +614,7 @@ public final class QuestProgressGameTests {
         ServerLevel level = helper.getLevel();
         BlockPos pierre = new BlockPos(2, 1, 2);
         BlockPos abs = helper.absolutePos(pierre);
-        PlacedBlocks marques = level.getChunkAt(abs).getCapability(PlacedBlocks.CAPABILITY).resolve().orElseThrow();
+        PlacedBlocks marques = level.getChunkAt(abs).getCapability(PlacedBlocks.CAPABILITY).resolve().orElseThrow(IllegalStateException::new);
         IntArrayTag avant = marques.serializeNBT();
         try {
             ServerPlayer joueur = simule.joueur();
@@ -919,16 +922,23 @@ public final class QuestProgressGameTests {
         throw new IllegalStateException("case 0 de la barre absente de l'écran");
     }
 
-    /** La cuisson elle-même, sans attendre le combustible : l'entrée du four devient autant d'objets cuits en sortie. */
-    private static void cuire(FurnaceBlockEntity four, Item cuit) {
-        int n = four.getItem(0).getCount() + four.getItem(2).getCount();
-        four.setItem(0, ItemStack.EMPTY);
-        four.setItem(2, new ItemStack(cuit, n));
-    }
-
     private static FurnaceBlockEntity four(GameTestHelper helper, BlockPos pos) {
         helper.setBlock(pos, Blocks.FURNACE);
         return (FurnaceBlockEntity) helper.getBlockEntity(pos);
+    }
+
+    /**
+     * La vraie cuisson, accélérée : du charbon en combustible, puis le tic du four ({@code serverTick}) appelé à la
+     * suite jusqu'à ce que {@code n} objets de l'entrée soient cuits.
+     */
+    private static void cuire(GameTestHelper helper, AbstractFurnaceBlockEntity four, int n) {
+        four.setItem(1, new ItemStack(Items.COAL, 16));
+        int depart = four.getItem(0).getCount();
+        for (int i = 0; i < n * 250 && four.getItem(0).getCount() > depart - n; i++) {
+            AbstractFurnaceBlockEntity.serverTick(helper.getLevel(), four.getBlockPos(), four.getBlockState(), four);
+        }
+        helper.assertTrue(four.getItem(0).getCount() == depart - n,
+                "cuisson : entrée " + four.getItem(0) + " (départ " + depart + ", " + n + " à cuire)");
     }
 
     /** Une trémie posée sur le four, chargée : elle pousse dans l'entrée, 1 objet tous les 8 tics. */
@@ -937,9 +947,17 @@ public final class QuestProgressGameTests {
         ((HopperBlockEntity) helper.getBlockEntity(four.above())).setItem(0, charge);
     }
 
+    private static int credit(BlockEntity bloc, JoueurDeTest simule) {
+        return CookingCredit.credit(bloc, simule.uuid());
+    }
+
+    private static int sortiesCreditees(BlockEntity bloc, JoueurDeTest simule) {
+        return CookingCredit.creditedOutputs(bloc, simule.uuid());
+    }
+
     /**
-     * Un four : des lingots (pas un aliment) consomment le crédit de leur minerai sans rien compter ; trois steaks au
-     * clic majuscule, un au clic, chacun mis cru par le joueur. Un fumoir : deux côtelettes, en conserve. Comptes exacts.
+     * Un four : des lingots (pas un aliment) ne comptent rien ; quatre steaks crus mis par le joueur, cuits, pris
+     * moitié au clic droit, moitié au clic majuscule. Un fumoir : deux côtelettes, en conserve. Comptes exacts.
      */
     @GameTest(template = "test/plancher", batch = LOT_CUISINE)
     public static void cuisineAuFourEtConserveAuFumoir(GameTestHelper helper) {
@@ -951,32 +969,31 @@ public final class QuestProgressGameTests {
             FurnaceBlockEntity four = four(helper, new BlockPos(1, 1, 1));
             FurnaceMenu menuFour = new FurnaceMenu(1, joueur.getInventory(), four, new SimpleContainerData(4));
             deposer(helper, menuFour, joueur, 0, new ItemStack(Items.RAW_IRON, 2));
-            cuire(four, Items.IRON_INGOT);
+            cuire(helper, four, 2);
             menuFour.clicked(2, 0, ClickType.QUICK_MOVE, joueur);
             helper.assertTrue(four.getItem(2).isEmpty() && progres(joueur, 0) == 0, "lingots : " + progres(joueur, 0));
-            helper.assertTrue(CookingCredit.credit(four, simule.uuid()) == 0,
-                    "crédit après les lingots : " + CookingCredit.credit(four, simule.uuid()));
+            helper.assertTrue(credit(four, simule) == 0 && sortiesCreditees(four, simule) == 0,
+                    "crédit après les lingots : " + credit(four, simule) + " / " + sortiesCreditees(four, simule));
             depuisLaBarre(helper, menuFour, joueur, new ItemStack(Items.BEEF, 4));
-            helper.assertTrue(CookingCredit.credit(four, simule.uuid()) == 4,
-                    "crédit des steaks crus : " + CookingCredit.credit(four, simule.uuid()));
-            four.setItem(0, new ItemStack(Items.BEEF, 1));
-            four.setItem(2, new ItemStack(Items.COOKED_BEEF, 3));
+            helper.assertTrue(credit(four, simule) == 4, "crédit des steaks crus : " + credit(four, simule));
+            cuire(helper, four, 4);
+            helper.assertTrue(credit(four, simule) == 0 && sortiesCreditees(four, simule) == 4,
+                    "après cuisson : " + credit(four, simule) + " / " + sortiesCreditees(four, simule));
+            menuFour.clicked(2, 1, ClickType.PICKUP, joueur);
+            helper.assertTrue(menuFour.getCarried().is(Items.COOKED_BEEF) && menuFour.getCarried().getCount() == 2,
+                    "moitié non prise : " + menuFour.getCarried());
+            menuFour.setCarried(ItemStack.EMPTY);
+            helper.assertTrue(progres(joueur, 0) == 2, "cuisine au clic : " + progres(joueur, 0));
             menuFour.clicked(2, 0, ClickType.QUICK_MOVE, joueur);
             helper.assertTrue(four.getItem(2).isEmpty(), "steaks restés : " + four.getItem(2));
-            helper.assertTrue(progres(joueur, 0) == 3, "cuisine au clic majuscule : " + progres(joueur, 0));
-            cuire(four, Items.COOKED_BEEF);
-            menuFour.clicked(2, 0, ClickType.PICKUP, joueur);
-            helper.assertTrue(menuFour.getCarried().is(Items.COOKED_BEEF), "steak non pris");
-            menuFour.setCarried(ItemStack.EMPTY);
-            helper.assertTrue(progres(joueur, 0) == 4, "cuisine au clic : " + progres(joueur, 0));
+            helper.assertTrue(progres(joueur, 0) == 4, "cuisine au clic majuscule : " + progres(joueur, 0));
             helper.assertTrue(progres(joueur, 1) == 0, "conserve après le four : " + progres(joueur, 1));
 
             helper.setBlock(new BlockPos(3, 1, 1), Blocks.SMOKER);
             SmokerBlockEntity fumoir = (SmokerBlockEntity) helper.getBlockEntity(new BlockPos(3, 1, 1));
             SmokerMenu menuFumoir = new SmokerMenu(2, joueur.getInventory(), fumoir, new SimpleContainerData(4));
             deposer(helper, menuFumoir, joueur, 0, new ItemStack(Items.PORKCHOP, 2));
-            fumoir.setItem(0, ItemStack.EMPTY);
-            fumoir.setItem(2, new ItemStack(Items.COOKED_PORKCHOP, 2));
+            cuire(helper, fumoir, 2);
             menuFumoir.clicked(2, 0, ClickType.QUICK_MOVE, joueur);
             helper.assertTrue(progres(joueur, 1) == 2, "conserve au fumoir : " + progres(joueur, 1));
         } finally {
@@ -1000,9 +1017,8 @@ public final class QuestProgressGameTests {
                 .thenWaitUntil(() -> helper.assertTrue(four.getItem(0).getCount() == 8, "entrée " + four.getItem(0)))
                 .thenExecute(() -> {
                     try {
-                        helper.assertTrue(CookingCredit.credit(four, simule.uuid()) == 0,
-                                "crédit donné par la trémie : " + CookingCredit.credit(four, simule.uuid()));
-                        cuire(four, Items.COOKED_BEEF);
+                        helper.assertTrue(credit(four, simule) == 0, "crédit donné par la trémie : " + credit(four, simule));
+                        cuire(helper, four, 8);
                         menu.clicked(2, 0, ClickType.QUICK_MOVE, joueur);
                         helper.assertTrue(four.getItem(2).isEmpty(), "steaks restés : " + four.getItem(2));
                         helper.assertTrue(progres(joueur, 0) == 0, "ferme à trémie comptée : " + progres(joueur, 0));
@@ -1014,8 +1030,8 @@ public final class QuestProgressGameTests {
     }
 
     /**
-     * Huit crus mis par le joueur (glissés à la souris), huit cuits retirés : huit. Puis le livre de recettes (un geste
-     * de l'écran aussi) remet quatre crus : quatre de plus ; et ce que le joueur reprend cru ne compte plus.
+     * Huit crus mis par le joueur (glissés à la souris), cuits, retirés : huit. Puis le livre de recettes (un geste de
+     * l'écran aussi) remet quatre crus ; le joueur en reprend deux : deux de plus seulement.
      */
     @GameTest(template = "test/plancher", batch = LOT_CUISINE)
     public static void huitCrusMisParLeJoueurFontHuitCuits(GameTestHelper helper) {
@@ -1027,27 +1043,26 @@ public final class QuestProgressGameTests {
             FurnaceBlockEntity four = four(helper, new BlockPos(1, 1, 1));
             FurnaceMenu menu = new FurnaceMenu(1, joueur.getInventory(), four, new SimpleContainerData(4));
             glisser(helper, menu, joueur, new ItemStack(Items.BEEF, 8), 0);
-            helper.assertTrue(four.getItem(0).getCount() == 8 && CookingCredit.credit(four, simule.uuid()) == 8,
-                    "entrée " + four.getItem(0) + ", crédit " + CookingCredit.credit(four, simule.uuid()));
-            cuire(four, Items.COOKED_BEEF);
+            helper.assertTrue(four.getItem(0).getCount() == 8 && credit(four, simule) == 8,
+                    "entrée " + four.getItem(0) + ", crédit " + credit(four, simule));
+            cuire(helper, four, 8);
             menu.clicked(2, 0, ClickType.QUICK_MOVE, joueur);
             helper.assertTrue(progres(joueur, 0) == 8, "huit cuits : " + progres(joueur, 0));
-            helper.assertTrue(CookingCredit.credit(four, simule.uuid()) == 0,
-                    "crédit après : " + CookingCredit.credit(four, simule.uuid()));
+            helper.assertTrue(credit(four, simule) == 0 && sortiesCreditees(four, simule) == 0,
+                    "crédit après : " + credit(four, simule) + " / " + sortiesCreditees(four, simule));
 
             Recipe<?> recette = helper.getLevel().getRecipeManager()
-                    .byKey(new ResourceLocation("minecraft", "cooked_beef")).orElseThrow();
+                    .byKey(new ResourceLocation("minecraft", "cooked_beef")).orElseThrow(IllegalStateException::new);
             joueur.awardRecipes(List.of(recette));
             joueur.getInventory().setItem(0, new ItemStack(Items.BEEF, 4));
             menu.handlePlacement(true, recette, joueur);
-            helper.assertTrue(four.getItem(0).getCount() == 4 && CookingCredit.credit(four, simule.uuid()) == 4,
-                    "livre de recettes : entrée " + four.getItem(0) + ", crédit " + CookingCredit.credit(four, simule.uuid()));
+            helper.assertTrue(four.getItem(0).getCount() == 4 && credit(four, simule) == 4,
+                    "livre de recettes : entrée " + four.getItem(0) + ", crédit " + credit(four, simule));
             // Le joueur reprend deux crus d'un clic droit (la moitié) : ils ne cuiront plus pour lui.
             menu.clicked(0, 1, ClickType.PICKUP, joueur);
             menu.setCarried(ItemStack.EMPTY);
-            helper.assertTrue(CookingCredit.credit(four, simule.uuid()) == 2,
-                    "crédit après reprise : " + CookingCredit.credit(four, simule.uuid()));
-            cuire(four, Items.COOKED_BEEF);
+            helper.assertTrue(credit(four, simule) == 2, "crédit après reprise : " + credit(four, simule));
+            cuire(helper, four, 2);
             menu.clicked(2, 0, ClickType.QUICK_MOVE, joueur);
             helper.assertTrue(progres(joueur, 0) == 10, "après le livre de recettes : " + progres(joueur, 0));
         } finally {
@@ -1073,9 +1088,8 @@ public final class QuestProgressGameTests {
                     try {
                         depuisLaBarre(helper, menu, joueur, new ItemStack(Items.BEEF, 4));
                         helper.assertTrue(four.getItem(0).getCount() == 12, "entrée " + four.getItem(0));
-                        helper.assertTrue(CookingCredit.credit(four, simule.uuid()) == 4,
-                                "crédit : " + CookingCredit.credit(four, simule.uuid()));
-                        cuire(four, Items.COOKED_BEEF);
+                        helper.assertTrue(credit(four, simule) == 4, "crédit : " + credit(four, simule));
+                        cuire(helper, four, 12);
                         menu.clicked(2, 0, ClickType.QUICK_MOVE, joueur);
                         helper.assertTrue(four.getItem(2).isEmpty(), "steaks restés : " + four.getItem(2));
                         helper.assertTrue(progres(joueur, 0) == 4, "mélange : " + progres(joueur, 0));
@@ -1084,6 +1098,51 @@ public final class QuestProgressGameTests {
                     }
                 })
                 .thenSucceed();
+    }
+
+    /**
+     * Ce qui sort de l'entrée ou de la sortie sans le joueur emporte le crédit : transfert de JEI (les cases vidées par
+     * {@code Slot.safeTake}, hors de tout clic), entonnoir par le dessus (entrée), par le dessous (sortie). Aucune
+     * boucle ne gonfle le crédit, aucune sortie créditée ne reste pour une fournée de la machine.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_CUISINE)
+    public static void jeiEtEntonnoirsNeLaissentAucunCredit(GameTestHelper helper) {
+        ButinGameTests.degager(helper);
+        JoueurDeTest simule = entrer(helper, "QueteJei");
+        try {
+            ServerPlayer joueur = simule.joueur();
+            carnet(joueur, quete(QuestCategory.COOK, 16));
+            FurnaceBlockEntity four = four(helper, new BlockPos(1, 1, 1));
+            FurnaceMenu menu = new FurnaceMenu(1, joueur.getInventory(), four, new SimpleContainerData(4));
+            for (int tour = 0; tour < 3; tour++) {
+                depuisLaBarre(helper, menu, joueur, new ItemStack(Items.BEEF, 64));
+                helper.assertTrue(credit(four, simule) == 64, "tour " + tour + " : crédit " + credit(four, simule));
+                // Le transfert de JEI vide la case par safeTake (BasicRecipeTransferHandlerServer.clearCraftingGrid).
+                ItemStack repris = menu.getSlot(0).safeTake(64, 64, joueur);
+                joueur.getInventory().add(repris);
+                helper.assertTrue(credit(four, simule) == 0, "tour " + tour + " après JEI : " + credit(four, simule));
+            }
+            IItemHandler dessus = four.getCapability(ForgeCapabilities.ITEM_HANDLER, Direction.UP).orElseThrow(IllegalStateException::new);
+            IItemHandler dessous = four.getCapability(ForgeCapabilities.ITEM_HANDLER, Direction.DOWN).orElseThrow(IllegalStateException::new);
+            deposer(helper, menu, joueur, 0, new ItemStack(Items.BEEF, 2));
+            ItemStack tire = dessus.extractItem(0, 2, false);
+            helper.assertTrue(tire.getCount() == 2 && credit(four, simule) == 0,
+                    "entonnoir du dessus : tiré " + tire + ", crédit " + credit(four, simule));
+            deposer(helper, menu, joueur, 0, new ItemStack(Items.BEEF, 2));
+            cuire(helper, four, 2);
+            helper.assertTrue(sortiesCreditees(four, simule) == 2, "sorties créditées : " + sortiesCreditees(four, simule));
+            ItemStack sorti = dessous.extractItem(0, 2, false);
+            helper.assertTrue(sorti.getCount() == 2 && sortiesCreditees(four, simule) == 0,
+                    "entonnoir du dessous : tiré " + sorti + ", sorties créditées " + sortiesCreditees(four, simule));
+            // La machine refait des steaks avec des crus qu'elle a reçus seule : rien ne compte.
+            four.setItem(0, new ItemStack(Items.BEEF, 2));
+            cuire(helper, four, 2);
+            menu.clicked(2, 0, ClickType.QUICK_MOVE, joueur);
+            helper.assertTrue(progres(joueur, 0) == 0, "boucles comptées : " + progres(joueur, 0));
+        } finally {
+            sortir(helper, simule);
+        }
+        helper.succeed();
     }
 
     /** Le crédit est écrit avec le chunk (aller-retour par {@code ChunkSerializer}) et sert après la relecture. */
@@ -1100,7 +1159,6 @@ public final class QuestProgressGameTests {
             ServerLevel level = helper.getLevel();
             BlockPos abs = helper.absolutePos(pos);
             LevelChunk chunk = level.getChunkAt(abs);
-            chunk.setUnsaved(false);
             deposer(helper, menu, joueur, 0, new ItemStack(Items.BEEF, 4));
             helper.assertTrue(chunk.isUnsaved(), "le chunk n'est pas à sauver après le dépôt");
             CompoundTag ecrit = ChunkSerializer.write(level, chunk);
@@ -1121,7 +1179,7 @@ public final class QuestProgressGameTests {
             FurnaceBlockEntity neuf = (FurnaceBlockEntity) helper.getBlockEntity(pos);
             helper.assertTrue(neuf == relu, "four relu non posé");
             FurnaceMenu menuNeuf = new FurnaceMenu(2, joueur.getInventory(), neuf, new SimpleContainerData(4));
-            cuire(neuf, Items.COOKED_BEEF);
+            cuire(helper, neuf, 4);
             menuNeuf.clicked(2, 0, ClickType.QUICK_MOVE, joueur);
             helper.assertTrue(progres(joueur, 0) == 4, "après la relecture : " + progres(joueur, 0));
         } finally {
@@ -1130,63 +1188,102 @@ public final class QuestProgressGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "test/plancher", batch = LOT_CUISINE)
-    public static void sortieDuSechoirEtDeLaMarmite(GameTestHelper helper) {
-        ButinGameTests.degager(helper);
-        JoueurDeTest simule = entrer(helper, "QueteSechoir");
-        try {
-            ServerPlayer joueur = simule.joueur();
-            carnet(joueur, quete(QuestCategory.PRESERVE, 4), quete(QuestCategory.COOK, 4));
-            BlockPos posSechoir = new BlockPos(1, 1, 1);
-            helper.setBlock(posSechoir, FoodRegistry.DRYER.get());
-            DryerBlockEntity sechoir = (DryerBlockEntity) helper.getBlockEntity(posSechoir);
-            DryerMenu menuSechoir = new DryerMenu(1, joueur.getInventory(), sechoir, helper.absolutePos(posSechoir));
-            // Sans courant, le séchoir ne sèche rien : la sortie est posée à la main, après le dépôt du joueur.
-            deposer(helper, menuSechoir, joueur, DryerBlockEntity.SLOT_INPUT, new ItemStack(Items.COD, 3));
-            sechoir.inventory().setStackInSlot(DryerBlockEntity.SLOT_INPUT, ItemStack.EMPTY);
-            sechoir.inventory().setStackInSlot(DryerBlockEntity.SLOT_OUTPUT, new ItemStack(Items.DRIED_KELP, 2));
-            menuSechoir.clicked(DryerBlockEntity.SLOT_OUTPUT, 0, ClickType.QUICK_MOVE, joueur);
-            helper.assertTrue(progres(joueur, 0) == 2, "séchoir au clic majuscule : " + progres(joueur, 0));
-            sechoir.inventory().setStackInSlot(DryerBlockEntity.SLOT_OUTPUT, new ItemStack(Items.DRIED_KELP, 1));
-            menuSechoir.clicked(DryerBlockEntity.SLOT_OUTPUT, 0, ClickType.PICKUP, joueur);
-            helper.assertTrue(menuSechoir.getCarried().is(Items.DRIED_KELP), "séchage non pris");
-            menuSechoir.setCarried(ItemStack.EMPTY);
-            helper.assertTrue(progres(joueur, 0) == 3, "séchoir au clic : " + progres(joueur, 0));
-            // Rien de plus mis par le joueur : une sortie de plus ne compte pas.
-            sechoir.inventory().setStackInSlot(DryerBlockEntity.SLOT_OUTPUT, new ItemStack(Items.DRIED_KELP, 1));
-            menuSechoir.clicked(DryerBlockEntity.SLOT_OUTPUT, 0, ClickType.QUICK_MOVE, joueur);
-            helper.assertTrue(progres(joueur, 0) == 3, "séchoir sans dépôt : " + progres(joueur, 0));
-
-            BlockPos posMarmite = new BlockPos(3, 1, 1);
-            helper.setBlock(posMarmite, FoodRegistry.CANTEEN_POT.get());
-            CanteenPotBlockEntity marmite = (CanteenPotBlockEntity) helper.getBlockEntity(posMarmite);
-            CanteenPotMenu menuMarmite = new CanteenPotMenu(2, joueur.getInventory(), marmite,
-                    helper.absolutePos(posMarmite));
-            // Deux ingrédients et un récipient : un crédit de 3.
-            deposer(helper, menuMarmite, joueur, 0, new ItemStack(Items.BROWN_MUSHROOM, 2));
-            deposer(helper, menuMarmite, joueur, CanteenPotBlockEntity.SLOT_CONTAINER, new ItemStack(Items.BOWL, 1));
-            helper.assertTrue(CookingCredit.credit(marmite, simule.uuid()) == 3,
-                    "crédit de la marmite : " + CookingCredit.credit(marmite, simule.uuid()));
-            marmite.inventory().setStackInSlot(0, ItemStack.EMPTY);
-            marmite.inventory().setStackInSlot(CanteenPotBlockEntity.SLOT_CONTAINER, ItemStack.EMPTY);
-            marmite.inventory().setStackInSlot(CanteenPotBlockEntity.SLOT_OUTPUT, new ItemStack(Items.BAKED_POTATO, 2));
-            menuMarmite.clicked(CanteenPotBlockEntity.SLOT_OUTPUT, 0, ClickType.QUICK_MOVE, joueur);
-            helper.assertTrue(progres(joueur, 1) == 2, "marmite au clic majuscule : " + progres(joueur, 1));
-            marmite.inventory().setStackInSlot(CanteenPotBlockEntity.SLOT_OUTPUT, new ItemStack(Items.BAKED_POTATO, 1));
-            menuMarmite.clicked(CanteenPotBlockEntity.SLOT_OUTPUT, 0, ClickType.PICKUP, joueur);
-            helper.assertTrue(menuMarmite.getCarried().is(Items.BAKED_POTATO), "plat non pris");
-            menuMarmite.setCarried(ItemStack.EMPTY);
-            helper.assertTrue(progres(joueur, 1) == 3, "marmite au clic : " + progres(joueur, 1));
-            helper.assertTrue(progres(joueur, 0) == 3, "conserve après la marmite : " + progres(joueur, 0));
-        } finally {
-            sortir(helper, simule);
-        }
-        helper.succeed();
+    /** Amène un séchoir ou une marmite à un tic de la fin, par sa sauvegarde (la durée lue d'abord fixe la recette). */
+    private static void presqueFini(BlockEntity be, int total) {
+        CompoundTag tag = be.saveWithoutMetadata();
+        tag.putInt("progress", total - 1);
+        be.load(tag);
     }
 
     /**
-     * Le vrai Cooking Pot de Farmer's Delight : un bœuf, une carotte et un bol mis par le joueur (crédit 3) ; deux plats
-     * au clic majuscule, un au clic, comptés par le tag des plats ; un quatrième, sans dépôt, ne compte pas.
+     * Le séchoir : un cabillaud mis par le joueur, séché, pris : une conserve ; un second mis par la machine (gestionnaire
+     * du dessus), séché, pris : rien. La marmite : 64 bols posés à la main (jamais crédités) et les ingrédients mis par la
+     * machine : trois ragoûts pris, rien.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_CUISINE, timeoutTicks = 200)
+    public static void sechoirEtMarmiteNeCreditentQueLesIngredientsDuJoueur(GameTestHelper helper) {
+        ButinGameTests.degager(helper);
+        JoueurDeTest simule = entrer(helper, "QueteSechoir");
+        ServerPlayer joueur = simule.joueur();
+        carnet(joueur, quete(QuestCategory.PRESERVE, 4), quete(QuestCategory.COOK, 8));
+        BlockPos posSechoir = new BlockPos(1, 1, 1);
+        helper.setBlock(posSechoir, FoodRegistry.DRYER.get());
+        DryerBlockEntity sechoir = (DryerBlockEntity) helper.getBlockEntity(posSechoir);
+        DryerMenu menuSechoir = new DryerMenu(1, joueur.getInventory(), sechoir, helper.absolutePos(posSechoir));
+        BlockPos posMarmite = new BlockPos(4, 1, 1);
+        helper.setBlock(posMarmite, FoodRegistry.CANTEEN_POT.get());
+        CanteenPotBlockEntity marmite = (CanteenPotBlockEntity) helper.getBlockEntity(posMarmite);
+        CanteenPotMenu menuMarmite = new CanteenPotMenu(2, joueur.getInventory(), marmite,
+                helper.absolutePos(posMarmite));
+        for (int i = 0; i < 40; i++) {
+            sechoir.energy().receiveEnergy(DryerBlockEntity.MAX_RECEIVE, false);
+            marmite.energy().receiveEnergy(CanteenPotBlockEntity.MAX_RECEIVE, false);
+        }
+        deposer(helper, menuSechoir, joueur, DryerBlockEntity.SLOT_INPUT, new ItemStack(Items.COD, 1));
+        helper.assertTrue(credit(sechoir, simule) == 1, "crédit du séchoir : " + credit(sechoir, simule));
+        presqueFini(sechoir, sechoir.data().get(DryerBlockEntity.DATA_TOTAL));
+        // La marmite : ragoût de bœuf (bœuf, carotte, pomme de terre) mis par la machine, 64 bols par le joueur.
+        marmite.inventory().setStackInSlot(0, new ItemStack(Items.BEEF, 1));
+        marmite.inventory().setStackInSlot(1, new ItemStack(Items.CARROT, 1));
+        marmite.inventory().setStackInSlot(2, new ItemStack(Items.POTATO, 1));
+        deposer(helper, menuMarmite, joueur, CanteenPotBlockEntity.SLOT_CONTAINER, new ItemStack(Items.BOWL, 64));
+        helper.assertTrue(credit(marmite, simule) == 0, "bols crédités : " + credit(marmite, simule));
+        presqueFini(marmite, marmite.data().get(CanteenPotBlockEntity.DATA_TOTAL));
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(
+                        !sechoir.inventory().getStackInSlot(DryerBlockEntity.SLOT_OUTPUT).isEmpty()
+                                && !marmite.inventory().getStackInSlot(CanteenPotBlockEntity.SLOT_OUTPUT).isEmpty(),
+                        "séchoir " + sechoir.inventory().getStackInSlot(DryerBlockEntity.SLOT_OUTPUT) + ", marmite "
+                                + marmite.inventory().getStackInSlot(CanteenPotBlockEntity.SLOT_OUTPUT)))
+                .thenExecute(() -> {
+                  try {
+                    helper.assertTrue(sortiesCreditees(sechoir, simule) == 1,
+                            "séchoir crédité : " + sortiesCreditees(sechoir, simule));
+                    menuSechoir.clicked(DryerBlockEntity.SLOT_OUTPUT, 0, ClickType.QUICK_MOVE, joueur);
+                    helper.assertTrue(progres(joueur, 0) == 1, "séchoir à la main : " + progres(joueur, 0));
+                    menuMarmite.clicked(CanteenPotBlockEntity.SLOT_OUTPUT, 0, ClickType.QUICK_MOVE, joueur);
+                    helper.assertTrue(marmite.inventory().getStackInSlot(CanteenPotBlockEntity.SLOT_OUTPUT).isEmpty(),
+                            "ragoûts restés");
+                    helper.assertTrue(progres(joueur, 1) == 0, "bols à la main comptés : " + progres(joueur, 1));
+                    // Un second cabillaud, mis par la machine (gestionnaire du dessus, comme une trémie).
+                    IItemHandler dessus = sechoir.getCapability(ForgeCapabilities.ITEM_HANDLER, Direction.UP)
+                            .orElseThrow(IllegalStateException::new);
+                    helper.assertTrue(dessus.insertItem(0, new ItemStack(Items.COD, 1), false).isEmpty(),
+                            "cabillaud refusé par le dessus");
+                    presqueFini(sechoir, sechoir.data().get(DryerBlockEntity.DATA_TOTAL));
+                  } catch (RuntimeException e) {
+                    sortir(helper, simule);
+                    throw e;
+                  }
+                })
+                .thenWaitUntil(() -> helper.assertTrue(
+                        !sechoir.inventory().getStackInSlot(DryerBlockEntity.SLOT_OUTPUT).isEmpty(), "second séchage"))
+                .thenExecute(() -> {
+                    try {
+                        menuSechoir.clicked(DryerBlockEntity.SLOT_OUTPUT, 0, ClickType.QUICK_MOVE, joueur);
+                        helper.assertTrue(progres(joueur, 0) == 1, "séchoir de la machine : " + progres(joueur, 0));
+                    } finally {
+                        sortir(helper, simule);
+                    }
+                })
+                .thenSucceed();
+    }
+
+    /** La vraie cuisson du Cooking Pot, accélérée (bloc de magma dessous, tic appelé à la suite). */
+    private static void cuirePot(GameTestHelper helper, CookingPotBlockEntity pot) {
+        int depart = pot.getInventory().getStackInSlot(CookingPotBlockEntity.OUTPUT_SLOT).getCount();
+        for (int i = 0; i < 1000
+                && pot.getInventory().getStackInSlot(CookingPotBlockEntity.OUTPUT_SLOT).getCount() == depart; i++) {
+            CookingPotBlockEntity.cookingTick(helper.getLevel(), pot.getBlockPos(), pot.getBlockState(), pot);
+        }
+        helper.assertTrue(pot.getInventory().getStackInSlot(CookingPotBlockEntity.OUTPUT_SLOT).getCount() > depart,
+                "pas de plat : " + pot.getInventory().getStackInSlot(CookingPotBlockEntity.OUTPUT_SLOT));
+    }
+
+    /**
+     * Le vrai Cooking Pot de Farmer's Delight : bœuf, carotte, pomme de terre mis par le joueur, bol aussi : un ragoût,
+     * un compté, plus aucun crédit. Puis les ingrédients mis par la machine, le bol par le joueur : un second ragoût
+     * qui ne compte pas (aucun surplus du premier).
      */
     @GameTest(template = "test/plancher", batch = LOT_CUISINE)
     public static void unPlatDuCookingPotDeFarmersDelight(GameTestHelper helper) {
@@ -1196,32 +1293,26 @@ public final class QuestProgressGameTests {
             ServerPlayer joueur = simule.joueur();
             carnet(joueur, quete("essai_plats", QuestCategory.COOK, "#farmersdelight:meals", 4));
             BlockPos pos = new BlockPos(1, 1, 1);
+            helper.setBlock(pos.below(), Blocks.MAGMA_BLOCK);
             helper.setBlock(pos, ModBlocks.COOKING_POT.get());
             CookingPotBlockEntity pot = (CookingPotBlockEntity) helper.getBlockEntity(pos);
             CookingPotMenu menu = new CookingPotMenu(1, joueur.getInventory(), pot, new SimpleContainerData(2));
             deposer(helper, menu, joueur, 0, new ItemStack(Items.BEEF, 1));
             depuisLaBarre(helper, menu, joueur, new ItemStack(Items.CARROT, 1));
-            deposer(helper, menu, joueur, CookingPotMenu.INDEX_CONTAINER, new ItemStack(Items.BOWL, 1));
-            helper.assertTrue(CookingCredit.credit(pot, simule.uuid()) == 3,
-                    "crédit du Cooking Pot : " + CookingCredit.credit(pot, simule.uuid()));
-            for (int i = 0; i <= CookingPotMenu.INDEX_CONTAINER; i++) {
-                if (i != CookingPotMenu.INDEX_MEAL) {
-                    menu.getSlot(i).set(ItemStack.EMPTY);
-                }
-            }
-            pot.getInventory().setStackInSlot(CookingPotBlockEntity.OUTPUT_SLOT, new ItemStack(ModItems.BEEF_STEW.get(), 2));
+            deposer(helper, menu, joueur, 2, new ItemStack(Items.POTATO, 1));
+            deposer(helper, menu, joueur, CookingPotMenu.INDEX_CONTAINER, new ItemStack(Items.BOWL, 2));
+            helper.assertTrue(credit(pot, simule) == 3, "crédit du Cooking Pot (sans le bol) : " + credit(pot, simule));
+            cuirePot(helper, pot);
+            helper.assertTrue(credit(pot, simule) == 0 && sortiesCreditees(pot, simule) == 1,
+                    "après le plat : " + credit(pot, simule) + " / " + sortiesCreditees(pot, simule));
             menu.clicked(CookingPotMenu.INDEX_OUTPUT, 0, ClickType.QUICK_MOVE, joueur);
-            helper.assertTrue(pot.getInventory().getStackInSlot(CookingPotBlockEntity.OUTPUT_SLOT).isEmpty(),
-                    "plats restés");
-            helper.assertTrue(progres(joueur, 0) == 2, "Cooking Pot au clic majuscule : " + progres(joueur, 0));
-            pot.getInventory().setStackInSlot(CookingPotBlockEntity.OUTPUT_SLOT, new ItemStack(ModItems.BEEF_STEW.get(), 1));
-            menu.clicked(CookingPotMenu.INDEX_OUTPUT, 0, ClickType.PICKUP, joueur);
-            helper.assertTrue(menu.getCarried().is(ModItems.BEEF_STEW.get()), "plat non pris");
-            menu.setCarried(ItemStack.EMPTY);
-            helper.assertTrue(progres(joueur, 0) == 3, "Cooking Pot au clic : " + progres(joueur, 0));
-            pot.getInventory().setStackInSlot(CookingPotBlockEntity.OUTPUT_SLOT, new ItemStack(ModItems.BEEF_STEW.get(), 1));
+            helper.assertTrue(progres(joueur, 0) == 1, "plat à la main : " + progres(joueur, 0));
+            pot.getInventory().setStackInSlot(0, new ItemStack(Items.BEEF, 1));
+            pot.getInventory().setStackInSlot(1, new ItemStack(Items.CARROT, 1));
+            pot.getInventory().setStackInSlot(2, new ItemStack(Items.POTATO, 1));
+            cuirePot(helper, pot);
             menu.clicked(CookingPotMenu.INDEX_OUTPUT, 0, ClickType.QUICK_MOVE, joueur);
-            helper.assertTrue(progres(joueur, 0) == 3, "Cooking Pot sans dépôt : " + progres(joueur, 0));
+            helper.assertTrue(progres(joueur, 0) == 1, "plat de la machine compté : " + progres(joueur, 0));
         } finally {
             sortir(helper, simule);
         }

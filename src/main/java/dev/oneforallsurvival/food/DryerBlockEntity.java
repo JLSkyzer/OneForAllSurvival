@@ -1,5 +1,8 @@
 package dev.oneforallsurvival.food;
 
+import dev.oneforallsurvival.economy.quest.CookingBlock;
+import dev.oneforallsurvival.economy.quest.CookingCredit;
+import dev.oneforallsurvival.economy.quest.QuestCategory;
 import dev.oneforallsurvival.machine.ElectricMachineBlockEntity;
 import java.util.function.Predicate;
 import net.minecraft.core.BlockPos;
@@ -36,7 +39,7 @@ import org.jetbrains.annotations.Nullable;
  * sa date et le ferait passer pour frais. Les faces ne donnent accès qu'à leur case : le dessous extrait la sortie, le
  * dessus insère l'aliment, les côtés insèrent le sel. Le contenu est jeté quand le bloc disparaît.
  */
-public final class DryerBlockEntity extends ElectricMachineBlockEntity {
+public final class DryerBlockEntity extends ElectricMachineBlockEntity implements CookingBlock {
 
     public static final int SLOT_INPUT = 0;
     public static final int SLOT_SALT = 1;
@@ -69,6 +72,7 @@ public final class DryerBlockEntity extends ElectricMachineBlockEntity {
         @Override
         protected void onContentsChanged(int slot) {
             setChanged();
+            CookingCredit.bound(DryerBlockEntity.this);
             if (slot == SLOT_INPUT) {
                 // Le cache tombe, mais la progression, non : un clic de souris vide la case un instant
                 // (SlotItemHandler.getMaxStackSize) sans que l'aliment ait vraiment changé.
@@ -230,14 +234,19 @@ public final class DryerBlockEntity extends ElectricMachineBlockEntity {
 
     /** Le séchage est fini : l'aliment (et le sel, s'il y en a) est payé, la ration neuve arrive en sortie. */
     private void finish(DryingRecipe recipe) {
-        boolean salted = salted();
-        ItemStack result = recipe.resultFor(salted);
-        items.extractItem(SLOT_INPUT, 1, false);
-        if (salted) {
-            items.extractItem(SLOT_SALT, 1, false);
+        CookingCredit.beginCook(this);
+        try {
+            boolean salted = salted();
+            ItemStack result = recipe.resultFor(salted);
+            items.extractItem(SLOT_INPUT, 1, false);
+            if (salted) {
+                items.extractItem(SLOT_SALT, 1, false);
+            }
+            FoodOutput.place(items, SLOT_OUTPUT, result, level);
+            progress = 0;
+        } finally {
+            CookingCredit.endCook(this);
         }
-        FoodOutput.place(items, SLOT_OUTPUT, result, level);
-        progress = 0;
     }
 
     /** Jette tout le contenu au sol et vide les cases : appelé quand le bloc disparaît. */
@@ -308,5 +317,24 @@ public final class DryerBlockEntity extends ElectricMachineBlockEntity {
         ItemStack input = items.getStackInSlot(SLOT_INPUT);
         trackedInput = input.isEmpty() ? null : input.getItem();
         cacheValid = false;
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Crédit de cuisine des quêtes
+    // ---------------------------------------------------------------------------------------------
+
+    @Override
+    public int oneforall$cookingInputs() {
+        return items.getStackInSlot(SLOT_INPUT).getCount();
+    }
+
+    @Override
+    public int oneforall$cookingOutputs() {
+        return items.getStackInSlot(SLOT_OUTPUT).getCount();
+    }
+
+    @Override
+    public QuestCategory oneforall$cookingCategory() {
+        return QuestCategory.PRESERVE;
     }
 }

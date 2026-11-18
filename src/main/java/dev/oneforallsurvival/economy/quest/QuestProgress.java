@@ -20,7 +20,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.TagKey;
-import net.minecraft.world.Container;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
@@ -31,9 +30,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.BaseFireBlock;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.CropBlock;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.entity.FurnaceBlockEntity;
-import net.minecraft.world.level.block.entity.SmokerBlockEntity;
 import net.minecraft.world.level.block.piston.PistonStructureResolver;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.common.util.BlockSnapshot;
@@ -61,9 +57,8 @@ import net.minecraftforge.registries.ForgeRegistries;
  *       ({@link MobOrigin}) ; sans cible, un monstre.</li>
  *   <li><b>Pêche</b>, <b>élevage</b> : {@code ItemFishedEvent}, {@code BabyEntitySpawnEvent}.</li>
  *   <li><b>Cuisine</b>, <b>conserve</b> : à la sortie d'un four, d'un fumoir, de la marmite, du séchoir ou du Cooking Pot
- *       de Farmer's Delight, par les crochets {@link #cooked}, {@link #preserved} et {@link #furnaceOutput} ; seulement
- *       pour la part que le joueur a mise lui-même dans l'entrée ({@link CookingCredit}) : un four nourri par une
- *       trémie ne compte rien.</li>
+ *       de Farmer's Delight, par {@link #cookingTaken} ; seulement les sorties nées d'ingrédients que le joueur a mis
+ *       lui-même dans l'entrée ({@link CookingCredit}) : un four nourri par une trémie ne compte rien.</li>
  *   <li><b>Métier</b> : {@link #job}, appelé par le geste de métier (réparation d'une machine).</li>
  * </ul>
  *
@@ -373,39 +368,12 @@ public final class QuestProgress {
     // ---------------------------------------------------------------------------------------------
 
     /**
-     * Ce que le joueur vient de sortir d'une machine de cuisson ({@code source}) : seule la part qu'il y a mise lui-même
-     * compte ({@link CookingCredit#take}).
+     * Le joueur vient de prendre à la sortie d'un bloc de cuisson {@code counted} objets crédités ({@link CookingCredit}) :
+     * cuisine ou conserve selon le bloc ; sans cible, un aliment seulement.
      */
-    public static void cooked(ServerPlayer player, BlockEntity source, ItemStack taken) {
-        int counted = taken.isEmpty() ? 0 : CookingCredit.take(source, player.getUUID(), taken.getCount());
-        if (counted > 0) {
-            add(player, QuestCategory.COOK, t -> t == null ? taken.isEdible() : itemMatches(t, taken), counted);
-        }
-    }
-
-    /** Ce que le joueur vient de sortir d'un séchoir ou d'un fumoir ; même crédit que {@link #cooked}. */
-    public static void preserved(ServerPlayer player, BlockEntity source, ItemStack taken) {
-        int counted = taken.isEmpty() ? 0 : CookingCredit.take(source, player.getUUID(), taken.getCount());
-        if (counted > 0) {
-            add(player, QuestCategory.PRESERVE, t -> t == null ? taken.isEdible() : itemMatches(t, taken), counted);
-        }
-    }
-
-    /**
-     * La case de sortie d'un four vient de rendre {@code count} objets au joueur : cuisine pour un four, conserve pour
-     * un fumoir ; un haut fourneau ne fait qu'user le crédit.
-     */
-    public static void furnaceOutput(Player player, Container container, ItemStack stack, int count) {
-        if (count <= 0 || stack.isEmpty() || !(player instanceof ServerPlayer server)
-                || !(container instanceof BlockEntity source)) {
-            return;
-        }
-        if (container instanceof SmokerBlockEntity) {
-            preserved(server, source, stack.copyWithCount(count));
-        } else if (container instanceof FurnaceBlockEntity) {
-            cooked(server, source, stack.copyWithCount(count));
-        } else {
-            CookingCredit.take(source, server.getUUID(), count);
+    public static void cookingTaken(ServerPlayer player, QuestCategory category, ItemStack taken, int counted) {
+        if (counted > 0 && !taken.isEmpty()) {
+            add(player, category, t -> t == null ? taken.isEdible() : itemMatches(t, taken), counted);
         }
     }
 

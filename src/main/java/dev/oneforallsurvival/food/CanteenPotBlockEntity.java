@@ -1,5 +1,8 @@
 package dev.oneforallsurvival.food;
 
+import dev.oneforallsurvival.economy.quest.CookingBlock;
+import dev.oneforallsurvival.economy.quest.CookingCredit;
+import dev.oneforallsurvival.economy.quest.QuestCategory;
 import dev.oneforallsurvival.machine.ElectricMachineBlockEntity;
 import java.util.Objects;
 import java.util.function.Predicate;
@@ -43,7 +46,7 @@ import vectorwing.farmersdelight.common.registry.ModRecipeTypes;
  * avarié n'entre pas, et la machine ne cuit pas celui qui l'est devenu en route. Les faces : le dessus insère les
  * ingrédients, les côtés le récipient, le dessous extrait la sortie. Le contenu est jeté quand le bloc disparaît.
  */
-public final class CanteenPotBlockEntity extends ElectricMachineBlockEntity {
+public final class CanteenPotBlockEntity extends ElectricMachineBlockEntity implements CookingBlock {
 
     public static final int SLOT_INPUT_FIRST = 0;
     /** Nombre de cases d'ingrédients, celui du Cooking Pot. */
@@ -80,6 +83,7 @@ public final class CanteenPotBlockEntity extends ElectricMachineBlockEntity {
         @Override
         protected void onContentsChanged(int slot) {
             setChanged();
+            CookingCredit.bound(CanteenPotBlockEntity.this);
             if (slot < INPUTS) {
                 // Le cache tombe, mais la progression, non : un clic de souris vide la case un instant
                 // (SlotItemHandler.getMaxStackSize) sans que la recette ait vraiment changé.
@@ -294,25 +298,30 @@ public final class CanteenPotBlockEntity extends ElectricMachineBlockEntity {
      * restes d'ingrédients tombent au-dessus du bloc.
      */
     private void finish(CookingPotRecipe recipe) {
-        ItemStack result = batchResult(recipe);
-        int containers = containersNeeded();
-        for (int slot = 0; slot < INPUTS; slot++) {
-            ItemStack stack = items.getStackInSlot(slot);
-            if (stack.isEmpty()) {
-                continue;
+        CookingCredit.beginCook(this);
+        try {
+            ItemStack result = batchResult(recipe);
+            int containers = containersNeeded();
+            for (int slot = 0; slot < INPUTS; slot++) {
+                ItemStack stack = items.getStackInSlot(slot);
+                if (stack.isEmpty()) {
+                    continue;
+                }
+                ItemStack remainder = stack.getCraftingRemainingItem();
+                items.extractItem(slot, 1, false);
+                if (!remainder.isEmpty()) {
+                    Containers.dropItemStack(level, worldPosition.getX() + 0.5, worldPosition.getY() + 1.0,
+                            worldPosition.getZ() + 0.5, remainder);
+                }
             }
-            ItemStack remainder = stack.getCraftingRemainingItem();
-            items.extractItem(slot, 1, false);
-            if (!remainder.isEmpty()) {
-                Containers.dropItemStack(level, worldPosition.getX() + 0.5, worldPosition.getY() + 1.0,
-                        worldPosition.getZ() + 0.5, remainder);
+            if (containers > 0) {
+                items.extractItem(SLOT_CONTAINER, containers, false);
             }
+            FoodOutput.place(items, SLOT_OUTPUT, result, level);
+            progress = 0;
+        } finally {
+            CookingCredit.endCook(this);
         }
-        if (containers > 0) {
-            items.extractItem(SLOT_CONTAINER, containers, false);
-        }
-        FoodOutput.place(items, SLOT_OUTPUT, result, level);
-        progress = 0;
     }
 
     /** Jette tout le contenu au sol et vide les cases : appelé quand le bloc disparaît. */
@@ -398,5 +407,28 @@ public final class CanteenPotBlockEntity extends ElectricMachineBlockEntity {
         progress = tag.getInt(TAG_PROGRESS);
         trackedRecipe = tag.contains(TAG_RECIPE) ? ResourceLocation.tryParse(tag.getString(TAG_RECIPE)) : null;
         cacheValid = false;
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Crédit de cuisine des quêtes
+    // ---------------------------------------------------------------------------------------------
+
+    @Override
+    public int oneforall$cookingInputs() {
+        int n = 0;
+        for (int slot = SLOT_INPUT_FIRST; slot < INPUTS; slot++) {
+            n += items.getStackInSlot(slot).getCount();
+        }
+        return n;
+    }
+
+    @Override
+    public int oneforall$cookingOutputs() {
+        return items.getStackInSlot(SLOT_OUTPUT).getCount();
+    }
+
+    @Override
+    public QuestCategory oneforall$cookingCategory() {
+        return QuestCategory.COOK;
     }
 }
