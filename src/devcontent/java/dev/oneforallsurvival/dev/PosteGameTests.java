@@ -245,6 +245,7 @@ public final class PosteGameTests {
     /** Clic droit sur le poste (le panneau), puis le bouton « Caisse » du panneau, par le paquet du panneau. */
     private static void ouvrirCaisse(GameTestHelper helper, ServerPlayer p, BlockPos pos) {
         clicDroit(helper, p, pos);
+        dev.oneforallsurvival.grid.supplier.PowerActionPacket.clearThrottle(p.getUUID());
         dev.oneforallsurvival.grid.supplier.PowerActionPacket.apply(p,
                 dev.oneforallsurvival.grid.supplier.PowerActionPacket.openTill(helper.absolutePos(pos)));
     }

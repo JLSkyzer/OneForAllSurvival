@@ -39,7 +39,7 @@ class PowerPanelLayoutTest {
             List<String> boutons = i % 3 == 0 ? List.of("Accepter", "Refuser")
                     : i % 3 == 1 ? List.of("Rétablir", "Détacher") : List.of("Couper", "Détacher");
             clients.add(new RowView(NOM_16 + " (" + NOM_16 + ")", "Coupé, résiliation en cours",
-                    "Aujourd'hui 99 999 999 kFE · hier 99 999 999 kFE", CINQ_COUPURES, boutons));
+                    "Auj. 99 999 999 kFE · hier 99 999 999 kFE", "Impayés :", CINQ_COUPURES, boutons));
         }
         String montant = String.join(" ", CINQ_COUPURES);
         return new View(NOM_24, NOM_24, "Caisse", "Nom du fournisseur (1 à 24 caractères)", "Fonder",
@@ -178,8 +178,9 @@ class PowerPanelLayoutTest {
         assertTrue(l.till().cut() && l.till().shown().endsWith(PowerPanelLayout.ELLIPSIS), "caisse coupée");
         assertTrue(l.till().full().endsWith(String.join(" ", CINQ_COUPURES)), "caisse complète gardée");
         RowLayout r0 = l.rows().get(0);
-        assertTrue(r0.unpaid().full().equals(String.join(" ", CINQ_COUPURES)), "impayés complets gardés");
-        assertTrue(r0.unpaid().shown().startsWith("1 rubis"), "les plus grandes coupures d'abord");
+        assertTrue(r0.unpaid().full().equals("Impayés : " + String.join(" ", CINQ_COUPURES)),
+                "impayés complets gardés");
+        assertTrue(r0.unpaid().shown().startsWith("Impayés : 1 rubis"), "les plus grandes coupures d'abord");
         // L'écart au-delà du seuil est en alerte, aujourd'hui (perte) comme hier (compteurs au-dessus de la sortie).
         assertTrue(l.today().alert() && l.yesterday().alert(), "écart en alerte");
     }
@@ -208,7 +209,7 @@ class PowerPanelLayoutTest {
         assertFalse(large.title().box().intersects(large.tillButton()), "le titre passe sous le bouton de la caisse");
         // Un nom court n'est pas coupé.
         View court = leContenuLePlusLong();
-        List<RowView> un = List.of(new RowView("Ab (Ab)", "Actif", "Aujourd'hui 0 kFE · hier 0 kFE", List.of(),
+        List<RowView> un = List.of(new RowView("Ab (Ab)", "Actif", "Auj. 0 FE · hier 0 FE", "Impayés :", List.of(),
                 List.of("Couper", "Détacher")));
         Layout l2 = PowerPanelLayout.of(320, 240, SIX, new View(court.supplier(), court.title(), court.tillButton(),
                 court.nameLabel(), court.foundButton(), court.priceLine(), court.subscriptionLine(), court.okButton(),
@@ -216,6 +217,38 @@ class PowerPanelLayoutTest {
                 court.tillLabel(), court.tillParts(), court.listHeader(), un, court.empty()));
         assertFalse(l2.rows().get(0).name().cut());
         assertEquals(0, l2.scrollMax(), "un client tient sans défiler");
+    }
+
+    /**
+     * Aux valeurs courantes, rien n'est coupé : un client sans impayé ne montre rien à leur place (jamais « 0 cuivre »),
+     * la consommation d'aujourd'hui et d'hier se lit entière, un impayé ordinaire aussi, et l'état le plus long.
+     */
+    @Test
+    void auxValeursCourantesRienNEstCoupe() {
+        View v = leContenuLePlusLong();
+        List<RowView> courants = List.of(
+                new RowView("Bob", "À accepter", "Auj. 0 FE · hier 0 FE", "Impayés :", List.of(), List.of("Accepter", "Refuser")),
+                new RowView("Alice", "Coupé", "Auj. 0 FE · hier 1 240 kFE", "Impayés :", List.of("1 or", "2 argent", "5 cuivres"),
+                        List.of("Rétablir", "Détacher")),
+                new RowView("Atelier (Eve)", "Actif", "Auj. 1 234 kFE · hier 980 kFE", "Impayés :", List.of(),
+                        List.of("Couper", "Détacher")),
+                new RowView("Dan", "En résiliation", "Auj. 52 kFE · hier 61 kFE", "Impayés :", List.of("2 argent"),
+                        List.of("Couper", "Valider")));
+        Layout l = PowerPanelLayout.of(320, 240, SIX, new View("Ab", "Ab", v.tillButton(), v.nameLabel(),
+                v.foundButton(), "Prix : 1 cuivre", "Abonnement : 0 cuivre par jour", v.okButton(),
+                "Plafond : 2 argent les 100 000 FE · taxe 0 %", v.gapHeaders(),
+                new GapView("Aujourd'hui", "1 300 kFE", "1 286 kFE", "14 kFE (1 %)", 1_300_000L, 1_286_000L),
+                new GapView("Hier", "1 300 kFE", "1 255 kFE", "45 kFE (3 %)", 1_300_000L, 1_255_000L), 10,
+                "Caisse :", List.of("4 or", "7 cuivres"), "Clients (4)", courants, "Aucun client"));
+        List<Text> tous = new ArrayList<>(textes(l));
+        l.rows().forEach(r -> tous.addAll(List.of(r.name(), r.state(), r.usage(), r.unpaid())));
+        for (Text t : tous) {
+            assertFalse(t.cut(), "coupé aux valeurs courantes : « " + t.full() + " » → « " + t.shown() + " »");
+        }
+        RowLayout bob = l.rows().get(0);
+        assertEquals("", bob.unpaid().shown(), "sans impayé, rien n'est affiché");
+        assertEquals(0, bob.unpaid().width());
+        assertFalse(l.today().alert() || l.yesterday().alert(), "écarts ordinaires : pas d'alerte");
     }
 
     @Test

@@ -54,6 +54,14 @@ public record PowerActionPacket(int action, BlockPos pos, @Nullable UUID meter, 
     public static final String MESSAGE = "message.oneforallsurvival.power_panel.";
     /** Borne du nom sur le réseau : au-delà, le paquet ne se lit pas (le registre, lui, plafonne à 24). */
     public static final int MAX_WIRE_TEXT = 64;
+    /**
+     * Frein : un même joueur ne lance pas plus d'un geste tous les {@value #MIN_TICKS_BETWEEN} tics ; au-delà, son geste
+     * est ignoré et il ne reçoit que l'état (chaque état relit les impayés de tous les clients).
+     */
+    public static final int MIN_TICKS_BETWEEN = 5;
+    /** Le tic du dernier geste accepté de chaque joueur (non sauvegardé ; oublié à la déconnexion). */
+    private static final java.util.Map<UUID, Integer> LAST_GESTURE = new java.util.concurrent.ConcurrentHashMap<>();
+
     /** Comme la caisse : à 8 blocs au plus du centre du poste. */
     public static final double MAX_DISTANCE_SQR = PowerTillMenu.MAX_DISTANCE_SQR;
 
@@ -70,7 +78,9 @@ public record PowerActionPacket(int action, BlockPos pos, @Nullable UUID meter, 
         /** Trop loin, chunk non chargé, poste disparu : rien. */
         TOO_FAR,
         /** Joueur parti ou faux joueur : rien. */
-        GONE
+        GONE,
+        /** Trop tôt après le geste précédent du même joueur (frein) : seulement l'état. */
+        THROTTLED
     }
 
     public PowerActionPacket {
@@ -156,6 +166,10 @@ public record PowerActionPacket(int action, BlockPos pos, @Nullable UUID meter, 
             tell(player, Component.translatable(PowerStationBlock.MESSAGE + "of", supplier.get().name()));
             return Result.NOT_ALLOWED;
         }
+        if (throttled(player)) {
+            sendState(player, pos, false);
+            return Result.THROTTLED;
+        }
         if (packet.action == OPEN_TILL) {
             // L'écran de la caisse remplace le panneau : pas d'état à renvoyer.
             return PowerStationBlock.openTill(player, pos) ? Result.DONE : Result.STALE;
@@ -172,7 +186,7 @@ public record PowerActionPacket(int action, BlockPos pos, @Nullable UUID meter, 
             case ACCEPT, REFUSE, CUT, RESTORE, DETACH -> onMeter(player, registry, id, packet);
             default -> Result.STALE;
         };
-        sendState(player, pos);
+        sendState(player, pos, false);
         return result;
     }
 
@@ -183,12 +197,16 @@ public record PowerActionPacket(int action, BlockPos pos, @Nullable UUID meter, 
             return Result.NOT_ALLOWED;
         }
         if (packet.action != NAME) {
-            sendState(player, pos);
+            sendState(player, pos, false);
             return Result.STALE;
+        }
+        if (throttled(player)) {
+            sendState(player, pos, false);
+            return Result.THROTTLED;
         }
         Optional<PowerSuppliers.Result> founded = PowerStationBlock.found(player, pos, packet.text);
         if (founded.isEmpty()) {
-            sendState(player, pos);
+            sendState(player, pos, false);
             return Result.STALE;
         }
         PowerSuppliers.Result r = founded.get();
@@ -198,15 +216,36 @@ public record PowerActionPacket(int action, BlockPos pos, @Nullable UUID meter, 
             case NAME_TAKEN -> tell(player, Component.translatable(MESSAGE + "name_taken", packet.text.strip()));
             case ALREADY_HAS_ONE -> tell(player, Component.translatable(MESSAGE + "already_has_one"));
         }
-        sendState(player, pos);
+        sendState(player, pos, false);
         return r.founded() ? Result.DONE : Result.REFUSED;
+    }
+
+    /** Vrai si ce joueur a déjà fait un geste il y a moins de {@link #MIN_TICKS_BETWEEN} tics ; sinon note ce tic. */
+    private static boolean throttled(ServerPlayer player) {
+        int now = player.server.getTickCount();
+        Integer last = LAST_GESTURE.get(player.getUUID());
+        if (last != null && now - last >= 0 && now - last < MIN_TICKS_BETWEEN) {
+            return true;
+        }
+        LAST_GESTURE.put(player.getUUID(), now);
+        return false;
+    }
+
+    /** Oublie le frein de ce joueur (déconnexion ; essais qui enchaînent des gestes dans le même tic). */
+    public static void clearThrottle(UUID player) {
+        LAST_GESTURE.remove(player);
+    }
+
+    /** Branché sur le bus de Forge : le frein d'un joueur parti ne sert plus. */
+    public static void onLoggedOut(net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent event) {
+        clearThrottle(event.getEntity().getUUID());
     }
 
     /**
      * Qui règle le tarif : le fondateur et l'équipe toujours ; un client du fournisseur jamais (il fixerait son propre
      * prix, même ingénieur ou maire) ; sinon les ayants droit (ingénieur, maire).
      */
-    static boolean mayTariff(ServerPlayer player, PowerSupplier supplier, PowerSuppliers registry) {
+    public static boolean mayTariff(ServerPlayer player, PowerSupplier supplier, PowerSuppliers registry) {
         if (player.hasPermissions(2) || supplier.founder().equals(player.getUUID())) {
             return true;
         }
@@ -229,12 +268,15 @@ public record PowerActionPacket(int action, BlockPos pos, @Nullable UUID meter, 
                     EconomyConfig.powerPriceUnitFe()));
             return Result.REFUSED;
         }
+        long before = supplier.nextPrice() != null ? supplier.nextPrice() : supplier.price();
         registry.setNextPrice(supplier.id(), price);
         tell(player, Component.translatable(MESSAGE + "price_set", CoinMath.format(price),
                 EconomyConfig.powerPriceUnitFe()));
         LOGGER.info("Electricite : {} fixe le prix de {} a {} pour demain", player.getGameProfile().getName(),
                 supplier.name(), price);
-        announceTariff(player, registry, supplier.id());
+        if (price != before) {
+            announceTariff(player, registry, supplier.id());
+        }
         return Result.DONE;
     }
 
@@ -249,11 +291,14 @@ public record PowerActionPacket(int action, BlockPos pos, @Nullable UUID meter, 
             tell(player, Component.translatable(MESSAGE + "subscription_above_max", CoinMath.format(max)));
             return Result.REFUSED;
         }
+        long before = supplier.nextSubscription() != null ? supplier.nextSubscription() : supplier.subscription();
         registry.setNextSubscription(supplier.id(), subscription);
         tell(player, Component.translatable(MESSAGE + "subscription_set", CoinMath.format(subscription)));
         LOGGER.info("Electricite : {} fixe l'abonnement de {} a {} pour demain", player.getGameProfile().getName(),
                 supplier.name(), subscription);
-        announceTariff(player, registry, supplier.id());
+        if (subscription != before) {
+            announceTariff(player, registry, supplier.id());
+        }
         return Result.DONE;
     }
 
@@ -324,13 +369,16 @@ public record PowerActionPacket(int action, BlockPos pos, @Nullable UUID meter, 
         };
     }
 
-    /** Renvoie l'état du panneau à un ayant droit (le droit est déjà vérifié par l'appelant). */
-    public static void sendState(ServerPlayer player, BlockPos pos) {
+    /**
+     * Renvoie l'état du panneau à un ayant droit (le droit est déjà vérifié par l'appelant) ; {@code open} : celui d'un
+     * clic droit, qui ouvre le panneau (la réponse à un geste ne fait que mettre à jour un panneau ouvert).
+     */
+    public static void sendState(ServerPlayer player, BlockPos pos, boolean open) {
         if (!(player.serverLevel().getBlockEntity(pos) instanceof PowerStationBlockEntity be)) {
             return;
         }
-        PowerPanelPacket state = be.supplier().map(s -> PowerPanelPacket.of(player, pos, s))
-                .orElseGet(() -> PowerPanelPacket.unnamed(pos));
+        PowerPanelPacket state = be.supplier().map(s -> PowerPanelPacket.of(player, pos, open, s))
+                .orElseGet(() -> PowerPanelPacket.unnamed(pos, open));
         dev.oneforallsurvival.bench.BenchNetwork.CHANNEL.send(
                 net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> player), state);
     }

@@ -69,12 +69,16 @@ public final class PowerPanelScreen extends Screen {
         this.state = state;
     }
 
-    /** Un état reçu du serveur, sur le fil du client : met à jour le panneau ouvert sur ce poste, sinon l'ouvre. */
+    /**
+     * Un état reçu du serveur, sur le fil du client : met à jour le panneau ouvert sur ce poste. Seul l'état d'un clic
+     * droit ({@link PowerPanelPacket#open()}) ouvre le panneau, et seulement sans autre écran ouvert : la réponse à un
+     * geste arrivée après la fermeture du panneau (Échap, inventaire) ne le rouvre pas.
+     */
     public static void accept(PowerPanelPacket packet) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.screen instanceof PowerPanelScreen open && open.state.pos().equals(packet.pos())) {
             open.update(packet);
-        } else {
+        } else if (packet.open() && mc.screen == null) {
             mc.setScreen(new PowerPanelScreen(packet));
         }
     }
@@ -85,6 +89,21 @@ public final class PowerPanelScreen extends Screen {
         version++;
         if (founded != !next.name().isEmpty()) {
             rebuildWidgets(); // le poste vient d'être fondé : les champs ne sont plus les mêmes
+        } else {
+            lockTariff();
+        }
+    }
+
+    /** Les champs du tarif ne s'écrivent que si le serveur dit que l'observateur peut le régler. */
+    private void lockTariff() {
+        for (EditBox box : new EditBox[] {priceBox, subscriptionBox}) {
+            if (box != null) {
+                box.setEditable(state.mayTariff());
+                if (!state.mayTariff()) {
+                    box.setValue("");
+                    box.setFocused(false);
+                }
+            }
         }
     }
 
@@ -147,6 +166,7 @@ public final class PowerPanelScreen extends Screen {
             subscriptionBox = box(l.subscription().box(), 12, GUI + "subscription");
             subscriptionBox.setFilter(PowerPanelScreen::digits);
             subscriptionBox.setValue(keptSubscription);
+            lockTariff();
         }
     }
 
@@ -230,8 +250,11 @@ public final class PowerPanelScreen extends Screen {
                 : Component.translatable(GUI + "client_name", c.subscriber(), c.player()).getString();
         String usage = Component.translatable(GUI + "usage", energy(c.feToday()), energy(c.feYesterday())).getString();
         List<String> unpaid = new ArrayList<>();
-        CoinMath.parts(c.unpaid()).forEach(p -> unpaid.add(p.getString()));
-        return new RowView(name, tr("state." + stateKey(c)), usage, unpaid, buttons(c));
+        if (c.unpaid() > 0L) {
+            // Rien à payer : rien d'affiché (« 0 cuivre » en rouge se lirait comme une dette).
+            CoinMath.parts(c.unpaid()).forEach(p -> unpaid.add(p.getString()));
+        }
+        return new RowView(name, tr("state." + stateKey(c)), usage, tr("unpaid"), unpaid, buttons(c));
     }
 
     private static String stateKey(PowerPanelPacket.Client c) {
@@ -354,11 +377,12 @@ public final class PowerPanelScreen extends Screen {
         Rect tb = l.tillButton();
         BenchTheme.button(g, font, tb.x(), tb.y(), tb.w(), tb.h(), l.tillLabel().full(), tb.inside(mx, my), true, false);
         for (Field field : new Field[] {l.price(), l.subscription()}) {
-            draw(g, field.label(), BenchTheme.TEXT);
+            draw(g, field.label(), state.mayTariff() ? BenchTheme.TEXT : BenchTheme.TEXT_DIM);
             Rect b = field.box();
             BenchTheme.well(g, b.x(), b.y(), b.w(), b.h());
             Rect ok = field.button();
-            boolean filled = !(field == l.price() ? priceBox : subscriptionBox).getValue().isEmpty();
+            boolean filled = state.mayTariff()
+                    && !(field == l.price() ? priceBox : subscriptionBox).getValue().isEmpty();
             BenchTheme.button(g, font, ok.x(), ok.y(), ok.w(), ok.h(), field.buttonLabel().full(),
                     filled && ok.inside(mx, my), filled, true);
         }
@@ -455,6 +479,10 @@ public final class PowerPanelScreen extends Screen {
                 tooltip(g, Component.literal(field.label().full()), mx, my);
                 return;
             }
+            if (!state.mayTariff() && (field.box().inside(mx, my) || field.button().inside(mx, my))) {
+                tooltip(g, Component.translatable(GUI + "tariff_locked.tooltip"), mx, my);
+                return;
+            }
             if (field.box().inside(mx, my) || field.button().inside(mx, my)) {
                 tooltip(g, field == l.price()
                         ? Component.translatable(GUI + "price.tooltip", grouped(state.unitFe()),
@@ -533,6 +561,7 @@ public final class PowerPanelScreen extends Screen {
             case "till" -> target = l.till() == null ? null : l.till().box();
             case "gap" -> target = l.today() == null ? null : l.today().gap().box();
             case "price" -> target = l.price() == null ? null : l.price().box();
+            case "price_ok" -> target = l.price() == null ? null : l.price().button();
             default -> {
                 if (p.length >= 2) {
                     int i = Integer.parseInt(p[1]);
@@ -628,7 +657,7 @@ public final class PowerPanelScreen extends Screen {
     }
 
     private void submit(@Nullable EditBox box, boolean price) {
-        if (box == null || box.getValue().isEmpty()) {
+        if (box == null || !state.mayTariff() || box.getValue().isEmpty()) {
             return;
         }
         long value;

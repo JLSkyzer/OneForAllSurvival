@@ -266,7 +266,7 @@ public final class PowerStationBlock extends InlineEnergyBlock {
             player.displayClientMessage(Component.translatable(MESSAGE + "of", supplier.get().name()), true);
             return false;
         }
-        PowerActionPacket.sendState(player, pos);
+        PowerActionPacket.sendState(player, pos, true);
         return true;
     }
 

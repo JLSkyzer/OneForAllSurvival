@@ -18,19 +18,20 @@ import net.minecraftforge.network.NetworkEvent;
 
 /**
  * Serveur vers client : l'état du panneau du poste en {@link #pos}, envoyé à un ayant droit seulement (au clic droit et
- * après chaque geste du panneau). Il ouvre le panneau, ou met à jour celui qui est ouvert sur ce poste.
+ * après chaque geste du panneau). Celui du clic droit ({@code open}) ouvre le panneau ; tous mettent à jour celui qui
+ * est ouvert sur ce poste ; la réponse à un geste ne rouvre jamais un panneau fermé.
  *
  * <p>Un poste neuf a un nom vide (le panneau montre alors le champ du nom) et rien d'autre. Sinon : tarifs du jour et du
  * lendemain (le lendemain vaut le jour s'il n'a pas changé), plafond et taxe du jour et du lendemain, sortie du poste et
- * somme des compteurs d'aujourd'hui et d'hier (l'écart se calcule chez le client), valeur de la caisse, et au plus
- * {@value #MAX_CLIENTS} clients (demandes à accepter d'abord), avec le nombre total.
+ * somme des compteurs d'aujourd'hui et d'hier (l'écart se calcule chez le client), valeur de la caisse, ce que
+ * l'observateur peut faire (retirer de la caisse, régler le tarif), et au plus {@value #MAX_CLIENTS} clients (demandes à accepter d'abord), avec le nombre total.
  *
  * <p>Taille bornée : noms de {@value #MAX_TEXT} caractères au plus, {@value #MAX_CLIENTS} clients au plus.
  */
-public record PowerPanelPacket(BlockPos pos, String name, long price, long subscription, long nextPrice,
+public record PowerPanelPacket(BlockPos pos, boolean open, String name, long price, long subscription, long nextPrice,
         long nextSubscription, long cap, long nextCap, int tax, int nextTax, long unitFe, long maxSubscription,
         int warnPercent, long outToday, long metersToday, long outYesterday, long metersYesterday, long till,
-        boolean mayTakeTill, int clientCount, List<Client> clients) {
+        boolean mayTakeTill, boolean mayTariff, int clientCount, List<Client> clients) {
 
     public static final int MAX_CLIENTS = 64;
     public static final int MAX_TEXT = 64;
@@ -49,14 +50,14 @@ public record PowerPanelPacket(BlockPos pos, String name, long price, long subsc
     }
 
     /** Un poste neuf, sans fournisseur : le panneau ne montre que le champ du nom. */
-    public static PowerPanelPacket unnamed(BlockPos pos) {
-        return new PowerPanelPacket(pos, "", 0L, 0L, 0L, 0L, 0L, 0L, 0, 0, EconomyConfig.powerPriceUnitFe(),
-                EconomyConfig.powerMaxSubscription(), EconomyConfig.powerGapWarnPercent(), 0L, 0L, 0L, 0L, 0L, false, 0,
+    public static PowerPanelPacket unnamed(BlockPos pos, boolean open) {
+        return new PowerPanelPacket(pos, open, "", 0L, 0L, 0L, 0L, 0L, 0L, 0, 0, EconomyConfig.powerPriceUnitFe(),
+                EconomyConfig.powerMaxSubscription(), EconomyConfig.powerGapWarnPercent(), 0L, 0L, 0L, 0L, 0L, false, false, 0,
                 List.of());
     }
 
     /** L'état du fournisseur {@code supplier} vu par {@code viewer}, au poste en {@code pos}. */
-    public static PowerPanelPacket of(ServerPlayer viewer, BlockPos pos, PowerSupplier supplier) {
+    public static PowerPanelPacket of(ServerPlayer viewer, BlockPos pos, boolean open, PowerSupplier supplier) {
         MinecraftServer server = viewer.server;
         PowerSuppliers registry = PowerSuppliers.get(server);
         List<PowerClient> all = new ArrayList<>(registry.clients(supplier.id()));
@@ -81,13 +82,14 @@ public record PowerPanelPacket(BlockPos pos, String name, long price, long subsc
         }
         long cap = registry.priceCap();
         int tax = registry.taxPercent();
-        return new PowerPanelPacket(pos, supplier.name(), supplier.price(), supplier.subscription(),
+        return new PowerPanelPacket(pos, open, supplier.name(), supplier.price(), supplier.subscription(),
                 supplier.nextPrice() != null ? supplier.nextPrice() : supplier.price(),
                 supplier.nextSubscription() != null ? supplier.nextSubscription() : supplier.subscription(), cap,
                 registry.nextPriceCap().orElse(cap), tax, registry.nextTaxPercent().orElse(tax),
                 EconomyConfig.powerPriceUnitFe(), EconomyConfig.powerMaxSubscription(),
                 EconomyConfig.powerGapWarnPercent(), supplier.outToday(), metersToday, supplier.outYesterday(),
-                supplier.metersYesterday(), supplier.tillValue(), PowerRules.mayTakeTill(viewer, supplier), all.size(),
+                supplier.metersYesterday(), supplier.tillValue(), PowerRules.mayTakeTill(viewer, supplier),
+                PowerActionPacket.mayTariff(viewer, supplier, registry), all.size(),
                 shown);
     }
 
@@ -113,6 +115,7 @@ public record PowerPanelPacket(BlockPos pos, String name, long price, long subsc
 
     public void encode(FriendlyByteBuf buf) {
         buf.writeBlockPos(pos);
+        buf.writeBoolean(open);
         buf.writeUtf(name, MAX_TEXT);
         buf.writeVarLong(price);
         buf.writeVarLong(subscription);
@@ -131,6 +134,7 @@ public record PowerPanelPacket(BlockPos pos, String name, long price, long subsc
         buf.writeVarLong(metersYesterday);
         buf.writeVarLong(till);
         buf.writeBoolean(mayTakeTill);
+        buf.writeBoolean(mayTariff);
         buf.writeVarInt(clientCount);
         int n = Math.min(MAX_CLIENTS, clients.size());
         buf.writeVarInt(n);
@@ -150,6 +154,7 @@ public record PowerPanelPacket(BlockPos pos, String name, long price, long subsc
 
     public static PowerPanelPacket decode(FriendlyByteBuf buf) {
         BlockPos pos = buf.readBlockPos();
+        boolean open = buf.readBoolean();
         String name = buf.readUtf(MAX_TEXT);
         long price = buf.readVarLong();
         long subscription = buf.readVarLong();
@@ -168,6 +173,7 @@ public record PowerPanelPacket(BlockPos pos, String name, long price, long subsc
         long metersYesterday = buf.readVarLong();
         long till = buf.readVarLong();
         boolean mayTakeTill = buf.readBoolean();
+        boolean mayTariff = buf.readBoolean();
         int clientCount = buf.readVarInt();
         int n = buf.readVarInt();
         if (n < 0 || n > MAX_CLIENTS) {
@@ -191,9 +197,9 @@ public record PowerPanelPacket(BlockPos pos, String name, long price, long subsc
             clients.add(new Client(meter, subscriber, player, states[state], feToday, feYesterday, unpaid, breaker,
                     cut));
         }
-        return new PowerPanelPacket(pos, name, price, subscription, nextPrice, nextSubscription, cap, nextCap, tax,
+        return new PowerPanelPacket(pos, open, name, price, subscription, nextPrice, nextSubscription, cap, nextCap, tax,
                 nextTax, unitFe, maxSubscription, warnPercent, outToday, metersToday, outYesterday, metersYesterday,
-                till, mayTakeTill, clientCount, clients);
+                till, mayTakeTill, mayTariff, clientCount, clients);
     }
 
     public static void handle(PowerPanelPacket packet, Supplier<NetworkEvent.Context> context) {

@@ -132,6 +132,7 @@ public final class OneForAllSurvival {
         // impayés des clients rappelés au fondateur à sa connexion.
         dev.oneforallsurvival.grid.supplier.PowerBilling.install(dev.oneforallsurvival.grid.supplier.PowerBilling.SERVER);
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.grid.supplier.PowerBilling::onLoggedIn);
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.grid.supplier.PowerActionPacket::onLoggedOut);
         // Le tableau de la mairie : les comptes publics partent à la connexion puis quand ils changent (1 fois par seconde).
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.town.TownFinances::onLoggedIn);
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.town.TownFinances::onServerTick);

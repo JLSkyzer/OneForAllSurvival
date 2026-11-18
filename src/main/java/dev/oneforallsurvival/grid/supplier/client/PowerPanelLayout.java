@@ -48,31 +48,30 @@ public final class PowerPanelLayout {
     public static final int NAME_FIELD_Y = 42;
     public static final int FOUND_W = 80;
 
-    public static final int PRICE_Y = 26;
-    public static final int SUBSCRIPTION_Y = 42;
+    public static final int PRICE_Y = 25;
+    public static final int SUBSCRIPTION_Y = 40;
     public static final int FIELD_W = 60;
     public static final int FIELD_H = 14;
     public static final int OK_W = 30;
-    public static final int CAP_Y = 60;
-    public static final int GAP_HEADER_Y = 72;
-    public static final int GAP_TODAY_Y = 82;
-    public static final int GAP_YESTERDAY_Y = 92;
+    public static final int CAP_Y = 57;
+    public static final int GAP_HEADER_Y = 67;
+    public static final int GAP_TODAY_Y = 76;
+    public static final int GAP_YESTERDAY_Y = 85;
     public static final int GAP_LABEL_W = 72;
     public static final int GAP_CELL_W = (INNER - GAP_LABEL_W) / 3;
-    public static final int TILL_Y = 104;
-    public static final int RULE2_Y = 114;
-    public static final int LIST_HEADER_Y = 118;
-    public static final int LIST_Y = 129;
-    public static final int ROW_H = 20;
-    /** Cinq lignes entières : aucune ligne à moitié visible en bas de la liste. */
-    public static final int LIST_H = 5 * ROW_H;
+    public static final int TILL_Y = 95;
+    public static final int RULE2_Y = 105;
+    public static final int LIST_HEADER_Y = 108;
+    public static final int LIST_Y = 118;
+    public static final int ROW_H = 28;
+    /** Quatre clients entiers : aucun à moitié visible en bas de la liste. */
+    public static final int LIST_H = 4 * ROW_H;
     /** La place de la barre de défilement, à droite de la liste. */
-    public static final int SCROLL_W = 6;
+    public static final int SCROLL_W = 4;
 
     public static final int ROW_BUTTON_W = 52;
     public static final int ROW_BUTTON_H = 16;
-    public static final int STATE_MAX = 80;
-    public static final int UNPAID_MAX = 96;
+    public static final int STATE_MAX = 90;
 
     /** L'écart ne passe en alerte qu'au-delà de ce nombre de FE (et du pourcentage réglé). */
     public static final long GAP_WARN_MIN_FE = 100_000L;
@@ -85,10 +84,11 @@ public final class PowerPanelLayout {
     // ---------------------------------------------------------------------------------------------
 
     /**
-     * Une ligne de client : nom (« abonné (joueur) »), état, consommation, impayés (coupures de la plus grande à la plus
-     * petite ; vide s'il n'y en a pas) et un ou deux libellés de boutons.
+     * Une ligne de client : nom (« abonné (joueur) »), état, consommation, libellé et coupures des impayés (de la plus
+     * grande à la plus petite ; vide s'il n'y en a pas : rien n'est alors affiché) et un ou deux libellés de boutons.
      */
-    public record RowView(String name, String state, String usage, List<String> unpaidParts, List<String> buttons) {}
+    public record RowView(String name, String state, String usage, String unpaidLabel, List<String> unpaidParts,
+            List<String> buttons) {}
 
     /** Une ligne de l'écart : son libellé, les trois cellules (textes), et les FE pour le seuil. */
     public record GapView(String label, String out, String meters, String gap, long outFe, long metersFe) {}
@@ -241,8 +241,9 @@ public final class PowerPanelLayout {
     }
 
     /**
-     * Une ligne de 20 pixels : en haut le nom (à gauche) et l'état (à droite) ; en bas la consommation (à gauche) et les
-     * impayés (à droite) ; les boutons à droite de la ligne, le dernier collé au bord de la liste (avant la barre de
+     * Un client sur trois lignes de texte (28 pixels) : le nom (à gauche) et l'état (à droite) ; la consommation ; les
+     * impayés, s'il y en a, sous les boutons, sur toute la largeur. Aux valeurs courantes, rien n'est coupé. Les
+     * boutons à droite des deux premières lignes, le dernier collé au bord de la liste (avant la barre de
      * défilement).
      */
     private static RowLayout row(int x0, int y, RowView row, ToIntFunction<String> textWidth) {
@@ -258,22 +259,27 @@ public final class PowerPanelLayout {
             buttons.add(b);
             labels.add(centered(b, row.buttons().get(i), textWidth));
         }
-        int textX = x0 + 2;
-        int textRight = right - 2 * ROW_BUTTON_W - 2 - 4;
+        int textX = x0 + 1;
+        int textRight = right - 2 * ROW_BUTTON_W - 2 - 3;
         int textRoom = textRight - textX;
 
         String stateShown = cut(row.state(), Math.min(STATE_MAX, textRoom / 2), textWidth);
         int stateW = textWidth.applyAsInt(stateShown);
-        Text state = text(textRight - stateW, y + 2, stateW, stateShown, row.state(), textWidth);
+        Text state = text(textRight - stateW, y + 1, stateW, stateShown, row.state(), textWidth);
         int nameRoom = textRoom - stateW - (stateW > 0 ? 6 : 0);
-        Text name = fit(textX, y + 2, nameRoom, row.name(), textWidth);
-
-        String unpaidFull = String.join(" ", row.unpaidParts());
-        String unpaidShown = parts(row.unpaidParts(), Math.min(UNPAID_MAX, textRoom / 2), textWidth);
-        int unpaidW = textWidth.applyAsInt(unpaidShown);
-        Text unpaid = text(textRight - unpaidW, y + 11, unpaidW, unpaidShown, unpaidFull, textWidth);
-        int usageRoom = textRoom - unpaidW - (unpaidW > 0 ? 6 : 0);
-        Text usage = fit(textX, y + 11, usageRoom, row.usage(), textWidth);
+        Text name = fit(textX, y + 1, nameRoom, row.name(), textWidth);
+        Text usage = fit(textX, y + 10, textRoom, row.usage(), textWidth);
+        // La troisième ligne passe sous les boutons : elle a toute la largeur de la ligne.
+        int fullRoom = right - textX;
+        Text unpaid;
+        if (row.unpaidParts().isEmpty()) {
+            unpaid = text(textX, y + 19, fullRoom, "", "", textWidth);
+        } else {
+            String prefix = row.unpaidLabel() + " ";
+            String full = prefix + String.join(" ", row.unpaidParts());
+            String shown = prefix + parts(row.unpaidParts(), fullRoom - textWidth.applyAsInt(prefix), textWidth);
+            unpaid = text(textX, y + 19, fullRoom, shown, full, textWidth);
+        }
         return new RowLayout(box, name, state, usage, unpaid, List.copyOf(buttons), List.copyOf(labels));
     }
 

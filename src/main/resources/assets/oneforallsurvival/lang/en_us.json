@@ -926,7 +926,6 @@
   "tooltip.oneforallsurvival.power_station.new": "New station, no supplier yet. Placed at the head of the grid: power comes in at the back and out at the front.",
   "message.oneforallsurvival.power_station.not_yours": "This station belongs to supplier %s.",
   "message.oneforallsurvival.power_station.has_station": "Supplier %s already has its station, at %s %s %s.",
-  "message.oneforallsurvival.power_station.unnamed": "This station has no supplier yet.",
   "message.oneforallsurvival.power_station.no_supplier": "Station without a supplier.",
   "message.oneforallsurvival.power_station.of": "Station of %s.",
   "message.oneforallsurvival.power_station.break_denied": "Only the supplier, an engineer, the mayor or staff can take this station down.",
@@ -1014,7 +1013,7 @@
   "gui.oneforallsurvival.power_panel.clients_more": "Customers (%s shown of %s)",
   "gui.oneforallsurvival.power_panel.no_clients": "No customer: pair a meter with the tester (station, then meter).",
   "gui.oneforallsurvival.power_panel.client_name": "%s (%s)",
-  "gui.oneforallsurvival.power_panel.usage": "Today %s · yesterday %s",
+  "gui.oneforallsurvival.power_panel.usage": "Today %s · yest. %s",
   "gui.oneforallsurvival.power_panel.state.awaiting_consent": "Awaiting consent",
   "gui.oneforallsurvival.power_panel.state.awaiting_accept": "To accept",
   "gui.oneforallsurvival.power_panel.state.active": "Active",
@@ -1048,5 +1047,7 @@
   "message.oneforallsurvival.power_panel.no_breaker": "No breaker paired with %s: no remote cut-off.",
   "message.oneforallsurvival.power_panel.wrong_state": "Nothing to do for %s in their current state.",
   "message.oneforallsurvival.power.request_refused": "Supplier %s refused the connection of meter %s: you will pay nothing.",
-  "message.oneforallsurvival.power.detached_by_supplier": "Supplier %s detached your meter %s: power stops. Today's use is still billed at midnight."
+  "message.oneforallsurvival.power.detached_by_supplier": "Supplier %s detached your meter %s: power stops. Today's use is still billed at midnight.",
+  "gui.oneforallsurvival.power_panel.tariff_locked.tooltip": "You do not set this supplier's tariff: you are one of its customers. Only the founder, the staff, and an engineer or mayor who is not a customer set it here.",
+  "gui.oneforallsurvival.power_panel.unpaid": "Unpaid:"
 }

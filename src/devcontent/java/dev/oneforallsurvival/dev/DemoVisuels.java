@@ -2505,6 +2505,7 @@ public final class DemoVisuels {
         panneau(mc, "320 court", () -> panneauLePlusCourt(), null, 0, "panneau_320_court_coupe_impayes.png");
         panneau(mc, "320 bulle sans disjoncteur", () -> panneauLePlusCourt(), "button:2:0", 0,
                 "panneau_320_bulle_sans_disjoncteur.png");
+        panneau(mc, "320 tarif ferme", () -> panneauCourt(false), "price", 0, "panneau_320_tarif_ferme.png");
         panneau(mc, "320 neuf", () -> panneauNeuf(), null, 0, "panneau_320_neuf.png");
         panneauNomme(mc, "panneau_320_neuf_nom_saisi.png");
         factureElectricite(mc, "facture_electricite_320.png");
@@ -2599,12 +2600,17 @@ public final class DemoVisuels {
                     "Zyxwvutsrqponmlk", etat, 99_999_999_999L, 99_999_999_999L, CINQ_COUPURES, i % 5 != 2,
                     etat.passes() && i % 3 == 0));
         }
-        return new dev.oneforallsurvival.grid.supplier.PowerPanelPacket(posteDemo(), NOM_24, CINQ_COUPURES, 50L,
+        return new dev.oneforallsurvival.grid.supplier.PowerPanelPacket(posteDemo(), true, NOM_24, CINQ_COUPURES, 50L,
                 CINQ_COUPURES, CINQ_COUPURES, CINQ_COUPURES, CINQ_COUPURES, 20, 20, 100_000L, 50L, 10,
-                99_999_999_999L, 12_345_678_901L, 4_000_000L, 99_999_999_999L, 999_999_999L, true, 70, clients);
+                99_999_999_999L, 12_345_678_901L, 4_000_000L, 99_999_999_999L, 999_999_999L, true, true, 70, clients);
     }
 
     private static dev.oneforallsurvival.grid.supplier.PowerPanelPacket panneauLePlusCourt() {
+        return panneauCourt(true);
+    }
+
+    /** Le contenu le plus court ; {@code mayTariffDemo} faux : vu par un ayant droit client du fournisseur. */
+    private static dev.oneforallsurvival.grid.supplier.PowerPanelPacket panneauCourt(boolean mayTariffDemo) {
         var actif = dev.oneforallsurvival.grid.supplier.PowerClient.State.ACTIVE;
         var attente = dev.oneforallsurvival.grid.supplier.PowerClient.State.AWAITING_ACCEPT;
         List<dev.oneforallsurvival.grid.supplier.PowerPanelPacket.Client> clients = List.of(
@@ -2613,13 +2619,16 @@ public final class DemoVisuels {
                 new dev.oneforallsurvival.grid.supplier.PowerPanelPacket.Client(new java.util.UUID(0x0E6L, 101), "Alice",
                         "Alice", actif, 0L, 1_240_000L, 125L, true, true),
                 new dev.oneforallsurvival.grid.supplier.PowerPanelPacket.Client(new java.util.UUID(0x0E6L, 102), "Atelier",
-                        "Eve", actif, 840L, 15_000L, 0L, false, false));
-        return new dev.oneforallsurvival.grid.supplier.PowerPanelPacket(posteDemo(), "Ab", 1L, 0L, 1L, 0L, 20L, 20L,
-                0, 0, 100_000L, 50L, 10, 0L, 840L, 1_300_000L, 1_255_000L, 0L, false, 3, clients);
+                        "Eve", actif, 1_234_000L, 980_000L, 0L, false, false),
+                new dev.oneforallsurvival.grid.supplier.PowerPanelPacket.Client(new java.util.UUID(0x0E6L, 103), "Dan",
+                        "Dan", dev.oneforallsurvival.grid.supplier.PowerClient.State.RESIGNING, 52_000L, 61_000L, 20L,
+                        true, false));
+        return new dev.oneforallsurvival.grid.supplier.PowerPanelPacket(posteDemo(), true, "Ab", 1L, 0L, 1L, 0L, 20L, 20L,
+                0, 0, 100_000L, 50L, 10, 0L, 1_286_000L, 1_300_000L, 1_255_000L, 0L, false, mayTariffDemo, 4, clients);
     }
 
     private static dev.oneforallsurvival.grid.supplier.PowerPanelPacket panneauNeuf() {
-        return dev.oneforallsurvival.grid.supplier.PowerPanelPacket.unnamed(posteDemo());
+        return dev.oneforallsurvival.grid.supplier.PowerPanelPacket.unnamed(posteDemo(), true);
     }
 
     /** L'écran d'une facture d'électricité dont le joueur est le débiteur : le motif est traduit chez le client. */
