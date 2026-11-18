@@ -1,5 +1,6 @@
 package dev.oneforallsurvival.food;
 
+import dev.oneforallsurvival.economy.quest.CookingInputMenu;
 import dev.oneforallsurvival.economy.quest.QuestProgress;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
@@ -12,6 +13,7 @@ import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.inventory.SimpleContainerData;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemStackHandler;
@@ -21,7 +23,7 @@ import net.minecraftforge.items.SlotItemHandler;
  * Le menu du séchoir : les trois cases, l'inventaire du joueur et cinq nombres suivis par le serveur
  * (progression, durée, énergie, capacité, état), que l'écran lit côté client.
  */
-public final class DryerMenu extends AbstractContainerMenu {
+public final class DryerMenu extends AbstractContainerMenu implements CookingInputMenu {
 
     /** Distance maximale du joueur au séchoir, au carré. */
     private static final double MAX_DISTANCE_SQR = 64;
@@ -53,10 +55,10 @@ public final class DryerMenu extends AbstractContainerMenu {
         this.pos = pos.immutable();
         this.dryer = dryer;
         this.data = data;
-        addSlot(new DryerSlot(dryer, DryerBlockEntity.SLOT_INPUT, INPUT_X, INPUT_Y, true, onChanged, false));
-        addSlot(new DryerSlot(dryer, DryerBlockEntity.SLOT_SALT, SALT_X, SALT_Y, true, onChanged, false));
+        addSlot(new DryerSlot(dryer, DryerBlockEntity.SLOT_INPUT, INPUT_X, INPUT_Y, true, onChanged, false, entity));
+        addSlot(new DryerSlot(dryer, DryerBlockEntity.SLOT_SALT, SALT_X, SALT_Y, true, onChanged, false, entity));
         // La sortie ne reçoit rien du joueur, côté client comme côté serveur.
-        addSlot(new DryerSlot(dryer, DryerBlockEntity.SLOT_OUTPUT, OUTPUT_X, OUTPUT_Y, false, onChanged, true));
+        addSlot(new DryerSlot(dryer, DryerBlockEntity.SLOT_OUTPUT, OUTPUT_X, OUTPUT_Y, false, onChanged, true, entity));
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
                 addSlot(new Slot(inventory, 9 + row * 9 + col, 8 + col * 18, 98 + row * 18));
@@ -77,15 +79,19 @@ public final class DryerMenu extends AbstractContainerMenu {
         private final Runnable onChanged;
         /** La case de sortie : ce qu'on y prend compte pour les quêtes. */
         private final boolean output;
+        /** Le bloc côté serveur (son crédit de cuisine), {@code null} côté client. */
+        @Nullable
+        private final BlockEntity source;
         private ItemStack taken = ItemStack.EMPTY;
         private int takenCount;
 
         DryerSlot(IItemHandler handler, int index, int x, int y, boolean acceptsFromPlayer, Runnable onChanged,
-                boolean output) {
+                boolean output, @Nullable BlockEntity source) {
             super(handler, index, x, y);
             this.acceptsFromPlayer = acceptsFromPlayer;
             this.onChanged = onChanged;
             this.output = output;
+            this.source = source;
         }
 
         @Override
@@ -106,8 +112,8 @@ public final class DryerMenu extends AbstractContainerMenu {
 
         @Override
         public void onTake(Player player, ItemStack stack) {
-            if (output && takenCount > 0 && player instanceof ServerPlayer server) {
-                QuestProgress.preserved(server, taken.copyWithCount(takenCount));
+            if (output && takenCount > 0 && source != null && player instanceof ServerPlayer server) {
+                QuestProgress.preserved(server, source, taken.copyWithCount(takenCount));
             }
             takenCount = 0;
             taken = ItemStack.EMPTY;
@@ -153,6 +159,18 @@ public final class DryerMenu extends AbstractContainerMenu {
     /** Position de l'état dans {@link dev.oneforallsurvival.machine.MachineState#values()}. */
     public int stateOrdinal() {
         return data.get(DryerBlockEntity.DATA_STATE);
+    }
+
+    @Override
+    @Nullable
+    public BlockEntity oneforall$cookingBlock() {
+        return entity;
+    }
+
+    /** L'entrée : l'aliment à sécher, pas le sel. */
+    @Override
+    public boolean oneforall$isCookingInput(int slotIndex) {
+        return slotIndex == DryerBlockEntity.SLOT_INPUT;
     }
 
     @Override

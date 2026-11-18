@@ -10,6 +10,7 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import vectorwing.farmersdelight.common.block.entity.CookingPotBlockEntity;
 import vectorwing.farmersdelight.common.block.entity.container.CookingPotResultSlot;
 
 /**
@@ -30,10 +31,14 @@ public abstract class CookingPotResultSlotMixin {
     @Shadow(remap = false)
     private int removeCount;
 
+    @Shadow(remap = false)
+    @Final
+    public CookingPotBlockEntity cookingPot;
+
     @Inject(method = "checkTakeAchievements", at = @At("HEAD"))
     private void oneforall$questCooked(ItemStack stack, CallbackInfo ci) {
         if (removeCount > 0 && player instanceof ServerPlayer server) {
-            QuestProgress.cooked(server, stack.copyWithCount(removeCount));
+            QuestProgress.cooked(server, cookingPot, stack.copyWithCount(removeCount));
         }
     }
 }

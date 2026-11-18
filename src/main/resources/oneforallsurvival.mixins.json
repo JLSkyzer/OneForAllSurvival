@@ -6,10 +6,12 @@
   "compatibilityLevel": "JAVA_17",
   "mixins": [
     "AbstractContainerMenuMixin",
+    "AbstractFurnaceMenuMixin",
     "FallingBlockEntityMixin",
     "FurnaceResultSlotMixin",
     "HopperBlockEntityMixin",
     "InventoryMenuMixin",
+    "RecipeBookMenuMixin",
     "SlotItemHandlerMixin",
     "SlotMixin",
     "VanillaInventoryCodeHooksMixin"

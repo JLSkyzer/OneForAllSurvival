@@ -1,5 +1,6 @@
 package dev.oneforallsurvival.food;
 
+import dev.oneforallsurvival.economy.quest.CookingInputMenu;
 import dev.oneforallsurvival.economy.quest.QuestProgress;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
@@ -12,6 +13,7 @@ import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.inventory.SimpleContainerData;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemStackHandler;
@@ -22,7 +24,7 @@ import net.minecraftforge.items.SlotItemHandler;
  * sept nombres suivis par le serveur (progression, durée, énergie, capacité, état, récipients exigés et manquants),
  * que l'écran lit côté client.
  */
-public final class CanteenPotMenu extends AbstractContainerMenu {
+public final class CanteenPotMenu extends AbstractContainerMenu implements CookingInputMenu {
 
     /** Distance maximale du joueur à la marmite, au carré. */
     private static final double MAX_DISTANCE_SQR = 64;
@@ -55,11 +57,12 @@ public final class CanteenPotMenu extends AbstractContainerMenu {
         this.data = data;
         for (int i = 0; i < CanteenPotBlockEntity.INPUTS; i++) {
             addSlot(new PotSlot(pot, CanteenPotBlockEntity.SLOT_INPUT_FIRST + i, INPUT_X + (i % 3) * 18,
-                    INPUT_Y + (i / 3) * 18, true, onChanged, false));
+                    INPUT_Y + (i / 3) * 18, true, onChanged, false, entity));
         }
-        addSlot(new PotSlot(pot, CanteenPotBlockEntity.SLOT_CONTAINER, CONTAINER_X, CONTAINER_Y, true, onChanged, false));
+        addSlot(new PotSlot(pot, CanteenPotBlockEntity.SLOT_CONTAINER, CONTAINER_X, CONTAINER_Y, true, onChanged, false,
+                entity));
         // La sortie ne reçoit rien du joueur, côté client comme côté serveur.
-        addSlot(new PotSlot(pot, CanteenPotBlockEntity.SLOT_OUTPUT, OUTPUT_X, OUTPUT_Y, false, onChanged, true));
+        addSlot(new PotSlot(pot, CanteenPotBlockEntity.SLOT_OUTPUT, OUTPUT_X, OUTPUT_Y, false, onChanged, true, entity));
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
                 addSlot(new Slot(inventory, 9 + row * 9 + col, 8 + col * 18, 98 + row * 18));
@@ -80,15 +83,19 @@ public final class CanteenPotMenu extends AbstractContainerMenu {
         private final Runnable onChanged;
         /** La case de sortie : ce qu'on y prend compte pour les quêtes. */
         private final boolean output;
+        /** Le bloc côté serveur (son crédit de cuisine), {@code null} côté client. */
+        @Nullable
+        private final BlockEntity source;
         private ItemStack taken = ItemStack.EMPTY;
         private int takenCount;
 
         PotSlot(IItemHandler handler, int index, int x, int y, boolean acceptsFromPlayer, Runnable onChanged,
-                boolean output) {
+                boolean output, @Nullable BlockEntity source) {
             super(handler, index, x, y);
             this.acceptsFromPlayer = acceptsFromPlayer;
             this.onChanged = onChanged;
             this.output = output;
+            this.source = source;
         }
 
         @Override
@@ -109,8 +116,8 @@ public final class CanteenPotMenu extends AbstractContainerMenu {
 
         @Override
         public void onTake(Player player, ItemStack stack) {
-            if (output && takenCount > 0 && player instanceof ServerPlayer server) {
-                QuestProgress.cooked(server, taken.copyWithCount(takenCount));
+            if (output && takenCount > 0 && source != null && player instanceof ServerPlayer server) {
+                QuestProgress.cooked(server, source, taken.copyWithCount(takenCount));
             }
             takenCount = 0;
             taken = ItemStack.EMPTY;
@@ -166,6 +173,18 @@ public final class CanteenPotMenu extends AbstractContainerMenu {
     /** Combien de récipients manquent encore pour lancer la fournée. */
     public int containersMissing() {
         return data.get(CanteenPotBlockEntity.DATA_CONTAINERS_MISSING);
+    }
+
+    @Override
+    @Nullable
+    public BlockEntity oneforall$cookingBlock() {
+        return entity;
+    }
+
+    /** L'entrée : les six ingrédients et le récipient. */
+    @Override
+    public boolean oneforall$isCookingInput(int slotIndex) {
+        return slotIndex < CanteenPotBlockEntity.INPUTS || slotIndex == CanteenPotBlockEntity.SLOT_CONTAINER;
     }
 
     @Override

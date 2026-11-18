@@ -31,6 +31,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.BaseFireBlock;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.CropBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.FurnaceBlockEntity;
 import net.minecraft.world.level.block.entity.SmokerBlockEntity;
 import net.minecraft.world.level.block.piston.PistonStructureResolver;
@@ -60,7 +61,9 @@ import net.minecraftforge.registries.ForgeRegistries;
  *       ({@link MobOrigin}) ; sans cible, un monstre.</li>
  *   <li><b>Pêche</b>, <b>élevage</b> : {@code ItemFishedEvent}, {@code BabyEntitySpawnEvent}.</li>
  *   <li><b>Cuisine</b>, <b>conserve</b> : à la sortie d'un four, d'un fumoir, de la marmite, du séchoir ou du Cooking Pot
- *       de Farmer's Delight, par les crochets {@link #cooked}, {@link #preserved} et {@link #furnaceOutput}.</li>
+ *       de Farmer's Delight, par les crochets {@link #cooked}, {@link #preserved} et {@link #furnaceOutput} ; seulement
+ *       pour la part que le joueur a mise lui-même dans l'entrée ({@link CookingCredit}) : un four nourri par une
+ *       trémie ne compte rien.</li>
  *   <li><b>Métier</b> : {@link #job}, appelé par le geste de métier (réparation d'une machine).</li>
  * </ul>
  *
@@ -369,34 +372,40 @@ public final class QuestProgress {
     // Crochets : cuisine, conserve, métier, livraison
     // ---------------------------------------------------------------------------------------------
 
-    /** Ce que le joueur vient de sortir d'une machine de cuisson (le nombre est celui de la pile). */
-    public static void cooked(ServerPlayer player, ItemStack stack) {
-        if (!stack.isEmpty()) {
-            add(player, QuestCategory.COOK, t -> t == null ? stack.isEdible() : itemMatches(t, stack),
-                    stack.getCount());
+    /**
+     * Ce que le joueur vient de sortir d'une machine de cuisson ({@code source}) : seule la part qu'il y a mise lui-même
+     * compte ({@link CookingCredit#take}).
+     */
+    public static void cooked(ServerPlayer player, BlockEntity source, ItemStack taken) {
+        int counted = taken.isEmpty() ? 0 : CookingCredit.take(source, player.getUUID(), taken.getCount());
+        if (counted > 0) {
+            add(player, QuestCategory.COOK, t -> t == null ? taken.isEdible() : itemMatches(t, taken), counted);
         }
     }
 
-    /** Ce que le joueur vient de sortir d'un séchoir ou d'un fumoir. */
-    public static void preserved(ServerPlayer player, ItemStack stack) {
-        if (!stack.isEmpty()) {
-            add(player, QuestCategory.PRESERVE, t -> t == null ? stack.isEdible() : itemMatches(t, stack),
-                    stack.getCount());
+    /** Ce que le joueur vient de sortir d'un séchoir ou d'un fumoir ; même crédit que {@link #cooked}. */
+    public static void preserved(ServerPlayer player, BlockEntity source, ItemStack taken) {
+        int counted = taken.isEmpty() ? 0 : CookingCredit.take(source, player.getUUID(), taken.getCount());
+        if (counted > 0) {
+            add(player, QuestCategory.PRESERVE, t -> t == null ? taken.isEdible() : itemMatches(t, taken), counted);
         }
     }
 
     /**
      * La case de sortie d'un four vient de rendre {@code count} objets au joueur : cuisine pour un four, conserve pour
-     * un fumoir, rien pour un haut fourneau.
+     * un fumoir ; un haut fourneau ne fait qu'user le crédit.
      */
     public static void furnaceOutput(Player player, Container container, ItemStack stack, int count) {
-        if (count <= 0 || stack.isEmpty() || !(player instanceof ServerPlayer server)) {
+        if (count <= 0 || stack.isEmpty() || !(player instanceof ServerPlayer server)
+                || !(container instanceof BlockEntity source)) {
             return;
         }
         if (container instanceof SmokerBlockEntity) {
-            preserved(server, stack.copyWithCount(count));
+            preserved(server, source, stack.copyWithCount(count));
         } else if (container instanceof FurnaceBlockEntity) {
-            cooked(server, stack.copyWithCount(count));
+            cooked(server, source, stack.copyWithCount(count));
+        } else {
+            CookingCredit.take(source, server.getUUID(), count);
         }
     }
 
