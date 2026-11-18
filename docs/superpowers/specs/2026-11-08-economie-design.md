@@ -328,8 +328,13 @@ Demandé par Killian le 2026-11-08, sur le modèle des opérateurs du téléphon
     entrent dans cette maison, et c'est cette mesure qui fait la facture.
   - Le **disjoncteur d'abonné** (feature 8) suit le compteur et coupe la maison.
   - **Les câbles viennent de n'importe quel mod.** Le mod n'ajoute pas de câble à lui. Le poste, le
-    compteur et le disjoncteur exposent l'énergie Forge (FE) sur toutes leurs faces : tout câble,
-    connecteur ou conduit qui transporte des FE s'y branche, quel que soit son mod. Les fils suspendus
+    compteur et le disjoncteur exposent l'énergie Forge (FE) : tout câble, connecteur ou conduit qui
+    transporte des FE s'y branche, quel que soit son mod. Le courant **entre par l'arrière et sort par
+    l'avant**, comme le compteur du lot 4 (décision de Killian, 2026-11-18). Le câble mural
+    d'Advanced Electricity amène le courant dans une entrée mais ne le reprend pas à une sortie, car il
+    n'aspire que d'une face qui donne de l'énergie. En sortie, on passe par un fil de Crafts & Additions
+    et la boîte d'alimentation d'Advanced Electricity, ou par New Age. Killian a choisi de le laisser
+    ainsi le 2026-11-18. Les fils suspendus
     de Create: Crafts & Additions, qui pendent entre deux connecteurs comme de vraies lignes, sont le
     cas de référence pour les essais.
   - Le compteur doit mesurer juste quel que soit le câble : il compte ce qui le traverse réellement,
@@ -346,7 +351,10 @@ Demandé par Killian le 2026-11-08, sur le modèle des opérateurs du téléphon
   compteurs ont mesuré. Un écart élevé signale une perte ou un branchement pirate sur un câble, avant un
   compteur. Le policier prend le relais en RP.
 - **La facture est automatique et quotidienne.** Chaque jour à minuit, chaque compteur se relève seul
-  et émet une facture (feature 72) : consommation du jour fois prix, plus l'abonnement. Elle est
+  et émet une facture (feature 72) : consommation du jour fois prix, plus l'abonnement. Un client
+  **coupé** au moment de la relève ne paie pas l'abonnement de ce jour. Sa consommation mesurée avant la
+  coupure reste facturée, et un client coupé toute la journée ne reçoit aucune facture (décision de
+  Killian, 2026-11-18). La facture est
   **prélevée en pièces** (feature 86), et les pièces vont dans la **caisse du poste**, où le
   fournisseur les retire.
 - Le compteur mesure les FE qui passent vraiment : un fournisseur ne facture que ce qu'il a livré.
