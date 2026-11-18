@@ -442,6 +442,9 @@ Catégories proposées en plus, choisies pour ne pas être des corvées :
   - un bloc **posé par un joueur** ne compte pas pour une quête de casse, et un bloc posé puis cassé
     aussitôt ne compte pas pour une quête de pose ;
   - les mobs comptent selon les mêmes règles que le butin (pas de générateur, pas de ferme) ;
+  - *décision du lot E5 (passe finale) : cuisine et conserve ne comptent qu'une sortie née d'ingrédients mis
+    par le joueur à l'écran ; récipients et combustible jamais crédités ; crédit borné à ce qui est dans le bloc
+    (détail : `docs/verifications/lot-e5.md`, « Cuisine et conserve »)* ;
   Le suivi des blocs posés est limité en taille. *Décision du lot E5 (I2) : au-delà de la limite, le chunk se
   sature (plus aucune casse n'y compte) au lieu d'oublier les plus anciens.*
 - L'équipe du serveur peut ajouter des **modèles** et lancer des **quêtes d'événement** communes à tous,
