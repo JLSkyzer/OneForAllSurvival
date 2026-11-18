@@ -970,5 +970,14 @@
   "command.oneforallsurvival.power.state.awaiting_accept": "awaiting the supplier",
   "command.oneforallsurvival.power.state.active": "active",
   "command.oneforallsurvival.power.state.resigning": "cancelled, last bill at midnight",
-  "message.oneforallsurvival.power.reinscribe_paired": "This connection binds its subscriber: remove it first (it will be detached) to register another name."
+  "message.oneforallsurvival.power.reinscribe_paired": "This connection binds its subscriber: remove it first (it will be detached) to register another name.",
+  "economy.oneforallsurvival.kind.transfer.power_tax": "Electricity tax (included in debited bills)",
+  "economy.oneforallsurvival.treasury.kind.power_tax": "Electricity tax",
+  "message.oneforallsurvival.power.bill": "for electricity from %s on %s (%s kFE at %s per %s FE, subscription %s)",
+  "message.oneforallsurvival.power.tariff": "New tariff from supplier %s starting today: %s per %s FE, subscription %s per day.",
+  "message.oneforallsurvival.power.price_capped": "Supplier %s: your price exceeded the cap set by the mayor; it is lowered to %s per %s FE starting today.",
+  "message.oneforallsurvival.power.founder_unpaid": "Direct debit refused for %s: electricity bill no. %s, %s. It stays due and will be presented every midnight; it is up to you to cut them off or not.",
+  "message.oneforallsurvival.power.founder_unpaid_summary": "Supplier %s: %s unpaid electricity bill(s) among your customers, %s in total.",
+  "message.oneforallsurvival.power.till_full": "Supplier %s: the station till (or the treasury) is full, bill no. %s could not be collected. It stays due: empty the till.",
+  "message.oneforallsurvival.power.resigned_done": "Cancellation done: your meter %2$s is no longer connected to supplier %1$s (last bill issued)."
 }

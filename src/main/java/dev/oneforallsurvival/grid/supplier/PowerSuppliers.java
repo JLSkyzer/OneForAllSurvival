@@ -66,6 +66,8 @@ public final class PowerSuppliers extends SavedData {
     private final Map<UUID, GlobalPos> loadedBreakers = new HashMap<>();
     /** Où chaque compteur et disjoncteur jumelé a été jumelé (sauvegardé) : une copie posée ailleurs ne compte pas. */
     private final Map<UUID, GlobalPos> pairedAt = new HashMap<>();
+    /** Le relevé de chaque client jumelé (sauvegardé), borné à {@link #STATEMENT_LINES} lignes. */
+    private final Map<UUID, List<StatementLine>> statements = new HashMap<>();
     @Nullable
     private Long priceCap;
     @Nullable
@@ -177,6 +179,7 @@ public final class PowerSuppliers extends SavedData {
         }
         suppliers.remove(id);
         clients.values().removeIf(client -> client.supplierId().equals(id));
+        statements.keySet().removeIf(meter -> !clients.containsKey(meter));
         consentCodes.values().removeIf(meter -> !clients.containsKey(meter));
         reindexBreakers();
         setDirty();
@@ -256,6 +259,7 @@ public final class PowerSuppliers extends SavedData {
             removed.breakers().forEach(breakerIndex::remove);
             removed.breakers().forEach(pairedAt::remove);
             pairedAt.remove(meterSerial);
+            statements.remove(meterSerial);
             consentCodes.values().removeIf(meterSerial::equals);
             setDirty();
         }
@@ -465,6 +469,152 @@ public final class PowerSuppliers extends SavedData {
     }
 
     // ---------------------------------------------------------------------------------------------
+    // Tarifs du fournisseur (au jour suivant) et clôture du jour
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * Prix du lendemain de ce fournisseur, en cuivres par tranche de {@code powerPriceUnitFe} FE (négatif : 0). Il
+     * s'applique à la clôture de minuit, ramené au plafond en vigueur ce jour-là ; la facture qui clôt le jour du
+     * changement garde l'ancien prix. @return faux si le fournisseur n'existe pas
+     */
+    public boolean setNextPrice(String id, long price) {
+        PowerSupplier supplier = suppliers.get(id);
+        if (supplier == null) {
+            return false;
+        }
+        replace(supplier.withNextTariff(Math.max(0L, price), supplier.nextSubscription()));
+        return true;
+    }
+
+    /**
+     * Abonnement du lendemain de ce fournisseur, en cuivres par jour, borné à 0..{@code powerMaxSubscription}. Il
+     * s'applique à la clôture de minuit. @return faux si le fournisseur n'existe pas
+     */
+    public boolean setNextSubscription(String id, long subscription) {
+        PowerSupplier supplier = suppliers.get(id);
+        if (supplier == null) {
+            return false;
+        }
+        long bounded = Math.max(0L, Math.min(subscription, EconomyConfig.powerMaxSubscription()));
+        replace(supplier.withNextTariff(supplier.nextPrice(), bounded));
+        return true;
+    }
+
+    /** Clôt le jour de ce client : sa consommation passe à « hier » et repart de zéro. */
+    public void closeClientDay(UUID meterSerial) {
+        PowerClient client = clients.get(meterSerial);
+        if (client != null) {
+            clients.put(meterSerial, client.withDayClosed());
+            setDirty();
+        }
+    }
+
+    /** Le plafond et la taxe du lendemain, s'ils ont été changés, entrent en vigueur (clôture de minuit). */
+    public void applyNextCapAndTax() {
+        if (nextPriceCap != null) {
+            priceCap = nextPriceCap;
+            nextPriceCap = null;
+            setDirty();
+        }
+        if (nextTaxPercent != null) {
+            taxPercent = nextTaxPercent;
+            nextTaxPercent = null;
+            setDirty();
+        }
+    }
+
+    /**
+     * Ce qu'a donné la clôture du jour d'un fournisseur : ses tarifs avant et après, et si le prix a été ramené au
+     * plafond.
+     */
+    public record DayClosed(long priceBefore, long subscriptionBefore, long price, long subscription, boolean capped) {
+
+        /** Les tarifs ont-ils changé ? */
+        public boolean changed() {
+            return price != priceBefore || subscription != subscriptionBefore;
+        }
+    }
+
+    /**
+     * Clôt le jour de ce fournisseur, après sa facturation : les tarifs du lendemain entrent en vigueur, le prix est
+     * ramené au plafond en vigueur ({@link #priceCap()}, à appeler après {@link #applyNextCapAndTax}), la sortie du
+     * poste et la somme des compteurs du jour passent à « hier ».
+     *
+     * @param meters la somme des compteurs de ce fournisseur aujourd'hui (détachés compris)
+     * @return vide si le fournisseur n'existe pas
+     */
+    public Optional<DayClosed> closeSupplierDay(String id, long meters) {
+        PowerSupplier supplier = suppliers.get(id);
+        if (supplier == null) {
+            return Optional.empty();
+        }
+        long price = supplier.nextPrice() != null ? supplier.nextPrice() : supplier.price();
+        long subscription = supplier.nextSubscription() != null ? supplier.nextSubscription() : supplier.subscription();
+        long cap = priceCap();
+        boolean capped = price > cap;
+        if (capped) {
+            price = cap;
+        }
+        replace(supplier.withDayClosed(price, subscription, Math.max(0L, meters)));
+        return Optional.of(new DayClosed(supplier.price(), supplier.subscription(), price, subscription, capped));
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Relevé des clients (factures émises, payées, refusées)
+    // ---------------------------------------------------------------------------------------------
+
+    /** Lignes gardées au relevé de chaque client ; les plus anciennes tombent. */
+    public static final int STATEMENT_LINES = 16;
+
+    /** Ce qu'une ligne du relevé dit de la facture. */
+    public enum StatementKind { BILLED, PAID, REFUSED }
+
+    /**
+     * Une ligne du relevé d'un client.
+     *
+     * @param invoice le numéro court de la facture
+     */
+    public record StatementLine(long epochMillis, StatementKind kind, long amount, String invoice) {
+
+        CompoundTag save() {
+            CompoundTag tag = new CompoundTag();
+            tag.putLong("t", epochMillis);
+            tag.putString("kind", kind.name());
+            tag.putLong("sum", amount);
+            tag.putString("invoice", invoice);
+            return tag;
+        }
+
+        @Nullable
+        static StatementLine load(CompoundTag tag) {
+            try {
+                return new StatementLine(tag.getLong("t"), StatementKind.valueOf(tag.getString("kind")),
+                        Math.max(0L, tag.getLong("sum")), tag.getString("invoice"));
+            } catch (IllegalArgumentException e) {
+                return null;
+            }
+        }
+    }
+
+    /** Ajoute une ligne au relevé de ce compteur, s'il est encore jumelé (rien sinon). */
+    public void noteStatement(UUID meterSerial, StatementLine line) {
+        if (!clients.containsKey(meterSerial)) {
+            return;
+        }
+        List<StatementLine> lines = statements.computeIfAbsent(meterSerial, k -> new ArrayList<>());
+        lines.add(line);
+        while (lines.size() > STATEMENT_LINES) {
+            lines.remove(0);
+        }
+        setDirty();
+    }
+
+    /** Le relevé de ce compteur, de la plus ancienne ligne à la plus récente (copie). */
+    public List<StatementLine> statement(UUID meterSerial) {
+        return List.copyOf(statements.getOrDefault(meterSerial, List.of()));
+    }
+
+    // ---------------------------------------------------------------------------------------------
     // Plafond du prix et taxe (réglés par le maire, au jour suivant)
     // ---------------------------------------------------------------------------------------------
 
@@ -530,6 +680,16 @@ public final class PowerSuppliers extends SavedData {
             paired.add(line);
         }));
         tag.put("pairedAt", paired);
+        ListTag statementList = new ListTag();
+        statements.forEach((meter, lines) -> {
+            CompoundTag entry = new CompoundTag();
+            entry.putUUID("meter", meter);
+            ListTag saved = new ListTag();
+            lines.forEach(line -> saved.add(line.save()));
+            entry.put("lines", saved);
+            statementList.add(entry);
+        });
+        tag.put("statements", statementList);
         if (priceCap != null) {
             tag.putLong("priceCap", priceCap);
         }
@@ -575,6 +735,19 @@ public final class PowerSuppliers extends SavedData {
             if (line.hasUUID("serial")) {
                 GlobalPos.CODEC.parse(NbtOps.INSTANCE, line.get("pos")).result()
                         .ifPresent(pos -> registry.pairedAt.put(line.getUUID("serial"), pos));
+            }
+        }
+        for (Tag entry : tag.getList("statements", Tag.TAG_COMPOUND)) {
+            CompoundTag line = (CompoundTag) entry;
+            if (line.hasUUID("meter") && registry.clients.containsKey(line.getUUID("meter"))) {
+                List<StatementLine> lines = new ArrayList<>();
+                for (Tag saved : line.getList("lines", Tag.TAG_COMPOUND)) {
+                    StatementLine read = StatementLine.load((CompoundTag) saved);
+                    if (read != null) {
+                        lines.add(read);
+                    }
+                }
+                registry.statements.put(line.getUUID("meter"), lines);
             }
         }
         registry.reindexBreakers();

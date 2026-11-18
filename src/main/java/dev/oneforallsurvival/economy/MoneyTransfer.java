@@ -28,7 +28,12 @@ public enum MoneyTransfer {
     /** Salaire versé par le trésor à un joueur. */
     SALARY,
     /** Facture publique prélevée (inventaire, attente ou coffre-fort du débiteur) et versée à son créancier. */
-    PUBLIC_BILL;
+    PUBLIC_BILL,
+    /**
+     * Taxe sur l'électricité : la part d'une facture d'électricité prélevée qui va au trésor au lieu de la caisse du
+     * poste. Elle est comprise dans le {@link #PUBLIC_BILL} de la même facture (ce n'est pas un second paiement).
+     */
+    POWER_TAX;
 
     /** Genre de la ligne du registre pour un transfert : {@code transfer.trade}. */
     public String kind() {

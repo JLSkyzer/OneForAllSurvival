@@ -75,6 +75,17 @@ public record PowerSupplier(String id, String name, UUID founder, String founder
                 station, till, out, outYesterday, metersYesterday);
     }
 
+    PowerSupplier withNextTariff(@Nullable Long newNextPrice, @Nullable Long newNextSubscription) {
+        return new PowerSupplier(id, name, founder, founderName, price, subscription, newNextPrice, newNextSubscription,
+                station, till, outToday, outYesterday, metersYesterday);
+    }
+
+    /** Le jour clos : tarifs du lendemain en vigueur, sortie et compteurs du jour passés à « hier ». */
+    PowerSupplier withDayClosed(long newPrice, long newSubscription, long meters) {
+        return new PowerSupplier(id, name, founder, founderName, newPrice, newSubscription, null, null, station, till,
+                0L, outToday, meters);
+    }
+
     CompoundTag save() {
         CompoundTag tag = new CompoundTag();
         tag.putString("id", id);

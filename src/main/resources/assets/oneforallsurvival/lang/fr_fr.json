@@ -970,5 +970,14 @@
   "command.oneforallsurvival.power.state.awaiting_accept": "attend le fournisseur",
   "command.oneforallsurvival.power.state.active": "actif",
   "command.oneforallsurvival.power.state.resigning": "résilié, dernière facture à minuit",
-  "message.oneforallsurvival.power.reinscribe_paired": "Ce raccordement lie son abonné : démontez-le d'abord (il sera détaché) pour inscrire un autre nom."
+  "message.oneforallsurvival.power.reinscribe_paired": "Ce raccordement lie son abonné : démontez-le d'abord (il sera détaché) pour inscrire un autre nom.",
+  "economy.oneforallsurvival.kind.transfer.power_tax": "Taxe sur l'électricité (comprise dans les factures prélevées)",
+  "economy.oneforallsurvival.treasury.kind.power_tax": "Taxe sur l'électricité",
+  "message.oneforallsurvival.power.bill": "d'électricité de %s du %s (%s kFE à %s les %s FE, abonnement %s)",
+  "message.oneforallsurvival.power.tariff": "Nouveau tarif du fournisseur %s dès aujourd'hui : %s les %s FE, abonnement %s par jour.",
+  "message.oneforallsurvival.power.price_capped": "Fournisseur %s : votre prix dépassait le plafond fixé par le maire ; il est ramené à %s les %s FE dès aujourd'hui.",
+  "message.oneforallsurvival.power.founder_unpaid": "Prélèvement refusé chez %s : facture d'électricité n° %s, %s. Elle reste due et sera présentée à chaque minuit ; à vous de décider de couper ou non.",
+  "message.oneforallsurvival.power.founder_unpaid_summary": "Fournisseur %s : %s facture(s) d'électricité impayée(s) chez vos clients, %s en tout.",
+  "message.oneforallsurvival.power.till_full": "Fournisseur %s : la caisse du poste (ou le trésor) est pleine, la facture n° %s n'a pas pu être encaissée. Elle reste due : videz la caisse.",
+  "message.oneforallsurvival.power.resigned_done": "Résiliation faite : votre compteur %2$s n'est plus raccordé au fournisseur %1$s (dernière facture émise)."
 }

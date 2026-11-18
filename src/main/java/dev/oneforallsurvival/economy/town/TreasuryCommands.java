@@ -294,7 +294,7 @@ public final class TreasuryCommands {
             return Component.empty();
         }
         String sign = switch (line.kind()) {
-            case TAX, DEPOSIT, INJECTION -> "+";
+            case TAX, DEPOSIT, INJECTION, POWER_TAX -> "+";
             case SPEND, STAFF_TAKE, SALARY_PAID -> "-";
             default -> "";
         };

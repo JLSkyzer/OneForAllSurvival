@@ -128,6 +128,10 @@ public final class OneForAllSurvival {
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.grid.supplier.PowerPairing::onBreak);
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.grid.supplier.PowerPairing::onLoggedIn);
         MinecraftForge.EVENT_BUS.register(new dev.oneforallsurvival.grid.supplier.PowerCommands());
+        // Lot E6, tâche 4 : la facture quotidienne d'électricité, créancier et émetteur du prélèvement de minuit ; les
+        // impayés des clients rappelés au fondateur à sa connexion.
+        dev.oneforallsurvival.grid.supplier.PowerBilling.install(dev.oneforallsurvival.grid.supplier.PowerBilling.SERVER);
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.grid.supplier.PowerBilling::onLoggedIn);
         // Le tableau de la mairie : les comptes publics partent à la connexion puis quand ils changent (1 fois par seconde).
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.town.TownFinances::onLoggedIn);
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.town.TownFinances::onServerTick);

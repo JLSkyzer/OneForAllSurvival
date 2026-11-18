@@ -18,7 +18,11 @@ import net.minecraft.nbt.ListTag;
  */
 public final class TreasuryLedger {
 
-    public enum Kind { TAX, DEPOSIT, SPEND, INJECTION, STAFF_TAKE, SALARY_PAID, SALARY_OWED, DAY_CLOSED, PLACED, REMOVED }
+    public enum Kind {
+        TAX, DEPOSIT, SPEND, INJECTION, STAFF_TAKE, SALARY_PAID, SALARY_OWED, DAY_CLOSED, PLACED, REMOVED,
+        /** Taxe sur l'électricité, retenue sur une facture d'électricité payée (lot E6). */
+        POWER_TAX
+    }
 
     /** Lignes par page de {@link #page}. */
     public static final int PAGE_SIZE = 10;

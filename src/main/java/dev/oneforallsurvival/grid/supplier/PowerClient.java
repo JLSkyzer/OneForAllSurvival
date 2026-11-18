@@ -53,6 +53,12 @@ public record PowerClient(UUID meterSerial, String supplierId, UUID player, Stri
                 cut);
     }
 
+    /** Le jour clos : la consommation du jour passe à « hier », celle du jour repart de zéro. */
+    PowerClient withDayClosed() {
+        return new PowerClient(meterSerial, supplierId, player, playerName, subscriber, state, 0L, feToday, breakers,
+                cut);
+    }
+
     PowerClient withState(State next) {
         return new PowerClient(meterSerial, supplierId, player, playerName, subscriber, next, feToday, feYesterday,
                 breakers, cut);
