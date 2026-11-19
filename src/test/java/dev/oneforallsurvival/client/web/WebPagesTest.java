@@ -40,6 +40,16 @@ class WebPagesTest {
     }
 
     @Test
+    void espacesEtCaracteresDeControleRefuses() {
+        for (char c = 0; c <= 0x20; c++) {
+            String chemin = "web/a" + c + "b.html";
+            assertThrows(IllegalArgumentException.class, () -> WebPages.url(chemin), "url avec U+" + (int) c);
+            assertFalse(WebPages.isAllowed(WebPages.BASE + chemin), "isAllowed avec U+" + (int) c);
+        }
+        assertTrue(WebPages.isAllowed(WebPages.BASE + "web/a!b.html"), "U+0021 reste permis");
+    }
+
+    @Test
     void cheminDeRessource() {
         assertEquals("/assets/oneforallsurvival/html/phone/index.html", WebPages.resourcePath("phone/index.html"));
     }

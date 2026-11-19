@@ -26,7 +26,9 @@ import org.junit.jupiter.api.Test;
 class McefIsolationTest {
 
     private static final String PAQUET_MCEF = "dev/oneforallsurvival/client/web/mcef/";
-    private static final String[] BIBLIOTHEQUES = {"com/cinemamod/", "org/cef/"};
+    private static final String PAQUET_MCEF_POINTE = "dev.oneforallsurvival.client.web.mcef.";
+    /** Noms internes (barres obliques) et noms pointés (chaînes, réflexion, signatures de Forge). */
+    private static final String[] BIBLIOTHEQUES = {"com/cinemamod/", "org/cef/", "com.cinemamod.", "org.cef."};
 
     /** Classe lue : son chemin relatif (avec des barres obliques) et les textes de son pool. */
     private record Classe(String chemin, List<String> textes) {}
@@ -56,13 +58,22 @@ class McefIsolationTest {
                 continue;
             }
             for (String t : c.textes()) {
-                if (nomme(t, PAQUET_MCEF)) {
+                if (nomme(t, PAQUET_MCEF, PAQUET_MCEF_POINTE)) {
                     fautives.add(c.chemin() + " nomme " + t);
                     break;
                 }
             }
         }
         assertTrue(fautives.isEmpty(), "classes hors d'un paquet client qui nomment client/web/mcef : " + fautives);
+    }
+
+    @Test
+    void lePaquetMcefEstLuEtNommeMcef() throws IOException {
+        // Témoin : la garde lit bien les classes du paquet mcef, et y voit les noms de MCEF qu'elle interdit ailleurs.
+        List<Classe> mcef = lire().stream().filter(c -> c.chemin().startsWith(PAQUET_MCEF)).toList();
+        assertTrue(!mcef.isEmpty(), "aucune classe de client/web/mcef lue");
+        boolean vu = mcef.stream().anyMatch(c -> c.textes().stream().anyMatch(t -> nomme(t, BIBLIOTHEQUES)));
+        assertTrue(vu, "aucune classe de client/web/mcef ne nomme MCEF ou CEF : la lecture du pool est cassée");
     }
 
     @Test

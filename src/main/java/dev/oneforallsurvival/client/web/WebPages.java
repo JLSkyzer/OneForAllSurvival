@@ -15,10 +15,11 @@ public final class WebPages {
 
     private WebPages() {}
 
-    /** Adresse d'une page du mod ; refuse tout chemin vide, en majuscules, remontant ou absolu. */
+    /** Adresse d'une page du mod ; refuse tout chemin vide, en majuscules, remontant, absolu ou qui contient un blanc. */
     public static String url(String path) {
         if (path == null
                 || path.isEmpty()
+                || hasBlankOrControl(path)
                 || !path.equals(path.toLowerCase(Locale.ROOT))
                 || path.contains("..")
                 || path.indexOf('\\') >= 0
@@ -29,7 +30,10 @@ public final class WebPages {
         return BASE + path;
     }
 
-    /** Vrai pour {@code about:blank} et les pages du mod ; les remontées, antiobliques et pourcentages sont refusés. */
+    /**
+     * Vrai pour {@code about:blank} et les pages du mod ; les remontées, antiobliques, pourcentages, espaces et caractères
+     * de contrôle (jusqu'à U+0020) sont refusés.
+     */
     public static boolean isAllowed(String url) {
         if (url == null) {
             return false;
@@ -38,9 +42,19 @@ public final class WebPages {
             return true;
         }
         return url.startsWith(BASE)
+                && !hasBlankOrControl(url)
                 && !url.contains("..")
                 && url.indexOf('\\') < 0
                 && url.indexOf('%') < 0;
+    }
+
+    private static boolean hasBlankOrControl(String s) {
+        for (int i = 0; i < s.length(); i++) {
+            if (s.charAt(i) <= 0x20) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Chemin de la page dans les ressources du mod. */

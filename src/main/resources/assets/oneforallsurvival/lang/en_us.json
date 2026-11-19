@@ -1096,5 +1096,10 @@
   "economy.oneforallsurvival.kind.power.remove": "Supplier removed, till to the founder (town hall)",
   "command.oneforallsurvival.power.no_page": "No page %s: %s page(s) in all.",
   "command.oneforallsurvival.eco.power.page": "Page %s of %s:",
-  "command.oneforallsurvival.eco.power.orphans": "Electricity bills due without a supplier in the registry: %s (%s)"
+  "command.oneforallsurvival.eco.power.orphans": "Electricity bills due without a supplier in the registry: %s (%s)",
+  "message.oneforallsurvival.web.fallback.absent": "The in-game browser (MCEF) is not installed: the classic interface takes over.",
+  "message.oneforallsurvival.web.fallback.not_initialized": "The in-game browser (MCEF) did not start: the classic interface takes over.",
+  "message.oneforallsurvival.web.fallback.create_failed": "The in-game browser could not open the page: the classic interface takes over.",
+  "message.oneforallsurvival.web.fallback.load_error": "The browser page could not load: the classic interface takes over.",
+  "message.oneforallsurvival.web.fallback.no_ready": "The browser page is not responding: the classic interface takes over."
 }

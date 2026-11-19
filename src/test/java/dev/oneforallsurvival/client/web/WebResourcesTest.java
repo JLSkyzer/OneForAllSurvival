@@ -11,14 +11,18 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
-/** Garde des pages locales : minuscules, CSP, aucune adresse externe. Tolère l'absence du dossier. */
+/** Garde des pages locales : minuscules, CSP hors commentaire, aucune adresse externe, pages du socle présentes. */
 class WebResourcesTest {
 
-    private static final String CSP =
+    static final String CSP =
             "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src mod: 'unsafe-inline'; img-src mod: data:; connect-src 'none'\">";
+
+    /** Seules ces extensions sont lues comme du texte ; les autres fichiers (images…) ne le sont pas. */
+    private static final Set<String> TEXTE = Set.of("html", "js", "css", "json", "txt");
 
     private static Path dossier() {
         String racine = System.getProperty("oneforallsurvival.mainResources");
@@ -28,11 +32,44 @@ class WebResourcesTest {
 
     private static List<Path> fichiers() throws IOException {
         Path d = dossier();
-        if (!Files.isDirectory(d)) {
-            return List.of(); // dossier absent toléré : rien à lire tant que html/ n'existe pas
-        }
+        assertTrue(Files.isDirectory(d), "dossier des pages absent : " + d);
         try (Stream<Path> s = Files.walk(d)) {
             return s.filter(Files::isRegularFile).toList();
+        }
+    }
+
+    private static String extension(Path f) {
+        String nom = f.getFileName().toString();
+        int point = nom.lastIndexOf('.');
+        return point < 0 ? "" : nom.substring(point + 1).toLowerCase(Locale.ROOT);
+    }
+
+    private static List<Path> fichiersTexte() throws IOException {
+        return fichiers().stream().filter(f -> TEXTE.contains(extension(f))).toList();
+    }
+
+    /** Le texte sans ses commentaires HTML ({@code <!-- … -->}, un commentaire non fermé court jusqu'à la fin). */
+    static String horsCommentaires(String html) {
+        StringBuilder sb = new StringBuilder();
+        int i = 0;
+        while (i < html.length()) {
+            int debut = html.indexOf("<!--", i);
+            if (debut < 0) {
+                sb.append(html, i, html.length());
+                break;
+            }
+            sb.append(html, i, debut);
+            int fin = html.indexOf("-->", debut + 4);
+            i = fin < 0 ? html.length() : fin + 3;
+        }
+        return sb.toString();
+    }
+
+    @Test
+    void lesPagesDuSocleExistent() {
+        Path d = dossier();
+        for (String page : new String[] {"web/bridge.js", "web/selftest.html"}) {
+            assertTrue(Files.isRegularFile(d.resolve(page)), "page du socle absente : " + page);
         }
     }
 
@@ -47,17 +84,24 @@ class WebResourcesTest {
 
     @Test
     void chaquePageHtmlPorteLaCsp() throws IOException {
-        for (Path f : fichiers()) {
-            if (f.toString().endsWith(".html")) {
-                String texte = Files.readString(f, StandardCharsets.UTF_8);
-                assertTrue(texte.contains(CSP), "CSP absente ou altérée : " + f);
+        for (Path f : fichiersTexte()) {
+            if (extension(f).equals("html")) {
+                String texte = horsCommentaires(Files.readString(f, StandardCharsets.UTF_8));
+                assertTrue(texte.contains(CSP), "CSP absente, altérée ou en commentaire : " + f);
             }
         }
     }
 
     @Test
+    void uneCspEnCommentaireNeComptePas() {
+        assertFalse(horsCommentaires("<head><!-- " + CSP + " --></head>").contains(CSP));
+        assertFalse(horsCommentaires("<head><!-- " + CSP).contains(CSP));
+        assertTrue(horsCommentaires("<!-- x -->" + CSP + "<!-- y -->").contains(CSP));
+    }
+
+    @Test
     void aucuneAdresseExterne() throws IOException {
-        for (Path f : fichiers()) {
+        for (Path f : fichiersTexte()) {
             String texte = Files.readString(f, StandardCharsets.UTF_8);
             assertFalse(texte.contains("http://") || texte.contains("https://"), "adresse externe : " + f);
         }

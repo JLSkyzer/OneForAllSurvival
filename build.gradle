@@ -152,16 +152,19 @@ minecraft {
                 property 'oneforallsurvival.tabShots', project.tabShots ?: 'frames-tab'
             }
             // `-PwithMcef` : Chromium (MCEF) copie du launcher dans run-mcef/mcef-libraries, jamais telecharge.
-            // Valable aussi pour les lancements clients qui ont `client` pour parent (client2...).
-            if (project.hasProperty('withMcef')) {
-                property 'mcef.libraries.path', "${projectDir}/run-mcef/mcef-libraries"
+            // MCEF 2.1.6 ecrase lui-meme `mcef.libraries.path` (CefDownloadMixin.setupLibraryPath, lu par javap) :
+            // ../build/mcef-libraries si ../build existe, ce qui est le cas depuis run/. La tache prepareMcefLibraries
+            // (plus bas) y recopie donc run-mcef/mcef-libraries et coupe le telechargement (skip-download=true).
+            // `-PwebShots=<dossier>` : essai reel du socle navigateur (/webessai), puis fermeture. Voir WebEssaiShots.
+            if (project.hasProperty('webShots')) {
+                property 'oneforallsurvival.webShots', project.webShots ?: 'frames-web'
             }
             if (project.hasProperty('gameArgs')) {
                 args project.gameArgs.trim().split(/\s+/).toList()
             }
             // Un lancement d'automate (captures, film de la scène) ouvre aussi la fenêtre de chargement sur le second
             // écran (WindowPlacement du jar de service) ; un runClient ordinaire n'est pas touché.
-            if (['titleShots', 'debugShots', 'tabShots', 'sceneFrames'].any { project.hasProperty(it) }) {
+            if (['titleShots', 'debugShots', 'tabShots', 'sceneFrames', 'webShots'].any { project.hasProperty(it) }) {
                 property 'oneforallsurvival.fenetre.secondEcran', 'true'
             }
             // `-PoverlayFail=first` : la première image de l'overlay du mod échoue, celui de Forge prend la main.
@@ -555,6 +558,33 @@ if (project.hasProperty('withMcef')) {
         runtimeOnly fg.deobf("maven.modrinth:mcef:${mcef_version}")
         runtimeOnly fg.deobf("maven.modrinth:webdisplays:${webdisplays_version}")
     }
+    // Chromium la ou MCEF le cherche en developpement (voir le bloc `client`), copie de run-mcef/mcef-libraries,
+    // et `skip-download=true` dans config/mcef/mcef.properties du dossier du jeu : MCEF ne telecharge jamais Chromium.
+    // (MCEF lit toujours le petit fichier de somme de controle au demarrage ; cela ne se coupe pas en 2.1.6.)
+    def mcefSource = project.file('run-mcef/mcef-libraries')
+    def prepareMcefLibraries = tasks.register('prepareMcefLibraries', Sync) {
+        group = 'build'
+        description = 'Recopie Chromium (run-mcef/mcef-libraries) dans build/mcef-libraries et coupe le telechargement de MCEF.'
+        from mcefSource
+        into layout.buildDirectory.dir('mcef-libraries')
+        doFirst {
+            if (!new File(mcefSource, 'windows_amd64/libcef.dll').isFile()) {
+                throw new GradleException("Chromium absent de run-mcef/mcef-libraries : le copier depuis le launcher (jamais telecharger)")
+            }
+        }
+        doLast {
+            ['run', 'run-client2'].each { dossier ->
+                def reglages = project.file("${dossier}/config/mcef/mcef.properties")
+                if (!reglages.isFile()) {
+                    reglages.parentFile.mkdirs()
+                    reglages.setText(['skip-download=true', 'use-cache=true', 'download-mirror=https://mcef-download.cinemamod.com', 'user-agent=null', ''].join(System.lineSeparator()), 'UTF-8')
+                } else if (!reglages.getText('UTF-8').contains('skip-download=true')) {
+                    reglages.setText(reglages.getText('UTF-8').replaceAll(/skip-download=\w*/, 'skip-download=true'), 'UTF-8')
+                }
+            }
+        }
+    }
+    tasks.matching { it.name in ['runClient', 'runClient2'] }.configureEach { dependsOn prepareMcefLibraries }
 }
 
 tasks.named('test', Test).configure {

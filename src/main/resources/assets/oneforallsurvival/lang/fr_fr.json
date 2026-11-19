@@ -1096,5 +1096,10 @@
   "economy.oneforallsurvival.kind.power.remove": "Fournisseur supprimé, caisse au fondateur (mairie)",
   "command.oneforallsurvival.power.no_page": "Pas de page %s : %s page(s) en tout.",
   "command.oneforallsurvival.eco.power.page": "Page %s sur %s :",
-  "command.oneforallsurvival.eco.power.orphans": "Factures d'électricité dues sans fournisseur au registre : %s (%s)"
+  "command.oneforallsurvival.eco.power.orphans": "Factures d'électricité dues sans fournisseur au registre : %s (%s)",
+  "message.oneforallsurvival.web.fallback.absent": "Le navigateur du jeu (MCEF) n'est pas installé : l'interface classique prend le relais.",
+  "message.oneforallsurvival.web.fallback.not_initialized": "Le navigateur du jeu (MCEF) n'a pas démarré : l'interface classique prend le relais.",
+  "message.oneforallsurvival.web.fallback.create_failed": "Le navigateur du jeu n'a pas pu ouvrir la page : l'interface classique prend le relais.",
+  "message.oneforallsurvival.web.fallback.load_error": "La page du navigateur n'a pas pu se charger : l'interface classique prend le relais.",
+  "message.oneforallsurvival.web.fallback.no_ready": "La page du navigateur ne répond pas : l'interface classique prend le relais."
 }

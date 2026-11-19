@@ -31,12 +31,12 @@ class WebScriptTest {
 
     @Test
     void chaineHostileEchappeeEtRelue() {
-        String hostile = "</script> x y'&=\"\\";
+        String hostile = "</script>\u2028x\u2029y'&=\"\\";
         String js = WebScript.call("f", new JsonPrimitive(hostile));
         assertTrue(js.contains("\\u2028"), js);
         assertTrue(js.contains("\\u2029"), js);
-        assertFalse(js.contains(" "), "U+2028 brut");
-        assertFalse(js.contains(" "), "U+2029 brut");
+        assertFalse(js.contains("\u2028"), "U+2028 brut");
+        assertFalse(js.contains("\u2029"), "U+2029 brut");
         assertFalse(js.contains("<"), "chevron brut : " + js);
         assertFalse(js.contains("</script>"), js);
         JsonElement relu = JsonParser.parseString(js.substring(2, js.length() - 1));

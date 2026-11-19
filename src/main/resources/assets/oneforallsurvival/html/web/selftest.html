@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src mod: 'unsafe-inline'; img-src mod: data:; connect-src 'none'">
+<title>Essai du navigateur</title>
+<style>
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
+  body { font: 16px/1.3 "Segoe UI", sans-serif; color: #f2f5f8; }
+  #carte { position: absolute; inset: 0; border-radius: 48px; background: #1d2733; overflow: hidden;
+           display: flex; flex-direction: column; }
+  #haut { background: #c0392b; padding: 6px 60px; font-weight: bold; }
+  #bas { background: #2471a3; padding: 6px 60px; font-weight: bold; margin-top: auto; }
+  #corps { display: flex; gap: 16px; padding: 12px 60px; flex: 1; min-height: 0; }
+  .col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  #mesure { width: 100px; height: 20px; background: #ff00ff; }
+  #bouton { width: 160px; height: 44px; font: inherit; font-weight: bold; border: 0; border-radius: 8px;
+            background: #e09a2b; color: #141b25; }
+  #champ { width: 220px; height: 30px; font: inherit; border-radius: 6px; border: 1px solid #8aa; padding: 0 6px; }
+  #liste { width: 180px; height: 150px; overflow-y: scroll; margin: 0; padding: 0 0 0 24px; background: #26323f; }
+  #echo { flex: 1; min-width: 0; font: 13px/1.35 Consolas, monospace; background: #101820; padding: 8px;
+          overflow: hidden; white-space: pre-wrap; word-break: break-all; }
+</style>
+</head>
+<body>
+<div id="carte">
+  <div id="haut">HAUT : essai du navigateur du mod</div>
+  <div id="corps">
+    <div class="col">
+      <div id="mesure"></div>
+      <button id="bouton" type="button">Cliquer</button>
+      <input id="champ" type="text" placeholder="Écrire ici">
+      <ol id="liste"></ol>
+    </div>
+    <div id="echo">Échos du jeu :</div>
+  </div>
+  <div id="bas">BAS</div>
+</div>
+<script src="bridge.js"></script>
+<script>
+(function () {
+  'use strict';
+  var liste = document.getElementById('liste');
+  for (var i = 1; i <= 60; i++) {
+    var li = document.createElement('li');
+    li.textContent = 'Ligne ' + i;
+    liste.appendChild(li);
+  }
+
+  window.selftest = {
+    echo: function (x) {
+      var echo = document.getElementById('echo');
+      echo.textContent += '\n' + JSON.stringify(x);
+      var lignes = echo.textContent.split('\n');
+      if (lignes.length > 14) {
+        echo.textContent = lignes[0] + '\n' + lignes.slice(-13).join('\n');
+      }
+    }
+  };
+
+  function boite(id) {
+    var r = document.getElementById(id).getBoundingClientRect();
+    return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)];
+  }
+
+  function envoyer(message) {
+    if (window.oneforall) {
+      window.oneforall.send(message);
+    } else if (typeof window.oneforallQuery === 'function') {
+      // bridge.js absent : le signal part quand même, marqué, pour que le journal le dise.
+      message.bridge = false;
+      window.oneforallQuery({ request: JSON.stringify(message), onSuccess: function () {}, onFailure: function () {} });
+    }
+  }
+
+  function demarrer() {
+    if (window.oneforall) {
+      window.oneforall.mock = function (m) { window.selftest.echo(m); };
+    }
+    document.getElementById('bouton').addEventListener('click', function () {
+      envoyer({ a: 'clic' });
+    });
+    document.getElementById('champ').addEventListener('input', function (e) {
+      envoyer({ a: 'texte', v: e.target.value });
+    });
+    var attente = null;
+    liste.addEventListener('scroll', function () {
+      clearTimeout(attente);
+      attente = setTimeout(function () { envoyer({ a: 'defile', y: Math.round(liste.scrollTop) }); }, 150);
+    });
+    // L'agrandissement peut changer après le chargement : la mise en page est renvoyée à chaque redimensionnement.
+    window.addEventListener('resize', function () { envoyer(mesures('layout')); });
+    envoyer(mesures('ready'));
+  }
+
+  function mesures(a) {
+    return {
+      a: a,
+      w: window.innerWidth, h: window.innerHeight, dpr: window.devicePixelRatio,
+      bouton: boite('bouton'), champ: boite('champ'), liste: boite('liste'), mesure: boite('mesure')
+    };
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', demarrer);
+  } else {
+    demarrer();
+  }
+})();
+</script>
+</body>
+</html>
