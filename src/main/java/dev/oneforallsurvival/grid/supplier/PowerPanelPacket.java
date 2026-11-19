@@ -70,7 +70,7 @@ public record PowerPanelPacket(BlockPos pos, boolean open, String name, long pri
             metersToday = saturatedAdd(metersToday, c.feToday());
             if (shown.size() < MAX_CLIENTS) {
                 shown.add(new Client(c.meterSerial(), c.subscriber(), c.playerName(), c.state(), c.feToday(),
-                        c.feYesterday(), PowerBilling.SERVER.unpaid(server, c.meterSerial()), !c.breakers().isEmpty(),
+                        c.feYesterday(), PowerBilling.SERVER.unpaid(server, c), !c.breakers().isEmpty(),
                         c.cut()));
             }
         }

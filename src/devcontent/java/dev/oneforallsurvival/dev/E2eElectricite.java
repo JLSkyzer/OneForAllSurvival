@@ -730,7 +730,12 @@ final class E2eElectricite {
         relever("");
         pas("Origine de l'aire choisie", () -> {
             BlockPos spawn = mc.level.getSharedSpawnPos();
+            // Une frontière de chunk entre les connecteurs (x = 4 et 8, côté poste) et les maisons (x = 9 à 13) : le pack
+            // (addon d'Advanced Electricity, mod « light_bulb_addon… ») force le chargement des chunks de certains
+            // connecteurs de Crafts & Additions reliés par un fil ; sans cette frontière, la maison d'Abonne tombait dans
+            // un chunk forcé, chargé dès le démarrage de la relance (vu à la revue finale, selon la position de départ).
             int x = depart.getX() - 640;
+            x -= Math.floorMod(x + 9, 16);
             int z = depart.getZ() - 640;
             if (Math.abs(x - spawn.getX()) <= 40 && Math.abs(z - spawn.getZ()) <= 40) {
                 z -= 120;
@@ -828,10 +833,12 @@ final class E2eElectricite {
             taper(Long.toString(PRIX));
             cliquer(panneau().layout().price().button(), "OK du prix");
         }, () -> panneauOuvert() && panneau().state().nextPrice() == PRIX && ecoule() >= 1.0, () -> "etat " + panneau().state(), () -> {
-            String attendu = tr(GUI + "price_next", CoinMath.format(0), CoinMath.format(PRIX));
-            String vu = panneau().layout().price().label().full();
-            if (!attendu.equals(vu) || panneau().state().price() != 0) {
-                throw new IllegalStateException("prix « " + vu + " », attendu « " + attendu + " »");
+            String attendu = tr(GUI + "price", CoinMath.format(0)) + " / " + tr(GUI + "tomorrow", CoinMath.format(PRIX));
+            PowerPanelLayout.Field champ = panneau().layout().price();
+            String vu = champ.label().full() + " / " + champ.next().full();
+            if (!attendu.equals(vu) || panneau().state().price() != 0 || champ.label().cut() || champ.next().cut()) {
+                throw new IllegalStateException("prix « " + vu + " » (montré « " + champ.label().shown() + " / "
+                        + champ.next().shown() + " »), attendu « " + attendu + " », entier");
             }
             return "prix tape et « OK » clique : le panneau affiche « " + vu + " » (au lendemain) ; serveur : prix demain "
                     + fournisseur().get("prixDemain");
@@ -841,12 +848,16 @@ final class E2eElectricite {
             taper(Long.toString(ABONNEMENT));
             cliquer(panneau().layout().subscription().button(), "OK de l'abonnement");
         }, () -> panneauOuvert() && panneau().state().nextSubscription() == ABONNEMENT && ecoule() >= 1.0, () -> "etat " + panneau().state(), () -> {
-            String attendu = tr(GUI + "subscription_next", CoinMath.format(0), CoinMath.format(ABONNEMENT));
-            String vu = panneau().layout().subscription().label().full();
-            if (!attendu.equals(vu)) {
-                throw new IllegalStateException("abonnement « " + vu + " », attendu « " + attendu + " »");
+            String attendu = tr(GUI + "subscription", CoinMath.format(0)) + " / "
+                    + tr(GUI + "tomorrow", CoinMath.format(ABONNEMENT));
+            PowerPanelLayout.Field champ = panneau().layout().subscription();
+            String vu = champ.label().full() + " / " + champ.next().full();
+            if (!attendu.equals(vu) || champ.label().cut() || champ.next().cut()) {
+                throw new IllegalStateException("abonnement « " + vu + " » (montré « " + champ.label().shown() + " / "
+                        + champ.next().shown() + " »), attendu « " + attendu + " », entier");
             }
-            return "abonnement tape et « OK » clique : « " + vu + " » (au lendemain) ; capture " + capturer("e6_panneau_tarifs_au_lendemain");
+            return "abonnement tape et « OK » clique : « " + vu + " » (au lendemain, rien de coupe a " + mc.getWindow().getWidth() + " x "
+                    + mc.getWindow().getHeight() + ") ; capture " + capturer("e6_panneau_tarifs_au_lendemain");
         });
         pas("Tarifs du lendemain appliqués tout de suite (console : clôture du jour du fournisseur, comme à minuit)", () -> {
             fermer();
@@ -1013,12 +1024,14 @@ final class E2eElectricite {
         ouvrirPanneau("");
         pas("Le panneau annonce le plafond de " + PLAFOND + " au lendemain (prix ramené à minuit)", () -> {}, () -> ecoule() >= 0.5, () -> "", () -> {
             PowerPanelPacket s = panneau().state();
-            String cap = panneau().layout().cap().full();
+            PowerPanelLayout.Text demain = panneau().layout().capNext();
+            String cap = panneau().layout().cap().full() + " / " + demain.full();
             String attendu = tr(GUI + "cap_next", CoinMath.format(PLAFOND), 0);
-            if (s.nextCap() != PLAFOND || s.price() != PRIX || !cap.contains(attendu)) {
-                throw new IllegalStateException("plafond « " + cap + " » ; etat " + s);
+            if (s.nextCap() != PLAFOND || s.price() != PRIX || !attendu.equals(demain.full()) || demain.cut()
+                    || panneau().layout().cap().cut()) {
+                throw new IllegalStateException("plafond « " + cap + " » (montre « " + demain.shown() + " ») ; etat " + s);
             }
-            return "panneau : « " + cap + " », prix du jour « " + panneau().layout().price().label().full() + " » ; capture "
+            return "panneau : « " + cap + " » (entier), prix du jour « " + panneau().layout().price().label().full() + " » ; capture "
                     + capturer("e6_panneau_plafond_au_lendemain");
         });
         pas("Vrai clic sur « Rétablir » pour Fauche avant l'arrêt : son disjoncteur se referme", () -> cliquerRang(FAUCHE, 0, "Retablir"),
@@ -1208,11 +1221,13 @@ final class E2eElectricite {
                     String ligneRefus = tr("command.oneforallsurvival.eco.stats.refused_debits", num(r, "refus"));
                     Map<String, String> jl = lire(rcon("e2eelec journal " + lu.get("arret")));
                     String genres = jl.get("genres");
-                    boolean journalOk = genres.contains(MoneyTransfer.PUBLIC_BILL.kind() + ":2;") && genres.contains("debit.refused:3;");
+                    // Revue finale, I3 : une ligne au premier refus de chaque facture (Fauche : facture du jour de l'essai refusée deux
+                    // nuits, celle du lendemain une), soit deux lignes ; le registre compte deux factures refusées.
+                    boolean journalOk = genres.contains(MoneyTransfer.PUBLIC_BILL.kind() + ":2;") && genres.contains("debit.refused:2;");
                     if (coffreA != Long.parseLong(lu.get("coffreAbonne")) - payeA || coffreF != 0 || num(f, "caisse") != Long.parseLong(lu.get("caisse")) + payeA
                             || num(r, "payees") != Long.parseLong(lu.get("r_payees")) + 2 || num(r, "paye") != Long.parseLong(lu.get("r_paye")) + payeA
                             || num(r, "public") != Long.parseLong(lu.get("r_public")) + payeA || num(r, "taxe") != Long.parseLong(lu.get("r_taxe"))
-                            || num(r, "refus") != Long.parseLong(lu.get("r_refus")) + 3 || num(r, "dues") != 2 || num(r, "duesTotal") != dueF
+                            || num(r, "refus") != Long.parseLong(lu.get("r_refus")) + 2 || num(r, "dues") != 2 || num(r, "duesTotal") != dueF
                             || !stats.contains(ligneDues) || !stats.contains(ligneRefus) || !journalOk) {
                         throw new IllegalStateException("registre " + r + " ; avant " + lu + " ; coffres " + coffreA + "/" + coffreF + " ; journal " + jl
                                 + " ; stats " + stats.replace('\n', '|'));

@@ -210,22 +210,21 @@ public final class PowerPanelScreen extends Screen {
             GapView none = new GapView("", "", "", "", 0L, 0L);
             return new View(null, tr("new_station"), tr("till"),
                     Component.translatable(GUI + "name_label", PowerSuppliers.MAX_NAME).getString(), tr("found"), "",
-                    "", tr("ok"), "", headers, none, none, s.warnPercent(), "", List.of(), "", List.of(), "");
+                    "", "", "", tr("ok"), "", "", headers, none, none, s.warnPercent(), "", List.of(), "", List.of(),
+                    "");
         }
-        String price = s.nextPrice() == s.price()
-                ? Component.translatable(GUI + "price", CoinMath.format(s.price())).getString()
-                : Component.translatable(GUI + "price_next", CoinMath.format(s.price()),
-                        CoinMath.format(s.nextPrice())).getString();
-        String subscription = s.nextSubscription() == s.subscription()
-                ? Component.translatable(GUI + "subscription", CoinMath.format(s.subscription())).getString()
-                : Component.translatable(GUI + "subscription_next", CoinMath.format(s.subscription()),
-                        CoinMath.format(s.nextSubscription())).getString();
+        // Le tarif du jour sur sa ligne, celui du lendemain dessous, s'il change (jamais coupé aux valeurs courantes).
+        String price = Component.translatable(GUI + "price", CoinMath.format(s.price())).getString();
+        String priceNext = s.nextPrice() == s.price() ? ""
+                : Component.translatable(GUI + "tomorrow", CoinMath.format(s.nextPrice())).getString();
+        String subscription = Component.translatable(GUI + "subscription", CoinMath.format(s.subscription()))
+                .getString();
+        String subscriptionNext = s.nextSubscription() == s.subscription() ? ""
+                : Component.translatable(GUI + "tomorrow", CoinMath.format(s.nextSubscription())).getString();
         String cap = Component.translatable(GUI + "cap", CoinMath.format(s.cap()), grouped(s.unitFe()), s.tax())
                 .getString();
-        if (s.nextCap() != s.cap() || s.nextTax() != s.tax()) {
-            cap = cap + " " + Component.translatable(GUI + "cap_next", CoinMath.format(s.nextCap()), s.nextTax())
-                    .getString();
-        }
+        String capNext = s.nextCap() == s.cap() && s.nextTax() == s.tax() ? ""
+                : Component.translatable(GUI + "cap_next", CoinMath.format(s.nextCap()), s.nextTax()).getString();
         GapView today = gapView(tr("gap.today"), s.outToday(), s.metersToday());
         GapView yesterday = gapView(tr("gap.yesterday"), s.outYesterday(), s.metersYesterday());
         List<String> tillParts = new ArrayList<>();
@@ -240,9 +239,9 @@ public final class PowerPanelScreen extends Screen {
         for (PowerPanelPacket.Client c : s.clients()) {
             rows.add(row(c));
         }
-        return new View(s.name(), s.name(), s.mayTakeTill() ? tr("till") : tr("till_read"), "", "", price,
-                subscription, tr("ok"), cap, headers, today, yesterday, s.warnPercent(), tr("till_label"), tillParts,
-                header, rows, tr("no_clients"));
+        return new View(s.name(), s.name(), s.mayTakeTill() ? tr("till") : tr("till_read"), "", "", price, priceNext,
+                subscription, subscriptionNext, tr("ok"), cap, capNext, headers, today, yesterday, s.warnPercent(),
+                tr("till_label"), tillParts, header, rows, tr("no_clients"));
     }
 
     private RowView row(PowerPanelPacket.Client c) {
@@ -378,6 +377,7 @@ public final class PowerPanelScreen extends Screen {
         BenchTheme.button(g, font, tb.x(), tb.y(), tb.w(), tb.h(), l.tillLabel().full(), tb.inside(mx, my), true, false);
         for (Field field : new Field[] {l.price(), l.subscription()}) {
             draw(g, field.label(), state.mayTariff() ? BenchTheme.TEXT : BenchTheme.TEXT_DIM);
+            draw(g, field.next(), BenchTheme.BRASS_LIGHT);
             Rect b = field.box();
             BenchTheme.well(g, b.x(), b.y(), b.w(), b.h());
             Rect ok = field.button();
@@ -387,6 +387,7 @@ public final class PowerPanelScreen extends Screen {
                     filled && ok.inside(mx, my), filled, true);
         }
         draw(g, l.cap(), BenchTheme.TEXT_DIM);
+        draw(g, l.capNext(), BenchTheme.BRASS_LIGHT);
         for (Text h : l.gapHeaders()) {
             draw(g, h, BenchTheme.TEXT_DIM);
         }
@@ -465,7 +466,7 @@ public final class PowerPanelScreen extends Screen {
     }
 
     private void renderTooltips(GuiGraphics g, Layout l, int mx, int my) {
-        for (Text t : new Text[] {l.title(), l.nameLabel(), l.cap(), l.till()}) {
+        for (Text t : new Text[] {l.title(), l.nameLabel(), l.cap(), l.capNext(), l.till()}) {
             if (t != null && t.cut() && t.area().inside(mx, my)) {
                 tooltip(g, Component.literal(t.full()), mx, my);
                 return;
@@ -475,9 +476,11 @@ public final class PowerPanelScreen extends Screen {
             return;
         }
         for (Field field : new Field[] {l.price(), l.subscription()}) {
-            if (field.label().cut() && field.label().area().inside(mx, my)) {
-                tooltip(g, Component.literal(field.label().full()), mx, my);
-                return;
+            for (Text t : new Text[] {field.label(), field.next()}) {
+                if (t.cut() && t.area().inside(mx, my)) {
+                    tooltip(g, Component.literal(t.full()), mx, my);
+                    return;
+                }
             }
             if (!state.mayTariff() && (field.box().inside(mx, my) || field.button().inside(mx, my))) {
                 tooltip(g, Component.translatable(GUI + "tariff_locked.tooltip"), mx, my);

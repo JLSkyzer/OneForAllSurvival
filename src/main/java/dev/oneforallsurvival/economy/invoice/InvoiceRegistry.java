@@ -99,6 +99,11 @@ public final class InvoiceRegistry extends SavedData {
 
     /** Les prélèvements refusés dont le débiteur n'a pas encore été avisé (absent au refus). */
     private final java.util.LinkedHashSet<UUID> refusedUnseen = new java.util.LinkedHashSet<>();
+    /**
+     * Combien de fois chaque facture publique a été refusée au prélèvement. Seul le premier refus est noté au journal et
+     * annoncé ; les suivants ne font que compter ici (un impayé durable n'inonde ni le journal ni le chat).
+     */
+    private final Map<UUID, Integer> refusals = new LinkedHashMap<>();
     /** Les prélèvements payés en l'absence du débiteur : facture, source (nom de {@code DebitPlan.Source}). */
     private final LinkedHashMap<UUID, String> debitedUnseen = new LinkedHashMap<>();
     /**
@@ -259,6 +264,25 @@ public final class InvoiceRegistry extends SavedData {
         }
     }
 
+    /**
+     * Compte un refus de plus pour cette facture.
+     *
+     * @return le nombre de refus de cette facture, celui-ci compris (1 : premier refus) ; 0 si elle n'est pas au registre
+     */
+    public int noteRefusal(UUID id) {
+        if (!invoices.containsKey(id)) {
+            return 0;
+        }
+        int count = refusals.merge(id, 1, (a, b) -> a == Integer.MAX_VALUE ? a : a + b);
+        setDirty();
+        return count;
+    }
+
+    /** Combien de fois cette facture a été refusée au prélèvement. */
+    public int refusals(UUID id) {
+        return refusals.getOrDefault(id, 0);
+    }
+
     /** Cette facture a été prélevée en l'absence du débiteur, depuis {@code source} : il l'apprendra à sa connexion. */
     public void noteDebitedUnseen(UUID id, String source) {
         if (invoices.containsKey(id)) {
@@ -351,6 +375,7 @@ public final class InvoiceRegistry extends SavedData {
             destinations.remove(id);
             refusedUnseen.remove(id);
             debitedUnseen.remove(id);
+            refusals.remove(id);
         }
         if (!old.isEmpty()) {
             setDirty();
@@ -451,6 +476,10 @@ public final class InvoiceRegistry extends SavedData {
             if (debited != null) {
                 line.putString("debitedUnseen", debited);
             }
+            int refused = refusals.getOrDefault(invoice.id(), 0);
+            if (refused > 0) {
+                line.putInt("refusals", refused);
+            }
             list.add(line);
         }
         tag.put("invoices", list);
@@ -487,6 +516,9 @@ public final class InvoiceRegistry extends SavedData {
             }
             if (line.contains("debitedUnseen", Tag.TAG_STRING)) {
                 registry.debitedUnseen.put(invoice.id(), line.getString("debitedUnseen"));
+            }
+            if (line.getInt("refusals") > 0) {
+                registry.refusals.put(invoice.id(), line.getInt("refusals"));
             }
             CommerceDelivery.Destination destination = destination(line.getString("paidTo"));
             if (destination != null) {

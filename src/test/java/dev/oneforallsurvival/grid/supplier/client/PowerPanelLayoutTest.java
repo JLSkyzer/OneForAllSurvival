@@ -43,9 +43,10 @@ class PowerPanelLayoutTest {
         }
         String montant = String.join(" ", CINQ_COUPURES);
         return new View(NOM_24, NOM_24, "Caisse", "Nom du fournisseur (1 à 24 caractères)", "Fonder",
-                "Prix : " + montant + " les 100 000 FE · demain " + montant,
-                "Abonnement : " + montant + " par jour · demain " + montant, "OK",
-                "Plafond du maire : " + montant + " (demain " + montant + ") · taxe 20 % (demain 20 %)",
+                "Prix : " + montant + " les 100 000 FE", "Demain : " + montant,
+                "Abonnement : " + montant + " par jour", "Demain : " + montant, "OK",
+                "Plafond du maire : " + montant + " les 100 000 FE · taxe 20 %",
+                "Demain : plafond " + montant + ", taxe 20 %",
                 List.of("Sortie", "Compteurs", "Écart"),
                 new GapView("Aujourd'hui", "99 999 999 kFE", "99 999 999 kFE", "99 999 999 kFE (100 %)",
                         99_999_999_000L, 0L),
@@ -56,7 +57,7 @@ class PowerPanelLayoutTest {
 
     private static View unPosteNeuf() {
         return new View(null, "Nouveau poste", "Caisse", "Nom du fournisseur (1 à 24 caractères)", "Fonder", "", "",
-                "OK", "", List.of("Sortie", "Compteurs", "Écart"), new GapView("", "", "", "", 0L, 0L),
+                "", "", "OK", "", "", List.of("Sortie", "Compteurs", "Écart"), new GapView("", "", "", "", 0L, 0L),
                 new GapView("", "", "", "", 0L, 0L), 10, "", List.of(), "", List.of(), "");
     }
 
@@ -73,11 +74,13 @@ class PowerPanelLayoutTest {
         for (Field f : new Field[] {l.price(), l.subscription()}) {
             if (f != null) {
                 out.add(f.label());
+                out.add(f.next());
                 out.add(f.buttonLabel());
             }
         }
         if (l.cap() != null) {
             out.add(l.cap());
+            out.add(l.capNext());
             out.addAll(l.gapHeaders());
             for (GapLine g : List.of(l.today(), l.yesterday())) {
                 out.addAll(List.of(g.label(), g.out(), g.meters(), g.gap()));
@@ -189,9 +192,62 @@ class PowerPanelLayoutTest {
     void enGrandeInterfaceLeCadreEstCentre() {
         Layout l = PowerPanelLayout.of(640, 360, SIX, leContenuLePlusLong());
         assertEquals((640 - PowerPanelLayout.FRAME_W) / 2, l.frame().x());
-        assertEquals((360 - PowerPanelLayout.FRAME_H) / 2, l.frame().y());
+        assertEquals((360 - l.frame().h()) / 2, l.frame().y());
         for (Rect r : boites(l)) {
             assertTrue(l.frame().contains(r), "hors du cadre : " + r);
+        }
+        // Quatre clients visibles dès que la hauteur le permet (1280 × 656 en échelle automatique : 640 × 328), trois en
+        // 320 × 240 ; toujours des clients entiers.
+        assertEquals(4 * PowerPanelLayout.ROW_H, PowerPanelLayout.of(640, 328, SIX, leContenuLePlusLong()).list().h());
+        Layout petit = PowerPanelLayout.of(320, 240, SIX, leContenuLePlusLong());
+        assertEquals(3 * PowerPanelLayout.ROW_H, petit.list().h());
+        assertTrue(petit.frame().h() <= 240, "le cadre tient dans 240 : " + petit.frame().h());
+    }
+
+    /**
+     * La largeur de la police par défaut de Minecraft (avance de chaque glyphe, espace compris) : assez proche de la vraie
+     * pour juger qu'un texte tient, sans charger le jeu.
+     */
+    private static final ToIntFunction<String> POLICE = s -> {
+        int w = 0;
+        for (char c : s.toCharArray()) {
+            int g = "i!,.:;|'".indexOf(c) >= 0 ? 1 : "l`".indexOf(c) >= 0 ? 2 : "It[] ".indexOf(c) >= 0 ? 3
+                    : "fk<>\"()*{}".indexOf(c) >= 0 ? 4 : "@~".indexOf(c) >= 0 ? 6 : 5;
+            w += g + 1;
+        }
+        return w;
+    };
+
+    /**
+     * Revue de la tâche 7, I1 : à 1280 × 656 (échelle automatique, 640 × 328) comme en 320 × 240, les tarifs du lendemain
+     * aux valeurs courantes (abonnement jusqu'à 50 cuivres, plafond 20) ne sont jamais coupés, en anglais comme en
+     * français. Les montants les plus longs à ces valeurs : 49 cuivres (« 4 argent 9 cuivres ») et 19 cuivres.
+     */
+    @Test
+    void lesTarifsDuLendemainNeSontPasCoupesAuxValeursCourantes() {
+        View v = leContenuLePlusLong();
+        List<View> vues = List.of(
+                new View("Ab", "Ab", v.tillButton(), v.nameLabel(), v.foundButton(), "Price: 1 silver 9 coppers",
+                        "Tomorrow: 1 silver 8 coppers", "Subscription: 4 silvers 9 coppers per day",
+                        "Tomorrow: 4 silvers 8 coppers", "OK", "Cap: 1 silver 9 coppers per 100,000 FE · tax 20 %",
+                        "Tomorrow: cap 1 silver 8 coppers, tax 19 %", v.gapHeaders(), v.today(), v.yesterday(), 10,
+                        "Till:", List.of("4 golds", "7 coppers"), "Clients (1)", List.of(), "No client"),
+                new View("Ab", "Ab", v.tillButton(), v.nameLabel(), v.foundButton(), "Prix : 1 argent 9 cuivres",
+                        "Demain : 1 argent 8 cuivres", "Abonnement : 4 argent 9 cuivres par jour",
+                        "Demain : 4 argent 8 cuivres", "OK", "Plafond : 1 argent 9 cuivres les 100 000 FE · taxe 20 %",
+                        "Demain : plafond 1 argent 8 cuivres, taxe 19 %", v.gapHeaders(), v.today(), v.yesterday(),
+                        10, "Caisse :", List.of("4 or", "7 cuivres"), "Clients (1)", List.of(), "Aucun client"));
+        for (View vue : vues) {
+            for (int[] taille : new int[][] {{640, 328}, {320, 240}}) {
+                Layout l = PowerPanelLayout.of(taille[0], taille[1], POLICE, vue);
+                for (Text t : List.of(l.price().label(), l.price().next(), l.subscription().label(),
+                        l.subscription().next(), l.cap(), l.capNext())) {
+                    assertFalse(t.cut(), taille[0] + " × " + taille[1] + " : « " + t.full() + " » coupé en « "
+                            + t.shown() + " »");
+                    assertFalse(t.area().intersects(l.price().box()) || t.area().intersects(l.subscription().box()),
+                            "« " + t.full() + " » passe sur un champ");
+                }
+            }
         }
     }
 
@@ -212,8 +268,9 @@ class PowerPanelLayoutTest {
         List<RowView> un = List.of(new RowView("Ab (Ab)", "Actif", "Auj. 0 FE · hier 0 FE", "Impayés :", List.of(),
                 List.of("Couper", "Détacher")));
         Layout l2 = PowerPanelLayout.of(320, 240, SIX, new View(court.supplier(), court.title(), court.tillButton(),
-                court.nameLabel(), court.foundButton(), court.priceLine(), court.subscriptionLine(), court.okButton(),
-                court.capLine(), court.gapHeaders(), court.today(), court.yesterday(), court.warnPercent(),
+                court.nameLabel(), court.foundButton(), court.priceLine(), court.priceNext(), court.subscriptionLine(),
+                court.subscriptionNext(), court.okButton(), court.capLine(), court.capNext(), court.gapHeaders(),
+                court.today(), court.yesterday(), court.warnPercent(),
                 court.tillLabel(), court.tillParts(), court.listHeader(), un, court.empty()));
         assertFalse(l2.rows().get(0).name().cut());
         assertEquals(0, l2.scrollMax(), "un client tient sans défiler");
@@ -235,8 +292,8 @@ class PowerPanelLayoutTest {
                 new RowView("Dan", "En résiliation", "Auj. 52 kFE · hier 61 kFE", "Impayés :", List.of("2 argent"),
                         List.of("Couper", "Valider")));
         Layout l = PowerPanelLayout.of(320, 240, SIX, new View("Ab", "Ab", v.tillButton(), v.nameLabel(),
-                v.foundButton(), "Prix : 1 cuivre", "Abonnement : 0 cuivre par jour", v.okButton(),
-                "Plafond : 2 argent les 100 000 FE · taxe 0 %", v.gapHeaders(),
+                v.foundButton(), "Prix : 1 cuivre", "", "Abonnement : 0 cuivre par jour", "", v.okButton(),
+                "Plafond : 2 argent les 100 000 FE · taxe 0 %", "", v.gapHeaders(),
                 new GapView("Aujourd'hui", "1 300 kFE", "1 286 kFE", "14 kFE (1 %)", 1_300_000L, 1_286_000L),
                 new GapView("Hier", "1 300 kFE", "1 255 kFE", "45 kFE (3 %)", 1_300_000L, 1_255_000L), 10,
                 "Caisse :", List.of("4 or", "7 cuivres"), "Clients (4)", courants, "Aucun client"));

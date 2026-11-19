@@ -2,6 +2,7 @@ package dev.oneforallsurvival.grid.supplier;
 
 import com.mojang.authlib.GameProfile;
 import com.mojang.logging.LogUtils;
+import dev.oneforallsurvival.economy.EconomyClock;
 import dev.oneforallsurvival.grid.BreakerBlock;
 import dev.oneforallsurvival.grid.BreakerBlockEntity;
 import dev.oneforallsurvival.grid.GridRegistry;
@@ -283,7 +284,7 @@ public final class PowerPairing {
             } else {
                 PowerClient client = new PowerClient(meter.serial(), supplier.id(), debtor.get().getId(),
                         debtor.get().getName(), meter.subscriber(), PowerClient.State.AWAITING_CONSENT, 0L, 0L, Set.of(),
-                        false);
+                        false, EconomyClock.now());
                 registry.putClient(client);
                 if (meter.getLevel() instanceof ServerLevel level) {
                     GlobalPos here = GlobalPos.of(level.dimension(), meter.getBlockPos());
@@ -564,9 +565,11 @@ public final class PowerPairing {
     // ---------------------------------------------------------------------------------------------
 
     /**
-     * Coupe ({@code cut}) ou rétablit le client de ce compteur, par un ayant droit de son fournisseur. Il faut au moins un
-     * disjoncteur jumelé : la coupure l'ouvre (tout de suite s'il est chargé, à son chargement sinon), le rétablissement
-     * le referme s'il n'est pas scellé.
+     * Coupe ({@code cut}) ou rétablit le client de ce compteur, par un ayant droit de son fournisseur. La coupure exige au
+     * moins un disjoncteur jumelé et l'ouvre (tout de suite s'il est chargé, à son chargement sinon) ; le rétablissement
+     * referme ceux que le fournisseur a ouverts, s'ils ne sont pas scellés (tout de suite s'ils sont chargés, à leur
+     * chargement sinon : {@link BreakerBlockEntity#openedRemotely()}). Un client coupé dont le disjoncteur a été démonté
+     * se rétablit quand même : l'état seul change.
      */
     public static Outcome setCut(ServerPlayer actor, UUID meterSerial, boolean cut) {
         PowerSuppliers registry = PowerSuppliers.get(actor.server);
@@ -588,7 +591,7 @@ public final class PowerPairing {
         if (client.isEmpty()) {
             return Outcome.UNKNOWN_CODE;
         }
-        if (client.get().breakers().isEmpty()) {
+        if (cut && client.get().breakers().isEmpty()) {
             return Outcome.NO_BREAKER;
         }
         registry.putClient(client.get().withCut(cut));
@@ -601,10 +604,7 @@ public final class PowerPairing {
                     if (cut) {
                         openBreaker(level, at.pos());
                     } else {
-                        BlockState state = level.getBlockState(at.pos());
-                        if (!state.getValue(BreakerBlock.SEALED) && !state.getValue(BreakerBlock.CLOSED)) {
-                            level.setBlock(at.pos(), state.setValue(BreakerBlock.CLOSED, true), Block.UPDATE_ALL);
-                        }
+                        closeBreaker(level, at.pos());
                     }
                 }
             });
@@ -620,11 +620,70 @@ public final class PowerPairing {
         return Outcome.DONE;
     }
 
-    /** Ouvre le disjoncteur en {@code pos} (état du bloc), s'il est fermé. */
+    /**
+     * Ouvre le disjoncteur en {@code pos} (état du bloc), s'il est fermé, et note dans son bloc qu'il l'a été à
+     * distance : le rétablissement le refermera, même s'il arrive pendant que sa zone est déchargée.
+     */
     public static void openBreaker(Level level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
         if (state.is(GridRegistry.BREAKER.get()) && state.getValue(BreakerBlock.CLOSED)) {
             level.setBlock(pos, state.setValue(BreakerBlock.CLOSED, false), Block.UPDATE_ALL);
+            if (level.getBlockEntity(pos) instanceof BreakerBlockEntity be) {
+                be.setOpenedRemotely(true);
+            }
+        }
+    }
+
+    /**
+     * Referme le disjoncteur en {@code pos} que le fournisseur avait ouvert, s'il n'est pas scellé (un scellé est un
+     * geste d'ingénieur, que seul l'ingénieur défait). Le drapeau « ouvert à distance » est effacé.
+     */
+    public static void closeBreaker(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (!state.is(GridRegistry.BREAKER.get()) || state.getValue(BreakerBlock.SEALED)) {
+            return;
+        }
+        if (!state.getValue(BreakerBlock.CLOSED)) {
+            level.setBlock(pos, state.setValue(BreakerBlock.CLOSED, true), Block.UPDATE_ALL);
+        }
+        if (level.getBlockEntity(pos) instanceof BreakerBlockEntity be) {
+            be.setOpenedRemotely(false);
+        }
+    }
+
+    /**
+     * Le disjoncteur jumelé en {@code pos} doit-il se resynchroniser sur le fournisseur à son chargement ? Fermé alors
+     * que son client est coupé (il s'ouvrira), ou ouvert à distance alors que son client a été rétabli entre-temps (il se
+     * refermera, s'il n'est pas scellé).
+     */
+    public static boolean breakerOutOfSync(ServerLevel level, BlockPos pos, BreakerBlockEntity be) {
+        // Lu dans le registre et dans le bloc lui-même, sans repasser par le monde : appelé aussi pendant le chargement
+        // du chunk (onLoad).
+        PowerSuppliers registry = PowerSuppliers.get(level.getServer());
+        if (!be.hasSerial() || !registry.isPairedAt(be.serial(), GlobalPos.of(level.dimension(), pos))) {
+            return false;
+        }
+        Optional<PowerClient> client = registry.clientOfBreaker(be.serial());
+        if (client.isEmpty()) {
+            return false;
+        }
+        BlockState state = be.getBlockState();
+        boolean closed = state.getValue(BreakerBlock.CLOSED);
+        if (client.get().cut()) {
+            return closed;
+        }
+        return !closed && be.openedRemotely() && !state.getValue(BreakerBlock.SEALED);
+    }
+
+    /** Resynchronise le disjoncteur jumelé en {@code pos} sur l'état de coupure de son client ({@link #breakerOutOfSync}). */
+    public static void resyncBreaker(ServerLevel level, BlockPos pos) {
+        if (!(level.getBlockEntity(pos) instanceof BreakerBlockEntity be) || !breakerOutOfSync(level, pos, be)) {
+            return;
+        }
+        if (PowerSuppliers.get(level.getServer()).clientOfBreaker(be.serial()).map(PowerClient::cut).orElse(false)) {
+            openBreaker(level, pos);
+        } else {
+            closeBreaker(level, pos);
         }
     }
 

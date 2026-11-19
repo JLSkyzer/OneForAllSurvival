@@ -6,8 +6,9 @@ import java.util.function.ToIntFunction;
 import javax.annotation.Nullable;
 
 /**
- * La mise en page du panneau du poste de fournisseur, sans Minecraft : un cadre de {@value #FRAME_W} × {@value #FRAME_H}
- * pixels d'interface, centré, qui tient dans la plus petite interface automatique (320 × 240). Tout texte dont la
+ * La mise en page du panneau du poste de fournisseur, sans Minecraft : un cadre de {@value #FRAME_W} pixels d'interface
+ * de large, centré, qui tient dans la plus petite interface automatique (320 × 240) avec {@value #MIN_ROWS} clients
+ * visibles, et en montre {@value #MAX_ROWS} dès que la hauteur le permet ({@link #frameHeight}). Tout texte dont la
  * longueur dépend du contenu est mesuré par {@code textWidth} et coupé par « … » s'il ne tient pas (le texte complet
  * reste dans {@link Text#full()}, pour la bulle) ; un montant trop long perd ses plus petites coupures, jamais une
  * coupure à moitié.
@@ -15,9 +16,12 @@ import javax.annotation.Nullable;
  * <pre>
  *   Nom du fournisseur                                   [Caisse]     titre (un poste neuf : « Nouveau poste »)
  *   ───────────────────────────────────────────────────────────────
- *   Prix : 5 cuivres → demain 8 cuivres             [____] [OK]       champs du tarif (du lendemain)
- *   Abonnement : 2 cuivres par jour                 [____] [OK]
- *   Plafond : 20 cuivres les 100 000 FE · taxe 0 %
+ *   Prix : 5 cuivres                                [____] [OK]       champs du tarif (du lendemain)
+ *     Demain : 8 cuivres                                              le lendemain sur sa propre ligne,
+ *   Abonnement : 2 cuivres par jour                 [____] [OK]       vide s'il ne change pas
+ *
+ *   Plafond : 2 argent les 100 000 FE · taxe 0 %
+ *     Demain : plafond 3 cuivres, taxe 5 %
  *                  Sortie        Compteurs     Écart                  écart du poste, en rouge
  *   Aujourd'hui    1 234 kFE     1 200 kFE     34 kFE (2 %)           au-delà du seuil ({@link #gapAlert})
  *   Hier           …
@@ -34,7 +38,6 @@ import javax.annotation.Nullable;
 public final class PowerPanelLayout {
 
     public static final int FRAME_W = 312;
-    public static final int FRAME_H = 236;
     public static final int PAD = 6;
     public static final int INNER = FRAME_W - 2 * PAD;
     public static final int TEXT_H = 9;
@@ -49,23 +52,30 @@ public final class PowerPanelLayout {
     public static final int FOUND_W = 80;
 
     public static final int PRICE_Y = 25;
-    public static final int SUBSCRIPTION_Y = 40;
-    public static final int FIELD_W = 60;
+    public static final int SUBSCRIPTION_Y = 47;
+    /** Assez pour cinq chiffres ; le libellé du tarif garde la place des valeurs courantes (abonnement à 49 cuivres). */
+    public static final int FIELD_W = 44;
     public static final int FIELD_H = 14;
     public static final int OK_W = 30;
-    public static final int CAP_Y = 57;
-    public static final int GAP_HEADER_Y = 67;
-    public static final int GAP_TODAY_Y = 76;
-    public static final int GAP_YESTERDAY_Y = 85;
+    /** Le tarif du lendemain, sous le libellé du jour, décalé de ce retrait. */
+    public static final int NEXT_INDENT = 8;
+    public static final int CAP_Y = 70;
+    public static final int CAP_NEXT_Y = 79;
+    public static final int GAP_HEADER_Y = 90;
+    public static final int GAP_TODAY_Y = 99;
+    public static final int GAP_YESTERDAY_Y = 108;
     public static final int GAP_LABEL_W = 72;
     public static final int GAP_CELL_W = (INNER - GAP_LABEL_W) / 3;
-    public static final int TILL_Y = 95;
-    public static final int RULE2_Y = 105;
-    public static final int LIST_HEADER_Y = 108;
-    public static final int LIST_Y = 118;
+    public static final int TILL_Y = 119;
+    public static final int RULE2_Y = 130;
+    public static final int LIST_HEADER_Y = 133;
+    public static final int LIST_Y = 143;
     public static final int ROW_H = 28;
-    /** Quatre clients entiers : aucun à moitié visible en bas de la liste. */
-    public static final int LIST_H = 4 * ROW_H;
+    /** Des clients entiers seulement : aucun à moitié visible en bas de la liste. */
+    public static final int MIN_ROWS = 3;
+    public static final int MAX_ROWS = 4;
+    /** Sous la liste, jusqu'au bord du cadre. */
+    public static final int BOTTOM = 5;
     /** La place de la barre de défilement, à droite de la liste. */
     public static final int SCROLL_W = 4;
 
@@ -98,9 +108,9 @@ public final class PowerPanelLayout {
      * comptent).
      */
     public record View(@Nullable String supplier, String title, String tillButton, String nameLabel, String foundButton,
-            String priceLine, String subscriptionLine, String okButton, String capLine, List<String> gapHeaders,
-            GapView today, GapView yesterday, int warnPercent, String tillLabel, List<String> tillParts,
-            String listHeader, List<RowView> rows, String empty) {}
+            String priceLine, String priceNext, String subscriptionLine, String subscriptionNext, String okButton,
+            String capLine, String capNext, List<String> gapHeaders, GapView today, GapView yesterday, int warnPercent,
+            String tillLabel, List<String> tillParts, String listHeader, List<RowView> rows, String empty) {}
 
     // ---------------------------------------------------------------------------------------------
     // Ce que la mise en page rend (coordonnées de l'interface)
@@ -141,8 +151,11 @@ public final class PowerPanelLayout {
         }
     }
 
-    /** Un champ de saisie avec son libellé à gauche et son bouton à droite. */
-    public record Field(Text label, Rect box, Rect button, Text buttonLabel) {}
+    /**
+     * Un champ de saisie avec son libellé à gauche (le tarif du jour, et dessous celui du lendemain, vide s'il ne change
+     * pas) et son bouton à droite.
+     */
+    public record Field(Text label, Text next, Rect box, Rect button, Text buttonLabel) {}
 
     public record GapLine(Text label, Text out, Text meters, Text gap, boolean alert) {}
 
@@ -151,16 +164,28 @@ public final class PowerPanelLayout {
 
     public record Layout(Rect frame, Text title, @Nullable Rect tillButton, @Nullable Text tillLabel,
             @Nullable Text nameLabel, @Nullable Rect nameField, @Nullable Rect foundButton, @Nullable Text foundLabel,
-            @Nullable Field price, @Nullable Field subscription, @Nullable Text cap, List<Text> gapHeaders,
+            @Nullable Field price, @Nullable Field subscription, @Nullable Text cap, @Nullable Text capNext,
+            List<Text> gapHeaders,
             @Nullable GapLine today, @Nullable GapLine yesterday, @Nullable Text till, @Nullable Text listHeader,
             @Nullable Rect list, List<RowLayout> rows, @Nullable Text empty, int contentHeight, int scrollMax) {}
 
     // ---------------------------------------------------------------------------------------------
 
+    /** Combien de clients la liste montre à la fois : {@value #MAX_ROWS} si la hauteur le permet, sinon {@value #MIN_ROWS}. */
+    public static int visibleRows(int guiHeight) {
+        return LIST_Y + MAX_ROWS * ROW_H + BOTTOM <= guiHeight ? MAX_ROWS : MIN_ROWS;
+    }
+
+    /** La hauteur du cadre pour cette interface (240 au plus avec {@value #MIN_ROWS} clients). */
+    public static int frameHeight(int guiHeight) {
+        return LIST_Y + visibleRows(guiHeight) * ROW_H + BOTTOM;
+    }
+
     public static Layout of(int guiWidth, int guiHeight, ToIntFunction<String> textWidth, View view) {
+        int frameH = frameHeight(guiHeight);
         int left = Math.max(0, (guiWidth - FRAME_W) / 2);
-        int top = Math.max(0, (guiHeight - FRAME_H) / 2);
-        Rect frame = new Rect(left, top, FRAME_W, FRAME_H);
+        int top = Math.max(0, (guiHeight - frameH) / 2);
+        Rect frame = new Rect(left, top, FRAME_W, frameH);
         int x0 = left + PAD;
         boolean founded = view.supplier() != null;
 
@@ -179,13 +204,15 @@ public final class PowerPanelLayout {
             Rect nameField = new Rect(x0, top + NAME_FIELD_Y, INNER - FOUND_W - 4, BUTTON_H);
             Rect foundButton = new Rect(x0 + INNER - FOUND_W, top + NAME_FIELD_Y, FOUND_W, BUTTON_H);
             return new Layout(frame, title, null, null, nameLabel, nameField, foundButton,
-                    centered(foundButton, view.foundButton(), textWidth), null, null, null, List.of(), null, null, null,
-                    null, null, List.of(), null, 0, 0);
+                    centered(foundButton, view.foundButton(), textWidth), null, null, null, null, List.of(), null, null,
+                    null, null, null, List.of(), null, 0, 0);
         }
 
-        Field price = field(x0, top + PRICE_Y, view.priceLine(), view.okButton(), textWidth);
-        Field subscription = field(x0, top + SUBSCRIPTION_Y, view.subscriptionLine(), view.okButton(), textWidth);
+        Field price = field(x0, top + PRICE_Y, view.priceLine(), view.priceNext(), view.okButton(), textWidth);
+        Field subscription = field(x0, top + SUBSCRIPTION_Y, view.subscriptionLine(), view.subscriptionNext(),
+                view.okButton(), textWidth);
         Text cap = fit(x0, top + CAP_Y, INNER, view.capLine(), textWidth);
+        Text capNext = fit(x0 + NEXT_INDENT, top + CAP_NEXT_Y, INNER - NEXT_INDENT, view.capNext(), textWidth);
 
         List<Text> gapHeaders = new ArrayList<>();
         for (int i = 0; i < 3 && i < view.gapHeaders().size(); i++) {
@@ -202,7 +229,7 @@ public final class PowerPanelLayout {
         Text till = text(x0, top + TILL_Y, INNER, tillShown, tillFull, textWidth);
 
         Text listHeader = fit(x0, top + LIST_HEADER_Y, INNER, view.listHeader(), textWidth);
-        Rect list = new Rect(x0, top + LIST_Y, INNER, LIST_H);
+        Rect list = new Rect(x0, top + LIST_Y, INNER, visibleRows(guiHeight) * ROW_H);
         List<RowLayout> rows = new ArrayList<>();
         int y = list.y();
         for (RowView row : view.rows()) {
@@ -216,20 +243,21 @@ public final class PowerPanelLayout {
         }
         int contentHeight = y - list.y();
         return new Layout(frame, title, tillButton, tillLabel, null, null, null, null, price, subscription, cap,
-                List.copyOf(gapHeaders), today, yesterday, till, listHeader, list, List.copyOf(rows), empty,
-                contentHeight, Math.max(0, contentHeight - LIST_H));
+                capNext, List.copyOf(gapHeaders), today, yesterday, till, listHeader, list, List.copyOf(rows), empty,
+                contentHeight, Math.max(0, contentHeight - list.h()));
     }
 
     private static int cellX(int x0, int column) {
         return x0 + GAP_LABEL_W + column * GAP_CELL_W;
     }
 
-    /** Libellé à gauche, champ puis bouton à droite. */
-    private static Field field(int x0, int y, String label, String ok, ToIntFunction<String> textWidth) {
+    /** Libellé à gauche et, dessous, le tarif du lendemain ; champ puis bouton à droite. */
+    private static Field field(int x0, int y, String label, String next, String ok, ToIntFunction<String> textWidth) {
         Rect button = new Rect(x0 + INNER - OK_W, y, OK_W, FIELD_H);
         Rect box = new Rect(button.x() - 4 - FIELD_W, y, FIELD_W, FIELD_H);
         Text text = fit(x0, y + 3, box.x() - 4 - x0, label, textWidth);
-        return new Field(text, box, button, centered(button, ok, textWidth));
+        Text tomorrow = fit(x0 + NEXT_INDENT, y + 3 + TEXT_H, box.x() - 4 - x0 - NEXT_INDENT, next, textWidth);
+        return new Field(text, tomorrow, box, button, centered(button, ok, textWidth));
     }
 
     private static GapLine gap(int x0, int y, GapView view, int warnPercent, ToIntFunction<String> textWidth) {

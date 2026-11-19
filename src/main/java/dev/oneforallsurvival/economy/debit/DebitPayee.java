@@ -24,8 +24,14 @@ public interface DebitPayee {
      */
     void receive(MinecraftServer server, Invoice invoice, long amount);
 
-    /** Le prélèvement est refusé (total insuffisant) : prévenir le créancier. Rien n'a bougé ; la facture reste due. */
-    void refused(MinecraftServer server, Invoice invoice);
+    /**
+     * Le prélèvement est refusé (total insuffisant) pour la première fois : prévenir le créancier. Rien n'a bougé ; la
+     * facture reste due. Les refus suivants de la même facture ne l'appellent pas (ils ne font que compter,
+     * {@code InvoiceRegistry#refusals}).
+     *
+     * @param now l'heure de la clôture, horloge de l'économie
+     */
+    void refused(MinecraftServer server, Invoice invoice, long now);
 
     /** Le motif lisible de la facture, traduit chez le client (clé de langue et arguments). */
     Component describe(Invoice invoice);

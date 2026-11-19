@@ -17,16 +17,21 @@ import net.minecraft.world.level.block.state.BlockState;
  * enclenché ({@link BreakerBlock#CLOSED}). Il porte le nom de l'abonné, qui suit l'objet quand on le démonte.
  *
  * <p>Jumelé à un client d'un fournisseur (lot E6), il porte un numéro et ne laisse rien passer tant que le client est
- * coupé à distance, même enclenché ; chargé alors qu'il est coupé, il s'ouvre (état du bloc) au tic suivant.
+ * coupé à distance, même enclenché ; chargé alors qu'il est coupé, il s'ouvre (état du bloc) au tic suivant. Ouvert
+ * par le fournisseur ({@link #openedRemotely()}, gardé dans le bloc), il se referme au tic suivant son chargement si
+ * le client a été rétabli pendant que sa zone était déchargée.
  */
 public final class BreakerBlockEntity extends InlineEnergyBlockEntity implements SubscriberHolder {
 
     private static final String TAG_SUBSCRIBER = "subscriber";
     private static final String TAG_SERIAL = "serial";
+    private static final String TAG_OPENED_REMOTELY = "openedRemotely";
 
     private String subscriber = "";
     /** Tiré au premier jumelage seulement : un disjoncteur jamais jumelé n'en a pas. */
     private UUID serial;
+    /** Ouvert par le fournisseur (coupure à distance), pas à la main : le rétablissement le referme. */
+    private boolean openedRemotely;
 
     public BreakerBlockEntity(BlockPos pos, BlockState state) {
         super(GridRegistry.BREAKER_BE.get(), pos, state, GridConfig.breakerMaxPerTick());
@@ -42,6 +47,18 @@ public final class BreakerBlockEntity extends InlineEnergyBlockEntity implements
             return false;
         }
         return serial == null || !(level instanceof ServerLevel server) || !PowerPairing.isCut(server.getServer(), serial);
+    }
+
+    /** Ouvert par le fournisseur (coupure à distance) et pas rebasculé à la main depuis. */
+    public boolean openedRemotely() {
+        return openedRemotely;
+    }
+
+    public void setOpenedRemotely(boolean value) {
+        if (openedRemotely != value) {
+            openedRemotely = value;
+            setChanged();
+        }
     }
 
     public boolean hasSerial() {
@@ -76,13 +93,16 @@ public final class BreakerBlockEntity extends InlineEnergyBlockEntity implements
                 : RoleGate.canDoEngineerWork(player);
     }
 
-    /** Chargé : se fait connaître du registre ; coupé à distance mais enclenché, il s'ouvrira au tic suivant. */
+    /**
+     * Chargé : se fait connaître du registre ; s'il ne suit plus l'état de coupure de son client (coupé mais enclenché,
+     * ou ouvert à distance mais rétabli entre-temps), il se resynchronise au tic suivant.
+     */
     @Override
     public void onLoad() {
         super.onLoad();
         if (serial != null && level instanceof ServerLevel server) {
             PowerSuppliers.get(server.getServer()).noteBreakerLoaded(serial, GlobalPos.of(server.dimension(), worldPosition));
-            if (getBlockState().getValue(BreakerBlock.CLOSED) && PowerPairing.isCut(server.getServer(), serial)) {
+            if (PowerPairing.breakerOutOfSync(server, worldPosition, this)) {
                 server.scheduleTick(worldPosition, getBlockState().getBlock(), 1);
             }
         }
@@ -116,6 +136,9 @@ public final class BreakerBlockEntity extends InlineEnergyBlockEntity implements
         if (serial != null) {
             tag.putUUID(TAG_SERIAL, serial);
         }
+        if (openedRemotely) {
+            tag.putBoolean(TAG_OPENED_REMOTELY, true);
+        }
     }
 
     @Override
@@ -123,5 +146,6 @@ public final class BreakerBlockEntity extends InlineEnergyBlockEntity implements
         super.load(tag);
         subscriber = tag.getString(TAG_SUBSCRIBER);
         serial = tag.hasUUID(TAG_SERIAL) ? tag.getUUID(TAG_SERIAL) : null;
+        openedRemotely = tag.getBoolean(TAG_OPENED_REMOTELY);
     }
 }

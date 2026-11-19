@@ -127,7 +127,7 @@ final class PayeurDEssai implements DebitPayee {
     }
 
     @Override
-    public void refused(MinecraftServer server, Invoice invoice) {
+    public void refused(MinecraftServer server, Invoice invoice, long now) {
         REFUS.merge(invoice.payeeRef(), 1, Integer::sum);
     }
 

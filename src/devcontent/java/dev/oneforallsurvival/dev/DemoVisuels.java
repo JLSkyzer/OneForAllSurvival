@@ -2515,6 +2515,14 @@ public final class DemoVisuels {
         panneau(mc, "grand court", () -> panneauLePlusCourt(), null, 0, "panneau_grand_court_coupe_impayes.png");
         panneau(mc, "grand neuf", () -> panneauNeuf(), null, 0, "panneau_grand_neuf.png");
         factureElectricite(mc, "facture_electricite_grand.png");
+        // La fenêtre de l'essai de bout en bout (1280 × 656, échelle automatique : 640 × 328) : les tarifs du lendemain aux
+        // valeurs courantes les plus longues (abonnement 49 → 48, prix et plafond 19 → 18, taxe 20 → 19), puis ceux de
+        // l'essai (prix 0 → 5, abonnement 0 → 10, plafond 2 argent → 3) ; rien ne doit être coupé (revue de la tâche 7).
+        taille(mc, 1280, 656, 0, 640, 328);
+        panneau(mc, "1280x656 tarifs courants", () -> panneauTarifs(19L, 18L, 49L, 48L, 19L, 18L, 20, 19), null, 0,
+                "panneau_1280x656_tarifs_courants.png");
+        panneau(mc, "1280x656 tarifs de l'essai", () -> panneauTarifs(0L, 5L, 0L, 10L, 20L, 3L, 0, 0), null, 0,
+                "panneau_1280x656_tarifs_essai.png");
         // Le poste posé : seul, puis collé à un mur (pierre derrière, à l'est, à l'ouest et au-dessus).
         etape("electricite vues", () -> fermer(mc), () -> true, 300, null);
         etape("vue poste_seul_trois_quarts.png", () -> regarder(mc, zoneElectricite, new Vec3(2.2, 1.3, 2.6), false),
@@ -2569,9 +2577,20 @@ public final class DemoVisuels {
             }
             if (PANNEAU_JOURNAL.add(nom)) {
                 var l = ecran.layout();
-                LOG.info("[visuels] panneau {} : cadre {}x{} en ({}, {}) dans une interface de {}x{}, defilement {}",
-                        nom, l.frame().w(), l.frame().h(), l.frame().x(), l.frame().y(),
-                        mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight(), l.scrollMax());
+                List<String> coupes = new ArrayList<>();
+                if (l.price() != null) {
+                    for (var t : List.of(l.price().label(), l.price().next(), l.subscription().label(),
+                            l.subscription().next(), l.cap(), l.capNext())) {
+                        if (t.cut()) {
+                            coupes.add("« " + t.full() + " »");
+                        }
+                    }
+                }
+                LOG.info("[visuels] panneau {} : cadre {}x{} en ({}, {}) dans une interface de {}x{}, defilement {}, "
+                        + "{} clients visibles ; tarifs coupes : {}", nom, l.frame().w(), l.frame().h(), l.frame().x(),
+                        l.frame().y(), mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight(),
+                        l.scrollMax(), l.list() == null ? 0 : l.list().h() / 28,
+                        coupes.isEmpty() ? "aucun" : String.join(", ", coupes));
             }
             return true;
         }, 1000, image);
@@ -2625,6 +2644,15 @@ public final class DemoVisuels {
                         true, false));
         return new dev.oneforallsurvival.grid.supplier.PowerPanelPacket(posteDemo(), true, "Ab", 1L, 0L, 1L, 0L, 20L, 20L,
                 0, 0, 100_000L, 50L, 10, 0L, 1_286_000L, 1_300_000L, 1_255_000L, 0L, false, mayTariffDemo, 4, clients);
+    }
+
+    /** Le contenu court, avec ces tarifs du jour et du lendemain (cuivres) et ces taxes (%). */
+    private static dev.oneforallsurvival.grid.supplier.PowerPanelPacket panneauTarifs(long prix, long prixDemain,
+            long abonnement, long abonnementDemain, long plafond, long plafondDemain, int taxe, int taxeDemain) {
+        var c = panneauCourt(true);
+        return new dev.oneforallsurvival.grid.supplier.PowerPanelPacket(posteDemo(), true, "Lumière du Port", prix,
+                abonnement, prixDemain, abonnementDemain, plafond, plafondDemain, taxe, taxeDemain, 100_000L, 50L, 10,
+                74_560L, 74_560L, 1_300_000L, 1_255_000L, 22L, true, true, c.clientCount(), c.clients());
     }
 
     private static dev.oneforallsurvival.grid.supplier.PowerPanelPacket panneauNeuf() {

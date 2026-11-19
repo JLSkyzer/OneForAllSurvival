@@ -182,12 +182,13 @@ public final class EconomyLedger extends SavedData {
     }
 
     /**
-     * Compte un prélèvement refusé (total insuffisant) : le compteur {@link #refusedDebits()} et une ligne du journal
-     * ({@link #KIND_DEBIT_REFUSED}, montant de la facture). Aucune pièce n'a bougé : aucun total ne change.
+     * Compte une facture refusée au prélèvement (total insuffisant), à son premier refus seulement : le compteur
+     * {@link #refusedDebits()} et une ligne du journal ({@link #KIND_DEBIT_REFUSED}, montant de la facture) datée de
+     * {@code now} (horloge de l'économie). Aucune pièce n'a bougé : aucun total ne change.
      */
-    public void debitRefused(@Nullable UUID debtor, long amount, String reason) {
+    public void debitRefused(@Nullable UUID debtor, long amount, String reason, long now) {
         refusedDebits++;
-        add(new Entry(System.currentTimeMillis(), debtor, Math.max(0L, amount), KIND_DEBIT_REFUSED, clip(reason)),
+        add(new Entry(now, debtor, Math.max(0L, amount), KIND_DEBIT_REFUSED, clip(reason)),
                 EconomyConfig.ledgerMaxLines());
     }
 
@@ -221,7 +222,7 @@ public final class EconomyLedger extends SavedData {
         return electricityTotal;
     }
 
-    /** Prélèvements refusés depuis le début. */
+    /** Factures refusées au moins une fois au prélèvement, depuis le début (une facture refusée chaque nuit compte une fois). */
     public long refusedDebits() {
         return refusedDebits;
     }

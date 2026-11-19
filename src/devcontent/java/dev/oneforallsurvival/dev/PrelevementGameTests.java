@@ -3,6 +3,7 @@ package dev.oneforallsurvival.dev;
 import dev.oneforallsurvival.economy.Coin;
 import dev.oneforallsurvival.economy.CoinMath;
 import dev.oneforallsurvival.economy.EconomyCalendar;
+import dev.oneforallsurvival.economy.EconomyClock;
 import dev.oneforallsurvival.economy.EconomyConfig;
 import dev.oneforallsurvival.economy.EconomyLedger;
 import dev.oneforallsurvival.economy.EconomyRegistry;
@@ -556,9 +557,20 @@ public final class PrelevementGameTests {
             j.joueur().getInventory().setItem(0, InvoiceItem.of(f));
             long avant = e.somme(u, j);
 
-            PayResult r = InvoiceService.pay(j.joueur(), 0);
+            // Revue finale, M1 : le paiement est daté par l'horloge de l'économie (réglée ici une heure plus tôt). Tout
+            // l'essai tient dans cet appel : aucun autre essai ne voit l'horloge réglée.
+            long heure = System.currentTimeMillis() - 3_600_000L;
+            PayResult r;
+            try {
+                EconomyClock.setClock(() -> heure);
+                r = InvoiceService.pay(j.joueur(), 0);
+            } finally {
+                EconomyClock.reset();
+            }
             helper.assertTrue(r == PayResult.PAID_TO_INVENTORY, "payée par l'objet, vu " + r);
             helper.assertTrue(e.statut(InvoiceRegistry.get(e.serveur), f) == Status.PAID, "payée au registre");
+            long payeeLe = InvoiceRegistry.get(e.serveur).get(f.id()).orElseThrow().settledAt();
+            helper.assertTrue(payeeLe == heure, "datée par l'horloge de l'économie : " + payeeLe + " / " + heure);
             helper.assertTrue(PayeurDEssai.recu(e.ref) == 250L, "le créancier est crédité : " + PayeurDEssai.recu(e.ref));
             helper.assertTrue(e.porte(j) == 50L && e.auCoffre(u) == 500L,
                     "pris dans l'inventaire seulement : " + e.porte(j) + " / " + e.auCoffre(u));
@@ -573,6 +585,55 @@ public final class PrelevementGameTests {
             helper.assertTrue(InvoiceService.pay(j.joueur(), 2) == PayResult.CANNOT_PAY, "50 sur soi pour 300");
             helper.assertTrue(e.statut(InvoiceRegistry.get(e.serveur), g) == Status.DUE && e.somme(u, j) == avant,
                     "rien n'a bougé");
+        });
+    }
+
+    /**
+     * Revue finale, I3 : une facture refusée trois nuits de suite ne fait qu'une ligne au journal, un avis au créancier et
+     * un au débiteur (au premier refus, daté par l'heure de la clôture : M1) ; les refus suivants ne font que compter sur
+     * la facture, compte gardé à la sauvegarde. {@code /eco stats} (refus) compte la facture une fois.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_B)
+    public static void unImpayeDurableNeNoteQuUnRefus(GameTestHelper helper) {
+        essai(helper, e -> {
+            JoueurDeTest j = e.joueur("pr_dur", POS_A);
+            UUID u = j.uuid();
+            Invoice f = e.facture(u, j.joueur().getGameProfile().getName(), 250L);
+            EconomyLedger journal = EconomyLedger.get(e.serveur);
+            long refusAvant = journal.refusedDebits();
+            j.messagesRecus();
+            long[] nuits = {minuit(J) + MINUTE, minuit(J.plusDays(1)) + MINUTE, minuit(J.plusDays(2)) + MINUTE};
+            for (long nuit : nuits) {
+                helper.assertTrue(DirectDebit.present(e.serveur, e.registre, f, nuit) == Outcome.REFUSED, "refus");
+            }
+            helper.assertTrue(e.registre.refusals(f.id()) == 3, "trois refus comptés sur la facture : "
+                    + e.registre.refusals(f.id()));
+            helper.assertTrue(PayeurDEssai.refus(e.ref) == 1, "le créancier n'est prévenu qu'une fois : "
+                    + PayeurDEssai.refus(e.ref));
+            helper.assertTrue(journal.refusedDebits() == refusAvant + 1L, "/eco stats : une facture refusée, vu "
+                    + (journal.refusedDebits() - refusAvant));
+            List<EconomyLedger.Entry> lignes = new ArrayList<>();
+            for (int page = 0; page < 5; page++) {
+                for (EconomyLedger.Entry l : journal.entries(page)) {
+                    if (EconomyLedger.KIND_DEBIT_REFUSED.equals(l.kind()) && l.reason().contains(f.shortId())) {
+                        lignes.add(l);
+                    }
+                }
+            }
+            helper.assertTrue(lignes.size() == 1 && lignes.get(0).epochMillis() == nuits[0],
+                    "une seule ligne au journal, datée de la première clôture : " + lignes);
+            List<String> recus = j.messagesRecus();
+            helper.assertTrue(java.util.Collections.frequency(recus, DirectDebit.MESSAGE + "refused") == 1,
+                    "le débiteur n'est prévenu qu'une fois : " + recus);
+            InvoiceRegistry relu = InvoiceRegistry.load(e.registre.save(new net.minecraft.nbt.CompoundTag()));
+            helper.assertTrue(relu.refusals(f.id()) == 3, "le compte est sauvegardé : " + relu.refusals(f.id()));
+
+            // Il a de quoi payer la nuit suivante : payée, rien de plus au journal des refus.
+            e.coffreFort(u, pieces(Coin.GOLD, 3));
+            helper.assertTrue(DirectDebit.present(e.serveur, e.registre, f, minuit(J.plusDays(3)) + MINUTE)
+                    == Outcome.PAID_SAFE, "payée");
+            helper.assertTrue(journal.refusedDebits() == refusAvant + 1L && PayeurDEssai.recu(e.ref) == 250L,
+                    "payée une fois, refus inchangés");
         });
     }
 

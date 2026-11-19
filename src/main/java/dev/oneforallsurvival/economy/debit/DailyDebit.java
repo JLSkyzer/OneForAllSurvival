@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import net.minecraft.server.MinecraftServer;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.server.ServerStartedEvent;
@@ -73,6 +74,19 @@ public final class DailyDebit {
             registry.setLastDebitDay(yesterday);
             LOGGER.warn("Prelevement remis a l'heure : dernier jour clos {} (avant : {})", yesterday, last);
         }
+        issuingSuspendedUntil(registry, today).ifPresent(issued -> LOGGER.warn("Prelevement : jours deja emis "
+                + "jusqu'au {} ; aucune facture publique emise avant la cloture du {} (presentation seule)", issued,
+                issued.plusDays(1)));
+    }
+
+    /**
+     * Le plus grand jour déjà émis, s'il n'est pas avant {@code today} : jusqu'à lui, les clôtures ne font que présenter
+     * les factures dues (ni facture, ni résiliation, ni tarif du lendemain) ; l'émission reprend avec le jour suivant.
+     * Vide si l'émission suit son cours.
+     */
+    public static Optional<LocalDate> issuingSuspendedUntil(InvoiceRegistry registry, LocalDate today) {
+        LocalDate issued = registry.lastIssuedDay();
+        return issued != null && !issued.isBefore(today) ? Optional.of(issued) : Optional.empty();
     }
 
     private static synchronized List<DayIssuer> issuers() {

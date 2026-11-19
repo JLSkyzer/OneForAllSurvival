@@ -123,20 +123,34 @@ public final class SalaryCommands {
 
     /**
      * {@code /eco salary resetday} : l'heure était fausse ; la date de paie, et celle du prélèvement automatique
-     * ({@link DailyDebit#rewindTo}), reviennent à l'horloge actuelle.
+     * ({@link DailyDebit#rewindTo}), reviennent à l'horloge actuelle. Si des jours à venir sont déjà émis (horloge qui
+     * était en avance), la réponse le dit : l'émission est suspendue jusqu'à eux ({@link #resetDayMessage}).
      */
     private static int resetDay(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack source = ctx.getSource();
         MinecraftServer server = source.getServer();
         Payroll payroll = Payroll.get(server);
+        InvoiceRegistry invoices = InvoiceRegistry.get(server);
         long now = EconomyClock.now();
         // Une seule horloge : le prélèvement automatique (lot E6) revient au même jour que la paie.
-        int closed = PayrollService.resetDay(server, payroll, TreasuryAccount.get(server), InvoiceRegistry.get(server),
-                now);
-        String today = EconomyCalendar.payDay(now, EconomyCalendar.configuredZone(), EconomyConfig.payHour()).toString();
-        source.sendSuccess(() -> Component.translatable("command.oneforallsurvival.eco.salary.resetday.success",
-                String.valueOf(payroll.lastClosed()), today, closed), true);
+        int closed = PayrollService.resetDay(server, payroll, TreasuryAccount.get(server), invoices, now);
+        Component message = resetDayMessage(payroll, invoices, now, closed);
+        source.sendSuccess(() -> message, true);
         return 1;
+    }
+
+    /**
+     * La réponse de {@code resetday} : le jour de paie remis, puis, si le plus grand jour émis n'est pas avant
+     * aujourd'hui ({@link DailyDebit#issuingSuspendedUntil}), l'émission suspendue jusque-là.
+     */
+    public static Component resetDayMessage(Payroll payroll, InvoiceRegistry invoices, long now, int closed) {
+        java.time.LocalDate today = EconomyCalendar.payDay(now, EconomyCalendar.configuredZone(), EconomyConfig.payHour());
+        MutableComponent message = Component.translatable("command.oneforallsurvival.eco.salary.resetday.success",
+                String.valueOf(payroll.lastClosed()), today.toString(), closed);
+        DailyDebit.issuingSuspendedUntil(invoices, today).ifPresent(issued -> message.append(" ").append(
+                Component.translatable("command.oneforallsurvival.eco.salary.resetday.issue_suspended",
+                        issued.toString(), issued.plusDays(1).toString())));
+        return message;
     }
 
     /** Lignes par page de {@code /eco salary owed}. */

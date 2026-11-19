@@ -120,6 +120,9 @@ public final class BreakerBlock extends InlineEnergyBlock {
         }
         boolean nowClosed = !state.getValue(CLOSED);
         level.setBlock(pos, state.setValue(CLOSED, nowClosed), Block.UPDATE_ALL);
+        if (level.getBlockEntity(pos) instanceof BreakerBlockEntity toggled) {
+            toggled.setOpenedRemotely(false); // basculé à la main : ce n'est plus l'état laissé par le fournisseur
+        }
         // Un ayant droit qui réenclenche un client coupé à distance le rétablit.
         if (nowClosed && level.getBlockEntity(pos) instanceof BreakerBlockEntity breaker && breaker.hasSerial()) {
             MinecraftServer server = player.server;
@@ -217,13 +220,13 @@ public final class BreakerBlock extends InlineEnergyBlock {
         super.onRemove(state, level, pos, newState, isMoving);
     }
 
-    /** Tic programmé au chargement d'un disjoncteur jumelé dont le client est coupé : il s'ouvre. */
+    /**
+     * Tic programmé au chargement d'un disjoncteur jumelé qui ne suit plus son client : coupé, il s'ouvre ; ouvert à
+     * distance puis rétabli pendant que sa zone était déchargée, il se referme (s'il n'est pas scellé).
+     */
     @Override
     public void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        if (state.getValue(CLOSED) && level.getBlockEntity(pos) instanceof BreakerBlockEntity breaker && breaker.hasSerial()
-                && PowerPairing.isCut(level.getServer(), breaker.serial())) {
-            PowerPairing.openBreaker(level, pos);
-        }
+        PowerPairing.resyncBreaker(level, pos);
     }
 
     // ---------------------------------------------------------------------------------------------

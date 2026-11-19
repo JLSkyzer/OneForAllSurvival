@@ -4,6 +4,7 @@ import com.mojang.logging.LogUtils;
 import dev.oneforallsurvival.economy.Coin;
 import dev.oneforallsurvival.economy.CoinMath;
 import dev.oneforallsurvival.economy.CommerceDelivery;
+import dev.oneforallsurvival.economy.EconomyClock;
 import dev.oneforallsurvival.economy.EconomyLedger;
 import dev.oneforallsurvival.economy.HeldGoods;
 import dev.oneforallsurvival.economy.InventoryFit;
@@ -81,9 +82,10 @@ public final class DirectDebit {
     /**
      * Présente cette facture publique à son débiteur. Genre pas (encore) inscrit : rien ne bouge, la facture reste due
      * ({@link Outcome#NOT_DUE}) ; un genre inscrit après le démarrage la retrouvera. Créancier disparu (référence
-     * inconnue de son genre) : la facture est annulée ({@link Outcome#CANCELLED}). Total insuffisant : rien ne bouge, le créancier est prévenu
-     * ({@link DebitPayee#refused}), le débiteur aussi (tout de suite s'il est connecté, sinon à sa connexion), le refus
-     * est compté au registre ({@link Outcome#REFUSED}). Sinon, payée.
+     * inconnue de son genre) : la facture est annulée ({@link Outcome#CANCELLED}). Total insuffisant
+     * ({@link Outcome#REFUSED}) : rien ne bouge, le refus est compté sur la facture ({@link InvoiceRegistry#refusals}) ;
+     * au premier refus seulement, le créancier est prévenu ({@link DebitPayee#refused}), le débiteur aussi (tout de suite
+     * s'il est connecté, sinon à sa connexion) et une ligne va au journal. Sinon, payée.
      *
      * @return {@link Outcome#NOT_DUE} si la facture n'est pas (ou plus) une facture publique due de ce registre
      */
@@ -119,16 +121,21 @@ public final class DirectDebit {
         Optional<DebitPlan> found = DebitPlan.plan(present ? PlayerCoins.held(online) : null,
                 held.pendingCoins(debtorId), safes.balance(debtorId), due.amount());
         if (found.isEmpty()) {
-            payee.get().refused(server, due);
-            EconomyLedger.get(server).debitRefused(debtorId, due.amount(), "facture publique " + due.payee() + " "
-                    + due.shortId() + " " + due.debtorName() + " : refus");
-            if (online != null) {
-                online.sendSystemMessage(refusedNotice(due, payee.get()));
-            } else {
-                registry.noteRefusedUnseen(due.id());
+            // Une ligne au journal, un avis au créancier et un au débiteur au premier refus de chaque facture seulement ;
+            // les refus suivants (un impayé durable, présenté chaque nuit) ne font que compter sur la facture.
+            int refusals = registry.noteRefusal(due.id());
+            if (refusals <= 1) {
+                payee.get().refused(server, due, now);
+                EconomyLedger.get(server).debitRefused(debtorId, due.amount(), "facture publique " + due.payee() + " "
+                        + due.shortId() + " " + due.debtorName() + " : refus", now);
+                if (online != null) {
+                    online.sendSystemMessage(refusedNotice(due, payee.get()));
+                } else {
+                    registry.noteRefusedUnseen(due.id());
+                }
             }
-            LOGGER.debug("Prelevement : facture {} refusee ({} cuivres, {})", due.shortId(), due.amount(),
-                    due.debtorName());
+            LOGGER.debug("Prelevement : facture {} refusee ({} cuivres, {}, refus n° {})", due.shortId(), due.amount(),
+                    due.debtorName(), refusals);
             return Outcome.REFUSED;
         }
 
@@ -257,7 +264,7 @@ public final class DirectDebit {
         if (!payer.isAlive()) {
             return PayResult.CANNOT_PAY;
         }
-        long now = System.currentTimeMillis();
+        long now = EconomyClock.now();
         Optional<DebitPayee> payee = DebitPayees.get(due.payeeKind());
         if (payee.isEmpty()) {
             warnUnregistered(due.payeeKind());

@@ -24,6 +24,7 @@ import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.MinecraftServer;
@@ -783,6 +784,111 @@ public final class RaccordementGameTests {
         }
     }
 
+    /** Le disjoncteur de l'essai oublié du registre des blocs chargés, comme si sa zone était déchargée. */
+    private static void decharger(GameTestHelper helper, Essai essai, BreakerBlockEntity d) {
+        essai.registre().forgetBreakerLoaded(d.serial(),
+                GlobalPos.of(helper.getLevel().dimension(), helper.absolutePos(DISJONCTEUR)));
+    }
+
+    /**
+     * Revue finale, I1 : coupé à distance zone chargée (le disjoncteur s'ouvre), puis rétabli pendant que la zone est
+     * déchargée : rien ne le referme sur le moment ; à son chargement, il se resynchronise sur le fournisseur et se
+     * referme, le courant passe. Un disjoncteur ouvert à la main par un ayant droit, lui, reste ouvert au chargement.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_B)
+    public static void unDisjoncteurOuvertADistanceSeRefermeAuChargement(GameTestHelper helper) {
+        Essai essai = new Essai(helper);
+        JoueurDeTest[] leFondateur = new JoueurDeTest[1];
+        try {
+            JoueurDeTest fondateur = essai.joueur("rc_rc_fond");
+            leFondateur[0] = fondateur;
+            JoueurDeTest client = essai.joueur("rc_rc_client");
+            MeterBlockEntity c = compteur(helper, COMPTEUR, "rc_rc_client");
+            BreakerBlockEntity d = disjoncteur(helper, "rc_rc_client");
+            charge(helper, CHARGE);
+            raccorder(helper, essai, fondateur, client, "Rechargement", c);
+            ItemStack t = testeur();
+            tester(helper, fondateur.joueur(), t, POSTE);
+            tester(helper, fondateur.joueur(), t, DISJONCTEUR);
+            helper.assertTrue(PowerPairing.setCut(fondateur.joueur(), c.serial(), true) == PowerPairing.Outcome.DONE
+                    && !helper.getBlockState(DISJONCTEUR).getValue(BreakerBlock.CLOSED) && d.openedRemotely(),
+                    "coupé zone chargée : le disjoncteur s'ouvre, ouvert à distance");
+            decharger(helper, essai, d);
+            helper.assertTrue(PowerPairing.setCut(fondateur.joueur(), c.serial(), false) == PowerPairing.Outcome.DONE
+                    && !client(essai, c).cut(), "rétabli à distance");
+            helper.assertTrue(!helper.getBlockState(DISJONCTEUR).getValue(BreakerBlock.CLOSED),
+                    "zone déchargée : le disjoncteur reste ouvert sur le moment");
+            clicDroit(helper, client.joueur(), DISJONCTEUR);
+            helper.assertTrue(!helper.getBlockState(DISJONCTEUR).getValue(BreakerBlock.CLOSED),
+                    "le client ne le réenclenche pas lui-même");
+            d.onLoad(); // la zone se recharge
+        } catch (RuntimeException | AssertionError e) {
+            essai.close();
+            throw e;
+        }
+        helper.runAfterDelay(3, () -> {
+            try {
+                BreakerBlockEntity d = (BreakerBlockEntity) helper.getBlockEntity(DISJONCTEUR);
+                MeterBlockEntity c = (MeterBlockEntity) helper.getBlockEntity(COMPTEUR);
+                TestMachineBlockEntity m = (TestMachineBlockEntity) helper.getBlockEntity(CHARGE);
+                helper.assertTrue(helper.getBlockState(DISJONCTEUR).getValue(BreakerBlock.CLOSED) && !d.openedRemotely(),
+                        "au chargement, le disjoncteur se referme sur l'état du fournisseur");
+                int avant = m.energy().getEnergyStored();
+                helper.assertTrue(pousser(c, 40, false) == 40 && m.energy().getEnergyStored() == avant + 40,
+                        "le courant passe de nouveau");
+                // Ouvert à la main par le fondateur : ce n'est pas l'état laissé par une coupure, il reste ouvert.
+                clicDroit(helper, leFondateur[0].joueur(), DISJONCTEUR);
+                helper.assertTrue(!helper.getBlockState(DISJONCTEUR).getValue(BreakerBlock.CLOSED) && !d.openedRemotely(),
+                        "ouvert à la main");
+                decharger(helper, essai, d);
+                d.onLoad();
+            } catch (RuntimeException | AssertionError e) {
+                essai.close();
+                throw e;
+            }
+            helper.runAfterDelay(3, () -> {
+                try {
+                    helper.assertTrue(!helper.getBlockState(DISJONCTEUR).getValue(BreakerBlock.CLOSED),
+                            "un disjoncteur ouvert à la main reste ouvert au chargement");
+                    helper.succeed();
+                } finally {
+                    essai.close();
+                }
+            });
+        });
+    }
+
+    /**
+     * Revue finale, M2 : un client coupé dont le disjoncteur a été démonté se rétablit quand même (l'état seul), et le
+     * courant repasse ; couper sans disjoncteur reste refusé.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_B)
+    public static void unClientCoupeSansDisjoncteurSeRetablit(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest fondateur = essai.joueur("rc_sd2_fond");
+            JoueurDeTest client = essai.joueur("rc_sd2_cli");
+            MeterBlockEntity c = compteur(helper, COMPTEUR, "rc_sd2_cli");
+            disjoncteur(helper, "rc_sd2_cli");
+            raccorder(helper, essai, fondateur, client, "Sans Disjoncteur", c);
+            ItemStack t = testeur();
+            tester(helper, fondateur.joueur(), t, POSTE);
+            tester(helper, fondateur.joueur(), t, DISJONCTEUR);
+            helper.assertTrue(PowerPairing.setCut(fondateur.joueur(), c.serial(), true) == PowerPairing.Outcome.DONE,
+                    "coupé");
+            helper.setBlock(DISJONCTEUR, Blocks.AIR); // démonté pour être déplacé
+            helper.assertTrue(client(essai, c).breakers().isEmpty() && client(essai, c).cut(),
+                    "le disjoncteur a quitté le client, toujours coupé");
+            TestMachineBlockEntity m = charge(helper, DISJONCTEUR);
+            helper.assertTrue(pousser(c, 40, false) == 0, "coupé : rien ne passe");
+            helper.assertTrue(PowerPairing.setCut(fondateur.joueur(), c.serial(), false) == PowerPairing.Outcome.DONE
+                    && !client(essai, c).cut(), "rétabli sans disjoncteur");
+            helper.assertTrue(pousser(c, 40, false) == 40 && m.energy().getEnergyStored() == 40, "le courant repasse");
+            helper.assertTrue(PowerPairing.setCut(fondateur.joueur(), c.serial(), true)
+                    == PowerPairing.Outcome.NO_BREAKER && !client(essai, c).cut(), "couper exige un disjoncteur");
+            helper.succeed();
+        }
+    }
+
     // ---------------------------------------------------------------------------------------------
     // Lot C : le panneau du poste (tâche 5), par les vrais paquets traités sur place
     // ---------------------------------------------------------------------------------------------
@@ -1016,12 +1122,13 @@ public final class RaccordementGameTests {
     }
 
     /**
-     * Le frein : un second geste du même joueur moins de 5 tics après le premier est ignoré, il ne reçoit que l'état.
+     * Le frein : un second geste du même joueur moins de 5 tics après le premier est ignoré, et rien ne lui est renvoyé,
+     * pas même l'état (revue finale, M3 : le frein borne le coût de l'état, qui relit les impayés de chaque client).
      * Les clients ne sont prévenus d'un tarif que s'il change vraiment. Un ingénieur client du fournisseur voit le panneau
      * avec le tarif fermé ({@code mayTariff} faux) ; le fondateur, ouvert.
      */
     @GameTest(template = "test/plancher", batch = LOT_C)
-    public static void unGesteTropRapprocheNeFaitQueRenvoyerLEtat(GameTestHelper helper) {
+    public static void unGesteTropRapprocheNeRenvoieRien(GameTestHelper helper) {
         try (Essai essai = new Essai(helper)) {
             JoueurDeTest fondateur = essai.joueur("rc_fr_fond");
             JoueurDeTest client = essai.ingenieur("rc_fr_client");
@@ -1040,7 +1147,8 @@ public final class RaccordementGameTests {
             helper.assertTrue(PowerActionPacket.apply(p, PowerActionPacket.price(poste, 4L))
                     == PowerActionPacket.Result.THROTTLED, "second geste dans le même tic : freiné");
             helper.assertTrue(essai.registre().byId(s.id()).orElseThrow().nextPrice() == 3L, "le second est ignoré");
-            helper.assertTrue(panneaux(helper, fondateur).size() == 2, "chaque geste reçoit l'état, même freiné");
+            helper.assertTrue(panneaux(helper, fondateur).size() == 1,
+                    "seul le geste accepté reçoit l'état ; le geste freiné ne reçoit rien");
 
             // Le même prix redemandé (frein levé) : rien de neuf, le client n'est pas prévenu une seconde fois.
             PowerActionPacket.clearThrottle(p.getUUID());

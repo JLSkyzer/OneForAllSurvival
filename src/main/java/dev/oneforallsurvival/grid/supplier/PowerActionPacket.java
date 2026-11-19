@@ -56,7 +56,8 @@ public record PowerActionPacket(int action, BlockPos pos, @Nullable UUID meter, 
     public static final int MAX_WIRE_TEXT = 64;
     /**
      * Frein : un même joueur ne lance pas plus d'un geste tous les {@value #MIN_TICKS_BETWEEN} tics ; au-delà, son geste
-     * est ignoré et il ne reçoit que l'état (chaque état relit les impayés de tous les clients).
+     * est ignoré et il ne reçoit rien, pas même l'état (chaque état relit les impayés de tous les clients : le renvoyer
+     * ne bornerait pas le coût).
      */
     public static final int MIN_TICKS_BETWEEN = 5;
     /** Le tic du dernier geste accepté de chaque joueur (non sauvegardé ; oublié à la déconnexion). */
@@ -79,7 +80,7 @@ public record PowerActionPacket(int action, BlockPos pos, @Nullable UUID meter, 
         TOO_FAR,
         /** Joueur parti ou faux joueur : rien. */
         GONE,
-        /** Trop tôt après le geste précédent du même joueur (frein) : seulement l'état. */
+        /** Trop tôt après le geste précédent du même joueur (frein) : rien, pas même l'état. */
         THROTTLED
     }
 
@@ -167,7 +168,8 @@ public record PowerActionPacket(int action, BlockPos pos, @Nullable UUID meter, 
             return Result.NOT_ALLOWED;
         }
         if (throttled(player)) {
-            sendState(player, pos, false);
+            // Rien, pas même l'état : le frein borne le coût (les impayés de chaque client se recalculent à chaque état
+            // renvoyé). Le client garde le dernier état reçu.
             return Result.THROTTLED;
         }
         if (packet.action == OPEN_TILL) {
@@ -196,13 +198,12 @@ public record PowerActionPacket(int action, BlockPos pos, @Nullable UUID meter, 
             tell(player, Component.translatable(PowerStationBlock.MESSAGE + "no_supplier"));
             return Result.NOT_ALLOWED;
         }
+        if (throttled(player)) {
+            return Result.THROTTLED; // ni geste ni état
+        }
         if (packet.action != NAME) {
             sendState(player, pos, false);
             return Result.STALE;
-        }
-        if (throttled(player)) {
-            sendState(player, pos, false);
-            return Result.THROTTLED;
         }
         Optional<PowerSuppliers.Result> founded = PowerStationBlock.found(player, pos, packet.text);
         if (founded.isEmpty()) {

@@ -35,6 +35,8 @@ import java.util.stream.Collectors;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.gametest.framework.AfterBatch;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
@@ -313,9 +315,12 @@ public final class FactureElectriciteGameTests {
             e.demarrer(5L, 10L);
             long avant = e.somme(c.uuid(), c);
             e.consommer(compteur, 2_300_000);
+            e.fournisseurs.recordOut(e.fournisseur.id(), 2_500_000); // le poste a fait sortir plus que le compteur
             c.messagesRecus();
 
             helper.assertTrue(e.clore(J) == 1, "le jour J se clôt");
+            helper.assertTrue(e.fournisseur().outYesterday() == 2_500_000L && e.fournisseur().outToday() == 0L,
+                    "l'écart d'hier, valeurs non nulles : sortie 2 500 000 FE, compteurs 2 300 000 FE");
             List<Invoice> factures = e.factures(compteur);
             helper.assertTrue(factures.size() == 1, "une facture : " + factures);
             Invoice facture = factures.get(0);
@@ -330,7 +335,7 @@ public final class FactureElectriciteGameTests {
             String motif = e.facturation.describe(facture).getString();
             helper.assertTrue(motif.contains("2300") && facture.reason().contains(e.fournisseur().name()),
                     "motif : " + motif + " / " + facture.reason());
-            helper.assertTrue(facture.payeeRef().startsWith("1/"), "référence versionnée : " + facture.payeeRef());
+            helper.assertTrue(facture.payeeRef().startsWith("2/"), "référence versionnée : " + facture.payeeRef());
             // Une référence de la première livraison (sans version) se lit toujours : une dette n'est jamais effacée.
             String ancienne = e.fournisseur().id() + "/" + compteur + "/0/" + J.toEpochDay() + "/100000/5/100000/0/"
                     + e.fournisseur().name();
@@ -345,7 +350,7 @@ public final class FactureElectriciteGameTests {
             helper.assertTrue(e.fournisseur().metersYesterday() == 2_300_000L, "compteurs d'hier notés au poste");
             helper.assertTrue(e.releve(compteur).equals(List.of(StatementKind.BILLED, StatementKind.PAID)),
                     "relevé : " + e.releve(compteur));
-            helper.assertTrue(e.facturation.unpaid(e.serveur, compteur) == 0L, "aucun impayé");
+            helper.assertTrue(e.facturation.unpaid(e.serveur, client) == 0L, "aucun impayé");
             helper.assertTrue(e.somme(c.uuid(), c) == avant, "somme conservée : " + avant + " -> "
                     + e.somme(c.uuid(), c));
         });
@@ -519,9 +524,168 @@ public final class FactureElectriciteGameTests {
         });
     }
 
+    /**
+     * Revue finale, I2 : la colonne « impayés » compte par contrat (débiteur, compteur, fournisseur, date du contrat). A
+     * laisse deux factures dues sur un compteur détaché sans être démonté ; B, nouveau locataire du même compteur, n'en
+     * hérite pas, ni A s'il revient plus tard, ni un autre fournisseur qui reprendrait le compteur. Les factures de B
+     * comptent pour B seul.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_A)
+    public static void lesImpayesSontComptesParContrat(GameTestHelper helper) {
+        essai(helper, e -> {
+            String nomA = e.nom("fe_ctA");
+            String nomB = e.nom("fe_ctB");
+            UUID a = identifiant(nomA);
+            UUID b = identifiant(nomB);
+            e.fonder(identifiant(e.nom("fe_fct")), "fondateur");
+            String id = e.fournisseur.id();
+            UUID compteur = UUID.randomUUID();
+            PowerClient ancien = new PowerClient(compteur, id, a, nomA, nomA, PowerClient.State.ACTIVE, 0L, 0L, Set.of(),
+                    false, 1_000L);
+            e.fournisseurs.putClient(ancien);
+            e.demarrer(5L, 10L);
+            e.consommer(compteur, 2_300_000);
+            helper.assertTrue(e.clore(J) == 1, "J clos");
+            helper.assertTrue(e.facturation.unpaid(e.serveur, ancien) == 125L, "A doit 125 : "
+                    + e.facturation.unpaid(e.serveur, ancien));
+            helper.assertTrue(PowerBilling.ref(e.factures(compteur).get(0)).orElseThrow().contract() == 1_000L
+                    && e.factures(compteur).get(0).payeeRef().startsWith("2/"), "la facture porte la date du contrat");
+
+            // Le fournisseur détache A au panneau (le compteur reste posé) ; sa journée reste due.
+            helper.assertTrue(e.fournisseurs.detach(compteur).isPresent(), "A détaché");
+            helper.assertTrue(e.clore(J.plusDays(1)) == 1, "J + 1 clos");
+            helper.assertTrue(e.facturation.unpaid(e.serveur, ancien) == 135L, "A doit 125 + 10 : "
+                    + e.facturation.unpaid(e.serveur, ancien));
+
+            // B, le nouveau locataire, inscrit puis jumelé sur le même compteur, chez le même fournisseur.
+            PowerClient nouveau = new PowerClient(compteur, id, b, nomB, nomB, PowerClient.State.ACTIVE, 0L, 0L, Set.of(),
+                    false, 2_000L);
+            e.fournisseurs.putClient(nouveau);
+            helper.assertTrue(e.facturation.unpaid(e.serveur, nouveau) == 0L,
+                    "B n'hérite pas des dettes de A : " + e.facturation.unpaid(e.serveur, nouveau));
+            PowerClient refait = new PowerClient(compteur, id, a, nomA, nomA, PowerClient.State.ACTIVE, 0L, 0L, Set.of(),
+                    false, 3_000L);
+            helper.assertTrue(e.facturation.unpaid(e.serveur, refait) == 0L,
+                    "un contrat refait plus tard par A ne reprend pas les dettes du contrat passé");
+            PowerSupplier autre = e.fournisseurs.found(identifiant(e.nom("fe_fct2")), "autre", "Autre " + nomA)
+                    .supplier();
+            PowerClient chezAutre = new PowerClient(compteur, autre.id(), a, nomA, nomA, PowerClient.State.ACTIVE, 0L, 0L,
+                    Set.of(), false, 1_000L);
+            helper.assertTrue(e.facturation.unpaid(e.serveur, chezAutre) == 0L,
+                    "un autre fournisseur ne montre pas les dettes dues au premier");
+
+            helper.assertTrue(e.clore(J.plusDays(2)) == 1, "J + 2 clos");
+            helper.assertTrue(e.facturation.unpaid(e.serveur, nouveau) == 10L
+                    && e.facturation.unpaid(e.serveur, ancien) == 135L,
+                    "l'abonnement de B compte pour B seul : " + e.facturation.unpaid(e.serveur, nouveau) + " / "
+                            + e.facturation.unpaid(e.serveur, ancien));
+            // Une facture d'avant la date de contrat (référence version 1) compte pour un contrat d'avant cette donnée.
+            String v1 = "1/" + id + "/" + compteur + "/0/" + J.toEpochDay() + "/0/5/100000/10/" + e.fournisseur().name();
+            e.registre.issuePublic(PowerBilling.KIND, v1, UUID.randomUUID(), "fondateur", b, nomB, 10L, "v1",
+                    minuit(J));
+            PowerClient sansDate = new PowerClient(compteur, id, b, nomB, nomB, PowerClient.State.ACTIVE, 0L, 0L,
+                    Set.of(), false);
+            helper.assertTrue(e.facturation.unpaid(e.serveur, sansDate) == 10L
+                    && e.facturation.unpaid(e.serveur, nouveau) == 10L, "référence v1 : contrat sans date seulement");
+        });
+    }
+
+    /**
+     * Revue finale, I5 : un client hors ligne est prévenu du changement de tarif à sa connexion (avis gardé), un seul avis
+     * par changement entré en vigueur ; un tarif inchangé n'en laisse aucun.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_A)
+    public static void unChangementDeTarifPrevientLeClientAbsent(GameTestHelper helper) {
+        essai(helper, e -> {
+            String nom = e.nom("fe_abst");
+            UUID u = identifiant(nom);
+            e.fonder(identifiant(e.nom("fe_fabs")), "fondateur");
+            UUID compteur = e.compteur(u, nom);
+            UUID second = e.compteur(u, nom);
+            e.coffreFort(u, pieces(Coin.GOLD, 2));
+            e.demarrer(5L, 0L);
+            e.fournisseurs.takeNotices(u); // l'avis des tarifs de départ
+            helper.assertTrue(e.serveur.getPlayerList().getPlayer(u) == null, "le client est hors ligne");
+
+            e.fournisseurs.setNextPrice(e.fournisseur.id(), 8L);
+            e.fournisseurs.setNextSubscription(e.fournisseur.id(), 2L);
+            helper.assertTrue(e.clore(J) == 1, "J clos");
+            List<Component> avis = e.fournisseurs.takeNotices(u);
+            helper.assertTrue(avis.size() == 1 && avis.get(0).getContents() instanceof TranslatableContents t
+                    && t.getKey().equals(PowerPairing.MESSAGE + "tariff"),
+                    "un seul avis gardé pour sa connexion, même avec deux compteurs : " + avis);
+
+            helper.assertTrue(e.clore(J.plusDays(1)) == 1, "J + 1 clos");
+            helper.assertTrue(e.fournisseurs.takeNotices(u).isEmpty(), "tarif inchangé : aucun avis");
+            helper.assertTrue(e.factures(second).size() == 1, "le second compteur paie son abonnement");
+        });
+    }
+
     // ---------------------------------------------------------------------------------------------
     // Lot B
     // ---------------------------------------------------------------------------------------------
+
+    /**
+     * Revue finale, I4 : le voisin d'un compteur résilié (code d'un autre mod) lève une exception quand la clôture le
+     * prévient. Les factures et les états de tous les compteurs sont faits quand même, une seule fois ; les tarifs du
+     * lendemain entrent en vigueur, le jour est noté émis ; le lendemain, rien n'est refacturé.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_B)
+    public static void unVoisinEnFauteNeFaitRienRefacturer(GameTestHelper helper) {
+        essai(helper, e -> {
+            String nom = e.nom("fe_vois");
+            UUID u = identifiant(nom);
+            e.fonder(identifiant(e.nom("fe_fvo")), "fondateur");
+            UUID resilie = e.compteur(u, nom);
+            UUID autre = e.compteur(u, nom);
+            UUID troisieme = e.compteur(u, nom);
+            e.coffreFort(u, pieces(Coin.GOLD, 5));
+            List<UUID> prevenus = new ArrayList<>();
+            PowerBilling piegee = new PowerBilling(e.fournisseurs, e.registre, (serveur, compteur) -> {
+                prevenus.add(compteur);
+                throw new IllegalStateException("neighborChanged d'un câble d'un autre mod en faute");
+            });
+            PowerBilling.install(piegee);
+            e.demarrer(5L, 10L);
+            long avant = e.auCoffre(u) + e.caisse() + e.tresor();
+            PowerClient r = e.fournisseurs.clientOf(resilie).orElseThrow();
+            e.fournisseurs.putClient(new PowerClient(resilie, r.supplierId(), u, nom, nom, PowerClient.State.RESIGNING,
+                    0L, 0L, Set.of(), false));
+            e.consommer(resilie, 200_000);
+            e.consommer(autre, 1_000_000);
+            e.consommer(troisieme, 2_000_000);
+            e.fournisseurs.setNextPrice(e.fournisseur.id(), 8L);
+
+            helper.assertTrue(e.clore(J) == 1, "J clos");
+            helper.assertTrue(prevenus.equals(List.of(resilie)), "le voisin du résilié a été prévenu (et a planté) : "
+                    + prevenus);
+            List<Long> montants = new ArrayList<>();
+            for (UUID m : List.of(resilie, autre, troisieme)) {
+                List<Invoice> f = e.factures(m);
+                helper.assertTrue(f.size() == 1 && e.statut(f.get(0)) == Status.PAID, "une facture payée par compteur : "
+                        + m + " " + f.stream().map(e::statut).collect(Collectors.toList()));
+                montants.add(f.get(0).amount());
+            }
+            helper.assertTrue(montants.equals(List.of(20L, 60L, 110L)), "montants : " + montants);
+            helper.assertTrue(e.fournisseurs.clientOf(resilie).isEmpty(), "la résiliation est faite");
+            for (UUID m : List.of(autre, troisieme)) {
+                PowerClient c = e.fournisseurs.clientOf(m).orElseThrow();
+                helper.assertTrue(c.feToday() == 0L && c.feYesterday() > 0L, "jour clos : " + c);
+            }
+            helper.assertTrue(e.fournisseur().price() == 8L, "le tarif du lendemain est entré en vigueur");
+            helper.assertTrue(J.equals(e.registre.lastIssuedDay()), "le jour est noté émis");
+
+            helper.assertTrue(e.clore(J.plusDays(1)) == 1, "J + 1 clos");
+            helper.assertTrue(e.factures(resilie).size() == 1, "le résilié n'est plus facturé");
+            for (UUID m : List.of(autre, troisieme)) {
+                List<Invoice> f = e.factures(m);
+                helper.assertTrue(f.size() == 2 && f.get(1).amount() == 10L,
+                        "le lendemain, l'abonnement seul (aucune consommation refacturée) : " + f);
+            }
+            helper.assertTrue(e.auCoffre(u) + e.caisse() + e.tresor() == avant && e.caisse() == 210L,
+                    "somme conservée : caisse " + e.caisse());
+        });
+    }
 
     @GameTest(template = "test/plancher", batch = LOT_B)
     public static void laTaxeVaAuTresor(GameTestHelper helper) {
@@ -631,8 +795,9 @@ public final class FactureElectriciteGameTests {
             helper.assertTrue(c.messagesRecus().contains(DirectDebit.MESSAGE + "refused"), "le client est prévenu");
             helper.assertTrue(f.messagesRecus().contains(PowerPairing.MESSAGE + "founder_unpaid"),
                     "le fournisseur est prévenu");
-            helper.assertTrue(e.facturation.unpaid(e.serveur, compteur) == 125L,
-                    "colonne « impayés » : " + e.facturation.unpaid(e.serveur, compteur));
+            PowerClient contrat = e.fournisseurs.clientOf(compteur).orElseThrow();
+            helper.assertTrue(e.facturation.unpaid(e.serveur, contrat) == 125L,
+                    "colonne « impayés » : " + e.facturation.unpaid(e.serveur, contrat));
             helper.assertTrue(e.releve(compteur).equals(List.of(StatementKind.BILLED, StatementKind.REFUSED)),
                     "relevé : " + e.releve(compteur));
 
@@ -653,7 +818,7 @@ public final class FactureElectriciteGameTests {
                     "J + 1 : l'abonnement seul : " + e.factures(compteur));
             helper.assertTrue(e.caisse() == 135L && e.porte(c) == 65L, "125 + 10 : " + e.caisse() + " / "
                     + e.porte(c));
-            helper.assertTrue(e.facturation.unpaid(e.serveur, compteur) == 0L, "plus d'impayé");
+            helper.assertTrue(e.facturation.unpaid(e.serveur, contrat) == 0L, "plus d'impayé");
             helper.assertTrue(e.releve(compteur).equals(List.of(StatementKind.BILLED, StatementKind.REFUSED,
                     StatementKind.BILLED, StatementKind.PAID, StatementKind.PAID)), "relevé : " + e.releve(compteur));
             List<Long> dates = e.fournisseurs.statement(compteur).stream()

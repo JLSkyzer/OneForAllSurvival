@@ -320,6 +320,22 @@ public final class MaireElectriciteGameTests {
                 montant, s.name(), now);
     }
 
+    /** Les clés de langue d'un message et leurs arguments, à plat : « clé[arg, arg] ». */
+    private static String cles(net.minecraft.network.chat.Component c) {
+        StringBuilder out = new StringBuilder();
+        if (c.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents t) {
+            List<String> args = new ArrayList<>();
+            for (Object a : t.getArgs()) {
+                args.add(a instanceof net.minecraft.network.chat.Component k ? k.getString() : String.valueOf(a));
+            }
+            out.append(t.getKey()).append(args).append(' ');
+        }
+        for (net.minecraft.network.chat.Component s : c.getSiblings()) {
+            out.append(cles(s));
+        }
+        return out.toString();
+    }
+
     private static Status statut(InvoiceRegistry registre, Invoice f) {
         return registre.get(f.id()).map(Invoice::status).orElse(null);
     }
@@ -892,6 +908,17 @@ public final class MaireElectriciteGameTests {
                         && J.plusDays(2).equals(registre.lastIssuedDay()),
                         "resetday : présentation à la veille, jour émis gardé : " + registre.lastDebitDay() + " / "
                                 + registre.lastIssuedDay());
+                // Revue finale, M4 : la réponse de resetday dit que l'émission est suspendue jusqu'au jour déjà émis.
+                String reponse = cles(dev.oneforallsurvival.economy.payroll.SalaryCommands.resetDayMessage(new Payroll(),
+                        registre, midiJ, 0));
+                helper.assertTrue(reponse.contains("resetday.issue_suspended[" + J.plusDays(2) + ", " + J.plusDays(3)
+                        + "]"), "resetday annonce l'émission suspendue jusqu'au " + J.plusDays(2) + " : " + reponse);
+                InvoiceRegistry alHeure = InvoiceRegistry.load(new CompoundTag());
+                alHeure.noteIssuedDay(J.minusDays(1));
+                String normale = cles(dev.oneforallsurvival.economy.payroll.SalaryCommands.resetDayMessage(new Payroll(),
+                        alHeure, midiJ, 0));
+                helper.assertTrue(normale.contains("resetday.success") && !normale.contains("issue_suspended"),
+                        "émission à l'heure : rien de plus dans la réponse : " + normale);
 
                 fournisseurs.recordMeter(compteur, 200_000);
                 for (int i = 0; i <= 2; i++) {

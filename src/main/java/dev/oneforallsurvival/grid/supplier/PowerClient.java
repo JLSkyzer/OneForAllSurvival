@@ -21,9 +21,12 @@ import net.minecraft.nbt.Tag;
  * @param feYesterday FE passés hier
  * @param breakers disjoncteurs jumelés à ce client
  * @param cut coupé à distance par le fournisseur
+ * @param since l'instant du jumelage (ms, horloge de l'économie) : avec le joueur, le fournisseur et le compteur, il
+ *     désigne le contrat, et ses factures le portent ({@link PowerBilling.Ref#contract}) ; 0 pour un contrat d'avant
+ *     cette donnée
  */
 public record PowerClient(UUID meterSerial, String supplierId, UUID player, String playerName, String subscriber,
-        State state, long feToday, long feYesterday, Set<UUID> breakers, boolean cut) {
+        State state, long feToday, long feYesterday, Set<UUID> breakers, boolean cut, long since) {
 
     /**
      * Où en est le raccordement. Le courant passe et la facture court à {@link #ACTIVE} ; {@link #RESIGNING} passe
@@ -46,32 +49,39 @@ public record PowerClient(UUID meterSerial, String supplierId, UUID player, Stri
 
     public PowerClient {
         breakers = Set.copyOf(breakers);
+        since = Math.max(0L, since);
+    }
+
+    /** Un contrat sans date (essais, ancien format) : {@code since} = 0. */
+    public PowerClient(UUID meterSerial, String supplierId, UUID player, String playerName, String subscriber,
+            State state, long feToday, long feYesterday, Set<UUID> breakers, boolean cut) {
+        this(meterSerial, supplierId, player, playerName, subscriber, state, feToday, feYesterday, breakers, cut, 0L);
     }
 
     PowerClient withFeToday(long fe) {
         return new PowerClient(meterSerial, supplierId, player, playerName, subscriber, state, fe, feYesterday, breakers,
-                cut);
+                cut, since);
     }
 
     /** Le jour clos : la consommation du jour passe à « hier », celle du jour repart de zéro. */
     PowerClient withDayClosed() {
         return new PowerClient(meterSerial, supplierId, player, playerName, subscriber, state, 0L, feToday, breakers,
-                cut);
+                cut, since);
     }
 
     PowerClient withState(State next) {
         return new PowerClient(meterSerial, supplierId, player, playerName, subscriber, next, feToday, feYesterday,
-                breakers, cut);
+                breakers, cut, since);
     }
 
     PowerClient withBreakers(Set<UUID> next) {
         return new PowerClient(meterSerial, supplierId, player, playerName, subscriber, state, feToday, feYesterday, next,
-                cut);
+                cut, since);
     }
 
     PowerClient withCut(boolean next) {
         return new PowerClient(meterSerial, supplierId, player, playerName, subscriber, state, feToday, feYesterday,
-                breakers, next);
+                breakers, next, since);
     }
 
     CompoundTag save() {
@@ -90,6 +100,9 @@ public record PowerClient(UUID meterSerial, String supplierId, UUID player, Stri
         }
         tag.put("breakers", list);
         tag.putBoolean("cut", cut);
+        if (since > 0L) {
+            tag.putLong("since", since);
+        }
         return tag;
     }
 
@@ -112,6 +125,7 @@ public record PowerClient(UUID meterSerial, String supplierId, UUID player, Stri
         }
         return new PowerClient(tag.getUUID("meter"), tag.getString("supplier"), tag.getUUID("player"),
                 tag.getString("playerName"), tag.getString("subscriber"), state, Math.max(0L, tag.getLong("feToday")),
-                Math.max(0L, tag.getLong("feYesterday")), breakers, tag.getBoolean("cut"));
+                Math.max(0L, tag.getLong("feYesterday")), breakers, tag.getBoolean("cut"),
+                tag.getLong("since"));
     }
 }
