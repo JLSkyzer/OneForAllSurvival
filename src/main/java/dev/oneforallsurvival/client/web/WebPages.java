@@ -1,0 +1,50 @@
+package dev.oneforallsurvival.client.web;
+
+import java.util.Locale;
+
+/**
+ * Adresses des pages locales du mod (schéma {@code mod://oneforallsurvival/}). Seules ces pages et
+ * {@code about:blank} peuvent être chargées par le navigateur.
+ */
+public final class WebPages {
+
+    public static final String BASE = "mod://oneforallsurvival/";
+
+    private static final String BLANK = "about:blank";
+    private static final String RESOURCE_ROOT = "/assets/oneforallsurvival/html/";
+
+    private WebPages() {}
+
+    /** Adresse d'une page du mod ; refuse tout chemin vide, en majuscules, remontant ou absolu. */
+    public static String url(String path) {
+        if (path == null
+                || path.isEmpty()
+                || !path.equals(path.toLowerCase(Locale.ROOT))
+                || path.contains("..")
+                || path.indexOf('\\') >= 0
+                || path.indexOf(':') >= 0
+                || path.startsWith("/")) {
+            throw new IllegalArgumentException("chemin de page refusé : " + path);
+        }
+        return BASE + path;
+    }
+
+    /** Vrai pour {@code about:blank} et les pages du mod ; les remontées, antiobliques et pourcentages sont refusés. */
+    public static boolean isAllowed(String url) {
+        if (url == null) {
+            return false;
+        }
+        if (url.equals(BLANK)) {
+            return true;
+        }
+        return url.startsWith(BASE)
+                && !url.contains("..")
+                && url.indexOf('\\') < 0
+                && url.indexOf('%') < 0;
+    }
+
+    /** Chemin de la page dans les ressources du mod. */
+    public static String resourcePath(String path) {
+        return RESOURCE_ROOT + path;
+    }
+}
