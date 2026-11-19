@@ -11,7 +11,7 @@
 
 **Tech Stack:** Forge 1.20.1-47.4.28, Java 17, ForgeGradle 6, Mixin (déjà en place, aucun nouveau mixin prévu), JUnit 5, GameTests, pack (`-PwithPack`).
 
-**Spec:** `docs/superpowers/specs/2026-11-08-economie-design.md`. Sections utiles :
+**Spec:** `docs/superpowers/specs/archive/2026-11-08-economie-design.md`. Sections utiles :
 - sections 2, 3 et 4 (objectifs, contraintes, socle et tableau « qui fabrique, qui pose, qui gère ») ;
 - features 70, 71 et 72, et 84 (où l'argent peut se trouver) ;
 - section 7 (lot E2 : « Les joueurs commercent entre eux, même absents ») ;

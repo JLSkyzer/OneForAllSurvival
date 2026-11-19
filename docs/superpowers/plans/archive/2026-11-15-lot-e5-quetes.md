@@ -13,7 +13,7 @@
 
 **Tech Stack:** Forge 1.20.1-47.4.28, Java 17, ForgeGradle 6, MixinGradle (déjà en place), Gson, JUnit 5, GameTests, pack (`-PwithPack`). Farmer's Delight 1.20.1-1.3.4 (déjà en `implementation`). Deux paquets réseau nouveaux sur `BenchNetwork` (protocole `7` → `8`).
 
-**Spec:** `docs/superpowers/specs/2026-11-08-economie-design.md`. Sections utiles :
+**Spec:** `docs/superpowers/specs/archive/2026-11-08-economie-design.md`. Sections utiles :
 - section 2 (« Ce qui serait un échec » : créer de l'argent par une **quête répétée en boucle** ; des quêtes qui deviennent **une corvée quotidienne obligatoire** ; règle des quatre sources, les quêtes en sont une, comptée à part) ;
 - section 3 (données et config réglables sans recompiler ; montants en cuivres ; échéances au calendrier réel, fuseau réglable) ;
 - feature **79** en entier (3 + 5 quêtes ; renouvellement chaque jour et chaque lundi à heure fixe ; expiration sans pénalité ; tirage pondéré de modèles en données ; catégorie, cible facultative, fourchette, récompense de base ; pas deux fois le même modèle par série ; hebdomadaire ≈ 5 × journalière ; pondération par rôle sans obligation ; une relance par jour ; écran à touche réglable ; notification discrète ; récompense à réclamer, vers la bourse ou l'inventaire ; pièces seulement ; source comptée ; **plafond de 1 000 cuivres par semaine et par joueur**, réglable, et l'écran le dit ; catégories demandées et proposées ; garde-fous ; suivi des blocs posés borné ; modèles et quêtes d'événement par commande) et **77** (total créé par source) ;

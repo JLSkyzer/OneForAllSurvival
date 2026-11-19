@@ -12,7 +12,7 @@
 
 **Tech Stack:** Forge 1.20.1-47.4.28, Java 17, ForgeGradle 6, Mixin 0.8.5 et MixinGradle 0.7-SNAPSHOT (déjà dans le cache Gradle, rien à télécharger), JUnit 5, GameTests, pack (`-PwithPack`) pour les stockages des autres mods.
 
-**Spec:** `docs/superpowers/specs/2026-11-08-economie-design.md`. Sections utiles :
+**Spec:** `docs/superpowers/specs/archive/2026-11-08-economie-design.md`. Sections utiles :
 - section 3 (contraintes) ;
 - section 4 (pièces, change, registre) ;
 - features 84, 85, 69, 87, 88 et 77 ;

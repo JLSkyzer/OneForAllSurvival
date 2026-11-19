@@ -28,7 +28,7 @@ qu'un citoyen soit privé de son potager.**
 - **Le soin des animaux** (vétérinaire) : il chevaucherait le médecin.
 - **Les saisons** : pas de Serene Seasons dans le pack (choix de Killian du 2026-11-11).
 - **De nouvelles cultures** : aucune n'est ajoutée ici.
-- **La monnaie** : traitée par le [cahier de l'économie](2026-11-08-economie-design.md), qui prévoit l'étal de marché et le rachat
+- **La monnaie** : traitée par le [cahier de l'économie](archive/2026-11-08-economie-design.md), qui prévoit l'étal de marché et le rachat
   des dépôts du grenier.
 - **L'automatisation par Create** (moissonneuse, déployeur) : elle reste possible, mais aucune machine
   dédiée n'est ajoutée.

@@ -13,9 +13,9 @@ l'équipe (features 84 à 88). Ses réponses sont
 regroupées en section 9.
 
 **Ce document remplace la règle « le mod ne gère aucune monnaie »** des cahiers de
-[l'électricité](archive/2026-11-06-features-lost-island-design.md),
-de [l'agriculteur](2026-11-08-metier-agriculteur-design.md)
-et du [policier](2026-11-08-metier-policier-design.md).
+[l'électricité](2026-11-06-features-lost-island-design.md),
+de [l'agriculteur](../2026-11-08-metier-agriculteur-design.md)
+et du [policier](../2026-11-08-metier-policier-design.md).
 Les passages concernés y renvoient ici.
 
 ## 1. Pourquoi
@@ -52,7 +52,7 @@ l'argent qui circule a toujours une origine connue.**
   d'abus. (À ne pas confondre avec la bourse de la feature 69, le porte-monnaie.)
 - **Les villageois vanilla** gardent leurs émeraudes et n'acceptent pas les pièces. Les seuls PNJ qui
   manient la monnaie sont les deux PNJ du casino, qui vendent et rachètent des jetons contre des pièces
-  du coffre du casino ([cahier du casino](2026-11-11-casino-roulette-design.md)). Ils sont placés par
+  du coffre du casino ([cahier du casino](../2026-11-11-casino-roulette-design.md)). Ils sont placés par
   l'équipe du serveur.
 - **Fixer les prix** : ils relèvent des joueurs, sauf les tarifs publics (amendes) que la ville règle.
   Le prix de l'électricité est fixé par chaque fournisseur, sous un plafond fixé par le maire
@@ -124,7 +124,7 @@ Valeurs de départ, réglables :
 
 ### Le maire
 - Le **maire** est un rôle **codé en dur** dans le mod, comme les métiers qui le sont déjà. Il a son
-  [cahier](2026-11-08-metier-maire-design.md).
+  [cahier](../2026-11-08-metier-maire-design.md).
 - Il est **élu en RP**, puis l'équipe du serveur lui donne le grade par commande.
 - Dans l'économie, il tient le trésor de la ville (73), y dépense publiquement, règle les taxes et
   l'**impôt** sur les coffres-forts et les pièces portées (0 à 5 % par jour, au-delà de 500 cuivres), plafonne le prix de l'électricité, et peut modifier
@@ -175,7 +175,7 @@ Demandé par Killian le 2026-11-08.
   - le **trésor de la ville** (73) ;
   - la caisse d'un **poste de fournisseur** (83) ou d'une **antenne** d'opérateur (cahier du
     téléphone), qui reçoivent les prélèvements ;
-  - le **coffre d'un casino** ([cahier du casino](2026-11-11-casino-roulette-design.md), feature 110).
+  - le **coffre d'un casino** ([cahier du casino](../2026-11-11-casino-roulette-design.md), feature 110).
 - **Partout ailleurs, elle est refusée** : coffres, tonneaux, boîtes de Shulker, coffre de l'Ender,
   sacs et stockages des autres mods, cadres, porte-armures.
   - Dans un **écran de stockage**, la case refuse la pièce. Tous les écrans du jeu et des mods
@@ -500,8 +500,8 @@ Chaque branchement se fait au lot du métier concerné, une fois l'économie liv
 | Agriculteur | L'**étal** vend la production et rachète les récoltes. Le **grenier communal** peut **payer les dépôts** au prix fixé par la ville, sur le trésor : la ville achète ses réserves. |
 | Médecin | Le médecin émet une **facture de soins** depuis le dossier médical, avec les soins listés. Elle peut être réglée par le trésor si la ville rend certains soins gratuits (réglable par type de soin). |
 | Policier | Une **contravention** devient une facture publique, prélevée à distance (feature 86) : payée, elle est marquée payée au casier sans geste du policier. Une **caution** peut être versée au trésor pour sortir de cellule plus tôt (réglable). Les pièces se fouillent et se confisquent comme le reste. Son outil de crochetage force aussi un coffre-fort (feature 85). |
-| Maire | Voir son [cahier](2026-11-08-metier-maire-design.md) : trésor et dépenses publiques, taxes, impôt sur les coffres-forts, barème des amendes, plafond du prix de l'électricité, fournisseurs. |
-| Communication | L'**abonnement du téléphone** est prélevé chaque jour en pièces (feature 86) et va dans la caisse de l'antenne de l'opérateur. Voir le [cahier du téléphone](2026-11-08-telephone-design.md). |
+| Maire | Voir son [cahier](../2026-11-08-metier-maire-design.md) : trésor et dépenses publiques, taxes, impôt sur les coffres-forts, barème des amendes, plafond du prix de l'électricité, fournisseurs. |
+| Communication | L'**abonnement du téléphone** est prélevé chaque jour en pièces (feature 86) et va dans la caisse de l'antenne de l'opérateur. Voir le [cahier du téléphone](../2026-11-08-telephone-design.md). |
 | Tous | Les **salaires publics**, la **taxe sur les ventes**, le **cambriolage** du trésor, d'un étal ou d'un coffre-fort. |
 
 Ces branchements modifient les cahiers des métiers : chaque lot de métier qui les livre met son cahier à

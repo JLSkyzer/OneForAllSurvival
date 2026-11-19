@@ -10,7 +10,7 @@ commande. Le même jour, il a ajouté une table de blackjack, un duel de dés et
 envoi sur Discord (feature 121), puis la triche des jeux et son contrôle par la police (features 122
 et 123). Ses réponses sont regroupées en section 9.
 
-L'argent passe par le [cahier de l'économie](2026-11-08-economie-design.md), qui reçoit ici deux
+L'argent passe par le [cahier de l'économie](archive/2026-11-08-economie-design.md), qui reçoit ici deux
 exceptions : le coffre du casino comme rangement de pièces, et les PNJ du casino.
 
 ## 1. Pourquoi

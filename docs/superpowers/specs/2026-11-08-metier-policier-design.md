@@ -31,7 +31,7 @@ sanction, sans que le mod désigne lui-même le coupable.**
 - **Empreintes digitales, fichier d'empreintes, marquage des biens, carte d'identité, permis, salle des
   scellés, bracelet électronique, insigne** : proposés, non retenus.
 - **Communication** (radio de police) : prévue plus tard.
-- **Monnaie** : traitée par le [cahier de l'économie](2026-11-08-economie-design.md) ; une amende y devient une facture publique.
+- **Monnaie** : traitée par le [cahier de l'économie](archive/2026-11-08-economie-design.md) ; une amende y devient une facture publique.
 
 ### Ce qui serait un échec, même si tout fonctionne
 - Un mécanisme qui **désigne le coupable** à la place de l'enquête.
@@ -229,7 +229,7 @@ La numérotation prolonge celle du médecin. Toutes les valeurs chiffrées sont 
   **montant**.
 - Le contrevenant reçoit un **avis de contravention** (objet) et la ligne s'inscrit au casier comme
   **impayée**.
-- Le policier la marque **payée** quand le règlement a eu lieu en RP. Avec le [cahier de l'économie](2026-11-08-economie-design.md), l'amende est prélevée à
+- Le policier la marque **payée** quand le règlement a eu lieu en RP. Avec le [cahier de l'économie](archive/2026-11-08-economie-design.md), l'amende est prélevée à
   distance dans l'inventaire puis le coffre-fort du contrevenant, et marquée payée automatiquement.
 - Avec le [cahier du maire](2026-11-08-metier-maire-design.md) (feature 105), le montant de chaque motif
   vient du **barème** fixé par le maire ; seul le motif libre garde un montant écrit par le policier.
@@ -369,4 +369,4 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 
 ## 9. Questions ouvertes
 
-Aucune pour l'instant. Les amendes se paient en pièces depuis le [cahier de l'économie](2026-11-08-economie-design.md).
+Aucune pour l'instant. Les amendes se paient en pièces depuis le [cahier de l'économie](archive/2026-11-08-economie-design.md).

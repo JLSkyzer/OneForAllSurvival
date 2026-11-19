@@ -10,7 +10,7 @@ déployée sur le vrai site. **Ce cahier en est le pendant côté mod et ne le c
 le contrat laisse encore ouverts sont listés en section 13.
 
 La boutique **ne vend pas la monnaie du jeu** (décision de Killian, 2026-11-13) : le
-[cahier de l'économie](2026-11-08-economie-design.md) et ses quatre sources de pièces restent inchangés
+[cahier de l'économie](archive/2026-11-08-economie-design.md) et ses quatre sources de pièces restent inchangés
 (feature 143).
 
 ## 1. Pourquoi

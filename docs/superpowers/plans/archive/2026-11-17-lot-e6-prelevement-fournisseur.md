@@ -10,7 +10,7 @@
 
 **Tech Stack:** Forge 1.20.1-47.4.28, Java 17, ForgeGradle 6, MixinGradle (en place, aucun mixin prévu à ce lot), JUnit 5, GameTests, pack (`-PwithPack` : Create 6.0.8, Create: Crafts & Additions, Create: New Age 1.2.0, Create Advanced Electricity). Paquets réseau nouveaux sur `BenchNetwork` (protocole `"8"` → `"9"`, identifiants 24 et 25).
 
-**Spec:** `docs/superpowers/specs/2026-11-08-economie-design.md`. Sections utiles :
+**Spec:** `docs/superpowers/specs/archive/2026-11-08-economie-design.md`. Sections utiles :
 - section 2 (règle de conception : la feature dit d'où vient l'argent et où il va ; ici, rien n'est créé : les pièces passent du client au fournisseur ou au trésor ; « un joueur absent qui perd tout son argent sans avoir pu réagir » est un échec) ;
 - section 3 (**échéances au calendrier réel**, à minuit, heure et fuseau réglables ; serveur éteint à minuit : ce qui était dû est traité au démarrage, **une fois par jour manqué** ; montants en cuivres) ;
 - section 4 (le maire plafonne le prix de l'électricité, peut modifier ou supprimer un fournisseur ; sans maire, l'équipe ; tableau « qui fabrique » : le **poste de fournisseur est fabriqué par l'ingénieur**, posé par n'importe quel joueur, géré par le fournisseur, non volable ; registre) ;

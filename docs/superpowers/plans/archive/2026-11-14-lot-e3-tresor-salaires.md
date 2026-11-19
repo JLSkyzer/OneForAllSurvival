@@ -11,7 +11,7 @@
 
 **Tech Stack:** Forge 1.20.1-47.4.28, Java 17, ForgeGradle 6, Mixin (aucun nouveau mixin), JUnit 5, GameTests, pack (`-PwithPack`).
 
-**Spec:** `docs/superpowers/specs/2026-11-08-economie-design.md`. Sections utiles :
+**Spec:** `docs/superpowers/specs/archive/2026-11-08-economie-design.md`. Sections utiles :
 - sections 2 et 3 (objectifs ; contraintes, dont « Échéances au calendrier réel » : minuit, heure et fuseau réglables, une fois par jour manqué) ;
 - section 4 (le maire ; tableau « qui fabrique, qui pose, qui gère » : trésor et tableau de la mairie) ;
 - features **73** (trésor) et **75** (salaires), et 87 (« ou en verser au trésor, par commande ») ;

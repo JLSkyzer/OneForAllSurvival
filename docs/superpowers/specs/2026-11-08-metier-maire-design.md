@@ -2,7 +2,7 @@
 
 Date : 2026-11-08. Statut : en attente de validation par Killian.
 
-Les cahiers de l'[économie](2026-11-08-economie-design.md) et du [téléphone](2026-11-08-telephone-design.md)
+Les cahiers de l'[économie](archive/2026-11-08-economie-design.md) et du [téléphone](2026-11-08-telephone-design.md)
 donnent déjà des pouvoirs au maire. Killian a demandé le 2026-11-08 un cahier pour le métier lui-même :
 ses fonctions, son panneau, et la façon dont il gère la ville. Ses réponses sont regroupées en
 section 9.

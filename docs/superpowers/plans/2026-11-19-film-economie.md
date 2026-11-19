@@ -6,7 +6,7 @@ Décisions de Killian, 2026-11-19 :
 - le film est destiné à la communauté et il est monté ;
 - l'horloge de l'économie peut être avancée pour montrer minuit, et une légende le dit.
 
-**Spec :** `docs/superpowers/specs/2026-11-08-economie-design.md`.
+**Spec :** `docs/superpowers/specs/archive/2026-11-08-economie-design.md`.
 
 ## Contraintes
 
