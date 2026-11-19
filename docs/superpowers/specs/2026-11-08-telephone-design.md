@@ -66,8 +66,10 @@ joueur l'entendent parler au téléphone.**
   `assets/<modid>/html/` et passe le chemin en minuscules.
 - **Version du pack, qui fait foi** (relevée le 2026-11-19 sur le mini PC, dossier `mods` du pack
   distribué par le launcher) : `mcef-forge-2.1.6-1.20.1.jar`, celui de **CinemaMod** (mod_id `mcef`,
-  paquet `com.cinemamod.mcef`, LGPL), et non le fork de Keksuccino. Le mod se compile donc contre la
-  2.1.6, sans rien changer au pack (choix de l'auteur, que le paragraphe précédent permettait). Le plan
+  paquet `com.cinemamod.mcef`, LGPL), et non le fork de Keksuccino. **On garde cette version**
+  (décision de Killian, 2026-11-19) : le pack contient aussi `webdisplays-2.0.2-1.20.1.jar`, qui
+  s'appuie sur ce MCEF. Le mod se compile donc contre la 2.1.6, sans rien changer au pack, et ne doit
+  pas gêner WebDisplays (même instance de Chromium, à vérifier au lot T1). Le plan
   des documents de lore, écrit pour la 2.2.0, devra être revu en conséquence.
 - **Socle commun** (décision de Killian, 2026-11-19) : le lot T1 construit le socle navigateur, dans
   `client/web` : écran, chargement des pages du mod, pont JavaScript vers Java, repli. Les documents
@@ -347,6 +349,7 @@ Direction revue par Killian le 2026-11-08.
 
 ### Décisions de Killian (2026-11-19)
 - Le lot T1 construit le **socle navigateur commun**, que les documents de lore reprendront.
+- On garde **MCEF 2.1.6 de CinemaMod**, celui du pack, parce que WebDisplays s'appuie dessus.
 - Une carte SIM **suspendue** à minuit ne paie pas l'abonnement de ce jour.
 - Les abonnements sont **taxés** au profit du trésor, comme l'électricité : taxe fixée par le maire,
   0 % par défaut, 20 % au plus.
