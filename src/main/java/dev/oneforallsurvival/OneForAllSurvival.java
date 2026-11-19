@@ -70,12 +70,14 @@ public final class OneForAllSurvival {
         LightRegistry.register(modEventBus);
         ExploreRegistry.register(modEventBus);
         EconomyRegistry.register(modEventBus);
+        dev.oneforallsurvival.phone.PhoneRegistry.register(modEventBus);
         BenchNetwork.register();
         MinecraftForge.EVENT_BUS.register(new RoleEvents());
         MinecraftForge.EVENT_BUS.register(new RoleCommands());
         MinecraftForge.EVENT_BUS.register(new CoastCommands());
         MinecraftForge.EVENT_BUS.register(new ExploreCommands());
         MinecraftForge.EVENT_BUS.register(new EconomyCommands());
+        MinecraftForge.EVENT_BUS.register(new dev.oneforallsurvival.phone.PhoneCommands());
         MinecraftForge.EVENT_BUS.register(new TreasuryCommands());
         MinecraftForge.EVENT_BUS.register(new MoneyGuard());
         MinecraftForge.EVENT_BUS.register(new TradeService.Events());
@@ -94,6 +96,7 @@ public final class OneForAllSurvival {
         context.registerConfig(ModConfig.Type.SERVER, LightConfig.SPEC, "oneforallsurvival-light.toml");
         context.registerConfig(ModConfig.Type.SERVER, ExploreConfig.SPEC, "oneforallsurvival-explore.toml");
         context.registerConfig(ModConfig.Type.SERVER, EconomyConfig.SPEC, "oneforallsurvival-economy.toml");
+        context.registerConfig(ModConfig.Type.SERVER, dev.oneforallsurvival.phone.PhoneConfig.SPEC, "oneforallsurvival-phone.toml");
         modEventBus.addListener(ExploreConfig::onConfigLoad);
         modEventBus.addListener(EconomyConfig::onConfigEvent);
         MinecraftForge.EVENT_BUS.addListener(StartingMoney::onLoggedIn);

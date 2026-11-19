@@ -1101,5 +1101,9 @@
   "message.oneforallsurvival.web.fallback.not_initialized": "Le navigateur du jeu (MCEF) n'a pas démarré : l'interface classique prend le relais.",
   "message.oneforallsurvival.web.fallback.create_failed": "Le navigateur du jeu n'a pas pu ouvrir la page : l'interface classique prend le relais.",
   "message.oneforallsurvival.web.fallback.load_error": "La page du navigateur n'a pas pu se charger : l'interface classique prend le relais.",
-  "message.oneforallsurvival.web.fallback.no_ready": "La page du navigateur ne répond pas : l'interface classique prend le relais."
+  "message.oneforallsurvival.web.fallback.no_ready": "La page du navigateur ne répond pas : l'interface classique prend le relais.",
+  "item.oneforallsurvival.phone": "Téléphone",
+  "tooltip.oneforallsurvival.phone.energy": "Batterie : %s / %s FE",
+  "message.oneforallsurvival.phone.reset": "Téléphone réinitialisé : code, propriétaire et réglages effacés.",
+  "message.oneforallsurvival.phone.reset.none": "Tenez en main principale un téléphone déjà utilisé."
 }

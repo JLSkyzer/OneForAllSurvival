@@ -78,6 +78,7 @@ public final class BenchRegistry {
                         LightRegistry.tabItems().forEach(item -> output.accept(item.get()));
                         ExploreRegistry.tabItems().forEach(item -> output.accept(item.get()));
                         EconomyRegistry.tabItems().forEach(item -> output.accept(item.get()));
+                        dev.oneforallsurvival.phone.PhoneRegistry.tabItems().forEach(item -> output.accept(item.get()));
                     })
                     .build());
 
