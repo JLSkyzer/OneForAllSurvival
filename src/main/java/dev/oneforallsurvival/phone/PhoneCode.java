@@ -33,7 +33,10 @@ public final class PhoneCode {
         return true;
     }
 
-    /** Un sel neuf : 16 octets en hexadécimal. */
+    /**
+     * Un sel neuf : 16 octets en hexadécimal. Seule l'unicité compte ici : la production passe une source sans graine
+     * fixe ({@code RandomSource.create()}), jamais {@code RandomSource.create(constante)}.
+     */
     public static String newSalt(RandomSource random) {
         byte[] bytes = new byte[SALT_BYTES];
         for (int i = 0; i < SALT_BYTES; i++) {

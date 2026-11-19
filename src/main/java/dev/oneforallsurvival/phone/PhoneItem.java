@@ -20,6 +20,10 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Le téléphone : un objet à batterie qui porte seulement un identifiant ({@code phone_id}). Tout le reste (code,
  * propriétaire, réglages) vit dans {@link PhoneData}, côté serveur.
+ *
+ * <p>Deux piles de même {@code phone_id} (copie en créatif, {@code /give} avec NBT) partagent leurs données : c'est un
+ * choix accepté, sans contournement du code. Le service vérifie le propriétaire côté serveur à chaque ouverture, et
+ * cette vérification ne doit jamais être relâchée.
  */
 public class PhoneItem extends Item {
 

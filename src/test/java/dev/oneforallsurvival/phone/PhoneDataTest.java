@@ -76,4 +76,52 @@ class PhoneDataTest {
         data.erase(A);
         assertTrue(!data.isDirty());
     }
+
+    @Test
+    void blocageNegatifRelDevientZero() {
+        PhoneData data = new PhoneData();
+        data.put(A, new PhoneData.PhoneRecord(OWNER, "K", "s", "h", 0, 5L, "lagon", false));
+        CompoundTag tag = data.save(new CompoundTag());
+        tag.getList("phones", 10).getCompound(0).putLong("lockedUntil", -42L);
+        assertEquals(0L, PhoneData.load(tag).record(A).lockedUntil());
+    }
+
+    @Test
+    void ligneSansIdOuMalTypeeIgnoreeSansException() {
+        PhoneData data = new PhoneData();
+        data.put(A, new PhoneData.PhoneRecord(OWNER, "K", "s", "h", 2, 0L, "lagon", false));
+        CompoundTag tag = data.save(new CompoundTag());
+        net.minecraft.nbt.ListTag list = tag.getList("phones", 10);
+        CompoundTag noId = new CompoundTag();
+        noId.putString("ownerName", "intrus");
+        list.add(noId);
+        CompoundTag badTypes = new CompoundTag();
+        badTypes.putUUID("id", B);
+        badTypes.putString("failures", "beaucoup");
+        badTypes.putInt("salt", 7);
+        badTypes.putString("lockedUntil", "x");
+        badTypes.putInt("wallpaper", 3);
+        list.add(badTypes);
+
+        PhoneData back = PhoneData.load(tag);
+
+        assertEquals(2, back.record(A).failures());
+        PhoneData.PhoneRecord bad = back.record(B);
+        assertNull(bad.salt());
+        assertEquals(0, bad.failures());
+        assertEquals(0L, bad.lockedUntil());
+        assertEquals(PhoneWallpapers.DEFAULT, bad.wallpaper());
+    }
+
+    @Test
+    void proprietaireSansSelNiEmpreinteEstSansCode() {
+        PhoneData data = new PhoneData();
+        data.put(A, new PhoneData.PhoneRecord(OWNER, "K", null, "h", 0, 0L, "lagon", false));
+        data.put(B, new PhoneData.PhoneRecord(OWNER, "K", "s", null, 0, 0L, "lagon", false));
+        assertNull(data.record(A).codeHash());
+        assertNull(data.record(A).salt());
+        assertNull(data.record(B).codeHash());
+        assertNull(data.record(B).salt());
+        assertEquals(OWNER, data.record(A).owner());
+    }
 }

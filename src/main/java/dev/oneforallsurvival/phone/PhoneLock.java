@@ -15,6 +15,12 @@ public final class PhoneLock {
      */
     public static Outcome attempt(boolean correct, int failures, long lockedUntil, long now, int maxAttempts,
             long lockoutMillis) {
+        // Un blocage ne dure jamais plus que la durée réglée : une horloge qui a reculé, une sauvegarde restaurée ou
+        // une valeur corrompue ne bloquent pas le téléphone plus longtemps (sans dépassement de long).
+        long ceiling = now > Long.MAX_VALUE - lockoutMillis ? Long.MAX_VALUE : now + lockoutMillis;
+        if (lockedUntil > ceiling) {
+            lockedUntil = ceiling;
+        }
         if (now < lockedUntil) {
             return new Outcome(false, failures, lockedUntil);
         }

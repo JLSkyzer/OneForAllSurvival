@@ -70,4 +70,30 @@ class PhoneLockTest {
         assertEquals(1_000L, out.lockedUntil());
         assertEquals(0, out.failures());
     }
+
+    @Test
+    void blocageEnormeRamenePlafond() {
+        PhoneLock.Outcome out = PhoneLock.attempt(true, 0, Long.MAX_VALUE, 1_000L, MAX, LOCK);
+        assertFalse(out.accepted());
+        assertEquals(61_000L, out.lockedUntil());
+    }
+
+    @Test
+    void horlogeQuiReculeNeBloquePasPlusQueLaDuree() {
+        // blocage posé jusqu'à 1 060 000, puis l'horloge revient à 5 000
+        PhoneLock.Outcome out = PhoneLock.attempt(false, 0, 1_060_000L, 5_000L, MAX, LOCK);
+        assertEquals(65_000L, out.lockedUntil());
+        assertTrue(PhoneLock.attempt(true, 0, out.lockedUntil(), 65_000L, MAX, LOCK).accepted());
+    }
+
+    @Test
+    void plafondSansDepassementDeLong() {
+        PhoneLock.Outcome out = PhoneLock.attempt(true, 0, Long.MAX_VALUE, Long.MAX_VALUE - 10, MAX, LOCK);
+        assertEquals(Long.MAX_VALUE, out.lockedUntil());
+    }
+
+    @Test
+    void blocageNegatifNeBloquePas() {
+        assertTrue(PhoneLock.attempt(true, 0, -5L, 1_000L, MAX, LOCK).accepted());
+    }
 }

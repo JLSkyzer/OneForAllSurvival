@@ -36,10 +36,20 @@ public final class PhoneData extends SavedData {
         return server.overworld().getDataStorage().computeIfAbsent(PhoneData::load, PhoneData::new, KEY);
     }
 
-    /** Le téléphone connu, ou un téléphone neuf (qui n'est pas pour autant enregistré). */
+    /**
+     * Le téléphone connu, ou un téléphone neuf (qui n'est pas pour autant enregistré). Un propriétaire sans sel ou sans
+     * empreinte est rendu comme « pas de code » : sel et empreinte à {@code null}, jamais un code vide accepté.
+     */
     public PhoneRecord record(UUID phoneId) {
         PhoneRecord known = phones.get(phoneId);
-        return known != null ? known : PhoneRecord.fresh();
+        if (known == null) {
+            return PhoneRecord.fresh();
+        }
+        if (known.salt() == null || known.codeHash() == null) {
+            return new PhoneRecord(known.owner(), known.ownerName(), null, null, known.failures(), known.lockedUntil(),
+                    known.wallpaper(), known.airplane());
+        }
+        return known;
     }
 
     public void put(UUID phoneId, PhoneRecord record) {
