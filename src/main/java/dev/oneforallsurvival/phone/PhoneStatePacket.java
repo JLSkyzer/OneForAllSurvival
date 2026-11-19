@@ -1,0 +1,96 @@
+package dev.oneforallsurvival.phone;
+
+import io.netty.handler.codec.DecoderException;
+import java.util.function.Supplier;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraftforge.network.NetworkEvent;
+
+/**
+ * Serveur vers client : ce que l'écran du téléphone montre, pour la session {@link #session}. {@link Kind#OPEN} ouvre
+ * l'écran, {@link Kind#UPDATE} met à jour celui de la même session (après chaque geste), {@link Kind#CLOSE} le ferme
+ * avec sa raison.
+ *
+ * <p>Le code n'y est jamais. Hors {@link Lock#UNLOCKED}, la vue ne dit rien du propriétaire ni des réglages :
+ * {@code ownerName} vide, {@code owner} et {@code airplane} faux ; seul le fond d'écran reste visible, comme sur
+ * l'écran verrouillé d'un vrai téléphone.
+ *
+ * @param battery la charge en pour cent (0 à 100, arrondie vers le bas)
+ * @param serverMillis l'heure de l'économie ({@code EconomyClock.now()}) à l'envoi
+ * @param zoneOffsetSeconds le décalage du fuseau de l'économie à cet instant, en secondes
+ * @param owner celui qui regarde est le propriétaire (vue déverrouillée seulement)
+ * @param attemptsLeft les essais de code avant blocage (0 pendant un blocage)
+ * @param lockoutSeconds les secondes de blocage restantes, arrondies vers le haut (0 sans blocage)
+ * @param last l'issue du dernier geste, {@link Result#NONE} à l'ouverture ou pour un geste sans message
+ */
+public record PhoneStatePacket(int session, Kind kind, Lock lock, int battery, long serverMillis,
+        int zoneOffsetSeconds, String wallpaper, boolean airplane, boolean owner, String ownerName, int attemptsLeft,
+        int lockoutSeconds, Result last, CloseReason reason) {
+
+    /** Borne des textes sur le réseau (un nom de joueur fait 16 caractères au plus, un fond bien moins). */
+    public static final int MAX_TEXT = 32;
+
+    public enum Kind { OPEN, UPDATE, CLOSE }
+
+    public enum Lock { SETUP, LOCKED, UNLOCKED }
+
+    public enum Result { NONE, WRONG_CODE, LOCKED_OUT, INVALID_CODE, CODE_CHANGED, NOT_OWNER, ERASED }
+
+    public enum CloseReason { NONE, CLOSED, BATTERY_EMPTY, PHONE_GONE, ERASED }
+
+    public PhoneStatePacket {
+        wallpaper = wallpaper == null ? "" : wallpaper;
+        ownerName = ownerName == null ? "" : ownerName;
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Réseau
+    // ---------------------------------------------------------------------------------------------
+
+    public void encode(FriendlyByteBuf buf) {
+        buf.writeVarInt(session);
+        buf.writeByte(kind.ordinal());
+        buf.writeByte(lock.ordinal());
+        buf.writeVarInt(battery);
+        buf.writeLong(serverMillis);
+        buf.writeInt(zoneOffsetSeconds);
+        buf.writeUtf(wallpaper, MAX_TEXT);
+        buf.writeBoolean(airplane);
+        buf.writeBoolean(owner);
+        buf.writeUtf(ownerName, MAX_TEXT);
+        buf.writeVarInt(attemptsLeft);
+        buf.writeVarInt(lockoutSeconds);
+        buf.writeByte(last.ordinal());
+        buf.writeByte(reason.ordinal());
+    }
+
+    public static PhoneStatePacket decode(FriendlyByteBuf buf) {
+        int session = buf.readVarInt();
+        Kind kind = pick(Kind.values(), buf.readUnsignedByte(), "kind");
+        Lock lock = pick(Lock.values(), buf.readUnsignedByte(), "lock");
+        int battery = buf.readVarInt();
+        long serverMillis = buf.readLong();
+        int zoneOffsetSeconds = buf.readInt();
+        String wallpaper = buf.readUtf(MAX_TEXT);
+        boolean airplane = buf.readBoolean();
+        boolean owner = buf.readBoolean();
+        String ownerName = buf.readUtf(MAX_TEXT);
+        int attemptsLeft = buf.readVarInt();
+        int lockoutSeconds = buf.readVarInt();
+        Result last = pick(Result.values(), buf.readUnsignedByte(), "last");
+        CloseReason reason = pick(CloseReason.values(), buf.readUnsignedByte(), "reason");
+        return new PhoneStatePacket(session, kind, lock, battery, serverMillis, zoneOffsetSeconds, wallpaper, airplane,
+                owner, ownerName, attemptsLeft, lockoutSeconds, last, reason);
+    }
+
+    static <E> E pick(E[] values, int ordinal, String what) {
+        if (ordinal < 0 || ordinal >= values.length) {
+            throw new DecoderException(what + " inconnu : " + ordinal);
+        }
+        return values[ordinal];
+    }
+
+    /** Côté client. L'écran du téléphone (tâche 9) s'y branchera par {@code DistExecutor} ; d'ici là, rien. */
+    public static void handle(PhoneStatePacket packet, Supplier<NetworkEvent.Context> context) {
+        // Volontairement vide : aucune classe cliente n'existe encore pour le téléphone.
+    }
+}

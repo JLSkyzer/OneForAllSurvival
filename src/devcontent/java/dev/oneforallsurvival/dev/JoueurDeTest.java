@@ -58,6 +58,8 @@ public final class JoueurDeTest {
     private final List<dev.oneforallsurvival.economy.quest.QuestSyncPacket> etatsQuetes = new ArrayList<>();
     /** Les états du panneau du poste de fournisseur reçus, décodés depuis les octets réellement envoyés. */
     private final List<dev.oneforallsurvival.grid.supplier.PowerPanelPacket> panneaux = new ArrayList<>();
+    /** Les états du téléphone reçus, décodés depuis les octets réellement envoyés. */
+    private final List<dev.oneforallsurvival.phone.PhoneStatePacket> etatsTelephone = new ArrayList<>();
     /** Ceux que l'entrée en jeu elle-même a envoyés, avant qu'on ne les oublie. */
     private final List<dev.oneforallsurvival.economy.town.TownFinancesPacket> financesALaConnexion = new ArrayList<>();
     /** Les clés des messages (chat ou barre d'action) reçus, dans l'ordre ; un texte brut est gardé tel quel. */
@@ -268,6 +270,8 @@ public final class JoueurDeTest {
                     etatsQuetes.add(dev.oneforallsurvival.economy.quest.QuestSyncPacket.decode(donnees));
                 } else if (discriminant == BenchNetwork.ID_POWER_PANEL) {
                     panneaux.add(dev.oneforallsurvival.grid.supplier.PowerPanelPacket.decode(donnees));
+                } else if (discriminant == BenchNetwork.ID_PHONE_STATE) {
+                    etatsTelephone.add(dev.oneforallsurvival.phone.PhoneStatePacket.decode(donnees));
                 } else if (discriminant == BenchNetwork.ID_INVOICE_FORM) {
                     formulairesFacture.add(dev.oneforallsurvival.economy.invoice.InvoiceFormPacket.decode(donnees));
                 }
@@ -364,6 +368,14 @@ public final class JoueurDeTest {
         lire();
         List<dev.oneforallsurvival.grid.supplier.PowerPanelPacket> out = new ArrayList<>(panneaux);
         panneaux.clear();
+        return out;
+    }
+
+    /** Les états du téléphone reçus depuis le dernier appel (décodés comme le client les lit), retirés. */
+    public List<dev.oneforallsurvival.phone.PhoneStatePacket> etatsTelephoneRecus() {
+        lire();
+        List<dev.oneforallsurvival.phone.PhoneStatePacket> out = new ArrayList<>(etatsTelephone);
+        etatsTelephone.clear();
         return out;
     }
 

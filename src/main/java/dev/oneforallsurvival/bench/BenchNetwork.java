@@ -40,7 +40,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 import org.slf4j.Logger;
 
 /**
- * Le canal réseau du mod (né avec l'établi), protocole « 9 » : client et serveur doivent concorder. Chaque paquet du
+ * Le canal réseau du mod (né avec l'établi), protocole « 10 » : client et serveur doivent concorder. Chaque paquet du
  * client est traité sur le thread du serveur, et revalide tout : rôle, distance, menu ouvert. Un client
  * n'est jamais cru sur parole.
  */
@@ -48,10 +48,10 @@ public final class BenchNetwork {
 
     public static final ResourceLocation CHANNEL_ID = new ResourceLocation(OneForAllSurvival.MODID, "bench");
     /**
-     * « 9 » depuis le panneau du poste de fournisseur (lot E6, une seule montée pour tout le lot ; « 8 » : écran des
-     * quêtes, lot E5) : un client ou un serveur plus ancien ne le lit pas.
+     * « 10 » depuis l'écran du téléphone (lot T1, une seule montée pour tout le lot ; « 9 » : panneau du poste de
+     * fournisseur, lot E6 ; « 8 » : écran des quêtes, lot E5) : un client ou un serveur plus ancien ne le lit pas.
      */
-    private static final String PROTOCOL = "9";
+    private static final String PROTOCOL = "10";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(CHANNEL_ID, () -> PROTOCOL,
             PROTOCOL::equals, PROTOCOL::equals);
@@ -96,6 +96,9 @@ public final class BenchNetwork {
     /** Lot E6 : le panneau du poste de fournisseur (serveur vers client) et un geste du panneau (client vers serveur). */
     public static final int ID_POWER_PANEL = 24;
     public static final int ID_POWER_ACTION = 25;
+    /** L'écran du téléphone (lot T1) : son état, serveur vers client ; ses gestes, client vers serveur. */
+    public static final int ID_PHONE_STATE = 26;
+    public static final int ID_PHONE_ACTION = 27;
 
     /** Clé de traduction d'un refus : {@code message.oneforallsurvival.bench.refused.<résultat>}. */
     public static final String REFUSED_KEY = "message.oneforallsurvival.bench.refused.";
@@ -190,6 +193,16 @@ public final class BenchNetwork {
                 .encoder(dev.oneforallsurvival.grid.supplier.PowerActionPacket::encode)
                 .decoder(dev.oneforallsurvival.grid.supplier.PowerActionPacket::decode)
                 .consumerMainThread(dev.oneforallsurvival.grid.supplier.PowerActionPacket::handle).add();
+        CHANNEL.messageBuilder(dev.oneforallsurvival.phone.PhoneStatePacket.class, ID_PHONE_STATE,
+                        NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(dev.oneforallsurvival.phone.PhoneStatePacket::encode)
+                .decoder(dev.oneforallsurvival.phone.PhoneStatePacket::decode)
+                .consumerMainThread(dev.oneforallsurvival.phone.PhoneStatePacket::handle).add();
+        CHANNEL.messageBuilder(dev.oneforallsurvival.phone.PhoneActionPacket.class, ID_PHONE_ACTION,
+                        NetworkDirection.PLAY_TO_SERVER)
+                .encoder(dev.oneforallsurvival.phone.PhoneActionPacket::encode)
+                .decoder(dev.oneforallsurvival.phone.PhoneActionPacket::decode)
+                .consumerMainThread(dev.oneforallsurvival.phone.PhoneActionPacket::handle).add();
     }
 
     // --- Serveur vers client -----------------------------------------------------------------

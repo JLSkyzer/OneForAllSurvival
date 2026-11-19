@@ -1105,5 +1105,6 @@
   "item.oneforallsurvival.phone": "Phone",
   "tooltip.oneforallsurvival.phone.energy": "Battery: %s / %s FE",
   "message.oneforallsurvival.phone.reset": "Phone reset: code, owner and settings erased.",
-  "message.oneforallsurvival.phone.reset.none": "Hold a phone that has already been used in your main hand."
+  "message.oneforallsurvival.phone.reset.none": "Hold a phone that has already been used in your main hand.",
+  "message.oneforallsurvival.phone.empty": "The phone is out of battery: plug it into a socket."
 }
