@@ -1,0 +1,124 @@
+{
+  "variants": {
+    "facing=south,plugged=false,state=stopped": {
+      "model": "oneforallsurvival:block/wall_socket"
+    },
+    "facing=south,plugged=false,state=running": {
+      "model": "oneforallsurvival:block/wall_socket"
+    },
+    "facing=south,plugged=false,state=no_power": {
+      "model": "oneforallsurvival:block/wall_socket"
+    },
+    "facing=south,plugged=false,state=fault": {
+      "model": "oneforallsurvival:block/wall_socket"
+    },
+    "facing=south,plugged=true,state=stopped": {
+      "model": "oneforallsurvival:block/wall_socket_plugged"
+    },
+    "facing=south,plugged=true,state=running": {
+      "model": "oneforallsurvival:block/wall_socket_charging"
+    },
+    "facing=south,plugged=true,state=no_power": {
+      "model": "oneforallsurvival:block/wall_socket_plugged"
+    },
+    "facing=south,plugged=true,state=fault": {
+      "model": "oneforallsurvival:block/wall_socket_plugged"
+    },
+    "facing=west,plugged=false,state=stopped": {
+      "model": "oneforallsurvival:block/wall_socket",
+      "y": 90
+    },
+    "facing=west,plugged=false,state=running": {
+      "model": "oneforallsurvival:block/wall_socket",
+      "y": 90
+    },
+    "facing=west,plugged=false,state=no_power": {
+      "model": "oneforallsurvival:block/wall_socket",
+      "y": 90
+    },
+    "facing=west,plugged=false,state=fault": {
+      "model": "oneforallsurvival:block/wall_socket",
+      "y": 90
+    },
+    "facing=west,plugged=true,state=stopped": {
+      "model": "oneforallsurvival:block/wall_socket_plugged",
+      "y": 90
+    },
+    "facing=west,plugged=true,state=running": {
+      "model": "oneforallsurvival:block/wall_socket_charging",
+      "y": 90
+    },
+    "facing=west,plugged=true,state=no_power": {
+      "model": "oneforallsurvival:block/wall_socket_plugged",
+      "y": 90
+    },
+    "facing=west,plugged=true,state=fault": {
+      "model": "oneforallsurvival:block/wall_socket_plugged",
+      "y": 90
+    },
+    "facing=north,plugged=false,state=stopped": {
+      "model": "oneforallsurvival:block/wall_socket",
+      "y": 180
+    },
+    "facing=north,plugged=false,state=running": {
+      "model": "oneforallsurvival:block/wall_socket",
+      "y": 180
+    },
+    "facing=north,plugged=false,state=no_power": {
+      "model": "oneforallsurvival:block/wall_socket",
+      "y": 180
+    },
+    "facing=north,plugged=false,state=fault": {
+      "model": "oneforallsurvival:block/wall_socket",
+      "y": 180
+    },
+    "facing=north,plugged=true,state=stopped": {
+      "model": "oneforallsurvival:block/wall_socket_plugged",
+      "y": 180
+    },
+    "facing=north,plugged=true,state=running": {
+      "model": "oneforallsurvival:block/wall_socket_charging",
+      "y": 180
+    },
+    "facing=north,plugged=true,state=no_power": {
+      "model": "oneforallsurvival:block/wall_socket_plugged",
+      "y": 180
+    },
+    "facing=north,plugged=true,state=fault": {
+      "model": "oneforallsurvival:block/wall_socket_plugged",
+      "y": 180
+    },
+    "facing=east,plugged=false,state=stopped": {
+      "model": "oneforallsurvival:block/wall_socket",
+      "y": 270
+    },
+    "facing=east,plugged=false,state=running": {
+      "model": "oneforallsurvival:block/wall_socket",
+      "y": 270
+    },
+    "facing=east,plugged=false,state=no_power": {
+      "model": "oneforallsurvival:block/wall_socket",
+      "y": 270
+    },
+    "facing=east,plugged=false,state=fault": {
+      "model": "oneforallsurvival:block/wall_socket",
+      "y": 270
+    },
+    "facing=east,plugged=true,state=stopped": {
+      "model": "oneforallsurvival:block/wall_socket_plugged",
+      "y": 270
+    },
+    "facing=east,plugged=true,state=running": {
+      "model": "oneforallsurvival:block/wall_socket_charging",
+      "y": 270
+    },
+    "facing=east,plugged=true,state=no_power": {
+      "model": "oneforallsurvival:block/wall_socket_plugged",
+      "y": 270
+    },
+    "facing=east,plugged=true,state=fault": {
+      "model": "oneforallsurvival:block/wall_socket_plugged",
+      "y": 270
+    }
+  }
+}

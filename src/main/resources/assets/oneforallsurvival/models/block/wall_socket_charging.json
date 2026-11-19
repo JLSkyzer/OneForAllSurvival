@@ -1,0 +1,76 @@
+{
+  "__comment": "Modele provisoire (tache 7) : les visuels finaux viennent de tools/gen_textures_t1.py (tache 10).",
+  "parent": "minecraft:block/block",
+  "ambientocclusion": false,
+  "textures": {
+    "particle": "minecraft:block/smooth_stone",
+    "plate": "minecraft:block/smooth_stone",
+    "phone": "minecraft:block/lime_concrete"
+  },
+  "elements": [
+    {
+      "from": [
+        4,
+        3,
+        0
+      ],
+      "to": [
+        12,
+        13,
+        2
+      ],
+      "faces": {
+        "north": {
+          "texture": "#plate"
+        },
+        "south": {
+          "texture": "#plate"
+        },
+        "east": {
+          "texture": "#plate"
+        },
+        "west": {
+          "texture": "#plate"
+        },
+        "up": {
+          "texture": "#plate"
+        },
+        "down": {
+          "texture": "#plate"
+        }
+      }
+    },
+    {
+      "from": [
+        6,
+        4,
+        2
+      ],
+      "to": [
+        10,
+        11,
+        3
+      ],
+      "faces": {
+        "north": {
+          "texture": "#phone"
+        },
+        "south": {
+          "texture": "#phone"
+        },
+        "east": {
+          "texture": "#phone"
+        },
+        "west": {
+          "texture": "#phone"
+        },
+        "up": {
+          "texture": "#phone"
+        },
+        "down": {
+          "texture": "#phone"
+        }
+      }
+    }
+  ]
+}

@@ -1107,5 +1107,7 @@
   "message.oneforallsurvival.phone.reset": "Phone reset: code, owner and settings erased.",
   "message.oneforallsurvival.phone.reset.none": "Hold a phone that has already been used in your main hand.",
   "message.oneforallsurvival.phone.empty": "The phone is out of battery: plug it into a socket.",
-  "message.oneforallsurvival.phone.battery_empty": "The phone shuts down: the battery is empty."
+  "message.oneforallsurvival.phone.battery_empty": "The phone shuts down: the battery is empty.",
+  "block.oneforallsurvival.wall_socket": "Wall Socket",
+  "message.oneforallsurvival.wall_socket.busy": "The socket only takes one phone at a time: use an empty hand to take it back."
 }
