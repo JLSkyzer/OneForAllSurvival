@@ -106,7 +106,7 @@
       },
       "steps": [
         "À minuit, chaque facture publique due est présentée, la plus ancienne d'abord : d'abord ce que vous portez (bourses comprises, si vous êtes connecté et vivant), puis ce qui vous attend sur le serveur, puis votre coffre-fort. Une seule source qui suffit paie et reçoit la monnaie ; sinon, si le total suffit, tout ce que vous portez et tout ce qui attend est pris, le reste vient du coffre-fort.",
-        "Jamais en partie : s'il n'y a pas assez, rien ne bouge, la facture reste due et revient à chaque minuit. Vous êtes prévenu (tout de suite, ou à votre connexion) avec le lien « [Recevoir la facture] » : le papier, payable tout de suite en l'utilisant (bouton « Payer »), qui prend dans l'inventaire.",
+        "Jamais en partie : s'il n'y a pas assez, rien ne bouge, la facture reste due et revient à chaque minuit. Vous êtes prévenu au premier refus (tout de suite, ou à votre connexion) avec le lien « [Recevoir la facture] » : le papier, payable tout de suite en l'utilisant (bouton « Payer »), qui prend dans l'inventaire.",
         "Payée pendant votre absence : un avis à la connexion dit combien et d'où.",
         "Serveur éteint : chaque jour manqué est clos au démarrage. Le créancier décide de couper ou non (pour l'électricité : le fournisseur au panneau du poste)."
       ],
@@ -132,7 +132,7 @@
       ],
       "staff": [
         "Un joueur ne peut pas émettre de facture prélevable : le carnet et /invoice ne font que des factures privées. Les factures publiques viennent du serveur (électricité ; amendes, impôt et téléphone viendront avec leurs lots).",
-        "/eco stats : « Factures publiques dues : N (total) » et « Prélèvements refusés : N » ; chaque prélèvement payé est un transfert « Facture publique prélevée » au registre, chaque refus une ligne du journal.",
+        "/eco stats : « Factures publiques dues : N (total) » et « Prélèvements refusés : N » ; chaque prélèvement payé est un transfert « Facture publique prélevée » au registre ; le premier refus de chaque facture est une ligne du journal, les refus suivants ne sont que comptés sur la facture (un impayé durable ne remplit pas le journal).",
         "/invoice copy <id> : un papier de la facture due (débiteur seulement, un à la fois, inventaire non plein) ; un papier ne paie jamais deux fois.",
         "La pause de la paie (horloge qui saute) arrête aussi le prélèvement : /eco salary resume ou resetday la lèvent pour les deux ; resetday ne refacture jamais un jour déjà émis.",
         "Limite de Minecraft : des pièces prises dans l'inventaire puis un arrêt brutal du serveur avant la sauvegarde peuvent être perdues (la facture redevient due) ; jamais dupliquées."
@@ -426,7 +426,7 @@
       },
       "steps": [
         "Poser le poste en tête du réseau : le courant entre par l'arrière et sort par l'avant (tout câble FE de n'importe quel mod ; les fils suspendus de Crafts & Additions sont le cas de référence).",
-        "Clic droit : le panneau. Un poste neuf demande le nom du fournisseur (1 à 24 caractères, unique) ; puis prix (en cuivres par 100 000 FE) et abonnement (par jour) : un changement vaut au lendemain, les clients sont prévenus.",
+        "Clic droit : le panneau. Un poste neuf demande le nom du fournisseur (1 à 24 caractères, unique) ; puis prix (en cuivres par 100 000 FE) et abonnement (par jour) : un changement vaut au lendemain, les clients sont prévenus (à leur connexion s'ils sont absents).",
         "Jumeler : testeur sur le poste (60 s), puis sur le compteur d'une maison (au nom du client, joueur connu du serveur), puis sur son disjoncteur.",
         "Le client reçoit une demande et clique « [Accepter] » (ou /power consent <code>) ; tant qu'il n'a pas accepté et que le fournisseur n'a pas cliqué « Accepter » au panneau, le compteur ne laisse rien passer.",
         "Le panneau : clients (consommation du jour et d'hier, impayés), Accepter, Refuser, Couper (ouvre le disjoncteur à distance), Rétablir, Détacher ; l'écart entre la sortie du poste et les compteurs (perte ou piquage) ; « Caisse » pour retirer les pièces prélevées.",
