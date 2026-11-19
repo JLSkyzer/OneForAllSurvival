@@ -26,7 +26,7 @@ public final class PhoneCommands {
                 .then(Commands.literal("reset").executes(PhoneCommands::reset)));
     }
 
-    /** Efface le code, le propriétaire et les réglages du téléphone tenu en main principale. */
+    /** Efface le code, le propriétaire et les réglages du téléphone tenu en main principale, et ferme ses sessions. */
     private static int reset(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         CommandSourceStack source = ctx.getSource();
         ServerPlayer player = source.getPlayerOrException();
@@ -37,6 +37,8 @@ public final class PhoneCommands {
             return 0;
         }
         PhoneData.get(source.getServer()).erase(id.get());
+        // Aucun écran ne reste ouvert sur l'ancien code (copies comprises).
+        PhoneService.closeAll(source.getServer(), id.get(), PhoneStatePacket.CloseReason.ERASED);
         source.sendSuccess(() -> Component.translatable("message.oneforallsurvival.phone.reset"), true);
         return 1;
     }

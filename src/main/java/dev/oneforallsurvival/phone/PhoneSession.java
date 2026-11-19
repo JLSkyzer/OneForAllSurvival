@@ -3,6 +3,7 @@ package dev.oneforallsurvival.phone;
 import dev.oneforallsurvival.machine.ItemBattery;
 import dev.oneforallsurvival.phone.PhoneStatePacket.Lock;
 import java.util.UUID;
+import javax.annotation.Nullable;
 import net.minecraft.world.InteractionHand;
 
 /**
@@ -18,6 +19,8 @@ public final class PhoneSession {
     private final InteractionHand hand;
     private final ItemBattery.Prepaid prepaid = new ItemBattery.Prepaid();
     private Lock lock;
+    /** Le sel du code qui a déverrouillé cette session (ou qu'elle a posé) : un autre sel, et elle n'est plus ouverte. */
+    @Nullable private String unlockedSalt;
 
     PhoneSession(int id, UUID phoneId, InteractionHand hand, Lock lock) {
         this.id = id;
@@ -44,6 +47,19 @@ public final class PhoneSession {
 
     void setLock(Lock lock) {
         this.lock = lock;
+        if (lock != Lock.UNLOCKED) {
+            unlockedSalt = null;
+        }
+    }
+
+    /** Déverrouille la session par le code dont {@code salt} est le sel. */
+    void unlock(String salt) {
+        this.lock = Lock.UNLOCKED;
+        this.unlockedSalt = salt;
+    }
+
+    @Nullable String unlockedSalt() {
+        return unlockedSalt;
     }
 
     /** Les tics d'écran déjà payés (dépense par blocs, tâche 6). */

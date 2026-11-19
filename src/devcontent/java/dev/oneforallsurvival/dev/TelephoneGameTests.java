@@ -15,6 +15,7 @@ import dev.oneforallsurvival.phone.PhoneStatePacket.CloseReason;
 import dev.oneforallsurvival.phone.PhoneStatePacket.Kind;
 import dev.oneforallsurvival.phone.PhoneStatePacket.Lock;
 import dev.oneforallsurvival.phone.PhoneStatePacket.Result;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -33,6 +34,7 @@ import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.players.ServerOpListEntry;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
@@ -46,7 +48,7 @@ import net.minecraftforge.gametest.PrefixGameTestTemplate;
  * session ignorés, le blocage après cinq faux codes (une minute, partagé par les copies, gardé à la fermeture).
  *
  * <p>Chaque essai se déroule dans un seul tic : les gestes s'enchaînent en oubliant le frein entre deux
- * ({@link PhoneService#clearThrottle}), sauf l'essai du frein. Les états reçus sont décodés des octets réellement
+ * ({@code PhoneService.clearThrottle}, de visibilité paquet, appelé par réflexion), sauf l'essai du frein. Les états reçus sont décodés des octets réellement
  * envoyés ({@link JoueurDeTest#etatsTelephoneRecus}). Le lot {@value #LOT_HORLOGE} fige l'horloge de l'économie
  * ({@link EconomyClock}) et la rend après.
  */
@@ -56,9 +58,12 @@ public final class TelephoneGameTests {
 
     private static final String LOT_A = "telephone_a";
     private static final String LOT_HORLOGE = "telephone_horloge";
+    private static final String LOT_RESET = "telephone_reset";
 
     private static final Vec3 POS_A = new Vec3(2.5, 1, 2.5);
     private static final Vec3 POS_B = new Vec3(4.5, 1, 2.5);
+    private static final Vec3 POS_C = new Vec3(2.5, 1, 4.5);
+    private static final Vec3 POS_D = new Vec3(4.5, 1, 4.5);
     private static final String CODE = "4821";
 
     /** L'heure lue par l'économie pendant le lot {@value #LOT_HORLOGE}. */
@@ -87,6 +92,7 @@ public final class TelephoneGameTests {
         final MinecraftServer serveur;
         private final List<JoueurDeTest> joueurs = new ArrayList<>();
         private final Set<UUID> telephones = new HashSet<>();
+        private final List<JoueurDeTest> operateurs = new ArrayList<>();
 
         Essai(GameTestHelper helper) {
             this.helper = helper;
@@ -100,6 +106,14 @@ public final class TelephoneGameTests {
             JoueurDeTest j = JoueurDeTest.rejoindre(helper.getLevel(), nom, helper.absoluteVec(position));
             j.joueur().gameMode.changeGameModeForPlayer(GameType.SURVIVAL);
             joueurs.add(j);
+            return j;
+        }
+
+        /** Un joueur de l'équipe (opérateur de niveau 4, retiré à la fin). */
+        JoueurDeTest equipe(String court, Vec3 position) {
+            JoueurDeTest j = joueur(court, position);
+            serveur.getPlayerList().getOps().add(new ServerOpListEntry(j.joueur().getGameProfile(), 4, false));
+            operateurs.add(j);
             return j;
         }
 
@@ -126,6 +140,9 @@ public final class TelephoneGameTests {
 
         @Override
         public void close() {
+            for (JoueurDeTest j : operateurs) {
+                serveur.getPlayerList().getOps().remove(j.joueur().getGameProfile());
+            }
             for (JoueurDeTest j : joueurs) {
                 if (j.connecte()) {
                     PhoneService.close(j.joueur(), CloseReason.CLOSED);
@@ -168,6 +185,17 @@ public final class TelephoneGameTests {
         return s.get().id();
     }
 
+    /** Oublie le frein du joueur ({@code PhoneService.clearThrottle}, de visibilité paquet) par réflexion. */
+    private static void oublierFrein(UUID joueur) {
+        try {
+            Method m = PhoneService.class.getDeclaredMethod("clearThrottle", UUID.class);
+            m.setAccessible(true);
+            m.invoke(null, joueur);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("frein du téléphone introuvable", e);
+        }
+    }
+
     /** Un geste de la session ouverte, frein oublié ; rend l'issue et le dernier état reçu (ou nul). */
     private record Reponse(Outcome outcome, @Nullable PhoneStatePacket etat) {}
 
@@ -183,7 +211,7 @@ public final class TelephoneGameTests {
     private static Reponse geste(JoueurDeTest j, PhoneActionPacket packet, boolean oublierFrein) {
         j.etatsTelephoneRecus();
         if (oublierFrein) {
-            PhoneService.clearThrottle(j.uuid());
+            oublierFrein(j.uuid());
         }
         Outcome r = PhoneService.act(j.joueur(), packet);
         List<PhoneStatePacket> recus = j.etatsTelephoneRecus();
@@ -387,7 +415,7 @@ public final class TelephoneGameTests {
             helper.assertTrue(reouvert.lock() == Lock.LOCKED, "réouverture verrouillée");
 
             // Par le réseau, comme un client : le numéro périmé ne déverrouille rien et ne reçoit rien.
-            PhoneService.clearThrottle(a.uuid());
+            oublierFrein(a.uuid());
             a.etatsTelephoneRecus();
             a.envoyer(new PhoneActionPacket(ancienne, Action.UNLOCK, CODE, "", false));
             helper.assertTrue(a.etatsTelephoneRecus().isEmpty(), "rien n'est renvoyé à une session périmée");
@@ -397,7 +425,7 @@ public final class TelephoneGameTests {
                     "session périmée : " + direct.outcome());
 
             // Témoin : le même geste, du bon numéro et par le réseau, déverrouille.
-            PhoneService.clearThrottle(a.uuid());
+            oublierFrein(a.uuid());
             a.envoyer(new PhoneActionPacket(courante, Action.UNLOCK, CODE, "", false));
             List<PhoneStatePacket> recus = a.etatsTelephoneRecus();
             helper.assertTrue(recus.size() == 1 && recus.get(0).lock() == Lock.UNLOCKED,
@@ -537,6 +565,156 @@ public final class TelephoneGameTests {
             helper.assertTrue(second.outcome() == Outcome.THROTTLED && second.etat() == null,
                     "second geste freiné : " + second.outcome());
             helper.assertTrue(e.donnees(id).failures() == 1, "un seul échec compté : " + e.donnees(id).failures());
+        });
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Lot horloge (suite) : le blocage par les gestes du propriétaire
+    // ---------------------------------------------------------------------------------------------
+
+    /** Cinq faux codes donnés à {@code action} (ERASE ou CHANGE_CODE) depuis une session déverrouillée. */
+    private static void cinqFauxDepuisDeverrouille(GameTestHelper helper, Essai e, JoueurDeTest a, UUID id,
+            Action action) {
+        ouvrir(helper, a);
+        attendre(helper, geste(helper, a, Action.SETUP, CODE), Kind.UPDATE, Lock.UNLOCKED, Result.NONE, "SETUP");
+        String empreinte = e.donnees(id).codeHash();
+        long depart = horloge;
+        Reponse r = null;
+        for (int i = 1; i <= 5; i++) {
+            r = geste(helper, a, action, "0000", "1357", false);
+            if (i < 5) {
+                attendre(helper, r, Kind.UPDATE, Lock.UNLOCKED, Result.WRONG_CODE, action + " faux " + i);
+                helper.assertTrue(r.etat().attemptsLeft() == 5 - i, "essais restants : " + r.etat().attemptsLeft());
+            }
+        }
+        attendre(helper, r, Kind.UPDATE, Lock.LOCKED, Result.LOCKED_OUT, "cinquième " + action + " faux");
+        helper.assertTrue(r.etat().lockoutSeconds() == 60, "blocage de 60 s : " + r.etat().lockoutSeconds());
+        helper.assertTrue(PhoneService.session(a.uuid()).get().lock() == Lock.LOCKED, "session reverrouillée");
+        PhoneData.PhoneRecord rec = e.donnees(id);
+        helper.assertTrue(rec.lockedUntil() == depart + 60_000L, "blocage sauvegardé : " + (rec.lockedUntil() - depart));
+        helper.assertTrue(a.uuid().equals(rec.owner()) && empreinte.equals(rec.codeHash()),
+                "ni effacé ni changé : propriétaire et empreinte intacts");
+        attendre(helper, geste(helper, a, Action.UNLOCK, CODE), Kind.UPDATE, Lock.LOCKED, Result.LOCKED_OUT,
+                "bon code pendant le blocage");
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_HORLOGE)
+    public static void cinqFauxEffacementsBloquent(GameTestHelper helper) {
+        essai(helper, e -> {
+            JoueurDeTest a = e.joueur("tel_p", POS_A);
+            cinqFauxDepuisDeverrouille(helper, e, a, e.telephone(a), Action.ERASE);
+        });
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_HORLOGE)
+    public static void cinqFauxChangementsDeCodeBloquent(GameTestHelper helper) {
+        essai(helper, e -> {
+            JoueurDeTest a = e.joueur("tel_q", POS_A);
+            cinqFauxDepuisDeverrouille(helper, e, a, e.telephone(a), Action.CHANGE_CODE);
+        });
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Lot reset : une session ne survit pas au code qui l'a ouverte
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * Le scénario de la revue, par la commande : deux copies, A déverrouillé, l'équipe fait {@code /phone reset} sur sa
+     * copie, C pose son code. La session de A est fermée par le reset ({@code ERASED}) ; ses gestes suivants ne font rien
+     * et il ne voit rien de C.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_RESET)
+    public static void leResetDeLEquipeFermeLesSessions(GameTestHelper helper) {
+        essai(helper, e -> {
+            JoueurDeTest a = e.joueur("tel_r", POS_A);
+            JoueurDeTest t = e.equipe("tel_s", POS_B);
+            JoueurDeTest c = e.joueur("tel_t", POS_C);
+            UUID id = e.telephone(a);
+            t.joueur().setItemInHand(InteractionHand.MAIN_HAND, a.joueur().getMainHandItem().copy());
+            ouvrir(helper, a);
+            attendre(helper, geste(helper, a, Action.SETUP, CODE), Kind.UPDATE, Lock.UNLOCKED, Result.NONE, "SETUP");
+            int sessionA = session(helper, a);
+
+            a.etatsTelephoneRecus();
+            int fait = e.serveur.getCommands().performPrefixedCommand(t.joueur().createCommandSourceStack(),
+                    "phone reset");
+            helper.assertTrue(fait == 1 && e.donnees(id).owner() == null, "reset fait par l'équipe : " + fait);
+            List<PhoneStatePacket> recus = a.etatsTelephoneRecus();
+            helper.assertTrue(recus.size() == 1 && recus.get(0).kind() == Kind.CLOSE
+                    && recus.get(0).reason() == CloseReason.ERASED, "A reçoit CLOSE raison ERASED, vu " + recus);
+            helper.assertTrue(PhoneService.session(a.uuid()).isEmpty(), "session de A fermée");
+
+            e.donner(t, c);
+            ouvrir(helper, c);
+            attendre(helper, geste(helper, c, Action.SETUP, "9999"), Kind.UPDATE, Lock.UNLOCKED, Result.NONE,
+                    "C pose son code");
+            String fond = e.donnees(id).wallpaper();
+            for (PhoneActionPacket p : List.of(new PhoneActionPacket(sessionA, Action.WALLPAPER, "nuit", "", false),
+                    new PhoneActionPacket(sessionA, Action.AIRPLANE, "", "", true))) {
+                Reponse r = geste(a, p, true);
+                helper.assertTrue(r.outcome() == Outcome.NO_SESSION && r.etat() == null,
+                        p.action() + " de A après le reset : " + r.outcome() + " / " + r.etat());
+            }
+            PhoneData.PhoneRecord rec = e.donnees(id);
+            helper.assertTrue(c.uuid().equals(rec.owner()) && fond.equals(rec.wallpaper()) && !rec.airplane(),
+                    "le téléphone de C est inchangé : " + rec.wallpaper() + " / " + rec.airplane());
+        });
+    }
+
+    /**
+     * La même faille sans la commande ({@code PhoneData} effacé directement, comme toute écriture qui ne fermerait pas
+     * les sessions) : la session restée ouverte de A n'est plus déverrouillée par le code de C, reconnu à son sel.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_RESET)
+    public static void unNouveauCodeReverrouilleUneSessionRestee(GameTestHelper helper) {
+        essai(helper, e -> {
+            JoueurDeTest a = e.joueur("tel_u", POS_A);
+            JoueurDeTest c = e.joueur("tel_v", POS_C);
+            UUID id = e.telephone(a);
+            c.joueur().setItemInHand(InteractionHand.MAIN_HAND, a.joueur().getMainHandItem().copy());
+            ouvrir(helper, a);
+            attendre(helper, geste(helper, a, Action.SETUP, CODE), Kind.UPDATE, Lock.UNLOCKED, Result.NONE, "SETUP");
+
+            PhoneData.get(e.serveur).erase(id);
+            ouvrir(helper, c);
+            attendre(helper, geste(helper, c, Action.SETUP, "9999"), Kind.UPDATE, Lock.UNLOCKED, Result.NONE,
+                    "C pose son code");
+            String fond = e.donnees(id).wallpaper();
+
+            Reponse r = geste(helper, a, Action.WALLPAPER, "nuit");
+            helper.assertTrue(r.outcome() == Outcome.REFUSED, "fond de A refusé : " + r.outcome());
+            attendre(helper, r, Kind.UPDATE, Lock.LOCKED, Result.NONE, "A repasse verrouillé");
+            helper.assertTrue(r.etat().ownerName().isEmpty() && !r.etat().owner() && !r.etat().airplane(),
+                    "A ne voit rien de C : " + r.etat());
+            Reponse avion = geste(helper, a, Action.AIRPLANE, "", "", true);
+            helper.assertTrue(avion.outcome() == Outcome.REFUSED, "avion de A refusé : " + avion.outcome());
+            PhoneData.PhoneRecord rec = e.donnees(id);
+            helper.assertTrue(c.uuid().equals(rec.owner()) && fond.equals(rec.wallpaper()) && !rec.airplane(),
+                    "le téléphone de C est inchangé : " + rec.wallpaper() + " / " + rec.airplane());
+            // Témoin : la session de C, déverrouillée par le code en cours, règle bien le téléphone.
+            attendre(helper, geste(helper, c, Action.WALLPAPER, "nuit"), Kind.UPDATE, Lock.UNLOCKED, Result.NONE,
+                    "témoin : fond de C");
+        });
+    }
+
+    /** Un essai d'ouverture refusé pour batterie vide ferme la session précédente du joueur. */
+    @GameTest(template = "test/plancher", batch = LOT_RESET)
+    public static void uneOuvertureRefuseeFermeLaPrecedente(GameTestHelper helper) {
+        essai(helper, e -> {
+            JoueurDeTest a = e.joueur("tel_w", POS_D);
+            e.telephone(a);
+            int avant = ouvrir(helper, a).session();
+            ItemStack vide = new ItemStack(PhoneRegistry.PHONE.get());
+            e.telephones.add(PhoneItem.ensurePhoneId(vide));
+            a.joueur().setItemInHand(InteractionHand.OFF_HAND, vide);
+            a.messagesRecus();
+            Outcome r = PhoneService.open(a.joueur(), InteractionHand.OFF_HAND);
+            helper.assertTrue(r == Outcome.EMPTY_BATTERY, "batterie vide : " + r);
+            List<PhoneStatePacket> recus = a.etatsTelephoneRecus();
+            helper.assertTrue(recus.size() == 1 && recus.get(0).kind() == Kind.CLOSE
+                    && recus.get(0).session() == avant, "CLOSE de la session précédente, vu " + recus);
+            helper.assertTrue(PhoneService.session(a.uuid()).isEmpty(), "plus aucune session");
+            helper.assertTrue(a.messagesRecus().contains(PhoneService.MESSAGE + "empty"), "message de batterie vide");
         });
     }
 }

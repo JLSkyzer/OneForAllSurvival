@@ -74,6 +74,8 @@ public final class PhoneService {
         }
         UUID phoneId = PhoneItem.ensurePhoneId(stack);
         if (PhoneItem.stored(stack) <= 0) {
+            // Comme une ouverture réussie, un essai d'ouverture remplace la session précédente : elle est fermée.
+            close(player, CloseReason.CLOSED);
             player.displayClientMessage(Component.translatable(MESSAGE + "empty"), true);
             return Outcome.EMPTY_BATTERY;
         }
@@ -96,6 +98,16 @@ public final class PhoneService {
         if (session != null) {
             Result last = reason == CloseReason.ERASED ? Result.ERASED : Result.NONE;
             send(player, view(player, session, Kind.CLOSE, last, reason));
+        }
+    }
+
+    /**
+     * Ferme toutes les sessions ouvertes sur ce téléphone, quel que soit le joueur (copies comprises), avec la raison
+     * donnée. Pour {@code /phone reset} : après l'effacement, aucun écran ne reste ouvert sur l'ancien code.
+     */
+    public static void closeAll(MinecraftServer server, UUID phoneId, CloseReason reason) {
+        for (SessionOf s : othersOn(server, phoneId, null)) {
+            close(s.player(), reason);
         }
     }
 
@@ -127,10 +139,13 @@ public final class PhoneService {
         }
         PhoneData data = PhoneData.get(player.server);
         PhoneRecord record = data.record(session.phoneId());
-        // Le téléphone a pu changer sous la session (copie effacée, code posé ailleurs) : on suit ce qu'il sait.
+        // Le téléphone a pu changer sous la session (copie effacée, /phone reset, code posé ou changé ailleurs) : on suit
+        // ce qu'il sait. Une session déverrouillée ne l'est que par le code en cours, reconnu à son sel.
         if (!hasCode(record)) {
             session.setLock(Lock.SETUP);
         } else if (session.lock() == Lock.SETUP) {
+            session.setLock(Lock.LOCKED);
+        } else if (session.lock() == Lock.UNLOCKED && !record.salt().equals(session.unlockedSalt())) {
             session.setLock(Lock.LOCKED);
         }
         Result[] last = {Result.NONE};
@@ -183,7 +198,7 @@ public final class PhoneService {
         String salt = PhoneCode.newSalt(SALT_SOURCE);
         data.put(session.phoneId(), new PhoneRecord(player.getUUID(), player.getGameProfile().getName(), salt,
                 PhoneCode.hash(salt, code), 0, record.lockedUntil(), record.wallpaper(), record.airplane()));
-        session.setLock(Lock.UNLOCKED);
+        session.unlock(salt);
         return Outcome.DONE;
     }
 
@@ -197,7 +212,7 @@ public final class PhoneService {
             last[0] = verdict;
             return Outcome.REFUSED;
         }
-        session.setLock(Lock.UNLOCKED);
+        session.unlock(record.salt());
         return Outcome.DONE;
     }
 
@@ -226,8 +241,10 @@ public final class PhoneService {
         String salt = PhoneCode.newSalt(SALT_SOURCE);
         data.put(session.phoneId(), new PhoneRecord(now.owner(), now.ownerName(), salt, PhoneCode.hash(salt, newCode),
                 now.failures(), now.lockedUntil(), now.wallpaper(), now.airplane()));
+        session.unlock(salt);
         last[0] = Result.CODE_CHANGED;
-        // Les autres sessions ouvertes sur ce téléphone (copies) ont été déverrouillées par l'ancien code.
+        // Les autres sessions ouvertes sur ce téléphone (copies) ont été déverrouillées par l'ancien code : leur sel ne
+        // vaut plus (elles se reverrouilleraient à leur prochain geste), on les reverrouille et prévient tout de suite.
         for (SessionOf other : othersOn(player.server, session.phoneId(), player)) {
             if (other.session().lock() == Lock.UNLOCKED) {
                 other.session().setLock(Lock.LOCKED);
@@ -326,11 +343,11 @@ public final class PhoneService {
 
     private record SessionOf(ServerPlayer player, PhoneSession session) {}
 
-    /** Les sessions des autres joueurs en ligne ouvertes sur ce téléphone. */
-    private static List<SessionOf> othersOn(MinecraftServer server, UUID phoneId, ServerPlayer except) {
+    /** Les sessions des joueurs en ligne ouvertes sur ce téléphone, sauf celle de {@code except} (nul : toutes). */
+    private static List<SessionOf> othersOn(MinecraftServer server, UUID phoneId, @Nullable ServerPlayer except) {
         List<SessionOf> out = new ArrayList<>();
         for (Map.Entry<UUID, PhoneSession> e : SESSIONS.entrySet()) {
-            if (e.getKey().equals(except.getUUID()) || !e.getValue().phoneId().equals(phoneId)) {
+            if ((except != null && e.getKey().equals(except.getUUID())) || !e.getValue().phoneId().equals(phoneId)) {
                 continue;
             }
             ServerPlayer other = server.getPlayerList().getPlayer(e.getKey());
@@ -363,8 +380,11 @@ public final class PhoneService {
         return false;
     }
 
-    /** Oublie le frein de ce joueur (déconnexion ; essais qui enchaînent des gestes dans le même tic). */
-    public static void clearThrottle(UUID player) {
+    /**
+     * Oublie le frein de ce joueur (déconnexion). Visibilité de paquet : aucun autre code du mod ne lève le frein ; les
+     * essais qui enchaînent des gestes dans le même tic l'appellent par réflexion.
+     */
+    static void clearThrottle(UUID player) {
         LAST_GESTURE.remove(player);
     }
 
