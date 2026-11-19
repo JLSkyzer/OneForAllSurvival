@@ -1109,5 +1109,5 @@
   "message.oneforallsurvival.phone.empty": "Le téléphone est déchargé : branchez-le sur une prise.",
   "message.oneforallsurvival.phone.battery_empty": "Le téléphone s'éteint : la batterie est vide.",
   "block.oneforallsurvival.wall_socket": "Prise murale",
-  "message.oneforallsurvival.wall_socket.busy": "La prise n'accepte qu'un téléphone à la fois : main vide pour le reprendre."
+  "message.oneforallsurvival.wall_socket.busy": "Cette prise ne prend qu'un téléphone, et un seul à la fois."
 }

@@ -8,6 +8,7 @@ import dev.oneforallsurvival.phone.PhoneRegistry;
 import dev.oneforallsurvival.phone.WallSocketBlock;
 import dev.oneforallsurvival.phone.WallSocketBlockEntity;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
@@ -30,6 +31,9 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.BooleanOp;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.energy.IEnergyStorage;
 import net.minecraftforge.gametest.GameTestHolder;
@@ -46,8 +50,10 @@ import net.minecraftforge.gametest.PrefixGameTestTemplate;
  * simulé, posé au début de l'essai par {@code onEachTick}, pousse {@value #DEBIT_CABLE} FE par tic dans la
  * capability de la prise, par la face du mur, comme le ferait un câble raccordé à un générateur.
  *
- * <p>Lots : {@value #LOT} (les huit essais du brief), {@value #LOT_RECETTES} (la fabrication à la table) et
- * {@value #LOT_MUR} (en plus du brief : mur retiré, faux joueur, pose contre un mur seulement et forme exacte).
+ * <p>Lots : {@value #LOT} (sept essais du brief), {@value #LOT_EXPLOSION} (l'explosion, seule dans son lot pour ne
+ * toucher aucun essai voisin), {@value #LOT_RECETTES} (la fabrication à la table) et {@value #LOT_MUR} (en plus du
+ * brief : mur retiré, faux joueur, pose contre un mur seulement, forme exacte des quatre orientations, énergie
+ * conservée).
  */
 @GameTestHolder("oneforallsurvival")
 @PrefixGameTestTemplate(false)
@@ -56,6 +62,7 @@ public final class PriseGameTests {
     private static final String LOT = "prise";
     private static final String LOT_RECETTES = "telephone_recettes";
     private static final String LOT_MUR = "prise_mur";
+    private static final String LOT_EXPLOSION = "prise_explosion";
 
     private static final BlockPos MUR = new BlockPos(3, 1, 3);
     private static final BlockPos PRISE = new BlockPos(3, 1, 4);
@@ -284,18 +291,15 @@ public final class PriseGameTests {
         });
     }
 
-    /**
-     * L'explosion (puissance 4) a lieu au tic 160 : les autres essais du lot, voisins du gabarit, ont fini, et elle
-     * ne peut ni casser leur prise ni pousser leur joueur.
-     */
-    @GameTest(template = "test/plancher", batch = LOT, timeoutTicks = 300)
+    /** Seule dans son lot : l'explosion (puissance 4) ne peut casser la prise ni pousser le joueur d'aucun voisin. */
+    @GameTest(template = "test/plancher", batch = LOT_EXPLOSION, timeoutTicks = 100)
     public static void explosionRendLeTelephone(GameTestHelper helper) {
         WallSocketBlockEntity be = poser(helper, Blocks.STONE);
         ItemStack tel = telephone(7_000);
         UUID attendu = id(tel);
         be.setPhone(tel);
         helper.startSequence()
-                .thenExecuteAfter(160, () -> {
+                .thenExecute(() -> {
                     Vec3 centre = helper.absoluteVec(Vec3.atCenterOf(PRISE));
                     helper.getLevel().explode(null, centre.x, centre.y, centre.z, 4.0F, Level.ExplosionInteraction.BLOCK);
                     helper.assertTrue(!helper.getBlockState(PRISE).is(PhoneRegistry.WALL_SOCKET.get()),
@@ -405,6 +409,16 @@ public final class PriseGameTests {
                     new BlockHitResult(Vec3.atCenterOf(sol).add(0, 0.5, 0), Direction.UP, sol, false));
             helper.assertTrue(helper.getBlockState(dessusDuSol).isAir(),
                     "la prise ne se pose pas au sol, vu " + helper.getBlockState(dessusDuSol));
+            // Au plafond : clic sur le dessous d'un bloc.
+            BlockPos plafond = new BlockPos(5, 3, 5);
+            BlockPos dessousDuPlafond = plafond.below();
+            helper.setBlock(dessousDuPlafond, Blocks.AIR);
+            helper.setBlock(plafond, Blocks.STONE);
+            BlockPos plafondAbs = helper.absolutePos(plafond);
+            p.gameMode.useItemOn(p, p.serverLevel(), p.getItemInHand(InteractionHand.MAIN_HAND), InteractionHand.MAIN_HAND,
+                    new BlockHitResult(Vec3.atCenterOf(plafondAbs).add(0, -0.5, 0), Direction.DOWN, plafondAbs, false));
+            helper.assertTrue(helper.getBlockState(dessousDuPlafond).isAir(),
+                    "la prise ne se pose pas au plafond, vu " + helper.getBlockState(dessousDuPlafond));
             // Contre le mur : clic sur la face sud du mur.
             BlockPos mur = helper.absolutePos(MUR);
             var resultat = p.gameMode.useItemOn(p, p.serverLevel(), p.getItemInHand(InteractionHand.MAIN_HAND),
@@ -423,5 +437,65 @@ public final class PriseGameTests {
         } finally {
             quitter(j);
         }
+    }
+    /** Une boîte en pixels, comme {@code Block.box}, écrite ici à la main pour ne pas reprendre le calcul du bloc. */
+    private static VoxelShape px(double x0, double y0, double z0, double x1, double y1, double z1) {
+        return Shapes.box(x0 / 16, y0 / 16, z0 / 16, x1 / 16, y1 / 16, z1 / 16);
+    }
+
+    /**
+     * La forme exacte des quatre orientations, vide puis branchée : plaque 8 x 10 x 2 px contre le mur, et le
+     * téléphone (4 x 7 x 1 px) devant quand elle est branchée. Les boîtes attendues sont écrites en clair.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_MUR, timeoutTicks = 100)
+    public static void laFormeSuitLesQuatreOrientations(GameTestHelper helper) {
+        Map<Direction, VoxelShape[]> attendu = Map.of(
+                Direction.SOUTH, new VoxelShape[] {px(4, 3, 0, 12, 13, 2), px(6, 4, 2, 10, 11, 3)},
+                Direction.NORTH, new VoxelShape[] {px(4, 3, 14, 12, 13, 16), px(6, 4, 13, 10, 11, 14)},
+                Direction.EAST, new VoxelShape[] {px(0, 3, 4, 2, 13, 12), px(2, 4, 6, 3, 11, 10)},
+                Direction.WEST, new VoxelShape[] {px(14, 3, 4, 16, 13, 12), px(13, 4, 6, 14, 11, 10)});
+        BlockPos abs = helper.absolutePos(PRISE);
+        for (Map.Entry<Direction, VoxelShape[]> e : attendu.entrySet()) {
+            for (boolean branchee : new boolean[] {false, true}) {
+                BlockState etat = PhoneRegistry.WALL_SOCKET.get().defaultBlockState()
+                        .setValue(WallSocketBlock.FACING, e.getKey()).setValue(WallSocketBlock.PLUGGED, branchee);
+                VoxelShape vue = etat.getShape(helper.getLevel(), abs);
+                VoxelShape voulue = branchee ? Shapes.or(e.getValue()[0], e.getValue()[1]) : e.getValue()[0];
+                helper.assertTrue(!Shapes.joinIsNotEmpty(vue, voulue, BooleanOp.NOT_SAME),
+                        e.getKey() + (branchee ? " branchée" : " vide") + " : forme " + vue.toAabbs()
+                                + ", attendue " + voulue.toAabbs());
+            }
+        }
+        helper.succeed();
+    }
+
+    /**
+     * La prise donne ce qu'elle consomme : une réserve de 4 000 FE versée une fois (sans câble ensuite) finit dans le
+     * téléphone, au plus un tic de travail près (une prise neuve travaille au plein rendement).
+     */
+    @GameTest(template = "test/plancher", batch = LOT_MUR, timeoutTicks = 300)
+    public static void laPriseVerseCeQuElleConsomme(GameTestHelper helper) {
+        WallSocketBlockEntity be = poser(helper, Blocks.STONE);
+        be.setPhone(telephone(0));
+        IEnergyStorage entree = be.getCapability(ForgeCapabilities.ENERGY, FACE.getOpposite()).orElseThrow(
+                () -> new AssertionError("pas de capability d'énergie"));
+        int verse = 0;
+        for (int i = 0; i < 20; i++) {
+            verse += entree.receiveEnergy(WallSocketBlockEntity.MAX_RECEIVE, false);
+        }
+        int recu = verse;
+        helper.assertTrue(recu == WallSocketBlockEntity.CAPACITY, "réserve pleine attendue, reçue " + recu);
+        helper.startSequence()
+                .thenExecuteAfter(150, () -> {
+                    int reste = be.energy().getEnergyStored();
+                    int consomme = recu - reste;
+                    int charge = chargeBrute(be.phone());
+                    int tic = PhoneConfig.socketChargePerTick();
+                    helper.assertTrue(charge <= consomme && consomme - charge <= tic,
+                            "charge " + charge + " pour " + consomme + " FE consommés (reste " + reste + ")");
+                    helper.assertTrue(charge <= recu, "le téléphone ne peut recevoir plus que la réserve : " + charge);
+                    helper.assertTrue(be.state() == MachineState.NO_POWER, "NO_POWER attendu, vu " + be.state());
+                })
+                .thenSucceed();
     }
 }

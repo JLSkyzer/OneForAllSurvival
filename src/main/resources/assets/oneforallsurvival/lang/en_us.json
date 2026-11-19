@@ -1109,5 +1109,5 @@
   "message.oneforallsurvival.phone.empty": "The phone is out of battery: plug it into a socket.",
   "message.oneforallsurvival.phone.battery_empty": "The phone shuts down: the battery is empty.",
   "block.oneforallsurvival.wall_socket": "Wall Socket",
-  "message.oneforallsurvival.wall_socket.busy": "The socket only takes one phone at a time: use an empty hand to take it back."
+  "message.oneforallsurvival.wall_socket.busy": "This socket only takes a phone, and only one at a time."
 }
