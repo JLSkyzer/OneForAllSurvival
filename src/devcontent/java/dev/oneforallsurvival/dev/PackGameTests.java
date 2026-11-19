@@ -923,7 +923,9 @@ public final class PackGameTests {
                     "axis_along_first", "false"));
             helper.setBlock(deployeur.north(), avec(blocMoteur.defaultBlockState(), "facing", "south"));
         }
-        var maintenant = java.time.Instant.parse("2026-11-18T12:00:00Z").toEpochMilli();
+        // Le jour des quêtes du carnet est celui de l'horloge de l'économie : une date figée périme le carnet dès le
+        // lendemain (6 h), et le service le remplace avant le geste.
+        var maintenant = dev.oneforallsurvival.economy.EconomyClock.now();
         JoueurDeTest simule = JoueurDeTest.rejoindre(level, "QueteDeployeur",
                 helper.absoluteVec(new net.minecraft.world.phys.Vec3(6.5, 1, 7.5)));
         var joueur = simule.joueur();
@@ -1021,7 +1023,9 @@ public final class PackGameTests {
         helper.setBlock(posPiston.west(), avec(rallonge.defaultBlockState(), "facing", "east"));
         helper.setBlock(depart, Blocks.GRANITE);
         helper.setBlock(posPiston, avec(avec(piston.defaultBlockState(), "facing", "east"), "axis_along_first", "false"));
-        var maintenant = java.time.Instant.parse("2026-11-18T12:00:00Z").toEpochMilli();
+        // Le jour des quêtes du carnet est celui de l'horloge de l'économie : une date figée périme le carnet dès le
+        // lendemain (6 h), et le service le remplace avant le geste.
+        var maintenant = dev.oneforallsurvival.economy.EconomyClock.now();
         JoueurDeTest simule = JoueurDeTest.rejoindre(level, "QuetePistonMeca",
                 helper.absoluteVec(new net.minecraft.world.phys.Vec3(6.5, 1, 7.5)));
         var joueur = simule.joueur();
@@ -1093,7 +1097,9 @@ public final class PackGameTests {
         }
         ButinGameTests.degager(helper);
         var level = helper.getLevel();
-        var maintenant = java.time.Instant.parse("2026-11-18T12:00:00Z").toEpochMilli();
+        // Le jour des quêtes du carnet est celui de l'horloge de l'économie : une date figée périme le carnet dès le
+        // lendemain (6 h), et le service le remplace avant le geste.
+        var maintenant = dev.oneforallsurvival.economy.EconomyClock.now();
         JoueurDeTest simule = JoueurDeTest.rejoindre(level, "QueteCreatePoses",
                 helper.absoluteVec(new net.minecraft.world.phys.Vec3(6.5, 1, 7.5)));
         try {
