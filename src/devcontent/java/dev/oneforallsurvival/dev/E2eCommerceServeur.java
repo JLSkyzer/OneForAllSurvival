@@ -464,6 +464,9 @@ public final class E2eCommerceServeur {
         Map<String, String> lignes = new TreeMap<>();
         for (UUID emetteur : List.of(autreId, devId)) {
             for (InvoiceRegistry.Invoice f : registre.issuedBy(emetteur)) {
+                if (f.isPublic()) {
+                    continue; // les factures d'électricité (lot E6), dont Dev est le créancier : contrôlées par leur étape
+                }
                 lignes.put(f.id().toString(), f.issuerName() + ">" + f.debtorName() + ":" + f.amount() + ":" + f.status());
             }
         }

@@ -1392,7 +1392,7 @@ final class E2eCommerce {
                 () -> "joueur en " + mc.player.blockPosition() + ", etals vus " + (etalClient(etalDev()) != null) + " " + (etalClient(etalAutre()) != null),
                 () -> {
                     // Sans la ligne « Salaires dus » : le rattrapage du démarrage (lot E3) y change les dettes de la ville.
-                    if (!E2eMonnaie.sansSalaires(reponse).equals(E2eMonnaie.sansSalaires(lu.get("stats")))) {
+                    if (!E2eMonnaie.sansSalaires(reponse).equals(E2eMonnaie.sansSalaires(E2eElectricite.statsCorrigees(lu.get("stats"))))) {
                         throw new IllegalStateException("stats " + reponse + " ; avant l'arret : " + lu.get("stats"));
                     }
                     return "relance du commerce : /eco stats identique a celui d'avant l'arret (attente comprise) : " + reponse;
@@ -1457,7 +1457,7 @@ final class E2eCommerce {
             reponse = rcon("eco stats").trim().replace('\n', '|');
             reponse2 = rcon("e2ecommerce factures").replace(" FIN_E2E", "").trim();
         }, () -> ecoule() >= 0.3, () -> "", () -> {
-            String attendu = avecAttente(lu.get("stats"), 0);
+            String attendu = avecAttente(E2eElectricite.statsCorrigees(lu.get("stats")), 0);
             if (!E2eMonnaie.sansSalaires(reponse).equals(E2eMonnaie.sansSalaires(attendu)) || !reponse2.equals(lu.get("factures"))) {
                 throw new IllegalStateException("stats " + reponse + " (attendu " + attendu + ") ; factures " + reponse2 + " (avant " + lu.get("factures") + ")");
             }

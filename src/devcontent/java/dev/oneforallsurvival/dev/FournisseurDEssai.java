@@ -29,7 +29,7 @@ import net.minecraftforge.fml.common.Mod;
  * preuve reste celle du lot 4 ; le raccordement lui-même est prouvé par {@code RaccordementGameTests}.
  *
  * <p>Pour l'essai de bout en bout (client sur serveur dédié), la console a {@code fournisseurdessai raccorder x y z
- * [joueur]} (niveau 4, donc RCON).
+ * [joueur]} et {@code fournisseurdessai detacher x y z} (niveau 4, donc RCON).
  */
 @Mod.EventBusSubscriber(modid = "oneforallsurvival", bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class FournisseurDEssai {
@@ -121,7 +121,21 @@ public final class FournisseurDEssai {
                         .then(Commands.argument("joueur", StringArgumentType.word())
                                 .executes(ctx -> raccorderConsole(ctx.getSource(),
                                         BlockPosArgument.getLoadedBlockPos(ctx, "pos"),
-                                        StringArgumentType.getString(ctx, "joueur")))))));
+                                        StringArgumentType.getString(ctx, "joueur"))))))
+                .then(Commands.literal("detacher").then(Commands.argument("pos", BlockPosArgument.blockPos())
+                        .executes(ctx -> detacherConsole(ctx.getSource(), BlockPosArgument.getLoadedBlockPos(ctx, "pos"))))));
+    }
+
+    /** Défait le raccordement d'essai du compteur en {@code pos} : il retombe sous les règles du lot 4 (rien ne passe). */
+    private static int detacherConsole(CommandSourceStack source, BlockPos pos) {
+        if (!(source.getLevel().getBlockEntity(pos) instanceof MeterBlockEntity compteur)) {
+            source.sendFailure(Component.literal("pas de compteur en " + pos.toShortString()));
+            return 0;
+        }
+        boolean defait = PowerSuppliers.get(source.getServer()).removeClient(compteur.serial()).isPresent();
+        PowerPairing.refreshMeter(source.getServer(), compteur.serial());
+        source.sendSuccess(() -> Component.literal((defait ? "detache" : "deja detache") + " : compteur " + pos.toShortString()), true);
+        return 1;
     }
 
     private static int raccorderConsole(CommandSourceStack source, BlockPos pos, String nom) {

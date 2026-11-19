@@ -1109,7 +1109,8 @@ final class E2eMonnaie {
                 String stats = rcon("eco stats").trim().replace('\n', '|');
                 // La ligne « Salaires dus » est hors de la comparaison : le rattrapage du démarrage (lot E3) y change les
                 // dettes de la ville, que l'étape du trésor contrôle exactement à sa relance.
-                if (valeurTotale() != 0 || !sansSalaires(stats).equals(sansSalaires(lu.get("stats")))) {
+                // Les prélèvements de minuit du démarrage (lot E6) : lignes corrigées seulement si le serveur le prouve au cuivre près.
+                if (valeurTotale() != 0 || !sansSalaires(stats).equals(sansSalaires(E2eElectricite.statsCorrigees(lu.get("stats"))))) {
                     E2eClient.fail("relance : le joueur porte " + valeurTotale() + " cuivres (attendu 0, rien de redonne), stats : " + stats
                             + " ; avant l'arret : " + lu.get("stats"));
                     return Suite.FINI;
@@ -1307,8 +1308,9 @@ final class E2eMonnaie {
                     // La ligne « en attente » est hors de la comparaison : l'étape du commerce, relue juste avant, a fait revenir le
                     // second joueur, qui a reçu son attente (elle le vérifie elle-même) ; les totaux du registre, eux, ne bougent pas.
                     // La ligne « Salaires dus » aussi : le rattrapage du démarrage (lot E3) y a changé les dettes de la ville.
-                    if (!sansAttente(sansSalaires(stats)).equals(sansAttente(sansSalaires(lu.get("stats"))))
-                            || !ledger.equals(lu.get("ledger"))) {
+                    // Les prélèvements de minuit du démarrage (lot E6) : lignes et registre corrigés seulement s'ils sont prouvés.
+                    if (!sansAttente(sansSalaires(stats)).equals(sansAttente(sansSalaires(E2eElectricite.statsCorrigees(lu.get("stats")))))
+                            || !ledger.equals(E2eElectricite.journalCorrige(lu.get("ledger")))) {
                         throw new IllegalStateException("stats " + stats + " (avant " + lu.get("stats") + "), registre " + ledger + " (avant " + lu.get("ledger") + ")");
                     }
                     return "relance : totaux du registre identiques a ceux d'avant l'arret : " + stats + " ; " + ledger;

@@ -39,8 +39,8 @@ import org.apache.logging.log4j.Logger;
  * le retire, joue le métier de réparation ({@link E2eReparation}), les vivres ({@link E2eVivres}) et le réseau
  * ({@link E2eReseau}), la protection du lot 5 ({@link E2eProtection}), la vie de la ville du lot 6 ({@link E2eVille}),
  * l'exploration du lot 7 ({@link E2eExploration}), la monnaie, le commerce, le butin des mobs, le trésor et les salaires
- * ({@link E2eMonnaie}, {@link E2eCommerce}, {@link E2eButin}, {@link E2eTresor}), les quêtes ({@link E2eQuetes}),
- * puis arrête le serveur par {@code /stop}.
+ * ({@link E2eMonnaie}, {@link E2eCommerce}, {@link E2eButin}, {@link E2eTresor}), les quêtes ({@link E2eQuetes}), le
+ * prélèvement et le fournisseur d'électricité ({@link E2eElectricite}), puis arrête le serveur par {@code /stop}.
  * Avec {@code -Doneforallsurvival.e2e.relance}, après une vraie relance du serveur, il relit ce que la première
  * phase a laissé. Chaque contrôle écrit une ligne {@code PASS} ou {@code FAIL} dans le journal ; le client
  * quitte à la fin.
@@ -64,7 +64,8 @@ public final class E2eClient {
     private static final double DIAGNOSTIC_CONNEXION_S = 17;
 
     private enum Phase { TITRE, CONNEXION, CATALOGUE, PROVISIONS, POSER, OUVRIR, COMMANDER, STOCK, OUVRIR_STOCK, PRENDRE,
-        REPARATION, VIVRES, RESEAU, PROTECTION, VILLE, EXPLORATION, MONNAIE, COMMERCE, BUTIN, QUETES, TRESOR, LAMPE_ARRET, LAMPE_RELANCE, ARRET, FIN,
+        REPARATION, VIVRES, RESEAU, PROTECTION, VILLE, EXPLORATION, MONNAIE, COMMERCE, BUTIN, QUETES, TRESOR, ELECTRICITE, LAMPE_ARRET,
+        LAMPE_RELANCE, ARRET, FIN,
         DEPART, DEPART_SORTIE, DEPART_RETOUR }
 
     private static Phase phase = Phase.TITRE;
@@ -137,6 +138,7 @@ public final class E2eClient {
             case BUTIN -> E2eButin.legende();
             case QUETES -> E2eQuetes.legende();
             case TRESOR -> E2eTresor.legende();
+            case ELECTRICITE -> E2eElectricite.legende();
             case DEPART -> "Somme de départ : 500 cuivres à la première connexion, rien de plus après la reconnexion";
             case DEPART_SORTIE, DEPART_RETOUR -> "Le client se déconnecte puis se reconnecte au serveur dédié";
             case LAMPE_ARRET -> "La lampe est portée au moment de l'arrêt du serveur";
@@ -200,6 +202,7 @@ public final class E2eClient {
             E2eVille.recevoir(event.getMessage());
             E2eCommerce.recevoir(event.getMessage());
             E2eTresor.recevoir(event.getMessage());
+            E2eElectricite.recevoir(event.getMessage());
         }
     }
 
@@ -278,7 +281,7 @@ public final class E2eClient {
         // La réparation a ses propres délais, pas par pas.
         if (phase != Phase.TITRE && phase != Phase.FIN && phase != Phase.ARRET && phase != Phase.REPARATION && phase != Phase.VIVRES
                 && phase != Phase.RESEAU && phase != Phase.PROTECTION && phase != Phase.VILLE && phase != Phase.EXPLORATION
-                && phase != Phase.MONNAIE && phase != Phase.COMMERCE && phase != Phase.BUTIN && phase != Phase.QUETES && phase != Phase.TRESOR && phase != Phase.DEPART_RETOUR && secondes() > 180) {
+                && phase != Phase.MONNAIE && phase != Phase.COMMERCE && phase != Phase.BUTIN && phase != Phase.QUETES && phase != Phase.TRESOR && phase != Phase.ELECTRICITE && phase != Phase.DEPART_RETOUR && secondes() > 180) {
             fail("delai depasse en phase " + phase);
         }
     }
@@ -772,11 +775,14 @@ public final class E2eClient {
                     // d'E1 et d'E2 compte déjà les pièces des quêtes ; à la relance en dernier (réclamations et saut d'horloge au
                     // lundi après tous les contrôles exacts des autres étapes).
                     if (RELANCE) {
-                        E2eQuetes.relance();
+                        // L'électricité (E6) avant les quêtes, qui restent les dernières : ses contrôles relisent les prélèvements
+                        // faits au démarrage, Dev vide la caisse du poste après les contrôles exacts des autres étapes.
+                        E2eElectricite.relance();
+                        passer(Phase.ELECTRICITE);
                     } else {
                         E2eQuetes.premierePhase();
+                        passer(Phase.QUETES);
                     }
-                    passer(Phase.QUETES);
                 }
             }
             case QUETES -> {
@@ -796,6 +802,19 @@ public final class E2eClient {
                         // Le butin en dernier à la relance : ses nouvelles pièces viennent après tous les contrôles exacts.
                         E2eButin.relance();
                         passer(Phase.BUTIN);
+                    } else {
+                        // L'électricité (E6) après le trésor : les deux minuits de l'horloge du trésor factureraient sinon le jour de
+                        // l'essai avant l'arrêt ; ils tombent ainsi au démarrage de la relance (scénario d'acceptation).
+                        E2eElectricite.premierePhase();
+                        passer(Phase.ELECTRICITE);
+                    }
+                }
+            }
+            case ELECTRICITE -> {
+                if (E2eElectricite.avancer(mc) && phase == Phase.ELECTRICITE) {
+                    if (RELANCE) {
+                        E2eQuetes.relance();
+                        passer(Phase.QUETES);
                     } else if (SEULE_MONNAIE) {
                         passer(Phase.ARRET);
                     } else {
@@ -836,6 +855,7 @@ public final class E2eClient {
                         E2eTresor.rangerAvantArret(mc);
                         E2eButin.rangerAvantArret(mc);
                         E2eQuetes.rangerAvantArret(mc);
+                        E2eElectricite.rangerAvantArret(mc);
                         E2eExploration.rangerAvantArret(mc);
                         E2eProtection.rangerAvantArret(mc);
                         E2eVivres.rangerAvantArret(mc);

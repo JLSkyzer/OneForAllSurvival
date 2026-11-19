@@ -681,6 +681,12 @@ final class E2eReseau {
     }
 
     private static void compteur() {
+        // Lot E6 : un compteur jumelé ne se réinscrit pas, et ses gestes sont ceux du fournisseur. Les gestes du lot 4
+        // (inscription, relevé, refus du Citoyen) se font compteur détaché ; le courant passe raccordé.
+        pas("Compteur détaché le temps de l'inscription (console, FournisseurDEssai)",
+                () -> reponseRaccord = rcon("fournisseurdessai detacher " + xyz(compteur)),
+                () -> reponseRaccord != null && reponseRaccord.contains("detache"), () -> "reponse : " + reponseRaccord,
+                () -> "console : " + reponseRaccord);
         pas("Clic droit main vide sur le compteur : l'ingénieur ouvre l'écran d'inscription", () -> {
             vider();
             tenir(hVide);
@@ -695,6 +701,10 @@ final class E2eReseau {
             mc.screen.keyPressed(GLFW.GLFW_KEY_ENTER, 0, 0);
         }, () -> trouve(CLE_INSCRIT) != null && mc.screen == null, () -> "ecran " + mc.screen,
                 () -> "nom tape et envoye : le serveur repond " + trouve(CLE_INSCRIT).texte());
+        pas("Compteur inscrit raccordé de nouveau (console, FournisseurDEssai)",
+                () -> reponseRaccord = rcon("fournisseurdessai raccorder " + xyz(compteur) + " " + nom()),
+                () -> reponseRaccord != null && reponseRaccord.contains("raccorde"), () -> "reponse : " + reponseRaccord,
+                () -> "console : " + reponseRaccord);
         pasD(10, "Le compteur compte : du courant le traverse", () -> {}, () -> ecoule() >= 3, () -> "", null);
         pas("Relevé au testeur par l'ingénieur", () -> {
             vider();
@@ -717,6 +727,10 @@ final class E2eReseau {
             index1 = Long.parseLong(i.getOrDefault("index", "0"));
             return "infobulle du releve : " + i + " (premier releve : consommation depuis l'inscription, pas tout l'index)";
         });
+        pas("Compteur détaché pour les gestes du Citoyen (règles du lot 4)",
+                () -> reponseRaccord = rcon("fournisseurdessai detacher " + xyz(compteur)),
+                () -> reponseRaccord != null && reponseRaccord.contains("detache"), () -> "reponse : " + reponseRaccord,
+                () -> "console : " + reponseRaccord);
     }
 
     private static void citoyen() {

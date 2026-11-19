@@ -75,6 +75,10 @@ public final class JoueurDeTest {
     private final List<String> messagesALaConnexion = new ArrayList<>();
     /** Les textes des messages que l'entrée en jeu elle-même a envoyés, avant qu'on ne les oublie. */
     private final List<String> textesALaConnexion = new ArrayList<>();
+    /** Les messages reçus tels quels (styles et liens cliquables compris), dans l'ordre. */
+    private final List<Component> composants = new ArrayList<>();
+    /** Ceux que l'entrée en jeu elle-même a envoyés, avant qu'on ne les oublie. */
+    private final List<Component> composantsALaConnexion = new ArrayList<>();
 
     private JoueurDeTest(EmbeddedChannel canal, ServerPlayer joueur) {
         this.canal = canal;
@@ -111,6 +115,8 @@ public final class JoueurDeTest {
         simule.listesALaConnexion.addAll(simule.listes);
         simule.messagesALaConnexion.addAll(simule.messages);
         simule.textesALaConnexion.addAll(simule.textes);
+        simule.composantsALaConnexion.addAll(simule.composants);
+        simule.composants.clear();
         simule.financesALaConnexion.addAll(simule.finances);
         simule.finances.clear();
         simule.listes.clear();
@@ -137,6 +143,46 @@ public final class JoueurDeTest {
     /** Les textes des messages reçus pendant l'entrée en jeu. */
     public List<String> textesALaConnexion() {
         return List.copyOf(textesALaConnexion);
+    }
+
+    /** Les messages reçus pendant l'entrée en jeu, tels quels (liens cliquables compris). */
+    public List<Component> composantsALaConnexion() {
+        return List.copyOf(composantsALaConnexion);
+    }
+
+    /** Les messages reçus depuis le dernier appel, tels quels (liens cliquables compris), retirés. */
+    public List<Component> composantsRecus() {
+        lire();
+        List<Component> out = new ArrayList<>(composants);
+        composants.clear();
+        return out;
+    }
+
+    /**
+     * Les commandes des liens cliquables de ce message ({@code ClickEvent}, lancer ou proposer), de ses enfants et de ses
+     * arguments, dans l'ordre.
+     */
+    public static List<String> commandes(Component message) {
+        List<String> out = new ArrayList<>();
+        commandes(message, out);
+        return out;
+    }
+
+    private static void commandes(Component c, List<String> out) {
+        net.minecraft.network.chat.ClickEvent clic = c.getStyle().getClickEvent();
+        if (clic != null) {
+            out.add(clic.getValue());
+        }
+        if (c.getContents() instanceof TranslatableContents t) {
+            for (Object arg : t.getArgs()) {
+                if (arg instanceof Component inner) {
+                    commandes(inner, out);
+                }
+            }
+        }
+        for (Component enfant : c.getSiblings()) {
+            commandes(enfant, out);
+        }
     }
 
     /** Les instantanés des comptes de la ville reçus pendant l'entrée en jeu (la connexion réelle). */
@@ -194,6 +240,7 @@ public final class JoueurDeTest {
                     : chat.content().getString());
             cles(chat.content(), cles);
             textes.add(chat.content().getString());
+            composants.add(chat.content());
         } else if (message instanceof ClientboundSoundPacket son) {
             sons.add(son.getPitch());
         } else if (message instanceof ClientboundContainerSetContentPacket
