@@ -1,5 +1,8 @@
 package dev.oneforallsurvival.dev;
 
+import static dev.oneforallsurvival.dev.FilmMaya.*;
+import static dev.oneforallsurvival.dev.FilmTournage.*;
+
 import com.mojang.authlib.GameProfile;
 import com.mojang.blaze3d.platform.NativeImage;
 import dev.oneforallsurvival.client.title.LostIslandTitleScreen;
@@ -161,62 +164,30 @@ public final class FilmBandeAnnonce {
     private static final boolean ACTIF = System.getProperty("oneforallsurvival.demo.bandeAnnonce") != null;
     private static final String MONDE = "bande_annonce";
     private static final long GRAINE = Long.getLong("oneforallsurvival.demo.bandeAnnonce.graine", 7_320_514L);
-    private static final String MAYA = "Maya";
     private static final double GARDE_S = 1500;
-    private static final int LARGEUR = 1280;
-    private static final int HAUTEUR = 720;
-    private static final long CADENCE_NS = 1_000_000_000L / 30;
     private static final String CLE_REJOINDRE = "gui.oneforallsurvival.title.join";
     /** Facteur des temps de pose de chaque pas (rythme du montage), réglable sans recompiler. */
     private static final double RYTHME = Double.parseDouble(System.getProperty("oneforallsurvival.demo.bandeAnnonce.rythme", "0.85"));
 
     private enum Phase { CHARGEMENT, TITRE, CREATION, ATTENTE_MONDE, PREPARATION, FILM, FIN }
 
-    /** Un pas : {@code tourne} faux = mise en place, non filmée. */
-    private record Etape(String nom, boolean tourne, String titre, Supplier<String> legende, Runnable action, BooleanSupplier pret,
-            long reposMs) {}
 
     private static final long DEBUT_NS = System.nanoTime();
     private static Phase phase = Phase.CHARGEMENT;
     private static long debutPhaseNs = System.nanoTime();
     private static boolean dansUneImage;
-    private static final List<Etape> ETAPES = new ArrayList<>();
-    private static int indexEtape = -1;
-    private static boolean actionFaite;
-    private static long debutAction;
-    private static long debutRepos;
-    private static String titreCourant = "";
-    private static Prise prise;
-    private static Prise priseChargement;
+    private static FilmPrise priseChargement;
     private static String echec;
     private static volatile boolean preparationFaite;
-    private static String dernierChat = "";
     private static Style lienAccepter;
     private static int sousPasTitre;
 
     /** Origine de la place : sol de la place, au pied du mur du fond. */
-    private static BlockPos o;
-    private static JoueurDeTest maya;
     private static final List<PlayerInfo> FAUX = new ArrayList<>();
     private static int origine;
     private static long valeurAvant;
     private static int compteAvant;
 
-    // Mouvement de caméra (spectateur) et curseur virtuel.
-    private static Vec3 cameraDe;
-    private static Vec3 cameraA;
-    private static float[] regardDe;
-    private static float[] regardA;
-    private static long cameraDebutNs;
-    private static long cameraDureeNs;
-    private static double curX = 320;
-    private static double curY = 180;
-    private static double curDeX;
-    private static double curDeY;
-    private static double curAX = 320;
-    private static double curAY = 180;
-    private static long curDebutNs;
-    private static long curDureeNs = 1;
     private static boolean tabTenue;
     private static boolean casserTenu;
     private static BlockPos aCasser;
@@ -337,7 +308,7 @@ public final class FilmBandeAnnonce {
         switch (phase) {
             case CHARGEMENT -> {
                 if (priseChargement == null) {
-                    priseChargement = new Prise(mc.gameDirectory.toPath().resolve("plans/chargement-jeu"), false);
+                    priseChargement = new FilmPrise(mc.gameDirectory.toPath().resolve("plans/chargement-jeu"), false);
                     LOG.info("[film] overlay du chargement filmé");
                 }
                 if (mc.getOverlay() != null) {
@@ -347,7 +318,7 @@ public final class FilmBandeAnnonce {
                 } else if (mc.screen instanceof LostIslandTitleScreen) {
                     priseChargement.terminer(null);
                     reglerLesOptions(mc);
-                    prise = new Prise(mc.gameDirectory.toPath().resolve("plans/film"), true);
+                    prise = new FilmPrise(mc.gameDirectory.toPath().resolve("plans/film"), true);
                     prise.plan("titre", "");
                     passer(Phase.TITRE);
                 } else if (s > 900) {
@@ -468,35 +439,31 @@ public final class FilmBandeAnnonce {
     // Le décor : une place de marché sur un terrain plat
     // ================================================================================================
 
-    private static BlockPos p(int dx, int dy, int dz) {
-        return o.offset(dx, dy, dz);
-    }
-
-    private static BlockPos table() {
+    static BlockPos table() {
         return p(-9, 0, -5);
     }
 
-    private static BlockPos coffre() {
+    static BlockPos coffre() {
         return p(-7, 0, -5);
     }
 
-    private static BlockPos tremieSol() {
+    static BlockPos tremieSol() {
         return p(-2, 0, 3);
     }
 
-    private static BlockPos etalMaya() {
+    static BlockPos etalMaya() {
         return p(-3, 1, -5);
     }
 
-    private static BlockPos etalMoi() {
+    static BlockPos etalMoi() {
         return p(3, 0, -5);
     }
 
-    private static BlockPos coffreFortMoi() {
+    static BlockPos coffreFortMoi() {
         return p(8, 0, -5);
     }
 
-    private static BlockPos coffreFortMaya() {
+    static BlockPos coffreFortMaya() {
         return p(11, 0, -5);
     }
 
@@ -586,7 +553,7 @@ public final class FilmBandeAnnonce {
         }
     }
 
-    private static void batir(ServerLevel monde) {
+    static void batir(ServerLevel monde) {
         BlockState air = Blocks.AIR.defaultBlockState();
         // Terrain : un plateau d'herbe, sans rien au-dessus.
         remplir(monde, -20, 0, -16, 24, 26, 20, air);
@@ -650,457 +617,6 @@ public final class FilmBandeAnnonce {
         for (int[] c : new int[][] {{-17, 14}, {20, 14}, {-17, -11}, {21, -12}, {4, 17}}) {
             commande(serveur, String.format(Locale.ROOT, "place feature minecraft:fancy_oak %d %d %d", o.getX() + c[0], o.getY(),
                     o.getZ() + c[1]));
-        }
-    }
-
-    // ================================================================================================
-    // Outils
-    // ================================================================================================
-
-    private static MinecraftServer serveur(Minecraft mc) {
-        return mc.getSingleplayerServer();
-    }
-
-    private static ServerPlayer moiServeur(Minecraft mc) {
-        return serveur(mc).getPlayerList().getPlayer(mc.player.getUUID());
-    }
-
-    private static void sur(Minecraft mc, Runnable travail) {
-        serveur(mc).execute(travail);
-    }
-
-    /** Une commande jouée par le serveur au niveau 4 (la console de l'équipe). */
-    private static void commande(MinecraftServer serveur, String ligne) {
-        serveur.execute(() -> serveur.getCommands().performPrefixedCommand(serveur.createCommandSourceStack().withSuppressedOutput(), ligne));
-    }
-
-    /** Une commande de l'équipe jouée au nom du joueur : la réponse s'affiche dans son chat. */
-    private static void commandeVue(Minecraft mc, String ligne) {
-        sur(mc, () -> serveur(mc).getCommands().performPrefixedCommand(moiServeur(mc).createCommandSourceStack().withPermission(4), ligne));
-    }
-
-    private static void aller(Minecraft mc, double x, double y, double z, float yaw, float pitch) {
-        sur(mc, () -> moiServeur(mc).teleportTo(serveur(mc).overworld(), x, y, z, yaw, pitch));
-    }
-
-    /** Le joueur deux blocs devant le bloc (au sud), regard au nord vers lui. */
-    private static void devant(Minecraft mc, BlockPos bloc, float pitch) {
-        aller(mc, bloc.getX() + 0.5, o.getY(), bloc.getZ() + 2.5, 180, pitch);
-    }
-
-    private static boolean pres(Minecraft mc, double x, double z) {
-        return Math.abs(mc.player.getX() - x) < 0.6 && Math.abs(mc.player.getZ() - z) < 0.6;
-    }
-
-    private static boolean devantPret(Minecraft mc, BlockPos bloc) {
-        return pres(mc, bloc.getX() + 0.5, bloc.getZ() + 2.5);
-    }
-
-    private static void clicDroit(Minecraft mc, BlockPos pos, Direction face) {
-        Vec3 point = Vec3.atCenterOf(pos).add(face.getStepX() * 0.5, face.getStepY() * 0.5, face.getStepZ() * 0.5);
-        var res = mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, new BlockHitResult(point, face, pos, false));
-        mc.player.swing(InteractionHand.MAIN_HAND);
-        LOG.info("[film] clic droit en {} : {}", pos, res);
-    }
-
-    private static void tenirVide(Minecraft mc) {
-        for (int i = 8; i >= 0; i--) {
-            if (mc.player.getInventory().getItem(i).isEmpty()) {
-                mc.player.getInventory().selected = i;
-                return;
-            }
-        }
-        // Barre pleine : la case 8 part dans une case libre du sac.
-        for (int i = 9; i < 36; i++) {
-            if (mc.player.getInventory().getItem(i).isEmpty()) {
-                mc.gameMode.handleInventoryMouseClick(mc.player.inventoryMenu.containerId, i, 8, ClickType.SWAP, mc.player);
-                mc.player.getInventory().selected = 8;
-                return;
-            }
-        }
-        throw new IllegalStateException("inventaire plein");
-    }
-
-    /** L'objet en main ; pris dans le sac (échange avec une case vide de la barre) s'il n'est pas dans la barre. */
-    private static void tenir(Minecraft mc, Predicate<ItemStack> voulu) {
-        for (int i = 0; i < 9; i++) {
-            if (voulu.test(mc.player.getInventory().getItem(i))) {
-                mc.player.getInventory().selected = i;
-                return;
-            }
-        }
-        for (int i = 9; i < 36; i++) {
-            if (voulu.test(mc.player.getInventory().getItem(i))) {
-                for (int h = 8; h >= 0; h--) {
-                    if (mc.player.getInventory().getItem(h).isEmpty()) {
-                        mc.gameMode.handleInventoryMouseClick(mc.player.inventoryMenu.containerId, i, h, ClickType.SWAP, mc.player);
-                        mc.player.getInventory().selected = h;
-                        return;
-                    }
-                }
-            }
-        }
-        throw new IllegalStateException("objet absent de l'inventaire");
-    }
-
-    private static void clicMenu(Minecraft mc, int index, int bouton, ClickType type) {
-        mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, index, bouton, type, mc.player);
-    }
-
-    private static int caseJoueur(Minecraft mc, Predicate<ItemStack> voulu) {
-        for (Slot s : mc.player.containerMenu.slots) {
-            if (s.container == mc.player.getInventory() && s.getContainerSlot() < 36 && voulu.test(s.getItem())) {
-                return s.index;
-            }
-        }
-        return -1;
-    }
-
-    /** La case du menu qui porte l'objet, sinon la première case vide de l'inventaire. */
-    private static int caseOuVide(Minecraft mc, Predicate<ItemStack> voulu) {
-        int i = caseJoueur(mc, voulu);
-        return i >= 0 ? i : caseJoueur(mc, ItemStack::isEmpty);
-    }
-
-    /** Les pièces en vrac dans l'inventaire (hors bourses). */
-    private static long libre(Minecraft mc) {
-        long n = 0;
-        for (ItemStack s : mc.player.getInventory().items) {
-            n += CoinMath.valueOf(s);
-        }
-        return n;
-    }
-
-    private static long valeurPortee(Minecraft mc) {
-        long n = 0;
-        for (ItemStack s : mc.player.getInventory().items) {
-            n += CoinMath.valueOf(s) + Purse.total(s);
-        }
-        return n;
-    }
-
-    private static long bourse(Minecraft mc) {
-        long n = 0;
-        for (ItemStack s : mc.player.getInventory().items) {
-            n += Purse.total(s);
-        }
-        return n;
-    }
-
-    private static int compter(Minecraft mc, Item item) {
-        int n = 0;
-        for (ItemStack s : mc.player.getInventory().items) {
-            if (s.is(item)) {
-                n += s.getCount();
-            }
-        }
-        return n;
-    }
-
-    private static String fmt(long cuivres) {
-        return CoinMath.format(cuivres).getString();
-    }
-
-    private static boolean menuOuvert(Minecraft mc, Class<?> menu) {
-        return mc.screen instanceof AbstractContainerScreen<?> s && menu.isInstance(s.getMenu());
-    }
-
-    private static int[] origineEcran(Minecraft mc) {
-        AbstractContainerScreen<?> s = (AbstractContainerScreen<?>) mc.screen;
-        return new int[] {s.getGuiLeft(), s.getGuiTop()};
-    }
-
-    private static int champ(Object ecran, String nom) {
-        try {
-            Field f = ecran.getClass().getDeclaredField(nom);
-            f.setAccessible(true);
-            return f.getInt(ecran);
-        } catch (ReflectiveOperationException e) {
-            throw new IllegalStateException("champ " + nom + " illisible : " + e);
-        }
-    }
-
-    private static void taper(Minecraft mc, String texte) {
-        for (char c : texte.toCharArray()) {
-            mc.screen.charTyped(c, 0);
-        }
-    }
-
-    private static void effacerChamp(Minecraft mc) {
-        mc.screen.keyPressed(GLFW.GLFW_KEY_END, 0, 0);
-        for (int i = 0; i < 6; i++) {
-            mc.screen.keyPressed(GLFW.GLFW_KEY_BACKSPACE, 0, 0);
-        }
-    }
-
-    private static Player mayaVue(Minecraft mc) {
-        for (Player j : mc.level.players()) {
-            if (MAYA.equals(j.getGameProfile().getName())) {
-                return j;
-            }
-        }
-        return null;
-    }
-
-    private static Optional<AbstractWidget> widget(Screen ecran, String cle) {
-        for (GuiEventListener l : ecran.children()) {
-            if (l instanceof AbstractWidget w && w.visible && w.getMessage().getContents() instanceof TranslatableContents t
-                    && cle.equals(t.getKey())) {
-                return Optional.of(w);
-            }
-        }
-        return Optional.empty();
-    }
-
-    // --- curseur virtuel ----------------------------------------------------------------------------
-
-    /** Le curseur glisse vers ce point (coordonnées d'interface) en {@code ms}. */
-    private static void viser(double x, double y, long ms) {
-        curDeX = curX;
-        curDeY = curY;
-        curAX = x;
-        curAY = y;
-        curDebutNs = System.nanoTime();
-        curDureeNs = Math.max(1, ms) * 1_000_000L;
-    }
-
-    private static boolean arrive() {
-        return System.nanoTime() - curDebutNs >= curDureeNs;
-    }
-
-    private static boolean curseurVisible(Minecraft mc) {
-        return mc.screen != null && !(mc.screen instanceof ChatScreen);
-    }
-
-    /** Chaque image : la position du curseur, donnée au jeu par le rappel de GLFW (le vrai curseur ne bouge pas). */
-    private static void appliquerCurseur(Minecraft mc) {
-        double t = Math.min(1.0, (System.nanoTime() - curDebutNs) / (double) curDureeNs);
-        double e = t * t * (3 - 2 * t);
-        curX = curDeX + (curAX - curDeX) * e;
-        curY = curDeY + (curAY - curDeY) * e;
-        if (mc.screen == null) {
-            return;
-        }
-        var f = mc.getWindow();
-        long fenetre = f.getWindow();
-        GLFWCursorPosCallback rappel = GLFW.glfwSetCursorPosCallback(fenetre, null);
-        GLFW.glfwSetCursorPosCallback(fenetre, rappel);
-        if (rappel != null) {
-            rappel.invoke(fenetre, curX * f.getScreenWidth() / f.getGuiScaledWidth(), curY * f.getScreenHeight() / f.getGuiScaledHeight());
-        }
-    }
-
-    /** Un vrai clic de souris sur l'écran ouvert, là où est le curseur. */
-    private static void cliquer(Minecraft mc, int bouton) {
-        String ecran = mc.screen.getClass().getSimpleName();
-        boolean pris = mc.screen.mouseClicked(curX, curY, bouton);
-        // Un bouton comme « Émettre » ferme l'écran pendant le clic.
-        if (mc.screen != null) {
-            mc.screen.mouseReleased(curX, curY, bouton);
-        }
-        LOG.info("[film] clic {} en ({}, {}) sur {} : {}", bouton, Math.round(curX), Math.round(curY), ecran, pris);
-    }
-
-    private static int[] centreCase(Minecraft mc, int index) {
-        int[] g = origineEcran(mc);
-        Slot s = mc.player.containerMenu.getSlot(index);
-        return new int[] {g[0] + s.x + 8, g[1] + s.y + 8};
-    }
-
-    private static int[] centreElement(Minecraft mc, String id) {
-        Optional<int[]> c;
-        if (mc.screen instanceof CoinAccountScreen<?> s) {
-            c = s.elementCenter(id);
-        } else if (mc.screen instanceof TradeScreen s) {
-            c = s.elementCenter(id);
-        } else if (mc.screen instanceof StallCashScreen s) {
-            c = s.elementCenter(id);
-        } else {
-            c = Optional.empty();
-        }
-        return c.orElseThrow(() -> new IllegalStateException("aucun élément " + id + " sur " + mc.screen));
-    }
-
-    // --- caméra (spectateur) ------------------------------------------------------------------------
-
-    private static float[] regard(Vec3 de, Vec3 vers) {
-        double dx = vers.x - de.x;
-        double dy = vers.y - de.y;
-        double dz = vers.z - de.z;
-        float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
-        float pitch = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
-        return new float[] {yaw, pitch};
-    }
-
-    /** Un travelling de {@code de} à {@code a} en regardant {@code cible} puis {@code cible2}, en {@code ms}. */
-    private static void travelling(Vec3 de, Vec3 cible, Vec3 a, Vec3 cible2, long ms) {
-        cameraDe = de;
-        cameraA = a;
-        // Le regard part de l'œil, 1,62 au-dessus de la position donnée (les pieds).
-        regardDe = regard(de.add(0, 1.62, 0), cible);
-        regardA = regard(a.add(0, 1.62, 0), cible2);
-        float d = regardA[0] - regardDe[0];
-        while (d > 180) {
-            d -= 360;
-        }
-        while (d < -180) {
-            d += 360;
-        }
-        regardA[0] = regardDe[0] + d;
-        cameraDebutNs = System.nanoTime();
-        cameraDureeNs = ms * 1_000_000L;
-    }
-
-    private static boolean travellingFini() {
-        return cameraDe == null || System.nanoTime() - cameraDebutNs >= cameraDureeNs;
-    }
-
-    private static void appliquerCamera(Minecraft mc) {
-        if (cameraDe == null || mc.player == null) {
-            return;
-        }
-        double t = Math.min(1.0, (System.nanoTime() - cameraDebutNs) / (double) cameraDureeNs);
-        double e = t * t * (3 - 2 * t);
-        Vec3 pos = cameraDe.add(cameraA.subtract(cameraDe).scale(e));
-        float yaw = (float) (regardDe[0] + (regardA[0] - regardDe[0]) * e);
-        float pitch = (float) (regardDe[1] + (regardA[1] - regardDe[1]) * e);
-        Player j = mc.player;
-        j.setPos(pos.x, pos.y, pos.z);
-        j.xo = pos.x;
-        j.yo = pos.y;
-        j.zo = pos.z;
-        j.xOld = pos.x;
-        j.yOld = pos.y;
-        j.zOld = pos.z;
-        j.setDeltaMovement(Vec3.ZERO);
-        j.setYRot(yaw);
-        j.yRotO = yaw;
-        j.setXRot(pitch);
-        j.xRotO = pitch;
-        j.setYHeadRot(yaw);
-    }
-
-    private static void finCamera() {
-        cameraDe = null;
-    }
-
-    private static Vec3 v(double dx, double dy, double dz) {
-        return new Vec3(o.getX() + dx, o.getY() + dy, o.getZ() + dz);
-    }
-
-    // --- Maya ---------------------------------------------------------------------------------------
-
-    private static ServerPlayer maya() {
-        return maya.joueur();
-    }
-
-    /** Sur le thread du serveur : Maya entre (ou revient) à cette place, regard vers le joueur au sud. */
-    private static void mayaEntre(MinecraftServer serveur, double x, double z, float yaw) {
-        ServerLevel monde = serveur.overworld();
-        maya = JoueurDeTest.rejoindre(monde, MAYA, new Vec3(x, o.getY(), z), false, j -> j.setYRot(yaw));
-        maya().teleportTo(monde, x, o.getY(), z, yaw, 0F);
-        maya().setYHeadRot(yaw);
-    }
-
-    private static void mayaVa(Minecraft mc, double x, double z, float yaw) {
-        sur(mc, () -> {
-            maya().teleportTo(serveur(mc).overworld(), x, o.getY(), z, yaw, 0F);
-            maya().setYHeadRot(yaw);
-        });
-    }
-
-    private static boolean mayaEnMainVide(ServerPlayer j) {
-        for (int i = 0; i < 9; i++) {
-            if (j.getInventory().getItem(i).isEmpty()) {
-                j.getInventory().selected = i;
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static int caseMaya(ServerPlayer j, Item objet) {
-        for (int i = 0; i < 36; i++) {
-            if (j.getInventory().getItem(i).is(objet)) {
-                return i;
-            }
-        }
-        return -1;
-    }
-
-    /** Maya pose un objet de bloc sur le sol sous {@code pos} (clic droit sur la face du dessus). */
-    private static void mayaPoseBloc(MinecraftServer serveur, BlockPos pos, Item objet) {
-        ServerLevel monde = serveur.overworld();
-        ServerPlayer j = maya();
-        j.teleportTo(monde, pos.getX() + 0.5, o.getY(), pos.getZ() + 2.5, 180F, 30F);
-        mayaEnMainVide(j);
-        j.getInventory().setItem(j.getInventory().selected, new ItemStack(objet));
-        BlockPos sol = pos.below();
-        // Accroupie : un clic sur un bloc qui s'ouvre (la trémie sous son étal) pose l'objet au lieu d'ouvrir le bloc.
-        j.setShiftKeyDown(true);
-        var r = j.gameMode.useItemOn(j, monde, j.getMainHandItem(), InteractionHand.MAIN_HAND,
-                new BlockHitResult(Vec3.atCenterOf(sol).add(0, 0.5, 0), Direction.UP, sol, false));
-        j.setShiftKeyDown(false);
-        j.swing(InteractionHand.MAIN_HAND, true);
-        LOG.info("[film] Maya pose {} en {} : {}", objet, pos, r);
-    }
-
-    /** Maya pose {@code n} objets dans sa moitié de la fenêtre d'échange (clics du menu, comme un client). */
-    private static void mayaPoseDansEchange(Item objet, int n) {
-        ServerPlayer j = maya();
-        if (!(j.containerMenu instanceof TradeMenu menu)) {
-            throw new IllegalStateException("Maya n'a pas la fenêtre d'échange");
-        }
-        int depuis = caseMaya(j, objet);
-        int cible = -1;
-        for (int s = TradeMenu.OWN_START; s < TradeMenu.OWN_START + TradeMenu.OFFER_SIZE && cible < 0; s++) {
-            ItemStack dans = menu.getSlot(s).getItem();
-            if (dans.isEmpty() || dans.is(objet)) {
-                cible = s;
-            }
-        }
-        int menuDepuis = TradeMenu.slotOfInventory(depuis);
-        menu.clicked(menuDepuis, 0, ClickType.PICKUP, j);
-        for (int i = 0; i < n; i++) {
-            menu.clicked(cible, 1, ClickType.PICKUP, j);
-        }
-        menu.clicked(menuDepuis, 0, ClickType.PICKUP, j);
-        menu.broadcastChanges();
-    }
-
-    private static int caseGestion(int inventaire) {
-        return StallOwnerMenu.INVENTORY_START + (inventaire < 9 ? 27 + inventaire : inventaire - 9);
-    }
-
-    /**
-     * Maya garnit son étal par les gestes de la gestion : trois offres de vente (le modèle tenu au curseur), un rachat de blé,
-     * le stock rangé (majuscule-clic), puis 1 or en caisse.
-     */
-    private static void mayaGarnit(BlockPos pos) {
-        ServerPlayer j = maya();
-        if (!MarketStallBlock.openManage(j, pos) || !(j.containerMenu instanceof StallOwnerMenu menu)) {
-            throw new IllegalStateException("la gestion ne s'ouvre pas pour Maya");
-        }
-        Object[][] offres = {{Items.BREAD, 4, 30L}, {Items.APPLE, 3, 12L}, {Items.COOKED_COD, 2, 15L}};
-        for (int i = 0; i < offres.length; i++) {
-            int c = caseGestion(caseMaya(j, (Item) offres[i][0]));
-            menu.clicked(c, 0, ClickType.PICKUP, j);
-            LOG.info("[film] offre de Maya {} : {}", i,
-                    StallActionPacket.apply(j, StallActionPacket.setOffer(pos, i, (Integer) offres[i][1], (Long) offres[i][2])));
-            menu.clicked(c, 0, ClickType.PICKUP, j);
-        }
-        int ble = caseGestion(caseMaya(j, Items.WHEAT));
-        menu.clicked(ble, 0, ClickType.PICKUP, j);
-        LOG.info("[film] rachat de Maya : {}", StallActionPacket.apply(j, StallActionPacket.setBuyback(pos, 0, 8, 16L, 5)));
-        menu.clicked(ble, 0, ClickType.PICKUP, j);
-        for (Item it : List.of(Items.BREAD, Items.APPLE, Items.COOKED_COD)) {
-            menu.clicked(caseGestion(caseMaya(j, it)), 0, ClickType.QUICK_MOVE, j);
-        }
-        menu.broadcastChanges();
-        j.closeContainer();
-        if (MarketStallBlock.openCash(j, pos)) {
-            LOG.info("[film] caisse de Maya : {}", StallCashPacket.apply(j, StallCashPacket.deposit(pos, Coin.GOLD, 1)));
-            j.closeContainer();
         }
     }
 
@@ -1169,51 +685,9 @@ public final class FilmBandeAnnonce {
     // Le scénario
     // ================================================================================================
 
-    private static void scene(String titre) {
-        titreCourant = titre;
-    }
-
-    private static void plan(String nom, String legende, Runnable action, BooleanSupplier pret, long reposMs) {
-        ETAPES.add(new Etape(nom, true, titreCourant, () -> legende, action, pret, reposMs));
-    }
-
-    private static void planV(String nom, Supplier<String> legende, Runnable action, BooleanSupplier pret, long reposMs) {
-        ETAPES.add(new Etape(nom, true, titreCourant, legende, action, pret, reposMs));
-    }
-
-    private static void prep(String nom, Runnable action, BooleanSupplier pret) {
-        ETAPES.add(new Etape(nom, false, "", () -> "", action, pret, 400));
-    }
-
-    /** Deux pas : le curseur glisse vers la cible, puis le clic (bouton 0 ou 1). */
-    private static void clic(String nom, String legende, Supplier<int[]> cible, int bouton, BooleanSupplier pret, long reposMs) {
-        plan(nom + "-vise", legende, () -> {
-            int[] c = cible.get();
-            viser(c[0], c[1], 450);
-        }, FilmBandeAnnonce::arrive, 150);
-        // Après le clic, le curseur s'écarte un peu : l'infobulle du bouton (souvent « indisponible » une fois fait) disparaît.
-        plan(nom, legende, () -> {
-            cliquer(Minecraft.getInstance(), bouton);
-            viser(curAX + 26, curAY + 34, 350);
-        }, pret, reposMs);
-    }
-
-    /** Survol d'un point (infobulle), sans clic. */
-    private static void survol(String nom, String legende, Supplier<int[]> cible, long reposMs) {
-        plan(nom, legende, () -> {
-            int[] c = cible.get();
-            viser(c[0], c[1], 450);
-        }, FilmBandeAnnonce::arrive, reposMs);
-    }
-
-    private static void fermerEcran(Minecraft mc) {
-        if (mc.player.containerMenu != mc.player.inventoryMenu) {
-            mc.player.closeContainer();
-        }
-        mc.setScreen(null);
-    }
-
     private static void construireScenario(Minecraft mc) {
+        rythme = RYTHME;
+        fin = () -> terminer(Minecraft.getInstance());
         arrivee(mc);
         f3(mc);
         liste(mc);
@@ -1240,7 +714,7 @@ public final class FilmBandeAnnonce {
         }, () -> mc.player.isSpectator());
         scene("Lost Island — sneak peek");
         plan("place", "Une place de marché, sur l'île", () -> travelling(v(-16, 9, 15), v(0, 1, -5), v(7, 3.2, 7), v(1, 1, -5), 7000),
-                FilmBandeAnnonce::travellingFini, 600);
+                FilmTournage::travellingFini, 600);
         prep("survie", () -> {
             finCamera();
             mc.options.hideGui = false;
@@ -1598,7 +1072,7 @@ public final class FilmBandeAnnonce {
             origine = caseJoueur(mc, st -> st.is(Items.BREAD));
             int[] c = centreCase(mc, origine);
             viser(c[0], c[1], 450);
-        }, FilmBandeAnnonce::arrive, 150);
+        }, FilmTournage::arrive, 150);
         plan("stock", "Le stock : 27 cases, rangées d'un majuscule-clic", () -> clicMenu(mc, origine, 0, ClickType.QUICK_MOVE),
                 () -> gestion(mc).getSlot(StallOwnerMenu.STOCK_START).getItem().is(Items.BREAD), 1200);
         clic("onglet-offres", "Les offres : jusqu'à 9 ventes et 9 rachats", () -> onglet(mc, 1), 0,
@@ -1701,7 +1175,7 @@ public final class FilmBandeAnnonce {
             Vec3 vise = new Vec3(etal.getX() + 0.5, etal.getY() + 0.6, etal.getZ() + 0.6);
             travelling(new Vec3(etal.getX() + 1.9, etal.getY() + 0.85 - 1.62, etal.getZ() + 2.3), vise,
                     new Vec3(etal.getX() - 0.9, etal.getY() + 0.85 - 1.62, etal.getZ() + 2.3), vise, 3200);
-        }, FilmBandeAnnonce::travellingFini, 300);
+        }, FilmTournage::travellingFini, 300);
         prep(nom + "-fin", () -> {
             finCamera();
             mc.options.hideGui = false;
@@ -1908,60 +1382,12 @@ public final class FilmBandeAnnonce {
         }, () -> mc.player.isSpectator());
         scene("Lost Island — sneak peek");
         plan("fin", "", () -> travelling(v(2, 2.5, 4), v(0, 1, -5), v(-6, 12, 18), v(1, 1, -5), 6000),
-                FilmBandeAnnonce::travellingFini, 1500);
+                FilmTournage::travellingFini, 1500);
     }
 
     // ================================================================================================
     // Déroulement
     // ================================================================================================
-
-    private static void jouer(Minecraft mc) {
-        if (indexEtape >= ETAPES.size()) {
-            return;
-        }
-        long maintenant = System.nanoTime();
-        if (indexEtape < 0) {
-            indexEtape = 0;
-            actionFaite = false;
-        }
-        Etape e = ETAPES.get(indexEtape);
-        if (!actionFaite) {
-            LOG.info("[film] étape : {}", e.nom());
-            if (e.tourne()) {
-                prise.plan(e.nom(), e.titre());
-            }
-            e.action().run();
-            actionFaite = true;
-            debutAction = maintenant;
-            debutRepos = 0;
-            return;
-        }
-        boolean pret;
-        try {
-            pret = e.pret().getAsBoolean();
-        } catch (RuntimeException ex) {
-            pret = false;
-        }
-        if (!pret) {
-            if (maintenant - debutAction > 30_000_000_000L) {
-                throw new IllegalStateException("étape sans issue : " + e.nom() + " | écran " + mc.screen + " | porté " + valeurPortee(mc)
-                        + " | dernier message « " + dernierChat + " »");
-            }
-            return;
-        }
-        if (debutRepos == 0) {
-            debutRepos = maintenant;
-        }
-        if ((maintenant - debutRepos) / 1_000_000L < e.reposMs() * RYTHME) {
-            return;
-        }
-        LOG.info("[film] étape finie : {}", e.nom());
-        indexEtape++;
-        actionFaite = false;
-        if (indexEtape >= ETAPES.size()) {
-            terminer(mc);
-        }
-    }
 
     private static void terminer(Minecraft mc) {
         phase = Phase.FIN;
@@ -1980,219 +1406,4 @@ public final class FilmBandeAnnonce {
         mc.stop();
     }
 
-    // ================================================================================================
-    // Les images : 30 par seconde, JPEG, légendes et curseur dessinés
-    // ================================================================================================
-
-    /** Une suite d'images à cadence fixe dans un dossier ; {@code legendes} faux : l'image du jeu seule. */
-    private static final class Prise {
-        private final Path dossier;
-        private final boolean legendes;
-        private final ThreadPoolExecutor ecrivains = new ThreadPoolExecutor(4, 4, 0L, TimeUnit.MILLISECONDS,
-                new ArrayBlockingQueue<>(48), new ThreadPoolExecutor.CallerRunsPolicy());
-        private long prochaineNs;
-        private int numero;
-        private int copies;
-        private long debutPlanNs;
-        private long debutTitreNs;
-        private String titre = "";
-        private boolean coupe = true;
-        private volatile double[] gros;
-
-        Prise(Path dossier, boolean legendes) throws IOException {
-            this.dossier = dossier;
-            this.legendes = legendes;
-            Files.createDirectories(dossier);
-            try (Stream<Path> vieux = Files.list(dossier)) {
-                for (Path f : vieux.toList()) {
-                    Files.deleteIfExists(f);
-                }
-            }
-        }
-
-        int images() {
-            return numero;
-        }
-
-        void grosPlan(double cx, double cy, double facteur) {
-            gros = new double[] {cx, cy, facteur};
-        }
-
-        void pleinCadre() {
-            gros = null;
-        }
-
-        /** Le début d'un pas filmé : noté dans {@code plans.csv}. */
-        void plan(String nom, String titrePlan) {
-            if (!titrePlan.equals(titre)) {
-                titre = titrePlan;
-                debutTitreNs = System.nanoTime();
-            }
-            try {
-                Files.writeString(dossier.resolve("plans.csv"), (numero + 1) + ";" + nom + ";" + titrePlan + "\n", StandardCharsets.UTF_8,
-                        StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            } catch (IOException e) {
-                LOG.warn("[film] plans.csv non écrit", e);
-            }
-        }
-
-        /** Rien n'est filmé : la prochaine image ouvre un nouveau plan (fondu d'entrée). */
-        void couper() {
-            if (!coupe) {
-                coupe = true;
-                prochaineNs = 0;
-            }
-        }
-
-        void capturer(Minecraft mc, String titrePlan, String legende, double[] curseur, boolean enBas) {
-            long maintenant = System.nanoTime();
-            if (coupe) {
-                coupe = false;
-                debutPlanNs = maintenant;
-                prochaineNs = maintenant;
-            }
-            if (maintenant < prochaineNs) {
-                return;
-            }
-            // Images en retard : la même est écrite autant de fois qu'il le faut (au plus 6), pour garder 30 par seconde.
-            int fois = 1 + (int) Math.min(5, (maintenant - prochaineNs) / CADENCE_NS);
-            prochaineNs += (long) fois * CADENCE_NS;
-            if (maintenant - prochaineNs > 6 * CADENCE_NS) {
-                prochaineNs = maintenant + CADENCE_NS;
-            }
-            copies += fois - 1;
-            int premier = numero + 1;
-            numero += fois;
-            // Coupe franche entre deux plans : le seul fondu voulu est celui de la fin (au montage).
-            double fondu = 1.0;
-            double apparition = Math.min(1.0, (maintenant - debutTitreNs) / 400_000_000.0);
-            float echelle = (float) mc.getWindow().getGuiScale();
-            double[] zoom = gros;
-            try (NativeImage image = Screenshot.takeScreenshot(mc.getMainRenderTarget())) {
-                int l = image.getWidth();
-                int h = image.getHeight();
-                int[] rgb = new int[l * h];
-                for (int y = 0; y < h; y++) {
-                    for (int x = 0; x < l; x++) {
-                        int p = image.getPixelRGBA(x, y);
-                        rgb[y * l + x] = ((p & 0xFF) << 16) | (p & 0xFF00) | ((p >> 16) & 0xFF);
-                    }
-                }
-                ecrivains.execute(() -> ecrire(premier, fois, rgb, l, h, titrePlan, legende, curseur, echelle, fondu, apparition, zoom, enBas));
-            }
-        }
-
-        private void ecrire(int premier, int fois, int[] rgb, int l, int h, String titrePlan, String legende, double[] curseur,
-                float echelle, double fondu, double apparition, double[] zoom, boolean enBas) {
-            BufferedImage img = new BufferedImage(LARGEUR, HAUTEUR, BufferedImage.TYPE_INT_RGB);
-            BufferedImage jeu = new BufferedImage(l, h, BufferedImage.TYPE_INT_RGB);
-            jeu.setRGB(0, 0, l, h, rgb, 0, l);
-            Graphics2D g = img.createGraphics();
-            try {
-                g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-                g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-                if (zoom != null) {
-                    int sw = (int) Math.round(l / zoom[2]);
-                    int sh = (int) Math.round(h / zoom[2]);
-                    int sx = (int) Math.max(0, Math.min(l - sw, zoom[0] * l / LARGEUR - sw / 2.0));
-                    int sy = (int) Math.max(0, Math.min(h - sh, zoom[1] * h / HAUTEUR - sh / 2.0));
-                    g.drawImage(jeu, 0, 0, LARGEUR, HAUTEUR, sx, sy, sx + sw, sy + sh, null);
-                } else {
-                    g.drawImage(jeu, 0, 0, LARGEUR, HAUTEUR, null);
-                }
-                if (curseur != null && zoom == null) {
-                    dessinerCurseur(g, curseur[0] * echelle * LARGEUR / l, curseur[1] * echelle * HAUTEUR / h);
-                }
-                if (legendes && !titrePlan.isEmpty()) {
-                    dessinerLegende(g, titrePlan, legende, apparition, enBas);
-                }
-                if (fondu < 1.0) {
-                    g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, (float) (1.0 - fondu)));
-                    g.setColor(Color.BLACK);
-                    g.fillRect(0, 0, LARGEUR, HAUTEUR);
-                }
-            } finally {
-                g.dispose();
-            }
-            Path premierFichier = dossier.resolve(String.format(Locale.ROOT, "f%05d.jpg", premier));
-            try {
-                ecrireJpeg(img, premierFichier);
-                for (int i = 1; i < fois; i++) {
-                    Files.copy(premierFichier, dossier.resolve(String.format(Locale.ROOT, "f%05d.jpg", premier + i)));
-                }
-            } catch (IOException ex) {
-                LOG.error("[film] image non écrite : {}", premierFichier, ex);
-            }
-        }
-
-        private static void ecrireJpeg(BufferedImage img, Path fichier) throws IOException {
-            ImageWriter w = ImageIO.getImageWritersByFormatName("jpg").next();
-            ImageWriteParam param = w.getDefaultWriteParam();
-            param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
-            param.setCompressionQuality(0.93f);
-            try (ImageOutputStream sortie = ImageIO.createImageOutputStream(fichier.toFile())) {
-                w.setOutput(sortie);
-                w.write(null, new IIOImage(img, null, null), param);
-            } finally {
-                w.dispose();
-            }
-        }
-
-        /** Une flèche blanche bordée de noir, la pointe sur le point du clic. */
-        private static void dessinerCurseur(Graphics2D g, double x, double y) {
-            int px = (int) Math.round(x);
-            int py = (int) Math.round(y);
-            Polygon fleche = new Polygon(new int[] {0, 0, 5, 9, 12, 8, 14}, new int[] {0, 19, 14, 22, 21, 13, 13}, 7);
-            fleche.translate(px, py);
-            g.setColor(Color.WHITE);
-            g.fillPolygon(fleche);
-            g.setStroke(new BasicStroke(1.6f));
-            g.setColor(Color.BLACK);
-            g.drawPolygon(fleche);
-        }
-
-        /**
-         * Le titre de la scène (or) et la légende du pas, sur un dégradé sombre : en haut à gauche (la barre d'action et le chat
-         * restent libres), en bas quand le haut est pris (F3, liste des joueurs).
-         */
-        private static void dessinerLegende(Graphics2D g, String titrePlan, String legende, double apparition, boolean enBas) {
-            float a = (float) apparition;
-            int hauteur = 112;
-            int y0 = enBas ? HAUTEUR - hauteur : 0;
-            int base = enBas ? HAUTEUR - 82 : 22;
-            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.78f * a));
-            g.setPaint(enBas ? new GradientPaint(0, y0, new Color(0, 0, 0, 0), 0, HAUTEUR, new Color(8, 12, 18, 235))
-                    : new GradientPaint(0, 0, new Color(8, 12, 18, 235), 0, hauteur, new Color(0, 0, 0, 0)));
-            g.fillRect(0, y0, LARGEUR, hauteur);
-            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, a));
-            g.setColor(new Color(0xE0, 0x9A, 0x2B));
-            g.fillRect(40, base, 5, 54);
-            g.setFont(new Font("Segoe UI", Font.BOLD, 28));
-            g.setColor(new Color(0xF2, 0xC2, 0x6B));
-            g.drawString(titrePlan, 58, base + 26);
-            if (!legende.isEmpty()) {
-                g.setFont(new Font("Segoe UI", Font.PLAIN, 21));
-                g.setColor(Color.WHITE);
-                g.drawString(legende, 58, base + 54);
-            }
-            g.setComposite(AlphaComposite.SrcOver);
-        }
-
-        void terminer(String echecFinal) {
-            ecrivains.shutdown();
-            try {
-                ecrivains.awaitTermination(3, TimeUnit.MINUTES);
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            }
-            String e = echecFinal == null ? "null" : "\"" + echecFinal.replace('"', '\'').replace('\\', '/') + "\"";
-            try {
-                Files.writeString(dossier.resolve("termine.json"), "{\"images\":" + numero + ",\"copies\":" + copies + ",\"fps\":30,\"echec\":"
-                        + e + "}", StandardCharsets.UTF_8);
-            } catch (IOException ex) {
-                LOG.error("[film] termine.json non écrit", ex);
-            }
-        }
-    }
 }

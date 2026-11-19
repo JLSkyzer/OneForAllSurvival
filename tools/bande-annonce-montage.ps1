@@ -5,6 +5,8 @@
 #      ressources (plans/chargement-jeu/f*.jpg) ;
 #   2. le film (plans/film/f*.jpg, déjà à 30 i/s : écran titre, puis tous les plans), fondu au noir à la fin.
 # Usage : powershell -File tools/bande-annonce-montage.ps1 [-Ffmpeg <chemin de ffmpeg.exe>]
+# Film de l'économie (FilmEconomie, sans chargement) : -Dossier run-demo/bande-annonce/plans-economie
+#   -Sortie run-demo/film-economie.mp4 -Discord run-demo/film-economie-discord.mp4 -GardeFige 3
 param(
     [string]$Dossier = (Join-Path $PSScriptRoot '..\run-demo\bande-annonce\plans'),
     [string]$Sortie = (Join-Path $PSScriptRoot '..\run-demo\sneak-peek-economie.mp4'),
@@ -15,7 +17,10 @@ param(
     # Seuil de freezedetect (dB) : au-dessous, deux images sont tenues pour identiques.
     [int]$SeuilFige = -45,
     # Dernière image du film gardée (0 : toutes) ; sert à couper un plan raté et ce qui le suit.
-    [int]$Jusqua = 0
+    [int]$Jusqua = 0,
+    # Si donné : une seconde version, réencodée en deux passes pour tenir sous -DiscordMo mégaoctets (Discord).
+    [string]$Discord = '',
+    [double]$DiscordMo = 9.5
 )
 $ErrorActionPreference = 'Stop'
 if (-not (Get-Command $Ffmpeg -ErrorAction SilentlyContinue)) {
@@ -108,3 +113,18 @@ $liste = Join-Path $travail 'tout.txt'
 [System.IO.File]::WriteAllLines($liste, ($morceaux | ForEach-Object { "file '$($_ -replace "'", "'\''")'" }))
 Lancer @('-f', 'concat', '-safe', '0', '-i', $liste, '-c', 'copy', '-movflags', '+faststart', $Sortie)
 Write-Host "bande-annonce : $((Resolve-Path $Sortie).Path)"
+
+# Version Discord : débit calculé sur la durée réelle (sans son), deux passes ; en dessous de 450 kbit/s, 960 x 540.
+if ($Discord -ne '') {
+    $ffprobe = Join-Path (Split-Path (Get-Command $Ffmpeg).Source) 'ffprobe.exe'
+    $secondes = [double]::Parse((& $ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 $Sortie).Trim(), $culture)
+    $kbits = [int][Math]::Floor($DiscordMo * 8 * 1024 * 0.97 / $secondes)
+    $taille = if ($kbits -lt 450) { 'scale=960:540' } else { 'scale=1280:720' }
+    $journal = Join-Path $travail 'discord-2passes'
+    foreach ($passe in 1, 2) {
+        $fin2 = if ($passe -eq 1) { @('-f', 'null', 'NUL') } else { @('-movflags', '+faststart', $Discord) }
+        Lancer (@('-i', $Sortie, '-vf', $taille, '-c:v', 'libx264', '-preset', 'slow', '-b:v', "${kbits}k", '-maxrate', "$([int]($kbits * 1.5))k",
+            '-bufsize', "$($kbits * 3)k", '-pass', "$passe", '-passlogfile', $journal, '-pix_fmt', 'yuv420p', '-r', '30', '-an') + $fin2)
+    }
+    Write-Host "discord : $((Resolve-Path $Discord).Path), $kbits kbit/s ($taille), $([Math]::Round((Get-Item $Discord).Length / 1MB, 2)) Mo"
+}

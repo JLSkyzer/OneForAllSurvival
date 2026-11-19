@@ -364,6 +364,18 @@ minecraft {
             args '--username', 'Elio', '--width', '1280', '--height', '720'
         }
 
+        // Film monte de toute l'economie (lots E1 a E6, dev seulement) : meme dossier que la bande-annonce, son propre
+        // monde (film_economie) et ses images (plans-economie/film), montees par tools/bande-annonce-montage.ps1.
+        // Lancement : runDemoEconomieFilm -PwithPack -PsansJei. Voir FilmEconomie (devcontent).
+        demoEconomieFilm {
+            parent minecraft.runs.client
+            workingDirectory project.file('run-demo/bande-annonce')
+            property 'oneforallsurvival.demo.economie', 'true'
+            property 'oneforallsurvival.fenetre.secondEcran', 'true'
+            jvmArgs '-Xmx4G'
+            args '--username', 'Elio', '--width', '1280', '--height', '720'
+        }
+
         server {
             // Un dossier à part : un client lancé en même temps tourne dans `run`.
             workingDirectory project.file('run-server')
@@ -852,6 +864,13 @@ tasks.matching { it.name == 'runDemoBandeAnnonceFilm' }.configureEach {
     doFirst {
         delete project.file('run-demo/bande-annonce/saves/bande_annonce')
         delete project.file('run-demo/bande-annonce/plans')
+    }
+}
+tasks.matching { it.name == 'runDemoEconomieFilm' }.configureEach {
+    dependsOn prepareBandeAnnonceRun
+    doFirst {
+        delete project.file('run-demo/bande-annonce/saves/film_economie')
+        delete project.file('run-demo/bande-annonce/plans-economie')
     }
 }
 
