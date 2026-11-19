@@ -562,25 +562,43 @@ if (project.hasProperty('withMcef')) {
     // et `skip-download=true` dans config/mcef/mcef.properties du dossier du jeu : MCEF ne telecharge jamais Chromium.
     // (MCEF lit toujours le petit fichier de somme de controle au demarrage ; cela ne se coupe pas en 2.1.6.)
     def mcefSource = project.file('run-mcef/mcef-libraries')
-    def prepareMcefLibraries = tasks.register('prepareMcefLibraries', Sync) {
+    // Reglages de MCEF : toujours relus (aucune sortie declaree, la tache tourne a chaque lancement). La ligne
+    // `skip-download=true` est posee, remplacee ou ajoutee, puis le fichier est relu : sans elle, la tache echoue.
+    def ensureMcefSkipDownload = tasks.register('ensureMcefSkipDownload') {
         group = 'build'
-        description = 'Recopie Chromium (run-mcef/mcef-libraries) dans build/mcef-libraries et coupe le telechargement de MCEF.'
-        from mcefSource
-        into layout.buildDirectory.dir('mcef-libraries')
-        doFirst {
-            if (!new File(mcefSource, 'windows_amd64/libcef.dll').isFile()) {
-                throw new GradleException("Chromium absent de run-mcef/mcef-libraries : le copier depuis le launcher (jamais telecharger)")
-            }
-        }
+        description = 'Pose skip-download=true dans config/mcef/mcef.properties de run et run-client2, et le verifie.'
         doLast {
             ['run', 'run-client2'].each { dossier ->
                 def reglages = project.file("${dossier}/config/mcef/mcef.properties")
-                if (!reglages.isFile()) {
+                def lignes = reglages.isFile() ? reglages.readLines('UTF-8')
+                        : ['use-cache=true', 'download-mirror=https://mcef-download.cinemamod.com', 'user-agent=null']
+                def autres = lignes.findAll { !it.trim().startsWith('skip-download') }
+                if (lignes.size() - autres.size() != 1 || !lignes.contains('skip-download=true')) {
                     reglages.parentFile.mkdirs()
-                    reglages.setText(['skip-download=true', 'use-cache=true', 'download-mirror=https://mcef-download.cinemamod.com', 'user-agent=null', ''].join(System.lineSeparator()), 'UTF-8')
-                } else if (!reglages.getText('UTF-8').contains('skip-download=true')) {
-                    reglages.setText(reglages.getText('UTF-8').replaceAll(/skip-download=\w*/, 'skip-download=true'), 'UTF-8')
+                    reglages.setText((autres + ['skip-download=true', '']).join(System.lineSeparator()), 'UTF-8')
                 }
+                def relues = reglages.readLines('UTF-8').findAll { it.trim().startsWith('skip-download') }
+                if (relues != ['skip-download=true']) {
+                    throw new GradleException("${reglages} : skip-download=true attendu, lu ${relues}")
+                }
+                logger.lifecycle("[mcef] ${dossier}/config/mcef/mcef.properties : skip-download=true")
+            }
+        }
+    }
+    // Chromium : copie incrementale (a jour si rien n'a change a la source). Les sommes de controle que MCEF depose
+    // dans le dossier sont gardees.
+    def prepareMcefLibraries = tasks.register('prepareMcefLibraries', Sync) {
+        group = 'build'
+        description = 'Recopie Chromium (run-mcef/mcef-libraries) dans build/mcef-libraries et coupe le telechargement de MCEF.'
+        dependsOn ensureMcefSkipDownload
+        from mcefSource
+        into layout.buildDirectory.dir('mcef-libraries')
+        preserve {
+            include '*.sha256'
+        }
+        doFirst {
+            if (!new File(mcefSource, 'windows_amd64/libcef.dll').isFile()) {
+                throw new GradleException("Chromium absent de run-mcef/mcef-libraries : le copier depuis le launcher (jamais telecharger)")
             }
         }
     }

@@ -31,8 +31,8 @@ public abstract class WebScreen extends Screen {
     private WebView view;
     private Rect frame = new Rect(0, 0, 0, 0);
     private boolean ready;
-    private boolean fellBack;
     private boolean closed;
+    private final FallbackGate gate = new FallbackGate(this::onFallback, task -> minecraft.tell(task));
     private int ticks;
 
     protected WebScreen(Component title, String page, WebBridge bridge) {
@@ -44,7 +44,11 @@ public abstract class WebScreen extends Screen {
     /** Le cadre de la page, en coordonnées d'interface. */
     protected abstract Rect frame(int guiWidth, int guiHeight);
 
-    /** Le navigateur ne sert pas : la sous-classe montre son interface classique (appelé une fois au plus). */
+    /**
+     * Le navigateur ne sert pas : la sous-classe montre son interface classique (appelé une fois au plus, jamais après la
+     * fermeture). Un repli décidé pendant {@code init()} n'est appelé qu'à la tâche suivante du client
+     * ({@code minecraft.tell}) : la sous-classe peut donc changer d'écran ici.
+     */
     protected abstract void onFallback(WebFailure failure);
 
     /** Dessiné sous la page (bordure, fond). */
@@ -73,8 +77,17 @@ public abstract class WebScreen extends Screen {
 
     @Override
     protected void init() {
+        gate.beginInit();
+        try {
+            initView();
+        } finally {
+            gate.endInit();
+        }
+    }
+
+    private void initView() {
         frame = frame(width, height);
-        if (fellBack) {
+        if (gate.fellBack()) {
             return;
         }
         if (view == null) {
@@ -109,21 +122,20 @@ public abstract class WebScreen extends Screen {
     }
 
     private void fallback(WebFailure failure) {
-        if (fellBack || closed) {
+        if (closed || gate.fellBack()) {
             return;
         }
-        fellBack = true;
         if (view != null) {
             view.close();
             view = null;
         }
-        onFallback(failure);
+        gate.fail(failure);
     }
 
     @Override
     public void tick() {
         super.tick();
-        if (view != null && !ready && !fellBack && ++ticks >= READY_TICKS) {
+        if (view != null && !ready && !gate.fellBack() && ++ticks >= READY_TICKS) {
             fallback(WebFailure.NO_READY);
         }
     }
@@ -210,6 +222,7 @@ public abstract class WebScreen extends Screen {
     @Override
     public void removed() {
         closed = true;
+        gate.close();
         if (view != null) {
             view.close();
             view = null;
@@ -221,7 +234,7 @@ public abstract class WebScreen extends Screen {
     private final class Relay implements WebBridge {
         @Override
         public void onMessage(JsonObject message) {
-            if (closed || fellBack) {
+            if (closed || gate.fellBack()) {
                 return;
             }
             JsonElement a = message.get("a");

@@ -23,6 +23,8 @@ class WebResourcesTest {
 
     /** Seules ces extensions sont lues comme du texte ; les autres fichiers (images…) ne le sont pas. */
     private static final Set<String> TEXTE = Set.of("html", "js", "css", "json", "txt");
+    /** Seuls binaires permis (non lus). Toute autre extension est refusée : elle échapperait aux contrôles du texte. */
+    private static final Set<String> BINAIRES = Set.of("png", "jpg", "woff2", "ttf");
 
     private static Path dossier() {
         String racine = System.getProperty("oneforallsurvival.mainResources");
@@ -70,6 +72,16 @@ class WebResourcesTest {
         Path d = dossier();
         for (String page : new String[] {"web/bridge.js", "web/selftest.html"}) {
             assertTrue(Files.isRegularFile(d.resolve(page)), "page du socle absente : " + page);
+        }
+    }
+
+    @Test
+    void chaqueFichierAUneExtensionConnue() throws IOException {
+        Path d = dossier();
+        for (Path f : fichiers()) {
+            String ext = extension(f);
+            assertTrue(TEXTE.contains(ext) || BINAIRES.contains(ext),
+                    "extension ni lue en texte ni binaire permise (." + ext + ") : " + d.relativize(f));
         }
     }
 

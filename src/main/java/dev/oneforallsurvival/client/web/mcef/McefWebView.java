@@ -35,9 +35,16 @@ public final class McefWebView implements WebView {
         this.startUrl = url;
         this.bridge = bridge;
         this.browser = new Browser(url);
+        // Inscrit avant la création, pour qu'aucun rappel de la page ne parte vers une vue inconnue ; défait si elle lève.
         McefHooks.register(browser, this);
-        browser.setCloseAllowed();
-        browser.createImmediately();
+        CreateGuard.run(() -> {
+            browser.setCloseAllowed();
+            browser.createImmediately();
+        }, () -> {
+            closed = true;
+            McefHooks.unregister(browser);
+            browser.close();
+        });
     }
 
     public static McefWebView create(String url, WebBridge bridge) {
