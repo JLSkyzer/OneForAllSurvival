@@ -13,7 +13,7 @@
     },
     {
       "title": "Ordre du prélèvement",
-      "steps": ["Inventaire et bourse", "Coffre-fort", "Refusé : facture due", "Représentée chaque minuit"]
+      "steps": ["Inventaire et bourse", "Attente", "Coffre-fort", "Refusé : facture due", "Représentée chaque minuit"]
     }
   ],
   "cards": [
@@ -97,26 +97,45 @@
       "num": 86,
       "name": "Le prélèvement de minuit",
       "kind": "systeme",
-      "status": "prevu",
+      "status": "dispo",
       "lot": "Lot E6",
       "image": null,
-      "what": "À minuit, les sommes dues sont prises à distance, en entier ou pas du tout.",
-      "who": {"utilise": "Automatique"},
+      "what": "Chaque minuit (heure réelle), les factures publiques dues sont prises à distance, en entier ou pas du tout, même joueur absent et zone non chargée. À ce lot, seules les factures d'électricité en sont.",
+      "who": {
+        "utilise": "Automatique"
+      },
       "steps": [
-        "Prélevés : électricité, téléphone, amendes, impôt du coffre.",
-        "Après un refus, la facture revient chaque minuit.",
-        "Payer tout de suite : objet facture ou téléphone."
+        "À minuit, chaque facture publique due est présentée, la plus ancienne d'abord : d'abord ce que vous portez (bourses comprises, si vous êtes connecté et vivant), puis ce qui vous attend sur le serveur, puis votre coffre-fort. Une seule source qui suffit paie et reçoit la monnaie ; sinon, si le total suffit, tout ce que vous portez et tout ce qui attend est pris, le reste vient du coffre-fort.",
+        "Jamais en partie : s'il n'y a pas assez, rien ne bouge, la facture reste due et revient à chaque minuit. Vous êtes prévenu (tout de suite, ou à votre connexion) avec le lien « [Recevoir la facture] » : le papier, payable tout de suite en l'utilisant (bouton « Payer »), qui prend dans l'inventaire.",
+        "Payée pendant votre absence : un avis à la connexion dit combien et d'où.",
+        "Serveur éteint : chaque jour manqué est clos au démarrage. Le créancier décide de couper ou non (pour l'électricité : le fournisseur au panneau du poste)."
       ],
-      "flow": ["Inventaire", "Coffre-fort", "Refusé"],
+      "flow": [
+        "Inventaire",
+        "Attente",
+        "Coffre-fort",
+        "Refusé"
+      ],
       "numbers": [
-        {"k": "Échéance", "v": "minuit, heure réelle"},
-        {"k": "Paiement partiel", "v": "jamais"}
+        {
+          "k": "Échéance",
+          "v": "minuit, heure réelle (payHour)"
+        },
+        {
+          "k": "Paiement partiel",
+          "v": "jamais"
+        },
+        {
+          "k": "Monnaie",
+          "v": "rendue à la source qui paie ; jamais au sol"
+        }
       ],
       "staff": [
-        "Un joueur ne peut pas émettre de facture prélevable.",
-        "Le créancier décide de couper ou non.",
-        "Jours manqués serveur éteint : traités au démarrage.",
-        "Chaque prélèvement s'inscrit au registre."
+        "Un joueur ne peut pas émettre de facture prélevable : le carnet et /invoice ne font que des factures privées. Les factures publiques viennent du serveur (électricité ; amendes, impôt et téléphone viendront avec leurs lots).",
+        "/eco stats : « Factures publiques dues : N (total) » et « Prélèvements refusés : N » ; chaque prélèvement payé est un transfert « Facture publique prélevée » au registre, chaque refus une ligne du journal.",
+        "/invoice copy <id> : un papier de la facture due (débiteur seulement, un à la fois, inventaire non plein) ; un papier ne paie jamais deux fois.",
+        "La pause de la paie (horloge qui saute) arrête aussi le prélèvement : /eco salary resume ou resetday la lèvent pour les deux ; resetday ne refacture jamais un jour déjà émis.",
+        "Limite de Minecraft : des pièces prises dans l'inventaire puis un arrêt brutal du serveur avant la sauvegarde peuvent être perdues (la facture redevient due) ; jamais dupliquées."
       ]
     },
     {
@@ -395,26 +414,60 @@
       "num": 83,
       "name": "Fournisseur d'électricité",
       "kind": "machine",
-      "status": "prevu",
+      "status": "dispo",
       "lot": "Lot E6",
       "image": null,
-      "what": "Un joueur vend son courant au FE ; compteurs relevés et facturés à minuit.",
-      "who": {"fabrique": "Ingénieur", "pose": "Le fournisseur", "utilise": "Le fournisseur", "casse": "Fournisseur, ingénieur, maire"},
+      "what": "Un joueur vend son courant : son poste, en tête de réseau, compte ce qui sort ; chaque compteur jumelé et accepté mesure ce qu'une maison consomme, facturé chaque minuit et prélevé dans la caisse du poste.",
+      "who": {
+        "fabrique": "Ingénieur (établi)",
+        "pose": "Le fournisseur",
+        "utilise": "Le fournisseur",
+        "casse": "Fournisseur, ingénieur, maire, équipe ; jamais le client"
+      },
       "steps": [
-        "Poser le poste en tête de réseau.",
-        "Jumeler chaque compteur au poste avec le testeur.",
-        "Fixer un prix par FE, sous le plafond du maire."
+        "Poser le poste en tête du réseau : le courant entre par l'arrière et sort par l'avant (tout câble FE de n'importe quel mod ; les fils suspendus de Crafts & Additions sont le cas de référence).",
+        "Clic droit : le panneau. Un poste neuf demande le nom du fournisseur (1 à 24 caractères, unique) ; puis prix (en cuivres par 100 000 FE) et abonnement (par jour) : un changement vaut au lendemain, les clients sont prévenus.",
+        "Jumeler : testeur sur le poste (60 s), puis sur le compteur d'une maison (au nom du client, joueur connu du serveur), puis sur son disjoncteur.",
+        "Le client reçoit une demande et clique « [Accepter] » (ou /power consent <code>) ; tant qu'il n'a pas accepté et que le fournisseur n'a pas cliqué « Accepter » au panneau, le compteur ne laisse rien passer.",
+        "Le panneau : clients (consommation du jour et d'hier, impayés), Accepter, Refuser, Couper (ouvre le disjoncteur à distance), Rétablir, Détacher ; l'écart entre la sortie du poste et les compteurs (perte ou piquage) ; « Caisse » pour retirer les pièces prélevées.",
+        "Le client : /power list, /power resign (dernière facture à la minuit suivante)."
       ],
-      "flow": ["Générateurs", "Poste", "Câbles", "Compteur", "Maison"],
+      "flow": [
+        "Générateurs",
+        "Poste",
+        "Câbles",
+        "Compteur",
+        "Maison"
+      ],
       "numbers": [
-        {"k": "Facture", "v": "conso × prix + abonnement"},
-        {"k": "Taxe électricité", "v": "0 % au départ"}
+        {
+          "k": "Facture",
+          "v": "consommation × prix (par 100 000 FE, arrondi au cuivre inférieur) + abonnement, chaque minuit"
+        },
+        {
+          "k": "Plafond du prix",
+          "v": "20 cuivres par 100 000 FE au départ (le maire le change)"
+        },
+        {
+          "k": "Abonnement",
+          "v": "0 à 50 cuivres par jour"
+        },
+        {
+          "k": "Taxe électricité",
+          "v": "0 % au départ, 20 % au plus, versée au trésor"
+        },
+        {
+          "k": "Client coupé",
+          "v": "pas d'abonnement ce jour-là ; coupé toute la journée : aucune facture"
+        }
       ],
       "staff": [
-        "Le panneau montre l'écart sortie/compteurs : perte ou piratage.",
-        "Le client ne peut pas casser son compteur.",
-        "Le maire peut modifier ou supprimer un fournisseur.",
-        "Les câbles ne sont pas protégés."
+        "Poste, compteur et disjoncteur jumelés : seuls le fondateur, un ingénieur, le maire et l'équipe les ouvrent, règlent ou cassent ; jamais le client, jamais un automate de Create ni une explosion. Un compteur jumelé cassé est détaché : reposé ailleurs, il faut un nouveau jumelage et un nouvel accord.",
+        "Les câbles ne sont pas protégés : un piquage avant un compteur se voit à l'écart du panneau (rouge au-delà de 10 % et de 100 000 FE).",
+        "/power suppliers [page] et /power set <fournisseur> price|subscription <valeur> (maire, équipe) ; /power owner, /power remove <fournisseur> <motif> puis confirm (factures dues annulées, clients détachés, caisse versée au fondateur).",
+        "/eco power [page] (équipe) : chaque fournisseur, sa caisse, l'écart d'hier, ses factures dues ; /eco stats : caisses des postes et « Électricité : N factures payées, dont taxe ».",
+        "Config : powerPriceUnitFe (100 000), powerDefaultPriceCap (20), powerMaxSubscription (50), powerTaxMaxPercent (20), powerGapWarnPercent (10) ; stationMaxPerTick (65 536 FE par tic).",
+        "Le câble mural d'Advanced Electricity amène le courant dans une entrée mais ne le reprend pas à une sortie : en sortie, un fil de Crafts & Additions et la boîte d'alimentation, ou New Age."
       ]
     },
     {
@@ -544,10 +597,12 @@
       "lot": "Lot E1",
       "image": null,
       "what": "L'équipe lit l'argent créé, détruit et stocké sur l'île.",
-      "who": {"utilise": "Staff"},
+      "who": {
+        "utilise": "Staff"
+      },
       "staff": [
         "Masse en circulation : total créé moins total détruit.",
-        "Depuis le lot E2 : un total par genre de transfert (échanges, ventes, taxe, rachats, factures, retraits et dépôts de l'équipe), le solde du trésor et la masse en attente ; depuis le lot E3, la ligne « Salaires dus » : total et nombre des salaires que la ville doit encore ; depuis le lot E4, la ligne « Butin des créatures » en service et /eco loot pour le détail ; depuis le lot E5, la ligne « Quêtes » en service et /eco quests pour le détail.",
+        "Depuis le lot E2 : un total par genre de transfert (échanges, ventes, taxe, rachats, factures, retraits et dépôts de l'équipe), le solde du trésor et la masse en attente ; depuis le lot E3, la ligne « Salaires dus » : total et nombre des salaires que la ville doit encore ; depuis le lot E4, la ligne « Butin des créatures » en service et /eco loot pour le détail ; depuis le lot E5, la ligne « Quêtes » en service et /eco quests pour le détail. ; depuis le lot E6, « Factures publiques dues » (nombre, total), « Prélèvements refusés », « Caisses des postes d'électricité » et « Électricité » (factures payées, taxe), et /eco power pour le détail.",
         "Inventaires, bourses et étals ne sont pas comptés un à un."
       ],
       "steps": [
@@ -555,10 +610,14 @@
         "/eco pending : ce qui attend, joueur par joueur (valeur des pièces et bourses, nombre d'objets), du plus gros au plus petit, 20 lignes au plus.",
         "/eco ledger [page] : dix lignes par page, de la plus récente à la plus ancienne.",
         "/eco loot : le butin des mobs, total, morts payantes, total par palier et les 10 joueurs qui ont le plus gagné (lot E4).",
-        "/eco quests : les récompenses de quêtes, total, réclamations, les 10 joueurs et les 10 modèles qui ont le plus rapporté, événements en cours, modèles en service (lot E5)."
+        "/eco quests : les récompenses de quêtes, total, réclamations, les 10 joueurs et les 10 modèles qui ont le plus rapporté, événements en cours, modèles en service (lot E5).",
+        "/eco power [page] : chaque fournisseur d'électricité, sa caisse, l'écart d'hier et ses factures dues, avec les totaux (lot E6)."
       ],
       "numbers": [
-        {"k": "Registre", "v": "10 000 lignes au plus ; les totaux ne sont jamais effacés"}
+        {
+          "k": "Registre",
+          "v": "10 000 lignes au plus ; les totaux ne sont jamais effacés"
+        }
       ]
     },
     {
@@ -568,14 +627,19 @@
       "status": "prevu",
       "image": null,
       "what": "Statut ajouté au métier : il tient le trésor et règle les taxes.",
-      "who": {"utilise": "Le maire"},
+      "who": {
+        "utilise": "Le maire"
+      },
       "steps": [
         "Élu en RP, puis nommé par l'équipe.",
-        "Règle taxes, impôt des coffres et plafond électrique.",
-        "Peut modifier ou supprimer un fournisseur ou opérateur."
+        "Électricité (lot E6) : /power cap <cuivres> (plafond du prix, au lendemain ; un fournisseur au-dessus est prévenu et ramené à minuit), /power tax <pour cent> (0 à 20, au lendemain, versée au trésor).",
+        "Modifier un fournisseur (/power set, au lendemain) ou le supprimer (/power remove <nom> <motif>, puis confirm dans les 60 s) ; chaque geste est noté au registre avec son auteur."
       ],
       "numbers": [
-        {"k": "Impôt", "v": "0 à 5 % par jour"}
+        {
+          "k": "Impôt",
+          "v": "0 à 5 % par jour"
+        }
       ],
       "staff": [
         "Nommer : /role mayor set <joueur>.",
