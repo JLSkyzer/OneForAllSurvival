@@ -41,11 +41,11 @@ En plus :
 - **`gradle.properties` en ASCII seulement** (Java le lit en ISO-8859-1) : commentaires sans accents.
 - **MCEF client seulement, facultatif.** `mods.toml` : `modId="mcef"`, `mandatory=false`, `versionRange="[2.1.6,2.2)"` (2.2 et plus : le fork de Keksuccino, autre API), `ordering="NONE"`, `side="CLIENT"`. Le serveur dédié démarre sans MCEF. Aucune classe de `com.cinemamod` ni de `org.cef` n'est nommée hors de `client/web/mcef/` (gardé par `McefIsolationTest`).
 - **Dépendances par Gradle seulement.** MCEF : `maven.modrinth:mcef:x91l6OKB` (dépôt Modrinth déjà déclaré ; même fichier que le pack, SHA-1 ci-dessus ; repli si Modrinth refuse : `curse.maven:mcef-636236:5828187`, 213,3 Ko, page CurseForge relevée le 2026-11-19). WebDisplays : `maven.modrinth:webdisplays:DHWqG6SF` (2.0.2-1.20.1, SHA-1 `f05566e3b898de8542fa7fa79aebd2cff69b89e6`). `compileOnly` pour MCEF toujours ; `runtimeOnly` de MCEF et de WebDisplays **seulement avec `-PwithMcef`**, refusé avec une tâche serveur ou GameTest.
-- **Chromium n'est pas un téléchargement de Gradle.** Au premier client lancé avec `-PwithMcef`, MCEF télécharge environ 100 Mo (chiffre de la page CraftBrowser, non mesuré) depuis `mcef-download.cinemamod.com`. **Accord explicite de Killian avant ce premier lancement** (tâche 3, étape 1). Sans accord, tout ce qui n'exige pas Chromium continue (repli, serveur, GameTests) et la preuve dit ce qui manque.
+- **Chromium n'est pas un téléchargement de Gradle.** Au premier client lancé avec `-PwithMcef`, MCEF télécharge environ 100 Mo (chiffre de la page CraftBrowser, non mesuré) depuis `mcef-download.cinemamod.com`. **Décision de Killian (2026-11-19) : aucun téléchargement.** On copie le Chromium déjà installé par le launcher sur ce PC (`%APPDATA%\.lostisland\mods\mcef-libraries`, 269 Mo relevés le 2026-11-19) dans `run-mcef/mcef-libraries` (jamais commité), et l'on vérifie que MCEF ne télécharge rien (journal sans « Downloading Chromium Embedded Framework »). Si la copie ne suffit pas, s'arrêter et redemander à Killian.
 - **Le serveur fait foi** pour le code, la batterie, le propriétaire et les réglages. Le code n'est jamais envoyé au client ni écrit dans la pile (seule une empreinte salée vit dans `PhoneData`). Une vue verrouillée ne contient ni le nom du propriétaire ni les réglages. Chaque message de la page est relu par `PhoneBridgeMessages` côté client, puis tout est revérifié par `PhoneService` côté serveur (session ouverte, même téléphone en main, propriétaire, format, blocage).
 - **Pages locales seulement** : chaque page porte `<meta http-equiv="Content-Security-Policy" content="default-src mod: 'unsafe-inline'; img-src mod: data:; connect-src 'none'">` ; aucune adresse `http://` ou `https://` dans `html/` ; toute adresse principale hors de `WebPages.isAllowed` est ramenée à la page de départ.
 - **Réseau** : `BenchNetwork.PROTOCOL` passe de `"9"` à `"10"` **une seule fois** (tâche 5) ; `ID_PHONE_STATE = 26` (serveur → client), `ID_PHONE_ACTION = 27` (client → serveur).
-- **Valeurs du lot** (réglables dans `oneforallsurvival-phone.toml`, fichier SERVER) : batterie 24 000 FE ; dépense écran allumé 2 FE/t (10 minutes d'écran) ; prise 40 FE/t (charge complète en 30 s) ; 5 essais de code, puis blocage de 60 s.
+- **Valeurs du lot** (réglables dans `oneforallsurvival-phone.toml`, fichier SERVER) : batterie 72 000 FE ; dépense écran allumé 2 FE/t (**30 minutes d'écran**, décision de Killian du 2026-11-19) ; prise 40 FE/t (charge complète en 90 s) ; 5 essais de code, puis blocage de 60 s.
 - **Preuve des tests** : `./gradlew --offline test runGameTestServer`, puis `./gradlew --offline runGameTestServer -PwithPack` ; lire « All N required tests passed » dans `run-gametest/logs/latest.log` et le rapport JUnit (`build/test-results/test/*.xml`), jamais le seul code de sortie.
 - **Tout lancement de Minecraft** (GameTests, client, serveur, captures) suit la procédure du verrou : section 11 de `C:/Users/killi/.claude/CLAUDE.md` (points 1 à 8) et la note `D:/BDC/Minecraft/Deux sessions d'agents qui lancent Minecraft sur la même machine passent par un fichier de verrou et une file d'attente.md`.
   - Lire `C:/Users/killi/.claude/lancement-minecraft.txt` (blancs ou BOM seuls = vide) ; rempli : s'inscrire en fin de `lancement-minecraft-attente.txt` (`<projet> — <heure>`), surveiller en arrière-plan, jamais d'attente au premier plan ; vide : ne le prendre que si la file est vide ou si l'on est en tête.
@@ -65,7 +65,9 @@ En plus :
 4. **Le téléphone dans une prise cassée, explosée ou déchargée** : jamais perdu ni dupliqué ; sa charge et son identifiant restent dans la pile. Tests : `casserLaPriseRendLeTelephone`, `explosionRendLeTelephone`, `laChargeSurvitAuRechargement` (tâche 7).
 5. **Entrée hostile de la page** : JSON invalide, chaîne de 100 000 caractères, geste inconnu, code en chiffres pleine chasse (`１２３４`), types faux. Attendu : rien n'est envoyé au serveur ; le serveur refuserait de toute façon. Tests : `PhoneBridgeMessagesTest` (tâche 9), `PhoneCodeTest.chiffresPleineChasseRefuses` (tâche 4).
 
-## Choix de l'auteur du plan (à valider par Killian)
+## Choix de l'auteur du plan (validés par Killian le 2026-11-19, batterie portée à 30 minutes d'écran)
+
+Décisions du 2026-11-19 : Chromium copié depuis l'installation du launcher, aucun téléchargement ; prise murale fabriquée par tous ; batterie de 30 minutes d'écran allumé ; WebDisplays n'affiche qu'une page locale du mod pendant l'essai de cohabitation, et si son réglage ne le permet pas, on ne le lance pas et l'on redemande à Killian.
 
 | Sujet | Choix | Pourquoi |
 |---|---|---|
@@ -150,7 +152,7 @@ En plus :
   - `html/web/selftest.html` : envoie `{"a":"ready"}`, affiche les messages reçus par `window.selftest.echo(x)`, un champ texte (clavier), une liste longue (molette), un bouton (clic) qui envoie `{"a":"clic"}` ; coins transparents.
   - `WebEssai` (devcontent, client) : `/webessai` ouvre un `WebScreen` plein cadre sur `web/selftest.html` dont le pont répond à chaque message par `selftest.echo(message)` et l'écrit au journal `[web] reçu …`.
 
-- [ ] **Step 1 : demander l'accord de Killian** pour le téléchargement de Chromium par MCEF au premier client `-PwithMcef` (hôte `mcef-download.cinemamod.com`, environ 100 Mo d'après CraftBrowser, dossier `run-mcef/mcef-libraries`, jamais commité). Alternative à lui proposer : copier le dossier `mcef-libraries` d'une installation du pack déjà faite sur ce PC, puis vérifier que MCEF ne télécharge rien (journal sans « Downloading Chromium Embedded Framework »). **Sans réponse, faire les étapes 2 à 5 et 8, et noter les étapes 6 et 7 comme en attente.**
+- [ ] **Step 1 : copier Chromium** (décision de Killian du 2026-11-19, aucun téléchargement) — copier `%APPDATA%\.lostisland\mods\mcef-libraries` dans `run-mcef/mcef-libraries` (jamais commité) ; au premier lancement, vérifier que le journal ne contient pas « Downloading Chromium Embedded Framework ». Si MCEF veut quand même télécharger, arrêter le client et redemander à Killian.
 - [ ] **Step 2 : test qui échoue** — `WebFallbackNoticeTest.uneSeuleFois` : après `resetForTest()`, `shouldWarn()` vrai ; après `markWarned()`, faux pour toute autre `WebFailure`.
 - [ ] **Step 3 : vérifier qu'il échoue** — `./gradlew --offline test --tests '*WebFallbackNoticeTest*'`.
 - [ ] **Step 4 : implémenter** les classes, `bridge.js`, `selftest.html`, `WebEssai` et les clés de langue.
@@ -170,7 +172,7 @@ En plus :
 **Interfaces:**
 - Produces :
   - `PhoneRegistry.PHONE` (objet `phone`, `stacksTo(1)`), `PhoneRegistry.register(IEventBus)`, `tabItems()`.
-  - `PhoneConfig` (mêmes lecteurs à repli que `LightConfig`) : `capacity()` 24 000 (1 à 10 000 000), `drainPerTick()` 2 (0 à 1 000), `socketChargePerTick()` 40 (1 à 200), `maxAttempts()` 5 (1 à 100), `lockoutSeconds()` 60 (0 à 86 400).
+  - `PhoneConfig` (mêmes lecteurs à repli que `LightConfig`) : `capacity()` 72 000 (1 à 10 000 000), `drainPerTick()` 2 (0 à 1 000), `socketChargePerTick()` 40 (1 à 200), `maxAttempts()` 5 (1 à 100), `lockoutSeconds()` 60 (0 à 86 400).
   - `PhoneItem extends Item` : `static Optional<UUID> phoneId(ItemStack)` (NBT `phone_id`), `static UUID ensurePhoneId(ItemStack)` (serveur), batterie par `ItemBattery` (`stored`, `store`, barre, `reequip`), `initCapabilities` → `ItemBattery.Provider` ; `use` : côté serveur `PhoneService.open(player, hand)`, `sidedSuccess`.
   - Amorce `PhoneService` : `enum Outcome { OPENED, EMPTY_BATTERY, DONE, REFUSED, NO_SESSION }` et `static Outcome open(ServerPlayer, InteractionHand)` qui rend `NO_SESSION` sans rien faire ; la tâche 5 la remplit.
   - `PhoneCode` : `static boolean isValid(String code)` (exactement quatre caractères `'0'`…`'9'`, rien d'autre) ; `static String newSalt(RandomSource)` (16 octets en hexadécimal) ; `static String hash(String salt, String code)` (SHA-256 hexadécimal de `salt + ":" + code`) ; `static boolean matches(String salt, String hash, String code)` (comparaison à temps constant, `MessageDigest.isEqual`).
@@ -241,7 +243,7 @@ En plus :
 - Produces : à chaque tic serveur, pour chaque session : joueur hors ligne, mort, ou pile en main d'un autre `phone_id` → `close(PHONE_GONE)` ; `pay` faux → batterie mise à 0, `close(BATTERY_EMPTY)`, message `message.oneforallsurvival.phone.battery_empty` ; pourcentage changé (`stored * 100 / capacity`, arrondi vers le bas) → `UPDATE`. Écran fermé : aucune dépense.
 
 - [ ] **Step 1 : GameTests qui échouent** (lot `telephone_b`) :
-  - `laBatterieSeVideEcranOuvert` : 24 000 FE, ouvert 200 tics → entre 23 560 et 23 600 FE ;
+  - `laBatterieSeVideEcranOuvert` : 72 000 FE, ouvert 200 tics → entre 71 560 et 71 600 FE ;
   - `ecranFermeRienNeSeVide` : ouvert puis `CLOSE`, 200 tics → charge inchangée ;
   - `batterieVideEteintLeTelephone` : 30 FE → `CLOSE` raison `BATTERY_EMPTY` dans les 40 tics, charge 0, session absente ;
   - `unTelephoneVideNeSOuvrePas` : 0 FE → `open` rend `EMPTY_BATTERY`, aucun `OPEN` ;
