@@ -1,7 +1,7 @@
 # Cahier des charges : le téléphone de Lost Island
 
 Date : 2026-11-08, remis à jour le 2026-11-19 après la livraison de l'économie (lots E1 à E6). Statut :
-en attente de validation par Killian.
+**validé par Killian le 2026-11-19**.
 
 Killian a demandé le 2026-11-08 un système de téléphone complet, dans le style d'un iPhone, avec des
 antennes posées par les joueurs, des opérateurs, des cartes SIM, des appels par Simple Voice Chat et des
@@ -61,8 +61,14 @@ joueur l'entendent parler au téléphone.**
   CurseForge et les pages de mods le 2026-11-08. **Vérifié le 2026-11-15** par le plan des documents de
   lore (code de la branche `1.20.1-legacy` du dépôt) : `de.keksuccino:mcef-forge:2.2.0-1.20.1`, mod_id
   `mcef`, Chromium 116. Le fork s'appelle aujourd'hui **Rinku** (3.x, Chromium 151, autre API, mod_id
-  `rinku`) ; on reste sur la 2.2.0, dernière version « MCEF ». Le schéma `mod://` sert
+  `rinku`) ; ce plan avait retenu la 2.2.0, dernière version « MCEF » (remplacée par la version du
+  pack, ci-dessous). Le schéma `mod://` sert
   `assets/<modid>/html/` et passe le chemin en minuscules.
+- **Version du pack, qui fait foi** (relevée le 2026-11-19 sur le mini PC, dossier `mods` du pack
+  distribué par le launcher) : `mcef-forge-2.1.6-1.20.1.jar`, celui de **CinemaMod** (mod_id `mcef`,
+  paquet `com.cinemamod.mcef`, LGPL), et non le fork de Keksuccino. Le mod se compile donc contre la
+  2.1.6, sans rien changer au pack (choix de l'auteur, que le paragraphe précédent permettait). Le plan
+  des documents de lore, écrit pour la 2.2.0, devra être revu en conséquence.
 - **Socle commun** (décision de Killian, 2026-11-19) : le lot T1 construit le socle navigateur, dans
   `client/web` : écran, chargement des pages du mod, pont JavaScript vers Java, repli. Les documents
   de lore ([leur cahier](2026-11-15-documents-de-lore-design.md)) le reprendront ensuite sans le
@@ -84,8 +90,10 @@ joueur l'entendent parler au téléphone.**
 
 ### Voix : Simple Voice Chat
 - Les appels utilisent l'**API serveur de Simple Voice Chat** (`voicechat-api`), par un greffon déclaré
-  par le mod. Simple Voice Chat devient une dépendance du serveur et des clients. Il n'est pas encore
-  dans le pack de développement (`-PwithPack`) au 2026-11-19 : le lot T3 l'y ajoute.
+  par le mod. Simple Voice Chat devient une dépendance du serveur et des clients. Le pack des joueurs
+  l'a déjà : `voicechat-forge-1.20.1-2.6.22.jar` (API `voicechat_api` 2.6.20), relevé le 2026-11-19 sur
+  le mini PC. Il manque encore au pack de développement (`-PwithPack`) : le lot T3 l'y ajoute, à la
+  même version, et compile contre cette API.
 - Le mod relaie les paquets de micro de l'appelant vers son correspondant, sur un canal audio privé.
   En haut-parleur, il joue la voix du correspondant comme un son placé sur le téléphone, et relaie les
   voix des joueurs proches au correspondant. **Les noms exacts des classes et événements sont à
