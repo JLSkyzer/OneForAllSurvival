@@ -1,6 +1,7 @@
 # Cahier des charges : le téléphone de Lost Island
 
-Date : 2026-11-08. Statut : en attente de validation par Killian.
+Date : 2026-11-08, remis à jour le 2026-11-19 après la livraison de l'économie (lots E1 à E6). Statut :
+en attente de validation par Killian.
 
 Killian a demandé le 2026-11-08 un système de téléphone complet, dans le style d'un iPhone, avec des
 antennes posées par les joueurs, des opérateurs, des cartes SIM, des appels par Simple Voice Chat et des
@@ -57,8 +58,18 @@ joueur l'entendent parler au téléphone.**
 - **Version retenue : le fork de Keksuccino** (2.2.0 pour Forge 1.20.1, mars 2026), choisi par
   l'auteur à la demande de Killian. C'est la version la plus récente trouvée. Le mod n'utilise que la
   bibliothèque MCEF, aucun autre mod de cet auteur. La version de CinemaMod (`mcef-forge` 2.1.6) date d'octobre 2024. Relevé sur
-  CurseForge et les pages de mods le 2026-11-08. **Au lot T1, vérifier** sa version de Chromium, son
-  API et sa licence ; revenir à CinemaMod si le fork pose problème.
+  CurseForge et les pages de mods le 2026-11-08. **Vérifié le 2026-11-15** par le plan des documents de
+  lore (code de la branche `1.20.1-legacy` du dépôt) : `de.keksuccino:mcef-forge:2.2.0-1.20.1`, mod_id
+  `mcef`, Chromium 116. Le fork s'appelle aujourd'hui **Rinku** (3.x, Chromium 151, autre API, mod_id
+  `rinku`) ; on reste sur la 2.2.0, dernière version « MCEF ». Le schéma `mod://` sert
+  `assets/<modid>/html/` et passe le chemin en minuscules.
+- **Socle commun** (décision de Killian, 2026-11-19) : le lot T1 construit le socle navigateur, dans
+  `client/web` : écran, chargement des pages du mod, pont JavaScript vers Java, repli. Les documents
+  de lore ([leur cahier](2026-11-15-documents-de-lore-design.md)) le reprendront ensuite sans le
+  refaire. Leur plan doit alors retirer sa tâche « Base MCEF ».
+- **Livraison** : le `.jar` de MCEF va dans le dossier `mods` du pack, côté client seulement, comme
+  prévu pour le lore. Le mod n'appelle MCEF qu'après avoir vérifié sa présence ; le repli couvre aussi
+  le cas « MCEF absent ».
 - MCEF est un mod **client seulement**. Il télécharge Chromium (environ 100 Mo, chiffre de la page
   CraftBrowser) au premier lancement, depuis `mcef-download.cinemamod.com`. Certains antivirus le
   bloquent.
@@ -73,7 +84,8 @@ joueur l'entendent parler au téléphone.**
 
 ### Voix : Simple Voice Chat
 - Les appels utilisent l'**API serveur de Simple Voice Chat** (`voicechat-api`), par un greffon déclaré
-  par le mod. Simple Voice Chat devient une dépendance du serveur et des clients.
+  par le mod. Simple Voice Chat devient une dépendance du serveur et des clients. Il n'est pas encore
+  dans le pack de développement (`-PwithPack`) au 2026-11-19 : le lot T3 l'y ajoute.
 - Le mod relaie les paquets de micro de l'appelant vers son correspondant, sur un canal audio privé.
   En haut-parleur, il joue la voix du correspondant comme un son placé sur le téléphone, et relaie les
   voix des joueurs proches au correspondant. **Les noms exacts des classes et événements sont à
@@ -114,6 +126,10 @@ joueur l'entendent parler au téléphone.**
   **supprimer un opérateur** : toutes ses cartes SIM sont alors désactivées et ses antennes ne relaient
   plus rien. Il publie ses annonces sur Écho par un compte officiel, et gère la ville depuis l'appli
   Mairie.
+- Il a sur les opérateurs les **mêmes gestes** que sur les fournisseurs d'électricité (lot E6,
+  `/power cap|tax|set|owner|remove`) : plafond du prix de l'abonnement, taxe, changement de
+  propriétaire, suppression. Supprimer un opérateur verse sa caisse au fondateur ; le maire ne la
+  prend pas.
 
 ## 5. Features
 
@@ -133,9 +149,12 @@ La numérotation prolonge celle du cahier de l'économie.
   - un supplément selon le **trafic** : peu pour un message, plus pour un appel (9 FE/t), beaucoup pour
     un FaceTime (24 FE/t).
   Sans courant, elle tombe en panne et son voyant s'éteint. Toutes les valeurs sont réglables.
-- Elle a une **caisse** qui reçoit les abonnements prélevés (feature 92), et que le fondateur vide.
+- Elle a une **caisse** qui reçoit les abonnements prélevés (feature 92). Comme celle du poste de
+  fournisseur (lot E6), seuls le **fondateur** et l'**équipe** la vident : le maire et l'ingénieur ont
+  la main sur l'antenne, pas sur l'argent.
 - **Sécurité** : seuls son fondateur, le **maire**, l'**équipe du serveur** et un **ingénieur muni
-  de l'outil de maintenance** peuvent l'ouvrir, la régler ou la casser.
+  de l'outil de maintenance** peuvent l'ouvrir, la régler ou la casser. Elle est protégée comme le
+  poste et le compteur du lot E6 : ni pistons, ni machines de Create, ni faux joueurs.
 
 **90. Panneau de l'opérateur.**
 - Il s'ouvre sur l'antenne et dans l'application **Antenne** du téléphone du fondateur.
@@ -143,7 +162,9 @@ La numérotation prolonge celle du cahier de l'économie.
 - Il gère les **cartes SIM** : demandes reçues (émettre ou refuser), cartes émises (suspendre,
   réactiver), émission d'une **SIM sans nom**. Une carte émise arrive dans l'inventaire du fondateur,
   qui la remet en main propre.
-- Il fixe le **tarif** de l'abonnement, par jour.
+- Il fixe le **tarif** de l'abonnement, par jour. Comme pour l'électricité (choix de l'auteur, aligné
+  sur le lot E6), un changement vaut au **lendemain**, sous le plafond du maire, et les abonnés sont
+  prévenus, à leur connexion s'ils sont absents.
 - Il montre la recette, l'électricité consommée et l'état du relais vers les autres opérateurs.
 
 **91. Relais entre opérateurs.**
@@ -156,11 +177,22 @@ La numérotation prolonge celle du cahier de l'économie.
   clair : « Injoignable · Antenne de la mairie hors tension ».
 
 **92. Abonnement.**
-- Le tarif est **par jour**, fixé par le fondateur. Il est **prélevé en pièces** chaque jour à minuit
-  (feature 86 de l'économie) : dans l'inventaire, puis dans le coffre-fort, sinon refusé.
-- Les pièces vont dans la caisse de l'antenne principale de l'opérateur.
-- Un prélèvement refusé prévient l'abonné et le fondateur, qui décide de **suspendre** la carte ou non.
+- Le tarif est **par jour**, fixé par le fondateur. Chaque minuit, l'opérateur émet une facture par
+  carte active, **prélevée en pièces** par le prélèvement générique de l'économie (feature 86, livré au
+  lot E6), comme la facture d'électricité :
+  - dans ce que l'abonné porte (bourses comprises), puis dans son attente, puis dans son coffre-fort ;
+    même absent, zone non chargée ;
+  - tout ou rien, monnaie rendue, jamais au sol ;
+  - s'il n'y a pas assez, la facture reste due et revient chaque minuit. Seul son premier refus est noté
+    au journal. L'abonné et le fondateur sont prévenus, à leur connexion s'ils sont absents, et le
+    fondateur décide de **suspendre** la carte ou non.
+- Les pièces vont dans la caisse de l'antenne principale de l'opérateur, moins la **taxe téléphone**,
+  versée au trésor (décision de Killian, 2026-11-19, même mécanisme que l'électricité). Le maire la
+  fixe entre 0 % et 20 %, et elle vaut 0 % par défaut.
+- Une carte **suspendue** à minuit ne paie pas l'abonnement de ce jour (décision de Killian,
+  2026-11-19, même règle que le client d'électricité coupé). Ses factures déjà dues le restent.
 - Une carte suspendue n'appelle plus et ne reçoit plus rien, sauf les urgences.
+- Le panneau de l'opérateur montre les impayés **par carte**, jamais hérités d'un ancien titulaire.
 
 ### Appels
 
@@ -242,8 +274,8 @@ Direction revue par Killian le 2026-11-08.
 |---|---|
 | Ingénieur | Il fabrique les antennes et les entretient avec l'outil de maintenance. Les téléphones, eux, se fabriquent par n'importe qui. |
 | Électricité | Chaque antenne est une machine qui consomme des FE, et dont la panne coupe un réseau. |
-| Économie | L'abonnement est prélevé en pièces (feature 86). Les apps payantes se paient en pièces. |
-| Maire | Il casse ou modifie une antenne, et supprime un opérateur. |
+| Économie | L'abonnement est une facture publique prélevée à minuit (feature 86, livrée au lot E6), taxée au profit du trésor. Les apps payantes se paient en pièces. `/eco stats` compte les abonnements payés et la taxe. |
+| Maire | Il casse ou modifie une antenne, supprime un opérateur, fixe le plafond du prix et la taxe téléphone, change le propriétaire d'un opérateur (cahier du maire, feature 107). |
 | Policier | Les urgences (17), la fouille d'un téléphone ou d'une carte SIM. Il ne peut pas lever l'anonymat d'Ombre : il doit piéger ses utilisateurs en RP. |
 | Médecin | Les urgences (15). |
 
@@ -251,12 +283,12 @@ Direction revue par Killian le 2026-11-08.
 
 | Lot | Contenu | Ce qu'il prouve |
 |---|---|---|
-| T1 | MCEF intégré, objet téléphone, écran verrouillé et code, accueil, Réglages, batterie, écran de repli | Une interface HTML fluide s'ouvre en jeu, et un repli existe |
+| T1 | Socle navigateur commun (MCEF, pages du mod, pont JavaScript, repli), objet téléphone, écran verrouillé et code, accueil, Réglages, batterie, écran de repli | Une interface HTML fluide s'ouvre en jeu, un repli existe, et le socle sert aussi au lore |
 | T2 | 89, 90, 91, carte SIM | Un réseau construit par les joueurs, qui coûte de l'électricité |
 | T3 | 93, 95, 96 | On s'appelle et on s'écrit, entre opérateurs, et les secours répondent |
 | T4 | 94, 97 | On se voit et on se photographie |
 | T5 | 98, 99, 100 | La vie sociale de l'île passe par le téléphone |
-| T6 | 92 | Le réseau se paie seul, chaque jour (après le lot E6 de l'économie) |
+| T6 | 92 | Le réseau se paie seul, chaque jour (le lot E6 de l'économie est livré : le lot T6 peut suivre T2 directement) |
 
 ## 8. Vérification
 
@@ -270,8 +302,10 @@ Direction revue par Killian le 2026-11-08.
   - un appel entre deux opérateurs passe quand les deux antennes sont alimentées, et échoue sinon ;
   - un opérateur supprimé par le maire désactive toutes ses cartes ;
   - le 17 et le 15 passent sans SIM ;
-  - l'abonnement est prélevé à minuit et arrive dans la caisse de l'antenne, et un refus prévient les
-    deux parties ;
+  - l'abonnement est prélevé à minuit et arrive dans la caisse de l'antenne, moins la taxe versée au
+    trésor, et un refus prévient les deux parties ;
+  - une carte suspendue à minuit ne paie pas l'abonnement du jour ;
+  - seuls le fondateur et l'équipe vident la caisse d'une antenne ;
   - un message d'Ombre disparaît après 24 heures, et l'équipe voit son auteur réel ;
   - un canal d'Ombre ne se rejoint qu'en tapant son nom exact, et aucune liste ne le révèle ;
   - deux joueurs ne peuvent pas prendre le même pseudo ;
@@ -303,6 +337,12 @@ Direction revue par Killian le 2026-11-08.
   d'anonymat par la police, qui doit piéger les utilisateurs.
 - Le choix du fork de MCEF est laissé à l'auteur.
 
+### Décisions de Killian (2026-11-19)
+- Le lot T1 construit le **socle navigateur commun**, que les documents de lore reprendront.
+- Une carte SIM **suspendue** à minuit ne paie pas l'abonnement de ce jour.
+- Les abonnements sont **taxés** au profit du trésor, comme l'électricité : taxe fixée par le maire,
+  0 % par défaut, 20 % au plus.
+
 ### Choix faits par l'auteur du document
 Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 - noms des applications (Écho, Ombre) et des opérateurs dans la maquette ;
@@ -314,7 +354,9 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 - messages d'Ombre effacés après 24 heures, auteur visible par l'équipe seulement ;
 - le pseudo d'Ombre est lié au téléphone, pas à la carte SIM ;
 - le fork de Keksuccino pour MCEF ;
-- écran de repli en interface classique si MCEF échoue.
+- écran de repli en interface classique si MCEF échoue ;
+- (2026-11-19) caisse de l'antenne vidée par le fondateur et l'équipe seulement, tarif au lendemain,
+  gestes du maire calqués sur ceux de l'électricité, antenne protégée comme le poste du lot E6.
 
 ## 10. Questions ouvertes
 
