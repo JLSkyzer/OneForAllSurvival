@@ -151,6 +151,11 @@ minecraft {
             if (project.hasProperty('tabShots')) {
                 property 'oneforallsurvival.tabShots', project.tabShots ?: 'frames-tab'
             }
+            // `-PwithMcef` : Chromium (MCEF) copie du launcher dans run-mcef/mcef-libraries, jamais telecharge.
+            // Valable aussi pour les lancements clients qui ont `client` pour parent (client2...).
+            if (project.hasProperty('withMcef')) {
+                property 'mcef.libraries.path', "${projectDir}/run-mcef/mcef-libraries"
+            }
             if (project.hasProperty('gameArgs')) {
                 args project.gameArgs.trim().split(/\s+/).toList()
             }
@@ -497,6 +502,11 @@ dependencies {
     // Dépendance obligatoire du mod.
     implementation fg.deobf("maven.modrinth:farmers-delight:${farmersdelight_version}")
 
+    // MCEF (CinemaMod) 2.1.6 : navigateur du telephone, facultatif et client seulement. Compile seulement ;
+    // l'execution n'en a besoin qu'avec `-PwithMcef` (plus bas). Nomme dans client/web/mcef/ seulement
+    // (McefIsolationTest).
+    compileOnly fg.deobf("maven.modrinth:mcef:${mcef_version}")
+
     // Processeur d'annotations des mixins : écrit la refmap du mod.
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
 
@@ -535,8 +545,23 @@ if (project.hasProperty('withPack') || !gradle.startParameter.taskNames.any { it
     }
 }
 
+// `-PwithMcef` : MCEF et WebDisplays a l'execution d'un client. MCEF est client seulement : refuse avec une
+// tache serveur ou GameTest (ce serait charger Chromium dans un serveur d'essai).
+if (project.hasProperty('withMcef')) {
+    if (gradle.startParameter.taskNames.any { it.contains('Server') || it.contains('GameTest') }) {
+        throw new GradleException("MCEF est client seulement : -PwithMcef ne va qu'avec un client")
+    }
+    dependencies {
+        runtimeOnly fg.deobf("maven.modrinth:mcef:${mcef_version}")
+        runtimeOnly fg.deobf("maven.modrinth:webdisplays:${webdisplays_version}")
+    }
+}
+
 tasks.named('test', Test).configure {
     useJUnitPlatform()
+    // McefIsolationTest lit les .class de main (sans les charger).
+    systemProperty 'oneforallsurvival.mainClasses', sourceSets.main.output.classesDirs.asPath
+    systemProperty 'oneforallsurvival.mainResources', project.file('src/main/resources').absolutePath
 }
 
 // Tests du jar de service : `./gradlew test` les lance aussi, résultats sous build/test-results/earlywindowTest.

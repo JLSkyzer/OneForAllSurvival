@@ -27,6 +27,7 @@ run-data
 run-server
 run-gametest
 run-client2
+run-mcef
 run-e2e
 logs
 run-demo
