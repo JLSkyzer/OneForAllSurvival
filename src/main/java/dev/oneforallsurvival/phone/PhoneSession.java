@@ -21,6 +21,8 @@ public final class PhoneSession {
     private Lock lock;
     /** Le sel du code qui a déverrouillé cette session (ou qu'elle a posé) : un autre sel, et elle n'est plus ouverte. */
     @Nullable private String unlockedSalt;
+    /** Le pourcentage de batterie que le client connaît (dernier état envoyé) : un autre déclenche un {@code UPDATE}. */
+    private int shownPercent;
 
     PhoneSession(int id, UUID phoneId, InteractionHand hand, Lock lock) {
         this.id = id;
@@ -60,6 +62,14 @@ public final class PhoneSession {
 
     @Nullable String unlockedSalt() {
         return unlockedSalt;
+    }
+
+    int shownPercent() {
+        return shownPercent;
+    }
+
+    void showPercent(int percent) {
+        this.shownPercent = percent;
     }
 
     /** Les tics d'écran déjà payés (dépense par blocs, tâche 6). */

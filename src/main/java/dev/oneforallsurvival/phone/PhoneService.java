@@ -139,15 +139,7 @@ public final class PhoneService {
         }
         PhoneData data = PhoneData.get(player.server);
         PhoneRecord record = data.record(session.phoneId());
-        // Le téléphone a pu changer sous la session (copie effacée, /phone reset, code posé ou changé ailleurs) : on suit
-        // ce qu'il sait. Une session déverrouillée ne l'est que par le code en cours, reconnu à son sel.
-        if (!hasCode(record)) {
-            session.setLock(Lock.SETUP);
-        } else if (session.lock() == Lock.SETUP) {
-            session.setLock(Lock.LOCKED);
-        } else if (session.lock() == Lock.UNLOCKED && !record.salt().equals(session.unlockedSalt())) {
-            session.setLock(Lock.LOCKED);
-        }
+        syncLock(session, record);
         Result[] last = {Result.NONE};
         Outcome outcome = switch (packet.action()) {
             case CLOSE -> {
@@ -303,10 +295,31 @@ public final class PhoneService {
     // La vue
     // ---------------------------------------------------------------------------------------------
 
-    /** Ce que {@code viewer} voit de sa session : hors {@link Lock#UNLOCKED}, rien du propriétaire ni des réglages. */
+    /**
+     * Met le verrou de la session d'accord avec ce que le téléphone sait. Il a pu changer sous la session (copie
+     * effacée, {@code /phone reset}, code posé ou changé ailleurs) : on suit. Une session déverrouillée ne l'est que par
+     * le code en cours, reconnu à son sel.
+     */
+    private static void syncLock(PhoneSession session, PhoneRecord record) {
+        if (!hasCode(record)) {
+            session.setLock(Lock.SETUP);
+        } else if (session.lock() == Lock.SETUP) {
+            session.setLock(Lock.LOCKED);
+        } else if (session.lock() == Lock.UNLOCKED && !record.salt().equals(session.unlockedSalt())) {
+            session.setLock(Lock.LOCKED);
+        }
+    }
+
+    /**
+     * Ce que {@code viewer} voit de sa session : hors {@link Lock#UNLOCKED}, rien du propriétaire ni des réglages. La
+     * vue relit le sel : une session dont le sel n'est plus celui du téléphone (effacé, nouveau code) est reverrouillée
+     * ici même, pour que les {@code UPDATE} poussés au tic ne montrent jamais ses anciens réglages ni ceux du nouveau
+     * propriétaire. Note le pourcentage envoyé : le client le connaît désormais.
+     */
     static PhoneStatePacket view(ServerPlayer viewer, PhoneSession session, Kind kind, Result last,
             CloseReason reason) {
         PhoneRecord record = PhoneData.get(viewer.server).record(session.phoneId());
+        syncLock(session, record);
         long now = EconomyClock.now();
         long until = PhoneLock.capped(record.lockedUntil(), now, lockoutMillis());
         long remaining = until - now;
@@ -314,9 +327,8 @@ public final class PhoneService {
         int attemptsLeft = lockoutSeconds > 0 ? 0 : Math.max(0, PhoneConfig.maxAttempts() - record.failures());
         boolean unlocked = session.lock() == Lock.UNLOCKED;
         ItemStack stack = viewer.getItemInHand(session.hand());
-        int battery = stack.getItem() instanceof PhoneItem
-                ? (int) (PhoneItem.stored(stack) * 100L / Math.max(1, PhoneConfig.capacity()))
-                : 0;
+        int battery = percent(stack);
+        session.showPercent(battery);
         int offset = EconomyCalendar.configuredZone().getRules().getOffset(Instant.ofEpochMilli(now))
                 .getTotalSeconds();
         return new PhoneStatePacket(session.id(), kind, session.lock(), battery, now, offset, record.wallpaper(),
@@ -327,6 +339,13 @@ public final class PhoneService {
     // ---------------------------------------------------------------------------------------------
     // Aides
     // ---------------------------------------------------------------------------------------------
+
+    /** La batterie du téléphone en pour cent, arrondi vers le bas ; 0 si la pile n'est pas un téléphone. */
+    private static int percent(ItemStack stack) {
+        return stack.getItem() instanceof PhoneItem
+                ? (int) (PhoneItem.stored(stack) * 100L / Math.max(1, PhoneConfig.capacity()))
+                : 0;
+    }
 
     private static boolean hasCode(PhoneRecord record) {
         return record.salt() != null && record.codeHash() != null;
@@ -392,13 +411,45 @@ public final class PhoneService {
     // Bus de Forge
     // ---------------------------------------------------------------------------------------------
 
-    /** Une session dont le joueur n'est plus en ligne ne sert plus (la dépense au tic viendra à la tâche 6). */
+    /**
+     * À chaque tic, pour chaque session : joueur parti, mort, ou téléphone plus dans la main de la session (autre
+     * objet ou autre {@code phone_id}) : fermée ({@link CloseReason#PHONE_GONE}). Sinon l'écran ouvert coûte
+     * {@link PhoneConfig#drainPerTick()} par tic, payé par blocs de vingt tics ({@code ItemBattery.Prepaid}) :
+     * un bloc que la batterie ne couvre plus la met à zéro et ferme ({@link CloseReason#BATTERY_EMPTY}). Un
+     * pourcentage qui change est poussé en {@link Kind#UPDATE}. Écran fermé, il n'y a plus de session : aucune dépense.
+     */
     public static void onServerTick(TickEvent.ServerTickEvent event) {
         if (event.phase != TickEvent.Phase.END || SESSIONS.isEmpty()) {
             return;
         }
         MinecraftServer server = event.getServer();
-        SESSIONS.keySet().removeIf(player -> server.getPlayerList().getPlayer(player) == null);
+        for (Map.Entry<UUID, PhoneSession> entry : new ArrayList<>(SESSIONS.entrySet())) {
+            ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
+            PhoneSession session = entry.getValue();
+            if (player == null) {
+                SESSIONS.remove(entry.getKey(), session);
+            } else if (SESSIONS.get(entry.getKey()) == session) {
+                tick(player, session);
+            }
+        }
+    }
+
+    private static void tick(ServerPlayer player, PhoneSession session) {
+        ItemStack stack = player.getItemInHand(session.hand());
+        if (!player.isAlive() || !(stack.getItem() instanceof PhoneItem)
+                || !PhoneItem.phoneId(stack).equals(Optional.of(session.phoneId()))) {
+            close(player, CloseReason.PHONE_GONE);
+            return;
+        }
+        if (!session.prepaid().pay(stack, PhoneConfig.drainPerTick(), PhoneConfig.capacity())) {
+            PhoneItem.store(stack, 0);
+            close(player, CloseReason.BATTERY_EMPTY);
+            player.displayClientMessage(Component.translatable(MESSAGE + "battery_empty"), true);
+            return;
+        }
+        if (percent(stack) != session.shownPercent()) {
+            send(player, view(player, session, Kind.UPDATE, Result.NONE, CloseReason.NONE));
+        }
     }
 
     /** La session et le frein d'un joueur parti. */

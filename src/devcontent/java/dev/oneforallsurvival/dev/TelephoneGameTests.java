@@ -37,6 +37,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.players.ServerOpListEntry;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.gametest.GameTestHolder;
@@ -59,6 +60,8 @@ public final class TelephoneGameTests {
     private static final String LOT_A = "telephone_a";
     private static final String LOT_HORLOGE = "telephone_horloge";
     private static final String LOT_RESET = "telephone_reset";
+    private static final String LOT_B = "telephone_b";
+    private static final String LOT_C = "telephone_c";
 
     private static final Vec3 POS_A = new Vec3(2.5, 1, 2.5);
     private static final Vec3 POS_B = new Vec3(4.5, 1, 2.5);
@@ -93,6 +96,7 @@ public final class TelephoneGameTests {
         private final List<JoueurDeTest> joueurs = new ArrayList<>();
         private final Set<UUID> telephones = new HashSet<>();
         private final List<JoueurDeTest> operateurs = new ArrayList<>();
+        private final List<Runnable> aRendre = new ArrayList<>();
 
         Essai(GameTestHelper helper) {
             this.helper = helper;
@@ -138,8 +142,17 @@ public final class TelephoneGameTests {
             return PhoneData.get(serveur).record(phone);
         }
 
+        /** Une règle du monde changée par l'essai : rendue à la fin. */
+        void regleBooleenne(GameRules.Key<GameRules.BooleanValue> regle, boolean valeur) {
+            GameRules.BooleanValue r = serveur.getGameRules().getRule(regle);
+            boolean avant = r.get();
+            r.set(valeur, serveur);
+            aRendre.add(() -> r.set(avant, serveur));
+        }
+
         @Override
         public void close() {
+            aRendre.forEach(Runnable::run);
             for (JoueurDeTest j : operateurs) {
                 serveur.getPlayerList().getOps().remove(j.joueur().getGameProfile());
             }
@@ -715,6 +728,260 @@ public final class TelephoneGameTests {
                     && recus.get(0).session() == avant, "CLOSE de la session précédente, vu " + recus);
             helper.assertTrue(PhoneService.session(a.uuid()).isEmpty(), "plus aucune session");
             helper.assertTrue(a.messagesRecus().contains(PhoneService.MESSAGE + "empty"), "message de batterie vide");
+        });
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Lot B : la batterie à l'usage (tâche 6). Les essais durent plusieurs tics : l'essai reste ouvert entre les étapes
+    // et se ferme à la dernière, ou à la première étape qui échoue.
+    // ---------------------------------------------------------------------------------------------
+
+    /** Une étape d'un essai long ; {@code derniere} ferme l'essai et le réussit. Une étape qui échoue ferme l'essai. */
+    private static void etape(GameTestHelper helper, Essai e, boolean derniere, Runnable corps) {
+        boolean fini = false;
+        try {
+            corps.run();
+            fini = true;
+        } finally {
+            if (!fini || derniere) {
+                e.close();
+            }
+        }
+        if (derniere) {
+            helper.succeed();
+        }
+    }
+
+    private static int charge(JoueurDeTest j) {
+        return PhoneItem.stored(j.joueur().getMainHandItem());
+    }
+
+    /** Les {@code CLOSE} d'une liste d'états. */
+    private static List<PhoneStatePacket> fermetures(List<PhoneStatePacket> etats) {
+        return etats.stream().filter(p -> p.kind() == Kind.CLOSE).toList();
+    }
+
+    /** 72 000 FE, écran ouvert 200 tics : deux FE par tic, payés par blocs de vingt tics (400 à 440 FE sortis). */
+    @GameTest(template = "test/plancher", batch = LOT_B, timeoutTicks = 300)
+    public static void laBatterieSeVideEcranOuvert(GameTestHelper helper) {
+        Essai e = new Essai(helper);
+        etape(helper, e, false, () -> {
+            JoueurDeTest a = e.joueur("tel_d", POS_A);
+            e.telephone(a);
+            helper.assertTrue(charge(a) == 72_000, "départ : " + charge(a));
+            ouvrir(helper, a);
+            helper.runAfterDelay(200, () -> etape(helper, e, true, () -> {
+                int fin = charge(a);
+                helper.assertTrue(fin >= 71_560 && fin <= 71_600, "après 200 tics d'écran : " + fin + " FE");
+                helper.assertTrue(PhoneService.session(a.uuid()).isPresent(), "la session reste ouverte");
+            }));
+        });
+    }
+
+    /** Écran fermé (geste {@code CLOSE}) : rien ne sort de la batterie. */
+    @GameTest(template = "test/plancher", batch = LOT_B, timeoutTicks = 300)
+    public static void ecranFermeRienNeSeVide(GameTestHelper helper) {
+        Essai e = new Essai(helper);
+        etape(helper, e, false, () -> {
+            JoueurDeTest a = e.joueur("tel_e", POS_A);
+            e.telephone(a);
+            ouvrir(helper, a);
+            Reponse ferme = geste(helper, a, Action.CLOSE, "");
+            helper.assertTrue(ferme.outcome() == Outcome.DONE && PhoneService.session(a.uuid()).isEmpty(),
+                    "écran fermé : " + ferme.outcome());
+            int depart = charge(a);
+            helper.runAfterDelay(200, () -> etape(helper, e, true, () -> {
+                helper.assertTrue(charge(a) == depart, "écran fermé : la charge a bougé, " + depart + " puis "
+                        + charge(a));
+            }));
+        });
+    }
+
+    /** Trente FE ne couvrent pas un bloc de quarante : la batterie tombe à zéro et le téléphone s'éteint. */
+    @GameTest(template = "test/plancher", batch = LOT_B, timeoutTicks = 100)
+    public static void batterieVideEteintLeTelephone(GameTestHelper helper) {
+        Essai e = new Essai(helper);
+        etape(helper, e, false, () -> {
+            JoueurDeTest a = e.joueur("tel_f", POS_A);
+            e.telephone(a);
+            PhoneItem.store(a.joueur().getMainHandItem(), 30);
+            ouvrir(helper, a);
+            a.messagesRecus();
+            helper.runAfterDelay(40, () -> etape(helper, e, true, () -> {
+                List<PhoneStatePacket> recus = a.etatsTelephoneRecus();
+                List<PhoneStatePacket> fermes = fermetures(recus);
+                helper.assertTrue(fermes.size() == 1 && fermes.get(0).reason() == CloseReason.BATTERY_EMPTY,
+                        "un CLOSE BATTERY_EMPTY attendu, vu " + recus);
+                helper.assertTrue(charge(a) == 0, "charge mise à zéro : " + charge(a));
+                helper.assertTrue(PhoneService.session(a.uuid()).isEmpty(), "session fermée");
+                helper.assertTrue(a.messagesRecus().contains(PhoneService.MESSAGE + "battery_empty"),
+                        "message de batterie vide");
+            }));
+        });
+    }
+
+    /** Zéro FE : l'ouverture est refusée et aucun {@code OPEN} n'est envoyé. */
+    @GameTest(template = "test/plancher", batch = LOT_B)
+    public static void unTelephoneVideNeSOuvrePas(GameTestHelper helper) {
+        essai(helper, e -> {
+            JoueurDeTest a = e.joueur("tel_g", POS_A);
+            e.telephone(a);
+            PhoneItem.store(a.joueur().getMainHandItem(), 0);
+            a.etatsTelephoneRecus();
+            Outcome r = PhoneService.open(a.joueur(), InteractionHand.MAIN_HAND);
+            helper.assertTrue(r == Outcome.EMPTY_BATTERY, "batterie vide : " + r);
+            List<PhoneStatePacket> recus = a.etatsTelephoneRecus();
+            helper.assertTrue(recus.isEmpty(), "aucun OPEN attendu, vu " + recus);
+            helper.assertTrue(PhoneService.session(a.uuid()).isEmpty(), "aucune session");
+        });
+    }
+
+    /** La pile passe dans une autre case : fermeture au tic suivant (PHONE_GONE), puis plus aucune dépense. */
+    @GameTest(template = "test/plancher", batch = LOT_B, timeoutTicks = 200)
+    public static void changerDeMainFermeLeTelephone(GameTestHelper helper) {
+        Essai e = new Essai(helper);
+        etape(helper, e, false, () -> {
+            JoueurDeTest a = e.joueur("tel_h", POS_A);
+            e.telephone(a);
+            ouvrir(helper, a);
+            helper.runAfterDelay(25, () -> etape(helper, e, false, () -> {
+                ItemStack phone = a.joueur().getMainHandItem();
+                helper.assertTrue(PhoneService.session(a.uuid()).isPresent(), "session encore ouverte à 25 tics");
+                a.etatsTelephoneRecus();
+                a.joueur().setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+                a.joueur().getInventory().setItem(5, phone);
+                int depart = PhoneItem.stored(phone);
+                helper.runAfterDelay(2, () -> etape(helper, e, false, () -> {
+                    List<PhoneStatePacket> fermes = fermetures(a.etatsTelephoneRecus());
+                    helper.assertTrue(fermes.size() == 1 && fermes.get(0).reason() == CloseReason.PHONE_GONE,
+                            "un CLOSE PHONE_GONE attendu, vu " + fermes);
+                    helper.assertTrue(PhoneService.session(a.uuid()).isEmpty(), "session fermée");
+                    int apres = PhoneItem.stored(phone);
+                    helper.runAfterDelay(60, () -> etape(helper, e, true, () -> {
+                        helper.assertTrue(PhoneItem.stored(phone) == apres,
+                                "plus de dépense : " + apres + " puis " + PhoneItem.stored(phone));
+                        helper.assertTrue(apres <= depart, "la charge ne remonte pas");
+                    }));
+                }));
+            }));
+        });
+    }
+
+    /** Le joueur meurt (inventaire gardé : la pile est encore en main) : la session se ferme et ne dépense plus. */
+    @GameTest(template = "test/plancher", batch = LOT_B, timeoutTicks = 200)
+    public static void mourirFermeLeTelephone(GameTestHelper helper) {
+        Essai e = new Essai(helper);
+        etape(helper, e, false, () -> {
+            e.regleBooleenne(GameRules.RULE_KEEPINVENTORY, true);
+            JoueurDeTest a = e.joueur("tel_i", POS_A);
+            e.telephone(a);
+            ouvrir(helper, a);
+            a.joueur().kill();
+            helper.assertTrue(!a.joueur().isAlive(), "le joueur d'essai est mort");
+            helper.assertTrue(a.joueur().getMainHandItem().getItem() instanceof PhoneItem,
+                    "le téléphone est resté en main (inventaire gardé)");
+            helper.runAfterDelay(5, () -> etape(helper, e, false, () -> {
+                List<PhoneStatePacket> fermes = fermetures(a.etatsTelephoneRecus());
+                helper.assertTrue(fermes.size() == 1, "un CLOSE attendu à la mort, vu " + fermes);
+                helper.assertTrue(PhoneService.session(a.uuid()).isEmpty(), "session fermée");
+                int apres = charge(a);
+                helper.runAfterDelay(60, () -> etape(helper, e, true, () -> {
+                    helper.assertTrue(charge(a) == apres, "plus de dépense après la mort : " + apres + " puis "
+                            + charge(a));
+                }));
+            }));
+        });
+    }
+
+    /** Le client part : la session disparaît et la pile garde la charge qu'elle avait. */
+    @GameTest(template = "test/plancher", batch = LOT_B, timeoutTicks = 200)
+    public static void deconnexionFermeLaSession(GameTestHelper helper) {
+        Essai e = new Essai(helper);
+        etape(helper, e, false, () -> {
+            JoueurDeTest a = e.joueur("tel_j", POS_A);
+            e.telephone(a);
+            ItemStack phone = a.joueur().getMainHandItem();
+            ouvrir(helper, a);
+            UUID joueur = a.uuid();
+            helper.runAfterDelay(25, () -> etape(helper, e, false, () -> {
+                a.quitter();
+                helper.assertTrue(PhoneService.session(joueur).isEmpty(), "session absente après la déconnexion");
+                int fige = PhoneItem.stored(phone);
+                helper.assertTrue(fige > 0 && fige < 72_000, "la batterie avait servi avant le départ : " + fige);
+                helper.runAfterDelay(60, () -> etape(helper, e, true, () -> {
+                    helper.assertTrue(PhoneItem.stored(phone) == fige, "charge figée : " + fige + " puis "
+                            + PhoneItem.stored(phone));
+                    helper.assertTrue(PhoneService.session(joueur).isEmpty(), "toujours aucune session");
+                }));
+            }));
+        });
+    }
+
+    /**
+     * 36 040 FE (50 %) : le premier bloc ne change pas le pourcentage, les suivants le font tomber à 49 puis 48 en
+     * 400 tics (un point = 720 FE = 18 blocs). Un seul {@code UPDATE} par point perdu, jamais deux fois le même.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_B, timeoutTicks = 500)
+    public static void lePourcentageSuitLaCharge(GameTestHelper helper) {
+        Essai e = new Essai(helper);
+        etape(helper, e, false, () -> {
+            JoueurDeTest a = e.joueur("tel_k", POS_A);
+            e.telephone(a);
+            PhoneItem.store(a.joueur().getMainHandItem(), 36_040);
+            PhoneStatePacket open = ouvrir(helper, a);
+            helper.assertTrue(open.battery() == 50, "ouverture à 50 % : " + open.battery());
+            helper.runAfterDelay(400, () -> etape(helper, e, true, () -> {
+                List<PhoneStatePacket> recus = a.etatsTelephoneRecus();
+                List<Integer> pourcents = recus.stream().filter(p -> p.kind() == Kind.UPDATE)
+                        .map(PhoneStatePacket::battery).toList();
+                helper.assertTrue(recus.size() == pourcents.size(), "que des UPDATE attendus, vu " + recus);
+                helper.assertTrue(pourcents.equals(List.of(49, 48)), "un UPDATE par point perdu (49 puis 48), vu "
+                        + pourcents);
+            }));
+        });
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Lot C : la vue qui se fie au sel
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * Une session déverrouillée dont le téléphone a été effacé, puis reçu un autre code : l'{@code UPDATE} poussé au tic
+     * (pourcentage perdu) est une vue verrouillée, sans nom, sans mode avion, sans propriétaire, jamais ses anciens
+     * réglages ni ceux du nouveau propriétaire.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_C, timeoutTicks = 100)
+    public static void unUpdatePousseNeMontreRienDuNouveauProprietaire(GameTestHelper helper) {
+        Essai e = new Essai(helper);
+        etape(helper, e, false, () -> {
+            JoueurDeTest a = e.joueur("tel_l", POS_A);
+            JoueurDeTest c = e.joueur("tel_m", POS_C);
+            UUID id = e.telephone(a);
+            PhoneItem.store(a.joueur().getMainHandItem(), 36_040);
+            c.joueur().setItemInHand(InteractionHand.MAIN_HAND, a.joueur().getMainHandItem().copy());
+            ouvrir(helper, a);
+            attendre(helper, geste(helper, a, Action.SETUP, CODE), Kind.UPDATE, Lock.UNLOCKED, Result.NONE, "SETUP");
+            attendre(helper, geste(helper, a, Action.AIRPLANE, "", "", true), Kind.UPDATE, Lock.UNLOCKED, Result.NONE,
+                    "avion de A");
+
+            PhoneData.get(e.serveur).erase(id);
+            ouvrir(helper, c);
+            attendre(helper, geste(helper, c, Action.SETUP, "9999"), Kind.UPDATE, Lock.UNLOCKED, Result.NONE,
+                    "C pose son code");
+            attendre(helper, geste(helper, c, Action.AIRPLANE, "", "", true), Kind.UPDATE, Lock.UNLOCKED, Result.NONE,
+                    "avion de C");
+            String nomC = c.joueur().getGameProfile().getName();
+            a.etatsTelephoneRecus();
+            helper.runAfterDelay(30, () -> etape(helper, e, true, () -> {
+                List<PhoneStatePacket> pousses = a.etatsTelephoneRecus().stream()
+                        .filter(p -> p.kind() == Kind.UPDATE).toList();
+                helper.assertTrue(!pousses.isEmpty(), "A devait recevoir un UPDATE au tic (pourcentage perdu)");
+                for (PhoneStatePacket p : pousses) {
+                    helper.assertTrue(p.lock() == Lock.LOCKED, "vue verrouillée attendue, vu " + p.lock());
+                    helper.assertTrue(p.ownerName().isEmpty() && !p.owner() && !p.airplane(),
+                            "rien du nouveau propriétaire (" + nomC + ") : " + p);
+                }
+            }));
         });
     }
 }

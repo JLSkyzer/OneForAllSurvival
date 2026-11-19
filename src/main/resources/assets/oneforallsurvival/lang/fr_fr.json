@@ -1106,5 +1106,6 @@
   "tooltip.oneforallsurvival.phone.energy": "Batterie : %s / %s FE",
   "message.oneforallsurvival.phone.reset": "Téléphone réinitialisé : code, propriétaire et réglages effacés.",
   "message.oneforallsurvival.phone.reset.none": "Tenez en main principale un téléphone déjà utilisé.",
-  "message.oneforallsurvival.phone.empty": "Le téléphone est déchargé : branchez-le sur une prise."
+  "message.oneforallsurvival.phone.empty": "Le téléphone est déchargé : branchez-le sur une prise.",
+  "message.oneforallsurvival.phone.battery_empty": "Le téléphone s'éteint : la batterie est vide."
 }
