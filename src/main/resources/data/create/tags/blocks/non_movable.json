@@ -1,6 +1,7 @@
 {
   "replace": false,
   "values": [
-    "oneforallsurvival:wall_socket"
+    "oneforallsurvival:wall_socket",
+    "oneforallsurvival:antenna"
   ]
 }

@@ -428,6 +428,9 @@ public final class TableauMairieGameTests {
             JoueurDeTest chef = essai.equipe("tm_casse_chef");
             JoueurDeTest maire = essai.maire("tm_casse_maire");
             JoueurDeTest inge = essai.ingenieur("tm_casse_inge");
+            // Lot T2 : l'ingénieur ne déplace un bloc de la ville qu'avec l'outil de maintenance en main.
+            inge.joueur().setItemInHand(InteractionHand.OFF_HAND,
+                    new ItemStack(dev.oneforallsurvival.repair.RepairRegistry.MAINTENANCE_TOOL.get()));
             TreasuryAccount tresor = essai.tresor();
             int lignes = tresor.ledger().size();
             BlockPos abs = helper.absolutePos(A);

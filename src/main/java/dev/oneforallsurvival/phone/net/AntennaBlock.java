@@ -2,9 +2,9 @@ package dev.oneforallsurvival.phone.net;
 
 import com.mojang.logging.LogUtils;
 import dev.oneforallsurvival.economy.EconomyClock;
-import dev.oneforallsurvival.grid.supplier.PowerRules;
 import dev.oneforallsurvival.machine.ElectricMachineBlock;
 import dev.oneforallsurvival.phone.PhoneRegistry;
+import dev.oneforallsurvival.repair.RepairRegistry;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -31,6 +31,7 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import net.minecraftforge.common.util.FakePlayer;
+import net.minecraftforge.event.level.BlockEvent;
 import org.slf4j.Logger;
 
 /**
@@ -43,13 +44,14 @@ import org.slf4j.Logger;
  *       opérateur ({@link AntennaItem#ITEM_OPERATOR}) : reposé par un ayant droit, il le reprend ; par un autre, refusé.
  *       Un objet neuf posé par le fondateur d'un opérateur rejoint le sien. Sinon l'antenne est à fonder : elle
  *       appartient à qui l'a posée, qui fonde l'opérateur en lui donnant un nom ({@link #found}).
- *   <li><b>Casse</b> : l'objet lâché garde l'opérateur ; l'inscription au registre s'efface et le ticket du chunk est
- *       rendu ({@link #onRemove}). L'opérateur, ses cartes et sa caisse restent.
+ *   <li><b>Casse</b> : comme le poste de fournisseur, dureté -1, résistance maximale, piston bloqué, tags du Wither, du
+ *       dragon et {@code create:non_movable} ; la progression n'est rendue qu'aux ayants droit, et {@link #onBreak}
+ *       annule tout autre bris (faux joueur compris). L'objet lâché garde l'opérateur ; l'inscription au registre
+ *       s'efface et le ticket du chunk est rendu ({@link #onRemove}). L'opérateur, ses cartes et sa caisse restent.
  * </ul>
  *
- * <p>Ayants droit : ceux de {@link PowerRules#mayManage(Player, UUID)} (fondateur, ingénieur, maire, équipe), règle
- * provisoire que la tâche 4 remplace par celle de l'antenne (l'ingénieur avec son outil de maintenance), avec la
- * protection du bloc.
+ * <p>Ayants droit : ceux de {@link AntennaRules#mayManage} (fondateur, maire, équipe, ingénieur qui tient l'outil de
+ * maintenance) ; fonder au nom du poseur : {@link AntennaRules#mayFoundFor}.
  */
 public final class AntennaBlock extends ElectricMachineBlock {
 
@@ -99,7 +101,7 @@ public final class AntennaBlock extends ElectricMachineBlock {
         if (context.getLevel() instanceof ServerLevel level && player instanceof ServerPlayer serverPlayer) {
             Optional<PhoneOperator> operator = resumed(PhoneOperators.get(level.getServer()), player,
                     context.getItemInHand());
-            if (operator.isPresent() && !PowerRules.mayManage(player, operator.get().founder())) {
+            if (operator.isPresent() && !AntennaRules.mayManage(player, operator.get().founder())) {
                 serverPlayer.displayClientMessage(Component.translatable(MESSAGE + "not_yours", operator.get().name()),
                         true);
                 // Le client a prédit la pose et retiré l'objet de sa main : on lui renvoie l'inventaire réel.
@@ -144,9 +146,9 @@ public final class AntennaBlock extends ElectricMachineBlock {
 
     /**
      * Fonde l'opérateur de l'antenne neuve en {@code pos}, au nom de celle ou celui qui l'a posée, et l'y inscrit comme
-     * antenne principale. Réservé aux ayants droit du poseur ; une antenne sans poseur noté ({@code /setblock}), à
-     * l'ingénieur, au maire et à l'équipe seulement (le fondateur est alors l'acteur). Refusé si l'antenne a déjà un
-     * opérateur qui existe.
+     * antenne principale. Au nom du poseur : le poseur lui-même, le maire et l'équipe ({@link AntennaRules#mayFoundFor} ;
+     * l'ingénieur, même outillé, ne fonde pas au nom d'un autre). Une antenne sans poseur noté ({@code /setblock}) : le
+     * maire, l'équipe et l'ingénieur outillé, à leur nom. Refusé si l'antenne a déjà un opérateur qui existe.
      *
      * @return l'issue ; vide si le geste n'est pas permis (pas d'antenne, pas le droit, déjà fondée)
      */
@@ -157,7 +159,7 @@ public final class AntennaBlock extends ElectricMachineBlock {
             return Optional.empty();
         }
         UUID placer = be.placer();
-        if (!PowerRules.mayManage(actor, placer)) {
+        if (!AntennaRules.mayFoundFor(actor, placer)) {
             return Optional.empty();
         }
         UUID founder = placer == null ? actor.getUUID() : placer;
@@ -180,13 +182,14 @@ public final class AntennaBlock extends ElectricMachineBlock {
     // ---------------------------------------------------------------------------------------------
 
     /**
-     * Le panneau de l'antenne arrive à la tâche 9 : d'ici là, un ayant droit lit un message provisoire, les autres à
-     * quel opérateur elle est.
+     * Le testeur en main principale est laissé au testeur (rapport de machine, comme au lot 2). Sinon le panneau de
+     * l'antenne arrive à la tâche 9 : d'ici là, un ayant droit lit un message provisoire, les autres à quel opérateur
+     * elle est.
      */
     @Override
     public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand,
             BlockHitResult hit) {
-        if (hand != InteractionHand.MAIN_HAND) {
+        if (hand != InteractionHand.MAIN_HAND || player.getMainHandItem().is(RepairRegistry.TESTER.get())) {
             return InteractionResult.PASS;
         }
         if (level.isClientSide) {
@@ -195,8 +198,7 @@ public final class AntennaBlock extends ElectricMachineBlock {
         if (player instanceof ServerPlayer serverPlayer && !(player instanceof FakePlayer)
                 && level.getBlockEntity(pos) instanceof AntennaBlockEntity be) {
             Optional<PhoneOperator> operator = be.operator();
-            UUID owner = operator.map(PhoneOperator::founder).orElse(be.placer());
-            if (PowerRules.mayManage(serverPlayer, owner)) {
+            if (AntennaRules.mayManage(serverPlayer, owner(level, pos))) {
                 serverPlayer.displayClientMessage(Component.translatable(MESSAGE + "panel_soon"), true);
             } else if (operator.isPresent()) {
                 serverPlayer.displayClientMessage(Component.translatable(MESSAGE + "of", operator.get().name()), true);
@@ -210,6 +212,54 @@ public final class AntennaBlock extends ElectricMachineBlock {
     // ---------------------------------------------------------------------------------------------
     // Casse
     // ---------------------------------------------------------------------------------------------
+
+    /** Le propriétaire de l'antenne : le fondateur de son opérateur ; sans opérateur, qui l'a posée (nul si personne). */
+    @Nullable
+    private static UUID owner(BlockGetter level, BlockPos pos) {
+        if (!(level.getBlockEntity(pos) instanceof AntennaBlockEntity be)) {
+            return null;
+        }
+        return be.operator().map(PhoneOperator::founder).orElse(be.placer());
+    }
+
+    /**
+     * Dureté -1 : seuls les ayants droit en ont une progression, calculée comme celle d'un bloc de dureté 5 sans outil
+     * exigé. Côté client les rôles sont inconnus : la progression s'affiche, le serveur tranche.
+     */
+    @Override
+    @SuppressWarnings("deprecation")
+    public float getDestroyProgress(BlockState state, Player player, BlockGetter level, BlockPos pos) {
+        if (!AntennaRules.mayManage(player, owner(level, pos))) {
+            return 0.0F;
+        }
+        return player.getDigSpeed(state, pos) / 5.0F / 30.0F;
+    }
+
+    /** Au début de la casse (côté serveur), dit pourquoi elle n'avancera pas. */
+    @Override
+    @SuppressWarnings("deprecation")
+    public void attack(BlockState state, Level level, BlockPos pos, Player player) {
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer
+                && !AntennaRules.mayManage(player, owner(level, pos))) {
+            serverPlayer.displayClientMessage(Component.translatable(MESSAGE + "break_denied"), true);
+        }
+    }
+
+    /**
+     * Filet de sécurité : quelle que soit la manière dont un joueur s'y prend (créatif, faux joueur d'un automate), un
+     * bris par qui n'a pas la main est annulé. Branché sur le bus de Forge.
+     */
+    public static void onBreak(BlockEvent.BreakEvent event) {
+        if (!(event.getState().getBlock() instanceof AntennaBlock) || !(event.getLevel() instanceof ServerLevel level)) {
+            return;
+        }
+        if (!AntennaRules.mayManage(event.getPlayer(), owner(level, event.getPos()))) {
+            event.setCanceled(true);
+            if (event.getPlayer() instanceof ServerPlayer player && !(player instanceof FakePlayer)) {
+                player.displayClientMessage(Component.translatable(MESSAGE + "break_denied"), true);
+            }
+        }
+    }
 
     /** L'objet de l'antenne garde son opérateur (plus l'usure, par {@link ElectricMachineBlock}). */
     @Override

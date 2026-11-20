@@ -559,6 +559,9 @@ public final class TresorBlocGameTests {
             JoueurDeTest chef = essai.equipe("tb_casse_chef");
             JoueurDeTest maire = essai.maire("tb_casse_maire");
             JoueurDeTest inge = essai.ingenieur("tb_casse_inge");
+            // Lot T2 : l'ingénieur ne déplace un bloc de la ville qu'avec l'outil de maintenance en main.
+            inge.joueur().setItemInHand(InteractionHand.OFF_HAND,
+                    new ItemStack(dev.oneforallsurvival.repair.RepairRegistry.MAINTENANCE_TOOL.get()));
             BlockPos abs = helper.absolutePos(A);
             for (JoueurDeTest casseur : List.of(inge, maire, chef)) {
                 String nom = casseur.joueur().getGameProfile().getName();

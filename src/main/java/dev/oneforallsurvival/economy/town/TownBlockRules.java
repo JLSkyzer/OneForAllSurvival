@@ -1,5 +1,6 @@
 package dev.oneforallsurvival.economy.town;
 
+import dev.oneforallsurvival.phone.net.AntennaRules;
 import dev.oneforallsurvival.role.RoleGate;
 import dev.oneforallsurvival.role.RoleSavedData;
 import javax.annotation.Nullable;
@@ -7,6 +8,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraftforge.common.util.FakePlayer;
 
 /**
  * Qui peut quoi sur les blocs de la ville (trésor, tableau de la mairie). « L'équipe » est le niveau 2.
@@ -50,19 +52,23 @@ public final class TownBlockRules {
     }
 
     /**
-     * L'ingénieur peut-il déplacer un bloc de la ville ? À ce lot, le rôle suffit. Point d'extension : le lot du
-     * téléphone y exigera l'outil de maintenance en main.
+     * L'ingénieur peut-il déplacer un bloc de la ville ? Le rôle d'ingénieur <b>et</b> l'outil de maintenance dans une des
+     * deux mains (lot T2) ; l'outil seul ne donne rien, un faux joueur jamais.
      */
     public static boolean engineerMayMove(Player player) {
+        if (player instanceof FakePlayer) {
+            return false;
+        }
         if (!(player instanceof ServerPlayer server)) {
             return true;
         }
-        return engineer(server);
+        return engineer(server) && AntennaRules.hasMaintenanceTool(server);
     }
 
     /**
-     * Poser le trésor : l'équipe ; le maire et l'ingénieur seulement s'il n'existe aucun trésor vivant (repose après
-     * un déplacement). Même permise, la pose est refusée tant qu'un trésor vivant existe (un seul trésor).
+     * Poser le trésor : l'équipe ; le maire et l'ingénieur (outil de maintenance en main, {@link #engineerMayMove})
+     * seulement s'il n'existe aucun trésor vivant (repose après un déplacement). Même permise, la pose est refusée tant
+     * qu'un trésor vivant existe (un seul trésor).
      */
     public static boolean mayPlaceTreasury(Player player, boolean liveTreasuryExists) {
         if (!(player instanceof ServerPlayer server)) {
@@ -71,7 +77,7 @@ public final class TownBlockRules {
         if (staff(server)) {
             return true;
         }
-        return !liveTreasuryExists && (mayor(server) || engineer(server));
+        return !liveTreasuryExists && (mayor(server) || engineerMayMove(server));
     }
 
     /** Poser un tableau de la mairie : le maire ou l'équipe. */

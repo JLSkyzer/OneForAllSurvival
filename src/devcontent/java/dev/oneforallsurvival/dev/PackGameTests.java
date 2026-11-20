@@ -136,6 +136,8 @@ public final class PackGameTests {
                 new Materiel("cleaning_kit", 3, 1, true, false),
                 new Materiel("tester", 4, 1, true, false),
                 new Materiel("welder", 5, 1, true, false),
+                // Lot T2 : l'outil de maintenance de l'ingénieur, sans Create (comme l'antenne qu'il entretient).
+                new Materiel("maintenance_tool", 4, 1, false, false),
                 new Materiel("galvanic_bath", 6, 1, true, true),
                 new Materiel("fridge", 6, 1, true, false),
                 new Materiel("desalinator", 6, 1, true, false),
@@ -1604,5 +1606,192 @@ public final class PackGameTests {
                     helper.assertTrue(jumele, "le compteur devait rester raccordé");
                 })
                 .thenSucceed();
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Lot T2, tâche 4 : l'antenne d'un opérateur face à Create
+    // ---------------------------------------------------------------------------------------------
+
+    private static boolean estAntenne(GameTestHelper helper, BlockPos pos) {
+        return helper.getBlockState(pos).is(dev.oneforallsurvival.phone.PhoneRegistry.ANTENNA.get());
+    }
+
+    /**
+     * Deux déployeurs de Create (faux joueurs) en mode frappe, pioche de diamant en main : l'un devant une pierre
+     * (témoin : elle tombe), l'autre devant une antenne, qui ne se casse jamais (aucune progression pour un faux joueur,
+     * bris annulé, dureté réservée). Le témoin cassé, on laisse encore 100 ticks au second.
+     */
+    @GameTest(template = "test/plancher", batch = "pack_antenne_deployeur", setupTicks = 20, timeoutTicks = 1200)
+    public static void unDeployeurNeCassePasLAntenne(GameTestHelper helper) {
+        if (!ModList.get().isLoaded("create")) {
+            helper.succeed();
+            return;
+        }
+        ButinGameTests.degager(helper);
+        Block blocDeployeur = ForgeRegistries.BLOCKS.getValue(new ResourceLocation("create", "deployer"));
+        Block blocMoteur = ForgeRegistries.BLOCKS.getValue(new ResourceLocation("create", "creative_motor"));
+        helper.assertTrue(blocDeployeur != null && blocDeployeur != Blocks.AIR, "déployeur introuvable");
+        helper.assertTrue(blocMoteur != null && blocMoteur != Blocks.AIR, "moteur créatif introuvable");
+        BlockPos temoin = new BlockPos(1, 1, 2);
+        BlockPos casseur = new BlockPos(1, 1, 5);
+        BlockPos pierre = temoin.east(2);
+        BlockPos antenne = casseur.east(2);
+        helper.setBlock(pierre, Blocks.STONE);
+        helper.setBlock(antenne, dev.oneforallsurvival.phone.PhoneRegistry.ANTENNA.get());
+        for (BlockPos deployeur : List.of(temoin, casseur)) {
+            helper.setBlock(deployeur, avec(avec(blocDeployeur.defaultBlockState(), "facing", "east"),
+                    "axis_along_first", "false"));
+            helper.setBlock(deployeur.north(), avec(blocMoteur.defaultBlockState(), "facing", "south"));
+        }
+        Runnable rendre = () -> {
+            for (BlockPos deployeur : List.of(temoin, casseur)) {
+                helper.setBlock(deployeur, Blocks.AIR);
+                helper.setBlock(deployeur.north(), Blocks.AIR);
+            }
+            helper.setBlock(antenne, Blocks.AIR);
+            ButinGameTests.ranger(helper);
+        };
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(fauxJoueur(helper.getBlockEntity(temoin)) != null
+                        && fauxJoueur(helper.getBlockEntity(casseur)) != null, "faux joueurs des déployeurs pas prêts"))
+                .thenExecute(() -> {
+                    for (BlockPos deployeur : List.of(temoin, casseur)) {
+                        BlockEntity be = helper.getBlockEntity(deployeur);
+                        net.minecraft.world.entity.player.Player joueur = fauxJoueur(be);
+                        if (!(joueur instanceof net.minecraftforge.common.util.FakePlayer)) {
+                            rendre.run();
+                            helper.fail("le joueur du déployeur n'est pas un faux joueur : " + joueur);
+                        }
+                        joueur.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+                                new ItemStack(net.minecraft.world.item.Items.DIAMOND_PICKAXE));
+                        try {
+                            be.getClass().getMethod("changeMode").invoke(be);
+                        } catch (ReflectiveOperationException e) {
+                            rendre.run();
+                            throw new IllegalStateException(e);
+                        }
+                    }
+                })
+                .thenWaitUntil(() -> helper.assertBlockPresent(Blocks.AIR, pierre))
+                .thenIdle(100)
+                .thenExecute(() -> {
+                    boolean present = estAntenne(helper, antenne);
+                    rendre.run();
+                    helper.assertTrue(present, "le déployeur ne devait pas casser l'antenne");
+                })
+                .thenSucceed();
+    }
+
+    /**
+     * Une perceuse mécanique de Create devant une antenne : elle ne la casse pas (dureté -1, la perceuse ne passe par
+     * aucun joueur). Un témoin, la même perceuse devant une pierre, prouve qu'elle perce. Le second a ensuite trois fois
+     * le temps du témoin (au moins 100 ticks) : la pierre a une dureté de 1,5, une antenne de dureté ordinaire (3,5) en
+     * demanderait 2,3 fois plus, et 100 ticks fixes ne suffisaient pas à la percer (mutation de la tâche 4).
+     */
+    @GameTest(template = "test/plancher", batch = "pack_antenne_perceuse", setupTicks = 20, timeoutTicks = 1200)
+    public static void unePerceuseNeCassePasLAntenne(GameTestHelper helper) {
+        if (!ModList.get().isLoaded("create")) {
+            helper.succeed();
+            return;
+        }
+        ButinGameTests.degager(helper);
+        Block perceuse = ForgeRegistries.BLOCKS.getValue(new ResourceLocation("create", "mechanical_drill"));
+        Block moteur = ForgeRegistries.BLOCKS.getValue(new ResourceLocation("create", "creative_motor"));
+        helper.assertTrue(perceuse != null && perceuse != Blocks.AIR, "perceuse introuvable");
+        BlockPos temoin = new BlockPos(2, 1, 2);
+        BlockPos casseur = new BlockPos(2, 1, 5);
+        BlockPos pierre = temoin.east();
+        BlockPos antenne = casseur.east();
+        helper.setBlock(pierre, Blocks.STONE);
+        helper.setBlock(antenne, dev.oneforallsurvival.phone.PhoneRegistry.ANTENNA.get());
+        for (BlockPos p : List.of(temoin, casseur)) {
+            helper.setBlock(p, avec(perceuse.defaultBlockState(), "facing", "east"));
+            helper.setBlock(p.west(), avec(moteur.defaultBlockState(), "facing", "east"));
+        }
+        Runnable rendre = () -> {
+            for (BlockPos p : List.of(temoin, casseur)) {
+                helper.setBlock(p, Blocks.AIR);
+                helper.setBlock(p.west(), Blocks.AIR);
+            }
+            helper.setBlock(antenne, Blocks.AIR);
+            ButinGameTests.ranger(helper);
+        };
+        long[] fin = new long[1];
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertBlockPresent(Blocks.AIR, pierre))
+                .thenExecute(() -> {
+                    long percee = helper.getTick();
+                    fin[0] = percee + Math.max(100, 3 * percee);
+                    org.apache.logging.log4j.LogManager.getLogger("oneforallsurvival-antenne").info(
+                            "[antenne] perceuse : pierre percée au tick {}, antenne regardée jusqu'au tick {}", percee, fin[0]);
+                })
+                .thenWaitUntil(() -> helper.assertTrue(helper.getTick() >= fin[0], "attente de la perceuse"))
+                .thenExecute(() -> {
+                    boolean present = estAntenne(helper, antenne);
+                    rendre.run();
+                    helper.assertTrue(present, "la perceuse ne devait pas casser l'antenne");
+                })
+                .thenSucceed();
+    }
+
+    /**
+     * Un engin de Create (un roulement mécanique, qui prend dans son engin le bloc collé devant lui dès qu'il tourne)
+     * contre une antenne : il ne l'emporte pas. Un témoin, le même roulement devant une pierre, prouve qu'il assemble.
+     */
+    @GameTest(template = "test/plancher", batch = "pack_antenne_engin", setupTicks = 20, timeoutTicks = 1200)
+    public static void unEnginNEmportePasLAntenne(GameTestHelper helper) {
+        if (!ModList.get().isLoaded("create")) {
+            helper.succeed();
+            return;
+        }
+        ButinGameTests.degager(helper);
+        Block roulement = ForgeRegistries.BLOCKS.getValue(new ResourceLocation("create", "mechanical_bearing"));
+        Block moteur = ForgeRegistries.BLOCKS.getValue(new ResourceLocation("create", "creative_motor"));
+        helper.assertTrue(roulement != null && roulement != Blocks.AIR, "roulement mécanique introuvable");
+        BlockPos temoin = new BlockPos(2, 1, 2);
+        BlockPos tourneur = new BlockPos(2, 1, 5);
+        BlockPos pierre = temoin.east();
+        BlockPos antenne = tourneur.east();
+        helper.setBlock(pierre, Blocks.STONE);
+        helper.setBlock(antenne, dev.oneforallsurvival.phone.PhoneRegistry.ANTENNA.get());
+        for (BlockPos p : List.of(temoin, tourneur)) {
+            helper.setBlock(p, avec(roulement.defaultBlockState(), "facing", "east"));
+            helper.setBlock(p.west(), avec(moteur.defaultBlockState(), "facing", "east"));
+        }
+        Runnable rendre = () -> {
+            for (BlockPos p : List.of(temoin, tourneur)) {
+                helper.setBlock(p.west(), Blocks.AIR);
+                helper.setBlock(p, Blocks.AIR);
+            }
+            helper.setBlock(antenne, Blocks.AIR);
+            helper.setBlock(pierre, Blocks.AIR);
+            ButinGameTests.ranger(helper);
+        };
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(!helper.getBlockState(pierre).is(Blocks.STONE),
+                        "le roulement témoin n'a pas encore pris sa pierre dans son engin"))
+                .thenIdle(100)
+                .thenExecute(() -> {
+                    boolean present = estAntenne(helper, antenne);
+                    rendre.run();
+                    helper.assertTrue(present, "l'engin ne devait pas emporter l'antenne");
+                })
+                .thenSucceed();
+    }
+
+    /**
+     * L'antenne est dans {@code create:non_movable} (notre fichier, {@code replace: false}), et la pierre témoin n'y est
+     * pas : le tag est bien chargé et ne dit pas oui à tout. Lu aussi sans le pack (le tag est une donnée du mod).
+     */
+    @GameTest(template = "test/plancher", batch = "pack_antenne_tag")
+    public static void lAntenneEstDansLeTagNonMovable(GameTestHelper helper) {
+        var nonMovable = net.minecraft.tags.TagKey.create(net.minecraft.core.registries.Registries.BLOCK,
+                new ResourceLocation("create", "non_movable"));
+        helper.assertTrue(dev.oneforallsurvival.phone.PhoneRegistry.ANTENNA.get().defaultBlockState().is(nonMovable),
+                "l'antenne doit être dans create:non_movable");
+        helper.assertTrue(dev.oneforallsurvival.phone.PhoneRegistry.WALL_SOCKET.get().defaultBlockState().is(nonMovable),
+                "la prise (témoin du fichier) doit y être");
+        helper.assertTrue(!Blocks.STONE.defaultBlockState().is(nonMovable), "la pierre n'y est pas");
+        helper.succeed();
     }
 }

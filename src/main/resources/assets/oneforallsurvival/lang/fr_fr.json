@@ -1151,5 +1151,8 @@
   "message.oneforallsurvival.antenna.not_yours": "Cette antenne appartient à l'opérateur %s.",
   "message.oneforallsurvival.antenna.of": "Antenne de %s.",
   "message.oneforallsurvival.antenna.no_operator": "Antenne sans opérateur.",
-  "message.oneforallsurvival.antenna.panel_soon": "Le panneau de l'antenne arrive bientôt."
+  "message.oneforallsurvival.antenna.panel_soon": "Le panneau de l'antenne arrive bientôt.",
+  "item.oneforallsurvival.maintenance_tool": "Outil de maintenance",
+  "tooltip.oneforallsurvival.maintenance_tool": "Réservé à l'ingénieur : antennes, trésor, tableau",
+  "message.oneforallsurvival.antenna.break_denied": "Seuls l'opérateur, le maire, l'équipe et l'ingénieur muni de son outil de maintenance démontent cette antenne."
 }

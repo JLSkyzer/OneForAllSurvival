@@ -1040,6 +1040,15 @@ final class E2eTresor {
     // --------------------------------------------------------------------------------------------- déplacement
 
     private static void deplacement() {
+        // Lot T2 : l'ingénieur ne déplace un bloc de la ville qu'avec l'outil de maintenance en main. La main secondaire,
+        // vide jusque-là, le porte le temps du déplacement ; elle est rendue vide ensuite (leçon du 2026-11-19).
+        pas("Dev reçoit l'outil de maintenance dans sa main secondaire (vide jusque-là)", () -> {
+            if (!mc.player.getOffhandItem().isEmpty()) {
+                throw new IllegalStateException("main secondaire déjà occupée : " + mc.player.getOffhandItem());
+            }
+            rcon("item replace entity " + nom() + " weapon.offhand with oneforallsurvival:maintenance_tool");
+        }, () -> mc.player.getOffhandItem().is(dev.oneforallsurvival.repair.RepairRegistry.MAINTENANCE_TOOL.get()),
+                () -> "main secondaire : " + mc.player.getOffhandItem(), null);
         pasD(30, "Dev (ingénieur, non opérateur) casse le trésor au clic gauche tenu", () -> {
             registreAvantMinuit = Integer.parseInt(tresorServeur().get("lignes"));
             placerJoueur(p(6, 0, 2), 180, 30);
@@ -1086,6 +1095,9 @@ final class E2eTresor {
                     return "tresor repose par l'ingenieur en " + tresorDeplace().toShortString() + " : solde " + t.get("total") + " (identique), "
                             + t.get("lignes") + " lignes au registre, les dernieres : " + lignes + " ; dettes inchangees";
                 });
+        pas("Dev rend l'outil de maintenance (main secondaire vidée)", () -> {
+            rcon("item replace entity " + nom() + " weapon.offhand with air");
+        }, () -> mc.player.getOffhandItem().isEmpty(), () -> "main secondaire : " + mc.player.getOffhandItem(), null);
     }
 
     // --------------------------------------------------------------------------------------------- comptes

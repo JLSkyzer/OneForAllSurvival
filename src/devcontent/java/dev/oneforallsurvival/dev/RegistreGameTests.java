@@ -622,7 +622,10 @@ public final class RegistreGameTests {
     public static void deuxPiecesDeMemeCoupureSeFondent(GameTestHelper helper) {
         degager(helper);
         EconomyLedger registre = registre(helper);
-        long avant = detruitTotal(registre);
+        // Une fusion comptée à tort passerait par le retrait de l'entité (MoneySink.STAFF) : on ne lit que celui-là. Le
+        // total de toutes les causes bougeait avec les pièces oubliées par d'autres essais, retirées au bout de 6 000
+        // ticks (DESPAWN) pendant celui-ci selon l'ordre des lots (vu au registre du monde d'essai, lot T2 tâche 4).
+        long avant = registre.totalDestroyed(MoneySink.STAFF);
         poser(helper, Coin.GOLD, 3, 3.5, 0.1, 3.5);
         poser(helper, Coin.GOLD, 4, 3.6, 0.1, 3.6);
         poser(helper, Coin.SILVER, 5, 3.55, 0.1, 3.55);
@@ -635,7 +638,7 @@ public final class RegistreGameTests {
             helper.assertTrue(auSol(helper, Coin.SILVER) == 5 && pieces(helper).size() == 3,
                     "l'argent ne devait pas se fondre dans l'or");
             helper.assertTrue(valeurAuSol(helper) == 900 + 50, "valeur au sol : " + valeurAuSol(helper));
-            helper.assertTrue(detruitTotal(registre) == avant, "une fusion a compté une destruction");
+            helper.assertTrue(registre.totalDestroyed(MoneySink.STAFF) == avant, "une fusion a compté une destruction");
             degager(helper);
             helper.succeed();
         });

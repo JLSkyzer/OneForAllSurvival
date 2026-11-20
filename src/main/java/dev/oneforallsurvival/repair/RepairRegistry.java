@@ -42,6 +42,9 @@ public final class RepairRegistry {
             () -> new TesterItem(new Item.Properties().stacksTo(1)));
     public static final RegistryObject<Item> WELDER = ITEMS.register("welder",
             () -> new WelderItem(new Item.Properties().stacksTo(1)));
+    /** L'outil de maintenance (lot T2) : avec le rôle d'ingénieur, il ouvre les antennes, le trésor et le tableau. */
+    public static final RegistryObject<Item> MAINTENANCE_TOOL = ITEMS.register("maintenance_tool",
+            () -> new MaintenanceToolItem(new Item.Properties().stacksTo(1)));
 
     public static final RegistryObject<Item> FUSE = part("fuse");
     public static final RegistryObject<Item> COIL = part("coil");
@@ -101,7 +104,7 @@ public final class RepairRegistry {
 
     /** Les objets que l'onglet créatif affiche, dans l'ordre. */
     public static List<RegistryObject<? extends Item>> tabItems() {
-        return List.of(GALVANIC_BATH_ITEM, TESTER, WELDER, FUSE, COIL, BEARING, CLEANING_KIT,
+        return List.of(GALVANIC_BATH_ITEM, TESTER, WELDER, MAINTENANCE_TOOL, FUSE, COIL, BEARING, CLEANING_KIT,
                 TREATED_FUSE, TREATED_COIL, TREATED_BEARING, TREATED_CLEANING_KIT);
     }
 }
