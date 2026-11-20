@@ -3,6 +3,7 @@ package dev.oneforallsurvival.phone.net;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Predicate;
@@ -20,10 +21,25 @@ public final class RelayPlanner {
 
     /** Une antenne du réseau, telle que le serveur la voit à l'instant de l'instantané. */
     public record AntennaPoint(UUID id, String operatorId, ResourceKey<Level> dimension, BlockPos pos,
-            boolean inService) {}
+            boolean inService) {
+
+        public AntennaPoint {
+            Objects.requireNonNull(id, "id");
+            Objects.requireNonNull(operatorId, "operatorId");
+            Objects.requireNonNull(dimension, "dimension");
+            Objects.requireNonNull(pos, "pos");
+        }
+    }
 
     /** Un bout de l'appel : l'opérateur de la carte et l'endroit où se tient le téléphone. */
-    public record Endpoint(String operatorId, ResourceKey<Level> dimension, BlockPos pos) {}
+    public record Endpoint(String operatorId, ResourceKey<Level> dimension, BlockPos pos) {
+
+        public Endpoint {
+            Objects.requireNonNull(operatorId, "operatorId");
+            Objects.requireNonNull(dimension, "dimension");
+            Objects.requireNonNull(pos, "pos");
+        }
+    }
 
     /**
      * Le réseau : toutes les antennes, les noms des opérateurs qui existent et la portée. Un opérateur absent de
@@ -40,13 +56,25 @@ public final class RelayPlanner {
     public sealed interface Result permits Route, Failed {}
 
     /** L'appel passe : l'antenne de l'appelant et celle de l'appelé (la même si les deux sont sous la même). */
-    public record Route(AntennaPoint caller, AntennaPoint callee) implements Result {}
+    public record Route(AntennaPoint caller, AntennaPoint callee) implements Result {
+
+        public Route {
+            Objects.requireNonNull(caller, "caller");
+            Objects.requireNonNull(callee, "callee");
+        }
+    }
 
     /**
      * L'appel ne passe pas. {@code operatorName} n'est renseigné que pour {@code CALLEE_ANTENNA_DOWN} (nom de
      * l'opérateur de l'appelé, pour le message) ; vide sinon.
      */
-    public record Failed(RelayFailure.Reason reason, String operatorName) implements Result {}
+    public record Failed(RelayFailure.Reason reason, String operatorName) implements Result {
+
+        public Failed {
+            Objects.requireNonNull(reason, "reason");
+            Objects.requireNonNull(operatorName, "operatorName");
+        }
+    }
 
     /**
      * Le plan d'un appel, dans cet ordre : opérateur de l'appelant supprimé, appelant sans antenne en service à

@@ -2,10 +2,12 @@ package dev.oneforallsurvival.phone.net;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import net.minecraft.util.RandomSource;
@@ -32,6 +34,25 @@ class SimNumbersTest {
             assertTrue(pris.add(n), "numéro déjà pris : " + n);
         }
         assertEquals(1000, pris.size());
+    }
+
+    @Test
+    void leNumeroResteEnAsciiQuelleQueSoitLaLangueParDefaut() {
+        Locale origine = Locale.getDefault();
+        try {
+            // Sur un JDK 17, ar-SA et fa-IR écrivent les chiffres de %d en chiffres arabes ou persans.
+            for (String tag : new String[] {"ar-SA", "fa-IR"}) {
+                Locale.setDefault(Locale.forLanguageTag(tag));
+                RandomSource random = RandomSource.create(20261121L);
+                for (int i = 0; i < 50; i++) {
+                    String n = SimNumbers.draw(random, x -> false);
+                    assertTrue(n.matches("06[0-9]{8}"), tag + " : " + n);
+                    assertEquals(Optional.of(n), SimNumbers.parse(n), tag + " : " + n);
+                }
+            }
+        } finally {
+            Locale.setDefault(origine);
+        }
     }
 
     @Test
@@ -73,6 +94,14 @@ class SimNumbersTest {
     @Test
     void formatEtParseSontReciproques() {
         assertEquals(Optional.of("0612345678"), SimNumbers.parse(SimNumbers.format("0612345678")));
+    }
+
+    @Test
+    void formatRendTelQuelCeQuiNEstPasUnNumero() {
+        assertEquals("abc", SimNumbers.format("abc"));
+        assertEquals("", SimNumbers.format(""));
+        assertEquals("0712345678", SimNumbers.format("0712345678"));
+        assertNull(SimNumbers.format(null));
     }
 
     @Test

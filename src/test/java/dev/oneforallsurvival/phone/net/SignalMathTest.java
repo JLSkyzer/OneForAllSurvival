@@ -54,6 +54,14 @@ class SignalMathTest {
     }
 
     @Test
+    void uneDistanceAbsurdeNeDonneAucuneBarre() {
+        assertEquals(0, SignalMath.bars(-1, RANGE));
+        assertEquals(0, SignalMath.bars(-0.001, RANGE));
+        assertEquals(0, SignalMath.bars(Double.NEGATIVE_INFINITY, RANGE));
+        assertEquals(0, SignalMath.bars(Double.POSITIVE_INFINITY, RANGE));
+    }
+
+    @Test
     void sansPorteePasDeSignal() {
         assertEquals(0, SignalMath.bars(5, 0));
         assertEquals(0, SignalMath.bars(0, 0));

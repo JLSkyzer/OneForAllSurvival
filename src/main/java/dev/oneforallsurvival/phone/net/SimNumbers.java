@@ -1,5 +1,6 @@
 package dev.oneforallsurvival.phone.net;
 
+import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Predicate;
 import net.minecraft.util.RandomSource;
@@ -17,11 +18,13 @@ public final class SimNumbers {
 
     /**
      * Tire un numéro que {@code taken} ne retient pas. Au plus {@value #MAX_DRAWS} tirages ; si tous sont pris, le
-     * plan de numérotation est saturé (ou {@code taken} est faux) : {@link IllegalStateException}.
+     * plan de numérotation est saturé (ou {@code taken} est faux) : {@link IllegalStateException}. Les chiffres sont
+     * toujours ASCII, quelle que soit la langue par défaut de la JVM ({@link Locale#ROOT}) : {@link #parse} ne lit
+     * que de l'ASCII.
      */
     public static String draw(RandomSource random, Predicate<String> taken) {
         for (int i = 0; i < MAX_DRAWS; i++) {
-            String number = PREFIX + String.format("%08d", random.nextInt(100_000_000));
+            String number = PREFIX + String.format(Locale.ROOT, "%08d", random.nextInt(100_000_000));
             if (!taken.test(number)) {
                 return number;
             }
@@ -31,7 +34,7 @@ public final class SimNumbers {
 
     /**
      * « 0612345678 » devient « 06 12 34 56 78 ». Un texte qui n'est pas un numéro de carte est rendu tel quel : c'est
-     * un affichage, il ne doit jamais lever.
+     * un affichage, il ne doit jamais lever ({@code format(null)} rend donc {@code null}).
      */
     public static String format(String number) {
         Optional<String> clean = parse(number);

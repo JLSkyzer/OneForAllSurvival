@@ -1,42 +1,23 @@
 package dev.oneforallsurvival.phone.net;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.Level;
 import org.junit.jupiter.api.Test;
 
 class RelayPlannerTest {
 
     private static final int RANGE = 270;
-    private static final ResourceKey<Level> OVERWORLD = dimension("overworld");
-    private static final ResourceKey<Level> NETHER = dimension("the_nether");
-
-    /**
-     * La clé d'une dimension, sans amorcer le jeu : {@code Registries.DIMENSION} et {@code Level.OVERWORLD} exigent
-     * les registres (donc Forge et son réseau), que JUnit n'a pas. On passe par la fabrique privée de
-     * {@code ResourceKey} qui donne la même clé (même instance interne) que {@code Level.OVERWORLD}.
-     */
-    @SuppressWarnings({"unchecked", "removal"})
-    private static ResourceKey<Level> dimension(String path) {
-        try {
-            Method create = ResourceKey.class.getDeclaredMethod("create", ResourceLocation.class,
-                    ResourceLocation.class);
-            create.setAccessible(true);
-            return (ResourceKey<Level>) create.invoke(null, new ResourceLocation("minecraft", "dimension"),
-                    new ResourceLocation("minecraft", path));
-        } catch (ReflectiveOperationException e) {
-            throw new AssertionError(e);
-        }
-    }
+    private static final ResourceKey<Level> OVERWORLD = TestDimensions.OVERWORLD;
+    private static final ResourceKey<Level> NETHER = TestDimensions.NETHER;
 
     private static final Map<String, String> NOMS = Map.of("alpha", "Alpha", "mairie", "Mairie");
 
@@ -217,5 +198,40 @@ class RelayPlannerTest {
     void urgenceIgnoreLesAntennesDUnOperateurSupprime() {
         RelayPlanner.AntennaPoint fantome = antenna(1, "disparu", 10, true);
         assertEquals(Optional.empty(), RelayPlanner.anyInService(OVERWORLD, new BlockPos(0, 64, 0), net(fantome)));
+    }
+
+    @Test
+    void appeleDansLeNetherSansAntenne() {
+        RelayPlanner.AntennaPoint a = antenna(1, "alpha", 0, true);
+        // Antenne de l'opérateur de l'appelé, hors tension, à la même position mais dans l'overworld.
+        RelayPlanner.AntennaPoint mairie = antenna(2, "mairie", 500, false);
+        RelayPlanner.Endpoint appele = new RelayPlanner.Endpoint("mairie", NETHER, new BlockPos(500, 64, 0));
+        RelayPlanner.Failed f = failed(RelayPlanner.plan(at("alpha", 10), appele, net(a, mairie)));
+        assertEquals(RelayFailure.Reason.CALLEE_NO_COVERAGE, f.reason());
+        assertEquals("", f.operatorName());
+    }
+
+    @Test
+    void unChampNulEstRefuseAvantDeFaireLeverLePlan() {
+        BlockPos pos = new BlockPos(0, 64, 0);
+        assertThrows(NullPointerException.class, () -> new RelayPlanner.Endpoint(null, OVERWORLD, pos));
+        assertThrows(NullPointerException.class, () -> new RelayPlanner.Endpoint("alpha", null, pos));
+        assertThrows(NullPointerException.class, () -> new RelayPlanner.Endpoint("alpha", OVERWORLD, null));
+        assertThrows(NullPointerException.class,
+                () -> new RelayPlanner.AntennaPoint(null, "alpha", OVERWORLD, pos, true));
+        assertThrows(NullPointerException.class,
+                () -> new RelayPlanner.AntennaPoint(id(1), null, OVERWORLD, pos, true));
+        assertThrows(NullPointerException.class,
+                () -> new RelayPlanner.AntennaPoint(id(1), "alpha", null, pos, true));
+        assertThrows(NullPointerException.class,
+                () -> new RelayPlanner.AntennaPoint(id(1), "alpha", OVERWORLD, null, true));
+        RelayPlanner.AntennaPoint a = antenna(1, "alpha", 0, true);
+        assertThrows(NullPointerException.class, () -> new RelayPlanner.Route(null, a));
+        assertThrows(NullPointerException.class, () -> new RelayPlanner.Route(a, null));
+        assertThrows(NullPointerException.class, () -> new RelayPlanner.Failed(null, ""));
+        assertThrows(NullPointerException.class,
+                () -> new RelayPlanner.Failed(RelayFailure.Reason.CALLER_NO_SIGNAL, null));
+        assertThrows(NullPointerException.class, () -> new RelayPlanner.Snapshot(null, NOMS, RANGE));
+        assertThrows(NullPointerException.class, () -> new RelayPlanner.Snapshot(List.of(), null, RANGE));
     }
 }
