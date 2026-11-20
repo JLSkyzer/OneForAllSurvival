@@ -170,8 +170,13 @@ public final class PhoneOperators extends SavedData {
     }
 
     /**
-     * Retire cet opérateur du registre, et lui seul : ses cartes, ses antennes, ses demandes et sa caisse restent là où
-     * ils sont (la suite de la suppression, qui rend la caisse et détache le reste, est à la charge de l'appelant).
+     * Retire cet opérateur du registre et désactive aussitôt toutes ses cartes (leurs numéros restent réservés pour
+     * toujours : aucune carte active ne survit à son opérateur). Rien d'autre ne bouge : ses antennes et ses demandes
+     * restent là où elles sont, à la charge de l'appelant.
+     *
+     * <p>La caisse n'est pas protégée : l'appelant doit la verser avant (au fondateur) ; une caisse non vide est perdue
+     * avec l'opérateur. Le refus de retirer un opérateur dont la caisse n'est pas vide viendra avec la suite de la
+     * suppression (tâche 11).
      *
      * @return faux, et rien ne bouge, si l'opérateur n'existe pas
      */
@@ -179,6 +184,7 @@ public final class PhoneOperators extends SavedData {
         if (operators.remove(id) == null) {
             return false;
         }
+        cards.replaceAll((simId, card) -> card.operatorId().equals(id) ? card.withState(SimCard.State.DEACTIVATED) : card);
         setDirty();
         return true;
     }
@@ -201,24 +207,26 @@ public final class PhoneOperators extends SavedData {
     // Cartes SIM
     // ---------------------------------------------------------------------------------------------
 
-    private static UUID randomUuid(RandomSource random) {
-        return new UUID(random.nextLong(), random.nextLong());
-    }
-
     /**
      * Émet une carte active pour cet opérateur : numéro tiré parmi ceux jamais émis, jeton neuf, aucun téléphone.
-     * {@code holder} nul : carte sans nom. Ne vérifie pas que l'opérateur existe (l'appelant l'a fait).
+     * {@code holder} nul : carte sans nom. Le {@code RandomSource} ne sert qu'au numéro : l'identifiant et le jeton de la
+     * carte viennent de {@link UUID#randomUUID()} (un jeton tiré d'un générateur congruentiel se déduit de
+     * l'identifiant, que le client voit).
      *
+     * @throws IllegalArgumentException si l'opérateur n'existe pas (rien n'est tiré ni réservé)
      * @throws IllegalStateException si le plan de numérotation est saturé ({@link SimNumbers#draw})
      */
     public SimCard issue(String operatorId, @Nullable UUID holder, String holderName, RandomSource random, long now) {
+        if (!operators.containsKey(operatorId)) {
+            throw new IllegalArgumentException("opérateur inconnu " + operatorId);
+        }
         String number = SimNumbers.draw(random, usedNumbers::contains);
         UUID simId;
         do {
-            simId = randomUuid(random);
+            simId = UUID.randomUUID();
         } while (cards.containsKey(simId));
         SimCard card = new SimCard(simId, number, operatorId, holder, holderName == null ? "" : holderName,
-                SimCard.State.ACTIVE, randomUuid(random), null, Math.max(0L, now));
+                SimCard.State.ACTIVE, UUID.randomUUID(), null, Math.max(0L, now));
         cards.put(simId, card);
         cardByNumber.put(number, simId);
         usedNumbers.add(number);
@@ -258,13 +266,21 @@ public final class PhoneOperators extends SavedData {
     }
 
     /**
-     * Change l'état d'une carte. Le numéro reste à elle, ou réservé, dans tous les cas.
+     * Change l'état d'une carte. Le numéro reste à elle, ou réservé, dans tous les cas. Une carte désactivée l'est
+     * pour toujours, et une carte ne redevient active que si son opérateur existe encore.
      *
-     * @return faux, et rien ne bouge, si la carte n'existe pas
+     * @return faux, et rien ne bouge, si la carte n'existe pas, si elle est désactivée et la cible autre chose, ou si
+     *         la cible est {@code ACTIVE} et que l'opérateur de la carte n'existe plus
      */
     public boolean setState(UUID simId, SimCard.State state) {
         SimCard card = cards.get(simId);
         if (card == null) {
+            return false;
+        }
+        if (card.state() == SimCard.State.DEACTIVATED && state != SimCard.State.DEACTIVATED) {
+            return false;
+        }
+        if (state == SimCard.State.ACTIVE && !operators.containsKey(card.operatorId())) {
             return false;
         }
         if (card.state() != state) {
@@ -277,6 +293,8 @@ public final class PhoneOperators extends SavedData {
     /**
      * La carte est insérée dans un téléphone : son jeton change (l'ancien ne vaut plus rien) et le téléphone est noté.
      *
+     * @param random n'est plus utilisé : le jeton vient de {@link UUID#randomUUID()} (voir {@link #issue}) ; le
+     *        paramètre reste pour ne pas changer la signature des appelants
      * @return le nouveau jeton, toujours différent de l'ancien
      * @throws IllegalArgumentException si la carte n'existe pas
      */
@@ -287,7 +305,7 @@ public final class PhoneOperators extends SavedData {
         }
         UUID token;
         do {
-            token = randomUuid(random);
+            token = UUID.randomUUID();
         } while (token.equals(card.token()));
         cards.put(simId, card.withToken(token, phoneId));
         setDirty();
@@ -409,6 +427,24 @@ public final class PhoneOperators extends SavedData {
         if (operator != null && id.equals(operator.mainAntenna())) {
             electMain(removed.operatorId());
         }
+    }
+
+    /**
+     * Désigne l'antenne principale de cet opérateur (geste du fondateur).
+     *
+     * @return faux, et rien ne bouge, si l'opérateur ou l'antenne n'existe pas ou si l'antenne est celle d'un autre
+     *         opérateur ; vrai sinon (le registre n'est marqué sale que si la principale change)
+     */
+    public boolean setMainAntenna(String operatorId, UUID antennaId) {
+        PhoneOperator operator = operators.get(operatorId);
+        AntennaRecord antenna = antennas.get(antennaId);
+        if (operator == null || antenna == null || !antenna.operatorId().equals(operatorId)) {
+            return false;
+        }
+        if (!antennaId.equals(operator.mainAntenna())) {
+            replace(operator.withMainAntenna(antennaId));
+        }
+        return true;
     }
 
     /**
@@ -667,7 +703,8 @@ public final class PhoneOperators extends SavedData {
 
     /**
      * Relit le registre. Une ligne abîmée (sans identifiant, champ du mauvais type, énumération inconnue, numéro qui
-     * n'en est pas un, dimension illisible) est ignorée, et un doublon aussi ; les numéros des cartes relues sont
+     * n'en est pas un, dimension absente ou illisible) est ignorée, et un doublon aussi (identifiant, nom ou fondateur
+     * d'opérateur, identifiant ou numéro de carte, demande, antenne) ; les numéros des cartes relues sont
      * toujours tenus pour pris, même si la liste sauvegardée est abîmée.
      *
      * @param dimensions fabrique des clés de dimension : celle du jeu, ou celle d'un essai ({@link
@@ -677,7 +714,9 @@ public final class PhoneOperators extends SavedData {
         PhoneOperators registry = new PhoneOperators();
         for (CompoundTag row : rows(tag, "operators")) {
             PhoneOperator operator = safely(() -> PhoneOperator.load(row));
-            if (operator != null && !registry.operators.containsKey(operator.id())) {
+            // Identifiant, nom (sans casse) et fondateur sont uniques : la ligne qui en répète un déjà vu est ignorée.
+            if (operator != null && !registry.operators.containsKey(operator.id())
+                    && registry.byName(operator.name()).isEmpty() && registry.byFounder(operator.founder()).isEmpty()) {
                 registry.operators.put(operator.id(), operator);
             }
         }

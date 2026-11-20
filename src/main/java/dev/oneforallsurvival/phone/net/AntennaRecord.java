@@ -76,14 +76,15 @@ public record AntennaRecord(UUID id, String operatorId, ResourceKey<Level> dimen
 
     /**
      * Relit une antenne ; nulle si la ligne est inutilisable : sans identifiant, sans opérateur, sans position ou avec
-     * une dimension illisible.
+     * une dimension absente, vide ou illisible.
      *
      * @param dimensions fabrique des clés de dimension (celle du jeu : {@code ResourceKey.create(Registries.DIMENSION, ...)})
      */
     @Nullable
     static AntennaRecord load(CompoundTag tag, Function<ResourceLocation, ResourceKey<Level>> dimensions) {
         String operator = tag.getString("operator");
-        ResourceLocation dimension = ResourceLocation.tryParse(tag.getString("dimension"));
+        String dimensionText = tag.getString("dimension");
+        ResourceLocation dimension = dimensionText.isEmpty() ? null : ResourceLocation.tryParse(dimensionText);
         if (!tag.hasUUID("id") || operator.isEmpty() || dimension == null || !tag.contains("x", 99)
                 || !tag.contains("y", 99) || !tag.contains("z", 99)) {
             return null;

@@ -225,6 +225,11 @@ class PhoneOperatorsTest {
         badAntennas.add(antennaRow(badAntennas.getCompound(0), 781, "minecraft:the_nether", true));
         badAntennas.add(antennaRow(badAntennas.getCompound(0), 779, "Pas Une Dimension", true));
         badAntennas.add(antennaRow(badAntennas.getCompound(0), 780, "minecraft:overworld", false));
+        CompoundTag noDimension = badAntennas.getCompound(0).copy();
+        noDimension.putUUID("id", uuid(782));
+        noDimension.remove("dimension");
+        badAntennas.add(noDimension);
+        badAntennas.add(antennaRow(badAntennas.getCompound(0), 783, "", true));
         bad.put("tariffCap", StringTag.valueOf("beaucoup"));
         bad.put("usedNumbers", IntTag.valueOf(3));
 
@@ -242,6 +247,8 @@ class PhoneOperatorsTest {
         assertTrue(back.antenna(uuid(781)).isPresent());
         assertTrue(back.antenna(uuid(779)).isEmpty());
         assertTrue(back.antenna(uuid(780)).isEmpty());
+        assertTrue(back.antenna(uuid(782)).isEmpty());
+        assertTrue(back.antenna(uuid(783)).isEmpty());
         // Un plafond illisible retombe sur celui de la configuration.
         assertEquals(PhoneConfig.phoneDefaultTariffCap(), back.tariffCap());
         // Même si la liste des numéros est abîmée, le numéro d'une carte relue reste réservé.
@@ -306,20 +313,50 @@ class PhoneOperatorsTest {
     }
 
     @Test
-    void retirerUnOperateurNeToucheQuAuRegistre() {
+    void retirerUnOperateurDesactiveSesCartesEtLaisseLeReste() {
         PhoneOperators registry = new PhoneOperators();
+        RandomSource random = RandomSource.create(1L);
         PhoneOperator op = found(registry, U1, "Mairie");
-        SimCard card = registry.issue(op.id(), U3, "Alice", RandomSource.create(1L), 1L);
+        PhoneOperator other = found(registry, U2, "Sud");
+        SimCard active = registry.issue(op.id(), U3, "Alice", random, 1L);
+        SimCard suspended = registry.issue(op.id(), null, "", random, 2L);
+        registry.setState(suspended.simId(), SimCard.State.SUSPENDED);
+        SimCard elsewhere = registry.issue(other.id(), U4, "Bob", random, 3L);
         registry.putAntenna(antenna(uuid(101), op.id(), TestDimensions.OVERWORLD, 1, 1L));
+        registry.request(op.id(), U4, "Bob", 4L);
+        registry.setDirty(false);
+
         assertFalse(registry.remove("inconnu"));
+        assertFalse(registry.isDirty());
         assertTrue(registry.remove(op.id()));
+
+        assertTrue(registry.isDirty());
         assertTrue(registry.byId(op.id()).isEmpty());
         assertTrue(registry.byFounder(U1).isEmpty());
-        // La suite (cartes, antennes, caisse) est à la tâche 11 : le registre seul a bougé.
-        assertTrue(registry.card(card.simId()).isPresent());
+        // Aucune carte active ne survit à son opérateur ; celles des autres ne bougent pas.
+        assertEquals(SimCard.State.DEACTIVATED, registry.card(active.simId()).orElseThrow().state());
+        assertEquals(SimCard.State.DEACTIVATED, registry.card(suspended.simId()).orElseThrow().state());
+        assertEquals(0, registry.activeCards(op.id()));
+        assertEquals(SimCard.State.ACTIVE, registry.card(elsewhere.simId()).orElseThrow().state());
+        // Leurs numéros restent réservés et à elles.
+        assertEquals(active.simId(), registry.cardByNumber(active.number()).orElseThrow().simId());
+        assertTrue(registry.save(new CompoundTag()).getList("usedNumbers", 8).contains(StringTag.valueOf(active.number())));
+        // Antennes et demandes restent à la charge de l'appelant ; le joueur peut de nouveau fonder.
         assertEquals(1, registry.antennas().size());
-        // Le joueur peut de nouveau fonder.
+        assertEquals(1, registry.requestsOf(op.id()).size());
         assertTrue(registry.found(U1, "Fondateur", "Mairie", 5L).founded());
+    }
+
+    @Test
+    void laCaisseNonVideEstPerdueAvecLOperateur() {
+        // Comportement actuel, écrit tel quel : remove ne protège pas la caisse (le refus viendra à la tâche 11).
+        PhoneOperators registry = new PhoneOperators();
+        PhoneOperator op = found(registry, U1, "Mairie");
+        registry.deposit(op.id(), Coin.GOLD, 3L);
+        assertTrue(registry.remove(op.id()));
+        assertTrue(registry.till(op.id()).isEmpty());
+        assertEquals(0L, registry.tillRoom(op.id(), Coin.GOLD));
+        assertThrows(IllegalArgumentException.class, () -> registry.deposit(op.id(), Coin.GOLD, 1L));
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -767,6 +804,7 @@ class PhoneOperatorsTest {
         RandomSource random = RandomSource.create(1L);
         assertFalse(registry.isDirty());
         PhoneOperator op = found(registry, U1, "Mairie");
+        assertTrue(registry.isDirty());
         UUID antennaId = uuid(101);
         SimCard[] card = new SimCard[1];
         SimRequest[] request = new SimRequest[1];
@@ -778,6 +816,8 @@ class PhoneOperatorsTest {
         changes.add(() -> request[0] = registry.request(op.id(), U3, "Alice", 2L).orElseThrow());
         changes.add(() -> registry.takeRequest(request[0].id()));
         changes.add(() -> registry.putAntenna(antenna(antennaId, op.id(), TestDimensions.OVERWORLD, 1, 5L)));
+        // La même antenne mise à jour : la principale ne change pas, seul le setDirty() de putAntenna salit.
+        changes.add(() -> registry.putAntenna(antenna(antennaId, op.id(), TestDimensions.OVERWORLD, 1, 6L)));
         changes.add(() -> registry.noteTick(antennaId, false, 10L, 1, ZERO));
         changes.add(registry::closeAntennaDay);
         changes.add(() -> registry.removeAntenna(antennaId));
@@ -850,6 +890,193 @@ class PhoneOperatorsTest {
         assertEquals(1_000, PhoneConfig.phoneTariffMax());
         assertEquals(20, PhoneConfig.phoneDefaultTariffCap());
         assertEquals(20, PhoneConfig.signalRefreshTicks());
+    }
+
+    @Test
+    void emettreUneCarteChezUnOperateurInconnuLeveSansRienTirerNiSalir() {
+        PhoneOperators registry = new PhoneOperators();
+        PhoneOperator op = found(registry, U1, "Mairie");
+        registry.setDirty(false);
+        RandomSource random = RandomSource.create(42L);
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> registry.issue("inconnu", U3, "Alice", random, 1L));
+        assertTrue(refused.getMessage().contains("inconnu"));
+        assertFalse(registry.isDirty());
+        assertTrue(registry.cardsOf("inconnu").isEmpty());
+        // Rien n'a été tiré (le générateur est resté à son départ) ni réservé : le premier numéro émis est celui d'une
+        // graine neuve.
+        SimCard first = registry.issue(op.id(), U3, "Alice", random, 2L);
+        assertEquals(SimNumbers.draw(RandomSource.create(42L), n -> false), first.number());
+    }
+
+    @Test
+    void uneCarteDesactiveeLEstPourToujours() {
+        PhoneOperators registry = new PhoneOperators();
+        PhoneOperator op = found(registry, U1, "Mairie");
+        SimCard card = registry.issue(op.id(), U3, "Alice", RandomSource.create(3L), 1L);
+        assertTrue(registry.setState(card.simId(), SimCard.State.DEACTIVATED));
+        registry.setDirty(false);
+        assertFalse(registry.setState(card.simId(), SimCard.State.ACTIVE));
+        assertFalse(registry.setState(card.simId(), SimCard.State.SUSPENDED));
+        assertEquals(SimCard.State.DEACTIVATED, registry.card(card.simId()).orElseThrow().state());
+        assertEquals(0, registry.activeCards(op.id()));
+        assertFalse(registry.isDirty());
+        // Redire « désactivée » à une désactivée n'est pas un refus.
+        assertTrue(registry.setState(card.simId(), SimCard.State.DEACTIVATED));
+        assertFalse(registry.isDirty());
+        // Suspendue, au contraire, elle se réactive.
+        SimCard other = registry.issue(op.id(), U4, "Bob", RandomSource.create(4L), 2L);
+        assertTrue(registry.setState(other.simId(), SimCard.State.SUSPENDED));
+        assertTrue(registry.setState(other.simId(), SimCard.State.ACTIVE));
+        assertEquals(1, registry.activeCards(op.id()));
+    }
+
+    @Test
+    void uneCarteDUnOperateurAbsentNeSeReactivePas() {
+        PhoneOperators registry = new PhoneOperators();
+        PhoneOperator op = found(registry, U1, "Mairie");
+        SimCard card = registry.issue(op.id(), U3, "Alice", RandomSource.create(3L), 1L);
+        registry.setState(card.simId(), SimCard.State.SUSPENDED);
+        // Une ancienne sauvegarde dont la ligne de l'opérateur a disparu : la carte suspendue reste, sans opérateur.
+        CompoundTag tag = registry.save(new CompoundTag());
+        tag.put("operators", new ListTag());
+        PhoneOperators back = PhoneOperators.load(tag, DIMENSIONS);
+        assertTrue(back.byId(op.id()).isEmpty());
+        assertFalse(back.setState(card.simId(), SimCard.State.ACTIVE));
+        assertEquals(SimCard.State.SUSPENDED, back.card(card.simId()).orElseThrow().state());
+        assertEquals(0, back.activeCards(op.id()));
+        // Elle peut en revanche être désactivée.
+        assertTrue(back.setState(card.simId(), SimCard.State.DEACTIVATED));
+        assertEquals(SimCard.State.DEACTIVATED, back.card(card.simId()).orElseThrow().state());
+    }
+
+    @Test
+    void lIdentifiantEtLeJetonNeSeDeduisentPasDuGenerateur() {
+        PhoneOperators one = new PhoneOperators();
+        PhoneOperators two = new PhoneOperators();
+        PhoneOperator opOne = found(one, U1, "Mairie");
+        PhoneOperator opTwo = found(two, U1, "Mairie");
+        // Même graine : le numéro, seul tiré du générateur, est le même ; ni l'identifiant ni le jeton ne le sont.
+        SimCard a = one.issue(opOne.id(), U3, "Alice", RandomSource.create(77L), 1L);
+        SimCard b = two.issue(opTwo.id(), U3, "Alice", RandomSource.create(77L), 1L);
+        assertEquals(a.number(), b.number());
+        assertNotEquals(a.simId(), b.simId());
+        assertNotEquals(a.token(), b.token());
+        UUID rotatedA = one.rotateToken(a.simId(), PHONE, RandomSource.create(78L));
+        UUID rotatedB = two.rotateToken(b.simId(), PHONE, RandomSource.create(78L));
+        assertNotEquals(rotatedA, rotatedB);
+    }
+
+    @Test
+    void laPlusAncienneRestanteEstEluMemeSiElleEstPoseeEnDernier() {
+        PhoneOperators registry = new PhoneOperators();
+        PhoneOperator op = found(registry, U1, "Mairie");
+        UUID a = uuid(101);
+        UUID c = uuid(103);
+        UUID b = uuid(102);
+        // Ordre d'arrivée : a (posée à 100), c (75), b (50) : la plus ancienne n'est pas la première reçue.
+        registry.putAntenna(antenna(a, op.id(), TestDimensions.OVERWORLD, 1, 100L));
+        registry.putAntenna(antenna(c, op.id(), TestDimensions.OVERWORLD, 3, 75L));
+        registry.putAntenna(antenna(b, op.id(), TestDimensions.OVERWORLD, 2, 50L));
+        assertEquals(a, registry.byId(op.id()).orElseThrow().mainAntenna());
+        registry.removeAntenna(a);
+        assertEquals(b, registry.byId(op.id()).orElseThrow().mainAntenna());
+        registry.removeAntenna(b);
+        assertEquals(c, registry.byId(op.id()).orElseThrow().mainAntenna());
+    }
+
+    @Test
+    void aEgaliteDePoseLaPremiereRecueEstElue() {
+        PhoneOperators registry = new PhoneOperators();
+        PhoneOperator op = found(registry, U1, "Mairie");
+        UUID a = uuid(101);
+        UUID b = uuid(102);
+        UUID c = uuid(103);
+        registry.putAntenna(antenna(a, op.id(), TestDimensions.OVERWORLD, 1, 10L));
+        registry.putAntenna(antenna(b, op.id(), TestDimensions.OVERWORLD, 2, 20L));
+        registry.putAntenna(antenna(c, op.id(), TestDimensions.OVERWORLD, 3, 20L));
+        registry.removeAntenna(a);
+        assertEquals(b, registry.byId(op.id()).orElseThrow().mainAntenna());
+    }
+
+    @Test
+    void laPrincipaleSeDesigneSurLesAntennesDeLOperateurSeulement() {
+        PhoneOperators registry = new PhoneOperators();
+        PhoneOperator op = found(registry, U1, "Mairie");
+        PhoneOperator other = found(registry, U2, "Sud");
+        UUID a = uuid(101);
+        UUID b = uuid(102);
+        UUID z = uuid(103);
+        registry.putAntenna(antenna(a, op.id(), TestDimensions.OVERWORLD, 1, 100L));
+        registry.putAntenna(antenna(b, op.id(), TestDimensions.OVERWORLD, 2, 200L));
+        registry.putAntenna(antenna(z, other.id(), TestDimensions.OVERWORLD, 3, 50L));
+        registry.setDirty(false);
+
+        // Inconnue, d'un autre opérateur, opérateur inconnu : refusé, rien ne bouge.
+        assertFalse(registry.setMainAntenna(op.id(), uuid(404)));
+        assertFalse(registry.setMainAntenna(op.id(), z));
+        assertFalse(registry.setMainAntenna("inconnu", a));
+        assertEquals(a, registry.byId(op.id()).orElseThrow().mainAntenna());
+        assertEquals(z, registry.byId(other.id()).orElseThrow().mainAntenna());
+        assertFalse(registry.isDirty());
+
+        // Valide : la principale change, le registre est sale, et cela se relit.
+        assertTrue(registry.setMainAntenna(op.id(), b));
+        assertTrue(registry.isDirty());
+        assertEquals(b, registry.byId(op.id()).orElseThrow().mainAntenna());
+        assertEquals(b, reload(registry).byId(op.id()).orElseThrow().mainAntenna());
+        // La désigner de nouveau ne change rien (et ne salit pas).
+        registry.setDirty(false);
+        assertTrue(registry.setMainAntenna(op.id(), b));
+        assertFalse(registry.isDirty());
+        // Retirée, la désignée laisse la place à la plus ancienne restante.
+        registry.removeAntenna(b);
+        assertEquals(a, registry.byId(op.id()).orElseThrow().mainAntenna());
+    }
+
+    @Test
+    void unNomOuUnFondateurDejaVuEstIgnoreAuChargement() {
+        PhoneOperators registry = new PhoneOperators();
+        PhoneOperator first = found(registry, U1, "Mairie");
+        PhoneOperator second = found(registry, U2, "Sud");
+        CompoundTag tag = registry.save(new CompoundTag());
+        ListTag rows = tag.getList("operators", 10);
+        CompoundTag sameName = rows.getCompound(0).copy();
+        sameName.putString("id", "doublon-nom");
+        sameName.putString("name", "  mairie");
+        sameName.putUUID("founder", U4);
+        rows.add(sameName);
+        CompoundTag sameFounder = rows.getCompound(1).copy();
+        sameFounder.putString("id", "doublon-fondateur");
+        sameFounder.putString("name", "Autre nom");
+        rows.add(sameFounder);
+        CompoundTag fine = rows.getCompound(0).copy();
+        fine.putString("id", "libre");
+        fine.putString("name", "Libre");
+        fine.putUUID("founder", U3);
+        rows.add(fine);
+
+        PhoneOperators back = PhoneOperators.load(tag, DIMENSIONS);
+
+        assertEquals(3, back.all().size());
+        assertTrue(back.byId("doublon-nom").isEmpty());
+        assertTrue(back.byId("doublon-fondateur").isEmpty());
+        assertTrue(back.byId("libre").isPresent());
+        assertEquals(first.id(), back.byName("MAIRIE").orElseThrow().id());
+        assertEquals(second.id(), back.byFounder(U2).orElseThrow().id());
+    }
+
+    @Test
+    void unNbtSansListeDeNumerosGardeCeuxDesCartes() {
+        PhoneOperators registry = new PhoneOperators();
+        PhoneOperator op = found(registry, U1, "Mairie");
+        SimCard card = registry.issue(op.id(), U3, "Alice", RandomSource.create(42L), 1L);
+        CompoundTag tag = registry.save(new CompoundTag());
+        tag.remove("usedNumbers");
+        PhoneOperators back = PhoneOperators.load(tag, DIMENSIONS);
+        // Même graine : le tirage retombe d'abord sur le numéro de la carte relue, qui reste pris.
+        SimCard next = back.issue(op.id(), U4, "Bob", RandomSource.create(42L), 2L);
+        assertNotEquals(card.number(), next.number());
     }
 
     /** Un tirage qui ne rend jamais que le numéro donné : sert à voir qu'un numéro retenu n'est pas redonné. */
