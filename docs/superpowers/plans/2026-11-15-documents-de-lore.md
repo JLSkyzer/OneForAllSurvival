@@ -26,7 +26,7 @@ Trouvés en vérifiant l'API de MCEF le 2026-11-15 (code du fork de Keksuccino),
 - **Documents en jeu : 25** (dossier trié par Killian le 2026-11-15) = 11 de `04_PROGRAMME_ARRIVAL` (`ARR-001` à `ARR-010`, `ARV-001`) + 9 de `05_MATHIS_DELCOURT` (`MAT-001` à `MAT-009`) + 5 de `06_ENREGISTREMENTS` (`AUD-001` à `AUD-004`, `COM-001`). Exclus : `INDEX.html` (cite encore des documents retirés) et le PDF.
 - **MCEF facultatif côté client (déjà fait par le lot T1) :** `mods.toml` déclare `modId="mcef"`, `mandatory=false`, `side="CLIENT"`, `versionRange="[2.1.6,2.2)"`. Aucune classe de `com.cinemamod` ni de `org.cef` hors de `client/web/mcef/` (garde `McefIsolationTest`) ; `WebAvailability` ne touche MCEF qu'après `ModList.get().isLoaded("mcef")`. Le serveur ne l'exige pas (il démarre sans, prouvé au lot T1). `-PwithMcef` ne va qu'avec un client.
 - **Repli :** MCEF absent, non initialisé ou en échec → document ouvert dans le navigateur du système ; joueur prévenu une fois par session par `WebFallbackNotice.warnOnce` du socle (clés `message.oneforallsurvival.web.fallback.*`).
-- **Pas d'accès réseau** depuis les pages : seuls `mod://oneforallsurvival/…` et `about:blank` sont chargés ; toute autre navigation est annulée (garanti par le socle : `WebPages.isAllowed`, adresse principale ramenée à la page de départ, et CSP de chaque page).
+- **Pas d'accès réseau** depuis les pages : seuls `mod://oneforallsurvival/…` et `about:blank` sont chargés ; toute autre adresse principale est ramenée à la page de départ après coup par le socle (`WebPages.isAllowed`). Le socle ne filtre aucune sous-ressource (aucun `CefRequestHandler`) : seule la CSP de chaque page bloque le réseau, et les pages de Killian n'en ont pas (voir « À trancher avant la tâche 1 »).
 - **Bornes :** nom de poste et de dossier 32 caractères, mot de passe 64, texte de post-it 256, heure figée `HH:mm`, profondeur des dossiers 4, 64 nœuds par poste. Texte venant du staff toujours échappé avant d'entrer dans une page.
 - **Distance :** toute action réseau sur un bloc exige le joueur à 8 blocs au plus du bloc, dans la même dimension.
 - **Date figée du bureau :** `17/11/1998` (constante). Heure par défaut `08:00`, réglable par poste.
@@ -229,7 +229,7 @@ Le socle navigateur (dépendance MCEF 2.1.6, `mods.toml`, `WebScreen`, `WebBridg
 
 **Interfaces :**
 - Consumes : `WebScreen`, `WebBridge` (tâche 3) ; paquets et JSON de la tâche 6.
-- Produces (contrat page ↔ Java, messages JSON par `window.cefQuery`) :
+- Produces (contrat page ↔ Java, messages JSON par `window.oneforall.send(...)`) :
   - page → Java : `{"a":"ready"}`, `{"a":"open","node":N}`, `{"a":"password","node":N,"value":"…"}`, `{"a":"edit","op":"…",…}` (champs de `ComputerEdit`), `{"a":"close"}` ;
   - Java → page : appel de `window.novaOS.render(view)`, `window.novaOS.openFile(nodeId, url, title, fileKind)`, `window.novaOS.passwordRefused(nodeId)` par `executeJavaScript`, avec arguments sérialisés en JSON (jamais concaténés comme du code).
 

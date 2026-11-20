@@ -364,7 +364,7 @@ Ces choix n'ont pas été validés par Killian et peuvent être contestés :
 - FaceTime par rendu du personnage, pas par vidéo ;
 - messages d'Ombre effacés après 24 heures, auteur visible par l'équipe seulement ;
 - le pseudo d'Ombre est lié au téléphone, pas à la carte SIM ;
-- le fork de Keksuccino pour MCEF ;
+- (remplacé le 2026-11-19 : MCEF 2.1.6 de CinemaMod, celui du pack, parce que WebDisplays s'appuie dessus ; voir « Décisions de Killian (2026-11-19) ») ;
 - écran de repli en interface classique si MCEF échoue ;
 - (2026-11-19) caisse de l'antenne vidée par le fondateur et l'équipe seulement, tarif au lendemain,
   gestes du maire calqués sur ceux de l'électricité, antenne protégée comme le poste du lot E6.

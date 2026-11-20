@@ -65,12 +65,13 @@ pièce) fait partie de l'expérience.
 
 - Rendu par **MCEF** (Chromium dans Minecraft). Les moteurs HTML en Java (Flying Saucer et semblables)
   s'arrêtent au CSS 2.1 et casseraient ces pages : écartés.
-- **Même MCEF que le téléphone** (spec du 2026-11-08) : le fork de Keksuccino, 2.2.0 pour Forge 1.20.1.
-  Ce chantier est probablement le **premier** à intégrer MCEF : en faire une base réutilisable par le
-  téléphone (un paquet client unique pour le navigateur, l'écran plein écran et le chargement des pages).
-  Vérifier au premier lot la version de Chromium (CinemaMod annonce 116, qui gère `color-mix()`),
-  l'API et la licence du fork.
-- MCEF est **client seulement**. Il télécharge Chromium (environ 100 Mo) au premier lancement.
+- **Même MCEF que le téléphone** (décision de Killian du 2026-11-19) : MCEF 2.1.6 de CinemaMod, celui du
+  pack, parce que WebDisplays s'appuie dessus (pas le fork de Keksuccino, 2.2.0). Le lot T1 du téléphone a
+  déjà livré le socle navigateur réutilisable (paquet `client/web`, écran, chargement des pages, pont) :
+  ce chantier s'en sert. Vérifier la version de Chromium de la 2.1.6 (CinemaMod annonce 116, qui gère
+  `color-mix()` ; non relevé par les rapports du lot T1).
+- MCEF est **client seulement**. Il télécharge Chromium (environ 100 Mo) au premier lancement d'un client ;
+  en développement, Chromium est copié depuis l'installation du launcher, sans téléchargement (lot T1).
 - **Livraison** (choix de l'auteur) : le `.jar` de MCEF va dans le dossier `mods` du pack, distribué par
   le launcher. Le `mods.toml` le déclare côté client seulement : le serveur ne l'exige pas. Le mod
   n'appelle MCEF qu'à travers une vérification de présence, et le repli (§ 4, § 7) couvre aussi le cas
