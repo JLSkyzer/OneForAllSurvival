@@ -61,6 +61,20 @@ public final class PhoneFallbackLayout {
         return Collections.unmodifiableList(keys);
     }
 
+    /**
+     * Le bouton « Fond suivant » du choix du code (téléphone neuf) : toute la largeur, centré dans l'espace entre le
+     * texte du code (titre, points de 6 px au plus, une ligne de message : un téléphone neuf ne peut pas être bloqué)
+     * et le haut du clavier, de {@value #MIN_ROW} à {@value #MAX_ROW} px de haut.
+     */
+    public static Rect setupWallpaper(Rect inner, int lineHeight) {
+        int text = inner.y() + 6 + lineHeight + 6 + 6 + 6 + lineHeight + 2;
+        int keypadTop = keypad(inner).get(0).y();
+        int room = keypadTop - text - 2 * KEY_GAP;
+        int h = clamp(room);
+        int y = text + KEY_GAP + Math.max(0, (room - h) / 2);
+        return new Rect(inner.x(), y, inner.width(), h);
+    }
+
     /** Les Réglages : deux lignes de texte, puis neuf lignes ; un libellé d'une ligne au-dessus de chaque champ de code. */
     public static Settings settings(Rect inner, int lineHeight) {
         int text = 2 * (lineHeight + 1);

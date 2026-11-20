@@ -80,6 +80,27 @@ class PhoneFallbackLayoutTest {
         assertEquals(touches.get(1).x(), touches.get(10).x());
     }
 
+    /**
+     * Au choix du code (téléphone neuf), le bouton « Fond suivant » se glisse entre le message (une ligne : pas de
+     * blocage possible avant le premier code) et le clavier, sans toucher ni l'un ni l'autre.
+     */
+    @ParameterizedTest(name = "interface {0} x {1}")
+    @CsvSource({"320, 240", "427, 240", "480, 270", "640, 328", "640, 360", "960, 540", "1920, 1080", "320, 480"})
+    void leFondDuChoixDuCodeTientEntreLeTexteEtLeClavier(int w, int h) {
+        Rect zone = inner(w, h);
+        Rect fond = PhoneFallbackLayout.setupWallpaper(zone, LH);
+        dedans(fond, zone, "fond suivant");
+        assertTrue(fond.height() >= PhoneFallbackLayout.MIN_ROW, "fond suivant trop bas : " + fond);
+        assertTrue(fond.height() <= PhoneFallbackLayout.MAX_ROW, "fond suivant trop haut : " + fond);
+        // Titre, points (6 px au plus) et une ligne de message au-dessus.
+        int texte = zone.y() + 6 + LH + 6 + 6 + 6 + LH + 2;
+        assertTrue(fond.y() >= texte, "fond suivant sur le texte du code : " + fond + ", texte jusqu'à " + texte);
+        for (Rect t : PhoneFallbackLayout.keypad(zone)) {
+            assertFalse(chevauche(fond, t), "fond suivant sur la touche " + t);
+            assertTrue(fond.y() + fond.height() < t.y(), "fond suivant sous le haut du clavier : " + fond + " / " + t);
+        }
+    }
+
     @Test
     void effacerDevientUneFlecheQuandSonLibelleNeTientPlus() {
         // « Effacer » fait 40 px dans la police de Minecraft ; touche de 28 px à 320 x 240 : 24 px de place.

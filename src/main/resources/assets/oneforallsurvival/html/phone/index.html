@@ -144,8 +144,68 @@
     </div>
   </section>
 
+  <!-- Voile de l'assistant de première configuration : le fond choisi, flouté, derrière ses écrans -->
+  <div id="setup-veil" class="layer"></div>
+
+  <!-- Assistant de première configuration (téléphone neuf) : Bonjour, Configuration rapide, Fond d'écran, puis le code
+       (écran verrouillé en mode choix), puis Tout est prêt. -->
+  <section id="wizard" class="layer">
+    <div class="wz-step" id="wz-hello" data-step="hello">
+      <div class="wz-hello-word"><span id="wz-word">Bonjour</span></div>
+      <div class="wz-foot"><span class="wz-btn" id="wz-start">Commencer</span></div>
+    </div>
+
+    <div class="wz-step" id="wz-quick" data-step="quick">
+      <span class="wz-back" id="wz-quick-back">Retour</span>
+      <div class="wz-head">
+        <svg class="wz-badge" viewBox="0 0 24 24" aria-hidden="true"><path d="M13.2 2.5 5 13.4h6.1L10.4 21.5l8.4-11.2h-6.2z" fill="currentColor"/></svg>
+        <h1 class="wz-title">Configuration rapide</h1>
+        <p class="wz-text">Deux réglages, et ce téléphone est à vous.</p>
+      </div>
+      <div class="wz-list">
+        <div class="wz-item">
+          <span class="wz-ico"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="13" rx="2.4" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="13.3" cy="7.4" r="1.6" fill="#fff"/><path d="M3.4 14.6l4.4-4.9 3 3.2 1.8-1.8 3.9 3.5z" fill="#fff"/></svg></span>
+          <span class="wz-item-text"><b>Fond d'écran</b><small>L'image de l'écran verrouillé et de l'accueil.</small></span>
+        </div>
+        <div class="wz-item">
+          <span class="wz-ico"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4.5" y="9" width="11" height="8" rx="1.8" fill="#fff"/><path d="M7 9V6.8a3 3 0 0 1 6 0V9" fill="none" stroke="#fff" stroke-width="1.8"/></svg></span>
+          <span class="wz-item-text"><b>Code</b><small>Quatre chiffres pour protéger ce téléphone.</small></span>
+        </div>
+      </div>
+      <div class="wz-foot"><span class="wz-btn" id="wz-quick-next">Continuer</span></div>
+    </div>
+
+    <div class="wz-step" id="wz-wallpaper" data-step="wallpaper">
+      <span class="wz-back" id="wz-wp-back">Retour</span>
+      <div class="wz-preview">
+        <div class="lock-date" data-clock="date"></div>
+        <div class="lock-time" data-clock="time">--:--</div>
+      </div>
+      <div class="wz-card">
+        <div class="wz-card-title">Fond d'écran</div>
+        <div class="wz-thumbs">
+          <div class="wz-thumb" id="wz-wp-aube" data-wp="aube"><div class="mini wall wp-aube"></div><span class="thumb-name">Aube</span></div>
+          <div class="wz-thumb" id="wz-wp-lagon" data-wp="lagon"><div class="mini wall wp-lagon"></div><span class="thumb-name">Lagon</span></div>
+          <div class="wz-thumb" id="wz-wp-jungle" data-wp="jungle"><div class="mini wall wp-jungle"></div><span class="thumb-name">Jungle</span></div>
+          <div class="wz-thumb" id="wz-wp-nuit" data-wp="nuit"><div class="mini wall wp-nuit"></div><span class="thumb-name">Nuit</span></div>
+        </div>
+        <span class="wz-btn" id="wz-wp-next">Continuer</span>
+      </div>
+    </div>
+
+    <div class="wz-step" id="wz-done" data-step="ready">
+      <div class="wz-head wz-head-done">
+        <svg class="wz-check" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="29" fill="none" stroke="currentColor" stroke-width="3"/><path d="M19.5 33.5l8.2 8.2 17-18.4" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <h1 class="wz-title">Tout est prêt</h1>
+        <p class="wz-text" id="wz-owner">Téléphone de —</p>
+      </div>
+      <div class="wz-foot"><span class="wz-btn" id="wz-done-start">Commencer</span></div>
+    </div>
+  </section>
+
   <!-- Écran verrouillé et choix du code -->
   <section id="lock" class="layer">
+    <span class="wz-back" id="setup-back">Retour</span>
     <div class="lock-clock">
       <div class="lock-date" data-clock="date"></div>
       <div class="lock-time" data-clock="time">--:--</div>

@@ -62,6 +62,7 @@ public final class TelephoneGameTests {
     private static final String LOT_RESET = "telephone_reset";
     private static final String LOT_B = "telephone_b";
     private static final String LOT_C = "telephone_c";
+    private static final String LOT_ASSISTANT = "telephone_assistant";
 
     private static final Vec3 POS_A = new Vec3(2.5, 1, 2.5);
     private static final Vec3 POS_B = new Vec3(4.5, 1, 2.5);
@@ -1033,6 +1034,147 @@ public final class TelephoneGameTests {
                             "rien du nouveau propriétaire (" + nomC + ") : " + p);
                 }
             }));
+        });
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Lot assistant : le fond choisi par l'assistant de première configuration, porté par SETUP
+    // ---------------------------------------------------------------------------------------------
+
+    /** {@code SETUP} avec un fond ({@code second}) : code, propriétaire et fond posés par le même geste. */
+    @GameTest(template = "test/plancher", batch = LOT_ASSISTANT)
+    public static void unSetupAvecFondPoseLeCodeEtLeFondEnsemble(GameTestHelper helper) {
+        essai(helper, e -> {
+            JoueurDeTest a = e.joueur("tel_as_a", POS_A);
+            UUID id = e.telephone(a);
+            PhoneStatePacket open = ouvrir(helper, a);
+            helper.assertTrue(open.lock() == Lock.SETUP && open.wallpaper().equals("aube"),
+                    "neuf : SETUP et fond par défaut, vu " + open.lock() + " " + open.wallpaper());
+            Reponse r = geste(helper, a, Action.SETUP, CODE, "lagon", false);
+            attendre(helper, r, Kind.UPDATE, Lock.UNLOCKED, Result.NONE, "SETUP avec fond");
+            helper.assertTrue(r.outcome() == Outcome.DONE, "SETUP fait : " + r.outcome());
+            helper.assertTrue(r.etat().wallpaper().equals("lagon"), "la vue montre le fond choisi : " + r.etat());
+            PhoneData.PhoneRecord rec = e.donnees(id);
+            helper.assertTrue(a.uuid().equals(rec.owner()) && rec.salt() != null && rec.codeHash() != null,
+                    "code et propriétaire posés : " + rec);
+            helper.assertTrue(rec.wallpaper().equals("lagon"), "fond enregistré : " + rec.wallpaper());
+            helper.assertTrue(rec.failures() == 0 && !rec.airplane(), "le reste est celui d'un téléphone neuf : " + rec);
+            // Le code est bien celui envoyé : verrouiller puis déverrouiller avec lui.
+            attendre(helper, geste(helper, a, Action.LOCK, ""), Kind.UPDATE, Lock.LOCKED, Result.NONE, "LOCK");
+            Reponse bon = geste(helper, a, Action.UNLOCK, CODE);
+            attendre(helper, bon, Kind.UPDATE, Lock.UNLOCKED, Result.NONE, "UNLOCK avec le code choisi");
+            helper.assertTrue(bon.etat().wallpaper().equals("lagon"), "fond gardé : " + bon.etat().wallpaper());
+        });
+    }
+
+    /** Un fond hors de la liste (inconnu, majuscules, vide, avec espace) est ignoré : le code est posé quand même. */
+    @GameTest(template = "test/plancher", batch = LOT_ASSISTANT)
+    public static void unFondInconnuEstIgnoreEtLeCodePose(GameTestHelper helper) {
+        essai(helper, e -> {
+            JoueurDeTest a = e.joueur("tel_as_b", POS_A);
+            for (String faux : List.of("plage", "LAGON", "Nuit", "nuit ", "aube2", "x".repeat(16))) {
+                UUID id = e.telephone(a);
+                ouvrir(helper, a);
+                Reponse r = geste(helper, a, Action.SETUP, CODE, faux, false);
+                attendre(helper, r, Kind.UPDATE, Lock.UNLOCKED, Result.NONE, "SETUP avec le fond « " + faux + " »");
+                helper.assertTrue(r.outcome() == Outcome.DONE, "SETUP fait malgré le fond « " + faux + " »");
+                PhoneData.PhoneRecord rec = e.donnees(id);
+                helper.assertTrue(rec.codeHash() != null && a.uuid().equals(rec.owner()),
+                        "code posé malgré le fond « " + faux + " »");
+                helper.assertTrue(rec.wallpaper().equals("aube") && r.etat().wallpaper().equals("aube"),
+                        "fond « " + faux + " » : le fond par défaut reste, vu " + rec.wallpaper());
+                geste(helper, a, Action.CLOSE, "");
+            }
+        });
+    }
+
+    /** Un code non valide avec un fond valide : rien n'est posé, ni code ni fond (le fond suit la validation du code). */
+    @GameTest(template = "test/plancher", batch = LOT_ASSISTANT)
+    public static void unCodeNonValideNePoseNiCodeNiFond(GameTestHelper helper) {
+        essai(helper, e -> {
+            JoueurDeTest a = e.joueur("tel_as_c", POS_A);
+            UUID id = e.telephone(a);
+            ouvrir(helper, a);
+            for (String faux : List.of("12a4", "482", "48210", "")) {
+                Reponse r = geste(helper, a, Action.SETUP, faux, "nuit", false);
+                attendre(helper, r, Kind.UPDATE, Lock.SETUP, Result.INVALID_CODE, "SETUP « " + faux + " » avec fond");
+                PhoneData.PhoneRecord rec = e.donnees(id);
+                helper.assertTrue(rec.codeHash() == null && rec.owner() == null,
+                        "code « " + faux + " » refusé : aucun code posé");
+                helper.assertTrue(rec.wallpaper().equals("aube") && r.etat().wallpaper().equals("aube"),
+                        "code « " + faux + " » refusé : le fond ne doit pas changer, vu " + rec.wallpaper());
+            }
+        });
+    }
+
+    /** {@code SETUP} hors de l'état {@code SETUP} (verrouillé, déverrouillé) : refusé comme avant, sans le fond. */
+    @GameTest(template = "test/plancher", batch = LOT_ASSISTANT)
+    public static void unSetupHorsDuChoixDuCodeNAppliquePasLeFond(GameTestHelper helper) {
+        essai(helper, e -> {
+            JoueurDeTest a = e.joueur("tel_as_d", POS_A);
+            UUID id = e.telephone(a);
+            ouvrir(helper, a);
+            choisirPuisVerrouiller(helper, a);
+            String sel = e.donnees(id).salt();
+            Reponse verrouille = geste(helper, a, Action.SETUP, "9999", "nuit", false);
+            attendre(helper, verrouille, Kind.UPDATE, Lock.LOCKED, Result.NONE, "SETUP verrouillé");
+            helper.assertTrue(verrouille.outcome() == Outcome.REFUSED,
+                    "SETUP verrouillé refusé : " + verrouille.outcome());
+            attendre(helper, geste(helper, a, Action.UNLOCK, CODE), Kind.UPDATE, Lock.UNLOCKED, Result.NONE,
+                    "l'ancien code ouvre toujours");
+            Reponse ouvert = geste(helper, a, Action.SETUP, "9999", "jungle", false);
+            attendre(helper, ouvert, Kind.UPDATE, Lock.UNLOCKED, Result.NONE, "SETUP déverrouillé");
+            helper.assertTrue(ouvert.outcome() == Outcome.REFUSED, "SETUP déverrouillé refusé : " + ouvert.outcome());
+            PhoneData.PhoneRecord rec = e.donnees(id);
+            helper.assertTrue(rec.wallpaper().equals("aube") && ouvert.etat().wallpaper().equals("aube"),
+                    "le fond n'est pas appliqué hors du choix du code, vu " + rec.wallpaper());
+            helper.assertTrue(sel.equals(rec.salt()), "le code n'a pas changé");
+        });
+    }
+
+    /**
+     * Sans fond, {@code SETUP} se comporte comme avant : le fond enregistré reste (ici « nuit », posé dans les données
+     * d'un téléphone sans code) ; un fond inconnu le laisse aussi en place, il ne le remet pas au fond par défaut.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_ASSISTANT)
+    public static void sansFondLeChoixDuCodeResteCommeAvant(GameTestHelper helper) {
+        essai(helper, e -> {
+            JoueurDeTest a = e.joueur("tel_as_e", POS_A);
+            UUID neuf = e.telephone(a);
+            ouvrir(helper, a);
+            Reponse r = geste(helper, a, Action.SETUP, CODE);
+            attendre(helper, r, Kind.UPDATE, Lock.UNLOCKED, Result.NONE, "SETUP sans fond");
+            helper.assertTrue(e.donnees(neuf).wallpaper().equals("aube") && r.etat().wallpaper().equals("aube"),
+                    "sans fond : fond par défaut, vu " + e.donnees(neuf).wallpaper());
+            geste(helper, a, Action.CLOSE, "");
+
+            for (String fond : List.of("", "plage")) {
+                UUID id = e.telephone(a);
+                PhoneData.get(e.serveur).put(id, new PhoneData.PhoneRecord(null, "", null, null, 0, 0L, "nuit",
+                        false));
+                ouvrir(helper, a);
+                Reponse s = geste(helper, a, Action.SETUP, CODE, fond, false);
+                attendre(helper, s, Kind.UPDATE, Lock.UNLOCKED, Result.NONE, "SETUP, fond « " + fond + " »");
+                helper.assertTrue(e.donnees(id).wallpaper().equals("nuit") && s.etat().wallpaper().equals("nuit"),
+                        "fond « " + fond + " » : le fond enregistré reste, vu " + e.donnees(id).wallpaper());
+                geste(helper, a, Action.CLOSE, "");
+            }
+        });
+    }
+
+    /** Le fond d'un {@code SETUP} d'une autre session ne passe pas : rien n'est posé. */
+    @GameTest(template = "test/plancher", batch = LOT_ASSISTANT)
+    public static void unSetupDUneAutreSessionNAppliquePasLeFond(GameTestHelper helper) {
+        essai(helper, e -> {
+            JoueurDeTest a = e.joueur("tel_as_f", POS_A);
+            UUID id = e.telephone(a);
+            ouvrir(helper, a);
+            int s = session(helper, a);
+            Reponse r = geste(a, new PhoneActionPacket(s + 1000, Action.SETUP, CODE, "lagon", false), true);
+            helper.assertTrue(r.outcome() == Outcome.NO_SESSION && r.etat() == null, "autre session : " + r);
+            PhoneData.PhoneRecord rec = e.donnees(id);
+            helper.assertTrue(rec.codeHash() == null && rec.wallpaper().equals("aube"),
+                    "ni code ni fond par une autre session : " + rec.wallpaper());
         });
     }
 }

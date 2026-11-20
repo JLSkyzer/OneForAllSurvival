@@ -8,6 +8,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import dev.oneforallsurvival.phone.PhoneActionPacket;
 import dev.oneforallsurvival.phone.PhoneActionPacket.Action;
+import dev.oneforallsurvival.phone.PhoneWallpapers;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -81,6 +82,52 @@ class PhoneBridgeMessagesTest {
         "{\"a\":\"erase\",\"code\":\" 4821\"}"
     })
     void lesAutresNePartentPas(String json) {
+        assertEquals(Optional.empty(), action(json), json);
+    }
+
+    @Test
+    void setupPorteLeFondChoisi() {
+        PhoneActionPacket p = action("{\"a\":\"setup\",\"code\":\"4821\",\"wallpaper\":\"lagon\"}").orElseThrow();
+        assertEquals(Action.SETUP, p.action());
+        assertEquals("4821", p.first());
+        assertEquals("lagon", p.second());
+        assertEquals(SESSION, p.session());
+        for (String id : PhoneWallpapers.IDS) {
+            assertEquals(id, action("{\"a\":\"setup\",\"code\":\"0000\",\"wallpaper\":\"" + id + "\"}")
+                    .orElseThrow().second(), id);
+        }
+    }
+
+    @Test
+    void setupSansFondResteCommeAvant() {
+        PhoneActionPacket p = action("{\"a\":\"setup\",\"code\":\"4821\"}").orElseThrow();
+        assertEquals("4821", p.first());
+        assertEquals("", p.second());
+    }
+
+    /** Le fond de {@code setup} : une chaîne de {@link PhoneWallpapers#IDS}, sinon rien ne part (pas de repli muet). */
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "{\"a\":\"setup\",\"code\":\"4821\",\"wallpaper\":\"plage\"}",
+        "{\"a\":\"setup\",\"code\":\"4821\",\"wallpaper\":\"\"}",
+        "{\"a\":\"setup\",\"code\":\"4821\",\"wallpaper\":\"LAGON\"}",
+        "{\"a\":\"setup\",\"code\":\"4821\",\"wallpaper\":\"Nuit\"}",
+        "{\"a\":\"setup\",\"code\":\"4821\",\"wallpaper\":\" nuit\"}",
+        "{\"a\":\"setup\",\"code\":\"4821\",\"wallpaper\":2}",
+        "{\"a\":\"setup\",\"code\":\"4821\",\"wallpaper\":true}",
+        "{\"a\":\"setup\",\"code\":\"4821\",\"wallpaper\":null}",
+        "{\"a\":\"setup\",\"code\":\"4821\",\"wallpaper\":[\"nuit\"]}",
+        "{\"a\":\"setup\",\"code\":\"4821\",\"wallpaper\":{\"id\":\"nuit\"}}",
+        "{\"a\":\"setup\",\"code\":\"１２３４\",\"wallpaper\":\"nuit\"}",
+        "{\"a\":\"setup\",\"code\":\"482\",\"wallpaper\":\"nuit\"}",
+        "{\"a\":\"setup\",\"wallpaper\":\"nuit\"}",
+        "{\"a\":\"setup\",\"code\":\"4821\",\"wallpaper\":\"nuit\",\"id\":\"nuit\"}",
+        "{\"a\":\"setup\",\"code\":\"4821\",\"id\":\"nuit\"}",
+        "{\"a\":\"unlock\",\"code\":\"4821\",\"wallpaper\":\"nuit\"}",
+        "{\"a\":\"erase\",\"code\":\"4821\",\"wallpaper\":\"nuit\"}",
+        "{\"a\":\"wallpaper\",\"wallpaper\":\"nuit\"}"
+    })
+    void unFondDeSetupFauxEmpecheLeDepart(String json) {
         assertEquals(Optional.empty(), action(json), json);
     }
 

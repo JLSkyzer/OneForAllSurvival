@@ -1,13 +1,18 @@
 // Le téléphone du mod. Java appelle window.phone.render(view) à chaque état reçu du serveur ; la page répond par
 // window.oneforall.send(...) (bridge.js). Contrat :
 //   page -> Java : {"a":"ready"} ; {"a":"layout","rects":{"<id>":[x,y,w,h],...}} (px CSS, après chaque changement
-//   d'écran, défilement ou redimensionnement) ; {"a":"unlock","code":"…"} ; {"a":"setup","code":"…"} ; {"a":"lock"} ;
+//   d'écran, défilement ou redimensionnement) ; {"a":"unlock","code":"…"} ;
+//   {"a":"setup","code":"…","wallpaper":"…"} (le fond choisi par l'assistant, envoyé avec le code) ; {"a":"lock"} ;
 //   {"a":"changeCode","old":"…","new":"…"} ; {"a":"wallpaper","id":"…"} ; {"a":"airplane","on":true|false} ;
 //   {"a":"erase","code":"…"}.
 //   Java -> page : view = {session, lock: "SETUP"|"LOCKED"|"UNLOCKED", battery, serverMillis, zoneOffsetSeconds,
 //   wallpaper, airplane, owner, ownerName, attemptsLeft, lockoutSeconds, last}.
 // Le serveur fait foi : la page ne juge aucun code, elle les transmet. Tout texte venu de la vue passe par textContent.
-// Avec une adresse qui finit par #mock, une fausse vue et un faux serveur (code 1234) tiennent lieu du jeu.
+// Un téléphone neuf (lock SETUP) montre l'assistant de première configuration : Bonjour, Configuration rapide, Fond
+// d'écran, le code (écran #lock), puis Tout est prêt. Rien n'est configuré avant l'envoi du code : fermer avant laisse
+// un téléphone neuf, et la prochaine ouverture reprend l'assistant au début.
+// Avec une adresse qui finit par #mock, une fausse vue et un faux serveur tiennent lieu du jeu : un téléphone neuf
+// (l'assistant), ou déjà codé (1234) après phoneMock.locked().
 (function () {
   'use strict';
 
@@ -19,6 +24,12 @@
     'novembre', 'décembre'];
   var PENDING_MS = 2500; // le serveur ne répond pas à un geste trop rapproché : la page n'attend pas sans fin
   var LAYOUT_DELAY_MS = 720; // après la fin des animations d'écran (0,63 s au plus)
+  // Les étapes de l'assistant, dans l'ordre ; 'code' est l'écran #lock, 'ready' l'écran « Tout est prêt ».
+  // Point d'extension : le lot T2 (réseau, carte SIM) ajoutera une étape 'sim' entre 'code' et 'ready'.
+  var WIZARD = ['hello', 'quick', 'wallpaper', 'code', 'ready'];
+  var HELLO = ['Bonjour', 'Hello', 'Hola', 'Ciao', 'Hallo', 'Olá', 'Hej', 'Bonjour'];
+  var HELLO_SHOW_MS = 1500; // un mot reste lisible ; le fondu dure 0,45 s (phone.css)
+  var HELLO_FADE_MS = 450;
 
   var mockMode = String(window.location.href).slice(-5) === '#mock';
 
@@ -31,7 +42,11 @@
   var state = {
     view: null,
     session: null,
-    screen: 'lock', // setup | lock | home | settings
+    screen: 'lock', // setup | ready | lock | home | settings
+    wizard: 'hello', // étape de l'assistant pendant l'écran setup (voir WIZARD)
+    setupWallpaper: 'aube', // fond choisi dans l'assistant, envoyé avec le code
+    helloTimer: null,
+    helloIndex: 0,
     clockBase: 0, // heure locale du serveur (ms) à la réception
     clockAt: 0, // performance.now() à la réception
     lockoutEnd: 0, // performance.now() de fin du blocage, 0 sans blocage
@@ -102,9 +117,24 @@
 
   // ------------------------------------------------------------------------------------------- Barre d'état, fond
 
+  /** Le fond montré : pendant l'assistant, celui que l'on est en train de choisir ; sinon celui du serveur. */
+  function shownWallpaper() {
+    if (state.screen === 'setup') {
+      return state.setupWallpaper;
+    }
+    return state.view ? state.view.wallpaper : 'aube';
+  }
+
+  function paintWall() {
+    $('wall').className = 'wall wp-' + shownWallpaper();
+    var thumbs = document.querySelectorAll('.wz-thumb');
+    for (var i = 0; i < thumbs.length; i++) {
+      thumbs[i].classList.toggle('sel', thumbs[i].getAttribute('data-wp') === state.setupWallpaper);
+    }
+  }
+
   function paintStatic(v) {
-    var w = $('wall');
-    w.className = 'wall wp-' + v.wallpaper;
+    paintWall();
 
     phoneEl.classList.toggle('airplane', v.airplane);
 
@@ -133,6 +163,7 @@
     }
 
     $('set-owner').textContent = 'Téléphone de ' + (v.ownerName || '—');
+    $('wz-owner').textContent = 'Téléphone de ' + (v.ownerName || '—');
   }
 
   function paintChrome() {
@@ -144,13 +175,107 @@
   // ------------------------------------------------------------------------------------------- Écrans
 
   function setScreen(screen) {
+    // « Tout est prêt » vers l'accueil : l'écran verrouillé, déjà sorti à gauche, ne doit pas glisser vers le haut ;
+    // il redevient visible au prochain verrouillage.
+    if (state.screen === 'ready' && screen !== 'ready') {
+      phoneEl.classList.add('wz-skip');
+    } else if (screen === 'lock' || screen === 'setup') {
+      phoneEl.classList.remove('wz-skip');
+    }
     state.screen = screen;
-    phoneEl.classList.remove('scr-setup', 'scr-lock', 'scr-home', 'scr-settings');
+    phoneEl.classList.remove('scr-setup', 'scr-ready', 'scr-lock', 'scr-home', 'scr-settings');
     phoneEl.classList.add('scr-' + screen);
     phoneEl.classList.toggle('app-open', screen === 'settings');
+    paintWizard();
+    paintWall();
     placePad();
     paintChrome();
     scheduleLayout();
+  }
+
+  // ------------------------------------------------------------------------------------------- Assistant
+
+  /** Repart du début de l'assistant : Bonjour, fond du serveur (celui d'un téléphone neuf), rien de saisi. */
+  function resetWizard(v) {
+    stopHello();
+    state.wizard = 'hello';
+    state.setupWallpaper = v.wallpaper;
+    state.setupFirst = null;
+    state.helloIndex = 0;
+    $('wz-word').textContent = HELLO[0];
+    state.helloTimer = setTimeout(nextHello, HELLO_SHOW_MS);
+  }
+
+  /** « Bonjour » dans une langue, puis la suivante en fondu ; à la fin du tour, le français reste. */
+  function nextHello() {
+    state.helloTimer = null;
+    if (state.helloIndex >= HELLO.length - 1) {
+      return;
+    }
+    var word = $('wz-word');
+    word.classList.add('fade');
+    state.helloTimer = setTimeout(function () {
+      state.helloIndex++;
+      word.textContent = HELLO[state.helloIndex];
+      word.classList.remove('fade');
+      state.helloTimer = setTimeout(nextHello, HELLO_SHOW_MS);
+    }, HELLO_FADE_MS);
+  }
+
+  /** Arrête le tour des langues et remet « Bonjour » (on quitte l'écran, ou on y revient). */
+  function stopHello() {
+    if (state.helloTimer) {
+      clearTimeout(state.helloTimer);
+      state.helloTimer = null;
+    }
+    state.helloIndex = HELLO.length - 1;
+    $('wz-word').textContent = HELLO[HELLO.length - 1];
+    $('wz-word').classList.remove('fade');
+  }
+
+  function wizardStep() {
+    return state.screen === 'ready' ? 'ready' : state.screen === 'setup' ? state.wizard : null;
+  }
+
+  function paintWizard() {
+    var step = wizardStep();
+    var at = step === null ? -1 : WIZARD.indexOf(step);
+    var panels = document.querySelectorAll('.wz-step');
+    for (var i = 0; i < panels.length; i++) {
+      var k = WIZARD.indexOf(panels[i].getAttribute('data-step'));
+      panels[i].classList.toggle('cur', k === at);
+      panels[i].classList.toggle('past', at >= 0 && k < at);
+    }
+    for (var j = 0; j < WIZARD.length; j++) {
+      phoneEl.classList.toggle('wz-at-' + WIZARD[j], step === WIZARD[j]);
+    }
+    phoneEl.classList.toggle('wz-before-code', at >= 0 && at < WIZARD.indexOf('code'));
+  }
+
+  function goWizard(step) {
+    if (state.screen !== 'setup' || state.pending || WIZARD.indexOf(step) < 0 || step === 'ready') {
+      return;
+    }
+    if (state.wizard === 'hello') {
+      stopHello();
+    }
+    // En entrant dans le code comme en le quittant (Retour), la saisie en cours est oubliée.
+    state.setupFirst = null;
+    clearEntry('lock');
+    state.wizard = step;
+    paintLockTexts();
+    paintWizard();
+    paintWall();
+    placePad();
+    scheduleLayout();
+  }
+
+  function chooseWallpaper(id) {
+    if (state.screen !== 'setup' || state.wizard !== 'wallpaper' || WALLPAPERS.indexOf(id) < 0) {
+      return;
+    }
+    state.setupWallpaper = id;
+    paintWall();
   }
 
   function openSettings() {
@@ -186,7 +311,7 @@
     if (phoneEl.classList.contains('sheet-open')) {
       return 'sheet';
     }
-    if (state.screen === 'lock' || state.screen === 'setup') {
+    if (state.screen === 'lock' || (state.screen === 'setup' && state.wizard === 'code')) {
       return 'lock';
     }
     return null;
@@ -330,7 +455,7 @@
       }
       state.setupFirst = null;
       startPending('setup');
-      send({ a: 'setup', code: code });
+      send({ a: 'setup', code: code, wallpaper: state.setupWallpaper });
       forget('lock');
       return;
     }
@@ -523,7 +648,13 @@
         state.setupFirst = null;
         state.showAttempts = false;
       }
-      setScreen(v.lock === 'SETUP' ? 'setup' : v.lock === 'LOCKED' ? 'lock' : 'home');
+      if (v.lock === 'SETUP') {
+        resetWizard(v); // téléphone neuf (ou effacé) : l'assistant reprend au début
+      } else {
+        stopHello();
+      }
+      // SETUP puis UNLOCKED dans la même session : notre code vient d'être posé, « Tout est prêt ».
+      setScreen(v.lock === 'SETUP' ? 'setup' : v.lock === 'LOCKED' ? 'lock' : before === 'SETUP' ? 'ready' : 'home');
     }
 
     handleLast(v);
@@ -640,6 +771,17 @@
       }
       if (entry === 'sheet') {
         add('sheet-cancel');
+      } else if (state.screen === 'setup') {
+        add('setup-back');
+      }
+    } else if (state.screen === 'setup' || state.screen === 'ready') {
+      var step = wizardStep();
+      var ids = step === 'hello' ? ['wz-start']
+        : step === 'quick' ? ['wz-quick-back', 'wz-quick-next']
+          : step === 'wallpaper' ? ['wz-wp-back', 'wz-wp-aube', 'wz-wp-lagon', 'wz-wp-jungle', 'wz-wp-nuit', 'wz-wp-next']
+            : step === 'ready' ? ['wz-done-start'] : [];
+      for (i = 0; i < ids.length; i++) {
+        add(ids[i]);
       }
     } else if (state.screen === 'home') {
       add('app-settings');
@@ -689,6 +831,9 @@
       return;
     }
     if (phoneEl.classList.contains('alert-open')) {
+      return;
+    }
+    if (wizardTap(t)) {
       return;
     }
     if (t.closest('#sheet-cancel')) {
@@ -746,6 +891,44 @@
     }
   }
 
+  /** Les boutons de l'assistant ; vrai si le toucher lui revenait. */
+  function wizardTap(t) {
+    var step = wizardStep();
+    if (step === null) {
+      return false;
+    }
+    if (step === 'ready') {
+      if (t.closest('#wz-done-start')) {
+        setScreen('home');
+      }
+      return true;
+    }
+    if (step === 'code') {
+      if (t.closest('#setup-back')) {
+        goWizard('wallpaper');
+        return true;
+      }
+      return false; // le clavier
+    }
+    if (t.closest('#wz-start')) {
+      goWizard('quick');
+    } else if (t.closest('#wz-quick-back')) {
+      goWizard('hello');
+    } else if (t.closest('#wz-quick-next')) {
+      goWizard('wallpaper');
+    } else if (t.closest('#wz-wp-back')) {
+      goWizard('quick');
+    } else if (t.closest('#wz-wp-next')) {
+      goWizard('code');
+    } else {
+      var thumb = t.closest('.wz-thumb');
+      if (thumb) {
+        chooseWallpaper(thumb.getAttribute('data-wp'));
+      }
+    }
+    return true;
+  }
+
   function flash(key) {
     key.classList.add('down');
     setTimeout(function () { key.classList.remove('down'); }, 120);
@@ -791,10 +974,11 @@
   // ------------------------------------------------------------------------------------------- Faux serveur (#mock)
 
   function startMock() {
+    // Un téléphone neuf : l'assistant de première configuration. phoneMock.locked() passe au téléphone déjà codé.
     var mock = {
-      code: '1234',
+      code: null,
       session: 1,
-      lock: 'LOCKED',
+      lock: 'SETUP',
       battery: 76,
       wallpaper: 'aube',
       airplane: false,
@@ -853,6 +1037,7 @@
           if (mock.lock !== 'SETUP') { return; }
           if (!valid(m.code)) { reply('INVALID_CODE'); return; }
           mock.code = m.code;
+          if (WALLPAPERS.indexOf(m.wallpaper) >= 0) { mock.wallpaper = m.wallpaper; }
           mock.lock = 'UNLOCKED';
           reply('NONE');
           break;
@@ -901,10 +1086,14 @@
     }
 
     window.oneforall.mock = handle;
-    // Commandes de la console, pour l'essai : phoneMock.setup(), phoneMock.notOwner(), phoneMock.battery(12).
+    // Commandes de la console, pour l'essai : phoneMock.setup(), phoneMock.locked(), phoneMock.notOwner(),
+    // phoneMock.battery(12).
     window.phoneMock = {
       state: mock,
-      setup: function () { mock.session++; mock.code = null; mock.lock = 'SETUP'; render(view('NONE')); },
+      setup: function () {
+        mock.session++; mock.code = null; mock.lock = 'SETUP'; mock.wallpaper = 'aube'; render(view('NONE'));
+      },
+      locked: function () { mock.session++; mock.code = '1234'; mock.lock = 'LOCKED'; render(view('NONE')); },
       notOwner: function () { mock.owner = false; render(view('NONE')); },
       battery: function (pct) { mock.battery = pct; render(view('NONE')); }
     };

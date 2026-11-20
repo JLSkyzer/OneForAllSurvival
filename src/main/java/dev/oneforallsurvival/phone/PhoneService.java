@@ -146,7 +146,7 @@ public final class PhoneService {
                 SESSIONS.remove(player.getUUID(), session);
                 yield Outcome.DONE;
             }
-            case SETUP -> setup(player, session, data, record, packet.first(), last);
+            case SETUP -> setup(player, session, data, record, packet.first(), packet.second(), last);
             case UNLOCK -> unlock(session, data, record, packet.first(), last);
             case LOCK -> {
                 if (session.lock() != Lock.UNLOCKED) {
@@ -178,8 +178,13 @@ public final class PhoneService {
         return outcome;
     }
 
+    /**
+     * Le choix du code, seul geste qui configure un téléphone neuf : l'assistant de la page peut y joindre le fond
+     * choisi ({@code wallpaper}, vide sans assistant). Code validé d'abord ; le fond n'est posé qu'avec lui, dans le
+     * même enregistrement, et seulement s'il est dans {@link PhoneWallpapers#IDS} (sinon le fond en place reste).
+     */
     private static Outcome setup(ServerPlayer player, PhoneSession session, PhoneData data, PhoneRecord record,
-            String code, Result[] last) {
+            String code, String wallpaper, Result[] last) {
         if (session.lock() != Lock.SETUP) {
             return Outcome.REFUSED;
         }
@@ -188,8 +193,9 @@ public final class PhoneService {
             return Outcome.REFUSED;
         }
         String salt = PhoneCode.newSalt(SALT_SOURCE);
+        String chosen = PhoneWallpapers.isValid(wallpaper) ? wallpaper : record.wallpaper();
         data.put(session.phoneId(), new PhoneRecord(player.getUUID(), player.getGameProfile().getName(), salt,
-                PhoneCode.hash(salt, code), 0, record.lockedUntil(), record.wallpaper(), record.airplane()));
+                PhoneCode.hash(salt, code), 0, record.lockedUntil(), chosen, record.airplane()));
         session.unlock(salt);
         relockOthers(player, session.phoneId());
         return Outcome.DONE;

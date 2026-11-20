@@ -108,9 +108,9 @@ body {
 .st-carrier { font-size: 12px; font-weight: 600; white-space: nowrap; }
 #st-carrier-right { font-size: 11px; letter-spacing: -0.1px; }
 #st-carrier-left { display: none; }
-.scr-lock #st-time, .scr-setup #st-time { display: none; }
-.scr-lock #st-carrier-left, .scr-setup #st-carrier-left { display: inline; }
-.scr-lock #st-carrier-right, .scr-setup #st-carrier-right { display: none; }
+.scr-lock #st-time, .scr-setup #st-time, .scr-ready #st-time { display: none; }
+.scr-lock #st-carrier-left, .scr-setup #st-carrier-left, .scr-ready #st-carrier-left { display: inline; }
+.scr-lock #st-carrier-right, .scr-setup #st-carrier-right, .scr-ready #st-carrier-right { display: none; }
 #phone.airplane #st-carrier-right { display: none; }
 
 #st-plane { width: 16px; height: 16px; display: none; }
@@ -226,7 +226,7 @@ body {
   transition: transform 0.55s cubic-bezier(0.2, 0.9, 0.25, 1) 0.08s, opacity 0.45s 0.08s;
 }
 
-.scr-lock .home-inner, .scr-setup .home-inner {
+.scr-lock .home-inner, .scr-setup .home-inner, .scr-ready .home-inner {
   transform: scale(1.18);
   opacity: 0;
 }
@@ -375,9 +375,10 @@ body {
 .setup-head { display: none; margin-top: 110px; }
 .setup-lock { width: 30px; height: 30px; color: #fff; }
 
-.scr-setup .lock-clock { display: none; }
-.scr-setup .setup-head { display: block; }
-.scr-setup #lock { background: rgba(10, 12, 18, 0.55); -webkit-backdrop-filter: blur(30px); backdrop-filter: blur(30px); }
+.scr-setup .lock-clock, .scr-ready .lock-clock { display: none; }
+.scr-setup .setup-head, .scr-ready .setup-head { display: block; }
+/* Au choix du code, le voile de l'assistant (#setup-veil) floute le fond : l'écran du code reste transparent. */
+.scr-setup #lock, .scr-ready #lock { background: none; }
 
 .prompt {
   margin-top: 20px;
@@ -428,6 +429,182 @@ body {
 }
 
 .pad-slot { margin-top: 30px; }
+
+/* ---------------------------------------------------------------- Assistant de première configuration */
+
+/* Ordre des écrans : Bonjour (0), Configuration rapide (1), Fond d'écran (2), code (3, l'écran #lock), Tout est prêt (4).
+   Un écran passé glisse à gauche, un écran à venir attend à droite ; seul l'écran courant reçoit les touchers. */
+
+#setup-veil {
+  z-index: 28;
+  background: rgba(10, 12, 18, 0.55);
+  -webkit-backdrop-filter: blur(30px);
+  backdrop-filter: blur(30px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.5s, visibility 0s linear 0.5s;
+}
+.scr-setup #setup-veil, .scr-ready #setup-veil { opacity: 1; visibility: visible; transition: opacity 0.5s, visibility 0s; }
+#phone.wz-at-wallpaper #setup-veil { opacity: 0; }
+
+#wizard {
+  z-index: 35;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.45s, visibility 0s linear 0.45s;
+}
+.scr-setup #wizard, .scr-ready #wizard { visibility: visible; opacity: 1; transition: opacity 0.45s, visibility 0s; }
+
+.wz-step {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  opacity: 0;
+  transform: translateX(100%);
+  pointer-events: none;
+  transition: transform 0.5s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.4s;
+}
+.wz-step.past { transform: translateX(-30%); }
+.wz-step.cur { opacity: 1; transform: translateX(0); pointer-events: auto; }
+
+/* L'écran du code suit le même ordre : à droite avant son tour, à gauche une fois le code posé. */
+.scr-setup #lock, .scr-ready #lock { transition: transform 0.5s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.4s; }
+#phone.wz-before-code #lock { transform: translateX(100%); opacity: 0; pointer-events: none; }
+.scr-ready #lock { transform: translateX(-30%); opacity: 0; pointer-events: none; }
+/* Sortie de « Tout est prêt » vers l'accueil : l'écran verrouillé, déjà parti, ne repasse pas en glissant. */
+#phone.wz-skip #lock { visibility: hidden; transition: none; }
+
+.wz-back {
+  position: absolute;
+  left: 10px;
+  top: 58px;
+  z-index: 2;
+  padding: 8px 12px 8px 22px;
+  font-size: 17px;
+  color: rgba(255, 255, 255, 0.92);
+}
+.wz-back::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  margin-top: -5px;
+  border-left: 2.4px solid currentColor;
+  border-bottom: 2.4px solid currentColor;
+  transform: rotate(45deg);
+}
+.wz-back:active { opacity: 0.4; }
+#setup-back { display: none; }
+.scr-setup #setup-back { display: block; }
+
+.wz-foot {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 64px;
+  display: flex;
+  justify-content: center;
+}
+
+.wz-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 310px;
+  height: 52px;
+  border-radius: 14px;
+  background: #fff;
+  color: #000;
+  font-size: 17px;
+  font-weight: 600;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  transition: transform 0.15s, background 0.15s;
+}
+.wz-btn:active { transform: scale(0.97); background: #d9d9de; }
+
+.wz-hello-word {
+  margin-top: 330px;
+  height: 110px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#wz-word {
+  font-size: 66px;
+  font-weight: 600;
+  letter-spacing: -1.5px;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.18);
+  transition: opacity 0.45s, transform 0.45s;
+}
+#wz-word.fade { opacity: 0; transform: scale(0.96); }
+
+.wz-head {
+  margin-top: 128px;
+  padding: 0 34px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.wz-badge { width: 46px; height: 46px; color: #ffd60a; }
+.wz-title { margin: 18px 0 0; font-size: 31px; font-weight: 700; letter-spacing: 0.2px; }
+.wz-text { margin: 10px 0 0; font-size: 16px; line-height: 1.35; opacity: 0.82; }
+
+.wz-list { margin-top: 44px; width: 310px; display: flex; flex-direction: column; gap: 24px; }
+.wz-item { display: flex; align-items: center; }
+.wz-ico {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  margin-right: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.16);
+}
+.wz-ico svg { width: 24px; height: 24px; }
+.wz-item-text { display: flex; flex-direction: column; }
+.wz-item-text b { font-size: 17px; font-weight: 600; }
+.wz-item-text small { margin-top: 3px; font-size: 14px; line-height: 1.3; opacity: 0.75; }
+
+.wz-preview {
+  margin-top: 124px;
+  text-align: center;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.18);
+}
+
+.wz-card {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 30px;
+  padding: 18px 0 18px;
+  border-radius: 30px;
+  background: rgba(22, 24, 30, 0.42);
+  -webkit-backdrop-filter: blur(24px) saturate(1.3);
+  backdrop-filter: blur(24px) saturate(1.3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.wz-card-title { font-size: 17px; font-weight: 600; }
+.wz-thumbs { margin: 16px 0 18px; width: 310px; display: flex; justify-content: space-between; }
+.wz-thumb { display: flex; flex-direction: column; align-items: center; }
+.wz-thumb .mini { outline-color: transparent; box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.25); }
+.wz-thumb:active .mini { transform: scale(0.94); }
+.wz-thumb.sel .mini { outline-color: #fff; }
+.wz-thumb .thumb-name { color: rgba(255, 255, 255, 0.8); }
+.wz-thumb.sel .thumb-name { color: #fff; font-weight: 600; }
+
+.wz-head-done { margin-top: 250px; }
+.wz-check { width: 72px; height: 72px; color: #34c759; }
 
 /* ---------------------------------------------------------------- Clavier numérique */
 

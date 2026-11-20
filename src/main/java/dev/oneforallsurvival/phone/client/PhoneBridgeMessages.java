@@ -17,8 +17,9 @@ import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
- * Relit un message de la page du téléphone avant d'en faire un geste pour le serveur. Seuls {@code unlock},
- * {@code setup} et {@code erase} ({@code code}), {@code lock}, {@code changeCode} ({@code old}, {@code new}),
+ * Relit un message de la page du téléphone avant d'en faire un geste pour le serveur. Seuls {@code unlock} et
+ * {@code erase} ({@code code}), {@code setup} ({@code code}, et {@code wallpaper} facultatif : le fond choisi par
+ * l'assistant de première configuration), {@code lock}, {@code changeCode} ({@code old}, {@code new}),
  * {@code wallpaper} ({@code id}) et {@code airplane} ({@code on}, booléen JSON) partent, avec exactement leurs champs :
  * un champ de plus, un type faux, un code qui n'est pas de quatre chiffres ASCII ou un fond inconnu, et rien ne part.
  * {@code ready}, {@code layout} et {@code close} restent dans le client. Le serveur revérifie tout de toute façon.
@@ -27,6 +28,7 @@ public final class PhoneBridgeMessages {
 
     private static final Set<String> ONLY_A = Set.of("a");
     private static final Set<String> CODE = Set.of("a", "code");
+    private static final Set<String> SETUP_WITH_WALLPAPER = Set.of("a", "code", "wallpaper");
     private static final Set<String> CHANGE = Set.of("a", "old", "new");
     private static final Set<String> WALLPAPER = Set.of("a", "id");
     private static final Set<String> AIRPLANE = Set.of("a", "on");
@@ -46,7 +48,7 @@ public final class PhoneBridgeMessages {
         }
         return switch (a) {
             case "unlock" -> code(message, session, Action.UNLOCK);
-            case "setup" -> code(message, session, Action.SETUP);
+            case "setup" -> setup(message, session);
             case "erase" -> code(message, session, Action.ERASE);
             case "lock" -> exactly(message, ONLY_A)
                     ? Optional.of(new PhoneActionPacket(session, Action.LOCK, "", "", false))
@@ -104,6 +106,21 @@ public final class PhoneBridgeMessages {
             }
         }
         return Collections.unmodifiableMap(out);
+    }
+
+    /**
+     * {@code setup} : le code et, s'il y est, le fond ({@code second} du paquet). Un fond présent mais hors de
+     * {@link PhoneWallpapers#IDS} (ou d'un autre type) fait tout refuser, comme un champ faux ailleurs.
+     */
+    private static Optional<PhoneActionPacket> setup(JsonObject message, int session) {
+        if (!message.has("wallpaper")) {
+            return code(message, session, Action.SETUP);
+        }
+        String code = string(message.get("code"));
+        String wallpaper = string(message.get("wallpaper"));
+        return exactly(message, SETUP_WITH_WALLPAPER) && PhoneCode.isValid(code) && PhoneWallpapers.isValid(wallpaper)
+                ? Optional.of(new PhoneActionPacket(session, Action.SETUP, code, wallpaper, false))
+                : Optional.empty();
     }
 
     private static Optional<PhoneActionPacket> code(JsonObject message, int session, Action action) {

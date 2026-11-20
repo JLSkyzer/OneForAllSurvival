@@ -14,6 +14,7 @@ import dev.oneforallsurvival.phone.PhoneStatePacket.CloseReason;
 import dev.oneforallsurvival.phone.PhoneStatePacket.Kind;
 import dev.oneforallsurvival.phone.PhoneStatePacket.Lock;
 import dev.oneforallsurvival.phone.PhoneStatePacket.Result;
+import dev.oneforallsurvival.phone.PhoneWallpapers;
 import dev.oneforallsurvival.phone.WallSocketBlock;
 import dev.oneforallsurvival.phone.WallSocketBlockEntity;
 import dev.oneforallsurvival.phone.client.PhoneClient;
@@ -100,7 +101,9 @@ import org.lwjgl.glfw.GLFW;
  * stable ; dans l'écran de repli, aux centres de ses boutons. Une image par écran.
  *
  * <ul>
- *   <li>{@code parcours} : choix du code, Réglages (fond, mode avion, changement du code), cinq faux codes (fenêtre et
+ *   <li>{@code parcours} : assistant de première configuration fermé avant le code (le téléphone reste neuf), puis
+ *   joué en entier (Bonjour, Configuration rapide, Fond d'écran, code, Tout est prêt ; au repli, « Fond suivant » puis
+ *   le code), Réglages (fond, mode avion, changement du code), cinq faux codes (fenêtre et
  *   échelle changées écran ouvert), batterie, prise, effacement depuis l'écran, téléphone qui quitte la main
  *   ({@code PHONE_GONE}), {@code /phone reset} ({@code ERASED}), puis passage au repli en cours de route
  *   ({@code LOAD_ERROR}, {@code NO_READY}) ; sur un serveur, sans la prise ni l'effacement.</li>
@@ -132,6 +135,8 @@ public final class TelephoneShots {
     private static final String CODE = "4821";
     private static final String NOUVEAU = "1357";
     private static final String FAUX = "0000";
+    /** Le fond choisi dans l'assistant de la première ouverture (les Réglages passent ensuite à « nuit »). */
+    private static final String FOND_ASSISTANT = "lagon";
     private static final double REPLI_MAX_S = 5.0;
     private static final double NO_READY_MAX_S = 6.5;
     /** Avant la mesure « avant » : chunks construits et JIT chaud (à 20 s, les images par seconde montaient encore). */
@@ -404,12 +409,29 @@ public final class TelephoneShots {
         boolean solo = SERVEUR == null;
         decor(mc, 30);
 
-        // Première ouverture : choix du code par clics, confirmation au clavier.
-        ouvrir(mc, "ouverture-1", Lock.SETUP, "01-choix-du-code");
+        // Un téléphone neuf fermé au milieu de l'assistant (fond « nuit » choisi, pas de code) reste neuf : la
+        // réouverture reprend l'assistant au début, fond par défaut.
+        ouvrir(mc, "ouverture-0", Lock.SETUP, "00-bonjour");
+        assistantJusquAuFond(mc, "assistant-0", "nuit", false);
+        pause("00b-fond-nuit-choisi-puis-ferme");
+        echap(mc, "echap-0");
+
+        // Première ouverture : l'assistant en entier, choix du code par clics, confirmation au clavier.
+        ouvrir(mc, "ouverture-1", Lock.SETUP, "01-bonjour");
+        pas("ouverture-1-neuf", () -> {}, () -> {
+            if (!fond("aube") || (web && !cible(mc, "wz-start"))) {
+                echec("ouverture-1-neuf", "après fermeture au milieu de l'assistant : " + resume()
+                        + (mc.screen instanceof PhoneWebScreen w ? ", mise en page " + w.rects().keySet() : ""));
+            }
+            return true;
+        }, 2, null);
+        assistantJusquAuFond(mc, "assistant", FOND_ASSISTANT, true);
+        assistantVersLeCode(mc, "assistant", true);
         cliquerCode(mc, "choix", CODE);
         pause("02-confirmez-le-code");
         pas("confirmation-au-clavier", () -> stable(mc, "key-0"), () -> taper(mc, CODE),
-                () -> etat(Lock.UNLOCKED) && cible(mc, id("app-settings", "settings")), 10, null);
+                () -> etat(Lock.UNLOCKED), 10, null);
+        toutEstPret(mc, "assistant", FOND_ASSISTANT, "02b-tout-est-pret");
         pause("03-accueil");
         pas("reglages", () -> stable(mc, id("app-settings", "settings")), () -> {
             noterMiseEnPage(mc);
@@ -419,7 +441,7 @@ public final class TelephoneShots {
         if (web) {
             clic(mc, "fond-nuit", "wp-nuit", () -> fond("nuit") && attendu(0.3), 10, null);
         } else {
-            for (String f : List.of("lagon", "jungle", "nuit")) {
+            for (String f : List.of("jungle", "nuit")) { // depuis le fond de l'assistant (lagon)
                 clic(mc, "fond-" + f, "wallpaper", () -> fond(f) && attendu(0.3), 10, null);
             }
         }
@@ -555,10 +577,13 @@ public final class TelephoneShots {
             clic(mc, "effacement-confirme", "erase", () -> fermeePar(mc, CloseReason.ERASED), 10, null);
         }
         messageDeFermeture("effacement-ferme", CloseReason.ERASED, "23-efface-message");
-        ouvrir(mc, "reouverture-choix-du-code", Lock.SETUP, "24-apres-effacement-choix-du-code");
+        ouvrir(mc, "reouverture-choix-du-code", Lock.SETUP, "24-apres-effacement-bonjour");
+        assistantJusquAuFond(mc, "assistant-2", "jungle", false);
+        assistantVersLeCode(mc, "assistant-2", false);
         cliquerCode(mc, "rechoix", CODE);
         pause(null);
         cliquerCode(mc, "rechoix-confirmation", CODE);
+        toutEstPret(mc, "assistant-2", "jungle", null);
         pas("re-deverrouille", () -> {}, () -> etat(Lock.UNLOCKED) && cible(mc, id("app-settings", "settings")), 10,
                 null);
         echap(mc, "echap-4");
@@ -598,7 +623,7 @@ public final class TelephoneShots {
             executerDansLaPage((PhoneWebScreen) mc.screen, "location.href = 'about:blank#hors-page';");
         }, () -> {
             if (!(mc.screen instanceof PhoneWebScreen w) || SORTES_DU_PONT.getOrDefault("ready", 0) <= readyAvant
-                    || !cible(mc, "key-0") || !attendu(1.0)) {
+                    || !cible(mc, "wz-start") || !attendu(1.0)) {
                 return false;
             }
             journal("adresse non permise : la page est revenue (signal ready "
@@ -821,10 +846,13 @@ public final class TelephoneShots {
             sp.getInventory().setItem((caseDuTelephone + 1) % 9, ItemStack.EMPTY);
         }), () -> mc.player.getMainHandItem().is(PhoneRegistry.PHONE.get()) && !mc.player.getOffhandItem().isEmpty()
                 && attendu(3.0), 6, "wd-02-pad-en-main-gauche");
-        ouvrir(mc, "wd-telephone", Lock.SETUP, "wd-03-telephone-choix-du-code");
+        ouvrir(mc, "wd-telephone", Lock.SETUP, "wd-03-telephone-bonjour");
+        assistantJusquAuFond(mc, "wd-assistant", FOND_ASSISTANT, false);
+        assistantVersLeCode(mc, "wd-assistant", false);
         cliquerCode(mc, "wd-choix", CODE);
         pause(null);
         cliquerCode(mc, "wd-confirmation", CODE);
+        toutEstPret(mc, "wd-assistant", FOND_ASSISTANT, null);
         pas("wd-telephone-deverrouille", () -> {}, () -> etat(Lock.UNLOCKED)
                 && cible(mc, id("app-settings", "settings")), 10, null);
         pause("wd-04-telephone-deverrouille-pad-vivant");
@@ -909,6 +937,72 @@ public final class TelephoneShots {
         }, 2, image);
     }
 
+    /**
+     * L'assistant de première configuration d'un téléphone neuf ouvert, jusqu'au choix du fond compris. Page :
+     * Bonjour (complet : deux autres langues, puis la fin du tour en français), Commencer, Configuration rapide
+     * (complet : Retour essayé), Continuer, la vignette de {@code fond}. Repli : « Fond suivant » jusqu'à {@code fond}
+     * (pas d'assistant animé). Rien n'est envoyé au serveur avant le code.
+     */
+    private static void assistantJusquAuFond(Minecraft mc, String nom, String fond, boolean complet) {
+        if (!web) {
+            int clics = (PhoneWallpapers.IDS.indexOf(fond) - PhoneWallpapers.IDS.indexOf(PhoneWallpapers.DEFAULT) + 4)
+                    % 4;
+            for (int i = 1; i <= clics; i++) {
+                clic(mc, nom + "-fond-suivant-" + i, "setup-wallpaper", () -> attendu(0.4), 5, null);
+            }
+            pause(complet ? "01b-repli-fond-" + fond + "-avant-le-code" : null);
+            return;
+        }
+        if (complet) {
+            pas(nom + "-bonjour-2", () -> {}, () -> attendu(1.7), 3, "01b-bonjour-langue-2");
+            pas(nom + "-bonjour-3", () -> {}, () -> attendu(1.95), 3, "01c-bonjour-langue-3");
+            pas(nom + "-bonjour-fin", () -> {}, () -> attendu(11.0), 14, "01d-bonjour-fin-du-tour");
+        }
+        clic(mc, nom + "-commencer", "wz-start", () -> stable(mc, "wz-quick-next"), 10,
+                complet ? "01e-configuration-rapide" : null);
+        if (complet) {
+            clic(mc, nom + "-retour-bonjour", "wz-quick-back", () -> stable(mc, "wz-start"), 10, "01e2-retour-bonjour");
+            clic(mc, nom + "-recommencer", "wz-start", () -> stable(mc, "wz-quick-next"), 10, null);
+        }
+        clic(mc, nom + "-continuer", "wz-quick-next", () -> stable(mc, "wz-wp-next"), 10,
+                complet ? "01f-fond-d-ecran" : null);
+        clic(mc, nom + "-fond-" + fond, "wz-wp-" + fond, () -> attendu(0.8), 5,
+                complet ? "01g-fond-choisi-" + fond : null);
+    }
+
+    /** Du fond au code : Continuer (page ; complet : Retour depuis le code essayé, saisie oubliée), rien au repli. */
+    private static void assistantVersLeCode(Minecraft mc, String nom, boolean complet) {
+        if (!web) {
+            return;
+        }
+        clic(mc, nom + "-vers-le-code", "wz-wp-next", () -> stable(mc, "key-0"), 10, complet ? "01h-choix-du-code" : null);
+        if (complet) {
+            clic(mc, nom + "-retour-chiffre", "key-7", () -> attendu(0.3), 5, null);
+            clic(mc, nom + "-retour-au-fond", "setup-back", () -> stable(mc, "wz-wp-next"), 10, "01i-retour-au-fond");
+            clic(mc, nom + "-vers-le-code-2", "wz-wp-next", () -> stable(mc, "key-0"), 10, null);
+        }
+    }
+
+    /**
+     * Le code posé : le serveur dit UNLOCKED, avec le fond choisi et le joueur pour propriétaire. Page : « Tout est
+     * prêt » ({@code image}), puis Commencer vers l'accueil ; repli : l'accueil directement.
+     */
+    private static void toutEstPret(Minecraft mc, String nom, String fond, @Nullable String image) {
+        pas(nom + "-serveur", () -> {}, () -> etat(Lock.UNLOCKED) && fond(fond), 10, null);
+        pas(nom + "-proprietaire", () -> {
+            String attendu = mc.player.getGameProfile().getName();
+            String vu = PhoneClient.last().map(PhoneStatePacket::ownerName).orElse("");
+            journal(nom + " : configuré, fond " + fond + ", propriétaire « " + vu + " »");
+            if (!attendu.equals(vu)) {
+                echec(nom + "-proprietaire", "propriétaire « " + vu + " », « " + attendu + " » attendu");
+            }
+        }, () -> true, 1, null);
+        if (web) {
+            pas(nom + "-tout-est-pret", () -> {}, () -> stable(mc, "wz-done-start"), 10, image);
+            clic(mc, nom + "-vers-l-accueil", "wz-done-start", () -> stable(mc, "app-settings"), 10, null);
+        }
+    }
+
     /** Un faux code de plus (par clics ou au clavier) ; attend la réponse, sauf blocage attendu au cinquième. */
     private static void faux(Minecraft mc, int n, int restants, boolean clics, @Nullable String image) {
         if (clics) {
@@ -921,9 +1015,14 @@ public final class TelephoneShots {
             if (p == null || p.kind() != Kind.UPDATE) {
                 return false;
             }
+            // Un UPDATE de batterie (pourcentage qui change) peut suivre la réponse dans le même tic et la remplacer
+            // dans PhoneClient.last() avec last = NONE : on juge sur ce que la réponse a changé (essais restants,
+            // blocage), qui reste vrai dans l'UPDATE suivant.
             return restants > 0
-                    ? p.last() == Result.WRONG_CODE && p.attemptsLeft() == restants
-                    : p.last() == Result.LOCKED_OUT;
+                    ? (p.last() == Result.WRONG_CODE || p.last() == Result.NONE) && p.attemptsLeft() == restants
+                            && p.lockoutSeconds() == 0
+                    : (p.last() == Result.LOCKED_OUT || p.last() == Result.NONE) && p.lockoutSeconds() > 0
+                            && p.lock() == Lock.LOCKED;
         }, 10, null);
         pas("faux-" + n + "-releve", () -> journal("faux code " + n + " : " + resume()), () -> attendu(1.0), 3, image);
     }
@@ -1080,7 +1179,7 @@ public final class TelephoneShots {
     /** Les messages que la page du téléphone peut envoyer, et leurs clés. */
     private static final Set<String> SORTES = Set.of("ready", "layout", "close", "unlock", "setup", "erase", "lock",
             "changeCode", "wallpaper", "airplane");
-    private static final Set<String> CLES = Set.of("a", "rects", "code", "old", "new", "id", "on");
+    private static final Set<String> CLES = Set.of("a", "rects", "code", "old", "new", "id", "on", "wallpaper");
 
     /**
      * Le pont de l'écran est entouré d'un témoin qui compte chaque message par sorte (jamais son contenu : il peut

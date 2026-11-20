@@ -12,7 +12,9 @@ import net.minecraftforge.network.NetworkEvent;
  *
  * @param first le code ({@link Action#UNLOCK}, {@link Action#SETUP}, {@link Action#ERASE}), l'ancien code
  *     ({@link Action#CHANGE_CODE}) ou le fond ({@link Action#WALLPAPER}) ; sinon vide
- * @param second le nouveau code ({@link Action#CHANGE_CODE}) ; sinon vide
+ * @param second le nouveau code ({@link Action#CHANGE_CODE}), le fond choisi par l'assistant de première
+ *     configuration ({@link Action#SETUP}, vide sans assistant ; un fond hors de {@link PhoneWallpapers#IDS} est
+ *     ignoré par le serveur) ; sinon vide
  * @param flag le mode avion voulu ({@link Action#AIRPLANE})
  */
 public record PhoneActionPacket(int session, Action action, String first, String second, boolean flag) {

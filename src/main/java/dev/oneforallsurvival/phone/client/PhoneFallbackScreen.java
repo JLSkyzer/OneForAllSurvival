@@ -33,7 +33,9 @@ import org.lwjgl.glfw.GLFW;
 
 /**
  * Le téléphone en interface Minecraft classique, quand le navigateur du jeu ne sert pas : même cadre que la page, mêmes
- * gestes ({@link PhoneActionPacket}), mêmes états. Écran du code (clavier 0 à 9, Effacer, points), accueil (Réglages),
+ * gestes ({@link PhoneActionPacket}), mêmes états. Écran du code (clavier 0 à 9, Effacer, points ; au choix du code
+ * d'un téléphone neuf, un bouton « Fond suivant » qui fait défiler les fonds avant le code, envoyés ensemble par
+ * {@link Action#SETUP} ; pas d'animation de bienvenue ici), accueil (Réglages),
  * Réglages (mode avion, fond suivant, changement du code par trois champs de chiffres, verrouillage, effacement). Le
  * serveur juge tout ; l'écran ne garde un code saisi que le temps de l'envoyer et ne l'écrit nulle part. Échap ferme et
  * prévient le serveur.
@@ -53,6 +55,8 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
     private Page page;
     private final StringBuilder entry = new StringBuilder();
     @Nullable private String setupFirst;
+    /** Le fond choisi au choix du code, envoyé avec lui ; affiché tout de suite. */
+    private String setupWallpaper;
     private Component message = Component.empty();
     private boolean messageAlert;
     private boolean eraseArmed;
@@ -70,6 +74,7 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
         super(Component.translatable("item.oneforallsurvival.phone"));
         this.state = state;
         this.page = state.lock() == Lock.UNLOCKED ? Page.HOME : Page.CODE;
+        this.setupWallpaper = shownWallpaper(state.wallpaper());
         noteLockout();
     }
 
@@ -96,6 +101,9 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
             eraseArmed = false;
             message = Component.empty();
             page = next.lock() == Lock.UNLOCKED ? Page.HOME : Page.CODE;
+            if (next.lock() == Lock.SETUP) {
+                setupWallpaper = shownWallpaper(next.wallpaper());
+            }
         }
         result(next);
         if (widgetsChange) {
@@ -121,7 +129,8 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
     }
 
     /**
-     * Les commandes de l'écran par nom : {@code key-0} à {@code key-9}, {@code key-clear} ; {@code settings} ;
+     * Les commandes de l'écran par nom : {@code key-0} à {@code key-9}, {@code key-clear}, {@code setup-wallpaper}
+     * (choix du code d'un téléphone neuf) ; {@code settings} ;
      * {@code airplane}, {@code wallpaper}, {@code old}, {@code new}, {@code confirm}, {@code change}, {@code lock},
      * {@code erase}, {@code back}.
      */
@@ -181,6 +190,15 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
         add("key-clear", clear);
         key("0", keys.get(10), active);
         lockedOutShown = !active;
+        if (state.lock() == Lock.SETUP) {
+            add("setup-wallpaper", new FitButton(PhoneFallbackLayout.setupWallpaper(inner, font.lineHeight),
+                    Component.translatable(KEY + "wallpaper",
+                            Component.translatable(KEY + "wallpaper." + setupWallpaper)),
+                    b -> {
+                        setupWallpaper = nextWallpaper(setupWallpaper);
+                        rebuild();
+                    }, null));
+        }
     }
 
     private void key(String digit, Rect r, boolean active) {
@@ -262,7 +280,7 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
                 message = Component.empty();
             } else if (setupFirst.equals(code)) {
                 setupFirst = null;
-                send(Action.SETUP, code, "", false);
+                send(Action.SETUP, code, setupWallpaper, false);
             } else {
                 setupFirst = null;
                 alert(Component.translatable(KEY + "mismatch"));
@@ -537,8 +555,13 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
         return String.format(Locale.ROOT, "%02d:%02d", t.getHour(), t.getMinute());
     }
 
+    /** Le fond montré : au choix du code, celui que le joueur est en train de choisir ; sinon celui du serveur. */
     private String wallpaper() {
-        return PhoneWallpapers.isValid(state.wallpaper()) ? state.wallpaper() : PhoneWallpapers.DEFAULT;
+        return state.lock() == Lock.SETUP ? setupWallpaper : shownWallpaper(state.wallpaper());
+    }
+
+    private static String shownWallpaper(String id) {
+        return PhoneWallpapers.isValid(id) ? id : PhoneWallpapers.DEFAULT;
     }
 
     static String nextWallpaper(String current) {
