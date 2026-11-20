@@ -25,7 +25,10 @@
   var PENDING_MS = 2500; // le serveur ne répond pas à un geste trop rapproché : la page n'attend pas sans fin
   var LAYOUT_DELAY_MS = 720; // après la fin des animations d'écran (0,63 s au plus)
   // Les étapes de l'assistant, dans l'ordre ; 'code' est l'écran #lock, 'ready' l'écran « Tout est prêt ».
-  // Point d'extension : le lot T2 (réseau, carte SIM) ajoutera une étape 'sim' entre 'code' et 'ready'.
+  // Point d'extension : le lot T2 (réseau, carte SIM) ajoutera une étape 'sim' entre 'code' et 'ready'. L'ajouter
+  // à cette liste ne suffit pas : render() envoie à l'écran 'ready' dès que la vue passe de SETUP à UNLOCKED (il
+  // faudra viser 'sim'), goWizard() refuse 'ready' et non 'sim', wizardStep() ne connaît que 'setup' et 'ready',
+  // et collectRects(), wizardTap() et index.html (un .wz-step data-step="sim") devront connaître l'étape.
   var WIZARD = ['hello', 'quick', 'wallpaper', 'code', 'ready'];
   var HELLO = ['Bonjour', 'Hello', 'Hola', 'Ciao', 'Hallo', 'Olá', 'Hej', 'Bonjour'];
   var HELLO_SHOW_MS = 1500; // un mot reste lisible ; le fondu dure 0,45 s (phone.css)

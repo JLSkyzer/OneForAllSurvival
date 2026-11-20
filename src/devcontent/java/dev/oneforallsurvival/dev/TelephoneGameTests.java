@@ -1177,4 +1177,42 @@ public final class TelephoneGameTests {
                     "ni code ni fond par une autre session : " + rec.wallpaper());
         });
     }
+
+    /**
+     * Deux copies d'un même téléphone neuf, chacune au choix du code : A pose {@code 4821} avec le fond « lagon » ; le
+     * {@code SETUP} de C (code « 9999 », fond « nuit ») arrive ensuite et est refusé. La première l'emporte : code,
+     * propriétaire et fond de A restent, et {@code 4821} rouvre le téléphone.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_ASSISTANT)
+    public static void deuxCopiesNeuvesLaPremiereLEmporteAvecSonFond(GameTestHelper helper) {
+        essai(helper, e -> {
+            JoueurDeTest a = e.joueur("tel_as_g", POS_A);
+            JoueurDeTest c = e.joueur("tel_as_h", POS_C);
+            UUID id = e.telephone(a);
+            c.joueur().setItemInHand(InteractionHand.MAIN_HAND, a.joueur().getMainHandItem().copy());
+            helper.assertTrue(ouvrir(helper, a).lock() == Lock.SETUP, "A ouvre au choix du code");
+            helper.assertTrue(ouvrir(helper, c).lock() == Lock.SETUP, "C ouvre au choix du code");
+            int sessionC = session(helper, c);
+            attendre(helper, geste(helper, a, Action.SETUP, CODE, "lagon", false), Kind.UPDATE, Lock.UNLOCKED,
+                    Result.NONE, "SETUP de A avec lagon");
+            PhoneData.PhoneRecord apresA = e.donnees(id);
+            helper.assertTrue(a.uuid().equals(apresA.owner()) && apresA.wallpaper().equals("lagon"),
+                    "A propriétaire, fond lagon : " + apresA.wallpaper());
+
+            Reponse deC = geste(c, new PhoneActionPacket(sessionC, Action.SETUP, "9999", "nuit", false), true);
+            helper.assertTrue(deC.outcome() == Outcome.REFUSED, "SETUP de C après celui de A : " + deC.outcome());
+            helper.assertTrue(deC.etat() != null && deC.etat().lock() == Lock.LOCKED
+                    && deC.etat().ownerName().isEmpty(), "C voit un téléphone verrouillé, sans nom : " + deC.etat());
+            PhoneData.PhoneRecord apres = e.donnees(id);
+            helper.assertTrue(apresA.salt().equals(apres.salt()) && apresA.codeHash().equals(apres.codeHash()),
+                    "le code de A a changé");
+            helper.assertTrue(a.uuid().equals(apres.owner()), "propriétaire changé : " + apres.owner());
+            helper.assertTrue(apres.wallpaper().equals("lagon"), "fond de A remplacé : " + apres.wallpaper());
+
+            attendre(helper, geste(helper, a, Action.LOCK, ""), Kind.UPDATE, Lock.LOCKED, Result.NONE, "LOCK de A");
+            Reponse rouvre = geste(helper, a, Action.UNLOCK, CODE);
+            attendre(helper, rouvre, Kind.UPDATE, Lock.UNLOCKED, Result.NONE, "4821 rouvre le téléphone");
+            helper.assertTrue(rouvre.etat().wallpaper().equals("lagon"), "fond vu : " + rouvre.etat().wallpaper());
+        });
+    }
 }

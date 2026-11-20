@@ -453,13 +453,14 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
 
     private void drawCode(GuiGraphics g) {
         int cx = inner.x() + inner.width() / 2;
-        int y = inner.y() + 6;
+        PhoneFallbackLayout.CodeText text = PhoneFallbackLayout.codeText(inner, font.lineHeight, lockedOut() ? 2 : 1);
+        int y = text.titleY();
         Component title = Component.translatable(KEY + (state.lock() == Lock.SETUP
                 ? (setupFirst == null ? "choose" : "confirm")
                 : "enter"));
         drawCentered(g, title, cx, y, WHITE);
-        y += font.lineHeight + 6;
-        int dot = Math.max(3, Math.min(6, inner.width() / 20));
+        y = text.dotsY();
+        int dot = text.dot();
         int step = dot * 3;
         int x0 = cx - (step * (PhoneCode.LENGTH - 1) + dot) / 2;
         for (int i = 0; i < PhoneCode.LENGTH; i++) {
@@ -470,10 +471,10 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
                 g.renderOutline(x, y, dot, dot, WHITE);
             }
         }
-        y += dot + 6;
+        y = text.messageY();
         if (lockedOut()) {
             drawCentered(g, Component.translatable(KEY + "locked_out"), cx, y, RED);
-            y += font.lineHeight + 2;
+            y += text.lineStep();
             long left = (lockoutEnd - Util.getMillis() + 999) / 1000;
             drawCentered(g, Component.translatable(KEY + "retry_in", left), cx, y, WHITE);
         } else if (!message.getString().isEmpty()) {

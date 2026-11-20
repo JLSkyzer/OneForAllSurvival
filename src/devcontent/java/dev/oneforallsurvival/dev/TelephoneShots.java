@@ -605,7 +605,7 @@ public final class TelephoneShots {
         pas("reset-equipe", () -> mc.player.connection.sendCommand("phone reset"),
                 () -> fermeePar(mc, CloseReason.ERASED), 10, null);
         messageDeFermeture("reset-equipe-ferme", CloseReason.ERASED, "26-reset-equipe");
-        ouvrir(mc, "ouverture-apres-reset", Lock.SETUP, "27-apres-reset-choix-du-code");
+        ouvrir(mc, "ouverture-apres-reset", Lock.SETUP, "27-apres-reset-bonjour");
         if (web) {
             adresseNonPermise(mc);
         }

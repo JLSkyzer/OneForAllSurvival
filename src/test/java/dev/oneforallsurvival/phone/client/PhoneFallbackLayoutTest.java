@@ -64,8 +64,8 @@ class PhoneFallbackLayoutTest {
         Rect zone = inner(w, h);
         List<Rect> touches = PhoneFallbackLayout.keypad(zone);
         assertEquals(11, touches.size());
-        // Titre, points (6 px au plus), et deux lignes de blocage au-dessus du clavier.
-        int texte = zone.y() + 6 + LH + 6 + 6 + 6 + 2 * (LH + 2);
+        // Le texte de l'écran du code avec les deux lignes d'un blocage, tel que drawCode le dessine.
+        int texte = PhoneFallbackLayout.codeText(zone, LH, 2).bottom();
         for (int i = 0; i < touches.size(); i++) {
             Rect t = touches.get(i);
             dedans(t, zone, "touche " + i);
@@ -92,13 +92,40 @@ class PhoneFallbackLayoutTest {
         dedans(fond, zone, "fond suivant");
         assertTrue(fond.height() >= PhoneFallbackLayout.MIN_ROW, "fond suivant trop bas : " + fond);
         assertTrue(fond.height() <= PhoneFallbackLayout.MAX_ROW, "fond suivant trop haut : " + fond);
-        // Titre, points (6 px au plus) et une ligne de message au-dessus.
-        int texte = zone.y() + 6 + LH + 6 + 6 + 6 + LH + 2;
+        // Le texte du choix du code (une ligne de message), tel que drawCode le dessine.
+        int texte = PhoneFallbackLayout.codeText(zone, LH, 1).bottom();
         assertTrue(fond.y() >= texte, "fond suivant sur le texte du code : " + fond + ", texte jusqu'à " + texte);
         for (Rect t : PhoneFallbackLayout.keypad(zone)) {
             assertFalse(chevauche(fond, t), "fond suivant sur la touche " + t);
             assertTrue(fond.y() + fond.height() < t.y(), "fond suivant sous le haut du clavier : " + fond + " / " + t);
         }
+    }
+
+    /**
+     * Le texte de l'écran du code ({@code drawCode} dessine aux positions de {@code codeText}) : titre, points, puis
+     * chaque ligne de message entière (hauteur de police) avant {@code bottom}, sans chevauchement ; le clavier et le
+     * bouton « Fond suivant » commencent sous {@code bottom}. Une ligne oubliée dans {@code bottom} fait passer le bouton
+     * ou le clavier sur le texte.
+     */
+    @ParameterizedTest(name = "interface {0} x {1}")
+    @CsvSource({"320, 240", "427, 240", "480, 270", "640, 328", "640, 360", "960, 540", "1920, 1080", "320, 480"})
+    void leTexteDuCodeSArreteAvantLeBoutonEtLeClavier(int w, int h) {
+        Rect zone = inner(w, h);
+        for (int lignes = 1; lignes <= 2; lignes++) {
+            PhoneFallbackLayout.CodeText t = PhoneFallbackLayout.codeText(zone, LH, lignes);
+            assertTrue(t.titleY() >= zone.y(), "titre hors de la zone");
+            assertTrue(t.dotsY() >= t.titleY() + LH, "points sur le titre");
+            assertTrue(t.dot() >= 3 && t.dot() <= 6, "points de " + t.dot() + " px");
+            assertTrue(t.messageY() >= t.dotsY() + t.dot(), "message sur les points");
+            assertTrue(t.lineStep() >= LH, "lignes de message qui se chevauchent : pas de " + t.lineStep());
+            int derniere = t.messageY() + (lignes - 1) * t.lineStep() + LH;
+            assertTrue(t.bottom() >= derniere, lignes + " ligne(s) : texte jusqu'à " + derniere + ", bas annoncé "
+                    + t.bottom());
+        }
+        assertTrue(PhoneFallbackLayout.keypad(zone).get(0).y() >= PhoneFallbackLayout.codeText(zone, LH, 2).bottom(),
+                "clavier sur les deux lignes du blocage");
+        assertTrue(PhoneFallbackLayout.setupWallpaper(zone, LH).y() >= PhoneFallbackLayout.codeText(zone, LH, 1).bottom(),
+                "« Fond suivant » sur la ligne de message");
     }
 
     @Test

@@ -62,12 +62,33 @@ public final class PhoneFallbackLayout {
     }
 
     /**
+     * Le texte de l'écran du code, de haut en bas : titre, points ({@code dot} px de côté), puis {@code lines} lignes de
+     * message (une ; deux pendant un blocage : « bloqué » et le décompte), espacées de 2 px. {@code bottom} est le
+     * premier y libre sous le texte. {@code PhoneFallbackScreen.drawCode} dessine à ces positions.
+     */
+    public record CodeText(int titleY, int dotsY, int dot, int messageY, int lineStep, int bottom) {}
+
+    /** Le côté des points du code : 1/20 de la largeur utile, de 3 à 6 px. */
+    public static int codeDot(Rect inner) {
+        return Math.max(3, Math.min(6, inner.width() / 20));
+    }
+
+    public static CodeText codeText(Rect inner, int lineHeight, int lines) {
+        int dot = codeDot(inner);
+        int titleY = inner.y() + 6;
+        int dotsY = titleY + lineHeight + 6;
+        int messageY = dotsY + dot + 6;
+        int lineStep = lineHeight + 2;
+        return new CodeText(titleY, dotsY, dot, messageY, lineStep, messageY + lines * lineStep);
+    }
+
+    /**
      * Le bouton « Fond suivant » du choix du code (téléphone neuf) : toute la largeur, centré dans l'espace entre le
-     * texte du code (titre, points de 6 px au plus, une ligne de message : un téléphone neuf ne peut pas être bloqué)
-     * et le haut du clavier, de {@value #MIN_ROW} à {@value #MAX_ROW} px de haut.
+     * texte du code ({@link #codeText} avec une ligne de message : un téléphone neuf ne peut pas être bloqué) et le
+     * haut du clavier, de {@value #MIN_ROW} à {@value #MAX_ROW} px de haut.
      */
     public static Rect setupWallpaper(Rect inner, int lineHeight) {
-        int text = inner.y() + 6 + lineHeight + 6 + 6 + 6 + lineHeight + 2;
+        int text = codeText(inner, lineHeight, 1).bottom();
         int keypadTop = keypad(inner).get(0).y();
         int room = keypadTop - text - 2 * KEY_GAP;
         int h = clamp(room);
