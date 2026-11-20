@@ -70,8 +70,11 @@ public final class AntennaChunks {
         }
         PhoneOperators registry = PhoneOperators.get(level.getServer());
         for (AntennaRecord antenna : registry.antennas()) {
-            if (antenna.dimension().equals(level.dimension()) && antenna.pos().equals(pos)) {
-                return registry.byId(antenna.operatorId()).isPresent();
+            // Plusieurs inscriptions peuvent se trouver à une place (une laissée par un opérateur retiré) : une seule
+            // d'un opérateur existant suffit.
+            if (antenna.dimension().equals(level.dimension()) && antenna.pos().equals(pos)
+                    && registry.byId(antenna.operatorId()).isPresent()) {
+                return true;
             }
         }
         return false;

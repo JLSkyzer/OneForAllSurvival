@@ -143,9 +143,10 @@ public final class AntennaBlockEntity extends ElectricMachineBlockEntity {
 
     /**
      * Note le tic au registre (inscrite seulement) : en marche ou non, vue maintenant, ce qui a été payé (rien hors de
-     * la marche) et le détail du coût. Puis, toutes les {@value #SYNC_TICKS} tics, revoit le ticket de son chunk : posé
-     * si elle a lieu de le tenir ({@link AntennaChunks#keeps}), rendu sinon (réglage coupé, opérateur ou inscription
-     * disparus).
+     * la marche) et le détail du coût. Puis, toutes les {@value #SYNC_TICKS} tics : une antenne encore sans opérateur
+     * dont le poseur en a fondé un depuis le rejoint (comme si elle avait été posée après la fondation : le poseur est le
+     * fondateur, donc un ayant droit) ; et le ticket de son chunk est revu, posé si elle a lieu de le tenir (réglage,
+     * inscription, opérateur existant), rendu sinon.
      */
     @Override
     protected void afterTick(Level level, MachineState tickState) {
@@ -159,7 +160,15 @@ public final class AntennaBlockEntity extends ElectricMachineBlockEntity {
                     running ? breakdown.total() : 0, breakdown);
         }
         if (Math.floorMod(server.getGameTime() + worldPosition.hashCode(), SYNC_TICKS) == 0) {
-            if (mine.isPresent() && AntennaChunks.keeps(server, worldPosition)) {
+            if (operatorId == null && placer != null) {
+                PhoneOperators registry = PhoneOperators.get(server.getServer());
+                Optional<PhoneOperator> founded = registry.byFounder(placer);
+                if (founded.isPresent()) {
+                    AntennaBlock.inscribe(server, worldPosition, this, founded.get().id());
+                    mine = record();
+                }
+            }
+            if (mine.isPresent() && PhoneConfig.antennaKeepsChunkLoaded() && operator().isPresent()) {
                 AntennaChunks.hold(server, worldPosition);
             } else {
                 AntennaChunks.release(server, worldPosition);

@@ -79,6 +79,7 @@ public final class AntenneGameTests {
     private static final BlockPos B = new BlockPos(5, 0, 2);
     private static final BlockPos C = new BlockPos(2, 0, 5);
     private static final BlockPos D = new BlockPos(5, 0, 6);
+    private static final BlockPos E = new BlockPos(6, 0, 4);
     private static final Vec3 JOUEUR = new Vec3(4.5, 0, 4.5);
 
     /** La forme attendue, écrite en clair (semelle 10 x 2 x 10, mât 4 x 16 x 4, centrés). */
@@ -348,9 +349,14 @@ public final class AntenneGameTests {
 
     @GameTest(template = "test/plancher", batch = LOT_A)
     public static void poserPuisNommerFondeLOperateur(GameTestHelper helper) {
-        try (Essai essai = new Essai(helper)) {
+        Essai essai = new Essai(helper);
+        String[] operateur = new String[1];
+        UUID[] tiers = new UUID[1];
+        try {
             JoueurDeTest fondateur = essai.joueur("an_fonde_a");
             JoueurDeTest autre = essai.joueur("an_fonde_b");
+            JoueurDeTest voisin = essai.joueur("an_fonde_c");
+            tiers[0] = voisin.uuid();
             PhoneOperators registre = essai.registre();
             ServerLevel level = helper.getLevel();
 
@@ -379,8 +385,9 @@ public final class AntenneGameTests {
             helper.assertTrue(AntennaBlock.found(autre.joueur(), absA, "Usurpateur").isEmpty(),
                     "un citoyen ne fonde pas l'antenne d'un autre");
 
-            // Une seconde antenne posée avant la fondation reste à fonder.
+            // Une seconde antenne posée avant la fondation (elle la rejoindra), et celle d'un tiers sans opérateur.
             helper.assertTrue(poser(helper, fondateur.joueur(), B, objetNeuf()).consumesAction(), "seconde pose");
+            helper.assertTrue(poser(helper, voisin.joueur(), E, objetNeuf()).consumesAction(), "pose du tiers");
 
             Optional<PhoneOperators.Result> fonde = AntennaBlock.found(fondateur.joueur(), absA, "  Réseau Ouest ");
             helper.assertTrue(fonde.isPresent() && fonde.get().founded(), "fondation : " + fonde);
@@ -398,9 +405,8 @@ public final class AntenneGameTests {
                     "une antenne fondée ne se refonde pas");
 
             // Un second opérateur du même joueur est refusé.
-            helper.assertTrue(AntennaBlock.found(fondateur.joueur(), helper.absolutePos(B), "Second Réseau")
-                    .map(PhoneOperators.Result::status).equals(Optional.of(PhoneOperators.Status.ALREADY_HAS_ONE)),
-                    "un seul opérateur par joueur");
+            helper.assertTrue(registre.found(fondateur.uuid(), "an_fonde_a", "Second Réseau", 0L).status()
+                    == PhoneOperators.Status.ALREADY_HAS_ONE, "un seul opérateur par joueur");
             helper.assertTrue(registre.byName("Second Réseau").isEmpty(), "rien ne devait être fondé");
 
             // Une antenne posée ensuite par le fondateur rejoint son opérateur.
@@ -408,11 +414,38 @@ public final class AntenneGameTests {
             AntennaBlockEntity seconde = antenne(helper, D);
             helper.assertTrue(op.id().equals(seconde.operatorId()) && inscription(registre, seconde).isPresent(),
                     "la seconde antenne du fondateur rejoint son opérateur");
-            helper.assertTrue(registre.antennasOf(op.id()).size() == 2
-                    && be.antennaId().equals(exiger(helper, registre.byId(op.id()), "opérateur absent").mainAntenna()),
-                    "deux antennes, la principale ne change pas");
-            helper.succeed();
+            operateur[0] = op.id();
+            essai.quitterTous();
+        } catch (RuntimeException e) {
+            essai.close();
+            throw e;
         }
+        // Au plus une révision (20 tics) plus tard : l'antenne posée avant la fondation a rejoint l'opérateur ; celle du
+        // tiers, dont le poseur n'a pas d'opérateur, reste à fonder (« Mairie », fondé par un autre, ne l'emporte pas).
+        helper.startSequence()
+                .thenIdle(AntennaBlockEntity.SYNC_TICKS + 2)
+                .thenExecute(() -> {
+                    try {
+                        PhoneOperators registre = essai.registre();
+                        AntennaBlockEntity premiere = antenne(helper, A);
+                        AntennaBlockEntity avant = antenne(helper, B);
+                        helper.assertTrue(operateur[0].equals(avant.operatorId())
+                                && inscription(registre, avant).isPresent(),
+                                "l'antenne posée avant la fondation doit avoir rejoint l'opérateur : " + avant.operatorId());
+                        helper.assertTrue(AntennaChunks.isHeld(helper.getLevel(), helper.absolutePos(B)),
+                                "elle tient son chunk");
+                        helper.assertTrue(registre.antennasOf(operateur[0]).size() == 3 && premiere.antennaId().equals(
+                                exiger(helper, registre.byId(operateur[0]), "opérateur absent").mainAntenna()),
+                                "trois antennes, la principale reste la première");
+                        AntennaBlockEntity duTiers = antenne(helper, E);
+                        helper.assertTrue(duTiers.operatorId() == null && tiers[0].equals(duTiers.placer())
+                                && !inscriteEn(registre, helper.getLevel(), helper.absolutePos(E)),
+                                "l'antenne du tiers reste à fonder : " + duTiers.operatorId());
+                    } finally {
+                        essai.close();
+                    }
+                })
+                .thenSucceed();
     }
 
 
@@ -590,13 +623,15 @@ public final class AntenneGameTests {
                 .thenExecute(() -> {
                     try {
                         AntennaBlockEntity be = antenne(helper, A);
-                        helper.assertTrue(level.getGameTime() - coupure[0] >= 40, "40 tics au moins depuis la coupure");
+                        // Hors service dès la coupure : running est faux au premier tic sans courant. L'attente de 40 tics
+                        // ne prouve pas la date du service, gardée par sansChunkForceUneAntenneDechargeeEstHorsTension.
+                        helper.assertTrue(level.getGameTime() - coupure[0] >= 40, "attente du brief (40 tics) non tenue");
                         helper.assertTrue(be.state() == MachineState.NO_POWER, "NO_POWER attendu, vu " + be.state());
                         helper.assertTrue(etatDuBloc(helper, A) == MachineState.NO_POWER, "voyant éteint : état du bloc "
                                 + etatDuBloc(helper, A));
                         AntennaRecord r = exiger(helper, inscription(essai.registre(), be), "inscription absente");
                         helper.assertTrue(!r.running() && !AntennaBlockEntity.inService(r, level.getGameTime()),
-                                "hors service : " + r);
+                                "hors service (non en marche), 40 tics après la coupure : " + r);
                         helper.assertTrue(level.getGameTime() - r.seenGameTime() <= 1,
                                 "l'antenne tique encore et se dit vue : " + r.seenGameTime());
                     } finally {
@@ -742,28 +777,72 @@ public final class AntenneGameTests {
         try (Essai essai = new Essai(helper)) {
             JoueurDeTest fondateur = essai.joueur("an_tickets");
             PhoneOperators registre = essai.registre();
+            // Trois antennes : deux dans un même chunk (p1 et p2, un bloc d'écart dans ce chunk), une dans un autre.
             BlockPos p1 = loin(helper, 256);
-            BlockPos p2 = loin(helper, 288);
+            BlockPos p2 = new BlockPos((p1.getX() & ~15) | ((p1.getX() + 1) & 15), p1.getY(), p1.getZ());
+            BlockPos p3 = loin(helper, 288);
+            helper.assertTrue(!p1.equals(p2) && (p1.getX() >> 4) == (p2.getX() >> 4) && (p3.getX() >> 4) != (p1.getX() >> 4),
+                    "montage : p1 et p2 dans un même chunk, p3 ailleurs");
             AntennaBlockEntity premiere = poserLoin(essai, level, fondateur, p1);
             helper.assertTrue(AntennaBlock.found(fondateur.joueur(), p1, "Tickets Rendus")
                     .map(PhoneOperators.Result::founded).orElse(false), "fondation");
             AntennaBlockEntity seconde = poserLoin(essai, level, fondateur, p2);
-            helper.assertTrue(seconde.operatorId() != null && seconde.operatorId().equals(premiere.operatorId()),
-                    "la seconde rejoint l'opérateur");
-            helper.assertTrue(AntennaChunks.isHeld(level, p1) && AntennaChunks.isHeld(level, p2), "deux tickets tenus");
+            AntennaBlockEntity troisieme = poserLoin(essai, level, fondateur, p3);
+            helper.assertTrue(premiere.operatorId().equals(seconde.operatorId())
+                    && premiere.operatorId().equals(troisieme.operatorId()), "les deux autres rejoignent l'opérateur");
+            helper.assertTrue(AntennaChunks.isHeld(level, p1) && AntennaChunks.isHeld(level, p2)
+                    && AntennaChunks.isHeld(level, p3), "trois tickets tenus");
 
-            // L'inscription retirée à la main : la validation rend son ticket, et garde celui de l'autre.
+            // Casse normale de la seconde : son ticket seul est rendu, la première garde le sien et le chunk tique.
+            level.setBlock(p2, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+            helper.assertTrue(!AntennaChunks.isHeld(level, p2), "ticket rendu à la casse");
+            helper.assertTrue(registre.antenna(seconde.antennaId()).isEmpty(), "inscription effacée à la casse");
+            helper.assertTrue(AntennaChunks.isHeld(level, p1), "la voisine du même chunk garde son ticket");
+
+            // L'inscription de la première retirée à la main : la validation rend son ticket, garde celui de la
+            // troisième.
             registre.removeAntenna(premiere.antennaId());
             helper.assertTrue(AntennaChunks.isHeld(level, p1), "rien ne bouge avant la validation");
             int rendus = AntennaChunks.validate(level);
             helper.assertTrue(rendus >= 1 && !AntennaChunks.isHeld(level, p1), "ticket rendu par la validation : " + rendus);
-            helper.assertTrue(AntennaChunks.isHeld(level, p2), "le ticket d'une antenne inscrite reste");
-
-            // Casse normale : ticket rendu aussitôt, inscription effacée.
-            level.setBlock(p2, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
-            helper.assertTrue(!AntennaChunks.isHeld(level, p2), "ticket rendu à la casse");
-            helper.assertTrue(registre.antenna(seconde.antennaId()).isEmpty(), "inscription effacée à la casse");
+            helper.assertTrue(AntennaChunks.isHeld(level, p3), "le ticket d'une antenne inscrite reste");
             helper.succeed();
+        }
+    }
+
+    /**
+     * Un opérateur retiré laisse l'inscription de son antenne (le registre ne la retire pas) ; l'antenne refondée sous un
+     * nouvel opérateur efface cette inscription fantôme, et son ticket tient même si une autre inscription d'un opérateur
+     * disparu se trouve avant la sienne à la même place (la validation le garde).
+     */
+    @GameTest(template = "test/plancher", batch = LOT_CHUNK)
+    public static void uneAntenneRefondeeGardeSonTicket(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos absA = helper.absolutePos(A);
+        UUID etrangere = UUID.randomUUID();
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest fondateur = essai.joueur("an_refonde");
+            PhoneOperators registre = essai.registre();
+            // Une inscription d'un opérateur qui n'existe pas, à cette place, reçue la première par le registre.
+            registre.putAntenna(new AntennaRecord(etrangere, "000000000000", level.dimension(), absA, 0L, false, 0L, 0L,
+                    0L, null));
+            PhoneOperator ancien = fonder(helper, fondateur, A, "Premier Réseau");
+            UUID ancienne = antenne(helper, A).antennaId();
+            helper.assertTrue(registre.remove(ancien.id()), "retrait de l'opérateur");
+            helper.assertTrue(registre.antenna(ancienne).isPresent(), "l'inscription de l'opérateur retiré reste au registre");
+
+            Optional<PhoneOperators.Result> refonde = AntennaBlock.found(fondateur.joueur(), absA, "Second Réseau");
+            helper.assertTrue(refonde.isPresent() && refonde.get().founded(), "refondation : " + refonde);
+            helper.assertTrue(registre.antenna(ancienne).isEmpty(), "l'inscription fantôme de l'ancien opérateur est effacée");
+            long vivantes = registre.antennas().stream().filter(r -> r.dimension().equals(level.dimension())
+                    && r.pos().equals(absA) && registre.byId(r.operatorId()).isPresent()).count();
+            helper.assertTrue(vivantes == 1, "une seule inscription d'un opérateur existant à cette place, vu " + vivantes);
+            helper.assertTrue(AntennaChunks.keeps(level, absA), "le ticket a lieu d'être");
+            AntennaChunks.validate(level);
+            helper.assertTrue(AntennaChunks.isHeld(level, absA), "la validation garde le ticket de l'antenne refondée");
+            helper.succeed();
+        } finally {
+            PhoneOperators.get(level.getServer()).removeAntenna(etrangere);
         }
     }
 

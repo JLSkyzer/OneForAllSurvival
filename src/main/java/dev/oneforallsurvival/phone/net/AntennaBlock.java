@@ -129,8 +129,12 @@ public final class AntennaBlock extends ElectricMachineBlock {
         }
     }
 
-    /** Inscrit l'antenne en {@code pos} au registre sous un identifiant neuf, pour cet opérateur, et tient son chunk. */
-    private static void inscribe(ServerLevel level, BlockPos pos, AntennaBlockEntity be, String operatorId) {
+    /**
+     * Inscrit l'antenne en {@code pos} au registre sous un identifiant neuf, pour cet opérateur, et tient son chunk. Aussi
+     * appelé par l'antenne elle-même quand son poseur a fondé un opérateur depuis la pose
+     * ({@link AntennaBlockEntity#afterTick}).
+     */
+    static void inscribe(ServerLevel level, BlockPos pos, AntennaBlockEntity be, String operatorId) {
         UUID id = UUID.randomUUID();
         be.attach(operatorId, id);
         PhoneOperators.get(level.getServer()).putAntenna(new AntennaRecord(id, operatorId, level.dimension(), pos,
@@ -161,6 +165,8 @@ public final class AntennaBlock extends ElectricMachineBlock {
         PhoneOperators registry = PhoneOperators.get(level.getServer());
         PhoneOperators.Result result = registry.found(founder, founderName, name, EconomyClock.now());
         if (result.founded()) {
+            // Une inscription laissée à cette place par un opérateur retiré depuis ne doit pas survivre en fantôme.
+            be.record().ifPresent(ghost -> registry.removeAntenna(ghost.id()));
             inscribe(level, pos, be, result.operator().id());
             registry.setMainAntenna(result.operator().id(), be.antennaId());
             LOGGER.info("Telephone : operateur {} fonde par {} pour {}, antenne en {}", result.operator().name(),
