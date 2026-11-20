@@ -4,35 +4,37 @@
 
 **Goal:** Les 25 documents HTML de lore de Killian se posent sur la map par le staff, sous forme de documents posés, de post-it et d'ordinateurs Nova Corps à mots de passe, et s'affichent en vrai HTML dans le jeu par MCEF.
 
-**Architecture :** un nouveau paquet `dev.oneforallsurvival.lore` (serveur et commun : catalogue, blocs, entités, règles, paquets) et `lore/client` (écrans). Le socle navigateur, réutilisable par le téléphone, vit dans `client/web`. Les pages sont des ressources du mod servies par le schéma `mod://` de MCEF. Le serveur fait foi pour tout état : texte des post-it, arborescence des postes, mots de passe, verrous. Le bureau de l'ordinateur est une page HTML/JS du mod qui parle au serveur par un pont JavaScript → Java → paquet.
+**Architecture :** un nouveau paquet `dev.oneforallsurvival.lore` (serveur et commun : catalogue, blocs, entités, règles, paquets) et `lore/client` (écrans). Le socle navigateur vit dans `client/web` : le lot T1 du téléphone l'a livré (voir [sa vérification](../../verifications/lot-t1.md)), le lore le réutilise sans le reconstruire. Les pages sont des ressources du mod servies par le schéma `mod://` de MCEF. Le serveur fait foi pour tout état : texte des post-it, arborescence des postes, mots de passe, verrous. Le bureau de l'ordinateur est une page HTML/JS du mod qui parle au serveur par un pont JavaScript → Java → paquet.
 
-**Tech Stack :** Forge 1.20.1-47.4.28, Java 17, ForgeGradle 6, MCEF 2.2.0-1.20.1 (fork Keksuccino, `de.keksuccino:mcef-forge:2.2.0-1.20.1`, mod_id `mcef`, Chromium 116, LGPL), JCEF `CefMessageRouter`, JUnit 5, GameTests, Python/PIL pour les textures.
+**Tech Stack :** Forge 1.20.1-47.4.28, Java 17, ForgeGradle 6, MCEF 2.1.6-1.20.1 de CinemaMod (`maven.modrinth:mcef:x91l6OKB`, mod_id `mcef`, déjà dans le pack et déjà déclaré par le lot T1), JCEF `CefMessageRouter` (le routeur `oneforallQuery` du socle), JUnit 5, GameTests, Python/PIL pour les textures.
 
 **Spec :** `docs/superpowers/specs/2026-11-15-documents-de-lore-design.md` (toutes les sections ; § 11 liste les décisions de Killian et les choix de l'auteur).
 
 ## Écarts assumés par rapport à la spec
 
-Trouvés en vérifiant l'API de MCEF le 2026-11-15 (code de la branche `1.20.1-legacy` de github.com/Keksuccino/Rinku) :
-- **Chemin des pages :** `src/main/resources/assets/oneforallsurvival/html/lore/<catégorie>/<id>.html` et non `assets/oneforallsurvival/lore/…` : le schéma `mod://oneforallsurvival/<chemin>` de MCEF sert `/assets/<modid>/html/<chemin>`.
-- **Noms de fichiers en minuscules :** MCEF passe le chemin en minuscules (`arr-004.html`). L'identifiant affiché reste `ARR-004`. Catégories : `arrival`, `mathis`, `enregistrements`.
-- **Fork renommé :** le projet s'appelle aujourd'hui Rinku (3.x, Chromium 151, autre API et mod_id `rinku`). On reste sur la **2.2.0**, dernière « MCEF », dont l'API est lue. Passer à Rinku est un chantier à part.
+Trouvés en vérifiant l'API de MCEF le 2026-11-15 (code du fork de Keksuccino), puis revérifiés sur MCEF 2.1.6 par le lot T1 le 2026-11-19 (lecture du jar, essais réels) :
+- **Chemin des pages :** `src/main/resources/assets/oneforallsurvival/html/lore/<catégorie>/<id>.html` et non `assets/oneforallsurvival/lore/…` : le schéma `mod://oneforallsurvival/<chemin>` de MCEF sert `/assets/<modid>/html/<chemin>`. Le lot T1 l'a vu servir sur la 2.1.6 (`mod://oneforallsurvival/web/selftest.html`, code 200) : **schéma `mod://` retenu, sans bascule vers `https://oneforallsurvival.local/`**.
+- **Noms de fichiers en minuscules :** MCEF passe le chemin en minuscules (`arr-004.html`) ; `WebPages.url` du socle refuse toute majuscule et `WebResourcesTest` tout chemin non minuscule de `html/`. L'identifiant affiché reste `ARR-004`. Catégories : `arrival`, `mathis`, `enregistrements`.
+- **MCEF 2.1.6, pas la 2.2.0 :** décision de Killian du 2026-11-19 (WebDisplays, déjà dans le pack, s'appuie sur la 2.1.6). `mods.toml` déclare `[2.1.6,2.2)` : la 2.2 et plus (le fork de Keksuccino, devenu Rinku en 3.x, mod_id `rinku`, autre API) serait refusée. Passer à Rinku est un chantier à part, qui toucherait aussi le téléphone.
+- **Socle navigateur déjà livré (lot T1) :** dépendance Gradle et `mods.toml`, `WebAvailability`, `WebScreen`, `WebBridge`, `WebPages`, pont JavaScript (`web/bridge.js`), repli, isolation de MCEF dans `client/web/mcef/`, garde `WebResourcesTest` des pages de `html/`. Ce plan s'en sert ; la tâche 3 n'ajoute que ce qui est propre au lore.
+- **À trancher avant la tâche 1 :** `WebResourcesTest` exige que **chaque** page `.html` de `html/` porte la CSP du socle (`default-src mod: 'unsafe-inline'; img-src mod: data:; connect-src 'none'`) et qu'aucun fichier texte n'y contienne `http://` ni `https://` ; les pages de Killian n'ont pas de CSP (relevé : 0 sur les trois dossiers retenus) et ne doivent pas être modifiées. Il faut décider comment les deux règles s'accordent (garde limitée au dossier du socle et des pages du mod, ou CSP posée à l'affichage) avant de copier les 25 pages dans `html/lore/`.
 
 ## Global Constraints
 
 - Contraintes communes du dépôt (voir « Global Constraints » de `docs/superpowers/plans/2026-11-14-lot-e3-tresor-salaires.md`) : ASCII dans `gradle.properties` ; aucune classe cliente atteignable du serveur (écrans, MCEF et rendu dans `lore/client` ou `client/web`, appelés par `DistExecutor`) ; textes dans `fr_fr.json` avec repli `en_us.json`, accents corrects, jamais « SolarTown » ; `DeferredRegister` ; textures produites par script Python/PIL (`tools/gen_textures_lore.py`) ; lots de 8 GameTests au plus ; `JoueurDeTest` pour tout joueur d'essai ; « le staff » = `hasPermissions(2)` ; un client n'est jamais cru sur parole ; « vérifier puis engager ».
 - **Le HTML de Killian n'est jamais modifié.** Copie octet pour octet ; seul le nom de fichier passe en minuscules.
 - **Documents en jeu : 25** (dossier trié par Killian le 2026-11-15) = 11 de `04_PROGRAMME_ARRIVAL` (`ARR-001` à `ARR-010`, `ARV-001`) + 9 de `05_MATHIS_DELCOURT` (`MAT-001` à `MAT-009`) + 5 de `06_ENREGISTREMENTS` (`AUD-001` à `AUD-004`, `COM-001`). Exclus : `INDEX.html` (cite encore des documents retirés) et le PDF.
-- **MCEF facultatif côté client :** `mods.toml` déclare `modId="mcef"`, `mandatory=false`, `side="CLIENT"`, `versionRange="[2.2.0,)"`. Aucune classe `com.cinemamod.mcef` n'est chargée sans `ModList.get().isLoaded("mcef")`. Le serveur ne l'exige pas.
-- **Repli :** MCEF absent, non initialisé ou en échec → document ouvert dans le navigateur du système ; joueur prévenu une fois par session (`lore.web.fallback_notice`).
-- **Pas d'accès réseau** depuis les pages : seuls `mod://oneforallsurvival/…` et `about:blank` sont chargés ; toute autre navigation est annulée.
+- **MCEF facultatif côté client (déjà fait par le lot T1) :** `mods.toml` déclare `modId="mcef"`, `mandatory=false`, `side="CLIENT"`, `versionRange="[2.1.6,2.2)"`. Aucune classe de `com.cinemamod` ni de `org.cef` hors de `client/web/mcef/` (garde `McefIsolationTest`) ; `WebAvailability` ne touche MCEF qu'après `ModList.get().isLoaded("mcef")`. Le serveur ne l'exige pas (il démarre sans, prouvé au lot T1). `-PwithMcef` ne va qu'avec un client.
+- **Repli :** MCEF absent, non initialisé ou en échec → document ouvert dans le navigateur du système ; joueur prévenu une fois par session par `WebFallbackNotice.warnOnce` du socle (clés `message.oneforallsurvival.web.fallback.*`).
+- **Pas d'accès réseau** depuis les pages : seuls `mod://oneforallsurvival/…` et `about:blank` sont chargés ; toute autre navigation est annulée (garanti par le socle : `WebPages.isAllowed`, adresse principale ramenée à la page de départ, et CSP de chaque page).
 - **Bornes :** nom de poste et de dossier 32 caractères, mot de passe 64, texte de post-it 256, heure figée `HH:mm`, profondeur des dossiers 4, 64 nœuds par poste. Texte venant du staff toujours échappé avant d'entrer dans une page.
 - **Distance :** toute action réseau sur un bloc exige le joueur à 8 blocs au plus du bloc, dans la même dimension.
 - **Date figée du bureau :** `17/11/1998` (constante). Heure par défaut `08:00`, réglable par poste.
 - **Comparaison des mots de passe :** minuscules, accents retirés (`Normalizer` NFD puis suppression des diacritiques), espaces de début et de fin retirés. Le mot de passe n'est jamais envoyé au client.
-- **Réseau :** nouveaux identifiants sur `BenchNetwork`, pris à la suite du dernier existant au moment de la tâche (22 à la rédaction) : `ID_LORE_OPEN`, `ID_POSTIT_EDIT`, `ID_COMPUTER_VIEW`, `ID_COMPUTER_ACTION`, `ID_COMPUTER_FILE`. Protocole monté **une seule fois** (tâche 3).
+- **Réseau :** nouveaux identifiants sur `BenchNetwork`, pris à la suite du dernier existant au moment de la tâche (le téléphone a pris 26 et 27 ; protocole à `"10"` après le lot T1) : `ID_LORE_OPEN`, `ID_POSTIT_EDIT`, `ID_COMPUTER_VIEW`, `ID_COMPUTER_ACTION`, `ID_COMPUTER_FILE`. Protocole monté **une seule fois** (tâche 3).
 - **Preuve des tests :** `./gradlew --offline test runGameTestServer`, puis `./gradlew --offline runGameTestServer -PwithPack` ; lire « All N required tests passed » dans `run-gametest/logs/latest.log` et `build/test-results/test/*.xml`, jamais le seul code de sortie.
 - **Tout lancement de Minecraft** (GameTests, client, captures) suit la procédure du verrou : section 11 de `C:/Users/killi/.claude/CLAUDE.md` (points 1 à 8). Fenêtres d'essai sur le second écran. Un client lancé ne doit jamais capturer la souris (garde `dev/SourisLibre`).
-- **Téléchargements :** seules les dépendances résolues par Gradle sont permises sans demander. Les binaires Chromium sont téléchargés par MCEF lui-même au premier lancement d'un client.
+- **Téléchargements :** seules les dépendances résolues par Gradle sont permises sans demander. **Chromium n'est pas téléchargé en développement** : copié depuis l'installation du launcher dans `run-mcef/mcef-libraries` (jamais commité) et recopié par la tâche `prepareMcefLibraries` avec `-PwithMcef` (voir `docs/verifications/lot-t1.md`). MCEF 2.1.6 fait en plus, à chaque démarrage, une petite requête de somme de contrôle, acceptée par Killian.
 
 ## Review Focus
 
@@ -106,30 +108,34 @@ Trouvés en vérifiant l'API de MCEF le 2026-11-15 (code de la branche `1.20.1-l
 - [ ] **Step 4 : vérifier** — attendu : « All N required tests passed », les 7 nouveaux compris.
 - [ ] **Step 5 : commit** — `feat(lore): document pose et onglet du staff`.
 
-### Task 3 : socle navigateur et ouverture d'un document
+### Task 3 : ouverture d'un document sur le socle du lot T1
+
+Le socle navigateur (dépendance MCEF 2.1.6, `mods.toml`, `WebScreen`, `WebBridge`, pont, repli) est **déjà livré par le lot T1** : cette tâche ne le reconstruit pas, elle ajoute l'ouverture d'un document.
 
 **Files :**
-- Modify : `build.gradle` (dépôt `https://keksuccino.github.io/maven/` restreint au groupe `de.keksuccino` ; `compileOnly fg.deobf("de.keksuccino:mcef-forge:2.2.0-1.20.1")` et `runtimeOnly` pour les lancements de dev), `src/main/resources/META-INF/mods.toml` (dépendance facultative, voir Global Constraints)
-- Create : `client/web/WebAvailability.java`, `client/web/WebScreen.java`, `client/web/WebBridge.java`, `client/web/SystemBrowserFallback.java`
-- Create : `lore/LoreNetwork.java` (paquets du lore, enregistrés sur `BenchNetwork.CHANNEL`), `lore/client/LoreClient.java`
 - Modify : `bench/BenchNetwork.java` (identifiants, montée du protocole)
+- Create : `client/web/SystemBrowserFallback.java`, `lore/LoreNetwork.java` (paquets du lore, enregistrés sur `BenchNetwork.CHANNEL`), `lore/client/LoreClient.java`, `lore/client/LoreWebScreen.java`
 - Test : `src/test/java/dev/oneforallsurvival/client/web/SystemBrowserFallbackTest.java`
+- Ni `build.gradle` ni `mods.toml` : MCEF y est déjà (`compileOnly` ; `runtimeOnly` avec `-PwithMcef`).
 
 **Interfaces :**
-- Consumes : `LoreCatalog`, `LoreDocument.url()` (tâche 1) ; `LoreNetwork.openDocument` (déclaré tâche 2).
+- Consumes (socle du lot T1, paquet `client/web`) :
+  - `abstract class WebScreen extends Screen` : constructeur `WebScreen(Component title, String page, WebBridge bridge)` ; la sous-classe donne `frame(int guiWidth, int guiHeight)` (cadre de la page, en coordonnées d'interface) et `onFallback(WebFailure)` (appelé une fois au plus, jamais après la fermeture, différé d'un tic s'il est décidé pendant `init`) ; `drawFrame`, `scale()` (1 = un pixel CSS par pixel réel), `run(String script)` ; souris relayée dans le cadre, clavier toujours, Échap ferme ; sans signal `{"a":"ready"}` de la page dans les 100 ticks, repli `NO_READY`.
+  - `interface WebBridge { void onMessage(JsonObject message); default void onFailure(WebFailure failure) }` : un message est déjà passé par `WebMessage.parse` (objet JSON strict, 4 096 caractères au plus, champ `a` chaîne de 1 à 32) ; la page l'envoie par `window.oneforall.send(message)` (`web/bridge.js`) ; le jeu appelle la page par `WebScript.call("fonction", args)` puis `run(...)`.
+  - `WebPages.url("lore/arrival/arr-004.html")` (minuscules, relatif, sans `..`) donne `mod://oneforallsurvival/lore/arrival/arr-004.html` ; `WebPages.isAllowed`.
+  - `WebAvailability.ready()` et `failure()` ; `WebFallbackNotice.warnOnce(WebFailure)` (un seul avis par session de jeu).
+  - `LoreCatalog`, `LoreDocument.url()` (tâche 1) ; `LoreNetwork.openDocument` (déclaré tâche 2).
 - Produces :
-  - `WebAvailability.isReady()` : `ModList.get().isLoaded("mcef")` puis, dans une classe chargée seulement dans ce cas, `MCEF.isInitialized()`.
-  - `class WebScreen extends Screen` : `WebScreen(Component title, String url, @Nullable WebBridge bridge)` ; navigateur plein écran (`MCEF.createBrowser(url, false)`), redimensionné à la fenêtre ; souris, molette, clavier et caractères relayés (coordonnées × `getGuiScale()`) ; dessin par `blit(getTextureLocation())` quand `isTextureReady()` ; Échap ferme ; `browser.close()` dans `removed()` ; toute navigation hors `mod://oneforallsurvival/` et `about:blank` annulée (gestionnaire de requêtes JCEF). Thème clair : les pages n'ont pas de `prefers-color-scheme` (vérifié) ; seuls les éléments natifs (barres de défilement) suivent le thème, à vérifier sur la capture et à forcer en clair si besoin, sans toucher aux fichiers de Killian.
-  - `interface WebBridge { void onMessage(String json, Consumer<String> reply); }` ; branché par `CefMessageRouter` (`window.cefQuery`) ; un seul routeur par `WebScreen`, retiré à la fermeture.
+  - `LoreWebScreen extends WebScreen` : cadre = toute la fenêtre, page = `LoreDocument.url()`, pont sans autre message utile que la fermeture ; `onFallback` ouvre le document dans le navigateur du système (ci-dessous). Les pages n'ont pas de `prefers-color-scheme` (vérifié) ; seuls les éléments natifs (barres de défilement) suivent le thème : à vérifier sur la capture et à forcer en clair si besoin, sans toucher aux fichiers de Killian.
   - `SystemBrowserFallback.open(String id, String html)` : écrit `<gameDir>/lostisland-lecture/<id>.html` (le dossier est vidé au lancement du client) et l'ouvre par `Util.getPlatform().openFile` ; `static Path pathFor(Path gameDir, String id)` (testable : refuse un identifiant contenant `/`, `\` ou `..`).
-  - Paquet `ID_LORE_OPEN` (serveur → client) : `String documentId`. `LoreNetwork.openDocument` l'envoie ; le client appelle `LoreClient.open(documentId)` qui ouvre `WebScreen` si `isReady()`, sinon lit la ressource et appelle `SystemBrowserFallback.open`, et affiche `lore.web.fallback_notice` une fois par session.
+  - Paquet `ID_LORE_OPEN` (serveur vers client) : `String documentId`. `LoreNetwork.openDocument` l'envoie ; le client appelle `LoreClient.open(documentId)` qui ouvre `LoreWebScreen` si `WebAvailability.ready()`, sinon lit la ressource, appelle `SystemBrowserFallback.open` et `WebFallbackNotice.warnOnce(WebAvailability.failure())`.
 
 - [ ] **Step 1 : écrire le test qui échoue** — `SystemBrowserFallbackTest` : `pathFor(dir, "ARR-004")` est dans `dir/lostisland-lecture` ; `pathFor(dir, "../x")` et `pathFor(dir, "a/b")` lèvent `IllegalArgumentException`.
 - [ ] **Step 2 : vérifier qu'il échoue** — `./gradlew --offline test --tests '*SystemBrowserFallbackTest*'`.
-- [ ] **Step 3 : implémenter** la dépendance Gradle, `mods.toml`, les quatre classes `client/web`, le paquet et `LoreClient`. Monter le protocole de `BenchNetwork` d'un cran (une seule fois pour tout ce plan) et réserver les cinq identifiants.
-- [ ] **Step 4 : vérifier les tests** — `./gradlew --offline test runGameTestServer` ; attendu : tout vert, le serveur d'essai démarre **sans** MCEF dans son chemin de classes (preuve que rien de MCEF n'est chargé côté serveur).
-- [ ] **Step 5 : vérifier en jeu** (procédure du verrou, second écran) : client de dev, poser `ARR-004`, clic droit → la page s'affiche ; défilement à la molette ; Échap ferme. Capturer et comparer à Chrome. Relancer sans MCEF (`runtimeOnly` retiré) → la page s'ouvre dans le navigateur du système et l'avis apparaît une fois.
-- [ ] **Step 6 : commit** — `feat(lore): socle navigateur MCEF et lecture des documents`.
+- [ ] **Step 3 : implémenter** `SystemBrowserFallback`, `LoreWebScreen`, le paquet et `LoreClient`. Monter le protocole de `BenchNetwork` d'un cran (une seule fois pour tout ce plan) et réserver les cinq identifiants à la suite du dernier existant.
+- [ ] **Step 4 : vérifier les tests** — `./gradlew --offline test runGameTestServer` ; attendu : tout vert, le serveur d'essai démarre **sans** MCEF dans son chemin de classes (preuve que rien de MCEF n'est chargé côté serveur) ; `McefIsolationTest` reste vert.
+- [ ] **Step 5 : vérifier en jeu** (procédure du verrou, second écran) : client de dev avec `-PwithPack -PwithMcef` (Chromium copié du launcher, jamais téléchargé), poser `ARR-004`, clic droit → la page s'affiche ; défilement à la molette ; Échap ferme. Capturer et comparer à Chrome. Relancer sans `-PwithMcef` → la page s'ouvre dans le navigateur du système et l'avis apparaît une fois. Jamais la touche F10 (exemple de MCEF qui ouvre une page externe).
+- [ ] **Step 6 : commit** — `feat(lore): ouverture des documents sur le socle navigateur`.
 
 ### Task 4 : le post-it
 
@@ -255,5 +261,5 @@ Trouvés en vérifiant l'API de MCEF le 2026-11-15 (code de la branche `1.20.1-l
 - [ ] **Step 1 : comparaison visuelle** — capturer en jeu et dans Chrome une page de chacun des 13 gabarits : `briefing` (`ARR-001`), `telemetry` (`ARR-002`), `matrix` (`ARR-003`), `fieldreport` (`ARR-004`), `directive` (`ARR-005`), `timeline` (`ARR-007`), `dossier` (`ARR-008`), `redacted` (`ARR-010`), `diary` (`MAT-001`), `report` (`MAT-004`), `agreement` (`MAT-006`), `transcript` (`AUD-001`), `waveform` (`AUD-002`) ; les mettre côte à côte dans `docs/verifications/lore.md`. Toute différence visible de mise en page est un défaut à corriger.
 - [ ] **Step 2 : suite complète** — `./gradlew --offline test runGameTestServer`, puis `-PwithPack` ; consigner les compteurs lus dans les journaux.
 - [ ] **Step 3 : Mac à puce Apple** — si un Mac est disponible, lancer le client et noter le résultat ; sinon, l'écrire comme non vérifié dans `docs/verifications/lore.md`.
-- [ ] **Step 4 : pack** — signaler à Killian que `mcef-forge-2.2.0-1.20.1.jar` doit être ajouté au dossier `mods` du pack (par l'admin « Fichiers du jeu » ou le logiciel de transfert) : c'est lui qui le dépose.
+- [ ] **Step 4 : pack** — MCEF 2.1.6 est déjà dans le pack (lot T1) : rien à ajouter ; contrôler seulement que la version du pack reste dans `[2.1.6,2.2)`.
 - [ ] **Step 5 : commit et push** — `docs(lore): preuve des documents de lore`.

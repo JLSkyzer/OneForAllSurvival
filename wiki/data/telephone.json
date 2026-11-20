@@ -21,24 +21,115 @@
       "id": "telephone",
       "name": "Téléphone",
       "kind": "objet",
-      "status": "prevu",
+      "status": "dispo",
       "lot": "Lot T1",
-      "image": null,
-      "what": "Objet porté, interface iOS, batterie et code de verrouillage à 4 chiffres.",
+      "image": {"type": "item", "file": "phone.png"},
+      "what": "Objet porté, protégé par un code à 4 chiffres, avec une batterie qui se vide écran allumé.",
       "who": {"fabrique": "Tous", "utilise": "Son porteur"},
       "steps": [
-        "Glisser une carte SIM depuis l'inventaire.",
-        "Recharger la batterie sur une prise FE.",
-        "Volé, il reste verrouillé ; urgences toujours possibles."
+        "Le fabriquer à la table de fabrication, sans métier : 4 pépites de fer, 1 verre, 2 redstone, 1 lingot de cuivre, 1 lingot de fer.",
+        "Clic droit : la première fois, il demande de choisir un code à 4 chiffres, puis de le confirmer ; celui qui le choisit devient le propriétaire.",
+        "Ensuite, l'écran verrouillé demande le code : cinq faux codes de suite le bloquent pendant 60 secondes.",
+        "Déverrouillé, il montre l'accueil et les Réglages. Il se ferme si on change d'objet en main, si la batterie est vide ou si son porteur meurt.",
+        "Vide, il ne s'ouvre plus : le brancher sur une prise murale."
       ],
       "numbers": [
-        {"k": "Code", "v": "4 chiffres"}
+        {"k": "Code", "v": "4 chiffres"},
+        {"k": "Batterie", "v": "72 000 FE"},
+        {"k": "Écran allumé", "v": "2 FE/t (30 minutes)"},
+        {"k": "Faux codes", "v": "5, puis 60 s de blocage"}
       ],
       "staff": [
-        "Interface HTML par MCEF, mod client seulement.",
-        "MCEF télécharge Chromium au premier lancement (~100 Mo, chiffre externe).",
-        "Si MCEF échoue : écran de repli, appels, messages, urgences.",
-        "Aucun site extérieur ne se charge."
+        "Les cartes SIM, les appels, les messages et les urgences viennent aux lots T2 et T3 : à ce lot, l'écran affiche « Aucune carte SIM ».",
+        "Interface HTML par MCEF 2.1.6, mod client seulement et facultatif ; le serveur n'en a pas besoin.",
+        "Si MCEF est absent ou ne répond pas : écran de repli en interface classique, mêmes fonctions, un seul avis par session.",
+        "MCEF télécharge Chromium au premier lancement d'un client (environ 100 Mo, chiffre externe) et fait à chaque démarrage une petite requête de somme de contrôle ; aucune page extérieure ne se charge.",
+        "Deux piles de même identifiant (copie en créatif) partagent propriétaire, code et blocage ; `/phone reset` (niveau 2, téléphone en main principale) efface le téléphone, y compris sa copie, et ferme ses écrans ouverts.",
+        "Valeurs réglables dans `oneforallsurvival-phone.toml` (serveur) : batterie, dépense, prise, nombre d'essais, durée du blocage.",
+        "Le code n'est écrit nulle part : le serveur ne garde qu'un sel et une empreinte, et vérifie chaque geste."
+      ]
+    },
+    {
+      "id": "code-telephone",
+      "name": "Code du téléphone",
+      "kind": "systeme",
+      "status": "dispo",
+      "lot": "Lot T1",
+      "image": null,
+      "what": "Quatre chiffres choisis par le propriétaire ; sans eux, le téléphone reste verrouillé.",
+      "who": {"utilise": "Son porteur"},
+      "steps": [
+        "Choisi à la première ouverture, puis confirmé une seconde fois.",
+        "Cinq faux codes de suite : téléphone bloqué 60 secondes, avec un décompte à l'écran.",
+        "Seul le propriétaire peut changer le code ou effacer le téléphone, en donnant le code actuel.",
+        "Effacé, le téléphone redemande un code : celui qui le choisit devient le nouveau propriétaire."
+      ],
+      "flow": ["Écran verrouillé", "4 chiffres", "Serveur", "Accueil"],
+      "numbers": [
+        {"k": "Chiffres", "v": "4"},
+        {"k": "Essais avant blocage", "v": "5"},
+        {"k": "Blocage", "v": "60 s"}
+      ],
+      "staff": [
+        "Le serveur compare le code : il ne le reçoit que dans le geste de l'écran, ne l'écrit ni dans l'objet ni au journal (il garde un sel et une empreinte), et le blocage survit à la fermeture de l'écran.",
+        "Essais et durée du blocage réglables dans `oneforallsurvival-phone.toml`.",
+        "Le blocage compte les faux codes, y compris ceux d'un changement de code ou d'un effacement.",
+        "`/phone reset` efface code, propriétaire et réglages sans connaître le code (niveau 2)."
+      ]
+    },
+    {
+      "id": "batterie-telephone",
+      "name": "Batterie du téléphone",
+      "kind": "systeme",
+      "status": "dispo",
+      "lot": "Lot T1",
+      "image": null,
+      "what": "Elle ne se vide que pendant que l'écran est ouvert ; vide, le téléphone s'éteint.",
+      "who": {"utilise": "Son porteur"},
+      "steps": [
+        "Écran fermé : aucune dépense.",
+        "Écran ouvert : 2 FE par tic, soit 30 minutes d'écran pour une charge pleine.",
+        "Batterie vide : l'écran se ferme avec un message et le téléphone ne s'ouvre plus.",
+        "La recharger sur une prise murale alimentée en FE."
+      ],
+      "flow": ["Prise murale", "Batterie", "Écran ouvert", "Batterie vide"],
+      "numbers": [
+        {"k": "Capacité", "v": "72 000 FE"},
+        {"k": "Dépense écran allumé", "v": "2 FE/t"},
+        {"k": "Charge par la prise", "v": "40 FE/t"}
+      ],
+      "staff": [
+        "La charge est dans l'objet : elle se lit dans l'infobulle (« Batterie : x / 72000 FE ») et sur la barre de l'objet.",
+        "Capacité, dépense et charge de la prise sont réglables dans `oneforallsurvival-phone.toml`.",
+        "Un reste de moins de 40 FE est perdu quand le téléphone s'éteint."
+      ]
+    },
+    {
+      "id": "prise-murale",
+      "name": "Prise murale",
+      "kind": "machine",
+      "status": "dispo",
+      "lot": "Lot T1",
+      "image": null,
+      "what": "Bloc plaqué contre un mur qui recharge un téléphone branché, à partir d'un câble de FE.",
+      "who": {"fabrique": "Tous", "pose": "Tous", "utilise": "Tous", "casse": "Tous"},
+      "steps": [
+        "La fabriquer à la table de fabrication : 4 pierres lisses, 1 lingot de cuivre, 1 redstone.",
+        "La poser contre le côté d'un mur plein (jamais au sol ni au plafond) et l'alimenter en FE comme les autres machines du mod (câble, ou bloc qui pousse du courant).",
+        "Clic droit avec un téléphone en main : il est branché ; main vide sur une prise occupée : il revient en main.",
+        "Casser la prise, ou retirer le mur, rend le téléphone."
+      ],
+      "flow": ["Générateur", "Câble", "Prise murale", "Téléphone"],
+      "numbers": [
+        {"k": "Charge", "v": "40 FE/t"},
+        {"k": "Charge complète", "v": "90 s"},
+        {"k": "Réserve de la prise", "v": "4 000 FE"}
+      ],
+      "staff": [
+        "La prise n'a pas de propriétaire : n'importe quel joueur reprend le téléphone d'un autre, mais ses données restent protégées par le code. À garder en tête pour les lois en RP.",
+        "Elle ne reçoit que des téléphones, un seul à la fois ; un faux joueur (déployeur de Create) ne le sort pas.",
+        "Voyant éteint à l'arrêt et sans courant, vert pendant la charge.",
+        "Machine électrique du mod : elle s'use et tombe en panne comme les autres."
       ]
     },
     {
@@ -320,15 +411,21 @@
       "num": 101,
       "name": "Réglages",
       "kind": "appli",
-      "status": "prevu",
+      "status": "dispo",
       "lot": "Lot T1",
       "image": null,
-      "what": "Gère SIM, mode avion, code et batterie ; montre opérateur et abonnement.",
+      "what": "Mode avion, code, fond d'écran, batterie et informations ; la carte SIM, l'opérateur et l'abonnement s'afficheront aux lots suivants.",
       "who": {"utilise": "Son porteur"},
       "steps": [
-        "Choisir ou retirer une SIM.",
-        "Activer le mode avion.",
-        "Changer le code de verrouillage."
+        "Activer le mode avion : l'icône avion remplace « Pas de service » dans la barre d'état (sans autre effet tant que le réseau n'existe pas).",
+        "Choisir un des quatre fonds d'écran : aube, lagon, jungle ou nuit.",
+        "Changer le code de verrouillage (propriétaire seulement), ou verrouiller le téléphone tout de suite.",
+        "Lire la batterie et le nom du propriétaire, ou effacer le téléphone avec son code."
+      ],
+      "staff": [
+        "Les lignes Carte SIM, Opérateur et Abonnement sont déjà dessinées mais restent vides : « Aucune carte SIM » et « — » jusqu'aux lots T2 et T6.",
+        "Page HTML dans MCEF ; sans MCEF, l'écran de repli propose les mêmes réglages (mode avion, fond suivant, changement de code, verrouiller, effacer).",
+        "Mode avion et fond d'écran sont gardés par le serveur avec le téléphone (une copie du même téléphone les partage)."
       ]
     }
   ]
