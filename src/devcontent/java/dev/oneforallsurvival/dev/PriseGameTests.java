@@ -14,10 +14,13 @@ import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.Item;
@@ -26,6 +29,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
@@ -50,7 +54,7 @@ import net.minecraftforge.gametest.PrefixGameTestTemplate;
  * simulé, posé au début de l'essai par {@code onEachTick}, pousse {@value #DEBIT_CABLE} FE par tic dans la
  * capability de la prise, par la face du mur, comme le ferait un câble raccordé à un générateur.
  *
- * <p>Lots : {@value #LOT} (sept essais du brief), {@value #LOT_EXPLOSION} (l'explosion, seule dans son lot pour ne
+ * <p>Lots : {@value #LOT} (huit essais : les sept du brief et le tag Create), {@value #LOT_EXPLOSION} (l'explosion, seule dans son lot pour ne
  * toucher aucun essai voisin), {@value #LOT_RECETTES} (la fabrication à la table) et {@value #LOT_MUR} (en plus du
  * brief : mur retiré, faux joueur, pose contre un mur seulement, forme exacte des quatre orientations, énergie
  * conservée).
@@ -334,6 +338,21 @@ public final class PriseGameTests {
         vide.setPhone(telephone(1));
         vide.load(be.saveWithoutMetadata());
         helper.assertTrue(vide.phone().isEmpty(), "une prise vide devait se relire vide, vu " + vide.phone());
+        helper.succeed();
+    }
+
+    /**
+     * Create refuse de déplacer un bloc du tag {@code create:non_movable} : une prise occupée ne part pas dans une
+     * contraption (le téléphone n'y serait pas lâché une fois, puis emporté avec la structure). Le tag existe sous ce
+     * nom dans Create 6.0.8 ; sans Create, la donnée est sans effet.
+     */
+    @GameTest(template = "test/plancher", batch = LOT, timeoutTicks = 20)
+    public static void laPriseNeSeDeplacePasAvecCreate(GameTestHelper helper) {
+        TagKey<Block> nonMovable = TagKey.create(Registries.BLOCK, new ResourceLocation("create", "non_movable"));
+        BlockState prise = PhoneRegistry.WALL_SOCKET.get().defaultBlockState();
+        helper.assertTrue(prise.is(nonMovable), "la prise devait être dans le tag create:non_movable");
+        helper.assertTrue(!Blocks.STONE.defaultBlockState().is(nonMovable),
+                "témoin : la pierre ne devait pas être dans create:non_movable");
         helper.succeed();
     }
 
