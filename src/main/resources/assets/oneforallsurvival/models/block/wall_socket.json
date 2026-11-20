@@ -1,10 +1,9 @@
 {
-  "__comment": "Modele provisoire (tache 7) : les visuels finaux viennent de tools/gen_textures_t1.py (tache 10).",
   "parent": "minecraft:block/block",
   "ambientocclusion": false,
   "textures": {
-    "particle": "minecraft:block/smooth_stone",
-    "plate": "minecraft:block/smooth_stone"
+    "particle": "oneforallsurvival:block/wall_socket",
+    "plate": "oneforallsurvival:block/wall_socket"
   },
   "elements": [
     {
@@ -20,21 +19,58 @@
       ],
       "faces": {
         "north": {
-          "texture": "#plate"
+          "uv": [
+            4,
+            3,
+            12,
+            13
+          ],
+          "texture": "#plate",
+          "cullface": "north"
         },
         "south": {
+          "uv": [
+            4,
+            3,
+            12,
+            13
+          ],
           "texture": "#plate"
         },
         "east": {
+          "uv": [
+            12,
+            3,
+            14,
+            13
+          ],
           "texture": "#plate"
         },
         "west": {
+          "uv": [
+            12,
+            3,
+            14,
+            13
+          ],
           "texture": "#plate"
         },
         "up": {
+          "uv": [
+            4,
+            0,
+            12,
+            2
+          ],
           "texture": "#plate"
         },
         "down": {
+          "uv": [
+            4,
+            0,
+            12,
+            2
+          ],
           "texture": "#plate"
         }
       }

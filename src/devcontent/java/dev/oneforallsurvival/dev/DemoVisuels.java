@@ -46,6 +46,7 @@ import dev.oneforallsurvival.light.LightRegistry;
 import dev.oneforallsurvival.machine.ElectricMachineBlockEntity;
 import dev.oneforallsurvival.machine.FaultType;
 import dev.oneforallsurvival.machine.MachineConfig;
+import dev.oneforallsurvival.phone.PhoneStatePacket;
 import dev.oneforallsurvival.repair.GalvanicBathBlockEntity;
 import dev.oneforallsurvival.repair.RepairRegistry;
 import dev.oneforallsurvival.repair.client.GalvanicBathScreen;
@@ -131,8 +132,8 @@ public final class DemoVisuels {
     /**
      * {@code etal} ou {@code commerce} : ne jouer que les captures du commerce ; {@code tresor} : que celles du trésor et du
      * tableau de la mairie ; {@code quetes} : que celles de l'écran des quêtes (contrôle rapide d'une tâche) ;
-     * {@code electricite} : que celles du panneau du poste, de la facture d'électricité et du poste posé (lot E6) ; sans
-     * les autres.
+     * {@code electricite} : que celles du panneau du poste, de la facture d'électricité et du poste posé (lot E6) ;
+     * {@code telephone} : que celles du téléphone, de la prise murale et de l'écran de repli (lot T1) ; sans les autres.
      */
     private static final String SEUL = System.getProperty("oneforallsurvival.demo.visuels.seul", "");
     private static final String MONDE = "demo_visuels";
@@ -278,6 +279,9 @@ public final class DemoVisuels {
     /** Le bain « en marche » reçoit du courant pour de bon ; celui « sans courant » n'en reçoit jamais. */
     @SubscribeEvent
     public static void onServerTick(TickEvent.ServerTickEvent event) {
+        if (ACTIF && event.phase == TickEvent.Phase.END && !PRISES_EN_CHARGE.isEmpty()) {
+            tenirLesPrises(event.getServer());
+        }
         if (!ACTIF || event.phase != TickEvent.Phase.END || BAINS[1] == null) {
             return;
         }
@@ -824,6 +828,10 @@ public final class DemoVisuels {
         }
         if ("electricite".equals(SEUL)) {
             construireElectricite(mc);
+            return;
+        }
+        if ("telephone".equals(SEUL)) {
+            construireTelephone(mc);
             return;
         }
         Vec3 sudEst = new Vec3(1.35, 1.0, 1.75);
@@ -2676,5 +2684,294 @@ public final class DemoVisuels {
             dev.oneforallsurvival.economy.client.InvoiceScreen.open(
                     dev.oneforallsurvival.economy.invoice.InvoiceItem.of(facture), 0);
         }, () -> mc.screen instanceof dev.oneforallsurvival.economy.client.InvoiceScreen, 1200, image);
+    }
+
+    // ================================================================================================
+    // Lot T1 : le téléphone et la prise murale
+    // ================================================================================================
+
+    private static BlockPos zoneTelephone;
+    private static volatile boolean telephonePose;
+    /** Les prises des quatre états contre le mur de pierre : vide, branchée à l'arrêt, en charge, sans courant. */
+    private static final BlockPos[] PRISES_ETATS = new BlockPos[4];
+    private static final String[] NOMS_ETATS_PRISE = {"vide", "branchee_arret", "en_charge", "sans_courant"};
+    private static final dev.oneforallsurvival.machine.MachineState[] ETATS_PRISE = {
+        dev.oneforallsurvival.machine.MachineState.STOPPED, dev.oneforallsurvival.machine.MachineState.STOPPED,
+        dev.oneforallsurvival.machine.MachineState.RUNNING, dev.oneforallsurvival.machine.MachineState.NO_POWER};
+    /** Les prises en charge autour du pilier de pierre, une par orientation. */
+    private static final Direction[] ORIENTATIONS = {Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST};
+    private static final String[] NOMS_ORIENTATIONS = {"nord", "est", "sud", "ouest"};
+    private static final BlockPos[] PRISES_PILIER = new BlockPos[4];
+    private static BlockPos pilier;
+    /** Les prises tenues en charge : du courant à chaque tic, et un téléphone qui ne se remplit jamais. */
+    private static final List<BlockPos> PRISES_EN_CHARGE = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private static final java.util.Set<String> TELEPHONE_JOURNAL = new java.util.HashSet<>();
+
+    /**
+     * Le téléphone et sa prise : la prise collée à un mur de pierre dans ses quatre états (vide, branchée à l'arrêt, en
+     * charge avec le voyant allumé, sans courant), de jour et de nuit, avec des voisins de pierre contre elle, de profil,
+     * puis en charge sur les quatre faces d'un pilier (quatre orientations) ; l'objet en main (première et troisième
+     * personne), dans la barre et l'inventaire avec sa charge pleine, à moitié et vide ; enfin l'écran de repli
+     * (verrouillé, accueil, Réglages remplis, effacement armé) dans l'interface de 320 × 240, à l'échelle 4 sur une
+     * grande fenêtre (480 × 260), et dans une grande interface (640 × 360). Activé par {@code -PvisuelsSeul=telephone}.
+     */
+    private static void construireTelephone(Minecraft mc) {
+        MinecraftServer serveur = mc.getSingleplayerServer();
+        zoneTelephone = origine.offset(24, 0, 400);
+        etape("telephone pose", () -> {
+            fermer(mc);
+            mc.options.hideGui = false;
+            mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+            serveur.execute(() -> preparerTelephone(serveur));
+        }, () -> telephonePose, 3000, null);
+
+        // La prise contre le mur, ses quatre états ; l'image n'est prise qu'une fois chaque état relu chez le client.
+        etape("vue telephone_prises_etats_jour.png", () -> regarder(mc, zoneTelephone.offset(4, 1, 1),
+                new Vec3(0.0, 0.4, 4.2), false), () -> prisesPretes(mc), 2500, "telephone_prises_etats_jour.png");
+        vue(mc, "telephone_prises_etats_nuit.png", zoneTelephone.offset(4, 1, 1), new Vec3(0.0, 0.4, 4.2), true);
+        // Les vues de près lisent les positions à l'exécution : elles ne sont connues qu'une fois la zone posée.
+        for (int i = 0; i < 4; i++) {
+            int n = i;
+            etape("vue telephone_prise_" + NOMS_ETATS_PRISE[n], () -> regarder(mc, PRISES_ETATS[n],
+                    new Vec3(0.9, 0.35, 1.5), false), () -> true, 1500, "telephone_prise_" + NOMS_ETATS_PRISE[n] + ".png");
+        }
+        // Des voisins de pierre contre la prise vide (à gauche et au-dessus) : aucune face ne doit manquer.
+        etape("vue telephone_prise_voisins_droite", () -> regarder(mc, PRISES_ETATS[0], new Vec3(1.3, 0.6, 1.3), false),
+                () -> true, 1500, "telephone_prise_voisins_droite.png");
+        etape("vue telephone_prise_voisins_dessous", () -> regarder(mc, PRISES_ETATS[0], new Vec3(0.5, -0.7, 1.4), false),
+                () -> true, 1500, "telephone_prise_voisins_dessous.png");
+        etape("vue telephone_prise_profil", () -> regarder(mc, PRISES_ETATS[2], new Vec3(1.5, 0.15, 0.1), false),
+                () -> true, 1500, "telephone_prise_profil.png");
+        etape("vue telephone_prise_profil_branchee", () -> regarder(mc, PRISES_ETATS[1], new Vec3(-1.4, 0.3, 0.35), false),
+                () -> true, 1500, "telephone_prise_profil_branchee.png");
+        // Les quatre orientations, en charge, autour du pilier.
+        for (int k = 0; k < 4; k++) {
+            int n = k;
+            etape("vue telephone_prise_orientation_" + NOMS_ORIENTATIONS[n], () -> {
+                Direction d = ORIENTATIONS[n];
+                Vec3 v = new Vec3(d.getStepX() * 1.6 - d.getStepZ() * 0.6, 0.35, d.getStepZ() * 1.6 + d.getStepX() * 0.6);
+                regarder(mc, PRISES_PILIER[n], v, false);
+            }, () -> true, 1500, "telephone_prise_orientation_" + NOMS_ORIENTATIONS[n] + ".png");
+        }
+        etape("vue telephone_pilier_sud_est", () -> regarder(mc, pilier.above(), new Vec3(2.3, 1.0, 2.3), false),
+                () -> true, 1500, "telephone_pilier_sud_est.png");
+        etape("vue telephone_pilier_nord_ouest", () -> regarder(mc, pilier.above(), new Vec3(-2.3, 1.0, -2.3), false),
+                () -> true, 1500, "telephone_pilier_nord_ouest.png");
+
+        // L'objet : charge pleine, à moitié et vide dans la barre, à côté de la prise, d'une horloge et d'une boussole.
+        etape("telephone objets", () -> serveur.execute(() -> {
+            ServerPlayer joueur = serveur.getPlayerList().getPlayers().get(0);
+            joueur.getInventory().clearContent();
+            int cap = dev.oneforallsurvival.phone.PhoneConfig.capacity();
+            int[] charges = {cap, cap / 2, 0};
+            for (int i = 0; i < 3; i++) {
+                joueur.getInventory().setItem(i, telephone(charges[i]));
+            }
+            joueur.getInventory().setItem(3, new ItemStack(dev.oneforallsurvival.phone.PhoneRegistry.WALL_SOCKET_ITEM.get()));
+            joueur.getInventory().setItem(4, new ItemStack(Items.CLOCK));
+            joueur.getInventory().setItem(5, new ItemStack(Items.COMPASS));
+            joueur.getInventory().setItem(9, telephone(cap / 4));
+            joueur.getInventory().setItem(10, new ItemStack(dev.oneforallsurvival.phone.PhoneRegistry.WALL_SOCKET_ITEM.get()));
+        }), () -> mc.player.getInventory().getItem(2).is(dev.oneforallsurvival.phone.PhoneRegistry.PHONE.get()), 500, null);
+        etape("telephone en main premiere personne", () -> {
+            fermer(mc);
+            mc.options.hideGui = false;
+            mc.gameRenderer.setRenderHand(true);
+            mc.options.setCameraType(CameraType.FIRST_PERSON);
+            mc.player.getInventory().selected = 1;
+            BlockPos z = zoneTelephone;
+            serveur.execute(() -> {
+                ServerLevel monde = serveur.overworld();
+                ServerPlayer joueur = serveur.getPlayerList().getPlayers().get(0);
+                monde.setDayTime(6000);
+                joueur.setNoGravity(true);
+                joueur.teleportTo(monde, z.getX() + 4.5, z.getY(), z.getZ() + 4.5, 180F, 10F);
+            });
+        }, () -> true, 2000, "telephone_main_premiere_personne_et_barre.png");
+        etape("telephone en main troisieme personne", () -> {
+            mc.options.hideGui = true;
+            mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+            BlockPos z = zoneTelephone;
+            serveur.execute(() -> {
+                ServerLevel monde = serveur.overworld();
+                ServerPlayer joueur = serveur.getPlayerList().getPlayers().get(0);
+                joueur.teleportTo(monde, z.getX() + 4.5, z.getY(), z.getZ() + 3.5, 0F, 15F);
+            });
+        }, () -> true, 2000, "telephone_main_troisieme_personne.png");
+        etape("telephone infobulle", () -> {
+            mc.options.setCameraType(CameraType.FIRST_PERSON);
+            mc.options.hideGui = false;
+            mc.setScreen(new Infobulle(telephone(dev.oneforallsurvival.phone.PhoneConfig.capacity() / 2)));
+        }, () -> true, 800, "telephone_objet_infobulle.png");
+        // En survie : en créatif, l'inventaire s'ouvre sur les onglets.
+        etape("telephone survie", () -> {
+            fermer(mc);
+            serveur.execute(() -> serveur.getPlayerList().getPlayers().get(0).setGameMode(GameType.SURVIVAL));
+        }, () -> !mc.player.getAbilities().instabuild, 500, null);
+        etape("telephone inventaire", () -> mc.setScreen(new InventoryScreen(mc.player)), () -> true, 800,
+                "telephone_inventaire.png");
+        etape("telephone barre survie", () -> {
+            fermer(mc);
+            mc.options.hideGui = false;
+            mc.player.getInventory().selected = 0;
+        }, () -> true, 800, "telephone_barre_survie.png");
+        etape("telephone retour creatif", () -> serveur.execute(() -> serveur.getPlayerList().getPlayers().get(0)
+                .setGameMode(GameType.CREATIVE)), () -> mc.player.getAbilities().instabuild, 300, null);
+
+        // L'écran de repli, état imposé chez le client (aucun geste n'est envoyé : la session 4242 n'existe pas).
+        taille(mc, 960, 720, 3, 320, 240);
+        repli(mc, "320 verrouille", PhoneStatePacket.Lock.LOCKED, null, "telephone_repli_320_verrouille.png");
+        repli(mc, "320 accueil", PhoneStatePacket.Lock.UNLOCKED, null, "telephone_repli_320_accueil.png");
+        repli(mc, "320 reglages vides", PhoneStatePacket.Lock.UNLOCKED, "vides", "telephone_repli_320_reglages_vides.png");
+        repli(mc, "320 reglages", PhoneStatePacket.Lock.UNLOCKED, "remplis", "telephone_repli_320_reglages.png");
+        repli(mc, "320 effacement", PhoneStatePacket.Lock.UNLOCKED, "efface", "telephone_repli_320_effacement.png");
+        taille(mc, 1920, 1040, 4, 480, 260);
+        repli(mc, "480 verrouille", PhoneStatePacket.Lock.LOCKED, null, "telephone_repli_480x260_verrouille.png");
+        repli(mc, "480 reglages", PhoneStatePacket.Lock.UNLOCKED, "remplis", "telephone_repli_480x260_reglages.png");
+        repli(mc, "480 effacement", PhoneStatePacket.Lock.UNLOCKED, "efface", "telephone_repli_480x260_effacement.png");
+        taille(mc, 1280, 720, 2, 640, 360);
+        repli(mc, "640 verrouille", PhoneStatePacket.Lock.LOCKED, null, "telephone_repli_640_verrouille.png");
+        repli(mc, "640 accueil", PhoneStatePacket.Lock.UNLOCKED, null, "telephone_repli_640_accueil.png");
+        repli(mc, "640 reglages", PhoneStatePacket.Lock.UNLOCKED, "remplis", "telephone_repli_640_reglages.png");
+        etape("fin du telephone", () -> fermer(mc), () -> true, 300, null);
+    }
+
+    private static ItemStack telephone(int fe) {
+        ItemStack pile = new ItemStack(dev.oneforallsurvival.phone.PhoneRegistry.PHONE.get());
+        dev.oneforallsurvival.phone.PhoneItem.store(pile, fe);
+        return pile;
+    }
+
+    /** Vrai quand les quatre prises du mur sont, chez le client, dans l'état attendu ; le note au journal une fois. */
+    private static boolean prisesPretes(Minecraft mc) {
+        for (int i = 0; i < 4; i++) {
+            BlockState s = mc.level.getBlockState(PRISES_ETATS[i]);
+            if (!s.is(dev.oneforallsurvival.phone.PhoneRegistry.WALL_SOCKET.get())
+                    || s.getValue(dev.oneforallsurvival.machine.ElectricMachineBlock.STATE) != ETATS_PRISE[i]
+                    || s.getValue(dev.oneforallsurvival.phone.WallSocketBlock.PLUGGED) != (i != 0)) {
+                return false;
+            }
+        }
+        if (TELEPHONE_JOURNAL.add("prises")) {
+            for (int i = 0; i < 4; i++) {
+                LOG.info("[visuels] prise {} : {}", NOMS_ETATS_PRISE[i], mc.level.getBlockState(PRISES_ETATS[i]));
+            }
+            for (int k = 0; k < 4; k++) {
+                LOG.info("[visuels] prise du pilier {} : {}", NOMS_ORIENTATIONS[k], mc.level.getBlockState(PRISES_PILIER[k]));
+            }
+        }
+        return true;
+    }
+
+    private static void preparerTelephone(MinecraftServer serveur) {
+        ServerLevel monde = serveur.overworld();
+        BlockPos z = zoneTelephone;
+        for (int dx = -4; dx <= 20; dx++) {
+            for (int dz = -6; dz <= 8; dz++) {
+                monde.setBlock(z.offset(dx, -1, dz), Blocks.GRASS_BLOCK.defaultBlockState(), 3);
+                for (int dy = 0; dy <= 4; dy++) {
+                    monde.setBlock(z.offset(dx, dy, dz), Blocks.AIR.defaultBlockState(), 3);
+                }
+            }
+        }
+        // Le mur de pierre (9 x 3), les quatre prises sur sa face sud, à hauteur d'œil.
+        for (int x = 0; x <= 8; x++) {
+            for (int y = 0; y <= 2; y++) {
+                monde.setBlock(z.offset(x, y, 0), Blocks.STONE.defaultBlockState(), 3);
+            }
+        }
+        for (int i = 0; i < 4; i++) {
+            PRISES_ETATS[i] = z.offset(1 + 2 * i, 1, 1);
+            poserPrise(monde, PRISES_ETATS[i], Direction.SOUTH, i);
+        }
+        // Des voisins pleins contre la prise vide : à gauche et au-dessus.
+        monde.setBlock(PRISES_ETATS[0].west(), Blocks.STONE.defaultBlockState(), 3);
+        monde.setBlock(PRISES_ETATS[0].above(), Blocks.STONE.defaultBlockState(), 3);
+        // Le pilier, une prise en charge sur chacune de ses quatre faces.
+        pilier = z.offset(14, 0, 0);
+        for (int y = 0; y <= 2; y++) {
+            monde.setBlock(pilier.above(y), Blocks.STONE.defaultBlockState(), 3);
+        }
+        for (int k = 0; k < 4; k++) {
+            PRISES_PILIER[k] = pilier.above().relative(ORIENTATIONS[k]);
+            poserPrise(monde, PRISES_PILIER[k], ORIENTATIONS[k], 2);
+        }
+        telephonePose = true;
+    }
+
+    /** Une prise tournée vers {@code face} : 0 vide, 1 téléphone plein (arrêt), 2 en charge, 3 téléphone vide sans courant. */
+    private static void poserPrise(ServerLevel monde, BlockPos p, Direction face, int etat) {
+        monde.setBlock(p, dev.oneforallsurvival.phone.PhoneRegistry.WALL_SOCKET.get().defaultBlockState()
+                .setValue(dev.oneforallsurvival.phone.WallSocketBlock.FACING, face)
+                .setValue(dev.oneforallsurvival.phone.WallSocketBlock.PLUGGED, etat != 0), 3);
+        if (etat == 0) {
+            return;
+        }
+        int cap = dev.oneforallsurvival.phone.PhoneConfig.capacity();
+        var prise = (dev.oneforallsurvival.phone.WallSocketBlockEntity) monde.getBlockEntity(p);
+        prise.setPhone(telephone(etat == 1 ? cap : etat == 2 ? cap / 4 : 0));
+        if (etat == 2) {
+            PRISES_EN_CHARGE.add(p);
+        }
+    }
+
+    /** Les prises en charge le restent : du courant à chaque tic, un téléphone ramené au quart quand il passe la moitié. */
+    private static void tenirLesPrises(MinecraftServer serveur) {
+        int cap = dev.oneforallsurvival.phone.PhoneConfig.capacity();
+        for (BlockPos p : PRISES_EN_CHARGE) {
+            if (serveur.overworld().getBlockEntity(p) instanceof dev.oneforallsurvival.phone.WallSocketBlockEntity prise) {
+                prise.energy().receiveEnergy(400, false);
+                if (dev.oneforallsurvival.phone.PhoneItem.stored(prise.phone()) > cap / 2) {
+                    dev.oneforallsurvival.phone.PhoneItem.store(prise.phone(), cap / 4);
+                }
+            }
+        }
+    }
+
+    private static PhoneStatePacket etatTelephone(PhoneStatePacket.Lock lock) {
+        boolean ouvert = lock == PhoneStatePacket.Lock.UNLOCKED;
+        return new PhoneStatePacket(4242, PhoneStatePacket.Kind.OPEN, lock, 64, 1_763_640_000_000L, 3600, "jungle", false,
+                true, ouvert ? NOM_16 : "", 5, 0, PhoneStatePacket.Result.NONE, PhoneStatePacket.CloseReason.NONE);
+    }
+
+    /**
+     * L'écran de repli sur un état imposé : verrouillé avec deux chiffres saisis ; ouvert sur l'accueil ; ou, selon
+     * {@code reglages}, les Réglages vides, remplis (code actuel, nouveau, confirmation), ou remplis avec l'effacement armé.
+     */
+    private static void repli(Minecraft mc, String nom, PhoneStatePacket.Lock lock, String reglages, String image) {
+        etape("repli " + nom, () -> {
+            fermer(mc);
+            mc.options.hideGui = false;
+            mc.options.setCameraType(CameraType.FIRST_PERSON);
+            var ecran = new dev.oneforallsurvival.phone.client.PhoneFallbackScreen(etatTelephone(lock));
+            mc.setScreen(ecran);
+            if (lock == PhoneStatePacket.Lock.LOCKED) {
+                ecran.charTyped('4', 0);
+                ecran.charTyped('8', 0);
+            }
+            if (reglages != null) {
+                ((net.minecraft.client.gui.components.Button) ecran.widgets().get("settings")).onPress();
+                if (!"vides".equals(reglages)) {
+                    ((net.minecraft.client.gui.components.EditBox) ecran.widgets().get("old")).setValue("1234");
+                    ((net.minecraft.client.gui.components.EditBox) ecran.widgets().get("new")).setValue("5678");
+                    ((net.minecraft.client.gui.components.EditBox) ecran.widgets().get("confirm")).setValue("5678");
+                }
+                if ("efface".equals(reglages)) {
+                    ((net.minecraft.client.gui.components.Button) ecran.widgets().get("erase")).onPress();
+                }
+            }
+        }, () -> {
+            if (!(mc.screen instanceof dev.oneforallsurvival.phone.client.PhoneFallbackScreen ecran)) {
+                return false;
+            }
+            if (TELEPHONE_JOURNAL.add(nom)) {
+                StringBuilder b = new StringBuilder();
+                ecran.widgets().forEach((k, w) -> b.append(' ').append(k).append('=').append(w.getX()).append(',')
+                        .append(w.getY()).append(',').append(w.getWidth()).append('x').append(w.getHeight()));
+                LOG.info("[visuels] repli {} : page {}, cadre {} dans une interface de {}x{} ;{}", nom, ecran.page(),
+                        ecran.frameRect(), mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight(), b);
+            }
+            return true;
+        }, 1000, image);
     }
 }

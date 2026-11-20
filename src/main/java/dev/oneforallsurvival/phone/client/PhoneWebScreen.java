@@ -1,6 +1,7 @@
 package dev.oneforallsurvival.phone.client;
 
 import com.google.gson.JsonObject;
+import com.mojang.blaze3d.systems.RenderSystem;
 import dev.oneforallsurvival.client.web.WebBridge;
 import dev.oneforallsurvival.client.web.WebFailure;
 import dev.oneforallsurvival.client.web.WebFallbackNotice;
@@ -123,15 +124,22 @@ public final class PhoneWebScreen extends WebScreen implements PhoneClient.Shown
 
     @Override
     protected void drawFrame(GuiGraphics g, Rect frame) {
+        // Le verre du cadre est transparent : du noir dessous, que les coins arrondis de la page laissent voir.
+        g.fill(frame.x(), frame.y(), frame.x() + frame.width(), frame.y() + frame.height(), 0xFF000000);
         drawBezel(g, frame);
     }
 
-    /** Le cadre du téléphone autour de {@code screen} : bord proportionnel à la largeur de l'écran. */
+    /**
+     * Le cadre du téléphone autour de {@code screen} : bord proportionnel à la largeur de l'écran. Son verre est
+     * transparent : posé par-dessus un fond, il en arrondit les coins.
+     */
     static void drawBezel(GuiGraphics g, Rect screen) {
         int border = Math.max(2, (int) Math.round(screen.width() * FRAME_TEX_BORDER
                 / (double) (FRAME_TEX_W - 2 * FRAME_TEX_BORDER)));
+        RenderSystem.enableBlend();
         g.blit(FRAME, screen.x() - border, screen.y() - border, screen.width() + 2 * border,
                 screen.height() + 2 * border, 0, 0, FRAME_TEX_W, FRAME_TEX_H, FRAME_TEX_W, FRAME_TEX_H);
+        RenderSystem.disableBlend();
     }
 
     @Override

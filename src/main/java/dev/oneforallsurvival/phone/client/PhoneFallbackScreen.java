@@ -18,12 +18,15 @@ import java.util.Locale;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.minecraft.Util;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
 import net.minecraft.util.FormattedCharSequence;
 import org.lwjgl.glfw.GLFW;
@@ -56,6 +59,7 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
     private boolean byServer;
     private Rect frame = new Rect(0, 0, 0, 0);
     private Rect inner = new Rect(0, 0, 0, 0);
+    @Nullable private PhoneFallbackLayout.Settings settingsLayout;
     private final Map<String, AbstractWidget> named = new LinkedHashMap<>();
     private EditBox oldBox;
     private EditBox newBox;
@@ -135,14 +139,8 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
     @Override
     protected void init() {
         frame = PhoneFrameLayout.fit(width, height);
-        int pad = Math.max(3, Math.round(frame.width() * 0.06f));
-        inner = new Rect(frame.x() + pad, frame.y() + pad + statusHeight(), frame.width() - 2 * pad,
-                frame.height() - 2 * pad - statusHeight());
+        inner = PhoneFallbackLayout.inner(frame, font.lineHeight);
         rebuild();
-    }
-
-    private int statusHeight() {
-        return font.lineHeight + 4;
     }
 
     private void rebuild() {
@@ -155,6 +153,7 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
         clearWidgets();
         named.clear();
         oldBox = newBox = confirmBox = null;
+        settingsLayout = null;
         lockedOutShown = false;
         switch (page) {
             case CODE -> buildKeypad();
@@ -163,86 +162,76 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
         }
     }
 
-    /** Le clavier : trois colonnes 1-9, puis Effacer et 0, dans le bas de l'écran. */
+    /** Le clavier : trois colonnes 1-9, puis Effacer et 0, dans le bas de l'écran ({@link PhoneFallbackLayout#keypad}). */
     private void buildKeypad() {
-        int gap = 3;
-        int bw = (inner.width() - 2 * gap) / 3;
-        int bh = Math.max(10, Math.min(20, (inner.height() / 2 - 3 * gap) / 4));
-        int top = inner.y() + inner.height() - 4 * bh - 3 * gap;
+        List<Rect> keys = PhoneFallbackLayout.keypad(inner);
         boolean active = !lockedOut();
         for (int d = 1; d <= 9; d++) {
-            int col = (d - 1) % 3;
-            int row = (d - 1) / 3;
-            key(String.valueOf(d), inner.x() + col * (bw + gap), top + row * (bh + gap), bw, bh, active);
+            key(String.valueOf(d), keys.get(d - 1), active);
         }
-        int lastRow = top + 3 * (bh + gap);
-        Button clear = Button.builder(Component.translatable(KEY + "clear"), b -> backspace())
-                .bounds(inner.x(), lastRow, bw, bh).build();
+        // « Effacer » rétréci devient illisible dans une petite touche : une flèche, avec le mot en bulle et à la lecture.
+        Component word = Component.translatable(KEY + "clear");
+        Rect r = keys.get(9);
+        boolean symbol = PhoneFallbackLayout.clearAsSymbol(font.width(word), r.width());
+        FitButton clear = new FitButton(r, symbol ? Component.literal("\u2190") : word, b -> backspace(), word);
+        if (symbol) {
+            clear.setTooltip(Tooltip.create(word));
+        }
         clear.active = active;
         add("key-clear", clear);
-        key("0", inner.x() + bw + gap, lastRow, bw, bh, active);
+        key("0", keys.get(10), active);
         lockedOutShown = !active;
     }
 
-    private void key(String digit, int x, int y, int w, int h, boolean active) {
-        Button b = Button.builder(Component.literal(digit), btn -> digit(digit.charAt(0))).bounds(x, y, w, h).build();
+    private void key(String digit, Rect r, boolean active) {
+        FitButton b = new FitButton(r, Component.literal(digit), btn -> digit(digit.charAt(0)), null);
         b.active = active;
         add("key-" + digit, b);
     }
 
     private void buildHome() {
         int bh = 20;
-        add("settings", Button.builder(Component.translatable(KEY + "settings"), b -> {
-            page = Page.SETTINGS;
-            message = Component.empty();
-            rebuild();
-        }).bounds(inner.x(), inner.y() + inner.height() - bh - 4, inner.width(), bh).build());
+        add("settings", new FitButton(new Rect(inner.x(), inner.y() + inner.height() - bh - 4, inner.width(), bh),
+                Component.translatable(KEY + "settings"), b -> {
+                    page = Page.SETTINGS;
+                    message = Component.empty();
+                    rebuild();
+                }, null));
     }
 
     private void buildSettings(String keptOld, String keptNew, String keptConfirm) {
-        int rows = 10;
-        int gap = 2;
-        int text = 2 * (font.lineHeight + 1); // ligne du propriétaire et ligne du message
-        int rh = Math.max(10, Math.min(20, (inner.height() - text - (rows - 1) * gap) / rows));
-        int x = inner.x();
-        int w = inner.width();
-        int y = inner.y() + text;
-        add("airplane", Button.builder(Component.translatable(KEY + "airplane",
+        PhoneFallbackLayout.Settings layout = PhoneFallbackLayout.settings(inner, font.lineHeight);
+        settingsLayout = layout;
+        Map<String, Rect> rows = layout.rows();
+        add("airplane", new FitButton(rows.get("airplane"), Component.translatable(KEY + "airplane",
                 Component.translatable(KEY + (state.airplane() ? "on" : "off"))), b -> send(Action.AIRPLANE, "", "",
-                        !state.airplane())).bounds(x, y, w, rh).build());
-        y += rh + gap;
-        add("wallpaper", Button.builder(Component.translatable(KEY + "wallpaper",
+                        !state.airplane()), null));
+        add("wallpaper", new FitButton(rows.get("wallpaper"), Component.translatable(KEY + "wallpaper",
                 Component.translatable(KEY + "wallpaper." + wallpaper())), b -> send(Action.WALLPAPER,
-                        nextWallpaper(wallpaper()), "", false)).bounds(x, y, w, rh).build());
-        y += rh + gap;
-        oldBox = digits("old", x, y, w, rh, keptOld);
-        y += rh + gap;
-        newBox = digits("new", x, y, w, rh, keptNew);
-        y += rh + gap;
-        confirmBox = digits("confirm", x, y, w, rh, keptConfirm);
-        y += rh + gap;
-        add("change", Button.builder(Component.translatable(KEY + "change_code"), b -> changeCode())
-                .bounds(x, y, w, rh).build());
-        y += rh + gap;
-        add("lock", Button.builder(Component.translatable(KEY + "lock"), b -> send(Action.LOCK, "", "", false))
-                .bounds(x, y, w, rh).build());
-        y += rh + gap;
-        add("erase", Button.builder(Component.translatable(KEY + (eraseArmed ? "erase_confirm" : "erase")),
-                b -> erase()).bounds(x, y, w, rh).build());
-        y += rh + gap;
-        add("back", Button.builder(Component.translatable(KEY + "back"), b -> {
+                        nextWallpaper(wallpaper()), "", false), null));
+        oldBox = digits("old", rows.get("old"), keptOld);
+        newBox = digits("new", rows.get("new"), keptNew);
+        confirmBox = digits("confirm", rows.get("confirm"), keptConfirm);
+        add("change", new FitButton(rows.get("change"), Component.translatable(KEY + "change_code"),
+                b -> changeCode(), null));
+        add("lock", new FitButton(rows.get("lock"), Component.translatable(KEY + "lock"),
+                b -> send(Action.LOCK, "", "", false), null));
+        add("erase", new FitButton(rows.get("erase"),
+                Component.translatable(KEY + (eraseArmed ? "erase_confirm" : "erase")), b -> erase(), null));
+        add("back", new FitButton(rows.get("back"), Component.translatable(KEY + "back"), b -> {
             page = Page.HOME;
             eraseArmed = false;
             message = Component.empty();
             rebuild();
-        }).bounds(x, y, w, rh).build());
+        }, null));
     }
 
-    private EditBox digits(String name, int x, int y, int w, int h, String kept) {
-        EditBox box = new EditBox(font, x + 1, y + 1, w - 2, h - 2, Component.translatable(KEY + name + "_code"));
+    /** Un champ de quatre chiffres, masqué ; son libellé est dessiné au-dessus de lui ({@link #drawSettings}). */
+    private EditBox digits(String name, Rect r, String kept) {
+        EditBox box = new CodeBox(font, r.x() + 1, r.y() + 1, r.width() - 2, r.height() - 2,
+                Component.translatable(KEY + name + "_code"));
         box.setMaxLength(PhoneCode.LENGTH);
         box.setFilter(s -> s.chars().allMatch(c -> c >= '0' && c <= '9'));
-        box.setHint(Component.translatable(KEY + name + "_code"));
         // Un code ne s'affiche jamais en clair : un astérisque par chiffre.
         box.setFormatter((text, start) -> FormattedCharSequence.forward("*".repeat(text.length()), Style.EMPTY));
         box.setValue(kept);
@@ -409,10 +398,11 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        PhoneWebScreen.drawBezel(g, frame);
         int[] colors = wallpaperColors(wallpaper());
         g.fillGradient(frame.x(), frame.y(), frame.x() + frame.width(), frame.y() + frame.height(), colors[0],
                 colors[1]);
+        // Le cadre par-dessus le fond : ses coins arrondis (verre transparent) arrondissent le fond.
+        PhoneWebScreen.drawBezel(g, frame);
         drawStatus(g);
         switch (page) {
             case CODE -> drawCode(g);
@@ -426,16 +416,21 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
         int y = frame.y() + Math.max(3, Math.round(frame.width() * 0.06f)) - 1;
         int left = inner.x();
         int right = inner.x() + inner.width();
-        if (state.lock() == Lock.UNLOCKED) {
-            g.drawString(font, clock(), left, y, WHITE, true);
-        } else {
-            g.drawString(font, Component.translatable(KEY + "no_service"), left, y, SOFT, true);
-        }
         String battery = state.battery() + "%";
         Component status = state.airplane()
                 ? Component.literal("✈ " + battery)
                 : Component.literal(battery);
         g.drawString(font, status, right - font.width(status), y, state.battery() <= 20 ? RED : WHITE, true);
+        // À gauche, l'heure ou « Pas de service », rétréci pour ne pas mordre sur la batterie.
+        Component lead = state.lock() == Lock.UNLOCKED ? Component.literal(clock())
+                : Component.translatable(KEY + "no_service");
+        int room = inner.width() - font.width(status) - 4;
+        float s = PhoneFallbackLayout.fit(font.width(lead), room, 1f);
+        g.pose().pushPose();
+        g.pose().translate(left, y + (1f - s) * font.lineHeight / 2f, 0);
+        g.pose().scale(s, s, 1f);
+        g.drawString(font, lead, 0, 0, state.lock() == Lock.UNLOCKED ? WHITE : SOFT, true);
+        g.pose().popPose();
     }
 
     private void drawCode(GuiGraphics g) {
@@ -499,6 +494,25 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
         if (!message.getString().isEmpty()) {
             drawCentered(g, message, cx, y, messageAlert ? RED : WHITE);
         }
+        // Le libellé de chaque champ de code, au-dessus de lui : il reste lisible une fois le champ rempli.
+        if (settingsLayout != null) {
+            for (String name : PhoneFallbackLayout.LABELLED) {
+                Integer top = settingsLayout.labelTops().get(name);
+                if (top != null) {
+                    drawLeft(g, Component.translatable(KEY + name + "_code"), inner.x() + 1, top, SOFT);
+                }
+            }
+        }
+    }
+
+    /** Un texte aligné à gauche, rétréci s'il dépasse la largeur de l'écran. */
+    private void drawLeft(GuiGraphics g, Component text, int x, int y, int color) {
+        float s = PhoneFallbackLayout.fit(font.width(text), inner.width() - 2, 1f);
+        g.pose().pushPose();
+        g.pose().translate(x, y + (1f - s) * font.lineHeight / 2f, 0);
+        g.pose().scale(s, s, 1f);
+        g.drawString(font, text, 0, 0, color, true);
+        g.pose().popPose();
     }
 
     /** Un texte centré, rétréci s'il dépasse la largeur de l'écran. */
@@ -541,5 +555,46 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
             case "nuit" -> new int[] {0xFF1D2648, 0xFF04060E};
             default -> new int[] {0xFFF2A26E, 0xFF5E4596};
         };
+    }
+
+    /**
+     * Un bouton dont le texte, trop large, est rétréci pour tenir (au lieu du défilement de Minecraft, qui le coupe).
+     * {@code spoken} remplace le texte lu par le narrateur (la flèche d'Effacer se lit « Effacer »).
+     */
+    private static final class FitButton extends Button {
+
+        FitButton(Rect r, Component text, OnPress onPress, @Nullable Component spoken) {
+            super(r.x(), r.y(), r.width(), r.height(), text, onPress,
+                    spoken == null ? DEFAULT_NARRATION : narration -> Component.translatable("gui.narrate.button", spoken));
+        }
+
+        @Override
+        public void renderString(GuiGraphics g, Font font, int color) {
+            int w = font.width(getMessage());
+            int room = PhoneFallbackLayout.textRoom(getWidth());
+            if (w <= room) {
+                super.renderString(g, font, color);
+                return;
+            }
+            float s = PhoneFallbackLayout.fit(w, room, 1f);
+            g.pose().pushPose();
+            g.pose().translate(getX() + getWidth() / 2f, getY() + (getHeight() - font.lineHeight * s) / 2f + s, 0);
+            g.pose().scale(s, s, 1f);
+            g.drawString(font, getMessage(), -w / 2, 0, color, true);
+            g.pose().popPose();
+        }
+    }
+
+    /** Un champ de code : le narrateur n'en lit que le libellé, jamais les chiffres saisis. */
+    private static final class CodeBox extends EditBox {
+
+        CodeBox(Font font, int x, int y, int w, int h, Component label) {
+            super(font, x, y, w, h, label);
+        }
+
+        @Override
+        protected MutableComponent createNarrationMessage() {
+            return getMessage().copy();
+        }
     }
 }
