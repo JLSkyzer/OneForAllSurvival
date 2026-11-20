@@ -46,6 +46,9 @@ import net.minecraft.client.gui.screens.AccessibilityOnboardingScreen;
 import net.minecraft.client.gui.screens.ConnectScreen;
 import net.minecraft.client.gui.screens.DisconnectedScreen;
 import net.minecraft.client.gui.screens.GenericDirtMessageScreen;
+import net.minecraft.client.gui.screens.LevelLoadingScreen;
+import net.minecraft.client.gui.screens.ProgressScreen;
+import net.minecraft.client.gui.screens.ReceivingLevelScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.multiplayer.ServerData;
@@ -77,6 +80,7 @@ import net.minecraft.world.level.levelgen.presets.WorldPresets;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.gui.ModMismatchDisconnectedScreen;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -177,6 +181,8 @@ public final class TelephoneShots {
     private static long mesureDebutNs;
     private static long ouvertureNs;
     private static long dernierCranNs;
+    private static long sansMondeNs;
+    private static int readyAvant;
 
     static {
         if (ACTIF) {
@@ -242,6 +248,8 @@ public final class TelephoneShots {
                             + (PAGE_DEMANDEE.isEmpty() ? "phone/index.html" : PAGE_DEMANDEE) + ", parcours "
                             + (web ? "web" : "repli") + " après " + String.format(Locale.ROOT, "%.1f s", s)
                             + " ; PID " + ProcessHandle.current().pid());
+                    // Une passe neuve : les horodatages d'une passe précédente dans le même dossier sont effacés.
+                    ecrireFichier("etapes.txt", "", false);
                     ecrireFichier("pid.txt", ProcessHandle.current().pid() + "\n", false);
                     passer(SERVEUR == null ? Phase.ENTREE : Phase.CONNEXION);
                 } else if (s > 600) {
@@ -261,8 +269,9 @@ public final class TelephoneShots {
                 }
             }
             case JOUEUR -> {
-                if (mc.screen instanceof DisconnectedScreen d) {
-                    echec("connexion", "déconnecté : " + raison(d));
+                String hors = horsDuMonde(mc);
+                if (hors != null) {
+                    echec("connexion", hors);
                     finir(mc);
                 } else if (mc.player != null && mc.level != null && mc.screen == null
                         && (SERVEUR != null || mc.getSingleplayerServer() != null)) {
@@ -282,8 +291,9 @@ public final class TelephoneShots {
                 }
             }
             case ETAPES -> {
-                if (mc.screen instanceof DisconnectedScreen d) {
-                    echec("deconnexion", "déconnecté pendant les étapes : " + raison(d));
+                String hors = horsDuMonde(mc);
+                if (hors != null) {
+                    echec("deconnexion", "pendant les étapes : " + hors);
                     finir(mc);
                     return;
                 }
@@ -571,7 +581,41 @@ public final class TelephoneShots {
                 () -> fermeePar(mc, CloseReason.ERASED), 10, null);
         messageDeFermeture("reset-equipe-ferme", CloseReason.ERASED, "26-reset-equipe");
         ouvrir(mc, "ouverture-apres-reset", Lock.SETUP, "27-apres-reset-choix-du-code");
+        if (web) {
+            adresseNonPermise(mc);
+        }
         echap(mc, "echap-5");
+    }
+
+    /**
+     * La page part vers une adresse non permise (locale : {@code about:blank#hors-page}, jamais une page externe) ;
+     * {@code McefHooks.onAddressChange} doit la ramener à la page du téléphone, à la tâche suivante, sans plantage :
+     * la page renvoie {@code ready} et l'écran reste celui du téléphone, sur le même état.
+     */
+    private static void adresseNonPermise(Minecraft mc) {
+        pas("adresse-non-permise", () -> {
+            readyAvant = SORTES_DU_PONT.getOrDefault("ready", 0);
+            executerDansLaPage((PhoneWebScreen) mc.screen, "location.href = 'about:blank#hors-page';");
+        }, () -> {
+            if (!(mc.screen instanceof PhoneWebScreen w) || SORTES_DU_PONT.getOrDefault("ready", 0) <= readyAvant
+                    || !cible(mc, "key-0") || !attendu(1.0)) {
+                return false;
+            }
+            journal("adresse non permise : la page est revenue (signal ready "
+                    + SORTES_DU_PONT.getOrDefault("ready", 0) + ", avant " + readyAvant + "), état " + w.state().lock());
+            return w.state().lock() == Lock.SETUP;
+        }, 10, "27b-retour-apres-adresse-non-permise");
+    }
+
+    /** Un script dans la page de l'écran web, par le chemin de l'écran lui-même ({@code WebScreen.run}). */
+    private static void executerDansLaPage(PhoneWebScreen w, String script) {
+        try {
+            java.lang.reflect.Method run = WebScreen.class.getDeclaredMethod("run", String.class);
+            run.setAccessible(true);
+            run.invoke(w, script);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("script non envoyé à la page : " + e);
+        }
     }
 
     /**
@@ -1152,6 +1196,34 @@ public final class TelephoneShots {
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    /**
+     * La raison pour laquelle le client n'est plus (ou pas) dans un monde, ou {@code null} : un écran de déconnexion
+     * (dont celui de Forge pour des mods différents, qui n'hérite pas de {@link DisconnectedScreen}), ou aucun monde
+     * depuis plus de 5 s hors des écrans de connexion et de chargement.
+     */
+    @Nullable
+    private static String horsDuMonde(Minecraft mc) {
+        Screen s = mc.screen;
+        if (s instanceof DisconnectedScreen d) {
+            return "déconnecté : " + raison(d);
+        }
+        if (s instanceof ModMismatchDisconnectedScreen) {
+            return "refusé, mods différents du serveur (" + s.getClass().getSimpleName() + ") : "
+                    + s.getTitle().getString();
+        }
+        boolean attente = s instanceof ConnectScreen || s instanceof ReceivingLevelScreen
+                || s instanceof LevelLoadingScreen || s instanceof GenericDirtMessageScreen
+                || s instanceof ProgressScreen;
+        if (mc.level != null || attente) {
+            sansMondeNs = 0;
+            return null;
+        }
+        if (sansMondeNs == 0) {
+            sansMondeNs = System.nanoTime();
+        }
+        return secondes(sansMondeNs) > 5 ? "aucun monde depuis plus de 5 s (écran " + s + ")" : null;
     }
 
     private static String raison(DisconnectedScreen d) {

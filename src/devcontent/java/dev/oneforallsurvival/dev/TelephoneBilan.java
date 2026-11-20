@@ -25,7 +25,8 @@ final class TelephoneBilan {
 
     /**
      * Les seuils manqués (vide si tout tient). Les tas sont en Mo, après GC ; {@code cycles} donne le tas après chacun
-     * des cinq cycles, la croissance par ouverture se compte depuis {@code tasApres}.
+     * des cinq cycles, la croissance par ouverture se compte depuis {@code tasApres}, en moyenne et pour chaque
+     * ouverture.
      */
     static List<String> perf(double avant, double pendant, double apres, double tasAvant, double tasApres,
             double[] cycles) {
@@ -54,6 +55,15 @@ final class TelephoneBilan {
                 manques.add(String.format(Locale.ROOT, "seuil-cycles : %+.1f Mo par ouverture sur cinq (%.1f puis "
                         + "%.1f), au plus +%.0f Mo", parOuverture, tasApres, cycles[4], PAR_OUVERTURE_MAX_MO));
             }
+            // Chaque ouverture aussi : un saut à une seule ouverture se perdrait dans la moyenne.
+            for (int i = 0; i < 5; i++) {
+                double avantCycle = i == 0 ? tasApres : cycles[i - 1];
+                double pas = cycles[i] - avantCycle;
+                if (pas > PAR_OUVERTURE_MAX_MO) {
+                    manques.add(String.format(Locale.ROOT, "seuil-ouverture : %+.1f Mo à l'ouverture %d (%.1f puis "
+                            + "%.1f), au plus +%.0f Mo", pas, i + 1, avantCycle, cycles[i], PAR_OUVERTURE_MAX_MO));
+                }
+            }
         }
         return manques;
     }
@@ -69,6 +79,9 @@ final class TelephoneBilan {
                 List<String> l = new ArrayList<>(List.of("ouverture-1", "confirmation-au-clavier", "reglages",
                         "mode-avion", "modification-du-code", "ouverture-2", "faux-5-reponse", "blocage",
                         "telephone-hors-main", "reset-equipe-ferme", "ouverture-apres-reset", "bilan-avis-final"));
+                if (webAttendu) {
+                    l.add("adresse-non-permise");
+                }
                 if (!serveur) {
                     l.addAll(List.of("batterie-baisse", "brancher", "batterie-remontee", "fin-du-blocage",
                             "effacement-ferme", "reouverture-choix-du-code"));

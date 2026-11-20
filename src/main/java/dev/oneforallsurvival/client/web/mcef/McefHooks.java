@@ -140,7 +140,13 @@ final class McefHooks {
             McefWebView view = mainFrameView(browser, frame);
             if (view != null && !WebPages.isAllowed(url)) {
                 LOG.warn("[web] adresse non permise {} : retour à {}", url, view.startUrl());
-                browser.loadURL(view.startUrl());
+                // Jamais depuis le rappel lui-même : à la tâche suivante, si la vue est encore inscrite (ni fermée ni
+                // passée au repli, qui la ferment et la désinscrivent).
+                Minecraft.getInstance().tell(() -> {
+                    if (VIEWS.get(browser) == view) {
+                        browser.loadURL(view.startUrl());
+                    }
+                });
             }
         }
 

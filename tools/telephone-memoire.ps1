@@ -34,12 +34,17 @@ while (-not $javaPid) {
         Start-Sleep -Milliseconds 500
     }
 }
-$java = Get-Process -Id $javaPid -ErrorAction SilentlyContinue
-if (-not $java -or $java.ProcessName -ne 'java') {
-    Write-Output "[memoire] le PID $javaPid n'est pas un java vivant : abandon"
+# Le processus doit etre un java de ce projet : sa ligne de commande contient OneForAllSurvival (regle de
+# cohabitation des sessions ; jamais la memoire d'une JVM d'un autre projet). Controle refait a chaque releve.
+function Test-NotreJava($processus) {
+    return $processus -and $processus.Name -eq 'java.exe' -and $processus.CommandLine -like '*OneForAllSurvival*'
+}
+$cible = Get-CimInstance Win32_Process -Filter "ProcessId = $javaPid" -Property ProcessId, Name, CommandLine
+if (-not (Test-NotreJava $cible)) {
+    Write-Output "[memoire] le PID $javaPid n'est pas un java vivant de OneForAllSurvival : abandon"
     exit 1
 }
-Write-Output "[memoire] client java PID $javaPid"
+Write-Output "[memoire] client java PID $javaPid (ligne de commande de OneForAllSurvival)"
 
 function Get-Descendants([int]$racine, $tous) {
     $enfants = @($tous | Where-Object { $_.ParentProcessId -eq $racine })
@@ -56,9 +61,18 @@ $lignes = New-Object System.Collections.Generic.List[string]
 $lignes.Add('epoch_ms;heure;java_ws_mo;java_prive_mo;jcef_nombre;jcef_ws_mo;jcef_prive_mo;total_ws_mo')
 $releves = New-Object System.Collections.Generic.List[object]
 while ($true) {
+    $tous = Get-CimInstance Win32_Process -Property ProcessId, ParentProcessId, Name, CommandLine, WorkingSetSize,
+            PrivatePageCount
+    $cible = $tous | Where-Object { $_.ProcessId -eq $javaPid } | Select-Object -First 1
+    if (-not $cible) { break }
+    # Un processus qui se termine rend une ligne de commande vide : c'est la fin du client, pas un autre java.
+    if (-not $cible.CommandLine) { break }
+    if (-not (Test-NotreJava $cible)) {
+        Write-Output "[memoire] le PID $javaPid n'est plus un java de OneForAllSurvival (PID reutilise ?) : abandon"
+        exit 1
+    }
     $java = Get-Process -Id $javaPid -ErrorAction SilentlyContinue
     if (-not $java) { break }
-    $tous = Get-CimInstance Win32_Process -Property ProcessId, ParentProcessId, Name, WorkingSetSize, PrivatePageCount
     $jcef = @(Get-Descendants $javaPid $tous | Where-Object { $_.Name -eq 'jcef_helper.exe' })
     $jcefWs = ($jcef | Measure-Object -Property WorkingSetSize -Sum).Sum
     $jcefPrive = ($jcef | Measure-Object -Property PrivatePageCount -Sum).Sum
