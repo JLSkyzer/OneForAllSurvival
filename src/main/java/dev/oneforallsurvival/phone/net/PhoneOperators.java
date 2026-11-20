@@ -93,6 +93,8 @@ public final class PhoneOperators extends SavedData {
     private Long nextTariffCap;
     /** Dernier temps de jeu où {@link #noteTick} a marqué le registre sale (non sauvegardé). */
     private long lastFlushTick = NEVER;
+    /** Monte à chaque changement de l'état d'une carte (non sauvegardé) : voir {@link #cardRevision()}. */
+    private int cardRevision;
 
     /** Un registre neuf, détaché du monde (essais) ; celui du serveur s'obtient par {@link #get}. */
     public PhoneOperators() {}
@@ -185,6 +187,7 @@ public final class PhoneOperators extends SavedData {
             return false;
         }
         cards.replaceAll((simId, card) -> card.operatorId().equals(id) ? card.withState(SimCard.State.DEACTIVATED) : card);
+        cardRevision++;
         setDirty();
         return true;
     }
@@ -230,8 +233,19 @@ public final class PhoneOperators extends SavedData {
         cards.put(simId, card);
         cardByNumber.put(number, simId);
         usedNumbers.add(number);
+        cardRevision++;
         setDirty();
         return card;
+    }
+
+    /**
+     * Change à chaque émission, à chaque changement d'état d'une carte et à chaque retrait d'opérateur : tant qu'elle
+     * ne bouge pas, {@link #activeCards} rend la même chose pour chaque opérateur. Une antenne y garde son décompte
+     * ({@link ActiveCardCache}) au lieu de parcourir toutes les cartes à chaque tic. Non sauvegardée : un registre relu
+     * repart de zéro, et le cache se rafraîchit aussi quand le registre n'est plus le même objet.
+     */
+    public int cardRevision() {
+        return cardRevision;
     }
 
     public Optional<SimCard> card(UUID simId) {
@@ -285,6 +299,7 @@ public final class PhoneOperators extends SavedData {
         }
         if (card.state() != state) {
             cards.put(simId, card.withState(state));
+            cardRevision++;
             setDirty();
         }
         return true;

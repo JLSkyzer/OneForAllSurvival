@@ -1144,5 +1144,12 @@
   "screen.oneforallsurvival.phone.erase_confirm": "Confirm erase",
   "screen.oneforallsurvival.phone.erase_needs_code": "Enter the current passcode to erase.",
   "screen.oneforallsurvival.phone.back": "Back",
-  "screen.oneforallsurvival.phone.owner": "%s's phone"
+  "screen.oneforallsurvival.phone.owner": "%s's phone",
+  "block.oneforallsurvival.antenna": "Antenna",
+  "tooltip.oneforallsurvival.antenna.operator": "Operator: %s",
+  "tooltip.oneforallsurvival.antenna.new": "New antenna: placed by an operator's founder, it joins their network; otherwise it founds one.",
+  "message.oneforallsurvival.antenna.not_yours": "This antenna belongs to the operator %s.",
+  "message.oneforallsurvival.antenna.of": "Antenna of %s.",
+  "message.oneforallsurvival.antenna.no_operator": "Antenna without an operator.",
+  "message.oneforallsurvival.antenna.panel_soon": "The antenna panel is coming soon."
 }

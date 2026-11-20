@@ -1144,5 +1144,12 @@
   "screen.oneforallsurvival.phone.erase_confirm": "Confirmer l'effacement",
   "screen.oneforallsurvival.phone.erase_needs_code": "Saisissez le code actuel pour effacer.",
   "screen.oneforallsurvival.phone.back": "Retour",
-  "screen.oneforallsurvival.phone.owner": "Téléphone de %s"
+  "screen.oneforallsurvival.phone.owner": "Téléphone de %s",
+  "block.oneforallsurvival.antenna": "Antenne",
+  "tooltip.oneforallsurvival.antenna.operator": "Opérateur : %s",
+  "tooltip.oneforallsurvival.antenna.new": "Antenne neuve : posée par le fondateur d'un opérateur, elle rejoint son réseau ; sinon elle en fonde un.",
+  "message.oneforallsurvival.antenna.not_yours": "Cette antenne appartient à l'opérateur %s.",
+  "message.oneforallsurvival.antenna.of": "Antenne de %s.",
+  "message.oneforallsurvival.antenna.no_operator": "Antenne sans opérateur.",
+  "message.oneforallsurvival.antenna.panel_soon": "Le panneau de l'antenne arrive bientôt."
 }

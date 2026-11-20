@@ -218,7 +218,22 @@ public final class PhoneConfig {
         }
     }
 
+    /**
+     * Valeur imposée par un essai à {@link #antennaKeepsChunkLoaded()} (nulle : le fichier fait foi). En mémoire
+     * seulement : le fichier de réglages n'est jamais réécrit.
+     */
+    private static volatile Boolean keepsChunkLoadedOverride;
+
+    /** Essais seulement : impose {@link #antennaKeepsChunkLoaded()}, ou rend la main au fichier avec {@code null}. */
+    public static void overrideAntennaKeepsChunkLoaded(Boolean value) {
+        keepsChunkLoadedOverride = value;
+    }
+
     public static boolean antennaKeepsChunkLoaded() {
+        Boolean forced = keepsChunkLoadedOverride;
+        if (forced != null) {
+            return forced;
+        }
         try {
             return ANTENNA_KEEPS_CHUNK_LOADED.get();
         } catch (IllegalStateException e) {

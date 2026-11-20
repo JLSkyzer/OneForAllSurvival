@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "state=stopped": {
+      "model": "oneforallsurvival:block/antenna"
+    },
+    "state=running": {
+      "model": "oneforallsurvival:block/antenna_on"
+    },
+    "state=no_power": {
+      "model": "oneforallsurvival:block/antenna"
+    },
+    "state=fault": {
+      "model": "oneforallsurvival:block/antenna"
+    }
+  }
+}

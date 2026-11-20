@@ -199,5 +199,9 @@ public final class OneForAllSurvival {
 
     private void commonSetup(FMLCommonSetupEvent event) {
         LOGGER.info("One For All Survival loaded");
+        // Tickets de chunk des antennes (lot T2) : revus au chargement de chaque monde, avant d'être remis ; Forge
+        // demande que le rappel s'inscrive ici, sur le fil principal.
+        event.enqueueWork(() -> net.minecraftforge.common.world.ForgeChunkManager.setForcedChunkLoadingCallback(MODID,
+                dev.oneforallsurvival.phone.net.AntennaChunks::validate));
     }
 }

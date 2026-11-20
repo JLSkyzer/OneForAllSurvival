@@ -1,6 +1,9 @@
 package dev.oneforallsurvival.phone;
 
 import dev.oneforallsurvival.OneForAllSurvival;
+import dev.oneforallsurvival.phone.net.AntennaBlock;
+import dev.oneforallsurvival.phone.net.AntennaBlockEntity;
+import dev.oneforallsurvival.phone.net.AntennaItem;
 import java.util.List;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
@@ -15,8 +18,9 @@ import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
 
 /**
- * Ce que le téléphone enregistre : l'objet et la prise murale qui le recharge (bloc, objet, block entity). Les deux
- * recettes sont des recettes de table, voir {@code table_only}.
+ * Ce que le téléphone enregistre : l'objet et la prise murale qui le recharge (bloc, objet, block entity), dont les
+ * recettes sont des recettes de table (voir {@code table_only}) ; l'antenne d'un opérateur (lot T2), fabriquée à
+ * l'établi de l'ingénieur.
  */
 public final class PhoneRegistry {
 
@@ -40,6 +44,19 @@ public final class PhoneRegistry {
             BLOCK_ENTITIES.register("wall_socket", () -> BlockEntityType.Builder
                     .of(WallSocketBlockEntity::new, WALL_SOCKET.get()).build(null));
 
+    /**
+     * L'antenne : mât et semelle hors du cube, {@code noOcclusion()} et forme exacte dans le bloc. Dureté de métal
+     * d'ici la tâche 4, qui la protège (dureté réservée, pistons, Wither, dragon).
+     */
+    public static final RegistryObject<Block> ANTENNA = BLOCKS.register("antenna",
+            () -> new AntennaBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL)
+                    .strength(3.5F, 6.0F).sound(SoundType.METAL).noOcclusion()));
+    public static final RegistryObject<Item> ANTENNA_ITEM = ITEMS.register("antenna",
+            () -> new AntennaItem(ANTENNA.get(), new Item.Properties()));
+    public static final RegistryObject<BlockEntityType<AntennaBlockEntity>> ANTENNA_BE =
+            BLOCK_ENTITIES.register("antenna", () -> BlockEntityType.Builder
+                    .of(AntennaBlockEntity::new, ANTENNA.get()).build(null));
+
     private PhoneRegistry() {}
 
     public static void register(IEventBus modEventBus) {
@@ -49,6 +66,6 @@ public final class PhoneRegistry {
     }
 
     public static List<RegistryObject<? extends Item>> tabItems() {
-        return List.of(PHONE, WALL_SOCKET_ITEM);
+        return List.of(PHONE, WALL_SOCKET_ITEM, ANTENNA_ITEM);
     }
 }
