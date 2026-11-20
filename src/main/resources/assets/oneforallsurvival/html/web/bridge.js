@@ -6,6 +6,22 @@
 
   var mockMode = String(window.location.href).slice(-5) === '#mock';
 
+  // Le journal de la console ne montre jamais un code saisi (champs code, old, new).
+  var SECRET_KEYS = ['code', 'old', 'new'];
+
+  function masked(message) {
+    if (!message || typeof message !== 'object') {
+      return JSON.stringify(message);
+    }
+    var copy = {};
+    for (var key in message) {
+      if (Object.prototype.hasOwnProperty.call(message, key)) {
+        copy[key] = SECRET_KEYS.indexOf(key) >= 0 ? '****' : message[key];
+      }
+    }
+    return JSON.stringify(copy);
+  }
+
   var api = {
     send: function (message) {
       var request = JSON.stringify(message);
@@ -14,7 +30,7 @@
         return;
       }
       if (window.console) {
-        window.console.log('[oneforall] ' + request);
+        window.console.log('[oneforall] ' + masked(message));
       }
       if (typeof api.mock === 'function') {
         api.mock(message);

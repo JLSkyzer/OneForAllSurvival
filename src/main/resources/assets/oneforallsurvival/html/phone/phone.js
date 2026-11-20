@@ -50,6 +50,10 @@
 
   // ------------------------------------------------------------------------------------------- Lecture de la vue
 
+  function finite(x) {
+    return typeof x === 'number' && isFinite(x);
+  }
+
   function num(x, min, max, fallback) {
     var n = typeof x === 'number' && isFinite(x) ? Math.floor(x) : fallback;
     return Math.max(min, Math.min(max, n));
@@ -271,6 +275,10 @@
       var code = e.value;
       // Un court temps pour voir le quatrième point se remplir.
       setTimeout(function () {
+        // Retour arrière, fermeture ou changement d'écran pendant le délai : la saisie n'est plus ce code, rien ne part.
+        if (entries[name].value !== code || activeEntry() !== name || state.pending) {
+          return;
+        }
         if (name === 'lock') {
           lockComplete(code);
         } else {
@@ -278,6 +286,11 @@
         }
       }, 140);
     }
+  }
+
+  /** Le code parti n'est plus gardé ; les points restent peints (le glissement du déverrouillage les emporte). */
+  function forget(name) {
+    entries[name].value = '';
   }
 
   function startPending(kind) {
@@ -318,11 +331,13 @@
       state.setupFirst = null;
       startPending('setup');
       send({ a: 'setup', code: code });
+      forget('lock');
       return;
     }
     if (state.screen === 'lock') {
       startPending('unlock');
       send({ a: 'unlock', code: code });
+      forget('lock');
     }
   }
 
@@ -420,6 +435,9 @@
     } else {
       startPending('changeCode');
       send({ a: 'changeCode', old: s.old, new: code });
+      s.old = null;
+      s.fresh = null;
+      forget('sheet');
     }
   }
 
@@ -468,8 +486,8 @@
   // ------------------------------------------------------------------------------------------- Rendu d'une vue
 
   function render(raw) {
-    if (!raw || typeof raw !== 'object') {
-      return;
+    if (!raw || typeof raw !== 'object' || !finite(raw.session) || !finite(raw.serverMillis)) {
+      return; // vue incomplète : on n'invente ni la session ni l'heure, l'écran reste tel quel
     }
     var v = clean(raw);
     var fresh = state.session !== v.session || state.view === null;
