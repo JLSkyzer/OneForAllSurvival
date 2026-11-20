@@ -1643,7 +1643,15 @@ public final class PackGameTests {
                     "axis_along_first", "false"));
             helper.setBlock(deployeur.north(), avec(blocMoteur.defaultBlockState(), "facing", "south"));
         }
+        // Le faux joueur du déployeur de Create rend l'UUID du joueur qui l'a posé (DeployerFakePlayer.getUUID, champ
+        // owner) : celui du casseur porte l'UUID d'un ingénieur et l'outil de maintenance. Seule l'exclusion des faux
+        // joueurs (AntennaRules) l'empêche alors de casser l'antenne (mutation M4 du tour 1 : rouge avec le pack).
+        java.util.UUID ingenieur = java.util.UUID.nameUUIDFromBytes("pack_antenne_deployeur".getBytes(
+                java.nio.charset.StandardCharsets.UTF_8));
+        var livre = dev.oneforallsurvival.role.RoleSavedData.get(helper.getLevel().getServer()).book();
+        livre.assign(ingenieur, dev.oneforallsurvival.role.RoleBook.ENGINEER_ROLE_ID);
         Runnable rendre = () -> {
+            livre.assign(ingenieur, dev.oneforallsurvival.role.RoleBook.DEFAULT_ROLE_ID);
             for (BlockPos deployeur : List.of(temoin, casseur)) {
                 helper.setBlock(deployeur, Blocks.AIR);
                 helper.setBlock(deployeur.north(), Blocks.AIR);
@@ -1665,6 +1673,30 @@ public final class PackGameTests {
                         joueur.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
                                 new ItemStack(net.minecraft.world.item.Items.DIAMOND_PICKAXE));
                         try {
+                            if (deployeur.equals(casseur)) {
+                                java.lang.reflect.Field proprietaire = null;
+                                for (Class<?> c = joueur.getClass(); c != null && proprietaire == null; c = c.getSuperclass()) {
+                                    for (java.lang.reflect.Field f : c.getDeclaredFields()) {
+                                        if (f.getName().equals("owner") && f.getType() == java.util.UUID.class) {
+                                            proprietaire = f;
+                                        }
+                                    }
+                                }
+                                if (proprietaire == null) {
+                                    rendre.run();
+                                    helper.fail("champ owner introuvable sur " + joueur.getClass());
+                                }
+                                proprietaire.setAccessible(true);
+                                proprietaire.set(joueur, ingenieur);
+                                // L'outil frappe en main principale (la main secondaire du déployeur n'est pas gardée).
+                                joueur.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+                                        new ItemStack(dev.oneforallsurvival.repair.RepairRegistry.MAINTENANCE_TOOL.get()));
+                                if (!ingenieur.equals(joueur.getUUID())) {
+                                    rendre.run();
+                                    helper.fail("le faux joueur du déployeur ne porte pas l'UUID de l'ingénieur : "
+                                            + joueur.getUUID());
+                                }
+                            }
                             be.getClass().getMethod("changeMode").invoke(be);
                         } catch (ReflectiveOperationException e) {
                             rendre.run();
@@ -1676,8 +1708,22 @@ public final class PackGameTests {
                 .thenIdle(100)
                 .thenExecute(() -> {
                     boolean present = estAntenne(helper, antenne);
+                    // Le vrai faux joueur du déployeur, à l'UUID de l'ingénieur et outil en main : aucun droit, aucune
+                    // progression. Avec des droits, sa progression (0,0013 par tic, il est « en l'air ») ne ferait tomber
+                    // l'antenne qu'après bien plus que l'attente : c'est la progression qui fait mordre l'essai (M4).
+                    net.minecraft.world.entity.player.Player faux = fauxJoueur(helper.getBlockEntity(casseur));
+                    boolean droit = faux != null && dev.oneforallsurvival.phone.net.AntennaRules.mayManage(faux, null);
+                    float progression = faux == null || !present ? -1F : helper.getBlockState(antenne).getDestroyProgress(
+                            faux, helper.getLevel(), helper.absolutePos(antenne));
+                    org.apache.logging.log4j.LogManager.getLogger("oneforallsurvival-antenne").info(
+                            "[antenne] deployeur : uuid {}, main {}, ayant droit {}, progression {}, antenne {}",
+                            faux == null ? null : faux.getUUID(), faux == null ? null : faux.getMainHandItem(), droit,
+                            progression, present);
                     rendre.run();
                     helper.assertTrue(present, "le déployeur ne devait pas casser l'antenne");
+                    helper.assertTrue(faux != null && !droit && progression == 0.0F,
+                            "le faux joueur du déployeur (UUID d'un ingénieur, outil en main) n'a ni droit ni progression : "
+                                    + droit + ", " + progression);
                 })
                 .thenSucceed();
     }

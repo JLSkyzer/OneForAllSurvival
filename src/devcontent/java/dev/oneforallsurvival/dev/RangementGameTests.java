@@ -412,6 +412,9 @@ public final class RangementGameTests {
             p.inventoryMenu.setCarried(ItemStack.EMPTY);
             helper.succeed();
         } finally {
+            // La grille 2x2 se vide au sol au départ du joueur : ses pièces y expiraient 6000 ticks plus tard
+            // (vu par PiecesOubliees, lot T2 tâche 4).
+            j.joueur().inventoryMenu.getCraftSlots().clearContent();
             quitter(j);
             degager(helper);
         }

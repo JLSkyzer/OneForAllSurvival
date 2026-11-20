@@ -21,7 +21,10 @@ import net.minecraftforge.common.util.FakePlayer;
  *       l'équipe. Le tarif ({@link #maySetTariff}) : le fondateur, le maire et l'équipe.
  * </ul>
  *
- * <p>Jamais un faux joueur (déployeur, automate). Côté client les rôles sont inconnus : ces règles laissent faire
+ * <p>Jamais un faux joueur (déployeur, automate), et c'est la première vérification de chaque règle : le faux joueur du
+ * déployeur de Create rend l'UUID du joueur qui a posé le déployeur ({@code DeployerFakePlayer.getUUID}, lu dans le jar
+ * de Create 6.0.8) ; sans elle, le déployeur d'un fondateur, ou celui d'un ingénieur chargé d'un outil de maintenance,
+ * aurait les droits de son poseur. Côté client les rôles sont inconnus : ces règles laissent faire
  * (progression de casse, pose prédite) et le serveur tranche, comme {@code PowerRules}.
  */
 public final class AntennaRules {

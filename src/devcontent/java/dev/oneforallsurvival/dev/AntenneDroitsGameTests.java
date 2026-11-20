@@ -86,6 +86,8 @@ public final class AntenneDroitsGameTests {
     private static final String LOT_OUTIL = "outil_maintenance";
 
     private static final String MSG = AntennaBlock.MESSAGE;
+    /** La première ligne du rapport de machine du testeur. */
+    private static final String RAPPORT = "message.oneforallsurvival.report.condition";
 
     private static final BlockPos A = new BlockPos(2, 0, 2);
     private static final BlockPos B = new BlockPos(5, 0, 2);
@@ -396,8 +398,22 @@ public final class AntenneDroitsGameTests {
             inge.messagesRecus();
             clicDroit(helper, inge, A);
             helper.assertTrue(inge.messagesRecus().contains(MSG + "of"), "il lit à qui est l'antenne");
-            mains(inge, new ItemStack(RepairRegistry.TESTER.get()), ItemStack.EMPTY);
-            sansLaMain(helper, inge, A, "l'ingénieur au testeur");
+            // Le testeur en main principale donne le rapport de machine et jamais le panneau, à tout le monde (témoin : le
+            // fondateur, ayant droit) ; ce sont la progression et le bris qui disent que l'ingénieur au testeur n'a pas la
+            // main.
+            for (JoueurDeTest testeur : List.of(fondateur, inge)) {
+                String qui = testeur == inge ? "l'ingénieur au testeur" : "le fondateur au testeur";
+                mains(testeur, new ItemStack(RepairRegistry.TESTER.get()), ItemStack.EMPTY);
+                testeur.messagesRecus();
+                clicDroit(helper, testeur, A);
+                List<String> recus = testeur.messagesRecus();
+                helper.assertTrue(recus.contains(RAPPORT) && !recus.contains(MSG + "panel_soon"),
+                        qui + " : le rapport de machine, jamais le panneau : " + recus);
+            }
+            helper.assertTrue(progression(helper, inge.joueur(), A) == 0.0F, "l'ingénieur au testeur : aucune progression");
+            helper.assertTrue(briseAnnule(helper, inge.joueur(), A), "l'ingénieur au testeur : le bris doit être annulé");
+            helper.assertTrue(!inge.joueur().gameMode.destroyBlock(helper.absolutePos(A)) && estAntenne(helper, A),
+                    "l'ingénieur au testeur ne doit pas casser l'antenne");
             helper.assertTrue(!AntennaRules.mayManage(inge.joueur(), op.founder()), "pas d'ayant droit sans l'outil");
             helper.succeed();
         }
@@ -477,6 +493,20 @@ public final class AntenneDroitsGameTests {
             helper.assertTrue(tresor.getDestroyProgress(p, level, ici) == 0.0F, "aucune progression sur le trésor");
             helper.assertTrue(tableau.getDestroyProgress(p, level, ici) == 0.0F, "aucune progression sur le tableau");
             helper.assertTrue(!TownBlockRules.mayPlaceTreasury(p, false), "sans l'outil, il ne repose pas le trésor");
+
+            // Un faux joueur qui porte l'UUID de l'ingénieur ou du maire (le déployeur de Create rend celui de son poseur)
+            // ne déplace rien, même outillé.
+            JoueurDeTest maire = essai.maire("om_tresor_maire");
+            for (JoueurDeTest qui : List.of(inge, maire)) {
+                FakePlayer faux = FakePlayerFactory.get(level, new GameProfile(qui.uuid(), "[Deployeur]"));
+                faux.setItemInHand(InteractionHand.OFF_HAND, outil());
+                boolean permis = TownBlockRules.mayMove(faux) || TownBlockRules.engineerMayMove(faux)
+                        || TownBlockRules.mayPlaceTreasury(faux, false) || TownBlockRules.mayOpenTreasury(faux)
+                        || tresor.getDestroyProgress(faux, level, ici) > 0.0F;
+                faux.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY);
+                helper.assertTrue(!permis, "un faux joueur à l'UUID de " + qui.joueur().getGameProfile().getName()
+                        + " ne touche pas aux blocs de la ville");
+            }
 
             for (boolean principale : new boolean[] {true, false}) {
                 String qui = "outil en main " + (principale ? "principale" : "secondaire");
@@ -596,6 +626,34 @@ public final class AntenneDroitsGameTests {
                     essai.close();
                     helper.assertTrue(enPlace && !ailleurs, "l'antenne ne devait pas bouger");
                     helper.assertTrue(rentre, "le piston bloqué ne devait pas s'étendre");
+                })
+                .thenSucceed();
+    }
+
+    /**
+     * De l'eau posée contre l'antenne ne l'emporte pas ({@code forceSolidOn}) ; témoin : une torche de l'autre côté de la
+     * source est emportée. Une fois la torche partie, l'eau a encore 40 ticks.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_DROITS, timeoutTicks = 200)
+    public static void lEauNEmportePasLAntenne(GameTestHelper helper) {
+        Essai essai = new Essai(helper);
+        BlockPos antenne = new BlockPos(2, 0, 2);
+        BlockPos source = new BlockPos(2, 0, 3);
+        BlockPos torche = new BlockPos(2, 0, 4);
+        helper.setBlock(antenne, PhoneRegistry.ANTENNA.get());
+        helper.setBlock(torche, Blocks.TORCH);
+        helper.setBlock(source, Blocks.WATER);
+        long[] fin = new long[1];
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(!helper.getBlockState(torche).is(Blocks.TORCH),
+                        "l'eau témoin devait emporter la torche"))
+                .thenExecute(() -> fin[0] = helper.getTick() + 40)
+                .thenWaitUntil(() -> helper.assertTrue(helper.getTick() >= fin[0], "attente de l'eau"))
+                .thenExecute(() -> {
+                    boolean enPlace = estAntenne(helper, antenne);
+                    BlockState etat = helper.getBlockState(antenne);
+                    essai.close();
+                    helper.assertTrue(enPlace, "l'eau ne devait pas emporter l'antenne : " + etat);
                 })
                 .thenSucceed();
     }

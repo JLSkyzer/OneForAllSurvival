@@ -15,6 +15,9 @@ import net.minecraftforge.common.util.FakePlayer;
  *
  * <p>Côté client les rôles sont inconnus : ces règles laissent faire (progression de casse, pose prédite) et le serveur
  * tranche, comme {@code SafeBlock.mayBreak}. Seule {@link #creativeNeedsCrouch} se lit des deux côtés.
+ *
+ * <p>Un faux joueur n'a jamais aucun droit : celui du déployeur de Create rend l'UUID du joueur qui a posé le déployeur
+ * ({@code DeployerFakePlayer.getUUID}, lu dans le jar de Create 6.0.8), donc le rôle de maire ou d'ingénieur de ce joueur.
  */
 public final class TownBlockRules {
 
@@ -37,6 +40,9 @@ public final class TownBlockRules {
      * ici, comme pour le coffre-fort et l'étal.
      */
     public static boolean mayOpenTreasury(Player player) {
+        if (player instanceof FakePlayer) {
+            return false;
+        }
         if (!(player instanceof ServerPlayer server)) {
             return true;
         }
@@ -45,6 +51,9 @@ public final class TownBlockRules {
 
     /** Déplacer (casser) un bloc de la ville : l'équipe, le maire, ou un ingénieur ({@link #engineerMayMove}). */
     public static boolean mayMove(Player player) {
+        if (player instanceof FakePlayer) {
+            return false;
+        }
         if (!(player instanceof ServerPlayer server)) {
             return true;
         }
@@ -71,6 +80,9 @@ public final class TownBlockRules {
      * qu'un trésor vivant existe (un seul trésor).
      */
     public static boolean mayPlaceTreasury(Player player, boolean liveTreasuryExists) {
+        if (player instanceof FakePlayer) {
+            return false;
+        }
         if (!(player instanceof ServerPlayer server)) {
             return true;
         }
@@ -82,6 +94,9 @@ public final class TownBlockRules {
 
     /** Poser un tableau de la mairie : le maire ou l'équipe. */
     public static boolean mayPlaceBoard(Player player) {
+        if (player instanceof FakePlayer) {
+            return false;
+        }
         if (!(player instanceof ServerPlayer server)) {
             return true;
         }

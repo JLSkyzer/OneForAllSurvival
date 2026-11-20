@@ -560,6 +560,12 @@ public final class EtalStockGameTests {
                     helper.assertTrue(beDropper.stock().isEmpty(), "le stock de l'étal du dropper est resté vide");
                     helper.succeed();
                 } finally {
+                    // Retirés pleins, la trémie et le dropper lâchaient leurs pièces au sol, qui y expiraient 6000 ticks
+                    // plus tard (vu par PiecesOubliees, lot T2 tâche 4).
+                    hopper.clearContent();
+                    if (helper.getBlockEntity(dropper) instanceof DispenserBlockEntity d) {
+                        d.clearContent();
+                    }
                     essai.close();
                 }
             });

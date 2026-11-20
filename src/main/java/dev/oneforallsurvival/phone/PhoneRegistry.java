@@ -49,10 +49,12 @@ public final class PhoneRegistry {
      * L'antenne : mât et semelle hors du cube, {@code noOcclusion()} et forme exacte dans le bloc. Protégée comme le poste
      * de fournisseur (dureté -1, résistance maximale, piston bloqué ; tags du Wither, du dragon et
      * {@code create:non_movable}) : la casse n'est rendue qu'aux ayants droit par {@link AntennaBlock#getDestroyProgress}.
+     * {@code forceSolidOn()} : l'eau ne l'emporte pas, quelle que soit la finesse du modèle.
      */
     public static final RegistryObject<Block> ANTENNA = BLOCKS.register("antenna",
             () -> new AntennaBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL)
-                    .strength(-1.0F, 3600000.0F).sound(SoundType.METAL).pushReaction(PushReaction.BLOCK).noOcclusion()));
+                    .strength(-1.0F, 3600000.0F).sound(SoundType.METAL).pushReaction(PushReaction.BLOCK).noOcclusion()
+                    .forceSolidOn()));
     public static final RegistryObject<Item> ANTENNA_ITEM = ITEMS.register("antenna",
             () -> new AntennaItem(ANTENNA.get(), new Item.Properties()));
     public static final RegistryObject<BlockEntityType<AntennaBlockEntity>> ANTENNA_BE =
