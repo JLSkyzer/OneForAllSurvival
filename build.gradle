@@ -159,12 +159,17 @@ minecraft {
             if (project.hasProperty('webShots')) {
                 property 'oneforallsurvival.webShots', project.webShots ?: 'frames-web'
             }
+            // `-PtelephoneShots=<dossier>` : essai reel du telephone (parcours par vrais clics), puis fermeture. Voir
+            // TelephoneShots (devcontent).
+            if (project.hasProperty('telephoneShots')) {
+                property 'oneforallsurvival.telephoneShots', project.telephoneShots ?: 'frames-telephone'
+            }
             if (project.hasProperty('gameArgs')) {
                 args project.gameArgs.trim().split(/\s+/).toList()
             }
             // Un lancement d'automate (captures, film de la scène) ouvre aussi la fenêtre de chargement sur le second
             // écran (WindowPlacement du jar de service) ; un runClient ordinaire n'est pas touché.
-            if (['titleShots', 'debugShots', 'tabShots', 'sceneFrames', 'webShots'].any { project.hasProperty(it) }) {
+            if (['titleShots', 'debugShots', 'tabShots', 'sceneFrames', 'webShots', 'telephoneShots'].any { project.hasProperty(it) }) {
                 property 'oneforallsurvival.fenetre.secondEcran', 'true'
             }
             // `-PoverlayFail=first` : la première image de l'overlay du mod échoue, celui de Forge prend la main.

@@ -191,7 +191,25 @@ public final class PhoneService {
         data.put(session.phoneId(), new PhoneRecord(player.getUUID(), player.getGameProfile().getName(), salt,
                 PhoneCode.hash(salt, code), 0, record.lockedUntil(), record.wallpaper(), record.airplane()));
         session.unlock(salt);
+        relockOthers(player, session.phoneId());
         return Outcome.DONE;
+    }
+
+    /**
+     * Les autres sessions ouvertes sur ce téléphone (copies) dont le verrou ne vaut plus après un nouveau code (choix du
+     * code en cours, ou déverrouillées par l'ancien) : reverrouillées et prévenues tout de suite par un
+     * {@link Kind#UPDATE}, sans attendre leur prochain geste ni le tic.
+     */
+    private static void relockOthers(ServerPlayer player, UUID phoneId) {
+        PhoneRecord record = PhoneData.get(player.server).record(phoneId);
+        for (SessionOf other : othersOn(player.server, phoneId, player)) {
+            Lock before = other.session().lock();
+            syncLock(other.session(), record);
+            if (other.session().lock() != before) {
+                send(other.player(), view(other.player(), other.session(), Kind.UPDATE, Result.NONE,
+                        CloseReason.NONE));
+            }
+        }
     }
 
     private static Outcome unlock(PhoneSession session, PhoneData data, PhoneRecord record, String code,
@@ -235,15 +253,8 @@ public final class PhoneService {
                 now.failures(), now.lockedUntil(), now.wallpaper(), now.airplane()));
         session.unlock(salt);
         last[0] = Result.CODE_CHANGED;
-        // Les autres sessions ouvertes sur ce téléphone (copies) ont été déverrouillées par l'ancien code : leur sel ne
-        // vaut plus (elles se reverrouilleraient à leur prochain geste), on les reverrouille et prévient tout de suite.
-        for (SessionOf other : othersOn(player.server, session.phoneId(), player)) {
-            if (other.session().lock() == Lock.UNLOCKED) {
-                other.session().setLock(Lock.LOCKED);
-                send(other.player(), view(other.player(), other.session(), Kind.UPDATE, Result.NONE,
-                        CloseReason.NONE));
-            }
-        }
+        // Les autres sessions déverrouillées par l'ancien code : leur sel ne vaut plus, reverrouillées tout de suite.
+        relockOthers(player, session.phoneId());
         return Outcome.DONE;
     }
 

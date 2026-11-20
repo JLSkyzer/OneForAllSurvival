@@ -3,6 +3,8 @@ package dev.oneforallsurvival.phone;
 import io.netty.handler.codec.DecoderException;
 import java.util.function.Supplier;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.network.NetworkEvent;
 
 /**
@@ -89,8 +91,9 @@ public record PhoneStatePacket(int session, Kind kind, Lock lock, int battery, l
         return values[ordinal];
     }
 
-    /** Côté client. L'écran du téléphone (tâche 9) s'y branchera par {@code DistExecutor} ; d'ici là, rien. */
+    /** Côté client, sur son fil principal : l'écran du téléphone ({@code phone/client}, jamais chargé par un serveur). */
     public static void handle(PhoneStatePacket packet, Supplier<NetworkEvent.Context> context) {
-        // Volontairement vide : aucune classe cliente n'existe encore pour le téléphone.
+        DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
+                () -> () -> dev.oneforallsurvival.phone.client.PhoneClient.accept(packet));
     }
 }

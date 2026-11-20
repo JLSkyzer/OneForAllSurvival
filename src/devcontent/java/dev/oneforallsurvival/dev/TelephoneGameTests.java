@@ -710,6 +710,57 @@ public final class TelephoneGameTests {
         });
     }
 
+    /**
+     * Deux copies ouvertes au choix du code : quand A pose son code, l'écran de C passe tout de suite au verrouillé
+     * (un {@code UPDATE} immédiat, sans attendre un geste de C ni le tic).
+     */
+    @GameTest(template = "test/plancher", batch = LOT_RESET)
+    public static void unCodePoseSurUneCopieReverrouilleLesAutresTouteDeSuite(GameTestHelper helper) {
+        essai(helper, e -> {
+            JoueurDeTest a = e.joueur("tel_x", POS_A);
+            JoueurDeTest c = e.joueur("tel_y", POS_C);
+            e.telephone(a);
+            c.joueur().setItemInHand(InteractionHand.MAIN_HAND, a.joueur().getMainHandItem().copy());
+            ouvrir(helper, a);
+            helper.assertTrue(ouvrir(helper, c).lock() == Lock.SETUP, "C ouvre au choix du code");
+            int sessionC = session(helper, c);
+            c.etatsTelephoneRecus();
+            attendre(helper, geste(helper, a, Action.SETUP, CODE), Kind.UPDATE, Lock.UNLOCKED, Result.NONE, "SETUP de A");
+            List<PhoneStatePacket> recus = c.etatsTelephoneRecus();
+            helper.assertTrue(recus.size() == 1 && recus.get(0).kind() == Kind.UPDATE
+                    && recus.get(0).lock() == Lock.LOCKED && recus.get(0).session() == sessionC,
+                    "C reçoit aussitôt un UPDATE verrouillé, vu " + recus);
+            helper.assertTrue(recus.get(0).ownerName().isEmpty() && !recus.get(0).owner(),
+                    "rien du propriétaire : " + recus.get(0));
+        });
+    }
+
+    /**
+     * Une session déverrouillée dont le téléphone a été effacé sans la fermer : quand une copie pose un nouveau code,
+     * elle reçoit tout de suite une vue verrouillée.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_RESET)
+    public static void unNouveauCodeReverrouilleLaSessionResteeTouteDeSuite(GameTestHelper helper) {
+        essai(helper, e -> {
+            JoueurDeTest a = e.joueur("tel_z", POS_A);
+            JoueurDeTest c = e.joueur("tel_0", POS_C);
+            UUID id = e.telephone(a);
+            c.joueur().setItemInHand(InteractionHand.MAIN_HAND, a.joueur().getMainHandItem().copy());
+            ouvrir(helper, a);
+            attendre(helper, geste(helper, a, Action.SETUP, CODE), Kind.UPDATE, Lock.UNLOCKED, Result.NONE, "SETUP");
+            PhoneData.get(e.serveur).erase(id);
+            ouvrir(helper, c);
+            a.etatsTelephoneRecus();
+            attendre(helper, geste(helper, c, Action.SETUP, "9999"), Kind.UPDATE, Lock.UNLOCKED, Result.NONE,
+                    "C pose son code");
+            List<PhoneStatePacket> recus = a.etatsTelephoneRecus();
+            helper.assertTrue(recus.size() == 1 && recus.get(0).kind() == Kind.UPDATE
+                    && recus.get(0).lock() == Lock.LOCKED, "A reçoit aussitôt un UPDATE verrouillé, vu " + recus);
+            helper.assertTrue(recus.get(0).ownerName().isEmpty() && !recus.get(0).owner() && !recus.get(0).airplane(),
+                    "A ne voit rien de C : " + recus.get(0));
+        });
+    }
+
     /** Un essai d'ouverture refusé pour batterie vide ferme la session précédente du joueur. */
     @GameTest(template = "test/plancher", batch = LOT_RESET)
     public static void uneOuvertureRefuseeFermeLaPrecedente(GameTestHelper helper) {

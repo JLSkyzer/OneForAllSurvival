@@ -751,13 +751,27 @@
     setTimeout(function () { key.classList.remove('down'); }, 120);
   }
 
-  function onKey(e) {
-    var k = null;
+  // Dans MCEF, la touche arrive sans `key` lisible (le code de balayage n'a pas la forme que Chromium attend sous
+  // Windows) : on se rabat sur keyCode (chiffres du haut, pavé numérique, Retour arrière).
+  function keyOf(e) {
     if (/^[0-9]$/.test(e.key)) {
-      k = e.key;
-    } else if (e.key === 'Backspace') {
-      k = 'back';
+      return e.key;
     }
+    if (e.key === 'Backspace') {
+      return 'back';
+    }
+    var c = e.keyCode || e.which || 0;
+    if (c >= 48 && c <= 57) {
+      return String(c - 48);
+    }
+    if (c >= 96 && c <= 105) {
+      return String(c - 96);
+    }
+    return c === 8 ? 'back' : null;
+  }
+
+  function onKey(e) {
+    var k = keyOf(e);
     if (k === null || !activeEntry()) {
       return;
     }
