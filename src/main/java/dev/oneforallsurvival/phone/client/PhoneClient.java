@@ -12,12 +12,17 @@ import java.util.Optional;
 import javax.annotation.Nullable;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
 
 /**
  * Le téléphone côté client : reçoit les états du serveur (sur le fil du client, par {@code DistExecutor} depuis
  * {@link PhoneStatePacket#handle}) et ouvre, met à jour ou ferme l'écran de la session. Le client ne décide rien : il
  * montre ce que le serveur envoie et lui propose des gestes. Aucun code saisi n'est écrit au journal.
  */
+@Mod.EventBusSubscriber(modid = "oneforallsurvival", bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
 public final class PhoneClient {
 
     /** Un écran du téléphone (web ou repli). */
@@ -41,9 +46,19 @@ public final class PhoneClient {
         return Optional.ofNullable(last);
     }
 
+    /** La sortie du monde oublie le dernier état (il peut porter le nom du propriétaire). */
+    @SubscribeEvent
+    public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
+        last = null;
+    }
+
+    static void remember(PhoneStatePacket state) {
+        last = state;
+    }
+
     public static void accept(PhoneStatePacket state) {
         Minecraft mc = Minecraft.getInstance();
-        last = state;
+        remember(state);
         Shown shown = mc.screen instanceof Shown s ? s : null;
         switch (state.kind()) {
             case OPEN -> {

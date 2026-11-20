@@ -27,6 +27,15 @@ public record PhoneActionPacket(int session, Action action, String first, String
         second = second == null ? "" : second;
     }
 
+    /** Sans les codes : {@code first} et {@code second} valent {@code ****} pour un geste qui porte un code. */
+    @Override
+    public String toString() {
+        boolean secret = action == Action.UNLOCK || action == Action.SETUP || action == Action.ERASE
+                || action == Action.CHANGE_CODE;
+        return "PhoneActionPacket[session=" + session + ", action=" + action + ", first="
+                + (secret ? "****" : first) + ", second=" + (secret ? "****" : second) + ", flag=" + flag + "]";
+    }
+
     public void encode(FriendlyByteBuf buf) {
         buf.writeVarInt(session);
         buf.writeByte(action.ordinal());

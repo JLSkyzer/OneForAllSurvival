@@ -1,7 +1,9 @@
 package dev.oneforallsurvival.phone;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.DecoderException;
@@ -100,5 +102,19 @@ class PhoneStatePacketTest {
         } finally {
             buf.release();
         }
+    }
+
+    /** Un geste qui porte un code ne l'écrit jamais par son {@code toString} (journal, message d'assertion). */
+    @Test
+    void leToStringDUnGesteMasqueLeCode() {
+        for (PhoneActionPacket.Action a : new PhoneActionPacket.Action[] {PhoneActionPacket.Action.UNLOCK,
+                PhoneActionPacket.Action.SETUP, PhoneActionPacket.Action.ERASE, PhoneActionPacket.Action.CHANGE_CODE}) {
+            String texte = new PhoneActionPacket(7, a, "4821", "1357", false).toString();
+            assertFalse(texte.contains("4821") || texte.contains("1357"), texte);
+            assertTrue(texte.contains("****") && texte.contains(a.name()) && texte.contains("7"), texte);
+        }
+        // Le fond d'écran n'est pas secret : il reste lisible.
+        assertTrue(new PhoneActionPacket(7, PhoneActionPacket.Action.WALLPAPER, "nuit", "", false).toString()
+                .contains("nuit"));
     }
 }

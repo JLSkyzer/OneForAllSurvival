@@ -64,11 +64,11 @@ class PhoneViewJsonTest {
 
     @Test
     void unNomPiegeRevientALIdentiqueApresWebScript() {
-        String piege = "</script> ";
+        String piege = "</script>\u2028";
         String script = WebScript.call("phone.render", PhoneViewJson.toJson(etat(Lock.UNLOCKED, piege, Result.NONE)));
         assertTrue(script.startsWith("phone.render(") && script.endsWith(")"), script);
         assertFalse(script.contains("</script>"), script);
-        assertFalse(script.contains(" "), "U+2028 brut dans le script");
+        assertFalse(script.contains("\u2028"), "U+2028 brut dans le script");
         String argument = script.substring("phone.render(".length(), script.length() - 1);
         assertEquals(piege, JsonParser.parseString(argument).getAsJsonObject().get("ownerName").getAsString());
     }
