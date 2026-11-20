@@ -26,6 +26,11 @@ import org.cef.network.CefRequest;
  * {@link MCEFClient} (chargement, affichage) et un routeur de messages à nom propre ({@code oneforallQuery}) : rien ne
  * remplace un gestionnaire à emplacement unique, dont WebDisplays se sert. Chaque rappel ne sert que les navigateurs
  * inscrits par {@link #register} et laisse passer les autres.
+ *
+ * <p>Les rappels de CEF tournent sur le fil du rendu, dans la boucle de messages de CEF : ce qu'ils déclenchent dans le
+ * jeu passe par {@code Minecraft.tell} (tâche suivante), jamais par {@code execute}, qui l'exécuterait sur place.
+ * Fermer un navigateur depuis son propre rappel fait planter la JVM (relevé en jeu le 2026-11-20 : page absente,
+ * {@code onLoadError} puis repli, {@code CefBrowser_N.N_Close} dans {@code DoMessageLoopWork}).
  */
 final class McefHooks {
 
@@ -80,7 +85,7 @@ final class McefHooks {
             }
             callback.success("");
             WebMessage.parse(request).ifPresentOrElse(
-                    message -> Minecraft.getInstance().execute(() -> {
+                    message -> Minecraft.getInstance().tell(() -> {
                         if (VIEWS.containsValue(view)) {
                             view.bridge().onMessage(message);
                         }
@@ -121,7 +126,7 @@ final class McefHooks {
                 return;
             }
             LOG.warn("[web] échec du chargement de {} : {} {}", failedUrl, errorCode, errorText);
-            Minecraft.getInstance().execute(() -> {
+            Minecraft.getInstance().tell(() -> {
                 if (VIEWS.containsValue(view)) {
                     view.bridge().onFailure(WebFailure.LOAD_ERROR);
                 }

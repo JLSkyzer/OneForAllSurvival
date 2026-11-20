@@ -1,12 +1,16 @@
 package dev.oneforallsurvival.dev;
 
+import com.google.gson.JsonObject;
 import dev.oneforallsurvival.client.web.WebAvailability;
+import dev.oneforallsurvival.client.web.WebBridge;
 import dev.oneforallsurvival.client.web.WebFailure;
+import dev.oneforallsurvival.client.web.WebScreen;
 import dev.oneforallsurvival.client.web.WebScreen.Rect;
 import dev.oneforallsurvival.phone.PhoneConfig;
 import dev.oneforallsurvival.phone.PhoneItem;
 import dev.oneforallsurvival.phone.PhoneRegistry;
 import dev.oneforallsurvival.phone.PhoneStatePacket;
+import dev.oneforallsurvival.phone.PhoneStatePacket.CloseReason;
 import dev.oneforallsurvival.phone.PhoneStatePacket.Kind;
 import dev.oneforallsurvival.phone.PhoneStatePacket.Lock;
 import dev.oneforallsurvival.phone.PhoneStatePacket.Result;
@@ -20,22 +24,32 @@ import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import net.minecraft.client.GuiMessage;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.ChatComponent;
 import net.minecraft.client.gui.screens.AccessibilityOnboardingScreen;
+import net.minecraft.client.gui.screens.ConnectScreen;
+import net.minecraft.client.gui.screens.DisconnectedScreen;
 import net.minecraft.client.gui.screens.GenericDirtMessageScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.client.multiplayer.resolver.ServerAddress;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.Registries;
@@ -47,7 +61,10 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.LevelSettings;
@@ -73,51 +90,93 @@ import org.lwjgl.glfw.GLFW;
 /**
  * Essai réel du téléphone (développement seulement). Activé par {@code -Doneforallsurvival.telephoneShots=<dossier>}
  * (propriété Gradle {@code -PtelephoneShots=<dossier>}, relatif au dossier du jeu), inerte sinon. Le client crée un
- * monde plat neuf {@value #MONDE}, se donne un téléphone ({@code /give}) chargé à 30 %, puis joue le parcours par de
- * vrais clics et une vraie frappe relayés par l'écran ouvert : dans la page (MCEF), aux centres des boîtes du dernier
- * {@code layout} ; dans l'écran de repli (sans MCEF), aux centres de ses boutons. Choix du code, Réglages (fond
- * {@code nuit}, mode avion, changement du code), Échap, réouverture verrouillée, cinq faux codes avec redimensionnement
- * de la fenêtre et échelle d'interface de 2 à 4 écran ouvert, batterie qui baisse, prise alimentée par un bloc
- * d'énergie créative (Crafts &amp; Additions, pack), batterie remontée. Une image par écran.
+ * monde plat neuf {@value #MONDE} (ou rejoint le serveur de {@code oneforallsurvival.telephoneShots.server}), se donne
+ * un téléphone, puis joue le mode demandé ({@code oneforallsurvival.telephoneShots.mode}) par de vrais clics et une
+ * vraie frappe relayés par l'écran ouvert : dans la page (MCEF), aux centres des boîtes du dernier {@code layout}
+ * stable ; dans l'écran de repli, aux centres de ses boutons. Une image par écran.
  *
- * <p>{@code options.txt} n'est jamais réécrit (taille de fenêtre et échelle en mémoire seulement). La touche F10 n'est
- * jamais touchée. Aucun code saisi n'est écrit au journal. La tâche 11 complète cet automate (performance, WebDisplays,
- * serveur dédié).
+ * <ul>
+ *   <li>{@code parcours} : choix du code, Réglages (fond, mode avion, changement du code), cinq faux codes (fenêtre et
+ *   échelle changées écran ouvert), batterie, prise, effacement depuis l'écran, téléphone qui quitte la main
+ *   ({@code PHONE_GONE}), {@code /phone reset} ({@code ERASED}), puis passage au repli en cours de route
+ *   ({@code LOAD_ERROR}, {@code NO_READY}) ; sur un serveur, sans la prise ni l'effacement.</li>
+ *   <li>{@code perf} : images par seconde et tas après GC sans téléphone, téléphone ouvert 60 s, après fermeture,
+ *   puis cinq cycles ; horodatages dans {@code etapes.txt} pour {@code tools/telephone-memoire.ps1}.</li>
+ *   <li>{@code webdisplays} : le minePad de WebDisplays sur la page d'essai du mod, puis le téléphone, puis encore le
+ *   minePad ; aucun message étranger au pont du téléphone.</li>
+ * </ul>
+ *
+ * <p>{@code options.txt} n'est jamais réécrit (taille de fenêtre, échelle et plafond en mémoire seulement). La touche
+ * F10 n'est jamais touchée ; aucune adresse externe n'est ouverte. Aucun code saisi n'est écrit au journal : le pont du
+ * téléphone est suivi par le nom du message et ses clés seulement.
  */
 @Mod.EventBusSubscriber(modid = "oneforallsurvival", bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
 public final class TelephoneShots {
     private static final Logger LOG = LogManager.getLogger("oneforallsurvival-telephone");
     private static final String DOSSIER = System.getProperty("oneforallsurvival.telephoneShots");
     private static final boolean ACTIF = DOSSIER != null && !DOSSIER.isBlank();
+    private static final String MODE = System.getProperty("oneforallsurvival.telephoneShots.mode", "parcours").trim();
+    @Nullable private static final String SERVEUR = System.getProperty("oneforallsurvival.telephoneShots.server");
+    private static final boolean SANS_PLAFOND = Boolean.getBoolean("oneforallsurvival.telephoneShots.sansPlafond");
+    private static final String PAGE_PROP = "oneforallsurvival.phonePage";
+    private static final String PAGE_DEMANDEE = System.getProperty(PAGE_PROP, "").trim();
+    /** Une page de téléphone autre que la vraie : le repli est attendu à chaque ouverture, même avec MCEF. */
+    private static final boolean PAGE_CASSEE = !PAGE_DEMANDEE.isEmpty() && !PAGE_DEMANDEE.equals("phone/index.html");
+    private static final String SELFTEST = "mod://oneforallsurvival/web/selftest.html";
     static final String MONDE = "lostisland-essai-telephone";
-    private static final double GARDE_S = 900;
+    private static final double GARDE_S = 1500;
     private static final String CODE = "4821";
     private static final String NOUVEAU = "1357";
     private static final String FAUX = "0000";
+    private static final double REPLI_MAX_S = 5.0;
+    private static final double NO_READY_MAX_S = 6.5;
+    /** Avant la mesure « avant » : chunks construits et JIT chaud (à 20 s, les images par seconde montaient encore). */
+    private static final double STABILISATION_S = 90;
+    private static final String FERME = "message.oneforallsurvival.phone.closed.";
 
-    private enum Phase { TITRE, ENTREE, JOUEUR, ETAPES, SORTIE, RETOUR, FIN }
+    private enum Phase { TITRE, ENTREE, CONNEXION, JOUEUR, ETAPES, SORTIE, RETOUR, FIN }
 
-    private record Pas(String nom, Runnable action, BooleanSupplier fini, double delai, String image) {}
+    private record Pas(String nom, BooleanSupplier pret, Runnable action, BooleanSupplier fini, double delai,
+            String image) {}
 
     private static final long DEBUT_NS = System.nanoTime();
     private static final List<String> ECHECS = new ArrayList<>();
     private static final List<String> IMAGES = new ArrayList<>();
     private static final List<Pas> PAS = new ArrayList<>();
+    private static final Set<String> REUSSIES = new LinkedHashSet<>();
+    private static final Map<String, Double> MESURES = new LinkedHashMap<>();
     private static Phase phase = Phase.TITRE;
     private static long debutPhaseNs = System.nanoTime();
     private static boolean fait;
     private static int indice;
     private static boolean joue;
     private static long debutPasNs;
+    private static long debutAttenteNs;
     private static FilmCapture images;
     private static volatile boolean termineEcrit;
     private static boolean web;
     private static int ouvertures;
     private static int batterieAvant = -1;
     private static int batterieApresBaisse = -1;
+    private static int caseDuTelephone;
     private static volatile String etatPrise = "";
     @Nullable private static Map<String, int[]> miseEnPageNotee;
     @Nullable private static volatile BlockPos prise;
+    // Suivi de l'écran ouvert : dernière et avant-dernière mise en page, pont du téléphone.
+    @Nullable private static Screen ecranSuivi;
+    @Nullable private static Map<String, int[]> miseCourante;
+    @Nullable private static Map<String, int[]> misePrecedente;
+    private static long changementNs;
+    private static boolean webVu;
+    private static int messagesDuPont;
+    private static int messagesEtrangers;
+    private static final Map<String, Integer> SORTES_DU_PONT = new LinkedHashMap<>();
+    // Performance : images comptées à chaque fin de rendu.
+    private static long imagesRendues;
+    private static long imagesDebut;
+    private static long mesureDebutNs;
+    private static long ouvertureNs;
+    private static long dernierCranNs;
 
     static {
         if (ACTIF) {
@@ -143,6 +202,7 @@ public final class TelephoneShots {
         if (!ACTIF || event.phase != TickEvent.Phase.END || phase == Phase.FIN) {
             return;
         }
+        imagesRendues++;
         Minecraft mc = Minecraft.getInstance();
         if (secondes(DEBUT_NS) > GARDE_S) {
             echec("garde", "délai de garde dépassé à la phase " + phase);
@@ -150,6 +210,7 @@ public final class TelephoneShots {
             return;
         }
         try {
+            suivre(mc);
             avancer(mc, secondes(debutPhaseNs));
         } catch (RuntimeException e) {
             LOG.error("[telephone] exception à la phase {}", phase, e);
@@ -174,31 +235,60 @@ public final class TelephoneShots {
                     } catch (IOException e) {
                         throw new IllegalStateException(e);
                     }
-                    web = WebAvailability.ready();
-                    journal("titre atteint ; mcef chargé " + mcef + ", disponibilité " + WebAvailability.failure()
-                            + ", parcours " + (web ? "web" : "repli") + " après "
-                            + String.format(Locale.ROOT, "%.1f s", s));
-                    passer(Phase.ENTREE);
+                    web = WebAvailability.ready() && !PAGE_CASSEE;
+                    journal("titre atteint ; mode " + MODE + (SERVEUR == null ? ", monde solo" : ", serveur " + SERVEUR)
+                            + " ; mcef chargé " + mcef + ", webdisplays chargé " + ModList.get().isLoaded("webdisplays")
+                            + ", disponibilité " + WebAvailability.failure() + ", page "
+                            + (PAGE_DEMANDEE.isEmpty() ? "phone/index.html" : PAGE_DEMANDEE) + ", parcours "
+                            + (web ? "web" : "repli") + " après " + String.format(Locale.ROOT, "%.1f s", s)
+                            + " ; PID " + ProcessHandle.current().pid());
+                    ecrireFichier("pid.txt", ProcessHandle.current().pid() + "\n", false);
+                    passer(SERVEUR == null ? Phase.ENTREE : Phase.CONNEXION);
                 } else if (s > 600) {
                     echec("titre", "titre jamais atteint (écran " + mc.screen + ")");
                     finir(mc);
                 }
             }
             case ENTREE -> entrer(mc);
+            case CONNEXION -> {
+                if (!fait) {
+                    fait = true;
+                    Screen parent = mc.screen;
+                    mc.tell(() -> ConnectScreen.startConnecting(parent, mc, ServerAddress.parseString(SERVEUR),
+                            new ServerData("Lost Island (essai du téléphone)", SERVEUR, false), false));
+                    journal("connexion à " + SERVEUR);
+                    passer(Phase.JOUEUR);
+                }
+            }
             case JOUEUR -> {
-                if (mc.player != null && mc.level != null && mc.getSingleplayerServer() != null && mc.screen == null) {
+                if (mc.screen instanceof DisconnectedScreen d) {
+                    echec("connexion", "déconnecté : " + raison(d));
+                    finir(mc);
+                } else if (mc.player != null && mc.level != null && mc.screen == null
+                        && (SERVEUR != null || mc.getSingleplayerServer() != null)) {
                     mc.options.tutorialStep = net.minecraft.client.tutorial.TutorialSteps.NONE;
                     mc.getTutorial().stop();
                     taille(mc, 1280, 720);
                     echelle(mc, 2);
-                    composer(mc);
+                    switch (MODE) {
+                        case "perf" -> composerPerf(mc);
+                        case "webdisplays" -> composerWebDisplays(mc);
+                        default -> composer(mc);
+                    }
                     passer(Phase.ETAPES);
                 } else if (s > 180) {
-                    echec("monde", "joueur absent après 180 s");
+                    echec("monde", "joueur absent après 180 s (écran " + mc.screen + ")");
                     finir(mc);
                 }
             }
-            case ETAPES -> etapes(mc);
+            case ETAPES -> {
+                if (mc.screen instanceof DisconnectedScreen d) {
+                    echec("deconnexion", "déconnecté pendant les étapes : " + raison(d));
+                    finir(mc);
+                    return;
+                }
+                etapes(mc);
+            }
             case SORTIE -> {
                 if (!fait) {
                     fait = true;
@@ -251,53 +341,83 @@ public final class TelephoneShots {
 
     // --- Le parcours -----------------------------------------------------------------------------------------------
 
-    private static void composer(Minecraft mc) {
+    /** Le décor et le téléphone en main, chargé au pourcentage donné. */
+    private static void decor(Minecraft mc, int pourcent) {
         pas("decor", () -> {
+            if (SERVEUR != null) {
+                // Serveur dédié : le joueur d'essai est opérateur (ops.json du serveur, ou op par RCON).
+                mc.player.connection.sendCommand("gamemode creative");
+                mc.player.connection.sendCommand("difficulty peaceful");
+                mc.player.connection.sendCommand("clear @s");
+            }
             mc.player.connection.sendCommand("time set noon");
             mc.player.connection.sendCommand("gamerule doDaylightCycle false");
-            mc.player.connection.sendCommand("give @s oneforallsurvival:phone");
-        }, () -> attendu(1.0), 3, null);
-        pas("telephone-en-main-30%", () -> serveur(mc, (srv, sp) -> {
-            int i = -1;
-            for (int s = 0; s < sp.getInventory().getContainerSize(); s++) {
-                if (sp.getInventory().getItem(s).is(PhoneRegistry.PHONE.get())) {
-                    i = s;
-                    break;
+            if (SERVEUR != null) {
+                int fe = 72000 * pourcent / 100;
+                mc.player.connection.sendCommand("give @s oneforallsurvival:phone{energy:" + fe + "}");
+            } else {
+                mc.player.connection.sendCommand("give @s oneforallsurvival:phone");
+            }
+        }, () -> attendu(1.5), 4, null);
+        if (SERVEUR == null) {
+            pas("telephone-en-main", () -> serveur(mc, (srv, sp) -> {
+                int i = caseDe(sp, PhoneRegistry.PHONE.get());
+                if (i < 0) {
+                    return;
                 }
-            }
-            if (i < 0) {
-                return;
-            }
-            ItemStack phone = sp.getInventory().removeItemNoUpdate(i);
-            PhoneItem.store(phone, PhoneConfig.capacity() * 30 / 100);
-            sp.setItemInHand(InteractionHand.MAIN_HAND, phone);
-        }), () -> mc.player.getMainHandItem().is(PhoneRegistry.PHONE.get())
-                && PhoneItem.stored(mc.player.getMainHandItem()) > 0, 5, null);
+                ItemStack phone = sp.getInventory().removeItemNoUpdate(i);
+                PhoneItem.store(phone, PhoneConfig.capacity() * pourcent / 100);
+                sp.setItemInHand(InteractionHand.MAIN_HAND, phone);
+            }), () -> mc.player.getMainHandItem().is(PhoneRegistry.PHONE.get())
+                    && PhoneItem.stored(mc.player.getMainHandItem()) > 0, 5, null);
+        } else {
+            // Le /give arrive quand il arrive : la case est choisie (vraie molette) dès que le téléphone est là.
+            pas("telephone-en-main", () -> {}, () -> {
+                for (int i = 0; i < 9; i++) {
+                    if (mc.player.getInventory().getItem(i).is(PhoneRegistry.PHONE.get())) {
+                        mc.player.getInventory().selected = i;
+                        break;
+                    }
+                }
+                return mc.player.getMainHandItem().is(PhoneRegistry.PHONE.get())
+                        && PhoneItem.stored(mc.player.getMainHandItem()) > 0;
+            }, 8, null);
+        }
+        pas("case-du-telephone", () -> {
+            caseDuTelephone = mc.player.getInventory().selected;
+            journal("téléphone dans la case " + caseDuTelephone + " de la barre, "
+                    + PhoneItem.stored(mc.player.getMainHandItem()) + " FE");
+        }, () -> true, 1, null);
+    }
+
+    private static void composer(Minecraft mc) {
+        boolean solo = SERVEUR == null;
+        decor(mc, 30);
 
         // Première ouverture : choix du code par clics, confirmation au clavier.
         ouvrir(mc, "ouverture-1", Lock.SETUP, "01-choix-du-code");
         cliquerCode(mc, "choix", CODE);
         pause("02-confirmez-le-code");
-        pas("confirmation-au-clavier", () -> taper(mc, CODE),
-                () -> etat(Lock.UNLOCKED) && cible(mc, web ? "app-settings" : "settings"), 10, null);
+        pas("confirmation-au-clavier", () -> stable(mc, "key-0"), () -> taper(mc, CODE),
+                () -> etat(Lock.UNLOCKED) && cible(mc, id("app-settings", "settings")), 10, null);
         pause("03-accueil");
-        pas("reglages", () -> {
+        pas("reglages", () -> stable(mc, id("app-settings", "settings")), () -> {
             noterMiseEnPage(mc);
-            cliquer(mc, web ? "app-settings" : "settings");
-        }, () -> cible(mc, web ? "wp-nuit" : "wallpaper") && nouvelleMiseEnPage(mc), 10, null);
+            cliquer(mc, id("app-settings", "settings"));
+        }, () -> cible(mc, id("wp-nuit", "wallpaper")) && nouvelleMiseEnPage(mc), 10, null);
         pause("04-reglages");
         if (web) {
-            pas("fond-nuit", () -> cliquer(mc, "wp-nuit"), () -> fond("nuit") && attendu(0.3), 10, null);
+            clic(mc, "fond-nuit", "wp-nuit", () -> fond("nuit") && attendu(0.3), 10, null);
         } else {
             for (String f : List.of("lagon", "jungle", "nuit")) {
-                pas("fond-" + f, () -> cliquer(mc, "wallpaper"), () -> fond(f) && attendu(0.3), 10, null);
+                clic(mc, "fond-" + f, "wallpaper", () -> fond(f) && attendu(0.3), 10, null);
             }
         }
-        pas("mode-avion", () -> cliquer(mc, web ? "row-airplane" : "airplane"),
+        clic(mc, "mode-avion", id("row-airplane", "airplane"),
                 () -> PhoneClient.last().map(PhoneStatePacket::airplane).orElse(false), 10, null);
         pause("05-reglages-nuit-avion");
         changerLeCode(mc);
-        pas("echap-1", () -> echap(mc), () -> mc.screen == null, 5, null);
+        echap(mc, "echap-1");
 
         // Réouverture : verrouillée, fond nuit.
         ouvrir(mc, "ouverture-2", Lock.LOCKED, "07-verrouille-nuit");
@@ -307,36 +427,59 @@ public final class TelephoneShots {
             journal("batterie à la réouverture : " + batterieAvant + " %");
         }, () -> true, 1, null);
         faux(mc, 1, 4, true, "08-faux-1-1280x720-echelle2");
-        // L'échelle 4 demande au moins 960 px de haut : la fenêtre grandit d'abord, puis l'échelle passe de 2 à 4.
-        pas("fenetre-1920x1040", () -> taille(mc, 1920, 1040), () -> attendu(1.5) && cible(mc, "key-0"), 5, null);
-        pause("09-fenetre-1920x1040-echelle2");
-        faux(mc, 2, 3, true, "10-faux-2-1920x1040-echelle2");
-        pas("echelle-4", () -> echelle(mc, 4), () -> attendu(1.5) && cible(mc, "key-0")
-                && mc.getWindow().getGuiScale() == 4, 5, null);
-        pause("11-echelle-4");
-        faux(mc, 3, 2, true, "12-faux-3-echelle4");
-        pas("echelle-2-1280x720", () -> {
-            taille(mc, 1280, 720);
-            echelle(mc, 2);
-        }, () -> attendu(1.5) && cible(mc, "key-0"), 5, null);
+        if (solo) {
+            // L'échelle 4 demande au moins 960 px de haut : la fenêtre grandit d'abord, puis l'échelle passe de 2 à 4.
+            pas("fenetre-1920x1040", () -> taille(mc, 1920, 1040), () -> attendu(1.5) && cible(mc, "key-0"), 5, null);
+            pause("09-fenetre-1920x1040-echelle2");
+            faux(mc, 2, 3, true, "10-faux-2-1920x1040-echelle2");
+            pas("echelle-4", () -> echelle(mc, 4), () -> attendu(1.5) && cible(mc, "key-0")
+                    && mc.getWindow().getGuiScale() == 4, 5, null);
+            pause("11-echelle-4");
+            faux(mc, 3, 2, true, "12-faux-3-echelle4");
+            pas("echelle-2-1280x720", () -> {
+                taille(mc, 1280, 720);
+                echelle(mc, 2);
+            }, () -> attendu(1.5) && cible(mc, "key-0"), 5, null);
+        } else {
+            faux(mc, 2, 3, true, null);
+            faux(mc, 3, 2, true, null);
+        }
         faux(mc, 4, 1, false, "13-faux-4-au-clavier");
         faux(mc, 5, 0, true, null);
         pas("blocage", () -> {}, () -> PhoneClient.last().map(p -> p.lockoutSeconds() > 0).orElse(false)
                 && attendu(1.0), 5, "14-blocage");
         pas("blocage-decompte", () -> {}, () -> attendu(3.0), 5, "15-blocage-3s-plus-tard");
-        pas("batterie-baisse", () -> {}, () -> {
-            int b = PhoneClient.last().map(PhoneStatePacket::battery).orElse(batterieAvant);
-            if (b < batterieAvant && attendu(1.0)) {
-                batterieApresBaisse = b;
-                return true;
-            }
-            return false;
-        }, 75, "16-batterie-baisse");
-        pas("batterie-baisse-releve", () -> journal("batterie : " + batterieAvant + " % puis " + batterieApresBaisse
-                + " % écran allumé"), () -> true, 1, null);
-        pas("echap-2", () -> echap(mc), () -> mc.screen == null, 5, null);
+        if (solo) {
+            pas("batterie-baisse", () -> {}, () -> {
+                int b = PhoneClient.last().map(PhoneStatePacket::battery).orElse(batterieAvant);
+                if (b < batterieAvant && attendu(1.0)) {
+                    batterieApresBaisse = b;
+                    return true;
+                }
+                return false;
+            }, 75, "16-batterie-baisse");
+            pas("batterie-baisse-releve", () -> journal("batterie : " + batterieAvant + " % puis "
+                    + batterieApresBaisse + " % écran allumé"), () -> true, 1, null);
+        }
+        echap(mc, "echap-2");
 
-        // La prise : un bloc d'énergie créative comme mur, la prise contre lui, le téléphone branché puis repris.
+        if (solo) {
+            prise(mc);
+            effacement(mc);
+        }
+        telephoneHorsMain(mc);
+        resetParLEquipe(mc);
+        pas("bilan-avis", () -> bilanAvis(mc, web ? 0 : 1), () -> true, 1, "20-chat");
+        if (solo && web) {
+            repliEnCoursDeRoute(mc);
+        }
+        // Avec MCEF, le repli en cours de route a donné un seul avis ; sans MCEF ou page cassée, un seul depuis le début.
+        pas("bilan-avis-final", () -> bilanAvis(mc, web && !solo ? 0 : 1), () -> true, 1, null);
+        bilanDuPont();
+    }
+
+    /** La prise : un bloc d'énergie créative comme mur, la prise contre lui, le téléphone branché puis repris. */
+    private static void prise(Minecraft mc) {
         pas("prise-posee", () -> poserLaPrise(mc), () -> prise != null && attendu(1.0), 5, null);
         pas("brancher", () -> utiliserLaPrise(mc), () -> mc.player.getMainHandItem().isEmpty()
                 && mc.level.getBlockState(prise).getValue(WallSocketBlock.PLUGGED), 5, "17-branche");
@@ -356,43 +499,380 @@ public final class TelephoneShots {
             }
             return true;
         }, 2, null);
-        pas("echap-3", () -> echap(mc), () -> mc.screen == null, 5, null);
-        pas("bilan-avis", () -> {
-            int absent = avisDansLeChat(mc, WebFailure.ABSENT.translationKey());
-            int tous = 0;
-            for (WebFailure f : WebFailure.values()) {
-                tous += avisDansLeChat(mc, f.translationKey());
-            }
-            String bilan = "ouvertures " + ouvertures + ", avis « mode simplifié » dans le chat : " + tous
-                    + " (dont fallback.absent " + absent + ")";
-            journal(bilan);
-            if (web ? tous != 0 : (tous != 1 || ouvertures < 3)) {
-                echec("avis", bilan);
-            }
-        }, () -> true, 1, "20-chat");
     }
 
-    /** Ouvre le téléphone tenu (vrai usage de l'objet) et attend l'écran prêt, au verrou attendu. */
-    private static void ouvrir(Minecraft mc, String nom, Lock attendu, String image) {
+    /**
+     * Effacement depuis l'écran : la fin du blocage attendue, déverrouillage, Réglages, Effacer, code demandé,
+     * confirmation ; le serveur ferme l'écran ({@code ERASED}) ; la réouverture revient au choix du code.
+     * L'écran est encore ouvert, verrouillé et bloqué, en entrant.
+     */
+    private static void effacement(Minecraft mc) {
+        pas("fin-du-blocage", () -> {}, () -> stable(mc, "key-0") && attendu(1.0), 75, "21-fin-du-blocage");
+        pas("fin-du-blocage-marge", () -> {}, () -> attendu(1.5), 3, null);
+        cliquerCode(mc, "deverrouillage", NOUVEAU);
+        pas("deverrouille", () -> {}, () -> etat(Lock.UNLOCKED) && cible(mc, id("app-settings", "settings")), 10,
+                null);
+        clic(mc, "reglages-2", id("app-settings", "settings"), () -> cible(mc, id("row-code", "erase")), 10, null);
+        pause(null);
+        if (web) {
+            // « Effacer le téléphone » est en bas de la liste des Réglages : vraie molette au milieu de l'écran, un cran
+            // à la fois, jusqu'à ce que la ligne paraisse dans la mise en page.
+            pas("defiler-reglages", () -> {}, () -> {
+                if (cible(mc, "row-erase")) {
+                    return attendu(0.3);
+                }
+                if (System.nanoTime() - dernierCranNs < 250_000_000L) {
+                    return false;
+                }
+                dernierCranNs = System.nanoTime();
+                Rect f = ((PhoneWebScreen) mc.screen).frameRect();
+                double x = f.x() + f.width() / 2.0;
+                double y = f.y() + f.height() / 2.0;
+                mc.screen.mouseMoved(x, y);
+                mc.screen.mouseScrolled(x, y, -1.0);
+                return false;
+            }, 10, "21b-reglages-bas");
+            clic(mc, "effacer", "row-erase", () -> cible(mc, "sheet-cancel") && cible(mc, "key-1"), 10, null);
+            pause("22a-effacer-code-demande");
+            cliquerCode(mc, "effacement", NOUVEAU);
+            pas("effacement-confirmation", () -> {}, () -> stable(mc, "alert-1"), 10, null);
+            pause("22-effacer-confirmation");
+            clic(mc, "effacement-confirme", "alert-1", () -> fermeePar(mc, CloseReason.ERASED), 10, null);
+        } else {
+            pas("code-pour-effacer", () -> stable(mc, "old"), () -> remplir(mc, "old", NOUVEAU), () -> attendu(0.5), 3,
+                    null);
+            clic(mc, "effacer-arme", "erase", () -> attendu(0.5), 3, "22-effacer-confirmation");
+            clic(mc, "effacement-confirme", "erase", () -> fermeePar(mc, CloseReason.ERASED), 10, null);
+        }
+        messageDeFermeture("effacement-ferme", CloseReason.ERASED, "23-efface-message");
+        ouvrir(mc, "reouverture-choix-du-code", Lock.SETUP, "24-apres-effacement-choix-du-code");
+        cliquerCode(mc, "rechoix", CODE);
+        pause(null);
+        cliquerCode(mc, "rechoix-confirmation", CODE);
+        pas("re-deverrouille", () -> {}, () -> etat(Lock.UNLOCKED) && cible(mc, id("app-settings", "settings")), 10,
+                null);
+        echap(mc, "echap-4");
+    }
+
+    /** Le téléphone quitte la main, écran ouvert (vraie molette : case suivante) : le serveur ferme en {@code PHONE_GONE}. */
+    private static void telephoneHorsMain(Minecraft mc) {
+        ouvrir(mc, "ouverture-hors-main", null, null);
+        pas("telephone-hors-main", () -> mc.player.getInventory().selected = (caseDuTelephone + 1) % 9,
+                () -> fermeePar(mc, CloseReason.PHONE_GONE), 10, null);
+        messageDeFermeture("telephone-hors-main-message", CloseReason.PHONE_GONE, "25-telephone-hors-main");
+        pas("telephone-en-main-retour", () -> mc.player.getInventory().selected = caseDuTelephone,
+                () -> mc.player.getMainHandItem().is(PhoneRegistry.PHONE.get()) && attendu(0.5), 5, null);
+    }
+
+    /** {@code /phone reset} de l'équipe, écran ouvert : le serveur ferme en {@code ERASED} ; réouverture au choix du code. */
+    private static void resetParLEquipe(Minecraft mc) {
+        ouvrir(mc, "ouverture-reset", null, null);
+        pas("reset-equipe", () -> mc.player.connection.sendCommand("phone reset"),
+                () -> fermeePar(mc, CloseReason.ERASED), 10, null);
+        messageDeFermeture("reset-equipe-ferme", CloseReason.ERASED, "26-reset-equipe");
+        ouvrir(mc, "ouverture-apres-reset", Lock.SETUP, "27-apres-reset-choix-du-code");
+        echap(mc, "echap-5");
+    }
+
+    /**
+     * Repli en cours de route (MCEF chargé, page qui casse) : une page absente ({@code LOAD_ERROR}), puis une page sans
+     * signal {@code ready} ({@code NO_READY}) ; le repli s'ouvre sur le même état, un seul avis en tout.
+     */
+    private static void repliEnCoursDeRoute(Minecraft mc) {
+        pas("page-absente", () -> System.setProperty(PAGE_PROP, "phone/absente.html"), () -> true, 1, null);
+        ouvrirVersLeRepli(mc, "repli-load-error", REPLI_MAX_S, "28-repli-load-error");
+        echap(mc, "echap-6");
+        pas("page-sans-ready", () -> System.setProperty(PAGE_PROP, "phone/phone.css"), () -> true, 1, null);
+        ouvrirVersLeRepli(mc, "repli-no-ready", NO_READY_MAX_S, "29-repli-no-ready");
+        echap(mc, "echap-7");
+        pas("page-normale", () -> System.clearProperty(PAGE_PROP), () -> true, 1, null);
+    }
+
+    /** Ouvre le téléphone sur une page qui casse : l'écran web d'abord, puis le repli sur le même état. */
+    private static void ouvrirVersLeRepli(Minecraft mc, String nom, double max, String image) {
         pas(nom, () -> {
             ouvertures++;
+            webVu = false;
+            ouvertureNs = System.nanoTime();
             mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
-        }, () -> verrouDeLEcran(mc) == attendu && ecranPret(mc), 20, null);
+        }, () -> mc.screen instanceof PhoneFallbackScreen && verifierLeRepli(mc, nom, max, true), max + 5, null);
+        pas(nom + "-ecran", () -> {}, () -> attendu(0.8), 3, image);
+    }
+
+    /** Le repli ouvert : délai depuis l'usage, même état que le dernier reçu, écran web vu d'abord si demandé. */
+    private static boolean verifierLeRepli(Minecraft mc, String nom, double max, boolean webAttenduDAbord) {
+        PhoneFallbackScreen r = (PhoneFallbackScreen) mc.screen;
+        double delai = secondes(ouvertureNs);
+        PhoneStatePacket montre = r.state();
+        PhoneStatePacket dernier = PhoneClient.last().orElse(null);
+        boolean meme = dernier != null && montre.session() == dernier.session() && montre.lock() == dernier.lock()
+                && montre.battery() == dernier.battery() && montre.wallpaper().equals(dernier.wallpaper());
+        journal(String.format(Locale.ROOT, "%s : repli ouvert %.2f s après l'usage, écran web vu d'abord %s, état "
+                + "montré %s %s %d %%, dernier reçu %s", nom, delai, webVu, montre.lock(), montre.wallpaper(),
+                montre.battery(), resume()));
+        if (delai > max) {
+            echec(nom, String.format(Locale.ROOT, "repli après %.2f s, au plus %.1f s attendu", delai, max));
+        }
+        if (!meme) {
+            echec(nom, "le repli ne montre pas le dernier état reçu");
+        }
+        if (webAttenduDAbord && !webVu) {
+            echec(nom, "l'écran web n'a pas été ouvert avant le repli");
+        }
+        return true;
+    }
+
+    // --- Performance -----------------------------------------------------------------------------------------------
+
+    private static void composerPerf(Minecraft mc) {
+        decor(mc, 100);
+        pas("perf-reglages", () -> {
+            if (SANS_PLAFOND) {
+                // En mémoire seulement : options.txt n'est pas réécrit.
+                mc.options.enableVsync().set(false);
+                mc.getWindow().updateVsync(false);
+                mc.options.framerateLimit().set(260);
+                mc.getWindow().setFramerateLimit(260);
+            }
+            var f = mc.getWindow();
+            journal(String.format(Locale.ROOT, "perf réglages : fenêtre %dx%d, échelle %.0f, synchro verticale %s, "
+                    + "plafond %d img/s%s, distance de rendu %d, graphismes %s, Xmx %d Mo", f.getWidth(), f.getHeight(),
+                    f.getGuiScale(), mc.options.enableVsync().get(), mc.options.framerateLimit().get(),
+                    mc.options.framerateLimit().get() >= 260 ? " (illimité)" : "", mc.options.renderDistance().get(),
+                    mc.options.graphicsMode().get(), Runtime.getRuntime().maxMemory() / (1024 * 1024)));
+            serveur(mc, (srv, sp) -> sp.teleportTo(sp.serverLevel(), 0.5, sp.getY(), 0.5, 0f, 15f));
+        }, () -> attendu(STABILISATION_S), STABILISATION_S + 5, "p01-avant");
+        pas("perf-debut", () -> etape("perf-debut"), () -> true, 1, null);
+        mesure("perf-avant-temoin", 30); // témoin : la mesure « avant » ne bouge plus d'une fenêtre à l'autre
+        mesure("perf-avant", 30);
+        tas("perf-tas-avant");
+        ouvrirPerf(mc, "perf-ouverture", "p02-pendant");
+        mesure("perf-pendant", 60);
+        echap(mc, "perf-fermeture");
+        mesure("perf-apres", 30);
+        tas("perf-tas-apres");
+        for (int n = 1; n <= 5; n++) {
+            ouvrirPerf(mc, "perf-cycle-" + n + "-ouverture", null);
+            pas("perf-cycle-" + n + "-ouvert", () -> {}, () -> attendu(10.0), 12, null);
+            echap(mc, "perf-cycle-" + n + "-fermeture");
+            pas("perf-cycle-" + n + "-ferme", () -> {}, () -> attendu(10.0), 12, null);
+            tas("perf-cycle-" + n + "-tas");
+        }
+        pas("perf-bilan", () -> {
+            double avant = MESURES.getOrDefault("perf-avant", 0.0);
+            double pendant = MESURES.getOrDefault("perf-pendant", 0.0);
+            double apres = MESURES.getOrDefault("perf-apres", 0.0);
+            double tasAvant = MESURES.getOrDefault("perf-tas-avant", 0.0);
+            double tasApres = MESURES.getOrDefault("perf-tas-apres", 0.0);
+            double[] cycles = new double[5];
+            for (int n = 1; n <= 5; n++) {
+                cycles[n - 1] = MESURES.getOrDefault("perf-cycle-" + n + "-tas", 0.0);
+                journal(String.format(Locale.ROOT, "perf cycle=%d tas=%.1f", n, cycles[n - 1]));
+            }
+            journal(String.format(Locale.ROOT, "perf avant=%.1f pendant=%.1f apres=%.1f tas_avant=%.1f "
+                    + "tas_apres=%.1f (img/s ; Mo après GC)", avant, pendant, apres, tasAvant, tasApres));
+            journal(String.format(Locale.ROOT, "perf rapports : pendant %.1f %% d'avant, après %.1f %% ; tas %+.1f Mo ;"
+                    + " %+.1f Mo par ouverture sur cinq", 100 * pendant / avant, 100 * apres / avant,
+                    tasApres - tasAvant, (cycles[4] - tasApres) / 5));
+            List<String> manques = TelephoneBilan.perf(avant, pendant, apres, tasAvant, tasApres, cycles);
+            if (manques.isEmpty()) {
+                journal("perf : tous les seuils tiennent");
+            }
+            for (String m : manques) {
+                echec("perf", m);
+            }
+        }, () -> true, 1, null);
+        pas("perf-fin", () -> etape("perf-fin"), () -> true, 1, null);
+    }
+
+    private static void ouvrirPerf(Minecraft mc, String nom, @Nullable String image) {
+        pas(nom, () -> {
+            etape(nom);
+            ouvertures++;
+            mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
+        }, () -> ecranPret(mc), 20, null);
+        pas(nom + "-pret", () -> etape(nom + "-pret"), () -> attendu(0.8), 3, image);
+    }
+
+    /** Images par seconde comptées pendant {@code s} secondes. */
+    private static void mesure(String nom, double s) {
+        pas(nom, () -> {
+            etape(nom + "-debut");
+            imagesDebut = imagesRendues;
+            mesureDebutNs = System.nanoTime();
+        }, () -> {
+            double ecoule = secondes(mesureDebutNs);
+            if (ecoule < s) {
+                return false;
+            }
+            double fps = (imagesRendues - imagesDebut) / ecoule;
+            MESURES.put(nom, fps);
+            journal(String.format(Locale.ROOT, "%s : %d images en %.2f s, %.1f img/s", nom, imagesRendues - imagesDebut,
+                    ecoule, fps));
+            etape(nom + "-fin");
+            return true;
+        }, s + 5, null);
+    }
+
+    /** Tas après deux GC à une seconde d'écart. */
+    private static void tas(String nom) {
+        pas(nom, System::gc, () -> {
+            if (!attendu(1.0)) {
+                return false;
+            }
+            System.gc();
+            Runtime rt = Runtime.getRuntime();
+            double mo = (rt.totalMemory() - rt.freeMemory()) / (1024.0 * 1024.0);
+            MESURES.put(nom, mo);
+            journal(String.format(Locale.ROOT, "%s : tas après GC %.1f Mo (alloué %d Mo)", nom, mo,
+                    rt.totalMemory() / (1024 * 1024)));
+            etape(nom);
+            return true;
+        }, 5, null);
+    }
+
+    /** Horodatage d'une étape, au journal et dans {@code etapes.txt} (lu par {@code tools/telephone-memoire.ps1}). */
+    private static void etape(String nom) {
+        long t = System.currentTimeMillis();
+        journal("etape " + nom + " " + t);
+        ecrireFichier("etapes.txt", t + ";" + nom + "\n", true);
+    }
+
+    // --- WebDisplays -----------------------------------------------------------------------------------------------
+
+    private static void composerWebDisplays(Minecraft mc) {
+        decor(mc, 30);
+        // Le téléphone d'abord : notre routeur de messages (oneforallQuery) est posé sur le client partagé de MCEF à la
+        // première vue ; le navigateur du minePad, créé ensuite, reçoit donc la fonction et s'en sert.
+        ouvrir(mc, "wd-telephone-avant", Lock.SETUP, "wd-00-telephone-avant-le-pad");
+        echap(mc, "wd-telephone-avant-ferme");
+        pas("wd-pad-donne", () -> serveur(mc, (srv, sp) -> {
+            Item padObjet = ForgeRegistries.ITEMS.getValue(new ResourceLocation("webdisplays", "minepad"));
+            if (padObjet == null || padObjet == Items.AIR) {
+                return;
+            }
+            ItemStack pad = new ItemStack(padObjet);
+            pad.getOrCreateTag().putString("PadURL", SELFTEST);
+            ItemStack phone = sp.getMainHandItem().copy();
+            sp.getInventory().setItem(caseDuTelephone, pad);
+            sp.getInventory().setItem((caseDuTelephone + 1) % 9, phone);
+        }), () -> mc.player.getMainHandItem().getItem() != PhoneRegistry.PHONE.get()
+                && !mc.player.getMainHandItem().isEmpty(), 5, null);
+        pas("wd-pad-cree", () -> mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND), () -> attendu(2.0), 4,
+                null);
+        pas("wd-pad-ouvert", () -> {
+            journal("minePad : étiquette " + mc.player.getMainHandItem().getTag());
+            mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
+        }, () -> ecranDeWebDisplays(mc) && attendu(6.0), 15, "wd-01-minepad-selftest");
+        pas("wd-pad-ecran", () -> journal("écran de WebDisplays : " + mc.screen.getClass().getName()), () -> true, 1,
+                null);
+        // Le minePad ne se ferme que par Maj+Échap (GuiMinePad.keyChanged, lu par javap) : Échap seul va à la page.
+        pas("wd-pad-ferme", () -> mc.screen.keyPressed(GLFW.GLFW_KEY_ESCAPE,
+                GLFW.glfwGetKeyScancode(GLFW.GLFW_KEY_ESCAPE), GLFW.GLFW_MOD_SHIFT), () -> mc.screen == null, 5, null);
+        // Le minePad dans la main gauche (son navigateur reste vivant), le téléphone dans la main droite.
+        pas("wd-pad-en-main-gauche", () -> serveur(mc, (srv, sp) -> {
+            ItemStack pad = sp.getInventory().getItem(caseDuTelephone).copy();
+            sp.setItemSlot(EquipmentSlot.OFFHAND, pad);
+            sp.getInventory().setItem(caseDuTelephone, sp.getInventory().getItem((caseDuTelephone + 1) % 9).copy());
+            sp.getInventory().setItem((caseDuTelephone + 1) % 9, ItemStack.EMPTY);
+        }), () -> mc.player.getMainHandItem().is(PhoneRegistry.PHONE.get()) && !mc.player.getOffhandItem().isEmpty()
+                && attendu(3.0), 6, "wd-02-pad-en-main-gauche");
+        ouvrir(mc, "wd-telephone", Lock.SETUP, "wd-03-telephone-choix-du-code");
+        cliquerCode(mc, "wd-choix", CODE);
+        pause(null);
+        cliquerCode(mc, "wd-confirmation", CODE);
+        pas("wd-telephone-deverrouille", () -> {}, () -> etat(Lock.UNLOCKED)
+                && cible(mc, id("app-settings", "settings")), 10, null);
+        pause("wd-04-telephone-deverrouille-pad-vivant");
+        clic(mc, "wd-reglages", id("app-settings", "settings"), () -> cible(mc, id("wp-nuit", "wallpaper")), 10, null);
+        clic(mc, "wd-fond-nuit", id("wp-nuit", "wallpaper"), () -> fond(web ? "nuit" : "lagon") && attendu(0.3), 10,
+                "wd-05-reglages-fond-change");
+        echap(mc, "wd-telephone-ferme");
+        pas("wd-pad-en-main-droite", () -> serveur(mc, (srv, sp) -> {
+            ItemStack pad = sp.getOffhandItem().copy();
+            ItemStack phone = sp.getMainHandItem().copy();
+            sp.setItemSlot(EquipmentSlot.OFFHAND, phone);
+            sp.getInventory().setItem(caseDuTelephone, pad);
+        }), () -> !mc.player.getMainHandItem().is(PhoneRegistry.PHONE.get())
+                && mc.player.getOffhandItem().is(PhoneRegistry.PHONE.get()), 5, null);
+        pas("wd-pad-encore", () -> mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND),
+                () -> ecranDeWebDisplays(mc) && attendu(4.0), 15, "wd-06-minepad-encore");
+        pas("wd-pad-encore-ferme", () -> mc.screen.keyPressed(GLFW.GLFW_KEY_ESCAPE,
+                GLFW.glfwGetKeyScancode(GLFW.GLFW_KEY_ESCAPE), GLFW.GLFW_MOD_SHIFT), () -> mc.screen == null, 5, null);
+        pas("wd-bilan-pont", () -> {
+            if (messagesDuPont == 0) {
+                echec("wd-bilan-pont", "aucun message du téléphone reçu : le pont n'a pas répondu");
+            }
+        }, () -> true, 1, null);
+        bilanDuPont();
+    }
+
+    private static boolean ecranDeWebDisplays(Minecraft mc) {
+        return mc.screen != null && mc.screen.getClass().getName().startsWith("net.montoyo.wd");
+    }
+
+    // --- Ouvertures, fermetures, codes -----------------------------------------------------------------------------
+
+    /**
+     * Ouvre le téléphone tenu (vrai usage de l'objet) et attend l'écran prêt, au verrou attendu ({@code null} : tout
+     * verrou). Repli attendu (page cassée ou sans MCEF) : l'écran de repli, dans les {@value #REPLI_MAX_S} s, sur le
+     * même état.
+     */
+    private static void ouvrir(Minecraft mc, String nom, @Nullable Lock attendu, @Nullable String image) {
+        pas(nom, () -> {
+            ouvertures++;
+            webVu = false;
+            ouvertureNs = System.nanoTime();
+            mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
+        }, () -> {
+            Lock l = verrouDeLEcran(mc);
+            if (l == null || (attendu != null && l != attendu) || !ecranPret(mc)) {
+                return false;
+            }
+            if (!web) {
+                return mc.screen instanceof PhoneFallbackScreen && verifierLeRepli(mc, nom, REPLI_MAX_S, PAGE_CASSEE);
+            }
+            return mc.screen instanceof PhoneWebScreen;
+        }, 20, null);
         pas(nom + "-ecran", () -> journal(nom + " : écran " + mc.screen.getClass().getSimpleName()), () -> attendu(0.8),
                 3, image);
     }
 
+    private static void echap(Minecraft mc, String nom) {
+        pas(nom, () -> {
+            if (mc.screen != null) {
+                mc.screen.keyPressed(GLFW.GLFW_KEY_ESCAPE, GLFW.glfwGetKeyScancode(GLFW.GLFW_KEY_ESCAPE), 0);
+            }
+        }, () -> mc.screen == null, 5, null);
+    }
+
+    /** Fermé par le serveur pour cette raison : plus d'écran, dernier état {@code CLOSE} de cette raison. */
+    private static boolean fermeePar(Minecraft mc, CloseReason raison) {
+        return mc.screen == null && PhoneClient.last().map(p -> p.kind() == Kind.CLOSE && p.reason() == raison)
+                .orElse(false);
+    }
+
+    /** Le message de fermeture en barre d'action est celui de la raison. */
+    private static void messageDeFermeture(String nom, CloseReason raison, String image) {
+        String attendue = FERME + raison.name().toLowerCase(Locale.ROOT);
+        pas(nom, () -> {}, () -> {
+            String vue = messageEnBarre(Minecraft.getInstance());
+            journal(nom + " : barre d'action « " + vue + " »");
+            if (!attendue.equals(vue)) {
+                echec(nom, "message en barre d'action « " + vue + " », « " + attendue + " » attendu");
+            }
+            return true;
+        }, 2, image);
+    }
+
     /** Un faux code de plus (par clics ou au clavier) ; attend la réponse, sauf blocage attendu au cinquième. */
     private static void faux(Minecraft mc, int n, int restants, boolean clics, @Nullable String image) {
-        pas("faux-" + n, () -> {
-            if (clics) {
-                for (char c : FAUX.toCharArray()) {
-                    cliquer(mc, "key-" + c);
-                }
-            } else {
-                taper(mc, FAUX);
-            }
-        }, () -> {
+        if (clics) {
+            cliquerCode(mc, "faux-" + n, FAUX);
+        } else {
+            pas("faux-" + n + "-clavier", () -> stable(mc, "key-0"), () -> taper(mc, FAUX), () -> true, 10, null);
+        }
+        pas("faux-" + n + "-reponse", () -> {}, () -> {
             PhoneStatePacket p = PhoneClient.last().orElse(null);
             if (p == null || p.kind() != Kind.UPDATE) {
                 return false;
@@ -406,7 +886,7 @@ public final class TelephoneShots {
 
     private static void changerLeCode(Minecraft mc) {
         if (web) {
-            pas("feuille-du-code", () -> {
+            pas("feuille-du-code", () -> stable(mc, "row-code"), () -> {
                 noterMiseEnPage(mc);
                 cliquer(mc, "row-code");
             }, () -> cible(mc, "sheet-cancel") && cible(mc, "key-1") && nouvelleMiseEnPage(mc), 10, null);
@@ -414,30 +894,38 @@ public final class TelephoneShots {
             pause(null);
             cliquerCode(mc, "nouveau", NOUVEAU);
             pause(null);
-            pas("confirmation", () -> {
-                for (char c : NOUVEAU.toCharArray()) {
-                    cliquer(mc, "key-" + c);
-                }
-            }, () -> PhoneClient.last().map(p -> p.last() == Result.CODE_CHANGED).orElse(false), 10, null);
+            cliquerCode(mc, "confirmation", NOUVEAU);
+            pas("modification-du-code", () -> {},
+                    () -> PhoneClient.last().map(p -> p.last() == Result.CODE_CHANGED).orElse(false), 10, null);
         } else {
-            pas("champs-du-code", () -> {
+            pas("champs-du-code", () -> stable(mc, "old"), () -> {
                 remplir(mc, "old", CODE);
                 remplir(mc, "new", NOUVEAU);
                 remplir(mc, "confirm", NOUVEAU);
             }, () -> attendu(0.5), 2, "06a-champs-du-code");
-            pas("modifier", () -> cliquer(mc, "change"),
+            clic(mc, "modification-du-code", "change",
                     () -> PhoneClient.last().map(p -> p.last() == Result.CODE_CHANGED).orElse(false), 10, null);
         }
         pause("06-code-modifie");
     }
 
-    /** Quatre chiffres cliqués un par un, puis une petite pause pour la page. */
+    /** Quatre chiffres cliqués un par un, chacun sur une mise en page stable. */
     private static void cliquerCode(Minecraft mc, String nom, String code) {
-        pas("code-" + nom, () -> {
-            for (char c : code.toCharArray()) {
-                cliquer(mc, "key-" + c);
-            }
-        }, () -> attendu(0.6), 2, null);
+        for (int i = 0; i < code.length(); i++) {
+            String touche = "key-" + code.charAt(i);
+            clic(mc, nom + "-chiffre-" + (i + 1), touche, () -> attendu(0.15), 10, null);
+        }
+        pas(nom + "-fin", () -> {}, () -> attendu(0.5), 2, null);
+    }
+
+    /** Un clic sur la commande nommée, une fois sa boîte stable. */
+    private static void clic(Minecraft mc, String nom, String cible, BooleanSupplier fini, double delai,
+            @Nullable String image) {
+        pas(nom, () -> stable(mc, cible), () -> cliquer(mc, cible), fini, delai, image);
+    }
+
+    private static String id(String page, String repli) {
+        return web ? page : repli;
     }
 
     // --- Gestes réels ----------------------------------------------------------------------------------------------
@@ -467,12 +955,6 @@ public final class TelephoneShots {
     private static void remplir(Minecraft mc, String champ, String texte) {
         cliquer(mc, champ);
         taper(mc, texte);
-    }
-
-    private static void echap(Minecraft mc) {
-        if (mc.screen != null) {
-            mc.screen.keyPressed(GLFW.GLFW_KEY_ESCAPE, GLFW.glfwGetKeyScancode(GLFW.GLFW_KEY_ESCAPE), 0);
-        }
     }
 
     /**
@@ -509,6 +991,100 @@ public final class TelephoneShots {
             return b != null && b.active;
         }
         return false;
+    }
+
+    /**
+     * La commande nommée est là et sa boîte ne bouge plus : même rectangle dans les deux dernières mises en page, ou
+     * aucune mise en page nouvelle depuis 0,8 s (la page envoie la sienne 720 ms après la fin des animations et ne
+     * renvoie jamais deux fois la même). Repli : le bouton est là et actif.
+     */
+    private static boolean stable(Minecraft mc, String nom) {
+        if (mc.screen instanceof PhoneWebScreen w) {
+            if (!w.pageReady() || w.rects() != miseCourante) {
+                return false;
+            }
+            int[] b = miseCourante.get(nom);
+            if (b == null) {
+                return false;
+            }
+            int[] avant = misePrecedente == null ? null : misePrecedente.get(nom);
+            return Arrays.equals(b, avant) || secondes(changementNs) >= 0.8;
+        }
+        return cible(mc, nom);
+    }
+
+    /** À chaque image : l'écran suivi, ses deux dernières mises en page, et le pont du téléphone sous surveillance. */
+    private static void suivre(Minecraft mc) {
+        Screen s = mc.screen;
+        if (s != ecranSuivi) {
+            ecranSuivi = s;
+            misePrecedente = null;
+            miseCourante = null;
+            changementNs = System.nanoTime();
+            if (s instanceof PhoneWebScreen w) {
+                webVu = true;
+                surveillerLePont(w);
+            }
+        }
+        if (s instanceof PhoneWebScreen w && w.rects() != miseCourante) {
+            misePrecedente = miseCourante;
+            miseCourante = w.rects();
+            changementNs = System.nanoTime();
+        }
+    }
+
+    /** Les messages que la page du téléphone peut envoyer, et leurs clés. */
+    private static final Set<String> SORTES = Set.of("ready", "layout", "close", "unlock", "setup", "erase", "lock",
+            "changeCode", "wallpaper", "airplane");
+    private static final Set<String> CLES = Set.of("a", "rects", "code", "old", "new", "id", "on");
+
+    /**
+     * Le pont de l'écran est entouré d'un témoin qui compte chaque message par sorte (jamais son contenu : il peut
+     * porter un code) et note tout message étranger à la page du téléphone (celui de la page d'essai porte
+     * {@code w}, {@code h}, {@code dpr}, {@code bouton}…).
+     */
+    private static void surveillerLePont(PhoneWebScreen w) {
+        try {
+            Field f = WebScreen.class.getDeclaredField("bridge");
+            f.setAccessible(true);
+            WebBridge vrai = (WebBridge) f.get(w);
+            if (vrai instanceof Temoin) {
+                return;
+            }
+            f.set(w, new Temoin(vrai));
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            echec("pont-surveille", e.toString());
+        }
+    }
+
+    private record Temoin(WebBridge vrai) implements WebBridge {
+        @Override
+        public void onMessage(JsonObject message) {
+            String a = message.has("a") && message.get("a").isJsonPrimitive() ? message.get("a").getAsString() : "?";
+            if (!SORTES.contains(a) || !CLES.containsAll(message.keySet())) {
+                messagesEtrangers++;
+                LOG.warn("[telephone] message étranger au pont du téléphone : a={} clés={}", a, message.keySet());
+            } else {
+                messagesDuPont++;
+                SORTES_DU_PONT.merge(a, 1, Integer::sum);
+            }
+            vrai.onMessage(message);
+        }
+
+        @Override
+        public void onFailure(WebFailure failure) {
+            vrai.onFailure(failure);
+        }
+    }
+
+    private static void bilanDuPont() {
+        pas("bilan-du-pont", () -> {
+            journal("pont du téléphone : " + messagesDuPont + " message(s) de la page " + SORTES_DU_PONT + ", "
+                    + messagesEtrangers + " étranger(s)");
+            if (messagesEtrangers > 0) {
+                echec("pont", messagesEtrangers + " message(s) étranger(s) arrivé(s) au pont du téléphone");
+            }
+        }, () -> true, 1, null);
     }
 
     /** Le verrou de l'état montré par l'écran du téléphone ouvert, ou {@code null}. */
@@ -548,7 +1124,8 @@ public final class TelephoneShots {
     private static String resume() {
         return PhoneClient.last().map(p -> p.kind() + " " + p.lock() + " " + p.last() + " essais " + p.attemptsLeft()
                 + " blocage " + p.lockoutSeconds() + " s batterie " + p.battery() + " % fond " + p.wallpaper()
-                + " avion " + p.airplane()).orElse("aucun état");
+                + " avion " + p.airplane() + (p.kind() == Kind.CLOSE ? " raison " + p.reason() : ""))
+                .orElse("aucun état");
     }
 
     private static void taille(Minecraft mc, int l, int h) {
@@ -562,6 +1139,31 @@ public final class TelephoneShots {
         journal("échelle d'interface " + e);
     }
 
+    /** La clé du message en barre d'action (texte brut s'il n'est pas traduit), ou une chaîne vide. */
+    private static String messageEnBarre(Minecraft mc) {
+        try {
+            Field f = Gui.class.getDeclaredField("overlayMessageString");
+            f.setAccessible(true);
+            Component c = (Component) f.get(mc.gui);
+            if (c == null) {
+                return "";
+            }
+            return c.getContents() instanceof TranslatableContents t ? t.getKey() : c.getString();
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private static String raison(DisconnectedScreen d) {
+        try {
+            Field f = DisconnectedScreen.class.getDeclaredField("reason");
+            f.setAccessible(true);
+            return ((Component) f.get(d)).getString();
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return d.getTitle().getString();
+        }
+    }
+
     // --- La prise --------------------------------------------------------------------------------------------------
 
     private interface SurLeServeur {
@@ -570,6 +1172,9 @@ public final class TelephoneShots {
 
     private static void serveur(Minecraft mc, SurLeServeur corps) {
         MinecraftServer srv = mc.getSingleplayerServer();
+        if (srv == null) {
+            throw new IllegalStateException("geste du serveur intégré demandé sur un serveur dédié");
+        }
         java.util.UUID id = mc.player.getUUID();
         srv.execute(() -> {
             ServerPlayer sp = srv.getPlayerList().getPlayer(id);
@@ -577,6 +1182,15 @@ public final class TelephoneShots {
                 corps.run(srv, sp);
             }
         });
+    }
+
+    private static int caseDe(ServerPlayer sp, Item objet) {
+        for (int s = 0; s < sp.getInventory().getContainerSize(); s++) {
+            if (sp.getInventory().getItem(s).is(objet)) {
+                return s;
+            }
+        }
+        return -1;
     }
 
     /**
@@ -623,7 +1237,12 @@ public final class TelephoneShots {
     // --- Pas -------------------------------------------------------------------------------------------------------
 
     private static void pas(String nom, Runnable action, BooleanSupplier fini, double delai, String image) {
-        PAS.add(new Pas(nom, action, fini, delai, image));
+        PAS.add(new Pas(nom, () -> true, action, fini, delai, image));
+    }
+
+    private static void pas(String nom, BooleanSupplier pret, Runnable action, BooleanSupplier fini, double delai,
+            String image) {
+        PAS.add(new Pas(nom, pret, action, fini, delai, image));
     }
 
     /** Laisse la page finir ses animations (720 ms) avant l'image. */
@@ -638,9 +1257,21 @@ public final class TelephoneShots {
         }
         Pas p = PAS.get(indice);
         if (!joue) {
+            if (debutAttenteNs == 0) {
+                debutAttenteNs = System.nanoTime();
+                journal("pas « " + p.nom() + " »");
+            }
+            if (!p.pret().getAsBoolean()) {
+                if (secondes(debutAttenteNs) > p.delai()) {
+                    echec(p.nom(), "cible jamais stable en " + p.delai() + " s (écran " + mc.screen + ", état "
+                            + resume() + (mc.screen instanceof PhoneWebScreen w ? ", mise en page "
+                            + w.rects().keySet() : "") + ")");
+                    suivant();
+                }
+                return;
+            }
             joue = true;
             debutPasNs = System.nanoTime();
-            journal("pas « " + p.nom() + " »");
             try {
                 p.action().run();
             } catch (IllegalStateException e) {
@@ -652,6 +1283,7 @@ public final class TelephoneShots {
         double s = secondes(debutPasNs);
         if (p.fini().getAsBoolean()) {
             journal("pas « " + p.nom() + " » réussi en " + String.format(Locale.ROOT, "%.2f s", s));
+            REUSSIES.add(p.nom());
             if (p.image() != null) {
                 capturer(mc, p.image());
             }
@@ -669,10 +1301,30 @@ public final class TelephoneShots {
     private static void suivant() {
         indice++;
         joue = false;
+        debutAttenteNs = 0;
     }
 
     private static boolean attendu(double secondes) {
         return secondes(debutPasNs) >= secondes;
+    }
+
+    /** Les avis « mode simplifié » du chat : {@code attendus} en tout, ouvertures comptées. */
+    private static void bilanAvis(Minecraft mc, int attendus) {
+        StringBuilder detail = new StringBuilder();
+        int tous = 0;
+        for (WebFailure f : WebFailure.values()) {
+            int n = avisDansLeChat(mc, f.translationKey());
+            tous += n;
+            if (n > 0) {
+                detail.append(' ').append(f.name()).append('=').append(n);
+            }
+        }
+        String bilan = "ouvertures " + ouvertures + ", avis « mode simplifié » dans le chat : " + tous
+                + (detail.length() > 0 ? " (" + detail.toString().trim() + ")" : "");
+        journal(bilan);
+        if (tous != attendus) {
+            echec("avis", bilan + ", " + attendus + " attendu(s)");
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -700,7 +1352,8 @@ public final class TelephoneShots {
         var f = mc.getWindow();
         String cadre = mc.screen instanceof PhoneWebScreen w ? " ; cadre " + w.frameRect() + ", agrandissement "
                 + String.format(Locale.ROOT, "%.3f", w.pageScale()) + ", boîtes " + w.rects().size()
-                : mc.screen instanceof PhoneFallbackScreen r ? " ; cadre " + r.frameRect() + ", page " + r.page() : "";
+                : mc.screen instanceof PhoneFallbackScreen r ? " ; cadre " + r.frameRect() + ", page " + r.page()
+                : mc.screen != null ? " ; écran " + mc.screen.getClass().getSimpleName() : "";
         journal(String.format(Locale.ROOT, "image %s.png : fenêtre %dx%d, interface %dx%d échelle %.0f%s ; %s", nom,
                 f.getWidth(), f.getHeight(), f.getGuiScaledWidth(), f.getGuiScaledHeight(), f.getGuiScale(), cadre,
                 resume()));
@@ -726,8 +1379,13 @@ public final class TelephoneShots {
         if (images != null) {
             images.attendre();
         }
+        List<String> manquantes = TelephoneBilan.manquantes(
+                TelephoneBilan.attendues(MODE, SERVEUR != null, web), REUSSIES);
+        for (String m : manquantes) {
+            echec("etapes", "étape attendue manquante : " + m);
+        }
         journal("bilan : " + (ECHECS.isEmpty() ? "TOUT PASSE" : ECHECS.size() + " ECHEC(S) " + ECHECS) + ", "
-                + IMAGES.size() + " image(s)");
+                + IMAGES.size() + " image(s), " + REUSSIES.size() + " pas réussis");
         ecrireTermine("normale");
         mc.stop();
     }
@@ -738,6 +1396,21 @@ public final class TelephoneShots {
 
     private static double secondes(long ns) {
         return (System.nanoTime() - ns) / 1e9;
+    }
+
+    private static void ecrireFichier(String nom, String texte, boolean ajout) {
+        try {
+            Path dossier = Minecraft.getInstance().gameDirectory.toPath().resolve(DOSSIER);
+            Files.createDirectories(dossier);
+            if (ajout) {
+                Files.writeString(dossier.resolve(nom), texte, StandardCharsets.UTF_8, StandardOpenOption.CREATE,
+                        StandardOpenOption.APPEND);
+            } else {
+                Files.writeString(dossier.resolve(nom), texte, StandardCharsets.UTF_8);
+            }
+        } catch (IOException | RuntimeException e) {
+            LOG.error("[telephone] {} non écrit", nom, e);
+        }
     }
 
     private static synchronized void ecrireTermine(String fin) {

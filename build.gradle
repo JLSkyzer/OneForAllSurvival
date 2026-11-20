@@ -164,6 +164,22 @@ minecraft {
             if (project.hasProperty('telephoneShots')) {
                 property 'oneforallsurvival.telephoneShots', project.telephoneShots ?: 'frames-telephone'
             }
+            // `-PtelephoneShotsMode=parcours|perf|webdisplays` (parcours par defaut), `-PtelephoneShotsServer=<hote:port>`
+            // (serveur dedie au lieu d'un monde solo), `-PtelephoneShotsSansPlafond` (perf sans synchro verticale ni
+            // plafond d'images, en memoire seulement), `-PphonePage=<chemin>` (autre page du mod pour le telephone,
+            // ex. phone/absente.html : essai du repli).
+            if (project.hasProperty('telephoneShotsMode')) {
+                property 'oneforallsurvival.telephoneShots.mode', project.telephoneShotsMode
+            }
+            if (project.hasProperty('telephoneShotsServer')) {
+                property 'oneforallsurvival.telephoneShots.server', project.telephoneShotsServer
+            }
+            if (project.hasProperty('telephoneShotsSansPlafond')) {
+                property 'oneforallsurvival.telephoneShots.sansPlafond', 'true'
+            }
+            if (project.hasProperty('phonePage')) {
+                property 'oneforallsurvival.phonePage', project.phonePage
+            }
             if (project.hasProperty('gameArgs')) {
                 args project.gameArgs.trim().split(/\s+/).toList()
             }
@@ -399,6 +415,10 @@ minecraft {
                 property 'oneforallsurvival.e2e.horloge', project.property('e2eHorloge').toString()
             }
             args '--nogui'
+            // `-PserverWorld=<nom>` : un autre monde que `world` (essais qui ne doivent pas toucher le monde de l'E2E).
+            if (project.hasProperty('serverWorld')) {
+                args '--world', project.property('serverWorld').toString()
+            }
         }
 
         // This run config launches GameTestServer and runs all registered gametests, then exits.
@@ -561,7 +581,11 @@ if (project.hasProperty('withMcef')) {
     }
     dependencies {
         runtimeOnly fg.deobf("maven.modrinth:mcef:${mcef_version}")
-        runtimeOnly fg.deobf("maven.modrinth:webdisplays:${webdisplays_version}")
+        // `-PsansWebDisplays` : MCEF seul. Un client avec WebDisplays est refuse par un serveur qui ne l'a pas (son
+        // canal reseau n'accepte que la version "2" du serveur) : l'essai du serveur dedie sans MCEF s'en passe.
+        if (!project.hasProperty('sansWebDisplays')) {
+            runtimeOnly fg.deobf("maven.modrinth:webdisplays:${webdisplays_version}")
+        }
     }
     // Chromium la ou MCEF le cherche en developpement (voir le bloc `client`), copie de run-mcef/mcef-libraries,
     // et `skip-download=true` dans config/mcef/mcef.properties du dossier du jeu : MCEF ne telecharge jamais Chromium.

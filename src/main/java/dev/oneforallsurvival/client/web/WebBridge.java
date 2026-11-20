@@ -4,7 +4,7 @@ import com.google.gson.JsonObject;
 
 /**
  * Ce que la page envoie au jeu. Les messages sont déjà passés par {@link WebMessage#parse} et arrivent sur le fil du
- * client ({@code Minecraft.execute}) ; ils ne valent jamais plus qu'une demande.
+ * client, à la tâche suivante ({@code Minecraft.tell}) ; ils ne valent jamais plus qu'une demande.
  */
 public interface WebBridge {
 
