@@ -508,9 +508,12 @@ public final class TelephoneReseauGameTests {
         Essai e = new Essai(helper);
         JoueurDeTest f = e.joueur("tr_verrou");
         PhoneOperator op = e.fonder(f, "Reseau Verrou", RESERVE);
-        e.ligne(op, f);
+        ItemStack phone = e.ligne(op, f);
         // Une seconde carte dans l'inventaire : elle figurerait dans les choix si la vue verrouillée les portait.
         e.carte(op, f, f, 5);
+        List<PhoneStatePacket> recus = new ArrayList<>();
+        long[] change = {-1L};
+        int rafraichi = PhoneConfig.signalRefreshTicks();
         helper.startSequence()
                 .thenWaitUntil(() -> helper.assertTrue(e.enService(), "antenne en service"))
                 .thenExecute(() -> {
@@ -531,6 +534,47 @@ public final class TelephoneReseauGameTests {
                                 && v.choices().isEmpty() && v.requestable().isEmpty(),
                                 "verrouillé : ni numéro, ni titulaire, ni cartes, ni opérateurs, ni appli : " + v);
                         helper.assertTrue(p.ownerName().isEmpty() && !p.owner(), "rien du propriétaire : " + p);
+                    }
+                    // Déverrouillé de nouveau, puis le code change sous la session (sel neuf, posé sans prévenir les
+                    // sessions) : au relevé suivant, la session est reverrouillée et ne reçoit que la vue réduite.
+                    PhoneStatePacket encore = attendre(helper, geste(helper, f, Action.UNLOCK, CODE), Lock.UNLOCKED,
+                            Result.NONE, "UNLOCK");
+                    helper.assertTrue(!encore.net().number().isEmpty() && encore.net().choices().size() == 1,
+                            "témoin déverrouillé de nouveau : " + encore.net());
+                })
+                // Le premier bloc de batterie de la session payé (100 % puis 99 %, un UPDATE qui relit le sel) : le
+                // relevé du signal sera seul à pouvoir reverrouiller (prochain point de batterie dans 720 tics).
+                .thenIdle(3)
+                .thenExecute(() -> {
+                    Optional<UUID> id = PhoneItem.phoneId(phone);
+                    helper.assertTrue(id.isPresent(), "téléphone sans identifiant");
+                    PhoneData data = PhoneData.get(e.serveur());
+                    PhoneData.PhoneRecord r = data.record(id.isPresent() ? id.get() : new UUID(0, 0));
+                    data.put(id.isPresent() ? id.get() : new UUID(0, 0), new PhoneData.PhoneRecord(r.owner(),
+                            r.ownerName(), "selneuf", r.codeHash(), r.failures(), r.lockedUntil(), r.wallpaper(),
+                            r.airplane()));
+                    f.etatsTelephoneRecus();
+                    change[0] = helper.getLevel().getGameTime();
+                })
+                .thenWaitUntil(() -> {
+                    recus.addAll(f.etatsTelephoneRecus());
+                    helper.assertTrue(recus.stream().anyMatch(p -> p.lock() == Lock.LOCKED),
+                            "sel changé : un UPDATE verrouillé attendu");
+                })
+                .thenExecute(() -> {
+                    helper.assertTrue(helper.getLevel().getGameTime() - change[0] <= rafraichi + 1,
+                            "reverrouillé au relevé suivant (" + rafraichi + " tics), vu "
+                                    + (helper.getLevel().getGameTime() - change[0]));
+                    // Un UPDATE de batterie a pu partir avant le relevé (encore déverrouillé) : seuls comptent ceux d'après.
+                    int premier = 0;
+                    while (premier < recus.size() && recus.get(premier).lock() != Lock.LOCKED) {
+                        premier++;
+                    }
+                    for (PhoneStatePacket p : recus.subList(premier, recus.size())) {
+                        PhoneNetView v = p.net();
+                        helper.assertTrue(p.lock() == Lock.LOCKED && v.number().isEmpty() && v.holder().isEmpty()
+                                && v.choices().isEmpty() && !v.founderApp() && v.operator().equals(op.name()),
+                                "après le changement de sel, seulement la vue réduite : " + p);
                     }
                     e.fermer();
                 })
@@ -808,6 +852,15 @@ public final class TelephoneReseauGameTests {
                             .filter(o -> o.id().equals(op.id())).findFirst();
                     helper.assertTrue(choix.isPresent() && choix.get().name().equals(op.name())
                             && choix.get().bars() == 4, "l'opérateur qui couvre est proposé : " + vue.net().requestable());
+                    // Mode avion, sans carte (la liste n'est vide que par lui) : plus d'opérateur à demander.
+                    PhoneStatePacket avion = attendre(helper, geste(helper, h, Action.AIRPLANE, "", true),
+                            Lock.UNLOCKED, Result.NONE, "AIRPLANE vrai");
+                    helper.assertTrue(avion.net().sim() == PhoneSims.Validity.NONE && avion.net().requestable().isEmpty(),
+                            "mode avion, sans carte : aucun opérateur proposé : " + avion.net());
+                    PhoneStatePacket retour = attendre(helper, geste(helper, h, Action.AIRPLANE, "", false),
+                            Lock.UNLOCKED, Result.NONE, "AIRPLANE faux");
+                    helper.assertTrue(retour.net().requestable().stream().anyMatch(o -> o.id().equals(op.id())),
+                            "hors mode avion : l'opérateur est de nouveau proposé : " + retour.net());
                     f.clesRecues();
                     Reponse r = geste(helper, h, Action.REQUEST_SIM, op.id());
                     attendre(helper, r, Lock.UNLOCKED, Result.SIM_REQUESTED, "REQUEST_SIM");
@@ -827,12 +880,32 @@ public final class TelephoneReseauGameTests {
                     // Le fondateur absent : l'avis l'attend.
                     e.registre().takeNotices(f.uuid());
                     f.quitter();
+                    // La file de l'opérateur remplie par des demandeurs fictifs : refus dit, rien d'inscrit.
+                    int max = PhoneConfig.simRequestsMax();
+                    List<UUID> fictifs = new ArrayList<>();
+                    while (e.registre().requestsOf(op.id()).size() < max) {
+                        Optional<SimRequest> d = e.registre().request(op.id(), UUID.randomUUID(), "fictif", 0L);
+                        helper.assertTrue(d.isPresent(), "demande fictive refusée avant la borne");
+                        if (d.isEmpty()) {
+                            break;
+                        }
+                        fictifs.add(d.get().id());
+                    }
                     deverrouiller(helper, h2);
+                    attendre(helper, geste(helper, h2, Action.REQUEST_SIM, op.id()), Lock.UNLOCKED,
+                            Result.REQUESTS_FULL, "file pleine");
+                    helper.assertTrue(e.registre().requestsOf(op.id()).size() == max
+                            && e.registre().requestsOf(op.id()).stream().noneMatch(d -> d.player().equals(h2.uuid())),
+                            "file pleine : rien d'inscrit pour le demandeur");
+                    helper.assertTrue(e.registre().takeNotices(f.uuid()).isEmpty(), "file pleine : aucun avis");
+                    helper.assertTrue(!fictifs.isEmpty(), "au moins une demande fictive");
+                    e.registre().takeRequest(fictifs.get(0));
                     attendre(helper, geste(helper, h2, Action.REQUEST_SIM, op.id()), Lock.UNLOCKED,
                             Result.SIM_REQUESTED, "demande, fondateur absent");
                     helper.assertTrue(e.registre().takeNotices(f.uuid()).size() == 1,
                             "un avis gardé pour le fondateur absent");
-                    helper.assertTrue(e.registre().requestsOf(op.id()).size() == 2, "deux demandes inscrites");
+                    helper.assertTrue(e.registre().requestsOf(op.id()).stream().anyMatch(d -> d.player().equals(h2.uuid())),
+                            "la demande du second est inscrite");
                     e.fermer();
                 })
                 .thenSucceed();

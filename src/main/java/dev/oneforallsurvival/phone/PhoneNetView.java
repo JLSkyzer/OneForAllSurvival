@@ -11,9 +11,13 @@ import net.minecraft.network.FriendlyByteBuf;
  * chaque état ({@link PhoneStatePacket#net}). Le jeton d'une carte n'y est jamais : une carte n'y figure que par son
  * numéro formaté, le nom de son opérateur et ce qu'elle vaut.
  *
- * <p>Hors {@link PhoneStatePacket.Lock#UNLOCKED}, seuls {@link #sim}, {@link #operator} et {@link #bars} restent
- * ({@link #locked()}) : ni numéro, ni titulaire, ni cartes de l'inventaire, ni opérateurs demandables, ni appli
- * « Antenne ».
+ * <p>Hors {@link PhoneStatePacket.Lock#UNLOCKED}, seuls {@link #sim} (grossier : aucune, non reconnue ou présente),
+ * {@link #operator} et {@link #bars} restent ({@link #locked()}) : ni numéro, ni titulaire, ni cartes de
+ * l'inventaire, ni opérateurs demandables, ni appli « Antenne ».
+ *
+ * <p>Le serveur n'envoie jamais ce que {@link #decode} refuserait : le constructeur coupe les textes à
+ * {@value #MAX_TEXT}, écarte les cartes d'une case hors de {@code 0..40}, coupe les listes à leurs bornes et ramène
+ * les barres entre 0 et {@value #MAX_BARS}.
  *
  * @param sim ce que vaut la carte logée
  * @param operator le nom de l'opérateur de la ligne, vide sans ligne
@@ -33,6 +37,7 @@ public record PhoneNetView(PhoneSims.Validity sim, String operator, int bars, St
         public OperatorChoice {
             id = clip(id);
             name = clip(name);
+            bars = clampBars(bars);
         }
     }
 
@@ -50,10 +55,21 @@ public record PhoneNetView(PhoneSims.Validity sim, String operator, int bars, St
     public PhoneNetView {
         sim = sim == null ? PhoneSims.Validity.NONE : sim;
         operator = clip(operator);
+        bars = clampBars(bars);
         number = clip(number);
         holder = clip(holder);
-        choices = choices == null ? List.of() : List.copyOf(choices);
-        requestable = requestable == null ? List.of() : List.copyOf(requestable);
+        choices = choices == null ? List.of() : choices.stream()
+                .filter(c -> c != null && c.validity() != null && c.slot() >= 0 && c.slot() < MAX_CHOICES)
+                .limit(MAX_CHOICES)
+                .toList();
+        requestable = requestable == null ? List.of() : requestable.stream()
+                .filter(o -> o != null)
+                .limit(MAX_REQUESTABLE)
+                .toList();
+    }
+
+    private static int clampBars(int bars) {
+        return Math.max(0, Math.min(MAX_BARS, bars));
     }
 
     /** Un texte jamais nul et jamais plus long que {@link #MAX_TEXT} (un NBT forgé ne fait pas lever l'envoi). */
@@ -64,9 +80,20 @@ public record PhoneNetView(PhoneSims.Validity sim, String operator, int bars, St
         return text.length() > MAX_TEXT ? text.substring(0, MAX_TEXT) : text;
     }
 
-    /** Ce qu'un écran verrouillé montre : la carte, l'opérateur et les barres, rien d'autre. */
+    /**
+     * Ce qu'un écran verrouillé montre : la carte, l'opérateur et les barres, rien d'autre. L'état de la carte y est
+     * grossier : {@code NONE} (aucune) et {@code UNKNOWN} (non reconnue) restent, tout le reste ({@code ACTIVE},
+     * {@code SUSPENDED}, {@code DEACTIVATED}) devient {@code ACTIVE}, à lire « présente » hors {@code UNLOCKED} : une
+     * suspension ou une désactivation, décisions de l'opérateur, ne se lisent pas sans le code.
+     *
+     * <p>Limite acceptée (revue de la tâche 7) : l'opérateur et les barres restent ceux de la ligne, comme sur un vrai
+     * téléphone ; une carte suspendue garde son opérateur à 0 barre, une désactivée n'a plus d'opérateur. Qui sait
+     * qu'une antenne de cet opérateur couvre l'endroit peut en déduire que la ligne ne passe pas, pas pourquoi.
+     */
     public PhoneNetView locked() {
-        return new PhoneNetView(sim, operator, bars, "", "", false, List.of(), List.of());
+        PhoneSims.Validity coarse = sim == PhoneSims.Validity.NONE || sim == PhoneSims.Validity.UNKNOWN
+                ? sim : PhoneSims.Validity.ACTIVE;
+        return new PhoneNetView(coarse, operator, bars, "", "", false, List.of(), List.of());
     }
 
     // ---------------------------------------------------------------------------------------------

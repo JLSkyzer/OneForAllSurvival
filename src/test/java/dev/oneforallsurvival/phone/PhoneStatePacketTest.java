@@ -104,61 +104,155 @@ class PhoneStatePacketTest {
                 "Joueur_Seize_16c", true, cartes, ops);
     }
 
-    private static FriendlyByteBuf ecrire(PhoneNetView vue) {
+    /**
+     * Une vue écrite à la main, comme par un serveur trafiqué (le constructeur, lui, ramène tout dans les bornes) :
+     * l'état de la carte, les barres, les cases et états des cartes, le nombre d'opérateurs et leurs barres.
+     */
+    private static FriendlyByteBuf brut(int sim, int bars, int[] cases, int etat, int operateurs, int barresOp) {
         FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
-        vue.encode(buf);
+        buf.writeByte(sim);
+        buf.writeUtf("Lagon");
+        buf.writeVarInt(bars);
+        buf.writeUtf("06 12 34 56 78");
+        buf.writeUtf("Alex");
+        buf.writeBoolean(false);
+        buf.writeVarInt(cases.length);
+        for (int c : cases) {
+            buf.writeVarInt(c);
+            buf.writeUtf("06 00 00 00 00");
+            buf.writeUtf("Lagon");
+            buf.writeByte(etat);
+        }
+        buf.writeVarInt(operateurs);
+        for (int i = 0; i < operateurs; i++) {
+            buf.writeUtf(String.format("%012x", i));
+            buf.writeUtf("Op " + i);
+            buf.writeVarInt(barresOp);
+        }
         return buf;
     }
 
-    /** 42 cartes, 17 opérateurs ou 5 barres, écrits comme par un serveur trafiqué : la vue ne se lit pas. */
-    @Test
-    void uneVueTropLongueNeSeLitPas() {
-        List<PhoneSims.SimChoice> cartes = new ArrayList<>(pleine().choices());
-        cartes.add(new PhoneSims.SimChoice(40, "06 00 00 00 00", "Trop", PhoneSims.Validity.ACTIVE));
-        PhoneNetView trop = new PhoneNetView(PhoneSims.Validity.ACTIVE, "Lagon", 2, "", "", false, cartes, List.of());
-        FriendlyByteBuf buf = ecrire(trop);
+    private static int[] cases(int n) {
+        int[] out = new int[n];
+        for (int i = 0; i < n; i++) {
+            out[i] = Math.min(i, PhoneNetView.MAX_CHOICES - 1);
+        }
+        return out;
+    }
+
+    private static void refusee(FriendlyByteBuf buf, String quoi) {
         try {
-            assertThrows(DecoderException.class, () -> PhoneNetView.decode(buf), "42 cartes");
+            assertThrows(DecoderException.class, () -> PhoneNetView.decode(buf), quoi);
         } finally {
             buf.release();
         }
-        List<PhoneNetView.OperatorChoice> ops = new ArrayList<>(pleine().requestable());
-        ops.add(new PhoneNetView.OperatorChoice("0123456789ab", "Trop", 1));
-        FriendlyByteBuf buf2 = ecrire(new PhoneNetView(PhoneSims.Validity.NONE, "", 0, "", "", false, List.of(), ops));
-        try {
-            assertThrows(DecoderException.class, () -> PhoneNetView.decode(buf2), "17 opérateurs");
-        } finally {
-            buf2.release();
-        }
-        FriendlyByteBuf buf3 = ecrire(new PhoneNetView(PhoneSims.Validity.ACTIVE, "Lagon", 5, "", "", false, List.of(),
-                List.of()));
-        try {
-            assertThrows(DecoderException.class, () -> PhoneNetView.decode(buf3), "5 barres");
-        } finally {
-            buf3.release();
-        }
-        // Un texte de 33 caractères écrit à la main : refusé à la lecture.
-        FriendlyByteBuf buf4 = new FriendlyByteBuf(Unpooled.buffer());
-        try {
-            buf4.writeByte(PhoneSims.Validity.ACTIVE.ordinal());
-            buf4.writeUtf("x".repeat(PhoneNetView.MAX_TEXT + 1));
-            assertThrows(DecoderException.class, () -> PhoneNetView.decode(buf4), "opérateur de 33 caractères");
-        } finally {
-            buf4.release();
-        }
-        // Côté serveur, un texte trop long (NBT forgé) est coupé, jamais une levée à l'envoi.
-        assertEquals(PhoneNetView.MAX_TEXT, new PhoneNetView(PhoneSims.Validity.ACTIVE, "y".repeat(500), 1, "", "",
-                false, List.of(), List.of()).operator().length());
     }
 
     /**
-     * Hors {@code UNLOCKED}, la vue ne garde que la carte, l'opérateur et les barres : ni numéro, ni titulaire, ni
-     * cartes, ni opérateurs demandables, ni appli. Les octets envoyés ne contiennent ni le numéro ni le titulaire.
+     * Écrite à la main comme par un serveur trafiqué, une vue hors bornes ne se lit pas : 42 cartes, 17 opérateurs,
+     * 5 barres (de la ligne ou d'un opérateur), une case 41 ou -1, un état de carte hors de l'énumération (de la
+     * ligne ou d'une carte), un texte de 33 caractères. Le témoin, écrit de même dans les bornes, se lit.
+     */
+    @Test
+    void uneVueTropLongueNeSeLitPas() {
+        int actif = PhoneSims.Validity.ACTIVE.ordinal();
+        int horsPlage = PhoneSims.Validity.values().length;
+        FriendlyByteBuf temoin = brut(actif, 4, cases(41), actif, 16, 4);
+        try {
+            PhoneNetView lue = PhoneNetView.decode(temoin);
+            assertEquals(41, lue.choices().size());
+            assertEquals(16, lue.requestable().size());
+            assertEquals(0, temoin.readableBytes());
+        } finally {
+            temoin.release();
+        }
+        refusee(brut(actif, 2, cases(42), actif, 0, 0), "42 cartes");
+        refusee(brut(actif, 2, new int[0], actif, 17, 1), "17 opérateurs");
+        refusee(brut(actif, 5, new int[0], actif, 0, 0), "5 barres");
+        refusee(brut(actif, 2, new int[0], actif, 1, 5), "un opérateur à 5 barres");
+        refusee(brut(actif, 2, new int[] {41}, actif, 0, 0), "case 41");
+        refusee(brut(actif, 2, new int[] {-1}, actif, 0, 0), "case -1");
+        refusee(brut(horsPlage, 2, new int[0], actif, 0, 0), "état de la ligne hors plage");
+        refusee(brut(actif, 2, new int[] {3}, horsPlage, 0, 0), "état d'une carte hors plage");
+        // Un texte de 33 caractères écrit à la main : refusé à la lecture.
+        FriendlyByteBuf buf4 = new FriendlyByteBuf(Unpooled.buffer());
+        buf4.writeByte(actif);
+        buf4.writeUtf("x".repeat(PhoneNetView.MAX_TEXT + 1));
+        refusee(buf4, "opérateur de 33 caractères");
+    }
+
+    /**
+     * Le serveur n'envoie jamais ce que le client refuse : une vue construite au-delà des bornes (inventaire agrandi par
+     * un mod : 43 cartes, une case 41, une case -1 ; 17 opérateurs ; barres à 9 ; texte de 500 caractères) est ramenée
+     * dans les bornes dès la construction, et se relit.
+     */
+    @Test
+    void uneVueConstruiteAuDelaDesBornesSeLitToujours() {
+        List<PhoneSims.SimChoice> cartes = new ArrayList<>();
+        cartes.add(new PhoneSims.SimChoice(41, "06 41 00 00 00", "Hors", PhoneSims.Validity.ACTIVE));
+        cartes.add(new PhoneSims.SimChoice(-1, "06 99 00 00 00", "Hors", PhoneSims.Validity.ACTIVE));
+        cartes.addAll(pleine().choices());
+        cartes.add(new PhoneSims.SimChoice(40, "06 40 00 00 01", "Trop", PhoneSims.Validity.ACTIVE));
+        List<PhoneNetView.OperatorChoice> ops = new ArrayList<>(pleine().requestable());
+        ops.add(new PhoneNetView.OperatorChoice("0123456789ab", "Trop", 7));
+        PhoneNetView vue = new PhoneNetView(PhoneSims.Validity.ACTIVE, "y".repeat(500), 9, "", "", false, cartes, ops);
+        assertEquals(PhoneNetView.MAX_CHOICES, vue.choices().size());
+        assertTrue(vue.choices().stream().allMatch(c -> c.slot() >= 0 && c.slot() < PhoneNetView.MAX_CHOICES),
+                vue.choices().toString());
+        assertEquals(PhoneNetView.MAX_REQUESTABLE, vue.requestable().size());
+        assertEquals(PhoneNetView.MAX_BARS, vue.bars());
+        assertEquals(PhoneNetView.MAX_TEXT, vue.operator().length());
+        assertEquals(PhoneNetView.MAX_BARS, new PhoneNetView.OperatorChoice("0123456789ab", "x", 7).bars());
+        assertEquals(0, new PhoneNetView(PhoneSims.Validity.NONE, "", -3, "", "", false, null, null).bars());
+        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        try {
+            vue.encode(buf);
+            assertEquals(vue, PhoneNetView.decode(buf));
+        } finally {
+            buf.release();
+        }
+    }
+
+    /**
+     * Verrouillé, l'état de la carte est grossier : une carte suspendue ou désactivée donne exactement la même vue (et
+     * les mêmes octets) qu'une carte active ; « aucune » et « non reconnue » restent.
+     */
+    @Test
+    void uneCarteSuspendueOuDesactiveeSeVoitCommeActiveVerrouillee() {
+        PhoneNetView active = new PhoneNetView(PhoneSims.Validity.ACTIVE, "Lagon", 0, "06 12 34 56 78", "Alex", true,
+                pleine().choices(), pleine().requestable()).locked();
+        for (PhoneSims.Validity v : new PhoneSims.Validity[] {PhoneSims.Validity.SUSPENDED,
+                PhoneSims.Validity.DEACTIVATED}) {
+            PhoneNetView vue = new PhoneNetView(v, "Lagon", 0, "06 12 34 56 78", "Alex", true, pleine().choices(),
+                    pleine().requestable()).locked();
+            assertEquals(PhoneSims.Validity.ACTIVE, vue.sim(), v + " verrouillé");
+            assertEquals(active, vue, v + " verrouillé : même vue qu'une carte active");
+            FriendlyByteBuf a = new FriendlyByteBuf(Unpooled.buffer());
+            FriendlyByteBuf b = new FriendlyByteBuf(Unpooled.buffer());
+            try {
+                active.encode(a);
+                vue.encode(b);
+                assertEquals(a, b, v + " verrouillé : mêmes octets");
+            } finally {
+                a.release();
+                b.release();
+            }
+        }
+        for (PhoneSims.Validity v : new PhoneSims.Validity[] {PhoneSims.Validity.NONE, PhoneSims.Validity.UNKNOWN}) {
+            assertEquals(v, new PhoneNetView(v, "", 0, "", "", false, List.of(), List.of()).locked().sim(), v.name());
+        }
+    }
+
+    /**
+     * Hors {@code UNLOCKED}, la vue ne garde que la carte (grossière), l'opérateur et les barres : ni numéro, ni
+     * titulaire, ni cartes, ni opérateurs demandables, ni appli. Les octets envoyés ne contiennent ni le numéro ni le
+     * titulaire.
      */
     @Test
     void uneVueVerrouilleeNePorteNiNumeroNiTitulaire() {
         PhoneNetView vue = pleine().locked();
-        assertEquals(PhoneSims.Validity.SUSPENDED, vue.sim());
+        assertEquals(PhoneSims.Validity.SUSPENDED, pleine().sim(), "témoin : la vue pleine est suspendue");
+        assertEquals(PhoneSims.Validity.ACTIVE, vue.sim(), "verrouillé, une carte suspendue se lit « présente »");
         assertEquals(pleine().operator(), vue.operator());
         assertEquals(4, vue.bars());
         assertEquals("", vue.number());

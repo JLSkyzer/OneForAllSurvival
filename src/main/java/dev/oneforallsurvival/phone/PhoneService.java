@@ -403,7 +403,8 @@ public final class PhoneService {
         }
         String name = player.getGameProfile().getName();
         if (registry.request(operatorId, player.getUUID(), name, EconomyClock.now()).isEmpty()) {
-            // File de l'opérateur pleine (simRequestsMax) : refus sans message dédié.
+            // Ni opérateur absent ni demande déjà faite (vus plus haut) : la file de l'opérateur est pleine.
+            last[0] = Result.REQUESTS_FULL;
             return Outcome.REFUSED;
         }
         Component notice = Component.translatable(MESSAGE + "sim_request.received", name, operator.get().name());
@@ -522,6 +523,15 @@ public final class PhoneService {
      */
     static PhoneStatePacket view(ServerPlayer viewer, PhoneSession session, Kind kind, Result last,
             CloseReason reason) {
+        return view(viewer, session, kind, last, reason, null);
+    }
+
+    /**
+     * Comme {@link #view(ServerPlayer, PhoneSession, Kind, Result, CloseReason)}, avec la vue réseau déjà calculée
+     * dans le même tic après {@link #syncLock} (relevé du signal) : elle n'est pas recalculée.
+     */
+    private static PhoneStatePacket view(ServerPlayer viewer, PhoneSession session, Kind kind, Result last,
+            CloseReason reason, @Nullable PhoneNetView computed) {
         PhoneRecord record = PhoneData.get(viewer.server).record(session.phoneId());
         syncLock(session, record);
         long now = EconomyClock.now();
@@ -535,7 +545,7 @@ public final class PhoneService {
         session.showPercent(battery);
         int offset = EconomyCalendar.configuredZone().getRules().getOffset(Instant.ofEpochMilli(now))
                 .getTotalSeconds();
-        PhoneNetView net = netView(viewer, stack, record, unlocked);
+        PhoneNetView net = computed != null ? computed : netView(viewer, stack, record, unlocked);
         session.showNet(net);
         return new PhoneStatePacket(session.id(), kind, session.lock(), battery, now, offset, record.wallpaper(),
                 unlocked && record.airplane(), unlocked && viewer.getUUID().equals(record.owner()),
@@ -655,14 +665,16 @@ public final class PhoneService {
             player.displayClientMessage(Component.translatable(MESSAGE + "battery_empty"), true);
             return;
         }
-        boolean changed = percent(stack) != session.shownPercent();
-        if (!changed && session.refreshDue(PhoneConfig.signalRefreshTicks())) {
+        if (percent(stack) != session.shownPercent()) {
+            send(player, view(player, session, Kind.UPDATE, Result.NONE, CloseReason.NONE));
+        } else if (session.refreshDue(PhoneConfig.signalRefreshTicks())) {
             PhoneRecord record = PhoneData.get(player.server).record(session.phoneId());
             syncLock(session, record);
-            changed = !netView(player, stack, record, session.lock() == Lock.UNLOCKED).equals(session.shownNet());
-        }
-        if (changed) {
-            send(player, view(player, session, Kind.UPDATE, Result.NONE, CloseReason.NONE));
+            PhoneNetView net = netView(player, stack, record, session.lock() == Lock.UNLOCKED);
+            if (!net.equals(session.shownNet())) {
+                // Calculée une fois : view relit le même enregistrement dans le même tic, sans le recalculer.
+                send(player, view(player, session, Kind.UPDATE, Result.NONE, CloseReason.NONE, net));
+            }
         }
     }
 

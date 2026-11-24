@@ -15,7 +15,8 @@ import net.minecraftforge.network.NetworkEvent;
  * <p>Le code n'y est jamais. Hors {@link Lock#UNLOCKED}, la vue ne dit rien du propriétaire ni des réglages :
  * {@code ownerName} vide, {@code owner} et {@code airplane} faux ; seul le fond d'écran reste visible, comme sur
  * l'écran verrouillé d'un vrai téléphone. La vue réseau ({@link #net}, lot T2) n'y garde que la carte, l'opérateur et
- * les barres ({@link PhoneNetView#locked()}) ; le jeton d'une carte n'y est jamais.
+ * les barres ({@link PhoneNetView#locked()}) ; l'état de la carte y est grossier ({@code ACTIVE} s'y lit « présente »,
+ * jamais « active » : une carte suspendue ou désactivée s'y montre aussi ainsi). Le jeton d'une carte n'y est jamais.
  *
  * @param battery la charge en pour cent (0 à 100, arrondie vers le bas)
  * @param serverMillis l'heure de l'économie ({@code EconomyClock.now()}) à l'envoi
@@ -40,7 +41,9 @@ public record PhoneStatePacket(int session, Kind kind, Lock lock, int battery, l
     public enum Result {
         NONE, WRONG_CODE, LOCKED_OUT, INVALID_CODE, CODE_CHANGED, NOT_OWNER, ERASED,
         // Lot T2 : la carte SIM et le réseau.
-        SIM_INSERTED, SIM_REMOVED, SIM_UNKNOWN, INVENTORY_FULL, SIM_REQUESTED, ALREADY_REQUESTED, NO_NETWORK
+        SIM_INSERTED, SIM_REMOVED, SIM_UNKNOWN, INVENTORY_FULL, SIM_REQUESTED, ALREADY_REQUESTED, NO_NETWORK,
+        // La file de demandes de l'opérateur est pleine (simRequestsMax).
+        REQUESTS_FULL
     }
 
     public enum CloseReason { NONE, CLOSED, BATTERY_EMPTY, PHONE_GONE, ERASED }

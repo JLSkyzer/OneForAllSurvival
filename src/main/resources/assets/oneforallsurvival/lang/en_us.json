@@ -1152,6 +1152,7 @@
   "screen.oneforallsurvival.phone.sim_requested": "Request sent to the operator.",
   "screen.oneforallsurvival.phone.already_requested": "You have already asked this operator for a card.",
   "screen.oneforallsurvival.phone.no_network": "No network.",
+  "screen.oneforallsurvival.phone.requests_full": "This operator's request queue is full. Try again later.",
   "message.oneforallsurvival.phone.sim_request.received": "%s is asking %s for a SIM card.",
   "block.oneforallsurvival.antenna": "Antenna",
   "tooltip.oneforallsurvival.antenna.operator": "Operator: %s",
