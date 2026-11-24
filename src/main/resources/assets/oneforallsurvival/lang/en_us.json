@@ -1161,6 +1161,15 @@
   "tooltip.oneforallsurvival.sim_card.holder": "Holder: %s",
   "tooltip.oneforallsurvival.sim_card.anonymous": "Unnamed SIM",
   "tooltip.oneforallsurvival.sim_card.blank": "Blank card: only an operator issues a card",
+  "message.oneforallsurvival.relay.caller_no_signal": "No service",
+  "message.oneforallsurvival.relay.caller_operator_removed": "No service · Operator removed",
+  "message.oneforallsurvival.relay.callee_operator_removed": "Unreachable · Operator removed",
+  "message.oneforallsurvival.relay.callee_antenna_down": "Unreachable · %s antenna is down",
+  "message.oneforallsurvival.relay.callee_no_coverage": "Unreachable · Out of coverage",
+  "message.oneforallsurvival.relay.caller_airplane": "Airplane mode",
+  "message.oneforallsurvival.relay.caller_sim_inactive": "SIM card inactive",
+  "message.oneforallsurvival.relay.callee_sim_inactive": "Unreachable · Card suspended",
+  "message.oneforallsurvival.relay.callee_unknown": "Unknown number",
   "tooltip.oneforallsurvival.phone.sim": "SIM card: %s",
   "tooltip.oneforallsurvival.phone.no_sim": "No SIM card"
 }

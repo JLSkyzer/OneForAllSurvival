@@ -1161,6 +1161,15 @@
   "tooltip.oneforallsurvival.sim_card.holder": "Titulaire : %s",
   "tooltip.oneforallsurvival.sim_card.anonymous": "SIM sans nom",
   "tooltip.oneforallsurvival.sim_card.blank": "Carte vierge : seul un opérateur émet une carte",
+  "message.oneforallsurvival.relay.caller_no_signal": "Pas de réseau",
+  "message.oneforallsurvival.relay.caller_operator_removed": "Pas de réseau · Opérateur supprimé",
+  "message.oneforallsurvival.relay.callee_operator_removed": "Injoignable · Opérateur supprimé",
+  "message.oneforallsurvival.relay.callee_antenna_down": "Injoignable · Antenne de %s hors tension",
+  "message.oneforallsurvival.relay.callee_no_coverage": "Injoignable · Hors réseau",
+  "message.oneforallsurvival.relay.caller_airplane": "Mode avion",
+  "message.oneforallsurvival.relay.caller_sim_inactive": "Carte SIM inactive",
+  "message.oneforallsurvival.relay.callee_sim_inactive": "Injoignable · Carte suspendue",
+  "message.oneforallsurvival.relay.callee_unknown": "Numéro inconnu",
   "tooltip.oneforallsurvival.phone.sim": "Carte SIM : %s",
   "tooltip.oneforallsurvival.phone.no_sim": "Aucune carte SIM"
 }

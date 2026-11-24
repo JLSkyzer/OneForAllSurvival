@@ -20,7 +20,7 @@ import net.minecraft.world.level.block.state.BlockState;
  *
  * <p>Elle ne travaille que si son opérateur existe et qu'elle est inscrite au registre à cette place (une copie du bloc
  * ailleurs ne travaille pas). Elle paie alors à chaque tic la veille, plus une part par carte active de l'opérateur,
- * plus le trafic ouvert ({@link AntennaLoad}) ; le trafic vaut 0 tant que la façade du réseau (tâche 6) n'existe pas. À
+ * plus le trafic ouvert sur elle ({@link AntennaLoad}, {@link PhoneNetwork#openTraffic}). À
  * la fin de chaque tic elle note au registre si elle a tourné ({@link PhoneOperators#noteTick}) : c'est ce qui la dit
  * « en service » ({@link #inService}).
  */
@@ -126,15 +126,25 @@ public final class AntennaBlockEntity extends ElectricMachineBlockEntity {
         return operator().isPresent() && record().isPresent();
     }
 
-    /** Veille, plus une part par carte active de l'opérateur, plus le trafic ouvert (0 d'ici la tâche 6). */
+    /**
+     * Veille, plus une part par carte active de l'opérateur, plus le trafic ouvert sur cette antenne (appels et visios
+     * des poignées de {@link PhoneNetwork#openTraffic}, lus dans le registre : une table, rien de parcouru).
+     */
     @Override
     protected int energyPerTick() {
         int active = 0;
+        int calls = 0;
+        int facetimes = 0;
         if (operatorId != null && level instanceof ServerLevel server) {
-            active = cards.count(PhoneOperators.get(server.getServer()), operatorId);
+            PhoneOperators registry = PhoneOperators.get(server.getServer());
+            active = cards.count(registry, operatorId);
+            if (antennaId != null) {
+                calls = registry.traffic(antennaId, TrafficKind.CALL);
+                facetimes = registry.traffic(antennaId, TrafficKind.FACETIME);
+            }
         }
         breakdown = AntennaLoad.of(PhoneConfig.antennaStandbyFe(), PhoneConfig.antennaPerSimFe(), active,
-                0, PhoneConfig.antennaCallFe(), 0, PhoneConfig.antennaFacetimeFe());
+                calls, PhoneConfig.antennaCallFe(), facetimes, PhoneConfig.antennaFacetimeFe());
         return breakdown.total();
     }
 

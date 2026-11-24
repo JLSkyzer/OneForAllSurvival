@@ -95,6 +95,8 @@ public final class PhoneOperators extends SavedData {
     private long lastFlushTick = NEVER;
     /** Monte à chaque changement de l'état d'une carte (non sauvegardé) : voir {@link #cardRevision()}. */
     private int cardRevision;
+    /** Le trafic ouvert par antenne, appels et visios (transitoire, jamais sauvegardé) : voir {@link #traffic}. */
+    private final Map<UUID, int[]> traffic = new HashMap<>();
 
     /** Un registre neuf, détaché du monde (essais) ; celui du serveur s'obtient par {@link #get}. */
     public PhoneOperators() {}
@@ -246,6 +248,30 @@ public final class PhoneOperators extends SavedData {
      */
     public int cardRevision() {
         return cardRevision;
+    }
+
+    /**
+     * Le trafic ouvert sur cette antenne ({@link PhoneNetwork#openTraffic}) : combien d'appels ou de visios passent
+     * par elle maintenant. Transitoire : rien n'est sauvegardé, un registre relu (monde rechargé) repart de zéro.
+     */
+    public int traffic(UUID antennaId, TrafficKind kind) {
+        int[] counts = traffic.get(antennaId);
+        return counts == null ? 0 : counts[kind.ordinal()];
+    }
+
+    /**
+     * Ajoute {@code delta} au trafic de cette antenne (jamais sous zéro). Ne marque pas le registre sale : rien de ce
+     * trafic n'est écrit sur le disque.
+     */
+    void addTraffic(UUID antennaId, TrafficKind kind, int delta) {
+        int[] counts = traffic.computeIfAbsent(antennaId, id -> new int[TrafficKind.values().length]);
+        counts[kind.ordinal()] = Math.max(0, counts[kind.ordinal()] + delta);
+        for (int count : counts) {
+            if (count > 0) {
+                return;
+            }
+        }
+        traffic.remove(antennaId);
     }
 
     public Optional<SimCard> card(UUID simId) {
