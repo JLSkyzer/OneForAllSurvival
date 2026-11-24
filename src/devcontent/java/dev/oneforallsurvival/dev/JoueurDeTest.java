@@ -64,6 +64,7 @@ public final class JoueurDeTest {
     private final List<dev.oneforallsurvival.phone.net.OperatorView> panneauxOperateur = new ArrayList<>();
     /** Les octets de ces vues, tels qu'envoyés (sans le numéro du message) : pour y chercher ce qui ne doit pas y être. */
     private final List<byte[]> octetsPanneauxOperateur = new ArrayList<>();
+    private final List<dev.oneforallsurvival.phone.net.OperatorNoticePacket> avisOperateur = new ArrayList<>();
     /** Ceux que l'entrée en jeu elle-même a envoyés, avant qu'on ne les oublie. */
     private final List<dev.oneforallsurvival.economy.town.TownFinancesPacket> financesALaConnexion = new ArrayList<>();
     /** Les clés des messages (chat ou barre d'action) reçus, dans l'ordre ; un texte brut est gardé tel quel. */
@@ -281,6 +282,8 @@ public final class JoueurDeTest {
                     donnees.getBytes(donnees.readerIndex(), octets);
                     octetsPanneauxOperateur.add(octets);
                     panneauxOperateur.add(dev.oneforallsurvival.phone.net.OperatorPanelPacket.decode(donnees).view());
+                } else if (discriminant == BenchNetwork.ID_OPERATOR_NOTICE) {
+                    avisOperateur.add(dev.oneforallsurvival.phone.net.OperatorNoticePacket.decode(donnees));
                 } else if (discriminant == BenchNetwork.ID_INVOICE_FORM) {
                     formulairesFacture.add(dev.oneforallsurvival.economy.invoice.InvoiceFormPacket.decode(donnees));
                 }
@@ -288,6 +291,14 @@ public final class JoueurDeTest {
                 donnees.release();
             }
         }
+    }
+
+    /** Les mots du serveur au panneau de l'opérateur (retours de gestes, fermetures) reçus depuis le dernier appel. */
+    public List<dev.oneforallsurvival.phone.net.OperatorNoticePacket> avisOperateurRecus() {
+        lire();
+        List<dev.oneforallsurvival.phone.net.OperatorNoticePacket> out = new ArrayList<>(avisOperateur);
+        avisOperateur.clear();
+        return out;
     }
 
     /** Les hauteurs des sons reçus depuis le dernier appel, retirées. */

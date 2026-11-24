@@ -125,6 +125,40 @@ class OperatorViewTest {
         }
     }
 
+    /**
+     * Revue de la tâche 9 : {@code encode} borne les textes comme {@code decode} ; un texte trop long est coupé, jamais
+     * écrit en entier (le client lèverait, donc une déconnexion), et {@code encode} ne lève pas pour autant.
+     */
+    @Test
+    void encodeCoupeUnTexteTropLong() {
+        String long40 = TEXTE_32 + "GHIJKLMN";
+        OperatorView pleine = pleine(2, long40);
+        List<OperatorView.AntennaLine> antennes = new ArrayList<>();
+        for (OperatorView.AntennaLine a : pleine.antennas()) {
+            antennes.add(new OperatorView.AntennaLine(a.id(), long40, a.pos(), a.state(), a.load(), a.feToday(),
+                    a.feYesterday(), a.main(), a.overReceive()));
+        }
+        List<OperatorView.CardLine> cartes = List.of(new OperatorView.CardLine(new UUID(2, 0), "0612345678", long40,
+                SimCard.State.ACTIVE));
+        List<OperatorView.RequestLine> demandes = List.of(new OperatorView.RequestLine(new UUID(3, 0), long40, 1L));
+        List<PhoneNetwork.RelayState> relais = List.of(new PhoneNetwork.RelayState(long40, long40, 1, 1));
+        OperatorView trop = new OperatorView(pleine.source(), pleine.pos(), 7, long40, long40, pleine.rights(), 1L,
+                null, 1L, 1L, antennes, 0, 1, 1, cartes, demandes, relais);
+        OperatorView relue = relire(octets(trop));
+        assertEquals(TEXTE_32, relue.name());
+        assertEquals(TEXTE_32, relue.operatorId());
+        assertEquals(TEXTE_32, relue.antennas().get(0).dimension());
+        assertEquals(TEXTE_32, relue.cards().get(0).holderName());
+        assertEquals(TEXTE_32, relue.requests().get(0).playerName());
+        assertEquals(TEXTE_32, relue.relay().get(0).name());
+        assertEquals(TEXTE_32, relue.relay().get(0).operatorId());
+        // Un caractère double à la frontière n'est jamais coupé en deux.
+        String double33 = TEXTE_32.substring(0, 31) + "\uD83D\uDCF1";
+        OperatorView avecDouble = new OperatorView(pleine.source(), pleine.pos(), 7, "", double33, pleine.rights(),
+                1L, null, 1L, 1L, List.of(), 0, 1, 0, List.of(), List.of(), List.of());
+        assertEquals(TEXTE_32.substring(0, 31), relire(octets(avecDouble)).name());
+    }
+
     @Test
     void unGesteFaitLAllerRetour() {
         for (OperatorActionPacket.Action action : OperatorActionPacket.Action.values()) {

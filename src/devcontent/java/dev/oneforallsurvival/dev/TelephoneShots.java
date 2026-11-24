@@ -28,6 +28,9 @@ import dev.oneforallsurvival.phone.net.AntennaItem;
 import dev.oneforallsurvival.phone.net.PhoneOperator;
 import dev.oneforallsurvival.phone.net.PhoneOperators;
 import dev.oneforallsurvival.phone.net.PhoneSims;
+import dev.oneforallsurvival.phone.net.OperatorActionPacket;
+import dev.oneforallsurvival.phone.net.client.OperatorPanelLayout;
+import dev.oneforallsurvival.phone.net.client.OperatorPanelScreen;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
@@ -125,6 +128,9 @@ import org.lwjgl.glfw.GLFW;
  *   un bloc d'énergie créative, une carte émise ; puis la barre d'état sans carte (verrouillé, déverrouillé au
  *   clavier), l'appli « Antenne », la feuille « Carte SIM » (demande de carte, carte glissée par un vrai clic), le mode
  *   avion, les barres à 150 et 300 blocs, l'écran verrouillé avec l'opérateur, puis le retrait de la carte.</li>
+ *   <li>{@code antenne} (lot T2, tâche 10) : l'appli « Antenne » du fondateur de Mairie, par de vrais clics (page) ou
+ *   le panneau Minecraft par-dessus le repli : onglets, émission, suspension, tarif refusé puis accepté tapés au
+ *   clavier, mise à jour en direct quand la source de Mairie est coupée, retour au téléphone.</li>
  * </ul>
  *
  * <p>{@code options.txt} n'est jamais réécrit (taille de fenêtre, échelle et plafond en mémoire seulement). La touche
@@ -312,6 +318,7 @@ public final class TelephoneShots {
                         case "perf" -> composerPerf(mc);
                         case "webdisplays" -> composerWebDisplays(mc);
                         case "reseau" -> composerReseau(mc);
+                        case "antenne" -> composerAntenne(mc);
                         default -> composer(mc);
                     }
                     passer(Phase.ETAPES);
@@ -564,6 +571,269 @@ public final class TelephoneShots {
     /** La vue réseau du dernier état reçu. */
     private static PhoneNetView vueReseau() {
         return PhoneClient.last().map(PhoneStatePacket::net).orElse(PhoneNetView.NONE);
+    }
+
+    // --- L'appli « Antenne » (lot T2, tâche 10) ------------------------------------------------------------------------
+
+    private static volatile boolean ligneFaite;
+    private static volatile String idDemande = "";
+    private static volatile String idCible = "";
+    private static volatile int appliDemandes = -1;
+    private static volatile String appliCarte = "";
+    private static volatile long appliDemain = -1L;
+    private static volatile boolean appliPanneau;
+    private static volatile long tarifEssaye = -1L;
+    @Nullable private static volatile BlockPos antenneSeconde;
+    private static volatile boolean secondeEnService;
+
+    /**
+     * Mode {@code antenne} : un téléphone configuré, Mairie fondée par le joueur (antenne posée par un vrai clic, contre
+     * un bloc d'énergie créative), sa ligne glissée dans le téléphone, une demande de carte et deux cartes de plus ;
+     * puis l'appli « Antenne » par un vrai clic, les onglets, une émission, une suspension, un tarif refusé (au-dessus du
+     * plafond) puis un tarif accepté tapés au clavier, la mise à jour en direct quand la source de Mairie est coupée,
+     * et le retour au téléphone. Dans la page (MCEF) par les boîtes du {@code layout} ; sans MCEF, le panneau Minecraft
+     * ouvert par-dessus l'écran de repli, par les centres de ses onglets et boutons.
+     */
+    private static void composerAntenne(Minecraft mc) {
+        if (SERVEUR != null) {
+            echec("antenne", "le mode antenne se joue en monde solo (gestes du serveur intégré)");
+            return;
+        }
+        decor(mc, 80);
+        ouvrir(mc, "antenne-ouverture-0", Lock.SETUP, null);
+        assistantJusquAuFond(mc, "antenne-assistant", "aube", false);
+        assistantVersLeCode(mc, "antenne-assistant", false);
+        cliquerCode(mc, "antenne-choix", CODE);
+        pas("antenne-confirmation-au-clavier", () -> stable(mc, "key-0"), () -> taper(mc, CODE),
+                () -> etat(Lock.UNLOCKED), 10, null);
+        toutEstPret(mc, "antenne-assistant", "aube", null);
+        echap(mc, "antenne-echap-0");
+        antennes(mc);
+        // Une seconde antenne de Mairie, sa propre source : la première coupée, le téléphone garde ses barres et l'appli
+        // montre en direct l'antenne passée hors tension ; la seconde coupée ensuite, le serveur ferme l'appli.
+        pas("antenne-seconde-depart", () -> serveur(mc, (srv, sp) -> {
+            BlockPos pied = BlockPos.containing(departReseau);
+            Block creatif = ForgeRegistries.BLOCKS.getValue(new ResourceLocation("createaddition", "creative_energy"));
+            boolean pack = creatif != null && creatif != Blocks.AIR;
+            sp.serverLevel().setBlockAndUpdate(pied.north(3), pack ? creatif.defaultBlockState()
+                    : Blocks.STONE.defaultBlockState());
+            sp.getInventory().setItem(6, new ItemStack(PhoneRegistry.ANTENNA_ITEM.get()));
+            antenneSeconde = pied.north(2);
+        }), () -> antenneSeconde != null && mc.player.getInventory().getItem(6).is(PhoneRegistry.ANTENNA_ITEM.get()),
+                5, null);
+        poserAntenne(mc, "antenne-pose-seconde", 6, () -> antenneSeconde);
+        pas("antenne-telephone-en-main-2", () -> mc.player.getInventory().selected = caseDuTelephone,
+                () -> mc.player.getMainHandItem().is(PhoneRegistry.PHONE.get()) && attendu(0.3), 5, null);
+        pas("antenne-seconde-en-service", () -> {}, () -> {
+            serveur(mc, (srv, sp) -> secondeEnService = enService(sp.serverLevel(), antenneSeconde)
+                    && PhoneOperators.get(srv).byId(idMairie).map(o -> PhoneOperators.get(srv).antennasOf(o.id()).size())
+                    .orElse(0) == 2);
+            return secondeEnService;
+        }, 20, null);
+        pas("antenne-ligne", () -> serveur(mc, (srv, sp) -> {
+            PhoneOperators registre = PhoneOperators.get(srv);
+            Optional<PhoneOperator> mairie = registre.byId(idMairie);
+            ItemStack phone = sp.getMainHandItem();
+            if (mairie.isEmpty() || !phone.is(PhoneRegistry.PHONE.get())) {
+                return;
+            }
+            if (PhoneSims.issueTo(sp, mairie.get(), sp.getUUID(), sp.getGameProfile().getName(), EconomyClock.now())
+                    .isEmpty()) {
+                return;
+            }
+            int ou = -1;
+            for (int s = 0; s < sp.getInventory().getContainerSize(); s++) {
+                if (sp.getInventory().getItem(s).getItem() instanceof dev.oneforallsurvival.phone.net.SimCardItem) {
+                    ou = s;
+                }
+            }
+            if (ou < 0 || PhoneSims.insert(sp, phone, ou) != PhoneSims.Insert.DONE) {
+                return;
+            }
+            dev.oneforallsurvival.phone.net.SimCard cible = registre.issue(idMairie, null, "",
+                    net.minecraft.util.RandomSource.create(), EconomyClock.now());
+            registre.issue(idMairie, java.util.UUID.randomUUID(), "Capitaine Barbe-Grise",
+                    net.minecraft.util.RandomSource.create(), EconomyClock.now());
+            idCible = cible.simId().toString();
+            registre.request(idMairie, java.util.UUID.randomUUID(), "Naufrage", EconomyClock.now())
+                    .ifPresent(d -> idDemande = d.id().toString());
+            ligneFaite = !idDemande.isEmpty();
+        }), () -> ligneFaite, 5, null);
+        ouvrir(mc, "antenne-ouverture-1", Lock.LOCKED, null);
+        pas("antenne-deverrouillage", () -> stable(mc, "key-0"), () -> taper(mc, CODE),
+                () -> etat(Lock.UNLOCKED) && cible(mc, "app-antenna") && vueReseau().founderApp() && attendu(0.6), 15,
+                null); // le frein du téléphone (2 tics) : l'appli ne part pas dans le tic du déverrouillage
+        clic(mc, "antenne-appli", "app-antenna", () -> appliPrete(mc), 15, null);
+        pause("a01-appli-reseau");
+        ongletAppli(mc, "antenne-onglet-cartes", "cards", OperatorPanelLayout.Tab.CARDS, "a02-appli-cartes");
+        boutonAppli(mc, "antenne-emettre", () -> "op-issue-" + idDemande, OperatorActionPacket.Action.ISSUE,
+                () -> idDemande, () -> {
+                    lireAppli(mc);
+                    return appliDemandes == 0 && attendu(0.8);
+                }, "a03-demande-emise");
+        boutonAppli(mc, "antenne-suspendre", () -> "op-card-" + idCible, OperatorActionPacket.Action.SUSPEND,
+                () -> idCible, () -> {
+                    lireAppli(mc);
+                    return "SUSPENDED".equals(appliCarte) && attendu(0.8);
+                }, "a04-carte-suspendue");
+        ongletAppli(mc, "antenne-onglet-tarif", "tariff", OperatorPanelLayout.Tab.TARIFF, null);
+        saisirTarif(mc, "antenne-tarif-refuse", true, "a05-tarif-refuse");
+        saisirTarif(mc, "antenne-tarif", false, "a06-tarif-au-lendemain");
+        pas("antenne-retour", () -> {
+            if (mc.screen instanceof PhoneWebScreen w && w.antennaSession() >= 0 && w.rects().containsKey("home-bar")) {
+                cliquer(mc, "home-bar");
+            } else if (mc.screen instanceof OperatorPanelScreen p) {
+                p.keyPressed(GLFW.GLFW_KEY_ESCAPE, GLFW.glfwGetKeyScancode(GLFW.GLFW_KEY_ESCAPE), 0);
+            }
+        }, () -> {
+            lireAppli(mc);
+            boolean telephone = mc.screen instanceof PhoneWebScreen w ? w.antennaSession() < 0
+                    : mc.screen instanceof PhoneFallbackScreen;
+            return telephone && !appliPanneau && attendu(1.0);
+        }, 10, "a07-retour-au-telephone");
+        clic(mc, "antenne-appli-2", "app-antenna", () -> appliPrete(mc), 15, null);
+        pas("antenne-source-coupee", () -> serveur(mc, (srv, sp) -> couper(sp, antenneMairie)),
+                () -> appliPrete(mc) && sourceVue(mc) && attendu(1.0), 30, "a08-source-coupee-en-direct");
+        pas("antenne-source-releve", () -> journal("source de la principale coupée : " + resumeAppli(mc)), () -> true, 1,
+                null);
+        pas("antenne-seconde-coupee", () -> serveur(mc, (srv, sp) -> couper(sp, antenneSeconde)), () -> {
+            boolean fermee = mc.screen instanceof PhoneWebScreen w ? w.antennaSession() < 0
+                    : mc.screen instanceof PhoneFallbackScreen;
+            return (fermee || attendu(25)) && attendu(1.0);
+        }, 30, null);
+        // La page referme l'appli en 0,42 s et MCEF repeint ensuite : l'image une seconde après la fermeture.
+        pause("a09-plus-de-barre");
+        pas("antenne-seconde-releve", () -> journal("les deux sources coupées : " + resumeAppli(mc) + ", barres "
+                + vueReseau().bars()), () -> true, 1, null);
+        echap(mc, "antenne-echap-fin");
+        bilanDuPont();
+    }
+
+    @Nullable
+    private static OperatorPanelScreen panneau(Minecraft mc) {
+        return mc.screen instanceof OperatorPanelScreen p && p.back() != null ? p : null;
+    }
+
+    @Nullable
+    private static dev.oneforallsurvival.phone.net.OperatorView vueAppli(Minecraft mc) {
+        if (mc.screen instanceof PhoneWebScreen w) {
+            return w.antennaView();
+        }
+        OperatorPanelScreen p = panneau(mc);
+        return p == null ? null : p.view();
+    }
+
+    /** L'appli ouverte et sa vue reçue (page : boîtes stables ; repli : le panneau Minecraft par-dessus). */
+    private static boolean appliPrete(Minecraft mc) {
+        if (mc.screen instanceof PhoneWebScreen w) {
+            return w.antennaView() != null && stable(mc, "op-tab-cards");
+        }
+        return panneau(mc) != null;
+    }
+
+    /** Ce que le serveur tient : demandes de Mairie, état de la carte visée, tarif de demain, panneau ouvert. */
+    private static void lireAppli(Minecraft mc) {
+        serveur(mc, (srv, sp) -> {
+            PhoneOperators r = PhoneOperators.get(srv);
+            appliDemandes = r.requestsOf(idMairie).size();
+            appliCarte = idCible.isEmpty() ? "" : r.card(java.util.UUID.fromString(idCible))
+                    .map(c -> c.state().name()).orElse("");
+            appliDemain = r.byId(idMairie).map(o -> o.nextTariff() == null ? -1L : o.nextTariff()).orElse(-1L);
+            appliPanneau = dev.oneforallsurvival.phone.net.OperatorPanels.session(sp.getUUID()).isPresent();
+        });
+    }
+
+    private static String resumeAppli(Minecraft mc) {
+        dev.oneforallsurvival.phone.net.OperatorView v = vueAppli(mc);
+        String ecran = mc.screen == null ? "aucun" : mc.screen.getClass().getSimpleName();
+        if (v == null) {
+            return "écran " + ecran + ", aucune vue de l'appli (fermée)";
+        }
+        StringBuilder etats = new StringBuilder();
+        for (var a : v.antennas()) {
+            etats.append(a.main() ? "principale " : "").append(a.state()).append(' ');
+        }
+        return "écran " + ecran + ", numéro " + v.session() + ", antennes " + etats.toString().trim()
+                + (panneau(mc) != null ? ", ligne d'état « " + panneau(mc).status() + " »" : "");
+    }
+
+    /** La source de l'antenne en {@code pos} coupée (bloc d'énergie remplacé par de la pierre), sa réserve vidée. */
+    private static void couper(ServerPlayer sp, BlockPos pos) {
+        BlockPos source = pos.equals(antenneMairie) ? pos.east() : pos.north();
+        sp.serverLevel().setBlockAndUpdate(source, Blocks.STONE.defaultBlockState());
+        if (sp.serverLevel().getBlockEntity(pos) instanceof AntennaBlockEntity be) {
+            be.drainEnergy(Integer.MAX_VALUE);
+        }
+    }
+
+    /** La vue de l'appli, toujours ouverte, montre une antenne qui n'est plus en marche (mise à jour en direct). */
+    private static boolean sourceVue(Minecraft mc) {
+        dev.oneforallsurvival.phone.net.OperatorView v = vueAppli(mc);
+        return v != null && v.antennas().stream().anyMatch(a -> a.state() != dev.oneforallsurvival.machine.MachineState.RUNNING);
+    }
+
+    private static void cliquerEn(Minecraft mc, @Nullable double[] c) {
+        if (c == null) {
+            throw new IllegalStateException("commande absente du panneau (écran " + mc.screen + ")");
+        }
+        Screen s = mc.screen;
+        s.mouseMoved(c[0], c[1]);
+        s.mouseClicked(c[0], c[1], GLFW.GLFW_MOUSE_BUTTON_LEFT);
+        s.mouseReleased(c[0], c[1], GLFW.GLFW_MOUSE_BUTTON_LEFT);
+    }
+
+    private static void ongletAppli(Minecraft mc, String nom, String page, OperatorPanelLayout.Tab tab,
+            @Nullable String image) {
+        if (web) {
+            clic(mc, nom, "op-tab-" + page, () -> attendu(0.9), 10, image);
+            return;
+        }
+        pas(nom, () -> panneau(mc) != null, () -> cliquerEn(mc, panneau(mc).centreOf(tab, null, "")),
+                () -> panneau(mc) != null && panneau(mc).tab() == tab && attendu(0.5), 5, image);
+    }
+
+    private static void boutonAppli(Minecraft mc, String nom, java.util.function.Supplier<String> idPage,
+            OperatorActionPacket.Action action, java.util.function.Supplier<String> arg, BooleanSupplier fini,
+            @Nullable String image) {
+        if (web) {
+            pas(nom, () -> stable(mc, idPage.get()), () -> cliquer(mc, idPage.get()), fini, 10, image);
+            return;
+        }
+        pas(nom, () -> panneau(mc) != null && panneau(mc).centreOf(null, action, arg.get()) != null,
+                () -> cliquerEn(mc, panneau(mc).centreOf(null, action, arg.get())), fini, 10, image);
+    }
+
+    /**
+     * Le tarif de demain tapé au clavier : au-dessus du plafond ({@code refus} : le serveur le refuse, le tarif de
+     * demain ne bouge pas, la ligne d'état le dit), sinon le plus petit de 25 et du plafond (le serveur le note).
+     */
+    private static void saisirTarif(Minecraft mc, String nom, boolean refus, String image) {
+        pas(nom + "-champ", () -> web ? stable(mc, "op-tariff-field") : panneau(mc) != null
+                && panneau(mc).centreOf(null, null, "") != null, () -> {
+                    dev.oneforallsurvival.phone.net.OperatorView v = vueAppli(mc);
+                    long cap = v == null ? 0L : v.cap();
+                    tarifEssaye = refus ? cap + 1 : Math.min(25L, cap);
+                    if (web) {
+                        cliquer(mc, "op-tariff-field");
+                    } else {
+                        cliquerEn(mc, panneau(mc).centreOf(null, null, ""));
+                    }
+                }, () -> attendu(0.3), 5, null);
+        pas(nom + "-clavier", () -> true, () -> taper(mc, Long.toString(tarifEssaye)), () -> attendu(0.4), 3, null);
+        pas(nom + "-enregistrer", () -> web ? stable(mc, "op-tariff-save") : panneau(mc) != null,
+                () -> {
+                    if (web) {
+                        cliquer(mc, "op-tariff-save");
+                    } else {
+                        cliquerEn(mc, panneau(mc).centreOf(null, OperatorActionPacket.Action.SET_TARIFF, ""));
+                    }
+                }, () -> {
+                    lireAppli(mc);
+                    boolean statut = web || (panneau(mc) != null && !panneau(mc).status().isEmpty());
+                    return (refus ? appliDemain != tarifEssaye : appliDemain == tarifEssaye) && statut && attendu(1.0);
+                }, 10, image);
+        pas(nom + "-releve", () -> journal(nom + " : tapé " + tarifEssaye + ", demain au serveur " + appliDemain
+                + " ; " + resumeAppli(mc)), () -> true, 1, null);
     }
 
     private static void composerReseau(Minecraft mc) {
@@ -1583,9 +1853,10 @@ public final class TelephoneShots {
 
     /** Les messages que la page du téléphone peut envoyer, et leurs clés. */
     private static final Set<String> SORTES = Set.of("ready", "layout", "close", "unlock", "setup", "erase", "lock",
-            "changeCode", "wallpaper", "airplane", "insertSim", "removeSim", "requestSim", "antennaApp");
+            "changeCode", "wallpaper", "airplane", "insertSim", "removeSim", "requestSim", "antennaApp", "opTariff",
+            "opIssue", "opRefuse", "opAnonymous", "opSuspend", "opReactivate", "opReplace", "opMain", "opPage", "opClose");
     private static final Set<String> CLES = Set.of("a", "rects", "code", "old", "new", "id", "on", "wallpaper", "slot",
-            "op");
+            "op", "value", "n");
 
     /**
      * Le pont de l'écran est entouré d'un témoin qui compte chaque message par sorte (jamais son contenu : il peut
@@ -1950,7 +2221,8 @@ public final class TelephoneShots {
 
     private static void finir(Minecraft mc) {
         phase = Phase.FIN;
-        if (mc.screen instanceof PhoneWebScreen || mc.screen instanceof PhoneFallbackScreen) {
+        if (mc.screen instanceof PhoneWebScreen || mc.screen instanceof PhoneFallbackScreen
+                || mc.screen instanceof OperatorPanelScreen) {
             mc.setScreen(null);
         }
         if (images != null) {

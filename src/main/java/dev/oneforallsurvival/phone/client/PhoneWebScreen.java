@@ -1,7 +1,10 @@
 package dev.oneforallsurvival.phone.client;
 
+import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import com.mojang.blaze3d.systems.RenderSystem;
+import dev.oneforallsurvival.bench.BenchNetwork;
 import dev.oneforallsurvival.client.web.WebBridge;
 import dev.oneforallsurvival.client.web.WebFailure;
 import dev.oneforallsurvival.client.web.WebFallbackNotice;
@@ -9,7 +12,11 @@ import dev.oneforallsurvival.client.web.WebPages;
 import dev.oneforallsurvival.client.web.WebScreen;
 import dev.oneforallsurvival.client.web.WebScript;
 import dev.oneforallsurvival.phone.PhoneStatePacket;
+import dev.oneforallsurvival.phone.net.OperatorActionPacket;
+import dev.oneforallsurvival.phone.net.OperatorNoticePacket;
+import dev.oneforallsurvival.phone.net.OperatorView;
 import java.util.Map;
+import javax.annotation.Nullable;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -23,6 +30,11 @@ import org.apache.logging.log4j.Logger;
  * est relu par {@link PhoneBridgeMessages} avant de partir. La dernière mise en page reçue ({@code layout}, en px CSS)
  * est gardée pour un automate ({@link #rects()}). Si le navigateur ne sert pas, l'écran de repli prend la suite sur le
  * même état. Aucun message de la page n'est écrit au journal (il peut contenir un code).
+ *
+ * <p>Appli « Antenne » (lot T2, tâche 10) : chaque vue de source {@code PHONE} part à {@code window.phone.antenna}
+ * ({@link OperatorViewJson}), {@code null} à la fermeture par le serveur ; le retour d'un geste à
+ * {@code window.phone.antennaStatus} ; les gestes {@code op*} de la page sont relus par {@link AntennaBridgeMessages} au
+ * numéro du panneau que cet écran tient, jamais à celui de la page.
  */
 public final class PhoneWebScreen extends WebScreen implements PhoneClient.Shown {
 
@@ -39,6 +51,9 @@ public final class PhoneWebScreen extends WebScreen implements PhoneClient.Shown
     private Map<String, int[]> rects = Map.of();
     private boolean byServer;
     private boolean toFallback;
+    /** Le panneau de l'appli « Antenne » ouvert (son numéro), -1 sans appli ; sa dernière vue, pour un rechargement. */
+    private int antennaSession = -1;
+    @Nullable private OperatorView antennaView;
 
     public PhoneWebScreen(PhoneStatePacket state) {
         this(state, new Bridge());
@@ -81,6 +96,44 @@ public final class PhoneWebScreen extends WebScreen implements PhoneClient.Shown
     @Override
     public void closedByServer() {
         byServer = true;
+    }
+
+    // --- Appli « Antenne » -----------------------------------------------------------------------------------------
+
+    /** Une vue de l'appli, reçue du serveur. */
+    void antenna(OperatorView view) {
+        antennaSession = view.session();
+        antennaView = view;
+        if (isReady()) {
+            run(WebScript.call("phone.antenna", OperatorViewJson.toJson(view)));
+        }
+    }
+
+    /** Un mot du serveur pour l'appli : la ligne d'état, ou la fermeture ({@code phone.antenna(null)}). */
+    void antennaNotice(OperatorNoticePacket notice) {
+        if (notice.session() != antennaSession) {
+            return;
+        }
+        if (notice.closed()) {
+            antennaSession = -1;
+            antennaView = null;
+            if (isReady()) {
+                run(WebScript.call("phone.antenna", JsonNull.INSTANCE));
+            }
+        } else if (isReady()) {
+            run(WebScript.call("phone.antennaStatus", new JsonPrimitive(notice.message().getString())));
+        }
+    }
+
+    /** La dernière vue de l'appli reçue, ou nulle (lu par un automate). */
+    @Nullable
+    public OperatorView antennaView() {
+        return antennaView;
+    }
+
+    /** Le numéro du panneau de l'appli ouvert, -1 sans appli (lu par un automate). */
+    public int antennaSession() {
+        return antennaSession;
     }
 
     // --- Lu par un automate (tâche 11) -----------------------------------------------------------------------------
@@ -152,6 +205,9 @@ public final class PhoneWebScreen extends WebScreen implements PhoneClient.Shown
     @Override
     public void removed() {
         super.removed();
+        if (antennaSession >= 0) {
+            sendAntenna(new OperatorActionPacket(antennaSession, OperatorActionPacket.Action.CLOSE, "", 0L));
+        }
         if (!byServer && !toFallback) {
             PhoneClient.sendClose(state.session());
         }
@@ -164,10 +220,35 @@ public final class PhoneWebScreen extends WebScreen implements PhoneClient.Shown
     private void onPageMessage(JsonObject message) {
         String a = message.get("a").getAsString();
         switch (a) {
-            case "ready" -> render();
+            case "ready" -> {
+                render();
+                if (antennaView != null) {
+                    run(WebScript.call("phone.antenna", OperatorViewJson.toJson(antennaView)));
+                }
+            }
             case "layout" -> rects = PhoneBridgeMessages.layout(message);
             case "close" -> onClose();
-            default -> PhoneBridgeMessages.toAction(message, state.session()).ifPresent(PhoneClient::send);
+            default -> {
+                if (AntennaBridgeMessages.isAntenna(a)) {
+                    if (antennaSession >= 0) {
+                        AntennaBridgeMessages.toAction(message, antennaSession).ifPresent(this::sendAntenna);
+                    }
+                } else {
+                    PhoneBridgeMessages.toAction(message, state.session()).ifPresent(PhoneClient::send);
+                }
+            }
+        }
+    }
+
+    /** Un geste de l'appli vers le serveur ; {@code CLOSE} oublie le panneau ici (une vue en route ne le rouvre pas). */
+    private void sendAntenna(OperatorActionPacket packet) {
+        if (packet.action() == OperatorActionPacket.Action.CLOSE) {
+            PhoneClient.antennaClosed(antennaSession);
+            antennaSession = -1;
+            antennaView = null;
+        }
+        if (minecraft != null && minecraft.getConnection() != null) {
+            BenchNetwork.CHANNEL.sendToServer(packet);
         }
     }
 

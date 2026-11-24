@@ -98,22 +98,39 @@ public record OperatorView(Source source, BlockPos pos, int session, String oper
     // Réseau
     // ---------------------------------------------------------------------------------------------
 
-    /** Écrit la vue. @throws IllegalArgumentException si une liste dépasse sa borne (jamais un paquet illisible) */
+    /**
+     * Écrit la vue ; chaque texte est coupé à {@value #MAX_TEXT} caractères et écrit avec cette borne, comme
+     * {@link #decode} le lit (revue de la tâche 9).
+     *
+     * @throws IllegalArgumentException si une liste dépasse sa borne (jamais un paquet illisible)
+     */
     public void encode(FriendlyByteBuf buf) {
         if (antennas.size() > MAX_LIST || cards.size() > MAX_LIST || requests.size() > MAX_LIST
                 || relay.size() > MAX_LIST) {
             throw new IllegalArgumentException("vue de l'opérateur au-delà de ses bornes");
         }
-        encodeUnbounded(buf);
+        write(buf, true);
     }
 
-    /** Écrit la vue sans contrôler les listes (essais du décodage seulement). */
+    /** Écrit la vue sans contrôler listes ni textes (essais du décodage seulement). */
     void encodeUnbounded(FriendlyByteBuf buf) {
+        write(buf, false);
+    }
+
+    private static void text(FriendlyByteBuf buf, String text, boolean bounded) {
+        if (bounded) {
+            buf.writeUtf(clip(text), MAX_TEXT);
+        } else {
+            buf.writeUtf(text);
+        }
+    }
+
+    private void write(FriendlyByteBuf buf, boolean bounded) {
         buf.writeByte(source.ordinal());
         buf.writeBlockPos(pos);
         buf.writeVarInt(session);
-        buf.writeUtf(operatorId);
-        buf.writeUtf(name);
+        text(buf, operatorId, bounded);
+        text(buf, name, bounded);
         buf.writeByte((rights.cards() ? 1 : 0) | (rights.tariff() ? 2 : 0) | (rights.till() ? 4 : 0)
                 | (rights.name() ? 8 : 0));
         buf.writeVarLong(tariff);
@@ -126,7 +143,7 @@ public record OperatorView(Source source, BlockPos pos, int session, String oper
         buf.writeVarInt(antennas.size());
         for (AntennaLine a : antennas) {
             buf.writeUUID(a.id());
-            buf.writeUtf(a.dimension());
+            text(buf, a.dimension(), bounded);
             buf.writeBlockPos(a.pos());
             buf.writeByte(a.state().ordinal());
             buf.writeVarInt(a.load().standby());
@@ -143,20 +160,20 @@ public record OperatorView(Source source, BlockPos pos, int session, String oper
         buf.writeVarInt(cards.size());
         for (CardLine c : cards) {
             buf.writeUUID(c.simId());
-            buf.writeUtf(c.number());
-            buf.writeUtf(c.holderName());
+            text(buf, c.number(), bounded);
+            text(buf, c.holderName(), bounded);
             buf.writeByte(c.state().ordinal());
         }
         buf.writeVarInt(requests.size());
         for (RequestLine r : requests) {
             buf.writeUUID(r.id());
-            buf.writeUtf(r.playerName());
+            text(buf, r.playerName(), bounded);
             buf.writeVarLong(r.at());
         }
         buf.writeVarInt(relay.size());
         for (PhoneNetwork.RelayState s : relay) {
-            buf.writeUtf(s.operatorId());
-            buf.writeUtf(s.name());
+            text(buf, s.operatorId(), bounded);
+            text(buf, s.name(), bounded);
             buf.writeVarInt(s.antennas());
             buf.writeVarInt(s.inService());
         }

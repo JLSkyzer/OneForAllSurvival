@@ -273,6 +273,72 @@
     </div>
   </section>
 
+  <!-- Appli « Antenne » (fondateur d'un opérateur, lot T2, tâche 10) : la vue du serveur, trois onglets. Aucune règle
+       ici : un bouton n'existe que si rights le permet, chaque toucher envoie un geste que le serveur rejoue. -->
+  <section id="antenna" class="layer">
+    <div class="ant-head">
+      <span class="ant-close" id="op-close">Accueil</span>
+      <div class="ant-title" id="ant-title">Antenne</div>
+      <div class="ant-sub" id="ant-sub">Réseau</div>
+    </div>
+    <div class="ant-scroll" id="ant-scroll">
+      <div class="ant-pane" id="ant-network">
+        <div class="grp-head" id="ant-antennas-head">Antennes</div>
+        <div class="group" id="ant-antennas"></div>
+        <div class="grp-head">Relais entre opérateurs</div>
+        <div class="group" id="ant-relay"></div>
+      </div>
+      <div class="ant-pane" id="ant-cards">
+        <div class="grp-head" id="ant-requests-head">Demandes de carte</div>
+        <div class="group" id="ant-requests"></div>
+        <div class="group gone" id="ant-anonymous-group">
+          <div class="row tap center blue" id="op-anonymous">Émettre une SIM sans nom</div>
+        </div>
+        <div class="grp-head" id="ant-cards-head">Cartes émises</div>
+        <div class="group" id="ant-card-list"></div>
+        <div class="ant-pages gone" id="ant-pages">
+          <span class="ant-page-btn" id="op-page-prev">Précédente</span>
+          <span class="ant-page-text" id="ant-page-text"></span>
+          <span class="ant-page-btn" id="op-page-next">Suivante</span>
+        </div>
+      </div>
+      <div class="ant-pane" id="ant-tariff">
+        <div class="group">
+          <div class="row"><span class="label">Tarif du jour</span><span class="value" id="ant-tariff-today">—</span></div>
+          <div class="row"><span class="label">À partir de demain</span><span class="value" id="ant-tariff-next">—</span></div>
+          <div class="row"><span class="label">Plafond du maire</span><span class="value" id="ant-cap">—</span></div>
+        </div>
+        <div id="ant-tariff-edit" class="gone">
+          <div class="grp-head">Tarif de demain, en cuivres</div>
+          <div class="group">
+            <div class="row ant-field-row">
+              <span class="ant-field" id="op-tariff-field"><span id="ant-field-text"></span><i class="ant-caret"></i></span>
+              <span class="ant-save" id="op-tariff-save">Enregistrer</span>
+            </div>
+          </div>
+          <p class="ant-note">Le nouveau tarif s'applique au lendemain, à minuit, sans dépasser le plafond du maire.</p>
+        </div>
+        <p class="ant-note gone" id="ant-tariff-readonly">Seuls le fondateur, le maire et l'équipe fixent le tarif.</p>
+      </div>
+      <div class="ant-wait" id="ant-wait">Connexion à l'opérateur…</div>
+    </div>
+    <div class="ant-status gone" id="op-status"></div>
+    <div class="ant-tabs">
+      <span class="ant-tab" id="op-tab-network" data-tab="network">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 11v10M8.5 21h7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="9" r="2" fill="currentColor"/><path d="M7.8 4.8a6 6 0 0 0 0 8.4M16.2 4.8a6 6 0 0 1 0 8.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <b>Réseau</b>
+      </span>
+      <span class="ant-tab" id="op-tab-cards" data-tab="cards">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7.5L19 7.5V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="9" y="11" width="6.5" height="6.5" rx="1.2" fill="currentColor"/></svg>
+        <b>Cartes</b><i class="ant-badge gone" id="ant-badge"></i>
+      </span>
+      <span class="ant-tab" id="op-tab-tariff" data-tab="tariff">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M14.8 8.6c-.6-.8-1.6-1.2-2.8-1.2-1.7 0-2.9.9-2.9 2.2 0 3 5.9 1.6 5.9 4.6 0 1.3-1.3 2.3-3 2.3-1.3 0-2.4-.5-3-1.4M12 5.8v1.6M12 16.6v1.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <b>Tarif</b>
+      </span>
+    </div>
+  </section>
+
   <!-- Le clavier, unique, déplacé dans l'écran qui le montre -->
   <div class="pad" id="pad">
     <div class="key" id="key-1" data-k="1"><b>1</b><small>&nbsp;</small></div>

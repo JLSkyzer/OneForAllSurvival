@@ -82,6 +82,11 @@ final class TelephoneBilan {
                     "reseau-retour", "reseau-verrouille-operateur", "reseau-retirer", "reseau-file-pleine",
                     "reseau-demande-grisee", "reseau-suspendue", "reseau-reactivee", "reseau-desactivee",
                     "reseau-liste-vide", "reseau-largeurs", "bilan-du-pont");
+            case "antenne" -> List.of("antenne-confirmation-au-clavier", "reseau-antennes-en-service", "antenne-ligne",
+                    "antenne-deverrouillage", "antenne-appli", "antenne-emettre", "antenne-suspendre",
+                    "antenne-tarif-refuse-enregistrer", "antenne-tarif-enregistrer", "antenne-seconde-en-service",
+                    "antenne-retour", "antenne-appli-2", "antenne-source-coupee", "antenne-seconde-coupee",
+                    "bilan-du-pont");
             default -> {
                 List<String> l = new ArrayList<>(List.of("ouverture-1", "confirmation-au-clavier", "reglages",
                         "mode-avion", "modification-du-code", "ouverture-2", "faux-5-reponse", "blocage",

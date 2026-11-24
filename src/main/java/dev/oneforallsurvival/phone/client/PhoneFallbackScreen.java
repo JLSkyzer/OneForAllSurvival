@@ -79,6 +79,8 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
     private boolean requestsOpen;
     private int simScroll;
     @Nullable private PhoneFallbackLayout.SimSheet simLayout;
+    /** L'appli « Antenne » (panneau Minecraft) passe par-dessus : la session du téléphone reste ouverte. */
+    private boolean toAntenna;
 
     public PhoneFallbackScreen(PhoneStatePacket state) {
         super(Component.translatable("item.oneforallsurvival.phone"));
@@ -158,8 +160,21 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
 
     // --- Screen ----------------------------------------------------------------------------------------------------
 
+    /**
+     * L'appli « Antenne » (lot T2, tâche 10) : la vue de source {@code PHONE} ouvre le panneau Minecraft de la tâche 9
+     * par-dessus cet écran (mêmes boutons, mêmes droits) ; Échap y revient, sur le dernier état, sans fermer la session.
+     */
+    void openAntenna(dev.oneforallsurvival.phone.net.OperatorView view) {
+        if (minecraft == null) {
+            return;
+        }
+        toAntenna = true;
+        minecraft.setScreen(new dev.oneforallsurvival.phone.net.client.OperatorPanelScreen(view, this));
+    }
+
     @Override
     protected void init() {
+        toAntenna = false;
         frame = PhoneFrameLayout.fit(width, height);
         inner = PhoneFallbackLayout.inner(frame, font.lineHeight);
         rebuild();
@@ -232,7 +247,7 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
                     rebuild();
                 }, null));
         if (net().founderApp()) {
-            // L'appli « Antenne » arrive à la tâche 10 : le geste part, le serveur répond.
+            // L'appli « Antenne » : le geste part ; la vue du serveur ouvre le panneau Minecraft par-dessus (tâche 10).
             add("app-antenna", new FitButton(new Rect(inner.x(), y - bh - 4, inner.width(), bh),
                     Component.translatable(KEY + "antenna_app"), b -> send(Action.OPEN_OPERATOR_APP, "", "", false),
                     null));
@@ -575,7 +590,7 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
         super.removed();
         entry.setLength(0);
         setupFirst = null;
-        if (!byServer) {
+        if (!byServer && !toAntenna) {
             PhoneClient.sendClose(state.session());
         }
     }

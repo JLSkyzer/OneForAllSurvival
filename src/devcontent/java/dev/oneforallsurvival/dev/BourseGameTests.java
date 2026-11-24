@@ -65,6 +65,11 @@ public final class BourseGameTests {
     private static final String LOT_B = "bourse_b";
     private static final String LOT_C = "bourse_c";
     private static final String LOT_D = "bourse_d";
+    /**
+     * Un lot à lui : l'essai lit le registre de l'économie, global, sur 5 tics ; ses voisins du lot {@code bourse_d}
+     * y écrivent dans la même fenêtre (bourse retirée au rangement, piles posées) selon l'ordre des essais du lot.
+     */
+    private static final String LOT_D_REGISTRE = "bourse_d_registre";
     private static final String LOT_E = "bourse_e";
     private static final String LOT_G = "bourse_depart";
     /** Seul dans son lot : il détruit de l'argent, et le registre est global. */
@@ -803,7 +808,7 @@ public final class BourseGameTests {
         });
     }
 
-    @GameTest(template = "test/plancher", batch = LOT_D, timeoutTicks = 120)
+    @GameTest(template = "test/plancher", batch = LOT_D_REGISTRE, timeoutTicks = 120)
     public static void viderPuisJeterNeDupliquePas(GameTestHelper helper) {
         boite(helper);
         JoueurDeTest j = joueur(helper, "bo_jette");

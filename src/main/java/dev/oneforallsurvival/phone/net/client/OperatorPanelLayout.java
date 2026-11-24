@@ -125,9 +125,15 @@ public final class OperatorPanelLayout {
     /** Le nom d'une antenne à fonder : libellé, champ, bouton « Fonder ». */
     public record NameForm(Text label, Rect field, Rect button, Text buttonLabel) {}
 
-    /** Le panneau : cadre, titre, onglets (vides pour une antenne à fonder), champ du nom, et les trois volets. */
+    /**
+     * Le panneau : cadre, titre, onglets (vides pour une antenne à fonder), champ du nom, les trois volets et la ligne
+     * d'état (le dernier retour du serveur, deux lignes au plus, vide sans message).
+     */
     public record Layout(Rect frame, Text title, List<Rect> tabs, List<Text> tabLabels, @Nullable NameForm name,
-            List<Pane> panes) {}
+            List<Pane> panes, List<Text> status) {}
+
+    /** La place de la ligne d'état, en bas du cadre (réservée même vide : la liste ne saute pas). */
+    public static final int STATUS_H = 2 * LINE;
 
     private OperatorPanelLayout() {}
 
@@ -139,6 +145,22 @@ public final class OperatorPanelLayout {
      */
     public static Layout of(int guiWidth, int guiHeight, ToIntFunction<String> textWidth, OperatorView view,
             Texts texts) {
+        return of(guiWidth, guiHeight, textWidth, view, texts, "");
+    }
+
+    /**
+     * Le panneau ferme-t-il à cette distance (au carré) de l'antenne ? Seulement pour la source {@code BLOCK} : celui du
+     * téléphone ({@code pos} = (0, 0, 0)) ne se ferme que par le serveur ou Échap (revue de la tâche 9).
+     */
+    public static boolean closesAtDistance(OperatorView view, double distanceSqr) {
+        return view.source() == OperatorView.Source.BLOCK && distanceSqr > MAX_DISTANCE_SQR;
+    }
+
+    static final double MAX_DISTANCE_SQR = 64.0;
+
+    /** La même mise en page, avec {@code status}, le dernier retour du serveur, sur la ligne d'état. */
+    public static Layout of(int guiWidth, int guiHeight, ToIntFunction<String> textWidth, OperatorView view,
+            Texts texts, String status) {
         int w = Math.max(0, Math.min(FRAME_MAX_W, guiWidth - 8));
         int h = Math.max(0, Math.min(FRAME_MAX_H, guiHeight - 8));
         Rect frame = new Rect(Math.max(0, (guiWidth - w) / 2), Math.max(0, (guiHeight - h) / 2), w, h);
@@ -148,6 +170,8 @@ public final class OperatorPanelLayout {
         String titleText = founded ? view.name()
                 : texts.t(KEY + (view.rights().name() ? "unfounded" : "no_operator"));
         Text title = line(x0, frame.y() + TITLE_Y, inner, titleText, textWidth);
+        Rect statusArea = new Rect(x0, frame.y() + h - BOTTOM - STATUS_H, inner, STATUS_H);
+        List<Text> statusLines = wrap(statusArea, status, textWidth);
         if (!founded) {
             NameForm form = null;
             if (view.rights().name()) {
@@ -157,7 +181,7 @@ public final class OperatorPanelLayout {
                 Rect field = new Rect(x0, y, inner - 80 - 4, TAB_H);
                 form = new NameForm(label, field, button, centered(button, texts.t(KEY + "found"), textWidth));
             }
-            return new Layout(frame, title, List.of(), List.of(), form, List.of());
+            return new Layout(frame, title, List.of(), List.of(), form, List.of(), statusLines);
         }
         List<Rect> tabs = new ArrayList<>();
         List<Text> tabLabels = new ArrayList<>();
@@ -167,10 +191,10 @@ public final class OperatorPanelLayout {
             tabs.add(r);
             tabLabels.add(centered(r, texts.t(KEY + "tab." + tab.name().toLowerCase(Locale.ROOT)), textWidth));
         }
-        Rect list = new Rect(x0, frame.y() + LIST_Y, inner, Math.max(0, h - LIST_Y - BOTTOM));
+        Rect list = new Rect(x0, frame.y() + LIST_Y, inner, Math.max(0, h - LIST_Y - BOTTOM - STATUS_H - GAP));
         List<Pane> panes = List.of(network(list, view, texts, textWidth), cards(list, view, texts, textWidth),
                 tariff(list, view, texts, textWidth));
-        return new Layout(frame, title, List.copyOf(tabs), List.copyOf(tabLabels), null, panes);
+        return new Layout(frame, title, List.copyOf(tabs), List.copyOf(tabLabels), null, panes, statusLines);
     }
 
     /** Pour poser des lignes l'une sous l'autre dans une liste. */
@@ -406,6 +430,67 @@ public final class OperatorPanelLayout {
         }
         String shown = cut(text, (int) Math.floor(room0 / MIN_SCALE), textWidth);
         return new Text(x, y, room0, shown, text, textWidth.applyAsInt(shown), MIN_SCALE);
+    }
+
+    /**
+     * Un message sur deux lignes au plus dans {@code area} : mots rangés en entier à la plus grande échelle de 1 à
+     * {@value #MIN_SCALE} qui fait tenir le tout ; sinon, au plancher, la seconde ligne est coupée par « … ».
+     */
+    static List<Text> wrap(Rect area, @Nullable String message, ToIntFunction<String> textWidth) {
+        String text = message == null ? "" : message.strip();
+        if (text.isEmpty()) {
+            return List.of();
+        }
+        String[] words = text.split("\s+");
+        for (float scale = 1f; scale >= MIN_SCALE - 0.0001f; scale -= 0.05f) {
+            int room = (int) Math.floor(area.w() / scale);
+            List<String> lines = new ArrayList<>();
+            StringBuilder cur = new StringBuilder();
+            for (String w : words) {
+                String next = cur.length() == 0 ? w : cur + " " + w;
+                if (textWidth.applyAsInt(next) <= room || cur.length() == 0) {
+                    cur.setLength(0);
+                    cur.append(next);
+                } else {
+                    lines.add(cur.toString());
+                    cur.setLength(0);
+                    cur.append(w);
+                }
+            }
+            lines.add(cur.toString());
+            boolean fits = lines.size() <= 2 && lines.stream().allMatch(l -> textWidth.applyAsInt(l) <= room);
+            float s = Math.max(MIN_SCALE, scale);
+            if (fits) {
+                List<Text> out = new ArrayList<>();
+                for (int i = 0; i < lines.size(); i++) {
+                    String l = lines.get(i);
+                    out.add(new Text(area.x(), area.y() + i * LINE, area.w(), l, l, textWidth.applyAsInt(l), s));
+                }
+                return List.copyOf(out);
+            }
+        }
+        // Au plancher : la première ligne pleine, le reste coupé par « … » sur la seconde.
+        int room = (int) Math.floor(area.w() / MIN_SCALE);
+        StringBuilder first = new StringBuilder();
+        int i = 0;
+        while (i < words.length) {
+            String next = first.length() == 0 ? words[i] : first + " " + words[i];
+            if (first.length() > 0 && textWidth.applyAsInt(next) > room) {
+                break;
+            }
+            first.setLength(0);
+            first.append(next);
+            i++;
+        }
+        String head = cut(first.toString(), room, textWidth);
+        List<Text> out = new ArrayList<>();
+        out.add(new Text(area.x(), area.y(), area.w(), head, head, textWidth.applyAsInt(head), MIN_SCALE));
+        if (i < words.length) {
+            String rest = String.join(" ", java.util.Arrays.copyOfRange(words, i, words.length));
+            String shown = cut(rest, room, textWidth);
+            out.add(new Text(area.x(), area.y() + LINE, area.w(), shown, rest, textWidth.applyAsInt(shown), MIN_SCALE));
+        }
+        return List.copyOf(out);
     }
 
     /** Un libellé centré dans un bouton (2 px de marge de chaque côté), selon la même règle. */

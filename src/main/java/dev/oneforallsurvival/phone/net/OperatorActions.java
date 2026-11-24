@@ -21,8 +21,8 @@ import org.slf4j.Logger;
  * Le seul jeu de règles des gestes de l'opérateur (lot T2, tâche 9) : le panneau du bloc, celui du téléphone et l'appli
  * « Antenne » envoient le même {@link OperatorActionPacket}, et tout est rejoué ici, sans rien croire du client.
  *
- * <p>Dans cet ordre : joueur parti ou faux joueur (rien) ; panneau ouvert par ce joueur sous ce numéro
- * ({@link OperatorPanels}, sinon rien) ; frein d'un geste tous les {@value #MIN_TICKS_BETWEEN} tics (rien) ; le panneau
+ * <p>Dans cet ordre : joueur parti, mort ou faux joueur (rien) ; panneau ouvert par ce joueur sous ce numéro
+ * ({@link OperatorPanels}, sinon rien) ; {@code CLOSE} (avant le frein) ; frein d'un geste tous les {@value #MIN_TICKS_BETWEEN} tics (rien) ; le panneau
  * tient toujours (antenne chargée, à {@value OperatorPanels#MAX_DISTANCE} blocs au plus, ayant droit, pour le bloc ;
  * session du téléphone ouverte, déverrouillée, carte {@code ACTIVE} de l'opérateur, une barre, hors mode avion, pour le
  * téléphone ; sinon il est fermé) ; puis les droits de la vue ({@link OperatorViews#build}, donc {@link AntennaRules}),
@@ -57,7 +57,22 @@ public final class OperatorActions {
         THROTTLED
     }
 
+    /** Ouvre la caisse de l'opérateur ; faux si elle ne s'ouvre pas. */
+    @FunctionalInterface
+    public interface TillOpener {
+        boolean open(ServerPlayer player, net.minecraft.core.BlockPos pos, PhoneOperator op);
+    }
+
+    /** La caisse du jeu ({@link OperatorTillMenu#open}). */
+    public static final TillOpener SERVER_TILL = OperatorTillMenu::open;
+    private static volatile TillOpener tillOpener = SERVER_TILL;
+
     private OperatorActions() {}
+
+    /** Essais seulement : une caisse qui refuse de s'ouvrir ; {@code null} rend celle du jeu. */
+    public static void installTillOpener(@Nullable TillOpener opener) {
+        tillOpener = opener == null ? SERVER_TILL : opener;
+    }
 
     public static Result apply(ServerPlayer player, OperatorActionPacket packet) {
         if (gone(player)) {
@@ -68,15 +83,16 @@ public final class OperatorActions {
             return Result.STALE;
         }
         OperatorPanels.Panel panel = open.get();
-        if (throttled(player)) {
-            return Result.THROTTLED;
-        }
+        // CLOSE avant le frein (revue de la tâche 9) : un Échap juste après un geste ne laisse pas un panneau fantôme.
         if (packet.action() == OperatorActionPacket.Action.CLOSE) {
             OperatorPanels.close(player.getUUID());
             return Result.CLOSED;
         }
+        if (throttled(player)) {
+            return Result.THROTTLED;
+        }
         if (!OperatorPanels.stillValid(player, panel)) {
-            OperatorPanels.close(player.getUUID());
+            OperatorPanels.closeByServer(player, panel);
             return Result.CLOSED;
         }
         Optional<PhoneOperator> operator = OperatorPanels.operatorOf(player, panel);
@@ -169,8 +185,12 @@ public final class OperatorActions {
                             ? "till_main_only" : "not_allowed")));
                     yield Result.REFUSED;
                 }
-                OperatorPanels.close(player.getUUID());
-                OperatorTillMenu.open(player, panel.pos, op);
+                // Le panneau ne se ferme que si la caisse s'ouvre (revue de la tâche 9) ; sinon il reste, et on le dit.
+                if (!tillOpener.open(player, panel.pos, op)) {
+                    tell(player, Component.translatable(MESSAGE + "till_failed"));
+                    yield Result.REFUSED;
+                }
+                OperatorPanels.closeByServer(player, panel);
                 yield Result.CLOSED;
             }
             case CLOSE -> Result.CLOSED;
@@ -289,8 +309,10 @@ public final class OperatorActions {
         return Result.REFUSED;
     }
 
+    /** Le retour d'un geste : en barre d'action, et sur la ligne d'état du panneau ouvert (tâche 10). */
     private static void tell(ServerPlayer player, Component message) {
         player.displayClientMessage(message, true);
+        OperatorPanels.tellPanel(player, message);
     }
 
     /** Prévient ce joueur : tout de suite s'il est en ligne, sinon à sa connexion (avis gardé au registre). */
@@ -304,7 +326,8 @@ public final class OperatorActions {
     }
 
     private static boolean gone(@Nullable ServerPlayer player) {
-        return player == null || player instanceof FakePlayer || player.connection == null
+        return player == null || player instanceof FakePlayer || player.isDeadOrDying() || player.isRemoved()
+                || player.connection == null
                 || !player.connection.isAcceptingMessages()
                 || player.server.getPlayerList().getPlayer(player.getUUID()) != player;
     }

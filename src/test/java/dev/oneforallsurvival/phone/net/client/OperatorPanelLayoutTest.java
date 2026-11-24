@@ -244,6 +244,58 @@ class OperatorPanelLayoutTest {
         }
     }
 
+    /**
+     * Revue de la tâche 9 (mineur 2) : le dernier retour du serveur se lit dans le panneau, sur deux lignes au plus,
+     * jamais sous 0,75, sans chevaucher la liste, même à 320 × 240 avec le message le plus long.
+     */
+    @Test
+    void laLigneDEtatMontreLeDernierRetour() {
+        JsonObject fr = fr();
+        List<String> messages = new ArrayList<>();
+        for (String cle : fr.keySet()) {
+            if (cle.startsWith("message.oneforallsurvival.operator_panel.")) {
+                messages.add(String.format(fr.get(cle).getAsString(), NOM_24, "1 rubis 3 émeraudes 9 or 5 argent 7 cuivres"));
+            }
+        }
+        assertTrue(messages.size() >= 15, "messages du panneau lus : " + messages.size());
+        for (int[] taille : TAILLES) {
+            for (String m : messages) {
+                String ou = taille[0] + "x" + taille[1] + " « " + m + " » : ";
+                Layout l = OperatorPanelLayout.of(taille[0], taille[1], SIX, leContenuLePlusLong(FONDATEUR), francais(),
+                        m);
+                assertFalse(l.status().isEmpty(), ou + "aucune ligne d'état");
+                assertTrue(l.status().size() <= 2, ou + "plus de deux lignes");
+                StringBuilder lu = new StringBuilder();
+                for (Text t : l.status()) {
+                    dedans(l.frame(), t.area(), ou + "ligne d'état");
+                    assertTrue(t.scale() >= OperatorPanelLayout.MIN_SCALE, ou + "trop petit : " + t);
+                    assertTrue(t.width() * t.scale() <= t.room() + 0.001f, ou + "plus large que sa place : " + t);
+                    for (Pane p : l.panes()) {
+                        assertFalse(p.list().intersects(t.area()), ou + "la ligne d'état chevauche la liste");
+                    }
+                    lu.append(lu.length() == 0 ? "" : " ").append(t.shown());
+                }
+                if (taille[0] >= 427) {
+                    assertEquals(m, lu.toString(), ou + "message coupé");
+                }
+            }
+            Layout vide = OperatorPanelLayout.of(taille[0], taille[1], SIX, leContenuLePlusLong(FONDATEUR), francais(),
+                    "");
+            assertTrue(vide.status().isEmpty(), "sans message, aucune ligne d'état");
+        }
+    }
+
+    /** Revue de la tâche 9 : le panneau ouvert depuis le téléphone ne se ferme pas à 8 blocs de (0, 0, 0). */
+    @Test
+    void lePanneauDuTelephoneNeSeFermePasAuLoin() {
+        OperatorView bloc = leContenuLePlusLong(FONDATEUR);
+        OperatorView telephone = new OperatorView(OperatorView.Source.PHONE, BlockPos.ZERO, 3, bloc.operatorId(),
+                bloc.name(), bloc.rights(), 0L, null, 0L, 0L, List.of(), 0, 1, 0, List.of(), List.of(), List.of());
+        assertTrue(OperatorPanelLayout.closesAtDistance(bloc, 65.0), "bloc : au-delà de 8 blocs, fermé");
+        assertFalse(OperatorPanelLayout.closesAtDistance(bloc, 64.0), "bloc : à 8 blocs, ouvert");
+        assertFalse(OperatorPanelLayout.closesAtDistance(telephone, 1.0e12), "téléphone : jamais fermé par la distance");
+    }
+
     @Test
     void audelaDeLaReceptionEnRouge() {
         Layout l = OperatorPanelLayout.of(320, 240, SIX, leContenuLePlusLong(FONDATEUR), francais());

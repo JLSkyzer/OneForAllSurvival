@@ -43,7 +43,7 @@ public final class PhoneBridgeMessages {
     private static final Pattern OPERATOR_ID = Pattern.compile("[0-9a-f]{12}");
 
     static final int MAX_RECTS = 64;
-    private static final Pattern RECT_ID = Pattern.compile("[a-z0-9-]{1,32}");
+    private static final Pattern RECT_ID = Pattern.compile("[a-z0-9-]{1,48}");
 
     private PhoneBridgeMessages() {}
 
@@ -119,7 +119,7 @@ public final class PhoneBridgeMessages {
     }
 
     /**
-     * Les boîtes d'un message {@code layout} ({@code "rects":{"<id>":[x,y,w,h],…}}, px CSS) : identifiants de 1 à 32
+     * Les boîtes d'un message {@code layout} ({@code "rects":{"<id>":[x,y,w,h],…}}, px CSS) : identifiants de 1 à 48
      * caractères {@code [a-z0-9-]}, quatre nombres finis (arrondis) ; tout autre élément est ignoré, au plus
      * {@value #MAX_RECTS} boîtes. Carte non modifiable, vide si {@code rects} manque.
      */

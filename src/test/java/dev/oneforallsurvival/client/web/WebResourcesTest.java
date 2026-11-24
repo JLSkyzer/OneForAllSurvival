@@ -111,6 +111,21 @@ class WebResourcesTest {
         assertTrue(horsCommentaires("<!-- x -->" + CSP + "<!-- y -->").contains(CSP));
     }
 
+    /**
+     * Lot T2, tâche 10 : tout texte venu du jeu passe par {@code textContent} ; aucune page du mod n'écrit du HTML depuis
+     * une chaîne ni n'évalue du code.
+     */
+    @Test
+    void niHtmlEcritNiCodeEvalue() throws IOException {
+        for (Path f : fichiersTexte()) {
+            String texte = Files.readString(f, StandardCharsets.UTF_8);
+            for (String interdit : new String[] {"innerHTML", "outerHTML", "insertAdjacentHTML", "document.write",
+                    "eval(", "new Function"}) {
+                assertFalse(texte.contains(interdit), interdit + " dans " + f);
+            }
+        }
+    }
+
     @Test
     void aucuneAdresseExterne() throws IOException {
         for (Path f : fichiersTexte()) {

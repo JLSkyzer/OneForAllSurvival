@@ -259,6 +259,15 @@ class PhoneBridgeMessagesTest {
                 JsonParser.parseString(beaucoup.append("}}").toString()).getAsJsonObject()).size());
     }
 
+    /** Tâche 10 : les boîtes de l'appli « Antenne » portent un UUID ({@code op-replace-<id>}, 47 caractères). */
+    @Test
+    void lesBoitesDeLAppliAntennePassent() {
+        String id = "0b9a1c2d-3e4f-4a5b-8c6d-7e8f9a0b1c2d";
+        JsonObject m = JsonParser.parseString("{\"a\":\"layout\",\"rects\":{\"op-replace-" + id + "\":[1,2,3,4],"
+                + "\"op-refuse-" + id + "\":[1,2,3,4],\"x" + "y".repeat(48) + "\":[1,2,3,4]}}").getAsJsonObject();
+        assertEquals(Set.of("op-replace-" + id, "op-refuse-" + id), PhoneBridgeMessages.layout(m).keySet());
+    }
+
     @Test
     void unMessageSansActionNePartPas() {
         assertEquals(Optional.empty(), action("{\"code\":\"4821\"}"));

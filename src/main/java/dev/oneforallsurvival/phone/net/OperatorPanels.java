@@ -126,9 +126,33 @@ public final class OperatorPanels {
         return current(player).map(p -> p.session);
     }
 
-    /** Ferme le panneau de ce joueur (rien n'est envoyé : l'écran du client se ferme de lui-même). */
+    /** Ferme le panneau de ce joueur sans rien envoyer (le client l'a demandé, ou il est parti). */
     public static void close(UUID player) {
         OPEN.remove(player);
+    }
+
+    /**
+     * Le serveur ferme le panneau de ce joueur (il ne tient plus, ou la caisse s'ouvre) et le dit au client
+     * ({@link OperatorNoticePacket}, {@code closed}) : l'écran ou l'appli ne reste pas sur un numéro mort.
+     */
+    static void closeByServer(ServerPlayer player, Panel panel) {
+        if (OPEN.remove(player.getUUID(), panel)) {
+            sendNotice(player, new OperatorNoticePacket(panel.session, true, net.minecraft.network.chat.Component.empty()));
+        }
+    }
+
+    /** Le retour d'un geste, pour la ligne d'état du panneau ouvert de ce joueur (rien s'il n'en a pas). */
+    static void tellPanel(ServerPlayer player, net.minecraft.network.chat.Component message) {
+        Panel panel = OPEN.get(player.getUUID());
+        if (panel != null) {
+            sendNotice(player, new OperatorNoticePacket(panel.session, false, message));
+        }
+    }
+
+    private static void sendNotice(ServerPlayer player, OperatorNoticePacket notice) {
+        if (player.connection != null) {
+            BenchNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), notice);
+        }
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -222,8 +246,10 @@ public final class OperatorPanels {
         for (Map.Entry<UUID, Panel> entry : new ArrayList<>(OPEN.entrySet())) {
             ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
             Panel panel = entry.getValue();
-            if (player == null || !stillValid(player, panel)) {
+            if (player == null) {
                 OPEN.remove(entry.getKey(), panel);
+            } else if (!stillValid(player, panel)) {
+                closeByServer(player, panel);
             } else if (OPEN.get(entry.getKey()) == panel) {
                 send(player, panel);
             }

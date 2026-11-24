@@ -6,7 +6,7 @@ import dev.oneforallsurvival.economy.CoinMath;
 import dev.oneforallsurvival.grid.supplier.PowerSuppliers;
 import dev.oneforallsurvival.phone.net.OperatorActionPacket;
 import dev.oneforallsurvival.phone.net.OperatorActionPacket.Action;
-import dev.oneforallsurvival.phone.net.OperatorPanels;
+import dev.oneforallsurvival.phone.net.OperatorNoticePacket;
 import dev.oneforallsurvival.phone.net.OperatorView;
 import dev.oneforallsurvival.phone.net.client.OperatorPanelLayout.Button;
 import dev.oneforallsurvival.phone.net.client.OperatorPanelLayout.Layout;
@@ -27,11 +27,14 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Le panneau de l'opérateur dans Minecraft (lot T2, tâche 9), ouvert à la réception d'une vue de source {@code BLOCK}.
+ * Le panneau de l'opérateur dans Minecraft (lot T2, tâche 9), ouvert à la réception d'une vue de source {@code BLOCK},
+ * ou depuis l'écran de repli du téléphone (source {@code PHONE}, tâche 10 : {@code PhoneClient} l'ouvre par-dessus le
+ * repli, et Échap y revient, sur son dernier état).
  * Il n'a <b>aucune règle</b> : il montre la vue reçue ({@link OperatorView}, mise en page par
  * {@link OperatorPanelLayout}), n'affiche un bouton que si les droits reçus le permettent, et envoie chaque geste tel
  * quel ({@link OperatorActionPacket}) ; le serveur rejoue tout ({@code OperatorActions.apply}) et renvoie la vue.
- * Échap ferme le panneau (et le dit au serveur).
+ * Échap ferme le panneau (et le dit au serveur). La ligne d'état montre le dernier retour du serveur
+ * ({@link OperatorNoticePacket}) ; une fermeture par le serveur ferme l'écran sans rien renvoyer.
  */
 public final class OperatorPanelScreen extends Screen {
 
@@ -53,18 +56,85 @@ public final class OperatorPanelScreen extends Screen {
     @Nullable
     private EditBox tariffBox;
 
+    /** L'écran de repli du téléphone sous le panneau (source {@code PHONE}), rendu à la fermeture ; nul sinon. */
+    @Nullable
+    private final Screen back;
+    /** Le dernier retour du serveur, sur la ligne d'état. */
+    private String status = "";
+    private boolean closedByServer;
+
     public OperatorPanelScreen(OperatorView view) {
+        this(view, null);
+    }
+
+    public OperatorPanelScreen(OperatorView view, @Nullable Screen back) {
         super(Component.translatable(OperatorPanelLayout.KEY + "title"));
         this.view = view;
+        this.back = back;
+    }
+
+    /** L'écran rendu à la fermeture (le repli du téléphone), ou nul. */
+    @Nullable
+    public Screen back() {
+        return back;
+    }
+
+    /** L'onglet montré (lu par un automate). */
+    public Tab tab() {
+        return tab;
+    }
+
+    /**
+     * Lu par un automate : le centre (coordonnées d'interface) de l'onglet {@code t}, ou du bouton visible de l'onglet
+     * montré qui envoie {@code action} ({@code arg} vide : le premier), ou du champ du tarif ({@code action} nul) ;
+     * {@code null} s'il n'est pas à l'écran.
+     */
+    @Nullable
+    public double[] centreOf(@Nullable Tab t, @Nullable Action action, String arg) {
+        Layout l = currentLayout();
+        if (t != null) {
+            if (l.tabs().size() <= t.ordinal()) {
+                return null;
+            }
+            Rect r = l.tabs().get(t.ordinal());
+            return new double[] {r.x() + r.w() / 2.0, r.y() + r.h() / 2.0};
+        }
+        if (l.panes().isEmpty()) {
+            return null;
+        }
+        Pane pane = l.panes().get(tab.ordinal());
+        int dy = -scroll[tab.ordinal()];
+        for (Row row : pane.rows()) {
+            if (action == null && row.field() != null) {
+                Rect r = row.field().shifted(dy);
+                return pane.list().inside(r.x() + 2, r.y() + r.h() / 2.0) ? new double[] {r.x() + 6, r.y() + r.h() / 2.0}
+                        : null;
+            }
+            for (Button b : row.buttons()) {
+                if (b.action() == action && (arg.isEmpty() || arg.equals(b.arg()))) {
+                    Rect r = b.box().shifted(dy);
+                    double[] c = {r.x() + r.w() / 2.0, r.y() + r.h() / 2.0};
+                    return pane.list().inside(c[0], c[1]) ? c : null;
+                }
+            }
+        }
+        return null;
+    }
+
+    /** Le texte de la ligne d'état (lu par un automate). */
+    public String status() {
+        return status;
     }
 
     /**
      * Une vue reçue du serveur, sur le fil du client. Source {@code BLOCK} : met à jour le panneau ouvert de ce numéro, ou
      * ouvre le panneau d'un numéro nouveau s'il n'y a pas d'autre écran (la vue d'un panneau qu'on vient de fermer ne le
-     * rouvre pas). Source {@code PHONE} : routée à la tâche 10 (appli « Antenne », repli).
+     * rouvre pas). Source {@code PHONE} : au téléphone ({@code PhoneClient.acceptAntenna} : la page, ou ce panneau
+     * par-dessus l'écran de repli).
      */
     public static void accept(OperatorView view) {
         if (view.source() != OperatorView.Source.BLOCK) {
+            dev.oneforallsurvival.phone.client.PhoneClient.acceptAntenna(view);
             return;
         }
         Minecraft mc = Minecraft.getInstance();
@@ -74,6 +144,32 @@ public final class OperatorPanelScreen extends Screen {
             mc.setScreen(new OperatorPanelScreen(view));
         }
         lastSession = view.session();
+    }
+
+    /**
+     * Un mot du serveur pour le panneau de ce numéro : le retour d'un geste sur la ligne d'état, ou la fermeture (l'écran
+     * se ferme sans renvoyer {@code CLOSE}). Pour un autre écran, l'appli « Antenne » de la page le reçoit.
+     */
+    public static void notice(OperatorNoticePacket notice) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.screen instanceof OperatorPanelScreen open && open.view.session() == notice.session()) {
+            if (notice.closed()) {
+                open.closedByServer = true;
+                open.leave();
+            } else {
+                open.status = notice.message().getString();
+                open.layout = null;
+            }
+            return;
+        }
+        dev.oneforallsurvival.phone.client.PhoneClient.antennaNotice(notice);
+    }
+
+    /** Une vue de ce même panneau (source {@code PHONE}, routée par {@code PhoneClient}). */
+    public void show(OperatorView next) {
+        if (next.session() == view.session()) {
+            update(next);
+        }
     }
 
     private void update(OperatorView next) {
@@ -151,7 +247,7 @@ public final class OperatorPanelScreen extends Screen {
 
     private Layout currentLayout() {
         if (layout == null || layoutWidth != width || layoutHeight != height || layoutView != view) {
-            layout = OperatorPanelLayout.of(width, height, font::width, view, TEXTS);
+            layout = OperatorPanelLayout.of(width, height, font::width, view, TEXTS, status);
             layoutWidth = width;
             layoutHeight = height;
             layoutView = view;
@@ -195,8 +291,9 @@ public final class OperatorPanelScreen extends Screen {
     @Override
     public void tick() {
         super.tick();
-        if (minecraft != null && minecraft.player != null
-                && minecraft.player.distanceToSqr(Vec3.atCenterOf(view.pos())) > OperatorPanels.MAX_DISTANCE_SQR) {
+        // Le panneau du téléphone (pos = 0, 0, 0) ne se ferme pas à la distance (revue de la tâche 9).
+        if (minecraft != null && minecraft.player != null && OperatorPanelLayout.closesAtDistance(view,
+                minecraft.player.distanceToSqr(Vec3.atCenterOf(view.pos())))) {
             onClose();
         }
     }
@@ -218,6 +315,9 @@ public final class OperatorPanelScreen extends Screen {
             boolean ok = nameBox != null && PowerSuppliers.validName(nameBox.getValue()).isPresent();
             BenchTheme.button(g, font, b.x(), b.y(), b.w(), b.h(), "", ok && b.inside(mx, my), ok, true);
             draw(g, l.name().buttonLabel(), ok ? BenchTheme.TEXT_ON_BRASS : BenchTheme.TEXT_DISABLED, 0);
+            for (Text t : l.status()) {
+                draw(g, t, BenchTheme.BRASS_LIGHT, 0);
+            }
             super.render(g, mx, my, partialTick);
             return;
         }
@@ -261,6 +361,9 @@ public final class OperatorPanelScreen extends Screen {
             int x = list.x() + list.w() - 3;
             g.fill(x, list.y(), x + 2, list.y() + trackH, BenchTheme.WELL);
             g.fill(x, thumbY, x + 2, thumbY + thumbH, BenchTheme.BRASS);
+        }
+        for (Text t : l.status()) {
+            draw(g, t, BenchTheme.BRASS_LIGHT, 0);
         }
         super.render(g, mx, my, partialTick);
         renderTooltip(g, l, pane, dy, mx, my);
@@ -404,8 +507,20 @@ public final class OperatorPanelScreen extends Screen {
 
     @Override
     public void onClose() {
-        BenchNetwork.CHANNEL.sendToServer(new OperatorActionPacket(view.session(), Action.CLOSE, "", 0L));
-        super.onClose();
+        if (!closedByServer) {
+            BenchNetwork.CHANNEL.sendToServer(new OperatorActionPacket(view.session(), Action.CLOSE, "", 0L));
+            if (back != null) {
+                dev.oneforallsurvival.phone.client.PhoneClient.antennaClosed(view.session());
+            }
+        }
+        leave();
+    }
+
+    /** Rend l'écran d'avant : le repli du téléphone (source {@code PHONE}), sinon le jeu. */
+    private void leave() {
+        if (minecraft != null) {
+            minecraft.setScreen(back);
+        }
     }
 
     @Override

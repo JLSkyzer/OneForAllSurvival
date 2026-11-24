@@ -7,6 +7,9 @@ import dev.oneforallsurvival.phone.PhoneActionPacket;
 import dev.oneforallsurvival.phone.PhoneActionPacket.Action;
 import dev.oneforallsurvival.phone.PhoneStatePacket;
 import dev.oneforallsurvival.phone.PhoneStatePacket.CloseReason;
+import dev.oneforallsurvival.phone.net.OperatorNoticePacket;
+import dev.oneforallsurvival.phone.net.OperatorView;
+import dev.oneforallsurvival.phone.net.client.OperatorPanelScreen;
 import java.util.Locale;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -38,6 +41,8 @@ public final class PhoneClient {
     }
 
     @Nullable private static PhoneStatePacket last;
+    /** Le dernier panneau de l'appli « Antenne » fermé par le joueur : une vue de ce numéro arrivée après ne le rouvre pas. */
+    private static int closedAntenna = -1;
 
     private PhoneClient() {}
 
@@ -56,10 +61,22 @@ public final class PhoneClient {
         last = state;
     }
 
+    /**
+     * L'écran du téléphone montré : la page ou le repli, ou le repli caché sous le panneau de l'appli « Antenne »
+     * (tâche 10 : ses états lui arrivent toujours, et une fermeture de la session ferme aussi le panneau).
+     */
+    @Nullable
+    static Shown shown(@Nullable net.minecraft.client.gui.screens.Screen screen) {
+        if (screen instanceof Shown s) {
+            return s;
+        }
+        return screen instanceof OperatorPanelScreen p && p.back() instanceof Shown s ? s : null;
+    }
+
     public static void accept(PhoneStatePacket state) {
         Minecraft mc = Minecraft.getInstance();
         remember(state);
-        Shown shown = mc.screen instanceof Shown s ? s : null;
+        Shown shown = shown(mc.screen);
         switch (state.kind()) {
             case OPEN -> {
                 if (shown != null) {
@@ -89,6 +106,34 @@ public final class PhoneClient {
                 }
             }
         }
+    }
+
+    /**
+     * Une vue de l'appli « Antenne » (source {@code PHONE}, lot T2, tâche 10) : la page du téléphone la reçoit
+     * ({@code window.phone.antenna}) ; sur l'écran de repli, elle ouvre le panneau Minecraft par-dessus ; un panneau
+     * déjà ouvert de ce numéro est mis à jour. Ailleurs (téléphone fermé), rien.
+     */
+    public static void acceptAntenna(OperatorView view) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.screen instanceof OperatorPanelScreen open && open.back() != null) {
+            open.show(view);
+        } else if (mc.screen instanceof PhoneWebScreen web && view.session() != closedAntenna) {
+            web.antenna(view);
+        } else if (mc.screen instanceof PhoneFallbackScreen fallback && view.session() != closedAntenna) {
+            fallback.openAntenna(view);
+        }
+    }
+
+    /** Un mot du serveur pour l'appli « Antenne » de la page (retour d'un geste, ou fermeture). */
+    public static void antennaNotice(OperatorNoticePacket notice) {
+        if (Minecraft.getInstance().screen instanceof PhoneWebScreen web) {
+            web.antennaNotice(notice);
+        }
+    }
+
+    /** Le joueur a fermé l'appli de ce numéro : une vue en route ne la rouvre pas. */
+    public static void antennaClosed(int session) {
+        closedAntenna = session;
     }
 
     /** Le message en barre d'action d'une fermeture par le serveur ; rien pour une fermeture ordinaire. */

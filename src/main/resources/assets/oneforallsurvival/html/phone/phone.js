@@ -5,13 +5,18 @@
 //   {"a":"setup","code":"…","wallpaper":"…"} (le fond choisi par l'assistant, envoyé avec le code) ; {"a":"lock"} ;
 //   {"a":"changeCode","old":"…","new":"…"} ; {"a":"wallpaper","id":"…"} ; {"a":"airplane","on":true|false} ;
 //   {"a":"erase","code":"…"} ; lot T2 : {"a":"insertSim","slot":N} (entier de 0 à 40) ; {"a":"removeSim"} ;
-//   {"a":"requestSim","op":"<identifiant d'opérateur, 12 hexadécimaux>"} ; {"a":"antennaApp"}.
+//   {"a":"requestSim","op":"<identifiant d'opérateur, 12 hexadécimaux>"} ; {"a":"antennaApp"} ; appli « Antenne »
+//   (tâche 10) : {"a":"opTariff","value":N} (0 à 1 000 000) ; {"a":"opIssue"|"opRefuse"|"opSuspend"|"opReactivate"|
+//   "opReplace"|"opMain","id":"<uuid>"} ; {"a":"opAnonymous"} ; {"a":"opPage","n":N} (0 à 63) ; {"a":"opClose"}.
 //   Java -> page : view = {session, lock: "SETUP"|"LOCKED"|"UNLOCKED", battery, serverMillis, zoneOffsetSeconds,
 //   wallpaper, airplane, owner, ownerName, attemptsLeft, lockoutSeconds, last, net}, avec net = {sim, operator, bars,
 //   number, holder, founderApp, choices: [{slot, number, operator, validity}], requestable: [{id, name, bars}]}.
 //   Verrouillé, net n'a ni number ni holder, ses listes sont vides et sim est grossier (ACTIVE s'y lit « présente ») :
 //   la page montre ce qu'elle reçoit, sans rien deviner. Boîtes de layout du lot T2 : row-sim, sim-choice-<case>,
-//   sim-remove, sim-request, request-<id>, app-antenna, status-bars (et sim-close, la fermeture de la feuille).
+//   sim-remove, sim-request, request-<id>, app-antenna, status-bars (et sim-close, la fermeture de la feuille) ;
+//   appli « Antenne » : op-close, op-tab-network, op-tab-cards, op-tab-tariff, op-tariff-field, op-tariff-save,
+//   op-anonymous, op-issue-<id>, op-refuse-<id>, op-card-<id>, op-replace-<id>, op-main-<id>, op-page-prev,
+//   op-page-next. Java -> page, appli : phone.antenna(vue | null), phone.antennaStatus(texte) (voir plus bas).
 // Le serveur fait foi : la page ne juge aucun code, elle les transmet. Tout texte venu de la vue passe par textContent.
 // Un téléphone neuf (lock SETUP) montre l'assistant de première configuration : Bonjour, Configuration rapide, Fond
 // d'écran, le code (écran #lock), puis Tout est prêt. Rien n'est configuré avant l'envoi du code : fermer avant laisse
@@ -483,7 +488,7 @@
 
   function paintChrome() {
     var light = state.screen === 'settings' || phoneEl.classList.contains('sheet-open')
-      || phoneEl.classList.contains('sim-open');
+      || phoneEl.classList.contains('sim-open') || phoneEl.classList.contains('ant-open');
     $('status').classList.toggle('ink-dark', light && state.screen !== 'lock' && state.screen !== 'setup');
     phoneEl.classList.toggle('ink-dark', light && state.screen !== 'lock' && state.screen !== 'setup');
   }
@@ -499,6 +504,9 @@
       phoneEl.classList.remove('wz-skip');
     }
     state.screen = screen;
+    if (screen !== 'home' && ant.open) {
+      closeAntenna(false); // verrouillé, effacé : le serveur ferme le panneau de lui-même
+    }
     if (screen !== 'settings' && state.simOpen) {
       state.simOpen = false;
       state.requestsOpen = false;
@@ -949,6 +957,7 @@
       // Nouvelle session : tout repart de zéro, sans animation.
       phoneEl.classList.add('no-anim');
       phoneEl.classList.remove('sheet-open', 'alert-open', 'sim-open');
+      closeAntenna(false);
       state.sheet = null;
       state.simOpen = false;
       state.requestsOpen = false;
@@ -1008,6 +1017,9 @@
       toast(SIM_TOASTS[last]);
       return;
     }
+    if (last === 'NO_NETWORK' && ant.open && ant.waiting) {
+      closeAntenna(false); // l'appli ne s'est pas ouverte côté serveur
+    }
     if (Object.prototype.hasOwnProperty.call(SIM_ALERTS, last)) {
       showAlert(SIM_ALERTS[last][0], SIM_ALERTS[last][1], [{ label: 'OK', strong: true, run: null }]);
       return;
@@ -1057,6 +1069,510 @@
     }
   }
 
+  // ------------------------------------------------------------------------------------------- Appli « Antenne » (T2)
+
+  // Java appelle window.phone.antenna(view) à chaque vue de l'opérateur (toutes les 20 tics si elle change, et après
+  // chaque geste), window.phone.antenna(null) quand le serveur ferme le panneau, et window.phone.antennaStatus(texte)
+  // pour le retour d'un geste (la ligne d'état). La page n'a aucune règle : elle montre la vue, ne cache un bouton que
+  // selon rights, et envoie des gestes (opTariff, opIssue, opRefuse, opAnonymous, opSuspend, opReactivate, opReplace,
+  // opMain, opPage, opClose) que le serveur rejoue.
+  var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+  var MACHINE_STATES = ['STOPPED', 'RUNNING', 'NO_POWER', 'FAULT'];
+  var MACHINE_TEXT = { STOPPED: "À l'arrêt", RUNNING: 'En marche', NO_POWER: 'Sans courant', FAULT: 'En panne' };
+  var CARD_STATES = ['ACTIVE', 'SUSPENDED', 'DEACTIVATED'];
+  var CARD_TEXT = { ACTIVE: 'Active', SUSPENDED: 'Suspendue', DEACTIVATED: 'Désactivée' };
+  var RELAY_TEXT = { joignable: 'joignable', 'hors tension': 'hors tension', 'sans antenne': 'sans antenne' };
+  var RELAY_CLASS = { joignable: 'up', 'hors tension': 'down', 'sans antenne': 'none' };
+  var ANT_TABS = ['network', 'cards', 'tariff'];
+  var ANT_SUB = { network: 'Réseau', cards: 'Cartes', tariff: 'Tarif' };
+  var MAX_LIST = 32;
+  var MAX_TARIFF = 1000000;
+  var MAX_PAGE = 63;
+  var STATUS_MS = 6000;
+
+  var ant = {
+    open: false, // l'appli est à l'écran
+    waiting: false, // ouverte, sa première vue pas encore reçue
+    view: null,
+    tab: 'network',
+    field: '', // le tarif tapé
+    focus: false,
+    statusTimer: null
+  };
+
+  function bool(x) { return x === true; }
+
+  function count(x) {
+    return typeof x === 'number' && isFinite(x) ? Math.max(0, Math.floor(x)) : 0;
+  }
+
+  /** La vue, bornée comme le serveur la borne ; ce qui n'a pas la forme du contrat est laissé de côté. */
+  function cleanAntenna(v) {
+    var out = {
+      session: typeof v.session === 'number' ? v.session : 0,
+      name: text(v.name, 32),
+      rights: { cards: bool(v.rights && v.rights.cards), tariff: bool(v.rights && v.rights.tariff) },
+      tariff: count(v.tariff),
+      nextTariff: typeof v.nextTariff === 'number' && isFinite(v.nextTariff) ? count(v.nextTariff) : null,
+      cap: count(v.cap),
+      antennas: [],
+      cards: { page: 0, pages: 1, total: 0, items: [] },
+      requests: [],
+      relay: []
+    };
+    var i;
+    var list = Array.isArray(v.antennas) ? v.antennas : [];
+    for (i = 0; i < list.length && out.antennas.length < MAX_LIST; i++) {
+      var a = list[i];
+      if (a && typeof a === 'object' && typeof a.id === 'string' && UUID_RE.test(a.id)) {
+        out.antennas.push({ id: a.id, dimension: text(a.dimension, 32), x: num(a.x, -3e7, 3e7, 0),
+          y: num(a.y, -2048, 2048, 0), z: num(a.z, -3e7, 3e7, 0),
+          state: MACHINE_STATES.indexOf(a.state) >= 0 ? a.state : 'STOPPED', standby: count(a.standby),
+          clients: count(a.clients), traffic: count(a.traffic), total: count(a.total), feToday: count(a.feToday),
+          feYesterday: count(a.feYesterday), main: bool(a.main), overReceive: bool(a.overReceive) });
+      }
+    }
+    var c = v.cards && typeof v.cards === 'object' ? v.cards : {};
+    out.cards.pages = num(c.pages, 1, MAX_PAGE + 1, 1);
+    out.cards.page = num(c.page, 0, out.cards.pages - 1, 0);
+    out.cards.total = count(c.total);
+    list = Array.isArray(c.items) ? c.items : [];
+    for (i = 0; i < list.length && out.cards.items.length < MAX_LIST; i++) {
+      var k = list[i];
+      if (k && typeof k === 'object' && typeof k.id === 'string' && UUID_RE.test(k.id)) {
+        out.cards.items.push({ id: k.id, number: text(k.number, 32), holder: text(k.holder, 32),
+          state: CARD_STATES.indexOf(k.state) >= 0 ? k.state : 'DEACTIVATED' });
+      }
+    }
+    list = Array.isArray(v.requests) ? v.requests : [];
+    for (i = 0; i < list.length && out.requests.length < MAX_LIST; i++) {
+      var r = list[i];
+      if (r && typeof r === 'object' && typeof r.id === 'string' && UUID_RE.test(r.id)) {
+        out.requests.push({ id: r.id, name: text(r.name, 32), at: finite(r.at) ? r.at : 0 });
+      }
+    }
+    list = Array.isArray(v.relay) ? v.relay : [];
+    for (i = 0; i < list.length && out.relay.length < MAX_LIST; i++) {
+      var s = list[i];
+      if (s && typeof s === 'object') {
+        out.relay.push({ name: text(s.name, 32), antennas: count(s.antennas), inService: count(s.inService),
+          status: Object.prototype.hasOwnProperty.call(RELAY_TEXT, s.status) ? s.status : 'sans antenne' });
+      }
+    }
+    return out;
+  }
+
+  /** Un nombre groupé par milliers (espace fine insécable). */
+  function group(n) {
+    var s = String(n);
+    var out = '';
+    for (var i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 === 0) {
+        out += '\u202f';
+      }
+      out += s.charAt(i);
+    }
+    return out;
+  }
+
+  function coppers(n) {
+    return group(n) + (n > 1 ? ' cuivres' : ' cuivre');
+  }
+
+  /** Une dimension sans l'espace de noms du jeu (« overworld »), celle d'un mod en entier (comme le panneau). */
+  function dimension(id) {
+    return id.indexOf('minecraft:') === 0 ? id.slice('minecraft:'.length) : id;
+  }
+
+  /** L'instant d'une demande, à l'heure locale du serveur : « le 24 novembre à 14:02 ». */
+  function when(at) {
+    if (!at || !state.view) {
+      return '';
+    }
+    var d = new Date(at + state.view.zoneOffsetSeconds * 1000);
+    return 'Demandée le ' + d.getUTCDate() + ' ' + MONTHS[d.getUTCMonth()] + ' à ' + two(d.getUTCHours()) + ':'
+      + two(d.getUTCMinutes());
+  }
+
+  function el(tag, cls, content) {
+    var e = document.createElement(tag);
+    if (cls) {
+      e.className = cls;
+    }
+    if (content !== undefined && content !== null) {
+      e.textContent = content;
+    }
+    return e;
+  }
+
+  function button(id, label, cls) {
+    var b = el('span', 'ant-btn' + (cls ? ' ' + cls : ''), label);
+    b.id = id;
+    return b;
+  }
+
+  function paintAntenna() {
+    var v = ant.view;
+    phoneEl.classList.toggle('ant-waiting', ant.waiting || !v);
+    for (var t = 0; t < ANT_TABS.length; t++) {
+      phoneEl.classList.toggle('ant-' + ANT_TABS[t], ant.tab === ANT_TABS[t]);
+    }
+    $('ant-sub').textContent = ANT_SUB[ant.tab];
+    if (!v) {
+      $('ant-title').textContent = 'Antenne';
+      return;
+    }
+    $('ant-title').textContent = v.name || 'Antenne';
+    paintNetworkTab(v);
+    paintCardsTab(v);
+    paintTariffTab(v);
+  }
+
+  function paintNetworkTab(v) {
+    $('ant-antennas-head').textContent = 'Antennes (' + v.antennas.length + ')';
+    var box = $('ant-antennas');
+    clearBox(box);
+    if (v.antennas.length === 0) {
+      box.appendChild(emptyRow('Aucune antenne'));
+    }
+    for (var i = 0; i < v.antennas.length; i++) {
+      var a = v.antennas[i];
+      var row = el('div', 'row ant-row' + (a.overReceive ? ' over' : ''));
+      row.appendChild(el('i', 'ant-dot ' + a.state));
+      var top = el('div', 'ant-top');
+      top.appendChild(el('span', 'ant-where', dimension(a.dimension) + ' · ' + a.x + ', ' + a.y + ', ' + a.z));
+      if (a.main) {
+        top.appendChild(el('span', 'ant-main', 'Principale'));
+      } else if (v.rights.cards) {
+        top.appendChild(button('op-main-' + a.id, 'Désigner', 'small'));
+      }
+      row.appendChild(top);
+      var load = el('div', 'ant-line');
+      load.appendChild(document.createTextNode(MACHINE_TEXT[a.state] + ' · '));
+      load.appendChild(el('span', 'ant-total', group(a.total) + ' FE/t'));
+      row.appendChild(load);
+      row.appendChild(el('div', 'ant-line soft', 'Veille ' + group(a.standby) + ' · cartes ' + group(a.clients)
+        + ' · trafic ' + group(a.traffic) + ' FE/t'));
+      row.appendChild(el('div', 'ant-line soft', "Aujourd'hui " + group(a.feToday) + ' FE · hier '
+        + group(a.feYesterday) + ' FE'));
+      if (a.overReceive) {
+        row.appendChild(el('div', 'ant-over', 'Au-delà de la réception : elle consomme plus qu\'elle ne reçoit'));
+      }
+      box.appendChild(row);
+    }
+    var relay = $('ant-relay');
+    clearBox(relay);
+    if (v.relay.length === 0) {
+      relay.appendChild(emptyRow('Aucun opérateur'));
+    }
+    for (var j = 0; j < v.relay.length; j++) {
+      var s = v.relay[j];
+      var item = el('div', 'row ant-item');
+      var head = el('div', 'ant-top');
+      head.appendChild(el('span', 'ant-name', s.name));
+      head.appendChild(el('span', 'ant-pill ' + RELAY_CLASS[s.status], RELAY_TEXT[s.status]));
+      item.appendChild(head);
+      item.appendChild(el('div', 'ant-line soft', s.antennas + (s.antennas > 1 ? ' antennes, ' : ' antenne, ')
+        + s.inService + ' en service'));
+      relay.appendChild(item);
+    }
+  }
+
+  function paintCardsTab(v) {
+    $('ant-requests-head').textContent = 'Demandes de carte (' + v.requests.length + ')';
+    var badge = $('ant-badge');
+    badge.textContent = v.requests.length > 0 ? String(v.requests.length) : '';
+    badge.classList.toggle('gone', v.requests.length === 0);
+    var box = $('ant-requests');
+    clearBox(box);
+    if (v.requests.length === 0) {
+      box.appendChild(emptyRow('Aucune demande'));
+    }
+    for (var i = 0; i < v.requests.length; i++) {
+      var r = v.requests[i];
+      var item = el('div', 'row ant-item');
+      var head = el('div', 'ant-top');
+      head.appendChild(el('span', 'ant-name', r.name || '—'));
+      item.appendChild(head);
+      item.appendChild(el('div', 'ant-line soft', when(r.at)));
+      if (v.rights.cards) {
+        var btns = el('div', 'ant-btns');
+        btns.appendChild(button('op-issue-' + r.id, 'Émettre', 'fill'));
+        btns.appendChild(button('op-refuse-' + r.id, 'Refuser', 'red'));
+        item.appendChild(btns);
+      }
+      box.appendChild(item);
+    }
+    $('ant-anonymous-group').classList.toggle('gone', !v.rights.cards);
+    $('ant-cards-head').textContent = 'Cartes émises (' + v.cards.total + ')';
+    var list = $('ant-card-list');
+    clearBox(list);
+    if (v.cards.items.length === 0) {
+      list.appendChild(emptyRow('Aucune carte'));
+    }
+    for (var k = 0; k < v.cards.items.length; k++) {
+      var c = v.cards.items[k];
+      var card = el('div', 'row ant-item');
+      var top = el('div', 'ant-top');
+      top.appendChild(el('span', 'ant-name', c.number || '—'));
+      top.appendChild(el('span', 'ant-pill ' + c.state, CARD_TEXT[c.state]));
+      card.appendChild(top);
+      card.appendChild(el('div', 'ant-line soft', c.holder || 'SIM sans nom'));
+      if (v.rights.cards && c.state !== 'DEACTIVATED') {
+        var row = el('div', 'ant-btns');
+        row.appendChild(button('op-card-' + c.id, c.state === 'ACTIVE' ? 'Suspendre' : 'Réactiver',
+          c.state === 'ACTIVE' ? 'red' : ''));
+        row.appendChild(button('op-replace-' + c.id, 'Remplacer', ''));
+        card.appendChild(row);
+      }
+      list.appendChild(card);
+    }
+    var pages = $('ant-pages');
+    pages.classList.toggle('gone', v.cards.pages <= 1);
+    $('op-page-prev').classList.toggle('off', v.cards.page <= 0);
+    $('op-page-next').classList.toggle('off', v.cards.page + 1 >= v.cards.pages);
+    $('ant-page-text').textContent = 'Page ' + (v.cards.page + 1) + ' sur ' + v.cards.pages;
+  }
+
+  function paintTariffTab(v) {
+    $('ant-tariff-today').textContent = coppers(v.tariff);
+    $('ant-tariff-next').textContent = v.nextTariff === null ? 'Inchangé' : coppers(v.nextTariff);
+    $('ant-cap').textContent = coppers(v.cap);
+    $('ant-tariff-edit').classList.toggle('gone', !v.rights.tariff);
+    $('ant-tariff-readonly').classList.toggle('gone', v.rights.tariff);
+    if (!v.rights.tariff) {
+      ant.focus = false;
+      ant.field = '';
+    }
+    paintField();
+  }
+
+  function paintField() {
+    $('ant-field-text').textContent = ant.field;
+    $('op-tariff-field').classList.toggle('focus', ant.focus);
+  }
+
+  function antennaStatus(message) {
+    var box = $('op-status');
+    var t = text(message, 300);
+    box.textContent = t;
+    box.classList.toggle('gone', t === '');
+    clearTimeout(ant.statusTimer);
+    if (t !== '') {
+      ant.statusTimer = setTimeout(function () { box.classList.add('gone'); }, STATUS_MS);
+    }
+  }
+
+  /** Une vue de l'appli, ou null : le serveur a fermé le panneau. */
+  function antenna(raw) {
+    if (raw === null) {
+      if (ant.open) {
+        closeAntenna(false);
+        toast('Antenne : liaison perdue, appli fermée');
+      }
+      return;
+    }
+    if (!raw || typeof raw !== 'object' || !finite(raw.session)) {
+      return;
+    }
+    if (!ant.open || !state.view || state.view.lock !== 'UNLOCKED') {
+      return; // fermée entre-temps : le geste opClose est déjà parti
+    }
+    ant.view = cleanAntenna(raw);
+    ant.waiting = false;
+    paintAntenna();
+    scheduleLayout(150);
+  }
+
+  function openAntennaApp() {
+    if (state.screen !== 'home' || ant.open || $('app-antenna').classList.contains('gone')) {
+      return;
+    }
+    var icon = $('app-antenna').querySelector('.app-icon').getBoundingClientRect();
+    var box = phoneEl.getBoundingClientRect();
+    $('antenna').style.transformOrigin =
+      Math.round(icon.left - box.left + icon.width / 2) + 'px ' + Math.round(icon.top - box.top + icon.height / 2) + 'px';
+    ant.open = true;
+    ant.waiting = true;
+    ant.view = null;
+    ant.tab = 'network';
+    ant.field = '';
+    ant.focus = false;
+    antennaStatus('');
+    $('ant-scroll').scrollTop = 0;
+    paintAntenna();
+    phoneEl.classList.add('ant-open');
+    paintChrome();
+    scheduleLayout();
+    send({ a: 'antennaApp' });
+  }
+
+  /** Ferme l'appli ; {@code tell} : le joueur l'a fermée, le serveur en est prévenu (opClose). */
+  function closeAntenna(tell) {
+    if (!ant.open) {
+      return;
+    }
+    if (tell) {
+      send({ a: 'opClose' });
+    }
+    ant.open = false;
+    ant.waiting = false;
+    ant.view = null;
+    ant.focus = false;
+    ant.field = '';
+    antennaStatus('');
+    phoneEl.classList.remove('ant-open', 'ant-waiting');
+    paintChrome();
+    scheduleLayout();
+  }
+
+  function antTab(tab) {
+    if (ANT_TABS.indexOf(tab) < 0 || tab === ant.tab) {
+      return;
+    }
+    ant.tab = tab;
+    ant.focus = tab === 'tariff' && ant.focus;
+    $('ant-scroll').scrollTop = 0;
+    paintAntenna();
+    scheduleLayout(150);
+  }
+
+  function saveTariff() {
+    if (!ant.view || !ant.view.rights.tariff || ant.field === '') {
+      return;
+    }
+    var n = Number(ant.field);
+    if (integer(n, 0, MAX_TARIFF)) {
+      send({ a: 'opTariff', value: n });
+    }
+    ant.field = '';
+    paintField();
+  }
+
+  /** Une touche quand le champ du tarif a la main : chiffres, retour arrière, Entrée (enregistre). */
+  function antennaKey(e) {
+    if (!ant.open || !ant.focus || ant.tab !== 'tariff') {
+      return false;
+    }
+    var k = keyOf(e);
+    var c = e.keyCode || e.which || 0;
+    if (k === null && (e.key === 'Enter' || c === 13)) {
+      e.preventDefault();
+      saveTariff();
+      return true;
+    }
+    if (k === null) {
+      return false;
+    }
+    e.preventDefault();
+    if (k === 'back') {
+      ant.field = ant.field.slice(0, -1);
+    } else if (ant.field.length < 7 && !(ant.field === '0')) {
+      ant.field += k;
+    } else if (ant.field === '0') {
+      ant.field = k;
+    }
+    paintField();
+    return true;
+  }
+
+  /** Les touchers de l'appli ; chacun envoie un geste au serveur, change d'onglet, ou ferme. */
+  function antennaTap(t) {
+    if (t.closest('#op-close')) {
+      closeAntenna(true);
+      return;
+    }
+    var tab = t.closest('[data-tab]');
+    if (tab) {
+      antTab(tab.getAttribute('data-tab'));
+      return;
+    }
+    var v = ant.view;
+    if (!v) {
+      return;
+    }
+    var field = t.closest('#op-tariff-field');
+    ant.focus = !!field && v.rights.tariff;
+    paintField();
+    if (field) {
+      return;
+    }
+    if (t.closest('#op-tariff-save')) {
+      saveTariff();
+      return;
+    }
+    if (t.closest('#op-anonymous')) {
+      if (v.rights.cards) {
+        send({ a: 'opAnonymous' });
+      }
+      return;
+    }
+    if (t.closest('#op-page-prev')) {
+      if (v.cards.page > 0) {
+        send({ a: 'opPage', n: v.cards.page - 1 });
+      }
+      return;
+    }
+    if (t.closest('#op-page-next')) {
+      if (v.cards.page + 1 < v.cards.pages && v.cards.page + 1 <= MAX_PAGE) {
+        send({ a: 'opPage', n: v.cards.page + 1 });
+      }
+      return;
+    }
+    var b = t.closest('.ant-btn');
+    if (!b || !b.id) {
+      return;
+    }
+    var m = /^op-(issue|refuse|card|replace|main)-(.+)$/.exec(b.id);
+    if (!m || !UUID_RE.test(m[2])) {
+      return;
+    }
+    var id = m[2];
+    if (m[1] === 'issue') {
+      send({ a: 'opIssue', id: id });
+    } else if (m[1] === 'refuse') {
+      send({ a: 'opRefuse', id: id });
+    } else if (m[1] === 'replace') {
+      send({ a: 'opReplace', id: id });
+    } else if (m[1] === 'main') {
+      send({ a: 'opMain', id: id });
+    } else {
+      var card = null;
+      for (var i = 0; i < v.cards.items.length; i++) {
+        if (v.cards.items[i].id === id) {
+          card = v.cards.items[i];
+        }
+      }
+      if (card && card.state === 'ACTIVE') {
+        send({ a: 'opSuspend', id: id });
+      } else if (card && card.state === 'SUSPENDED') {
+        send({ a: 'opReactivate', id: id });
+      }
+    }
+  }
+
+  /** Les boîtes de l'appli : fermeture, onglets, puis les boutons visibles de l'onglet ouvert. */
+  function antennaRects(add) {
+    add('op-close');
+    for (var i = 0; i < ANT_TABS.length; i++) {
+      add('op-tab-' + ANT_TABS[i]);
+    }
+    if (!ant.view) {
+      return;
+    }
+    var sc = $('ant-scroll').getBoundingClientRect();
+    var clip = { left: sc.left, top: sc.top, right: sc.right, bottom: sc.bottom };
+    var pane = $('ant-' + ant.tab);
+    var ids = pane.querySelectorAll('[id^="op-"]');
+    for (var k = 0; k < ids.length; k++) {
+      var e = ids[k];
+      if (e.closest('.gone') || e.classList.contains('off')) {
+        continue;
+      }
+      add(e.id, clip);
+    }
+  }
+
   // ------------------------------------------------------------------------------------------- Mise en page envoyée
 
   var layoutTimer = null;
@@ -1099,6 +1615,11 @@
       return rects;
     }
     add('status-bars');
+    if (ant.open) {
+      antennaRects(add);
+      add('home-bar');
+      return rects;
+    }
     if (phoneEl.classList.contains('sim-open')) {
       var ss = $('sim-scroll').getBoundingClientRect();
       var simClip = { left: ss.left, top: ss.top, right: ss.right, bottom: ss.bottom };
@@ -1193,6 +1714,14 @@
     if (wizardTap(t)) {
       return;
     }
+    if (ant.open) {
+      if (t.closest('#home-bar')) {
+        closeAntenna(true);
+      } else {
+        antennaTap(t);
+      }
+      return;
+    }
     if (phoneEl.classList.contains('sim-open')) {
       simTap(t);
       return;
@@ -1212,10 +1741,8 @@
       return;
     }
     if (t.closest('#app-antenna')) {
-      // L'appli elle-même arrive à la tâche 10 : le geste part, le serveur répond.
-      if (state.screen === 'home' && !$('app-antenna').classList.contains('gone')) {
-        simGesture({ a: 'antennaApp' });
-      }
+      // L'appli s'ouvre et attend la vue du serveur ; un refus (NO_NETWORK) la referme.
+      openAntennaApp();
       return;
     }
     if (state.screen !== 'settings' || phoneEl.classList.contains('sheet-open') || !state.view) {
@@ -1365,6 +1892,9 @@
   }
 
   function onKey(e) {
+    if (antennaKey(e)) {
+      return;
+    }
     var k = keyOf(e);
     if (k === null || !activeEntry()) {
       return;
@@ -1520,8 +2050,194 @@
         mock.requested[m.op] = true;
         return 'SIM_REQUESTED';
       }
-      // antennaApp : jusqu'à la tâche 10, le serveur répond NO_NETWORK.
-      return 'NO_NETWORK';
+      // antennaApp (PhoneService.openOperatorApp) : le fondateur, carte active, une barre, hors mode avion.
+      var lineOk = mock.lodged && mock.lodged.validity === 'ACTIVE' && operatorOf(mock.lodged.op)
+        && operatorOf(mock.lodged.op).bars > 0;
+      if (!mock.founder || mock.airplane || !lineOk) {
+        return 'NO_NETWORK';
+      }
+      openOperator();
+      return 'NONE';
+    }
+
+    // Appli « Antenne » : un faux opérateur au nom de 24 caractères, 32 antennes, 70 cartes (trois pages), quatre
+    // demandes, cinq opérateurs au relais. Le faux serveur applique les gestes comme OperatorActions (droits, plafond,
+    // état des cartes) ; la page n'en sait rien.
+    var op = {
+      session: 0,
+      open: false,
+      name: 'Compagnie des Eaux Vives',
+      rights: { cards: true, tariff: true },
+      tariff: 12,
+      nextTariff: null,
+      cap: 40,
+      page: 0,
+      antennas: [],
+      cards: [],
+      requests: [],
+      relay: [],
+      timer: null
+    };
+
+    function hex(n, w) {
+      var s = n.toString(16);
+      while (s.length < w) { s = '0' + s; }
+      return s;
+    }
+
+    function uuid(kind, i) {
+      return hex(kind, 8) + '-0000-4000-8000-' + hex(i, 12);
+    }
+
+    function fillOperator(short) {
+      var i;
+      op.antennas = [];
+      op.cards = [];
+      op.requests = [];
+      op.relay = [];
+      var n = short ? 1 : 32;
+      for (i = 0; i < n; i++) {
+        op.antennas.push({ id: uuid(1, i), dimension: i % 7 === 3 ? 'minecraft:the_nether' : 'minecraft:overworld',
+          x: -2400 + i * 137, y: 64 + (i % 5), z: 1800 - i * 91,
+          state: short ? 'RUNNING' : ['RUNNING', 'RUNNING', 'NO_POWER', 'STOPPED', 'FAULT'][i % 5],
+          standby: 40, clients: 6 * (i % 4), traffic: 9 * (i % 3), feToday: 12345 * (i + 1), feYesterday: 98765 + i,
+          main: i === 0, overReceive: !short && i % 6 === 1 });
+      }
+      if (!short) {
+        var holders = ['Alex', '', 'Noa', 'Capitaine Barbe-Grise', 'Lila', 'Tom'];
+        for (i = 0; i < 70; i++) {
+          op.cards.push({ id: uuid(2, i), number: '06 ' + two(10 + i % 90) + ' ' + two((i * 7) % 100) + ' '
+            + two((i * 13) % 100) + ' ' + two((i * 29) % 100), holder: holders[i % holders.length],
+            state: i % 9 === 4 ? 'SUSPENDED' : i % 11 === 7 ? 'DEACTIVATED' : 'ACTIVE' });
+        }
+        var names = ['Maëlys', 'Quentin_Bricoleur', 'Sam', 'Abcdefghijklmnop'];
+        for (i = 0; i < names.length; i++) {
+          op.requests.push({ id: uuid(3, i), name: names[i], at: Date.now() - (i + 1) * 3600000 });
+        }
+        op.relay = [{ name: op.name, antennas: 32, inService: 18 }, { name: 'Mairie', antennas: 3, inService: 3 },
+          { name: 'Coopérative du Lagon Sud', antennas: 2, inService: 0 }, { name: 'Radio Île', antennas: 0,
+            inService: 0 }, { name: 'Les Naufragés', antennas: 5, inService: 1 }];
+      } else {
+        op.relay = [{ name: op.name, antennas: 1, inService: 1 }];
+      }
+    }
+    fillOperator(false);
+
+    function opView() {
+      var pages = Math.max(1, Math.ceil(op.cards.length / 32));
+      op.page = Math.min(op.page, pages - 1);
+      var antennas = [];
+      for (var i = 0; i < op.antennas.length; i++) {
+        var a = op.antennas[i];
+        var total = a.standby + a.clients + a.traffic;
+        antennas.push({ id: a.id, dimension: a.dimension, x: a.x, y: a.y, z: a.z, state: a.state,
+          standby: a.standby, clients: a.clients, traffic: a.traffic, total: total, feToday: a.feToday,
+          feYesterday: a.feYesterday, main: a.main, overReceive: a.overReceive });
+      }
+      var relay = [];
+      for (var r = 0; r < op.relay.length; r++) {
+        var s = op.relay[r];
+        relay.push({ name: s.name, antennas: s.antennas, inService: s.inService,
+          status: s.inService > 0 ? 'joignable' : s.antennas > 0 ? 'hors tension' : 'sans antenne' });
+      }
+      return { session: op.session, name: op.name, rights: { cards: op.rights.cards, tariff: op.rights.tariff },
+        tariff: op.tariff, nextTariff: op.nextTariff, cap: op.cap, antennas: antennas,
+        cards: { page: op.page, pages: pages, total: op.cards.length,
+          items: op.cards.slice(op.page * 32, op.page * 32 + 32) }, requests: op.requests.slice(), relay: relay };
+    }
+
+    function pushOp(message) {
+      setTimeout(function () {
+        if (!op.open) { return; }
+        window.phone.antenna(opView());
+        if (message) { window.phone.antennaStatus(message); }
+      }, 180);
+    }
+
+    function cardById(id) {
+      for (var i = 0; i < op.cards.length; i++) {
+        if (op.cards[i].id === id) { return op.cards[i]; }
+      }
+      return null;
+    }
+
+    function openOperator() {
+      op.session++;
+      op.open = true;
+      op.page = 0;
+      clearInterval(op.timer);
+      // Comme le serveur, une vue toutes les 20 tics : la consommation du jour avance.
+      op.timer = setInterval(function () {
+        for (var i = 0; i < op.antennas.length; i++) {
+          var a = op.antennas[i];
+          if (a.state === 'RUNNING') { a.feToday += (a.standby + a.clients + a.traffic) * 20; }
+        }
+        pushOp(null);
+      }, 1000);
+      pushOp(null);
+    }
+
+    function opGesture(m) {
+      if (!op.open) { return; }
+      var c;
+      var i;
+      switch (m.a) {
+        case 'opClose':
+          op.open = false;
+          clearInterval(op.timer);
+          return;
+        case 'opTariff':
+          if (!op.rights.tariff) { pushOp("Vous n'avez pas ce droit."); return; }
+          if (m.value > op.cap) { pushOp('Au-dessus du plafond : ' + op.cap + ' cuivres au plus.'); return; }
+          op.nextTariff = m.value;
+          pushOp('Tarif de demain : ' + m.value + ' cuivres.');
+          return;
+        case 'opIssue':
+        case 'opRefuse':
+          for (i = 0; i < op.requests.length; i++) {
+            if (op.requests[i].id === m.id) {
+              var who = op.requests.splice(i, 1)[0];
+              if (m.a === 'opIssue') {
+                op.cards.unshift({ id: uuid(4, op.cards.length), number: '07 11 22 33 ' + two(op.cards.length % 100),
+                  holder: who.name, state: 'ACTIVE' });
+                pushOp('Carte émise pour ' + who.name + ' : elle est dans votre inventaire.');
+              } else {
+                pushOp('Demande de ' + who.name + ' refusée.');
+              }
+              return;
+            }
+          }
+          return;
+        case 'opAnonymous':
+          op.cards.unshift({ id: uuid(5, op.cards.length), number: '06 99 88 77 ' + two(op.cards.length % 100),
+            holder: '', state: 'ACTIVE' });
+          pushOp('SIM sans nom émise : elle est dans votre inventaire.');
+          return;
+        case 'opSuspend':
+          c = cardById(m.id);
+          if (c && c.state === 'ACTIVE') { c.state = 'SUSPENDED'; pushOp('Carte ' + c.number + ' suspendue.'); }
+          return;
+        case 'opReactivate':
+          c = cardById(m.id);
+          if (c && c.state === 'SUSPENDED') { c.state = 'ACTIVE'; pushOp('Carte ' + c.number + ' réactivée.'); }
+          return;
+        case 'opReplace':
+          c = cardById(m.id);
+          if (c && c.state !== 'DEACTIVATED') {
+            pushOp('Carte ' + c.number + " remplacée : la nouvelle est dans votre inventaire, l'ancienne ne vaut plus rien.");
+          }
+          return;
+        case 'opMain':
+          for (i = 0; i < op.antennas.length; i++) { op.antennas[i].main = op.antennas[i].id === m.id; }
+          pushOp('Antenne principale désignée.');
+          return;
+        case 'opPage':
+          op.page = m.n;
+          pushOp(null);
+          return;
+        default:
+          return;
+      }
     }
 
     function check(code) {
@@ -1611,6 +2327,9 @@
           }
           break;
         default:
+          if (typeof m.a === 'string' && m.a.indexOf('op') === 0) {
+            opGesture(m);
+          }
           break;
       }
     }
@@ -1619,7 +2338,9 @@
     // Commandes de la console, pour l'essai : phoneMock.setup(), phoneMock.locked(), phoneMock.notOwner(),
     // phoneMock.battery(12) ; lot T2 : phoneMock.bars(2) (barres de l'opérateur de la carte logée),
     // phoneMock.sim('UNKNOWN' | 'SUSPENDED' | 'DEACTIVATED' | 'ACTIVE' | 'NONE'), phoneMock.full(true) (file de demandes
-    // pleine), phoneMock.founder(false), phoneMock.airplane(true), phoneMock.many() (41 cartes, 16 opérateurs).
+    // pleine), phoneMock.founder(false), phoneMock.airplane(true), phoneMock.many() (41 cartes, 16 opérateurs) ;
+    // tâche 10 : phoneMock.antennaShort(), antennaLong(), antennaRights(cartes, tarif), antennaPower(false),
+    // antennaClosedByServer().
     window.phoneMock = {
       state: mock,
       bars: function (n) {
@@ -1659,13 +2380,24 @@
       },
       locked: function () { mock.session++; mock.code = '1234'; mock.lock = 'LOCKED'; render(view('NONE')); },
       notOwner: function () { mock.owner = false; render(view('NONE')); },
+      // Appli « Antenne » : le contenu le plus court (une antenne, aucune carte ni demande), les droits (ceux du maire :
+      // le tarif seul), la panne de la source (antennes hors tension, puis le serveur ferme le panneau).
+      antennaShort: function () { fillOperator(true); op.page = 0; pushOp(null); },
+      antennaLong: function () { fillOperator(false); pushOp(null); },
+      antennaRights: function (cards, tariff) { op.rights = { cards: cards !== false, tariff: tariff !== false };
+        pushOp(null); },
+      antennaPower: function (on) {
+        for (var i = 0; i < op.antennas.length; i++) { op.antennas[i].state = on === false ? 'NO_POWER' : 'RUNNING'; }
+        pushOp(null);
+      },
+      antennaClosedByServer: function () { op.open = false; clearInterval(op.timer); window.phone.antenna(null); },
       battery: function (pct) { mock.battery = pct; render(view('NONE')); }
     };
   }
 
   // ------------------------------------------------------------------------------------------- Démarrage
 
-  window.phone = { render: render };
+  window.phone = { render: render, antenna: antenna, antennaStatus: antennaStatus };
 
   function start() {
     $('pad').classList.add('pad-park');
@@ -1674,6 +2406,7 @@
     document.addEventListener('keydown', onKey);
     $('settings-scroll').addEventListener('scroll', onScroll, { passive: true });
     $('sim-scroll').addEventListener('scroll', function () { scheduleLayout(150); }, { passive: true });
+    $('ant-scroll').addEventListener('scroll', function () { scheduleLayout(150); }, { passive: true });
     window.addEventListener('resize', function () { lastLayout = ''; scheduleLayout(100); });
     setInterval(tickClock, 1000);
     setInterval(tickLockout, 250);

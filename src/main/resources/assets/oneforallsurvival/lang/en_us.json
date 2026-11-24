@@ -1260,6 +1260,7 @@
   "message.oneforallsurvival.operator_panel.main_set": "Main antenna set.",
   "message.oneforallsurvival.operator_panel.not_allowed": "You do not have this right.",
   "message.oneforallsurvival.operator_panel.till_main_only": "The till opens on the main antenna.",
+  "message.oneforallsurvival.operator_panel.till_failed": "The till did not open: the panel stays open.",
   "message.oneforallsurvival.operator_panel.sim_issued": "%s issued your SIM card: its founder hands it to you.",
   "message.oneforallsurvival.operator_panel.sim_refused": "%s refused your SIM card request.",
   "message.oneforallsurvival.operator_panel.tariff_changed": "%s: tariff of %s from today.",

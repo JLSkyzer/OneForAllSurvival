@@ -1260,6 +1260,7 @@
   "message.oneforallsurvival.operator_panel.main_set": "Antenne principale désignée.",
   "message.oneforallsurvival.operator_panel.not_allowed": "Vous n'avez pas ce droit.",
   "message.oneforallsurvival.operator_panel.till_main_only": "La caisse s'ouvre sur l'antenne principale.",
+  "message.oneforallsurvival.operator_panel.till_failed": "La caisse ne s'est pas ouverte : le panneau reste ouvert.",
   "message.oneforallsurvival.operator_panel.sim_issued": "%s a émis votre carte SIM : son fondateur vous la remet.",
   "message.oneforallsurvival.operator_panel.sim_refused": "%s a refusé votre demande de carte SIM.",
   "message.oneforallsurvival.operator_panel.tariff_changed": "%s : tarif de %s à partir d'aujourd'hui.",

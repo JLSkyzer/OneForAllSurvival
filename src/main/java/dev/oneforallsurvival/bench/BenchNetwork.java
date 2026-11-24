@@ -103,6 +103,8 @@ public final class BenchNetwork {
     /** Le panneau de l'opérateur (lot T2) : sa vue, serveur vers client ; ses gestes, client vers serveur. */
     public static final int ID_OPERATOR_PANEL = 28;
     public static final int ID_OPERATOR_ACTION = 29;
+    /** Lot T2, tâche 10 : le retour d'un geste et la fermeture d'un panneau de l'opérateur (serveur vers client). */
+    public static final int ID_OPERATOR_NOTICE = 30;
 
     /** Clé de traduction d'un refus : {@code message.oneforallsurvival.bench.refused.<résultat>}. */
     public static final String REFUSED_KEY = "message.oneforallsurvival.bench.refused.";
@@ -217,6 +219,11 @@ public final class BenchNetwork {
                 .encoder(dev.oneforallsurvival.phone.net.OperatorActionPacket::encode)
                 .decoder(dev.oneforallsurvival.phone.net.OperatorActionPacket::decode)
                 .consumerMainThread(dev.oneforallsurvival.phone.net.OperatorActionPacket::handle).add();
+        CHANNEL.messageBuilder(dev.oneforallsurvival.phone.net.OperatorNoticePacket.class, ID_OPERATOR_NOTICE,
+                        NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(dev.oneforallsurvival.phone.net.OperatorNoticePacket::encode)
+                .decoder(dev.oneforallsurvival.phone.net.OperatorNoticePacket::decode)
+                .consumerMainThread(dev.oneforallsurvival.phone.net.OperatorNoticePacket::handle).add();
     }
 
     // --- Serveur vers client -----------------------------------------------------------------

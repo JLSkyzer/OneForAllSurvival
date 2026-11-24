@@ -107,7 +107,8 @@ import net.minecraftforge.gametest.PrefixGameTestTemplate;
  * <p>Les gestes passent par le canal du mod ({@link JoueurDeTest#envoyer}, traités sur place) ; les vues sont décodées des
  * octets envoyés. Chaque essai fonde ses opérateurs sous des noms qui lui sont propres (leçon du 2026-11-24) ; les joueurs
  * sont replacés après l'entrée ; dans une séquence, aucune exception autre qu'une assertion, et l'essai ne se range qu'à
- * sa dernière étape (leçon du 2026-11-20) ; un essai rouge est rangé par l'{@code @AfterBatch} de son lot.
+ * sa dernière étape (leçon du 2026-11-20) ; un essai rouge est rangé par l'{@code @AfterBatch} de son lot. Les aides
+ * ({@code Essai}) servent aussi aux essais de l'appli « Antenne » ({@link AppliAntenneGameTests}, tâche 10).
  */
 @GameTestHolder("oneforallsurvival")
 @PrefixGameTestTemplate(false)
@@ -118,12 +119,12 @@ public final class PanneauOperateurGameTests {
     private static final String LOT_VUE = "panneau_vue";
     private static final String LOT_TARIF = "panneau_tarif";
 
-    private static final BlockPos A = new BlockPos(1, 0, 1);
-    private static final BlockPos B = new BlockPos(6, 0, 6);
-    private static final Vec3 JOUEUR = new Vec3(3.5, 0, 3.5);
-    private static final int RESERVE = 40_000;
-    private static final String CODE = "4821";
-    private static final String MSG = OperatorActions.MESSAGE;
+    static final BlockPos A = new BlockPos(1, 0, 1);
+    static final BlockPos B = new BlockPos(6, 0, 6);
+    static final Vec3 JOUEUR = new Vec3(3.5, 0, 3.5);
+    static final int RESERVE = 40_000;
+    static final String CODE = "4821";
+    static final String MSG = OperatorActions.MESSAGE;
     private static final long MINUTE = 60_000L;
 
     private static final List<Essai> OUVERTS = new ArrayList<>();
@@ -162,7 +163,7 @@ public final class PanneauOperateurGameTests {
         apres();
     }
 
-    private static void apres() {
+    static void apres() {
         for (Essai e : new ArrayList<>(OUVERTS)) {
             e.rendre();
         }
@@ -174,9 +175,9 @@ public final class PanneauOperateurGameTests {
     // ---------------------------------------------------------------------------------------------
 
     /** Ce qu'un essai a ouvert : joueurs, rôles, équipe, maire, opérateurs, téléphones ; tout est rendu, même après un échec. */
-    private static final class Essai {
+    static final class Essai {
         final GameTestHelper helper;
-        private final List<JoueurDeTest> joueurs = new ArrayList<>();
+        final List<JoueurDeTest> joueurs = new ArrayList<>();
         private final List<UUID> fondateurs = new ArrayList<>();
         private final List<GameProfile> equipe = new ArrayList<>();
         private final Set<UUID> telephones = new HashSet<>();
@@ -441,7 +442,7 @@ public final class PanneauOperateurGameTests {
         }
     }
 
-    private static void oublierFreinTelephone(GameTestHelper helper, UUID joueur) {
+    static void oublierFreinTelephone(GameTestHelper helper, UUID joueur) {
         try {
             Method m = PhoneService.class.getDeclaredMethod("clearThrottle", UUID.class);
             m.setAccessible(true);
@@ -451,7 +452,7 @@ public final class PanneauOperateurGameTests {
         }
     }
 
-    private static int caseDe(ServerPlayer p, UUID simId) {
+    static int caseDe(ServerPlayer p, UUID simId) {
         Inventory inv = p.getInventory();
         for (int i = 0; i < inv.getContainerSize(); i++) {
             if (SimCardItem.simId(inv.getItem(i)).filter(simId::equals).isPresent()) {
@@ -461,7 +462,7 @@ public final class PanneauOperateurGameTests {
         return -1;
     }
 
-    private static int cartesPortees(ServerPlayer p) {
+    static int cartesPortees(ServerPlayer p) {
         int n = 0;
         Inventory inv = p.getInventory();
         for (int i = 0; i < inv.getContainerSize(); i++) {
@@ -472,7 +473,7 @@ public final class PanneauOperateurGameTests {
         return n;
     }
 
-    private static int session(GameTestHelper helper, JoueurDeTest j) {
+    static int session(GameTestHelper helper, JoueurDeTest j) {
         Optional<Integer> s = OperatorPanels.session(j.uuid());
         helper.assertTrue(s.isPresent(), "panneau ouvert attendu");
         return s.isPresent() ? s.get() : -1;
