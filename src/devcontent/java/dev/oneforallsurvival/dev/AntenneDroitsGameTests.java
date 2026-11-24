@@ -282,11 +282,14 @@ public final class AntenneDroitsGameTests {
         p.gameMode.useItemOn(p, p.serverLevel(), p.getItemInHand(InteractionHand.MAIN_HAND), InteractionHand.MAIN_HAND, tir);
     }
 
-    /** Ce joueur ouvre-t-il le panneau (message provisoire d'ici la tâche 9) ? Les messages reçus sont vidés. */
+    /** Ce joueur ouvre-t-il le panneau de l'opérateur (une vue reçue, tâche 9) ? Messages et vues reçus sont vidés. */
     private static boolean ouvre(GameTestHelper helper, JoueurDeTest j, BlockPos pos) {
         j.messagesRecus();
+        j.panneauxOperateurRecus();
         clicDroit(helper, j, pos);
-        return j.messagesRecus().contains(MSG + "panel_soon");
+        boolean vue = !j.panneauxOperateurRecus().isEmpty();
+        dev.oneforallsurvival.phone.net.OperatorPanels.close(j.uuid());
+        return vue;
     }
 
     private static float progression(GameTestHelper helper, ServerPlayer p, BlockPos pos) {
@@ -405,9 +408,10 @@ public final class AntenneDroitsGameTests {
                 String qui = testeur == inge ? "l'ingénieur au testeur" : "le fondateur au testeur";
                 mains(testeur, new ItemStack(RepairRegistry.TESTER.get()), ItemStack.EMPTY);
                 testeur.messagesRecus();
+                testeur.panneauxOperateurRecus();
                 clicDroit(helper, testeur, A);
                 List<String> recus = testeur.messagesRecus();
-                helper.assertTrue(recus.contains(RAPPORT) && !recus.contains(MSG + "panel_soon"),
+                helper.assertTrue(recus.contains(RAPPORT) && testeur.panneauxOperateurRecus().isEmpty(),
                         qui + " : le rapport de machine, jamais le panneau : " + recus);
             }
             helper.assertTrue(progression(helper, inge.joueur(), A) == 0.0F, "l'ingénieur au testeur : aucune progression");

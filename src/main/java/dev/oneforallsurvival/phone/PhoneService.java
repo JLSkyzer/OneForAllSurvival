@@ -9,6 +9,7 @@ import dev.oneforallsurvival.phone.PhoneStatePacket.Kind;
 import dev.oneforallsurvival.phone.PhoneStatePacket.Lock;
 import dev.oneforallsurvival.phone.PhoneStatePacket.Result;
 import dev.oneforallsurvival.phone.net.NetworkStatus;
+import dev.oneforallsurvival.phone.net.OperatorPanels;
 import dev.oneforallsurvival.phone.net.PhoneNetwork;
 import dev.oneforallsurvival.phone.net.PhoneOperator;
 import dev.oneforallsurvival.phone.net.PhoneOperators;
@@ -418,15 +419,22 @@ public final class PhoneService {
         return Outcome.DONE;
     }
 
-    /** L'appli « Antenne » : le panneau de l'opérateur arrive à la tâche 9 ; d'ici là, refus sans réseau. */
+    /**
+     * L'appli « Antenne » : le panneau de l'opérateur du fondateur, ouvert depuis ce téléphone
+     * ({@link OperatorPanels#openFromPhone} : propriétaire, déverrouillé, carte {@code ACTIVE} de son opérateur, une barre
+     * au moins, hors mode avion). Dans tous les autres cas, refus sans réseau ({@link Result#NO_NETWORK}).
+     */
     private static Outcome openOperatorApp(ServerPlayer player, PhoneSession session, PhoneRecord record,
             Result[] last) {
         Outcome refused = cardGestureRefused(player, session, record, last);
         if (refused != null) {
             return refused;
         }
-        last[0] = Result.NO_NETWORK;
-        return Outcome.REFUSED;
+        if (!OperatorPanels.openFromPhone(player, session)) {
+            last[0] = Result.NO_NETWORK;
+            return Outcome.REFUSED;
+        }
+        return Outcome.DONE;
     }
 
     /**

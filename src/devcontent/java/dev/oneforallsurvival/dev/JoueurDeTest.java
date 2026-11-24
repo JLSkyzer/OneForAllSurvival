@@ -60,6 +60,10 @@ public final class JoueurDeTest {
     private final List<dev.oneforallsurvival.grid.supplier.PowerPanelPacket> panneaux = new ArrayList<>();
     /** Les états du téléphone reçus, décodés depuis les octets réellement envoyés (vue réseau du lot T2 comprise). */
     private final List<dev.oneforallsurvival.phone.PhoneStatePacket> etatsTelephone = new ArrayList<>();
+    /** Les vues du panneau de l'opérateur reçues (lot T2), décodées depuis les octets réellement envoyés. */
+    private final List<dev.oneforallsurvival.phone.net.OperatorView> panneauxOperateur = new ArrayList<>();
+    /** Les octets de ces vues, tels qu'envoyés (sans le numéro du message) : pour y chercher ce qui ne doit pas y être. */
+    private final List<byte[]> octetsPanneauxOperateur = new ArrayList<>();
     /** Ceux que l'entrée en jeu elle-même a envoyés, avant qu'on ne les oublie. */
     private final List<dev.oneforallsurvival.economy.town.TownFinancesPacket> financesALaConnexion = new ArrayList<>();
     /** Les clés des messages (chat ou barre d'action) reçus, dans l'ordre ; un texte brut est gardé tel quel. */
@@ -272,6 +276,11 @@ public final class JoueurDeTest {
                     panneaux.add(dev.oneforallsurvival.grid.supplier.PowerPanelPacket.decode(donnees));
                 } else if (discriminant == BenchNetwork.ID_PHONE_STATE) {
                     etatsTelephone.add(dev.oneforallsurvival.phone.PhoneStatePacket.decode(donnees));
+                } else if (discriminant == BenchNetwork.ID_OPERATOR_PANEL) {
+                    byte[] octets = new byte[donnees.readableBytes()];
+                    donnees.getBytes(donnees.readerIndex(), octets);
+                    octetsPanneauxOperateur.add(octets);
+                    panneauxOperateur.add(dev.oneforallsurvival.phone.net.OperatorPanelPacket.decode(donnees).view());
                 } else if (discriminant == BenchNetwork.ID_INVOICE_FORM) {
                     formulairesFacture.add(dev.oneforallsurvival.economy.invoice.InvoiceFormPacket.decode(donnees));
                 }
@@ -376,6 +385,24 @@ public final class JoueurDeTest {
         lire();
         List<dev.oneforallsurvival.phone.PhoneStatePacket> out = new ArrayList<>(etatsTelephone);
         etatsTelephone.clear();
+        return out;
+    }
+
+    /** Les vues du panneau de l'opérateur reçues depuis le dernier appel (décodées comme le client les lit), retirées. */
+    public List<dev.oneforallsurvival.phone.net.OperatorView> panneauxOperateurRecus() {
+        lire();
+        List<dev.oneforallsurvival.phone.net.OperatorView> out = new ArrayList<>(panneauxOperateur);
+        panneauxOperateur.clear();
+        octetsPanneauxOperateur.clear();
+        return out;
+    }
+
+    /** Les octets des vues du panneau de l'opérateur reçues depuis le dernier appel, retirés (avec leurs vues). */
+    public List<byte[]> octetsPanneauxOperateurRecus() {
+        lire();
+        List<byte[]> out = new ArrayList<>(octetsPanneauxOperateur);
+        octetsPanneauxOperateur.clear();
+        panneauxOperateur.clear();
         return out;
     }
 

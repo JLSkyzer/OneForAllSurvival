@@ -1,0 +1,236 @@
+package dev.oneforallsurvival.phone.net;
+
+import dev.oneforallsurvival.bench.BenchNetwork;
+import dev.oneforallsurvival.phone.PhoneData;
+import dev.oneforallsurvival.phone.PhoneItem;
+import dev.oneforallsurvival.phone.PhoneService;
+import dev.oneforallsurvival.phone.PhoneSession;
+import dev.oneforallsurvival.phone.PhoneStatePacket;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import javax.annotation.Nullable;
+import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.common.util.FakePlayer;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.network.PacketDistributor;
+
+/**
+ * Les panneaux de l'opérateur ouverts (lot T2, tâche 9), côté serveur seulement et jamais sauvegardés : un par joueur au
+ * plus, sous un numéro qui grandit à chaque ouverture (un geste d'un autre numéro est périmé).
+ *
+ * <ul>
+ *   <li>Depuis le bloc ({@link #openFromBlock}) : le joueur doit rester à {@value #MAX_DISTANCE} blocs au plus du centre
+ *       de l'antenne, dont le chunk reste chargé, et garder la main sur elle ({@link AntennaRules#mayManage}).
+ *   <li>Depuis le téléphone ({@link #openFromPhone}) : le fondateur, téléphone ouvert et déverrouillé par lui, toujours en
+ *       main, carte {@code ACTIVE} de son opérateur, une barre au moins, hors mode avion.
+ * </ul>
+ *
+ * Toutes les {@value #REFRESH_TICKS} tics, chaque panneau est revérifié (fermé sinon) et sa vue renvoyée si elle a
+ * changé : jamais deux fois de suite la même. Fermé à la déconnexion, au geste {@code CLOSE} et à l'ouverture de la
+ * caisse. Fil du serveur.
+ */
+public final class OperatorPanels {
+
+    public static final int REFRESH_TICKS = 20;
+    public static final int MAX_DISTANCE = 8;
+    public static final double MAX_DISTANCE_SQR = (double) MAX_DISTANCE * MAX_DISTANCE;
+
+    /** Un panneau ouvert. {@code operatorId} : l'opérateur qu'il montre (nul : antenne à fonder, sur le bloc). */
+    static final class Panel {
+        final int session;
+        final OperatorView.Source source;
+        final ResourceKey<Level> dimension;
+        final BlockPos pos;
+        /** Le numéro de la session du téléphone qui l'a ouvert (source {@code PHONE}). */
+        final int phoneSession;
+        @Nullable
+        String operatorId;
+        int page;
+        @Nullable
+        OperatorView sent;
+
+        Panel(int session, OperatorView.Source source, ResourceKey<Level> dimension, BlockPos pos, int phoneSession,
+                @Nullable String operatorId) {
+            this.session = session;
+            this.source = source;
+            this.dimension = dimension;
+            this.pos = pos.immutable();
+            this.phoneSession = phoneSession;
+            this.operatorId = operatorId;
+        }
+    }
+
+    private static final Map<UUID, Panel> OPEN = new ConcurrentHashMap<>();
+    private static final AtomicInteger NEXT = new AtomicInteger();
+
+    private OperatorPanels() {}
+
+    // ---------------------------------------------------------------------------------------------
+    // Ouverture et fermeture
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * Ouvre le panneau de l'antenne en {@code pos} (clic droit d'un ayant droit, vérifié par l'appelant : l'antenne de
+     * {@link AntennaBlock#use}) et envoie sa vue. Remplace le panneau déjà ouvert de ce joueur.
+     */
+    public static void openFromBlock(ServerPlayer player, BlockPos pos) {
+        AntennaBlockEntity be = OperatorViews.loadedAntenna(player.serverLevel(), pos);
+        String operatorId = be == null ? null : be.operator().map(PhoneOperator::id).orElse(null);
+        Panel panel = new Panel(NEXT.incrementAndGet(), OperatorView.Source.BLOCK, player.level().dimension(), pos, 0,
+                operatorId);
+        OPEN.put(player.getUUID(), panel);
+        send(player, panel);
+    }
+
+    /**
+     * L'appli « Antenne » : ouvre le panneau du fondateur depuis son téléphone ({@code session}, ouverte par lui) et
+     * envoie sa vue.
+     *
+     * @return faux, et rien ne s'ouvre, si le joueur ne fonde pas d'opérateur, si la session n'est pas déverrouillée,
+     *         s'il n'est pas le propriétaire du téléphone, en mode avion, sans carte {@code ACTIVE} de son opérateur ou
+     *         sans barre
+     */
+    public static boolean openFromPhone(ServerPlayer player, PhoneSession session) {
+        if (player instanceof FakePlayer || session == null) {
+            return false;
+        }
+        Optional<PhoneOperator> op = PhoneOperators.get(player.server).byFounder(player.getUUID());
+        if (op.isEmpty() || !phoneValid(player, session, op.get().id())) {
+            return false;
+        }
+        Panel panel = new Panel(NEXT.incrementAndGet(), OperatorView.Source.PHONE, player.level().dimension(),
+                BlockPos.ZERO, session.id(), op.get().id());
+        OPEN.put(player.getUUID(), panel);
+        send(player, panel);
+        return true;
+    }
+
+    /** Le panneau ouvert de ce joueur. */
+    static Optional<Panel> current(UUID player) {
+        return Optional.ofNullable(OPEN.get(player));
+    }
+
+    /** Le numéro du panneau ouvert de ce joueur (essais et écrans) ; vide s'il n'en a pas. */
+    public static Optional<Integer> session(UUID player) {
+        return current(player).map(p -> p.session);
+    }
+
+    /** Ferme le panneau de ce joueur (rien n'est envoyé : l'écran du client se ferme de lui-même). */
+    public static void close(UUID player) {
+        OPEN.remove(player);
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Validité
+    // ---------------------------------------------------------------------------------------------
+
+    /** Le panneau tient-il toujours (voir la documentation de la classe) ? */
+    static boolean stillValid(ServerPlayer player, Panel panel) {
+        if (panel.source == OperatorView.Source.PHONE) {
+            Optional<PhoneSession> session = PhoneService.session(player.getUUID());
+            return panel.operatorId != null && session.isPresent() && session.get().id() == panel.phoneSession
+                    && PhoneOperators.get(player.server).byId(panel.operatorId)
+                            .filter(op -> op.founder().equals(player.getUUID())).isPresent()
+                    && phoneValid(player, session.get(), panel.operatorId);
+        }
+        if (!player.level().dimension().equals(panel.dimension) || !player.serverLevel().isLoaded(panel.pos)
+                || player.distanceToSqr(Vec3.atCenterOf(panel.pos)) > MAX_DISTANCE_SQR) {
+            return false;
+        }
+        AntennaBlockEntity be = OperatorViews.loadedAntenna(player.serverLevel(), panel.pos);
+        return be != null && AntennaRules.mayManage(player, AntennaBlock.owner(player.serverLevel(), panel.pos));
+    }
+
+    /**
+     * Le téléphone de cette session vaut-il encore une appli « Antenne » : déverrouillé, toujours en main, propriétaire,
+     * hors mode avion, carte {@code ACTIVE} de l'opérateur {@code operatorId}, une barre au moins.
+     */
+    static boolean phoneValid(ServerPlayer player, PhoneSession session, String operatorId) {
+        if (session.lock() != PhoneStatePacket.Lock.UNLOCKED) {
+            return false;
+        }
+        ItemStack stack = player.getItemInHand(session.hand());
+        if (!PhoneItem.phoneId(stack).equals(Optional.of(session.phoneId()))) {
+            return false;
+        }
+        PhoneData.PhoneRecord record = PhoneData.get(player.server).record(session.phoneId());
+        if (!player.getUUID().equals(record.owner()) || record.airplane()) {
+            return false;
+        }
+        Optional<SimCard> line = PhoneSims.line(player.server, stack);
+        if (line.isEmpty() || line.get().state() != SimCard.State.ACTIVE
+                || !line.get().operatorId().equals(operatorId)) {
+            return false;
+        }
+        return PhoneNetwork.status(player, stack, false).bars() >= 1;
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // La vue
+    // ---------------------------------------------------------------------------------------------
+
+    /** L'opérateur que montre le panneau maintenant : celui de l'antenne (sur le bloc), ou celui du fondateur. */
+    static Optional<PhoneOperator> operatorOf(ServerPlayer player, Panel panel) {
+        PhoneOperators registry = PhoneOperators.get(player.server);
+        if (panel.source == OperatorView.Source.BLOCK) {
+            AntennaBlockEntity be = OperatorViews.loadedAntenna(player.serverLevel(), panel.pos);
+            Optional<PhoneOperator> op = be == null ? Optional.empty() : be.operator();
+            panel.operatorId = op.map(PhoneOperator::id).orElse(null);
+            return op;
+        }
+        return registry.byId(panel.operatorId).filter(op -> op.founder().equals(player.getUUID()));
+    }
+
+    /** La vue du panneau, telle que {@link OperatorViews#build} la rend maintenant. */
+    static OperatorView view(ServerPlayer player, Panel panel) {
+        return OperatorViews.build(player, PhoneOperators.get(player.server), operatorOf(player, panel).orElse(null),
+                panel.source, panel.pos, panel.session, panel.page);
+    }
+
+    /** Envoie la vue du panneau si elle n'est pas celle que le client a déjà. */
+    static void send(ServerPlayer player, Panel panel) {
+        OperatorView view = view(player, panel);
+        if (view.equals(panel.sent)) {
+            return;
+        }
+        panel.sent = view;
+        BenchNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), new OperatorPanelPacket(view));
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Bus de Forge
+    // ---------------------------------------------------------------------------------------------
+
+    /** Toutes les {@value #REFRESH_TICKS} tics : chaque panneau revérifié, fermé s'il ne tient plus, sinon sa vue. */
+    public static void onServerTick(TickEvent.ServerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END || OPEN.isEmpty()
+                || event.getServer().getTickCount() % REFRESH_TICKS != 0) {
+            return;
+        }
+        MinecraftServer server = event.getServer();
+        for (Map.Entry<UUID, Panel> entry : new ArrayList<>(OPEN.entrySet())) {
+            ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
+            Panel panel = entry.getValue();
+            if (player == null || !stillValid(player, panel)) {
+                OPEN.remove(entry.getKey(), panel);
+            } else if (OPEN.get(entry.getKey()) == panel) {
+                send(player, panel);
+            }
+        }
+    }
+
+    public static void onLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
+        OPEN.remove(event.getEntity().getUUID());
+    }
+}

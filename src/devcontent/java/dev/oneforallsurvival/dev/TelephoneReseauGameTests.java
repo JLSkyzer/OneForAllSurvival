@@ -680,9 +680,14 @@ public final class TelephoneReseauGameTests {
                     PhoneStatePacket vueC = deverrouiller(helper, c);
                     helper.assertTrue(!vueC.net().founderApp() && vueC.net().sim() == PhoneSims.Validity.ACTIVE,
                             "un abonné ne voit pas l'appli : " + vueC.net());
-                    // L'appli ne s'ouvre pas encore (tâche 9) : refus sans réseau, même pour le fondateur.
-                    attendre(helper, geste(helper, f, Action.OPEN_OPERATOR_APP, ""), Lock.UNLOCKED, Result.NO_NETWORK,
-                            "appli avant la tâche 9");
+                    // L'appli ouvre le panneau de l'opérateur du fondateur (tâche 9), source « téléphone ».
+                    f.panneauxOperateurRecus();
+                    attendre(helper, geste(helper, f, Action.OPEN_OPERATOR_APP, ""), Lock.UNLOCKED, Result.NONE,
+                            "appli du fondateur");
+                    helper.assertTrue(f.panneauxOperateurRecus().stream().anyMatch(v -> v.operatorId().equals(op.id())
+                            && v.source() == dev.oneforallsurvival.phone.net.OperatorView.Source.PHONE),
+                            "le panneau de l'opérateur, source téléphone");
+                    dev.oneforallsurvival.phone.net.OperatorPanels.close(f.uuid());
                     // Le fondateur déverrouille le téléphone de l'abonné avec son code : il voit la ligne, pas l'appli.
                     PhoneService.close(c.joueur(), CloseReason.CLOSED);
                     c.joueur().setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);

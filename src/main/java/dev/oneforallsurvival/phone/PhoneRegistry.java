@@ -1,11 +1,14 @@
 package dev.oneforallsurvival.phone;
 
 import dev.oneforallsurvival.OneForAllSurvival;
+import dev.oneforallsurvival.economy.MoneyStorageRules;
 import dev.oneforallsurvival.phone.net.AntennaBlock;
 import dev.oneforallsurvival.phone.net.AntennaBlockEntity;
 import dev.oneforallsurvival.phone.net.AntennaItem;
+import dev.oneforallsurvival.phone.net.OperatorTillMenu;
 import dev.oneforallsurvival.phone.net.SimCardItem;
 import java.util.List;
+import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
@@ -14,7 +17,9 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
 import net.minecraft.world.level.material.PushReaction;
+import net.minecraftforge.common.extensions.IForgeMenuType;
 import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
@@ -32,6 +37,8 @@ public final class PhoneRegistry {
             DeferredRegister.create(ForgeRegistries.ITEMS, OneForAllSurvival.MODID);
     private static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES =
             DeferredRegister.create(ForgeRegistries.BLOCK_ENTITY_TYPES, OneForAllSurvival.MODID);
+    private static final DeferredRegister<MenuType<?>> MENUS =
+            DeferredRegister.create(ForgeRegistries.MENU_TYPES, OneForAllSurvival.MODID);
 
     public static final RegistryObject<Item> PHONE = ITEMS.register("phone",
             () -> new PhoneItem(new Item.Properties().stacksTo(1)));
@@ -69,12 +76,23 @@ public final class PhoneRegistry {
     public static final RegistryObject<Item> SIM_CARD = ITEMS.register("sim_card",
             () -> new SimCardItem(new Item.Properties().stacksTo(1)));
 
+    /** La caisse d'un opérateur (tâche 9), ouverte sur l'antenne principale ; rangement permis pour l'argent. */
+    public static final RegistryObject<MenuType<OperatorTillMenu>> OPERATOR_TILL_MENU =
+            MENUS.register("operator_till", () -> IForgeMenuType.create(OperatorTillMenu::fromNetwork));
+
     private PhoneRegistry() {}
 
     public static void register(IEventBus modEventBus) {
         BLOCKS.register(modEventBus);
         ITEMS.register(modEventBus);
         BLOCK_ENTITIES.register(modEventBus);
+        MENUS.register(modEventBus);
+        modEventBus.addListener(PhoneRegistry::onCommonSetup);
+    }
+
+    /** La caisse d'un opérateur est un rangement permis pour l'argent (des deux côtés, comme celle du poste). */
+    private static void onCommonSetup(FMLCommonSetupEvent event) {
+        event.enqueueWork(() -> MoneyStorageRules.register(OPERATOR_TILL_MENU.get()));
     }
 
     public static List<RegistryObject<? extends Item>> tabItems() {

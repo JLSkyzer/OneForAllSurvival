@@ -142,6 +142,14 @@ public final class OneForAllSurvival {
         // Téléphone : sessions ouvertes (tic serveur) et départ du joueur (session et frein oubliés).
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.phone.PhoneService::onServerTick);
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.phone.PhoneService::onLoggedOut);
+        // Lot T2, tâche 9 : le panneau de l'opérateur (renvoi périodique, fermeture et frein au départ), la clôture de
+        // minuit du téléphone (tarifs du lendemain, consommation des antennes ; aucune facture avant le lot T6) et les
+        // avis du téléphone gardés pour les absents, donnés à la connexion.
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.phone.net.OperatorPanels::onServerTick);
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.phone.net.OperatorPanels::onLoggedOut);
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.phone.net.OperatorActions::onLoggedOut);
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.phone.net.OperatorDay::onLoggedIn);
+        dev.oneforallsurvival.phone.net.OperatorDay.install(dev.oneforallsurvival.phone.net.OperatorDay.SERVER);
         // Le tableau de la mairie : les comptes publics partent à la connexion puis quand ils changent (1 fois par seconde).
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.town.TownFinances::onLoggedIn);
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.town.TownFinances::onServerTick);

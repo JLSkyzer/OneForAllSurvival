@@ -150,11 +150,15 @@ public final class AntennaBlock extends ElectricMachineBlock {
      * l'ingénieur, même outillé, ne fonde pas au nom d'un autre). Une antenne sans poseur noté ({@code /setblock}) : le
      * maire, l'équipe et l'ingénieur outillé, à leur nom. Refusé si l'antenne a déjà un opérateur qui existe.
      *
-     * @return l'issue ; vide si le geste n'est pas permis (pas d'antenne, pas le droit, déjà fondée)
+     * <p>Le bloc doit être chargé (rien n'est chargé de force) et être une antenne. Le panneau (seul chemin d'un joueur)
+     * a vérifié juste avant que l'antenne est celle qu'il a ouverte, à {@value OperatorPanels#MAX_DISTANCE} blocs au plus
+     * de l'acteur ({@link OperatorActions}) ; les essais fondent aussi de loin, sans panneau.
+     *
+     * @return l'issue ; vide si le geste n'est pas permis (pas d'antenne, chunk non chargé, pas le droit, déjà fondée)
      */
     public static Optional<PhoneOperators.Result> found(ServerPlayer actor, BlockPos pos, String name) {
         ServerLevel level = actor.serverLevel();
-        if (!level.getBlockState(pos).is(PhoneRegistry.ANTENNA.get())
+        if (pos == null || !level.isLoaded(pos) || !level.getBlockState(pos).is(PhoneRegistry.ANTENNA.get())
                 || !(level.getBlockEntity(pos) instanceof AntennaBlockEntity be) || be.operator().isPresent()) {
             return Optional.empty();
         }
@@ -182,9 +186,9 @@ public final class AntennaBlock extends ElectricMachineBlock {
     // ---------------------------------------------------------------------------------------------
 
     /**
-     * Le testeur en main principale est laissé au testeur (rapport de machine, comme au lot 2). Sinon le panneau de
-     * l'antenne arrive à la tâche 9 : d'ici là, un ayant droit lit un message provisoire, les autres à quel opérateur
-     * elle est.
+     * Le testeur en main principale est laissé au testeur (rapport de machine, comme au lot 2). Sinon un ayant droit
+     * ({@link AntennaRules#mayManage}) ouvre le panneau de l'opérateur ({@link OperatorPanels#openFromBlock}) ; les
+     * autres lisent à quel opérateur elle est.
      */
     @Override
     public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand,
@@ -199,7 +203,7 @@ public final class AntennaBlock extends ElectricMachineBlock {
                 && level.getBlockEntity(pos) instanceof AntennaBlockEntity be) {
             Optional<PhoneOperator> operator = be.operator();
             if (AntennaRules.mayManage(serverPlayer, owner(level, pos))) {
-                serverPlayer.displayClientMessage(Component.translatable(MESSAGE + "panel_soon"), true);
+                OperatorPanels.openFromBlock(serverPlayer, pos);
             } else if (operator.isPresent()) {
                 serverPlayer.displayClientMessage(Component.translatable(MESSAGE + "of", operator.get().name()), true);
             } else {
@@ -215,7 +219,7 @@ public final class AntennaBlock extends ElectricMachineBlock {
 
     /** Le propriétaire de l'antenne : le fondateur de son opérateur ; sans opérateur, qui l'a posée (nul si personne). */
     @Nullable
-    private static UUID owner(BlockGetter level, BlockPos pos) {
+    static UUID owner(BlockGetter level, BlockPos pos) {
         if (!(level.getBlockEntity(pos) instanceof AntennaBlockEntity be)) {
             return null;
         }
