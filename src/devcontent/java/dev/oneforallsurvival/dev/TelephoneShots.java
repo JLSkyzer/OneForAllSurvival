@@ -6,8 +6,10 @@ import dev.oneforallsurvival.client.web.WebBridge;
 import dev.oneforallsurvival.client.web.WebFailure;
 import dev.oneforallsurvival.client.web.WebScreen;
 import dev.oneforallsurvival.client.web.WebScreen.Rect;
+import dev.oneforallsurvival.economy.EconomyClock;
 import dev.oneforallsurvival.phone.PhoneConfig;
 import dev.oneforallsurvival.phone.PhoneItem;
+import dev.oneforallsurvival.phone.PhoneNetView;
 import dev.oneforallsurvival.phone.PhoneRegistry;
 import dev.oneforallsurvival.phone.PhoneStatePacket;
 import dev.oneforallsurvival.phone.PhoneStatePacket.CloseReason;
@@ -20,6 +22,12 @@ import dev.oneforallsurvival.phone.WallSocketBlockEntity;
 import dev.oneforallsurvival.phone.client.PhoneClient;
 import dev.oneforallsurvival.phone.client.PhoneFallbackScreen;
 import dev.oneforallsurvival.phone.client.PhoneWebScreen;
+import dev.oneforallsurvival.phone.net.AntennaBlock;
+import dev.oneforallsurvival.phone.net.AntennaBlockEntity;
+import dev.oneforallsurvival.phone.net.AntennaItem;
+import dev.oneforallsurvival.phone.net.PhoneOperator;
+import dev.oneforallsurvival.phone.net.PhoneOperators;
+import dev.oneforallsurvival.phone.net.PhoneSims;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
@@ -34,6 +42,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Stream;
@@ -111,6 +120,11 @@ import org.lwjgl.glfw.GLFW;
  *   puis cinq cycles ; horodatages dans {@code etapes.txt} pour {@code tools/telephone-memoire.ps1}.</li>
  *   <li>{@code webdisplays} : le minePad de WebDisplays sur la page d'essai du mod, puis le téléphone, puis encore le
  *   minePad ; aucun message étranger au pont du téléphone.</li>
+ *   <li>{@code reseau} (lot T2, tâche 8) : un téléphone configuré (code cliqué, confirmé au clavier), deux antennes
+ *   posées par un vrai {@code useItemOn} (« Mairie », fondée par le joueur ; « Lagon », d'un fondateur fictif) contre
+ *   un bloc d'énergie créative, une carte émise ; puis la barre d'état sans carte (verrouillé, déverrouillé au
+ *   clavier), l'appli « Antenne », la feuille « Carte SIM » (demande de carte, carte glissée par un vrai clic), le mode
+ *   avion, les barres à 150 et 300 blocs, l'écran verrouillé avec l'opérateur, puis le retrait de la carte.</li>
  * </ul>
  *
  * <p>{@code options.txt} n'est jamais réécrit (taille de fenêtre, échelle et plafond en mémoire seulement). La touche
@@ -287,6 +301,7 @@ public final class TelephoneShots {
                     switch (MODE) {
                         case "perf" -> composerPerf(mc);
                         case "webdisplays" -> composerWebDisplays(mc);
+                        case "reseau" -> composerReseau(mc);
                         default -> composer(mc);
                     }
                     passer(Phase.ETAPES);
@@ -508,6 +523,240 @@ public final class TelephoneShots {
         // Avec MCEF, le repli en cours de route a donné un seul avis ; sans MCEF ou page cassée, un seul depuis le début.
         pas("bilan-avis-final", () -> bilanAvis(mc, web && !solo ? 0 : 1), () -> true, 1, null);
         bilanDuPont();
+    }
+
+    // --- Le réseau (lot T2, tâche 8) ---------------------------------------------------------------------------------
+
+    private static final String MAIRIE = "Mairie";
+    private static final String LAGON = "Lagon";
+    @Nullable private static volatile BlockPos antenneMairie;
+    @Nullable private static volatile BlockPos antenneLagon;
+    private static volatile String idLagon = "";
+    private static volatile String reseauNote = "";
+    private static volatile boolean antennesEnService;
+    private static volatile boolean carteEmise;
+    @Nullable private static volatile Vec3 departReseau;
+
+    /** La vue réseau du dernier état reçu. */
+    private static PhoneNetView vueReseau() {
+        return PhoneClient.last().map(PhoneStatePacket::net).orElse(PhoneNetView.NONE);
+    }
+
+    private static void composerReseau(Minecraft mc) {
+        if (SERVEUR != null) {
+            echec("reseau", "le mode reseau se joue en monde solo (gestes du serveur intégré)");
+            return;
+        }
+        decor(mc, 80);
+        // Un téléphone neuf configuré : code cliqué, confirmé au clavier.
+        ouvrir(mc, "reseau-ouverture-0", Lock.SETUP, null);
+        assistantJusquAuFond(mc, "reseau-assistant", "aube", false);
+        assistantVersLeCode(mc, "reseau-assistant", false);
+        cliquerCode(mc, "reseau-choix", CODE);
+        pas("reseau-confirmation-au-clavier", () -> stable(mc, "key-0"), () -> taper(mc, CODE),
+                () -> etat(Lock.UNLOCKED), 10, null);
+        toutEstPret(mc, "reseau-assistant", "aube", null);
+        pas("reseau-sans-carte", () -> {}, () -> {
+            PhoneNetView n = vueReseau();
+            if (n.sim() != PhoneSims.Validity.NONE || n.founderApp()) {
+                echec("reseau-sans-carte", "avant toute antenne : " + n);
+            }
+            return true;
+        }, 2, "r01-sans-carte-accueil");
+        echap(mc, "reseau-echap-0");
+
+        // Deux antennes posées par un vrai clic, contre un bloc d'énergie créative ; Mairie fondée par le joueur.
+        antennes(mc);
+        pas("reseau-carte-emise", () -> serveur(mc, (srv, sp) -> {
+            Optional<PhoneOperator> mairie = PhoneOperators.get(srv).byFounder(sp.getUUID());
+            if (mairie.isEmpty()) {
+                return;
+            }
+            carteEmise = PhoneSims.issueTo(sp, mairie.get(), sp.getUUID(), sp.getGameProfile().getName(),
+                    EconomyClock.now()).isPresent();
+        }), () -> carteEmise, 5, null);
+
+        // Verrouillé, sans carte : « Pas de SIM », rien d'autre ; déverrouillé au clavier.
+        ouvrir(mc, "reseau-ouverture-1", Lock.LOCKED, "r02-verrouille-pas-de-sim");
+        pas("reseau-verrouille-pas-de-sim", () -> {}, () -> {
+            PhoneNetView n = vueReseau();
+            journal("verrouillé sans carte : " + n);
+            if (n.sim() != PhoneSims.Validity.NONE || !n.number().isEmpty() || !n.choices().isEmpty()
+                    || !n.requestable().isEmpty() || n.founderApp()) {
+                echec("reseau-verrouille-pas-de-sim", "vue verrouillée trop bavarde : " + n);
+            }
+            return true;
+        }, 2, null);
+        pas("reseau-deverrouillage-clavier", () -> stable(mc, "key-0"), () -> taper(mc, CODE),
+                () -> etat(Lock.UNLOCKED) && cible(mc, id("app-antenna", "app-antenna")), 10, null);
+        pause("r03-accueil-icone-antenne");
+        clic(mc, "reseau-appli-antenne", id("app-antenna", "app-antenna"),
+                () -> PhoneClient.last().map(p -> p.last() == Result.NO_NETWORK).orElse(false), 10, null);
+        pause("r04-appli-antenne-reponse");
+        if (web) {
+            clic(mc, "reseau-appli-antenne-ok", "alert-0", () -> stable(mc, "app-settings") && attendu(0.5), 10, null);
+        }
+
+        // La feuille « Carte SIM » : demande de carte à Lagon, puis la carte de Mairie glissée.
+        clic(mc, "reseau-reglages", id("app-settings", "settings"), () -> cible(mc, id("row-sim", "sim")), 10, null);
+        clic(mc, "reseau-feuille-sim", id("row-sim", "sim"), () -> cible(mc, "sim-request")
+                && carteDansLaFeuille(mc) != null, 10, null);
+        pause("r05-feuille-sim-sans-carte");
+        clic(mc, "reseau-demander", "sim-request", () -> cible(mc, "request-" + idLagon), 10, null);
+        pause("r06-liste-des-demandes");
+        pas("reseau-demande-envoyee", () -> stable(mc, "request-" + idLagon), () -> cliquer(mc, "request-" + idLagon),
+                () -> PhoneClient.last().map(p -> p.last() == Result.SIM_REQUESTED).orElse(false), 10,
+                "r07-demande-envoyee");
+        pas("reseau-demande-inscrite", () -> serveur(mc, (srv, sp) -> reseauNote = "demandes de Lagon : "
+                + PhoneOperators.get(srv).requestsOf(idLagon).size()), () -> !reseauNote.isEmpty() && attendu(0.3), 3,
+                null);
+        pas("reseau-demande-relevee", () -> journal(reseauNote), () -> true, 1, null);
+        pause(null);
+        pas("reseau-glisser", () -> carteDansLaFeuille(mc) != null && stable(mc, carteDansLaFeuille(mc)),
+                () -> cliquer(mc, carteDansLaFeuille(mc)), () -> {
+                    PhoneNetView n = vueReseau();
+                    return n.sim() == PhoneSims.Validity.ACTIVE && MAIRIE.equals(n.operator()) && n.bars() == 4;
+                }, 10, null);
+        pause("r08-carte-inseree-4-barres");
+        pas("reseau-ligne", () -> {}, () -> {
+            PhoneNetView n = vueReseau();
+            journal("ligne : " + n);
+            if (n.number().isEmpty() || !mc.player.getGameProfile().getName().equals(n.holder())) {
+                echec("reseau-ligne", "numéro ou titulaire absents déverrouillé : " + n);
+            }
+            return true;
+        }, 2, null);
+        clic(mc, "reseau-fermer-feuille", id("sim-close", "back"), () -> cible(mc, id("row-airplane", "airplane")),
+                10, null);
+
+        // Mode avion : 0 barre et « Mode avion » à leur place ; puis retour.
+        clic(mc, "reseau-mode-avion", id("row-airplane", "airplane"),
+                () -> PhoneClient.last().map(p -> p.airplane() && p.net().bars() == 0).orElse(false), 10, null);
+        pause("r09-mode-avion");
+        clic(mc, "reseau-mode-avion-coupe", id("row-airplane", "airplane"),
+                () -> PhoneClient.last().map(p -> !p.airplane() && p.net().bars() == 4).orElse(false), 25, null);
+
+        // Les barres suivent le joueur (relevé du serveur toutes les 20 tics) : 2 barres à 150 blocs, 0 à 300.
+        deplacer(mc, "reseau-150-blocs", 150, 2, "r10-deux-barres");
+        deplacer(mc, "reseau-300-blocs", 300, 0, "r11-zero-barre");
+        deplacer(mc, "reseau-retour", 0, 4, null);
+        echap(mc, "reseau-echap-1");
+
+        // Verrouillé avec une carte : l'opérateur et les barres, ni numéro ni titulaire.
+        ouvrir(mc, "reseau-ouverture-2", Lock.LOCKED, "r12-verrouille-operateur");
+        pas("reseau-verrouille-operateur", () -> {}, () -> {
+            PhoneNetView n = vueReseau();
+            journal("verrouillé avec carte : " + n);
+            if (n.sim() != PhoneSims.Validity.ACTIVE || !MAIRIE.equals(n.operator()) || n.bars() != 4
+                    || !n.number().isEmpty() || !n.holder().isEmpty() || !n.choices().isEmpty() || n.founderApp()) {
+                echec("reseau-verrouille-operateur", "vue verrouillée : " + n);
+            }
+            return true;
+        }, 2, null);
+
+        // Retrait par la feuille.
+        pas("reseau-deverrouillage-2", () -> stable(mc, "key-0"), () -> taper(mc, CODE),
+                () -> etat(Lock.UNLOCKED) && cible(mc, id("app-settings", "settings")), 10, null);
+        clic(mc, "reseau-reglages-2", id("app-settings", "settings"), () -> cible(mc, id("row-sim", "sim")), 10, null);
+        clic(mc, "reseau-feuille-sim-2", id("row-sim", "sim"), () -> cible(mc, "sim-remove"), 10, null);
+        pause("r13-feuille-sim-carte-active");
+        clic(mc, "reseau-retirer", "sim-remove", () -> {
+            PhoneNetView n = vueReseau();
+            return n.sim() == PhoneSims.Validity.NONE
+                    && PhoneClient.last().map(p -> p.last() == Result.SIM_REMOVED || p.last() == Result.NONE)
+                    .orElse(false);
+        }, 10, null);
+        pause("r14-carte-retiree");
+        echap(mc, "reseau-echap-2");
+        bilanDuPont();
+    }
+
+    /** L'identifiant de la première carte de l'inventaire proposée par la feuille ({@code sim-choice-<case>}), ou nul. */
+    @Nullable
+    private static String carteDansLaFeuille(Minecraft mc) {
+        List<PhoneSims.SimChoice> cartes = vueReseau().choices();
+        return cartes.isEmpty() ? null : "sim-choice-" + cartes.get(0).slot();
+    }
+
+    /**
+     * Les deux antennes : un bloc d'énergie créative posé par le serveur, puis l'antenne tenue en main posée contre lui
+     * par un vrai {@code useItemOn} sur le sol. Mairie : fondée par le joueur (le nom se donne par le serveur, le
+     * panneau arrive à la tâche 9). Lagon : un opérateur d'un fondateur fictif, que l'objet porte ({@code markOperator}).
+     */
+    private static void antennes(Minecraft mc) {
+        pas("reseau-depart", () -> serveur(mc, (srv, sp) -> {
+            departReseau = sp.position();
+            BlockPos pied = sp.blockPosition();
+            Block creatif = ForgeRegistries.BLOCKS.getValue(new ResourceLocation("createaddition", "creative_energy"));
+            boolean pack = creatif != null && creatif != Blocks.AIR;
+            sp.serverLevel().setBlockAndUpdate(pied.east(3), pack ? creatif.defaultBlockState()
+                    : Blocks.STONE.defaultBlockState());
+            sp.serverLevel().setBlockAndUpdate(pied.west(3), pack ? creatif.defaultBlockState()
+                    : Blocks.STONE.defaultBlockState());
+            PhoneOperators registre = PhoneOperators.get(srv);
+            PhoneOperators.Result lagon = registre.found(java.util.UUID.randomUUID(), "Fondatrice", LAGON,
+                    EconomyClock.now());
+            if (lagon.founded()) {
+                idLagon = lagon.operator().id();
+            }
+            ItemStack mairie = new ItemStack(PhoneRegistry.ANTENNA_ITEM.get());
+            sp.getInventory().setItem(7, mairie);
+            ItemStack autre = new ItemStack(PhoneRegistry.ANTENNA_ITEM.get());
+            if (lagon.founded()) {
+                AntennaItem.markOperator(autre, lagon.operator());
+            }
+            sp.getInventory().setItem(8, autre);
+            antenneMairie = pied.east(2);
+            antenneLagon = pied.west(2);
+            journal("énergie : " + (pack ? "createaddition:creative_energy" : "pierre (pack absent)")
+                    + " ; Lagon " + lagon.status());
+        }), () -> antenneLagon != null && !idLagon.isEmpty()
+                && mc.player.getInventory().getItem(7).is(PhoneRegistry.ANTENNA_ITEM.get())
+                && mc.player.getInventory().getItem(8).is(PhoneRegistry.ANTENNA_ITEM.get()), 5, null);
+        poserAntenne(mc, "reseau-pose-mairie", 7, () -> antenneMairie);
+        pas("reseau-fonder-mairie", () -> serveur(mc, (srv, sp) -> {
+            Optional<PhoneOperators.Result> r = AntennaBlock.found(sp, antenneMairie, MAIRIE);
+            reseauNote = "fondation de Mairie : " + r.map(x -> x.status().name()).orElse("refusée");
+        }), () -> reseauNote.startsWith("fondation") && attendu(0.3), 5, null);
+        pas("reseau-fondation-relevee", () -> journal(reseauNote), () -> true, 1, null);
+        poserAntenne(mc, "reseau-pose-lagon", 8, () -> antenneLagon);
+        pas("reseau-telephone-en-main", () -> mc.player.getInventory().selected = caseDuTelephone,
+                () -> mc.player.getMainHandItem().is(PhoneRegistry.PHONE.get()) && attendu(0.3), 5, null);
+        pas("reseau-antennes-en-service", () -> {}, () -> {
+            serveur(mc, (srv, sp) -> antennesEnService = enService(sp.serverLevel(), antenneMairie)
+                    && enService(sp.serverLevel(), antenneLagon));
+            return antennesEnService;
+        }, 20, "r00-antennes");
+    }
+
+    private static boolean enService(ServerLevel level, BlockPos pos) {
+        if (!(level.getBlockEntity(pos) instanceof AntennaBlockEntity be) || be.antennaId() == null) {
+            return false;
+        }
+        return PhoneOperators.get(level.getServer()).antenna(be.antennaId())
+                .map(r -> AntennaBlockEntity.inService(r, level.getGameTime())).orElse(false);
+    }
+
+    /** L'antenne de la case {@code slot} de la barre, posée par un vrai clic sur le sol sous {@code ou}. */
+    private static void poserAntenne(Minecraft mc, String nom, int slot, java.util.function.Supplier<BlockPos> ou) {
+        pas(nom, () -> {
+            mc.player.getInventory().selected = slot;
+            BlockPos sol = ou.get().below();
+            mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND,
+                    new BlockHitResult(Vec3.atCenterOf(sol).add(0, 0.5, 0), Direction.UP, sol, false));
+        }, () -> mc.level.getBlockState(ou.get()).is(PhoneRegistry.ANTENNA.get()) && attendu(0.5), 5, null);
+    }
+
+    /**
+     * Le joueur est replacé à {@code dx} blocs à l'est du départ (le serveur le téléporte) ; le relevé du signal doit
+     * donner {@code barres} barres dans les 3 s (20 tics par relevé).
+     */
+    private static void deplacer(Minecraft mc, String nom, int dx, int barres, @Nullable String image) {
+        pas(nom, () -> serveur(mc, (srv, sp) -> {
+            Vec3 d = departReseau;
+            sp.teleportTo(sp.serverLevel(), d.x + dx, d.y, d.z, sp.getYRot(), sp.getXRot());
+        }), () -> vueReseau().bars() == barres && attendu(1.0), 8, image);
+        pas(nom + "-releve", () -> journal(nom + " : " + vueReseau()), () -> true, 1, null);
     }
 
     /** La prise : un bloc d'énergie créative comme mur, la prise contre lui, le téléphone branché puis repris. */
@@ -1178,8 +1427,9 @@ public final class TelephoneShots {
 
     /** Les messages que la page du téléphone peut envoyer, et leurs clés. */
     private static final Set<String> SORTES = Set.of("ready", "layout", "close", "unlock", "setup", "erase", "lock",
-            "changeCode", "wallpaper", "airplane");
-    private static final Set<String> CLES = Set.of("a", "rects", "code", "old", "new", "id", "on", "wallpaper");
+            "changeCode", "wallpaper", "airplane", "insertSim", "removeSim", "requestSim", "antennaApp");
+    private static final Set<String> CLES = Set.of("a", "rects", "code", "old", "new", "id", "on", "wallpaper", "slot",
+            "op");
 
     /**
      * Le pont de l'écran est entouré d'un témoin qui compte chaque message par sorte (jamais son contenu : il peut

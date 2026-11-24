@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.ToIntFunction;
 
 /**
  * La mise en page de l'écran de repli du téléphone, en coordonnées d'interface, sans Minecraft (testable) : la zone
@@ -15,14 +16,16 @@ import java.util.Map;
 public final class PhoneFallbackLayout {
 
     /** Les lignes des Réglages, de haut en bas. */
-    public static final List<String> SETTINGS_ROWS = List.of("airplane", "wallpaper", "old", "new", "confirm", "change",
-            "lock", "erase", "back");
+    public static final List<String> SETTINGS_ROWS = List.of("sim", "airplane", "wallpaper", "old", "new", "confirm",
+            "change", "lock", "erase", "back");
     /** Les lignes qui portent un libellé au-dessus d'elles (les champs de code). */
     public static final List<String> LABELLED = List.of("old", "new", "confirm");
     static final int KEY_GAP = 3;
     static final int ROW_GAP = 2;
     static final int MIN_ROW = 10;
     static final int MAX_ROW = 20;
+    /** Les lignes de texte au-dessus de « Retirer » dans la feuille « Carte SIM » : numéro, titulaire, message. */
+    public static final int SIM_TEXT_LINES = 3;
     /** En dessous de cette échelle, le texte d'Effacer cède la place à une flèche (le libellé reste lu et en bulle). */
     static final float SYMBOL_BELOW = 0.75f;
 
@@ -96,7 +99,7 @@ public final class PhoneFallbackLayout {
         return new Rect(inner.x(), y, inner.width(), h);
     }
 
-    /** Les Réglages : deux lignes de texte, puis neuf lignes ; un libellé d'une ligne au-dessus de chaque champ de code. */
+    /** Les Réglages : deux lignes de texte, puis dix lignes (« Carte SIM » en tête) ; un libellé d'une ligne au-dessus de chaque champ de code. */
     public static Settings settings(Rect inner, int lineHeight) {
         int text = 2 * (lineHeight + 1);
         int label = lineHeight + 1;
@@ -114,6 +117,66 @@ public final class PhoneFallbackLayout {
             y += rh + ROW_GAP;
         }
         return new Settings(inner.y(), Collections.unmodifiableMap(rows), Collections.unmodifiableMap(labels));
+    }
+
+    /**
+     * La feuille « Carte SIM » (lot T2) : {@value #SIM_TEXT_LINES} lignes de texte (la carte logée, le message du
+     * dernier geste), « Retirer » dessous, « Retour » en bas,
+     * et entre eux une liste qui défile (une ligne par carte de l'inventaire, « Demander une carte », puis un opérateur
+     * par ligne). {@code rows} ne garde que les lignes entièrement visibles au défilement {@code scroll} (ramené entre 0
+     * et {@code maxScroll}) ; {@code rowStep} est le pas d'une ligne (hauteur et écart).
+     */
+    public record SimSheet(int textTop, Rect remove, Rect list, Map<String, Rect> rows, int scroll, int maxScroll,
+            int rowStep, Rect back) {}
+
+    /** Les lignes de la feuille « Carte SIM », de {@value #MIN_ROW} à {@value #MAX_ROW} px : une ligne de texte et 5 px. */
+    public static int simRow(int lineHeight) {
+        return clamp(lineHeight + 5);
+    }
+
+    public static SimSheet simSheet(Rect inner, int lineHeight, List<String> ids, int scroll) {
+        int rh = simRow(lineHeight);
+        int step = rh + ROW_GAP;
+        int text = SIM_TEXT_LINES * (lineHeight + 1);
+        Rect remove = new Rect(inner.x(), inner.y() + text, inner.width(), rh);
+        Rect back = new Rect(inner.x(), inner.y() + inner.height() - rh, inner.width(), rh);
+        int listTop = remove.y() + rh + ROW_GAP;
+        int listHeight = Math.max(0, back.y() - ROW_GAP - listTop);
+        Rect list = new Rect(inner.x(), listTop, inner.width(), listHeight);
+        int total = ids.isEmpty() ? 0 : ids.size() * step - ROW_GAP;
+        int maxScroll = Math.max(0, total - listHeight);
+        int shown = Math.max(0, Math.min(maxScroll, scroll));
+        Map<String, Rect> rows = new LinkedHashMap<>();
+        for (int i = 0; i < ids.size(); i++) {
+            int y = listTop + i * step - shown;
+            if (y >= listTop && y + rh <= listTop + listHeight) {
+                rows.put(ids.get(i), new Rect(inner.x(), y, inner.width(), rh));
+            }
+        }
+        return new SimSheet(inner.y(), remove, list, Collections.unmodifiableMap(rows), shown, maxScroll, step, back);
+    }
+
+    /**
+     * Le texte tel qu'il tient dans {@code room} px (largeurs mesurées par {@code width}, la police du jeu à l'écran) :
+     * entier s'il tient, sinon coupé entre deux caractères et fini par « … » ; vide si même « … » ne tient pas.
+     */
+    public static String ellipsize(String text, int room, ToIntFunction<String> width) {
+        if (text == null || text.isEmpty() || width.applyAsInt(text) <= room) {
+            return text == null ? "" : text;
+        }
+        String dots = "…";
+        if (width.applyAsInt(dots) > room) {
+            return "";
+        }
+        int end = text.length();
+        while (end > 0) {
+            end = text.offsetByCodePoints(end, -1);
+            String cut = text.substring(0, end).stripTrailing() + dots;
+            if (width.applyAsInt(cut) <= room) {
+                return cut;
+            }
+        }
+        return dots;
     }
 
     /** L'échelle (au plus {@code max}) qui fait tenir un texte de {@code textWidth} dans {@code available}. */

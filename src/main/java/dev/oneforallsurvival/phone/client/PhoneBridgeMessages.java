@@ -22,6 +22,9 @@ import javax.annotation.Nullable;
  * l'assistant de première configuration), {@code lock}, {@code changeCode} ({@code old}, {@code new}),
  * {@code wallpaper} ({@code id}) et {@code airplane} ({@code on}, booléen JSON) partent, avec exactement leurs champs :
  * un champ de plus, un type faux, un code qui n'est pas de quatre chiffres ASCII ou un fond inconnu, et rien ne part.
+ * Lot T2 : {@code insertSim} ({@code slot}, entier JSON de 0 à 40 écrit sans signe, sans zéro de tête, sans partie
+ * décimale ni exposant), {@code removeSim} et {@code antennaApp} (sans champ), {@code requestSim} ({@code op},
+ * identifiant d'opérateur de 12 caractères hexadécimaux en minuscules, la forme du registre).
  * {@code ready}, {@code layout} et {@code close} restent dans le client. Le serveur revérifie tout de toute façon.
  */
 public final class PhoneBridgeMessages {
@@ -32,6 +35,12 @@ public final class PhoneBridgeMessages {
     private static final Set<String> CHANGE = Set.of("a", "old", "new");
     private static final Set<String> WALLPAPER = Set.of("a", "id");
     private static final Set<String> AIRPLANE = Set.of("a", "on");
+    private static final Set<String> SLOT = Set.of("a", "slot");
+    private static final Set<String> OPERATOR = Set.of("a", "op");
+    /** Une case de l'inventaire telle que JSON l'écrit : 0 à 40, sans signe, zéro de tête, décimale ni exposant. */
+    private static final Pattern SLOT_TEXT = Pattern.compile("0|[1-9]|[1-3][0-9]|40");
+    /** Un identifiant d'opérateur ({@code PhoneOperators.found}) : 12 caractères hexadécimaux en minuscules. */
+    private static final Pattern OPERATOR_ID = Pattern.compile("[0-9a-f]{12}");
 
     static final int MAX_RECTS = 64;
     private static final Pattern RECT_ID = Pattern.compile("[a-z0-9-]{1,32}");
@@ -73,8 +82,40 @@ public final class PhoneBridgeMessages {
                         ? Optional.of(new PhoneActionPacket(session, Action.AIRPLANE, "", "", on.getAsBoolean()))
                         : Optional.empty();
             }
+            case "insertSim" -> {
+                String slot = slot(message.get("slot"));
+                yield exactly(message, SLOT) && slot != null
+                        ? Optional.of(new PhoneActionPacket(session, Action.INSERT_SIM, slot, "", false))
+                        : Optional.empty();
+            }
+            case "removeSim" -> exactly(message, ONLY_A)
+                    ? Optional.of(new PhoneActionPacket(session, Action.REMOVE_SIM, "", "", false))
+                    : Optional.empty();
+            case "requestSim" -> {
+                String op = string(message.get("op"));
+                yield exactly(message, OPERATOR) && op != null && OPERATOR_ID.matcher(op).matches()
+                        ? Optional.of(new PhoneActionPacket(session, Action.REQUEST_SIM, op, "", false))
+                        : Optional.empty();
+            }
+            case "antennaApp" -> exactly(message, ONLY_A)
+                    ? Optional.of(new PhoneActionPacket(session, Action.OPEN_OPERATOR_APP, "", "", false))
+                    : Optional.empty();
             default -> Optional.empty();
         };
+    }
+
+    /**
+     * La case d'un {@code insertSim} en texte ({@code "0"} à {@code "40"}), ou {@code null} : seul un nombre JSON écrit
+     * comme un entier de 0 à 40 passe ({@code 5.0}, {@code 5e0}, {@code "5"}, {@code -1} et {@code 41} ne passent pas).
+     * Le texte du nombre est lu tel que la page l'a écrit (Gson garde l'écriture d'un nombre lu).
+     */
+    @Nullable
+    private static String slot(@Nullable JsonElement e) {
+        if (e == null || !e.isJsonPrimitive() || !e.getAsJsonPrimitive().isNumber()) {
+            return null;
+        }
+        String text = e.getAsJsonPrimitive().getAsString();
+        return SLOT_TEXT.matcher(text).matches() ? text : null;
     }
 
     /**

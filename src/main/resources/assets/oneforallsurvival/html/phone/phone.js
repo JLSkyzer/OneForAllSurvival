@@ -4,9 +4,14 @@
 //   d'écran, défilement ou redimensionnement) ; {"a":"unlock","code":"…"} ;
 //   {"a":"setup","code":"…","wallpaper":"…"} (le fond choisi par l'assistant, envoyé avec le code) ; {"a":"lock"} ;
 //   {"a":"changeCode","old":"…","new":"…"} ; {"a":"wallpaper","id":"…"} ; {"a":"airplane","on":true|false} ;
-//   {"a":"erase","code":"…"}.
+//   {"a":"erase","code":"…"} ; lot T2 : {"a":"insertSim","slot":N} (entier de 0 à 40) ; {"a":"removeSim"} ;
+//   {"a":"requestSim","op":"<identifiant d'opérateur, 12 hexadécimaux>"} ; {"a":"antennaApp"}.
 //   Java -> page : view = {session, lock: "SETUP"|"LOCKED"|"UNLOCKED", battery, serverMillis, zoneOffsetSeconds,
-//   wallpaper, airplane, owner, ownerName, attemptsLeft, lockoutSeconds, last}.
+//   wallpaper, airplane, owner, ownerName, attemptsLeft, lockoutSeconds, last, net}, avec net = {sim, operator, bars,
+//   number, holder, founderApp, choices: [{slot, number, operator, validity}], requestable: [{id, name, bars}]}.
+//   Verrouillé, net n'a ni number ni holder, ses listes sont vides et sim est grossier (ACTIVE s'y lit « présente ») :
+//   la page montre ce qu'elle reçoit, sans rien deviner. Boîtes de layout du lot T2 : row-sim, sim-choice-<case>,
+//   sim-remove, sim-request, request-<id>, app-antenna, status-bars (et sim-close, la fermeture de la feuille).
 // Le serveur fait foi : la page ne juge aucun code, elle les transmet. Tout texte venu de la vue passe par textContent.
 // Un téléphone neuf (lock SETUP) montre l'assistant de première configuration : Bonjour, Configuration rapide, Fond
 // d'écran, le code (écran #lock), puis Tout est prêt. Rien n'est configuré avant l'envoi du code : fermer avant laisse
@@ -19,6 +24,26 @@
   var CODE_LENGTH = 4;
   var WALLPAPERS = ['aube', 'lagon', 'jungle', 'nuit'];
   var LOCKS = ['SETUP', 'LOCKED', 'UNLOCKED'];
+  var SIMS = ['NONE', 'UNKNOWN', 'ACTIVE', 'SUSPENDED', 'DEACTIVATED'];
+  var SLOTS = 41; // les cases d'un inventaire de joueur (0 à 40)
+  var REQUESTABLE = 16;
+  var OPERATOR_ID = /^[0-9a-f]{12}$/;
+  // Ce que vaut une carte de l'inventaire (validity), tel que la feuille l'écrit.
+  var VALIDITY_TEXT = { ACTIVE: 'Active', SUSPENDED: 'Suspendue', DEACTIVATED: 'Désactivée', UNKNOWN: 'Non reconnue' };
+  // L'issue d'un geste de carte (last) : un bandeau bref pour une réussite, une alerte pour un refus. Mêmes textes que
+  // fr_fr.json (screen.oneforallsurvival.phone.*), figés à la tâche 7.
+  var SIM_TOASTS = {
+    SIM_INSERTED: 'Carte SIM insérée.',
+    SIM_REMOVED: 'Carte SIM retirée.',
+    SIM_REQUESTED: "Demande envoyée à l'opérateur."
+  };
+  var SIM_ALERTS = {
+    SIM_UNKNOWN: ['Carte SIM', 'Aucune carte SIM valable dans cette case.'],
+    INVENTORY_FULL: ['Carte SIM', 'Inventaire plein : la carte reste dans le téléphone.'],
+    ALREADY_REQUESTED: ['Demande de carte', 'Vous avez déjà demandé une carte à cet opérateur.'],
+    REQUESTS_FULL: ['Demande de carte', 'La file de demandes de cet opérateur est pleine. Réessayez plus tard.'],
+    NO_NETWORK: ['Réseau', 'Pas de réseau.']
+  };
   var DAYS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
   var MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre',
     'novembre', 'décembre'];
@@ -57,6 +82,8 @@
     pending: null, // geste envoyé, en attente de réponse : { kind, timer }
     setupFirst: null, // première saisie du choix du code
     sheet: null, // { mode: 'change'|'erase', step, old, fresh }
+    simOpen: false, // feuille « Carte SIM » ouverte (Réglages)
+    requestsOpen: false, // liste « Demander une carte » dépliée
     alertActions: [null, null]
   };
 
@@ -77,7 +104,50 @@
     return Math.max(min, Math.min(max, n));
   }
 
+  function text(x, max) {
+    return typeof x === 'string' ? x.slice(0, max) : '';
+  }
+
+  function integer(x, min, max) {
+    return typeof x === 'number' && isFinite(x) && Math.floor(x) === x && x >= min && x <= max;
+  }
+
+  /** La vue réseau, bornée comme le serveur la borne ; verrouillé, rien d'autre que la carte, l'opérateur, les barres. */
+  function cleanNet(n, unlocked) {
+    n = n && typeof n === 'object' ? n : {};
+    var out = {
+      sim: SIMS.indexOf(n.sim) >= 0 ? n.sim : 'NONE',
+      operator: text(n.operator, 32),
+      bars: num(n.bars, 0, 4, 0),
+      number: unlocked ? text(n.number, 32) : '',
+      holder: unlocked ? text(n.holder, 32) : '',
+      founderApp: unlocked && n.founderApp === true,
+      choices: [],
+      requestable: []
+    };
+    var i;
+    if (unlocked && Array.isArray(n.choices)) {
+      for (i = 0; i < n.choices.length && out.choices.length < SLOTS; i++) {
+        var c = n.choices[i];
+        if (c && typeof c === 'object' && integer(c.slot, 0, SLOTS - 1)) {
+          out.choices.push({ slot: c.slot, number: text(c.number, 32), operator: text(c.operator, 32),
+            validity: SIMS.indexOf(c.validity) > 0 ? c.validity : 'UNKNOWN' });
+        }
+      }
+    }
+    if (unlocked && Array.isArray(n.requestable)) {
+      for (i = 0; i < n.requestable.length && out.requestable.length < REQUESTABLE; i++) {
+        var o = n.requestable[i];
+        if (o && typeof o === 'object' && typeof o.id === 'string' && OPERATOR_ID.test(o.id)) {
+          out.requestable.push({ id: o.id, name: text(o.name, 32), bars: num(o.bars, 0, 4, 0) });
+        }
+      }
+    }
+    return out;
+  }
+
   function clean(v) {
+    var unlocked = v.lock === 'UNLOCKED';
     return {
       session: typeof v.session === 'number' ? v.session : 0,
       lock: LOCKS.indexOf(v.lock) >= 0 ? v.lock : 'LOCKED',
@@ -90,7 +160,8 @@
       ownerName: typeof v.ownerName === 'string' ? v.ownerName.slice(0, 32) : '',
       attemptsLeft: num(v.attemptsLeft, 0, 99, 0),
       lockoutSeconds: num(v.lockoutSeconds, 0, 86400, 0),
-      last: typeof v.last === 'string' ? v.last : 'NONE'
+      last: typeof v.last === 'string' ? v.last : 'NONE',
+      net: cleanNet(v.net, unlocked)
     };
   }
 
@@ -167,10 +238,212 @@
 
     $('set-owner').textContent = 'Téléphone de ' + (v.ownerName || '—');
     $('wz-owner').textContent = 'Téléphone de ' + (v.ownerName || '—');
+    paintNet(v);
+  }
+
+  // ------------------------------------------------------------------------------------------- Réseau (lot T2)
+
+  /**
+   * Ce que la barre d'état écrit à la place de l'opérateur. La page ne devine rien : verrouillé, la vue ne dit que
+   * « aucune carte », « non reconnue » ou « présente » (ACTIVE), et 0 barre s'y lit « Pas de service », quelle qu'en soit
+   * la raison (mode avion compris : son drapeau n'est pas envoyé verrouillé).
+   */
+  function carrierText(v) {
+    var n = v.net;
+    if (v.airplane) {
+      return 'Mode avion';
+    }
+    if (n.sim === 'NONE') {
+      return 'Pas de SIM';
+    }
+    if (n.sim === 'UNKNOWN') {
+      return 'SIM non reconnue';
+    }
+    if (v.lock === 'UNLOCKED' && n.sim === 'SUSPENDED') {
+      return 'SIM suspendue';
+    }
+    if (v.lock === 'UNLOCKED' && n.sim === 'DEACTIVATED') {
+      return 'Carte SIM inactive';
+    }
+    return n.bars > 0 && n.operator ? n.operator : 'Pas de service';
+  }
+
+  function paintBars(el, bars) {
+    var cells = el.children;
+    for (var i = 0; i < cells.length; i++) {
+      cells[i].classList.toggle('on', i < bars);
+    }
+  }
+
+  /** La carte logée, en une ligne d'état (feuille « Carte SIM »). */
+  function simStateText(n) {
+    if (n.sim === 'NONE') {
+      return '';
+    }
+    if (n.sim === 'UNKNOWN') {
+      return 'SIM non reconnue';
+    }
+    var st = n.sim === 'ACTIVE' ? 'Active' : n.sim === 'SUSPENDED' ? 'SIM suspendue' : 'Carte SIM inactive';
+    return (n.operator ? n.operator + ' · ' : '') + st;
+  }
+
+  function paintNet(v) {
+    var n = v.net;
+    var carrier = carrierText(v);
+    $('st-carrier-left').textContent = carrier;
+    $('st-carrier-right').textContent = carrier;
+    // Un état plutôt que le nom de l'opérateur : écrit un peu plus petit, pour tenir entier.
+    $('st-carrier-right').classList.toggle('st-msg', carrier !== n.operator);
+    $('st-carrier-left').classList.toggle('st-msg', carrier !== n.operator);
+    // Sans ligne (aucune carte, non reconnue, suspendue, inactive) : l'état prend la place des barres, vides de toute
+    // façon. « Pas de service » garde ses quatre barres vides ; « Mode avion » a son avion.
+    phoneEl.classList.toggle('no-line', !v.airplane && carrier !== n.operator && carrier !== 'Pas de service');
+    paintBars($('status-bars'), v.airplane ? 0 : n.bars);
+    $('app-antenna').classList.toggle('gone', !n.founderApp);
+
+    // Réglages : la carte, l'opérateur, l'abonnement (le prélèvement arrive au lot T6 ; la vue ne porte pas le tarif).
+    var line = n.number !== '';
+    $('set-sim').textContent = n.sim === 'NONE' ? 'Aucune carte SIM' : n.sim === 'UNKNOWN' ? 'Non reconnue'
+      : line ? n.number : '—';
+    var sub = $('set-sim-sub');
+    sub.textContent = line ? (n.holder || 'SIM sans nom')
+      + (n.sim === 'SUSPENDED' ? ' · SIM suspendue' : n.sim === 'DEACTIVATED' ? ' · Carte SIM inactive' : '') : '';
+    sub.classList.toggle('gone', !line);
+    $('set-carrier').textContent = n.operator || '—';
+    $('set-plan').textContent = line ? 'Prélèvement à venir' : '—';
+
+    // La feuille « Carte SIM ».
+    $('sim-number').textContent = n.sim === 'NONE' ? 'Aucune carte SIM' : line ? n.number : 'Carte non reconnue';
+    $('sim-holder').textContent = line ? (n.holder || 'SIM sans nom')
+      : n.sim === 'NONE' ? 'Glissez une carte de votre inventaire' : '';
+    var st = $('sim-state');
+    st.textContent = simStateText(n);
+    st.classList.toggle('warn', n.sim !== 'ACTIVE');
+    $('sim-remove-group').classList.toggle('gone', n.sim === 'NONE');
+    paintChoices(n);
+    paintRequests(n);
+  }
+
+  /** Une ligne de la feuille : un titre, une ligne fine dessous (facultative), une valeur à droite (facultative). */
+  function simRow(id, label, sub, value, warn) {
+    var r = document.createElement('div');
+    r.className = 'row tap sim-row';
+    r.id = id;
+    var stack = document.createElement('div');
+    stack.className = 'stack';
+    var l = document.createElement('span');
+    l.className = 'label';
+    l.textContent = label;
+    stack.appendChild(l);
+    if (sub) {
+      var s = document.createElement('span');
+      s.className = 'sub';
+      s.textContent = sub;
+      stack.appendChild(s);
+    }
+    r.appendChild(stack);
+    if (value !== null) {
+      var val = document.createElement('span');
+      val.className = 'value' + (warn ? ' warn' : '');
+      val.textContent = value;
+      r.appendChild(val);
+    }
+    return r;
+  }
+
+  function emptyRow(message) {
+    var r = document.createElement('div');
+    r.className = 'row empty';
+    r.textContent = message;
+    return r;
+  }
+
+  function clearBox(box) {
+    while (box.firstChild) {
+      box.removeChild(box.firstChild);
+    }
+  }
+
+  function paintChoices(n) {
+    var box = $('sim-choices');
+    clearBox(box);
+    if (n.choices.length === 0) {
+      box.appendChild(emptyRow("Aucune carte SIM dans l'inventaire"));
+      return;
+    }
+    for (var i = 0; i < n.choices.length; i++) {
+      var c = n.choices[i];
+      var r = simRow('sim-choice-' + c.slot, c.number || '—', c.operator, VALIDITY_TEXT[c.validity],
+        c.validity !== 'ACTIVE');
+      r.setAttribute('data-slot', String(c.slot));
+      box.appendChild(r);
+    }
+  }
+
+  function paintRequests(n) {
+    var box = $('sim-requests');
+    clearBox(box);
+    $('sim-request').classList.toggle('open', state.requestsOpen);
+    if (!state.requestsOpen) {
+      return;
+    }
+    if (n.requestable.length === 0) {
+      box.appendChild(emptyRow('Aucun opérateur à qui demander ici'));
+      return;
+    }
+    for (var i = 0; i < n.requestable.length; i++) {
+      var o = n.requestable[i];
+      var r = simRow('request-' + o.id, o.name, '', null, false);
+      r.setAttribute('data-op', o.id);
+      var bars = document.createElement('span');
+      bars.className = 'st-bars req-bars';
+      for (var k = 0; k < 4; k++) {
+        var cell = document.createElement('i');
+        if (k < o.bars) {
+          cell.className = 'on';
+        }
+        bars.appendChild(cell);
+      }
+      r.appendChild(bars);
+      box.appendChild(r);
+    }
+  }
+
+  function openSim() {
+    if (state.screen !== 'settings' || phoneEl.classList.contains('sheet-open') || state.simOpen) {
+      return;
+    }
+    state.simOpen = true;
+    state.requestsOpen = false;
+    if (state.view) {
+      paintNet(state.view);
+    }
+    $('sim-scroll').scrollTop = 0;
+    phoneEl.classList.add('sim-open');
+    paintChrome();
+    scheduleLayout();
+  }
+
+  function closeSim() {
+    state.simOpen = false;
+    state.requestsOpen = false;
+    phoneEl.classList.remove('sim-open');
+    paintChrome();
+    scheduleLayout();
+  }
+
+  /** Un geste de carte : il part, et la page attend la vue du serveur (rien n'est changé avant). */
+  function simGesture(message) {
+    if (state.pending) {
+      return;
+    }
+    startPending('sim');
+    send(message);
   }
 
   function paintChrome() {
-    var light = state.screen === 'settings' || phoneEl.classList.contains('sheet-open');
+    var light = state.screen === 'settings' || phoneEl.classList.contains('sheet-open')
+      || phoneEl.classList.contains('sim-open');
     $('status').classList.toggle('ink-dark', light && state.screen !== 'lock' && state.screen !== 'setup');
     phoneEl.classList.toggle('ink-dark', light && state.screen !== 'lock' && state.screen !== 'setup');
   }
@@ -186,6 +459,11 @@
       phoneEl.classList.remove('wz-skip');
     }
     state.screen = screen;
+    if (screen !== 'settings' && state.simOpen) {
+      state.simOpen = false;
+      state.requestsOpen = false;
+      phoneEl.classList.remove('sim-open');
+    }
     phoneEl.classList.remove('scr-setup', 'scr-ready', 'scr-lock', 'scr-home', 'scr-settings');
     phoneEl.classList.add('scr-' + screen);
     phoneEl.classList.toggle('app-open', screen === 'settings');
@@ -308,7 +586,7 @@
   };
 
   function activeEntry() {
-    if (phoneEl.classList.contains('alert-open')) {
+    if (phoneEl.classList.contains('alert-open') || phoneEl.classList.contains('sim-open')) {
       return null;
     }
     if (phoneEl.classList.contains('sheet-open')) {
@@ -630,8 +908,10 @@
     if (fresh) {
       // Nouvelle session : tout repart de zéro, sans animation.
       phoneEl.classList.add('no-anim');
-      phoneEl.classList.remove('sheet-open', 'alert-open');
+      phoneEl.classList.remove('sheet-open', 'alert-open', 'sim-open');
       state.sheet = null;
+      state.simOpen = false;
+      state.requestsOpen = false;
       state.setupFirst = null;
       state.showAttempts = false;
       clearEntry('lock');
@@ -645,8 +925,10 @@
 
     if (v.lock !== before) {
       if (v.lock !== 'UNLOCKED') {
-        phoneEl.classList.remove('sheet-open', 'alert-open');
+        phoneEl.classList.remove('sheet-open', 'alert-open', 'sim-open');
         state.sheet = null;
+        state.simOpen = false;
+        state.requestsOpen = false;
         clearEntry('lock');
         state.setupFirst = null;
         state.showAttempts = false;
@@ -682,6 +964,18 @@
       return;
     }
     var inSheet = state.sheet !== null && phoneEl.classList.contains('sheet-open');
+    if (Object.prototype.hasOwnProperty.call(SIM_TOASTS, last)) {
+      toast(SIM_TOASTS[last]);
+      return;
+    }
+    if (Object.prototype.hasOwnProperty.call(SIM_ALERTS, last)) {
+      showAlert(SIM_ALERTS[last][0], SIM_ALERTS[last][1], [{ label: 'OK', strong: true, run: null }]);
+      return;
+    }
+    if (last === 'NOT_OWNER' && state.simOpen) {
+      showAlert('Carte SIM', 'Seul le propriétaire peut le faire.', [{ label: 'OK', strong: true, run: null }]);
+      return;
+    }
     if (last === 'WRONG_CODE') {
       if (inSheet) {
         var left = 'Essais restants : ' + v.attemptsLeft;
@@ -764,6 +1058,21 @@
       }
       return rects;
     }
+    add('status-bars');
+    if (phoneEl.classList.contains('sim-open')) {
+      var ss = $('sim-scroll').getBoundingClientRect();
+      var simClip = { left: ss.left, top: ss.top, right: ss.right, bottom: ss.bottom };
+      add('sim-close');
+      if (!$('sim-remove-group').classList.contains('gone')) {
+        add('sim-remove', simClip);
+      }
+      var simRows = $('simsheet').querySelectorAll('[id^="sim-choice-"], [id^="request-"]');
+      for (i = 0; i < simRows.length; i++) {
+        add(simRows[i].id, simClip);
+      }
+      add('sim-request', simClip);
+      return rects;
+    }
     var entry = activeEntry();
     if (entry) {
       if (!(entry === 'lock' && lockedOut())) {
@@ -788,6 +1097,9 @@
       }
     } else if (state.screen === 'home') {
       add('app-settings');
+      if (!$('app-antenna').classList.contains('gone')) {
+        add('app-antenna');
+      }
     } else if (state.screen === 'settings') {
       var sc = $('settings-scroll').getBoundingClientRect();
       var clip = { left: sc.left, top: $('nav').getBoundingClientRect().bottom, right: sc.right, bottom: sc.bottom };
@@ -839,6 +1151,10 @@
     if (wizardTap(t)) {
       return;
     }
+    if (phoneEl.classList.contains('sim-open')) {
+      simTap(t);
+      return;
+    }
     if (t.closest('#sheet-cancel')) {
       if (!state.pending) {
         closeSheet();
@@ -853,6 +1169,13 @@
       openSettings();
       return;
     }
+    if (t.closest('#app-antenna')) {
+      // L'appli elle-même arrive à la tâche 10 : le geste part, le serveur répond.
+      if (state.screen === 'home' && !$('app-antenna').classList.contains('gone')) {
+        simGesture({ a: 'antennaApp' });
+      }
+      return;
+    }
     if (state.screen !== 'settings' || phoneEl.classList.contains('sheet-open') || !state.view) {
       return;
     }
@@ -862,6 +1185,10 @@
       if (WALLPAPERS.indexOf(id) >= 0 && id !== state.view.wallpaper) {
         send({ a: 'wallpaper', id: id });
       }
+      return;
+    }
+    if (t.closest('#row-sim')) {
+      openSim();
       return;
     }
     if (t.closest('#row-airplane')) {
@@ -891,6 +1218,42 @@
     if (t.closest('#row-lock')) {
       startPending('lock');
       send({ a: 'lock' });
+    }
+  }
+
+  /** Les touchers de la feuille « Carte SIM » : chacun envoie un geste, ou ferme, ou déplie la liste des demandes. */
+  function simTap(t) {
+    if (t.closest('#sim-close')) {
+      closeSim();
+      return;
+    }
+    if (!state.view) {
+      return;
+    }
+    var choice = t.closest('[data-slot]');
+    if (choice) {
+      var slot = Number(choice.getAttribute('data-slot'));
+      if (integer(slot, 0, SLOTS - 1)) {
+        simGesture({ a: 'insertSim', slot: slot });
+      }
+      return;
+    }
+    var op = t.closest('[data-op]');
+    if (op) {
+      var id = op.getAttribute('data-op');
+      if (OPERATOR_ID.test(id)) {
+        simGesture({ a: 'requestSim', op: id });
+      }
+      return;
+    }
+    if (t.closest('#sim-remove')) {
+      simGesture({ a: 'removeSim' });
+      return;
+    }
+    if (t.closest('#sim-request')) {
+      state.requestsOpen = !state.requestsOpen;
+      paintRequests(state.view.net);
+      scheduleLayout(150);
     }
   }
 
@@ -990,8 +1353,61 @@
       failures: 0,
       lockedUntil: 0,
       maxAttempts: 5,
-      lockoutMillis: 60000
+      lockoutMillis: 60000,
+      // Lot T2 : la carte logée, deux cartes dans l'inventaire, deux opérateurs (dont un nom de 24 caractères).
+      lodged: { number: '06 12 34 56 78', holder: 'Alex', op: 'a1b2c3d4e5f6', validity: 'ACTIVE' },
+      inventory: [
+        { slot: 3, number: '07 41 85 29 63', holder: '', op: '3f2a9c1b0d4e', validity: 'ACTIVE' },
+        { slot: 12, number: '06 55 44 33 22', holder: 'Alex', op: 'a1b2c3d4e5f6', validity: 'UNKNOWN' }
+      ],
+      operators: [
+        { id: 'a1b2c3d4e5f6', name: 'Mairie', bars: 4 },
+        { id: '3f2a9c1b0d4e', name: 'Coopérative du Lagon Sud', bars: 2 }
+      ],
+      requested: {},
+      requestsFull: false,
+      founder: true
     };
+
+    function operatorOf(id) {
+      for (var i = 0; i < mock.operators.length; i++) {
+        if (mock.operators[i].id === id) {
+          return mock.operators[i];
+        }
+      }
+      return null;
+    }
+
+    /** Ce que le serveur calcule (PhoneService.netView) : le faux serveur en suit les règles, la page n'en a aucune. */
+    function netView(unlocked) {
+      var c = mock.lodged;
+      var line = c && (c.validity === 'ACTIVE' || c.validity === 'SUSPENDED') ? c : null;
+      var op = line ? operatorOf(line.op) : null;
+      var bars = line && op && line.validity === 'ACTIVE' && !mock.airplane ? op.bars : 0;
+      var sim = c ? c.validity : 'NONE';
+      if (!unlocked) {
+        // PhoneNetView.locked() : l'état grossier, l'opérateur, les barres.
+        return { sim: sim === 'NONE' || sim === 'UNKNOWN' ? sim : 'ACTIVE', operator: op ? op.name : '', bars: bars,
+          founderApp: false, choices: [], requestable: [] };
+      }
+      var choices = [];
+      for (var i = 0; i < mock.inventory.length; i++) {
+        var k = mock.inventory[i];
+        var ko = operatorOf(k.op);
+        choices.push({ slot: k.slot, number: k.number, operator: ko ? ko.name : '', validity: k.validity });
+      }
+      var requestable = [];
+      if (!mock.airplane && sim !== 'ACTIVE' && mock.owner) {
+        for (var j = 0; j < mock.operators.length; j++) {
+          requestable.push({ id: mock.operators[j].id, name: mock.operators[j].name, bars: mock.operators[j].bars });
+        }
+      }
+      return {
+        sim: sim, operator: op ? op.name : '', bars: bars, number: line ? line.number : '',
+        holder: line ? line.holder : '', founderApp: mock.owner && mock.founder && !mock.airplane,
+        choices: mock.owner ? choices : [], requestable: requestable
+      };
+    }
 
     function view(last) {
       var now = Date.now();
@@ -1002,8 +1418,65 @@
         session: mock.session, lock: mock.lock, battery: mock.battery, serverMillis: now, zoneOffsetSeconds: 3600,
         wallpaper: mock.wallpaper, airplane: unlocked && mock.airplane, owner: unlocked && mock.owner,
         ownerName: unlocked ? mock.ownerName : '', attemptsLeft: lockout > 0 ? 0 : mock.maxAttempts - mock.failures,
-        lockoutSeconds: lockout, last: last || 'NONE'
+        lockoutSeconds: lockout, last: last || 'NONE', net: netView(unlocked)
       };
+    }
+
+    function simGesture(m) {
+      var i;
+      if (mock.lock !== 'UNLOCKED') {
+        return null;
+      }
+      if (!mock.owner) {
+        return 'NOT_OWNER';
+      }
+      if (m.a === 'insertSim') {
+        for (i = 0; i < mock.inventory.length; i++) {
+          var k = mock.inventory[i];
+          if (k.slot === m.slot) {
+            if (k.validity === 'UNKNOWN') {
+              return 'SIM_UNKNOWN';
+            }
+            var before = mock.lodged;
+            mock.inventory.splice(i, 1);
+            if (before) {
+              before.slot = m.slot;
+              mock.inventory.splice(i, 0, before);
+            }
+            mock.lodged = k;
+            return 'SIM_INSERTED';
+          }
+        }
+        return 'SIM_UNKNOWN';
+      }
+      if (m.a === 'removeSim') {
+        if (!mock.lodged) {
+          return 'NONE';
+        }
+        var free = 0;
+        for (i = 0; i < mock.inventory.length; i++) {
+          free = Math.max(free, mock.inventory[i].slot + 1);
+        }
+        mock.lodged.slot = free;
+        mock.inventory.push(mock.lodged);
+        mock.lodged = null;
+        return 'SIM_REMOVED';
+      }
+      if (m.a === 'requestSim') {
+        if (mock.airplane || !operatorOf(m.op)) {
+          return 'NO_NETWORK';
+        }
+        if (mock.requested[m.op]) {
+          return 'ALREADY_REQUESTED';
+        }
+        if (mock.requestsFull) {
+          return 'REQUESTS_FULL';
+        }
+        mock.requested[m.op] = true;
+        return 'SIM_REQUESTED';
+      }
+      // antennaApp : jusqu'à la tâche 10, le serveur répond NO_NETWORK.
+      return 'NO_NETWORK';
     }
 
     function check(code) {
@@ -1083,6 +1556,15 @@
           mock.airplane = false;
           reply('NONE');
           break;
+        case 'insertSim':
+        case 'removeSim':
+        case 'requestSim':
+        case 'antennaApp':
+          r = simGesture(m);
+          if (r !== null) {
+            reply(r);
+          }
+          break;
         default:
           break;
       }
@@ -1090,9 +1572,43 @@
 
     window.oneforall.mock = handle;
     // Commandes de la console, pour l'essai : phoneMock.setup(), phoneMock.locked(), phoneMock.notOwner(),
-    // phoneMock.battery(12).
+    // phoneMock.battery(12) ; lot T2 : phoneMock.bars(2) (barres de l'opérateur de la carte logée),
+    // phoneMock.sim('UNKNOWN' | 'SUSPENDED' | 'DEACTIVATED' | 'ACTIVE' | 'NONE'), phoneMock.full(true) (file de demandes
+    // pleine), phoneMock.founder(false), phoneMock.airplane(true), phoneMock.many() (41 cartes, 16 opérateurs).
     window.phoneMock = {
       state: mock,
+      bars: function (n) {
+        var op = mock.lodged ? operatorOf(mock.lodged.op) : null;
+        if (op) { op.bars = n; }
+        render(view('NONE'));
+      },
+      sim: function (validity) {
+        if (validity === 'NONE') {
+          mock.lodged = null;
+        } else {
+          if (!mock.lodged) {
+            mock.lodged = { number: '06 12 34 56 78', holder: 'Alex', op: 'a1b2c3d4e5f6', validity: 'ACTIVE' };
+          }
+          mock.lodged.validity = validity;
+        }
+        render(view('NONE'));
+      },
+      full: function (on) { mock.requestsFull = on !== false; render(view('NONE')); },
+      founder: function (on) { mock.founder = on !== false; render(view('NONE')); },
+      airplane: function (on) { mock.airplane = on !== false; render(view('NONE')); },
+      many: function () {
+        mock.inventory = [];
+        for (var s = 0; s < 41; s++) {
+          mock.inventory.push({ slot: s, number: '07 00 00 ' + (s < 10 ? '0' : '') + s + ' 00', holder: '',
+            op: s % 2 ? '3f2a9c1b0d4e' : 'a1b2c3d4e5f6', validity: s % 3 ? 'ACTIVE' : 'SUSPENDED' });
+        }
+        mock.operators = mock.operators.slice(0, 2);
+        for (var o = 2; o < 16; o++) {
+          var hex = o.toString(16);
+          mock.operators.push({ id: '00000000000' + hex, name: 'Opérateur numéro ' + o, bars: o % 5 });
+        }
+        render(view('NONE'));
+      },
       setup: function () {
         mock.session++; mock.code = null; mock.lock = 'SETUP'; mock.wallpaper = 'aube'; render(view('NONE'));
       },
@@ -1112,6 +1628,7 @@
     phoneEl.addEventListener('click', onTap);
     document.addEventListener('keydown', onKey);
     $('settings-scroll').addEventListener('scroll', onScroll, { passive: true });
+    $('sim-scroll').addEventListener('scroll', function () { scheduleLayout(150); }, { passive: true });
     window.addEventListener('resize', function () { lastLayout = ''; scheduleLayout(100); });
     setInterval(tickClock, 1000);
     setInterval(tickLockout, 250);

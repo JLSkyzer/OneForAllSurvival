@@ -40,6 +40,7 @@ class PhoneFallbackLayoutTest {
         PhoneFallbackLayout.Settings s = PhoneFallbackLayout.settings(zone, LH);
         Map<String, Rect> rows = s.rows();
         assertEquals(PhoneFallbackLayout.SETTINGS_ROWS, List.copyOf(rows.keySet()));
+        assertEquals("sim", PhoneFallbackLayout.SETTINGS_ROWS.get(0), "« Carte SIM » en tête des Réglages");
         int bas = s.textTop() + 2 * (LH + 1); // propriétaire et message au-dessus des lignes
         for (String nom : PhoneFallbackLayout.SETTINGS_ROWS) {
             Rect r = rows.get(nom);
@@ -126,6 +127,98 @@ class PhoneFallbackLayoutTest {
                 "clavier sur les deux lignes du blocage");
         assertTrue(PhoneFallbackLayout.setupWallpaper(zone, LH).y() >= PhoneFallbackLayout.codeText(zone, LH, 1).bottom(),
                 "« Fond suivant » sur la ligne de message");
+    }
+
+    /** Les lignes de la feuille « Carte SIM » au plus long : 41 cartes, « Demander une carte », 16 opérateurs. */
+    private static List<String> lignesSim(int cartes, int operateurs) {
+        List<String> ids = new java.util.ArrayList<>();
+        for (int i = 0; i < cartes; i++) {
+            ids.add("sim-choice-" + i);
+        }
+        ids.add("sim-request");
+        for (int i = 0; i < operateurs; i++) {
+            ids.add(String.format("request-%012x", i));
+        }
+        return ids;
+    }
+
+    /**
+     * La feuille « Carte SIM » de l'écran de repli tient dans la zone de 320 × 240 à 1920 × 1080 avec 41 cartes et 16
+     * opérateurs : « Retirer » en haut et « Retour » en bas restent en place, la liste défile entre eux ; à chaque cran
+     * de défilement, seules des lignes entières et sans chevauchement sont montrées, et chaque ligne se montre à un cran
+     * au moins.
+     */
+    @ParameterizedTest(name = "interface {0} x {1}")
+    @CsvSource({"320, 240", "427, 240", "480, 270", "640, 328", "640, 360", "960, 540", "1920, 1080", "320, 480"})
+    void laFeuilleSimTientEtDefile(int w, int h) {
+        Rect zone = inner(w, h);
+        List<String> ids = lignesSim(41, 16);
+        PhoneFallbackLayout.SimSheet haut = PhoneFallbackLayout.simSheet(zone, LH, ids, 0);
+        dedans(haut.remove(), zone, "retirer");
+        dedans(haut.back(), zone, "retour");
+        dedans(haut.list(), zone, "liste");
+        assertTrue(haut.remove().y() >= haut.textTop() + PhoneFallbackLayout.SIM_TEXT_LINES * (LH + 1),
+                "retirer sur le texte de la ligne");
+        assertEquals(3, PhoneFallbackLayout.SIM_TEXT_LINES, "numéro, titulaire, message : drawSim en dessine trois");
+        assertFalse(chevauche(haut.remove(), haut.list()), "retirer sur la liste");
+        assertFalse(chevauche(haut.back(), haut.list()), "retour sur la liste");
+        assertTrue(haut.remove().height() >= PhoneFallbackLayout.MIN_ROW && haut.back().height()
+                >= PhoneFallbackLayout.MIN_ROW, "boutons trop bas");
+        assertTrue(haut.maxScroll() > 0, "57 lignes doivent défiler à " + w + " x " + h);
+        java.util.Set<String> vues = new java.util.HashSet<>();
+        int pas = haut.rowStep();
+        assertTrue(pas > 0, "pas de défilement nul");
+        for (int defile = 0; defile <= haut.maxScroll() + pas; defile += pas) {
+            PhoneFallbackLayout.SimSheet s = PhoneFallbackLayout.simSheet(zone, LH, ids, defile);
+            assertTrue(s.scroll() >= 0 && s.scroll() <= s.maxScroll(), "défilement hors bornes : " + s.scroll());
+            assertFalse(s.rows().isEmpty(), "aucune ligne montrée au cran " + defile);
+            List<Rect> montrees = List.copyOf(s.rows().values());
+            for (int i = 0; i < montrees.size(); i++) {
+                Rect r = montrees.get(i);
+                dedans(r, s.list(), "ligne au cran " + defile);
+                assertTrue(r.height() >= PhoneFallbackLayout.MIN_ROW, "ligne trop basse : " + r);
+                for (int j = i + 1; j < montrees.size(); j++) {
+                    assertFalse(chevauche(r, montrees.get(j)), "lignes qui se chevauchent au cran " + defile);
+                }
+            }
+            vues.addAll(s.rows().keySet());
+        }
+        assertEquals(java.util.Set.copyOf(ids), vues, "lignes jamais montrées");
+        PhoneFallbackLayout.SimSheet bas = PhoneFallbackLayout.simSheet(zone, LH, ids, Integer.MAX_VALUE);
+        assertEquals(bas.maxScroll(), bas.scroll());
+        assertTrue(bas.rows().containsKey(ids.get(ids.size() - 1)), "la dernière ligne au bas de la liste");
+        PhoneFallbackLayout.SimSheet negatif = PhoneFallbackLayout.simSheet(zone, LH, ids, -50);
+        assertEquals(0, negatif.scroll());
+        assertTrue(negatif.rows().containsKey(ids.get(0)));
+    }
+
+    @Test
+    void uneFeuilleSimCourteNeDefilePas() {
+        PhoneFallbackLayout.SimSheet s = PhoneFallbackLayout.simSheet(inner(640, 360), LH, lignesSim(1, 1), 30);
+        assertEquals(0, s.maxScroll());
+        assertEquals(0, s.scroll());
+        assertEquals(3, s.rows().size());
+    }
+
+    /**
+     * Un nom d'opérateur de 24 caractères ne tient pas dans une ligne de la feuille à 320 × 240 : il est coupé et finit
+     * par « … », sans dépasser la place du texte ; un nom court reste entier.
+     */
+    @Test
+    void unNomDOperateurDe24CaracteresEstCoupe() {
+        java.util.function.ToIntFunction<String> largeur = s -> 6 * s.codePointCount(0, s.length());
+        String nom = "Operateur-De-Lost-Island";
+        assertEquals(24, nom.length());
+        PhoneFallbackLayout.SimSheet s = PhoneFallbackLayout.simSheet(inner(320, 240), LH, lignesSim(0, 1), 0);
+        int place = PhoneFallbackLayout.textRoom(s.list().width());
+        assertTrue(largeur.applyAsInt(nom) > place, "le nom devait dépasser : place " + place);
+        String coupe = PhoneFallbackLayout.ellipsize(nom, place, largeur);
+        assertTrue(coupe.endsWith("…"), coupe);
+        assertTrue(largeur.applyAsInt(coupe) <= place, coupe + " dépasse " + place);
+        assertTrue(nom.startsWith(coupe.substring(0, coupe.length() - 1)), coupe);
+        assertTrue(coupe.length() > 2, "coupé trop court : " + coupe);
+        assertEquals("Lagon", PhoneFallbackLayout.ellipsize("Lagon", place, largeur));
+        assertEquals("", PhoneFallbackLayout.ellipsize("Lagon", 3, largeur), "pas même la place de « … »");
     }
 
     @Test

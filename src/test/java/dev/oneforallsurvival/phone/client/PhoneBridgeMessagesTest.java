@@ -149,6 +149,98 @@ class PhoneBridgeMessagesTest {
         assertEquals(Optional.empty(), action(json), json);
     }
 
+    // --- Lot T2 : la carte SIM, la demande de carte et l'appli « Antenne » -----------------------------------------
+
+    @Test
+    void insertSimDonneLaCaseEnTexte() {
+        PhoneActionPacket p = action("{\"a\":\"insertSim\",\"slot\":5}").orElseThrow();
+        assertEquals(Action.INSERT_SIM, p.action());
+        assertEquals("5", p.first());
+        assertEquals("", p.second());
+        assertEquals(SESSION, p.session());
+        assertEquals("0", action("{\"a\":\"insertSim\",\"slot\":0}").orElseThrow().first());
+        assertEquals("40", action("{\"a\":\"insertSim\",\"slot\":40}").orElseThrow().first());
+    }
+
+    /** La case : un entier JSON de 0 à 40, écrit sans fioriture ; sinon rien ne part. */
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "{\"a\":\"insertSim\",\"slot\":41}",
+        "{\"a\":\"insertSim\",\"slot\":-1}",
+        "{\"a\":\"insertSim\",\"slot\":\"5\"}",
+        "{\"a\":\"insertSim\",\"slot\":5.5}",
+        "{\"a\":\"insertSim\",\"slot\":5.0}",
+        "{\"a\":\"insertSim\",\"slot\":5e0}",
+        "{\"a\":\"insertSim\",\"slot\":1e9}",
+        "{\"a\":\"insertSim\",\"slot\":true}",
+        "{\"a\":\"insertSim\",\"slot\":null}",
+        "{\"a\":\"insertSim\",\"slot\":[5]}",
+        "{\"a\":\"insertSim\"}",
+        "{\"a\":\"insertSim\",\"slot\":5,\"op\":\"3f2a9c1b0d4e\"}",
+        "{\"a\":\"insertSim\",\"slot\":5,\"code\":\"4821\"}"
+    })
+    void uneCaseFausseNePartPas(String json) {
+        assertEquals(Optional.empty(), action(json), json);
+    }
+
+    @Test
+    void removeSimEtAntennaAppSansChamp() {
+        PhoneActionPacket retrait = action("{\"a\":\"removeSim\"}").orElseThrow();
+        assertEquals(Action.REMOVE_SIM, retrait.action());
+        assertEquals("", retrait.first());
+        PhoneActionPacket appli = action("{\"a\":\"antennaApp\"}").orElseThrow();
+        assertEquals(Action.OPEN_OPERATOR_APP, appli.action());
+        assertEquals("", appli.first());
+        assertEquals(SESSION, appli.session());
+    }
+
+    /**
+     * L'identifiant d'opérateur : 12 caractères hexadécimaux en minuscules, la forme du registre
+     * ({@code PhoneOperators.found}) et celle que le serveur relit ({@code PhoneService}). Écart au brief, qui écrit
+     * 8 : un identifiant de 8 ne désigne aucun opérateur et serait toujours refusé par le serveur.
+     */
+    @Test
+    void requestSimDonneLIdentifiant() {
+        PhoneActionPacket p = action("{\"a\":\"requestSim\",\"op\":\"3f2a9c1b0d4e\"}").orElseThrow();
+        assertEquals(Action.REQUEST_SIM, p.action());
+        assertEquals("3f2a9c1b0d4e", p.first());
+        assertEquals(SESSION, p.session());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "{\"a\":\"requestSim\",\"op\":\"3F2A9C1B0D4E\"}",
+        "{\"a\":\"requestSim\",\"op\":\"3f2a9c1b\"}",
+        "{\"a\":\"requestSim\",\"op\":\"3f2a9c1\"}",
+        "{\"a\":\"requestSim\",\"op\":\"3f2a9c1b0d4\"}",
+        "{\"a\":\"requestSim\",\"op\":\"3f2a9c1b0d4e0\"}",
+        "{\"a\":\"requestSim\",\"op\":\"../x\"}",
+        "{\"a\":\"requestSim\",\"op\":\"3f2a9c1b0d4g\"}",
+        "{\"a\":\"requestSim\",\"op\":\" 3f2a9c1b0d4e\"}",
+        "{\"a\":\"requestSim\",\"op\":\"\"}",
+        "{\"a\":\"requestSim\",\"op\":3}",
+        "{\"a\":\"requestSim\",\"op\":null}",
+        "{\"a\":\"requestSim\"}",
+        "{\"a\":\"requestSim\",\"op\":\"3f2a9c1b0d4e\",\"slot\":5}"
+    })
+    void unIdentifiantFauxNePartPas(String json) {
+        assertEquals(Optional.empty(), action(json), json);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "{\"a\":\"removeSim\",\"slot\":5}",
+        "{\"a\":\"removeSim\",\"x\":1}",
+        "{\"a\":\"antennaApp\",\"op\":\"3f2a9c1b0d4e\"}",
+        "{\"a\":\"antennaApp\",\"on\":true}",
+        "{\"a\":\"RemoveSim\"}",
+        "{\"a\":\"openOperatorApp\"}",
+        "{\"a\":\"insert_sim\",\"slot\":5}"
+    })
+    void unGesteDeCarteMalFormeNePartPas(String json) {
+        assertEquals(Optional.empty(), action(json), json);
+    }
+
     @Test
     void laMiseEnPageGardeLesBoitesValides() {
         JsonObject m = JsonParser.parseString("{\"a\":\"layout\",\"rects\":{\"key-4\":[10,20.6,30,40],"

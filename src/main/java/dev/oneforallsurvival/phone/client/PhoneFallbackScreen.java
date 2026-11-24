@@ -4,10 +4,13 @@ import dev.oneforallsurvival.client.web.WebScreen.Rect;
 import dev.oneforallsurvival.phone.PhoneActionPacket;
 import dev.oneforallsurvival.phone.PhoneActionPacket.Action;
 import dev.oneforallsurvival.phone.PhoneCode;
+import dev.oneforallsurvival.phone.PhoneNetView;
 import dev.oneforallsurvival.phone.PhoneStatePacket;
 import dev.oneforallsurvival.phone.PhoneStatePacket.Lock;
 import dev.oneforallsurvival.phone.PhoneStatePacket.Result;
 import dev.oneforallsurvival.phone.PhoneWallpapers;
+import dev.oneforallsurvival.phone.net.PhoneSims;
+import java.util.ArrayList;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -36,18 +39,23 @@ import org.lwjgl.glfw.GLFW;
  * gestes ({@link PhoneActionPacket}), mêmes états. Écran du code (clavier 0 à 9, Effacer, points ; au choix du code
  * d'un téléphone neuf, un bouton « Fond suivant » qui fait défiler les fonds avant le code, envoyés ensemble par
  * {@link Action#SETUP} ; pas d'animation de bienvenue ici), accueil (Réglages),
- * Réglages (mode avion, fond suivant, changement du code par trois champs de chiffres, verrouillage, effacement). Le
- * serveur juge tout ; l'écran ne garde un code saisi que le temps de l'envoyer et ne l'écrit nulle part. Échap ferme et
- * prévient le serveur.
+ * Réglages (carte SIM, mode avion, fond suivant, changement du code par trois champs de chiffres, verrouillage,
+ * effacement). Lot T2 : barre d'état avec l'opérateur (ou l'état de la carte) et quatre barres, « Mode avion » à leur
+ * place ; feuille « Carte SIM » (la carte logée, « Retirer », une ligne par carte de l'inventaire, « Demander une
+ * carte » et sa liste, qui défile à la molette) ; bouton « Antenne » à l'accueil du fondateur. Mêmes gestes que la page
+ * ({@code INSERT_SIM}, {@code REMOVE_SIM}, {@code REQUEST_SIM}, {@code OPEN_OPERATOR_APP}). Le serveur juge tout ;
+ * l'écran ne garde un code saisi que le temps de l'envoyer et ne l'écrit nulle part. Échap ferme et prévient le serveur.
  */
 public final class PhoneFallbackScreen extends Screen implements PhoneClient.Shown {
 
     private static final String KEY = "screen.oneforallsurvival.phone.";
+    /** Textes figés au lot T2 (tâche 6), repris tels quels : « Mode avion », « Carte SIM inactive ». */
+    private static final String RELAY = "message.oneforallsurvival.relay.";
     private static final int WHITE = 0xFFFFFFFF;
     private static final int SOFT = 0xFFD8DCE4;
     private static final int RED = 0xFFFF6B6B;
 
-    enum Page { CODE, HOME, SETTINGS }
+    enum Page { CODE, HOME, SETTINGS, SIM }
 
     private PhoneStatePacket state;
     private long receivedAt = Util.getMillis();
@@ -69,6 +77,10 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
     private EditBox newBox;
     private EditBox confirmBox;
     private boolean lockedOutShown;
+    /** Feuille « Carte SIM » : la liste des demandes dépliée, et le défilement de la liste (px d'interface). */
+    private boolean requestsOpen;
+    private int simScroll;
+    @Nullable private PhoneFallbackLayout.SimSheet simLayout;
 
     public PhoneFallbackScreen(PhoneStatePacket state) {
         super(Component.translatable("item.oneforallsurvival.phone"));
@@ -91,7 +103,7 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
         // Un état qui ne change que la batterie ou l'heure ne reconstruit rien : le champ en cours garde le focus.
         boolean widgetsChange = next.lock() != before || next.airplane() != state.airplane()
                 || !next.wallpaper().equals(state.wallpaper()) || next.lockoutSeconds() > 0 || lockedOutShown
-                || next.last() != Result.NONE;
+                || next.last() != Result.NONE || !next.net().equals(state.net());
         state = next;
         receivedAt = Util.getMillis();
         noteLockout();
@@ -99,6 +111,8 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
             entry.setLength(0);
             setupFirst = null;
             eraseArmed = false;
+            requestsOpen = false;
+            simScroll = 0;
             message = Component.empty();
             page = next.lock() == Lock.UNLOCKED ? Page.HOME : Page.CODE;
             if (next.lock() == Lock.SETUP) {
@@ -130,9 +144,10 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
 
     /**
      * Les commandes de l'écran par nom : {@code key-0} à {@code key-9}, {@code key-clear}, {@code setup-wallpaper}
-     * (choix du code d'un téléphone neuf) ; {@code settings} ;
-     * {@code airplane}, {@code wallpaper}, {@code old}, {@code new}, {@code confirm}, {@code change}, {@code lock},
-     * {@code erase}, {@code back}.
+     * (choix du code d'un téléphone neuf) ; {@code settings}, {@code app-antenna} (fondateur) ;
+     * {@code sim}, {@code airplane}, {@code wallpaper}, {@code old}, {@code new}, {@code confirm}, {@code change},
+     * {@code lock}, {@code erase}, {@code back} ; feuille « Carte SIM » : {@code sim-remove},
+     * {@code sim-choice-<case>}, {@code sim-request}, {@code request-<id>}, {@code back} (lignes visibles seulement).
      */
     public Map<String, AbstractWidget> widgets() {
         return Collections.unmodifiableMap(named);
@@ -163,11 +178,13 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
         named.clear();
         oldBox = newBox = confirmBox = null;
         settingsLayout = null;
+        simLayout = null;
         lockedOutShown = false;
         switch (page) {
             case CODE -> buildKeypad();
             case HOME -> buildHome();
             case SETTINGS -> buildSettings(keptOld, keptNew, keptConfirm);
+            case SIM -> buildSim();
         }
     }
 
@@ -209,18 +226,32 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
 
     private void buildHome() {
         int bh = 20;
-        add("settings", new FitButton(new Rect(inner.x(), inner.y() + inner.height() - bh - 4, inner.width(), bh),
+        int y = inner.y() + inner.height() - bh - 4;
+        add("settings", new FitButton(new Rect(inner.x(), y, inner.width(), bh),
                 Component.translatable(KEY + "settings"), b -> {
                     page = Page.SETTINGS;
                     message = Component.empty();
                     rebuild();
                 }, null));
+        if (net().founderApp()) {
+            // L'appli « Antenne » arrive à la tâche 10 : le geste part, le serveur répond.
+            add("app-antenna", new FitButton(new Rect(inner.x(), y - bh - 4, inner.width(), bh),
+                    Component.translatable(KEY + "antenna_app"), b -> send(Action.OPEN_OPERATOR_APP, "", "", false),
+                    null));
+        }
     }
 
     private void buildSettings(String keptOld, String keptNew, String keptConfirm) {
         PhoneFallbackLayout.Settings layout = PhoneFallbackLayout.settings(inner, font.lineHeight);
         settingsLayout = layout;
         Map<String, Rect> rows = layout.rows();
+        add("sim", new FitButton(rows.get("sim"), Component.translatable(KEY + "sim", simShort()), b -> {
+            page = Page.SIM;
+            message = Component.empty();
+            requestsOpen = false;
+            simScroll = 0;
+            rebuild();
+        }, null));
         add("airplane", new FitButton(rows.get("airplane"), Component.translatable(KEY + "airplane",
                 Component.translatable(KEY + (state.airplane() ? "on" : "off"))), b -> send(Action.AIRPLANE, "", "",
                         !state.airplane()), null));
@@ -242,6 +273,80 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
             message = Component.empty();
             rebuild();
         }, null));
+    }
+
+    /** La feuille « Carte SIM » : « Retirer », la liste qui défile (cartes, « Demander une carte », opérateurs), « Retour ». */
+    private void buildSim() {
+        PhoneNetView n = net();
+        List<String> ids = new ArrayList<>();
+        Map<String, Runnable> actions = new LinkedHashMap<>();
+        Map<String, Component> labels = new LinkedHashMap<>();
+        Map<String, Boolean> enabled = new LinkedHashMap<>();
+        for (PhoneSims.SimChoice c : n.choices()) {
+            String id = "sim-choice-" + c.slot();
+            ids.add(id);
+            labels.put(id, Component.literal(c.number() + " · " + c.operator() + " · ")
+                    .append(Component.translatable(KEY + "validity." + c.validity().name().toLowerCase(Locale.ROOT))));
+            int slot = c.slot();
+            actions.put(id, () -> send(Action.INSERT_SIM, String.valueOf(slot), "", false));
+        }
+        if (n.choices().isEmpty()) {
+            ids.add("sim-none");
+            labels.put("sim-none", Component.translatable(KEY + "no_choices"));
+            enabled.put("sim-none", false);
+        }
+        ids.add("sim-request");
+        labels.put("sim-request", Component.literal(requestsOpen ? "\u25be " : "\u25b8 ")
+                .append(Component.translatable(KEY + "sim_request")));
+        actions.put("sim-request", () -> {
+            requestsOpen = !requestsOpen;
+            rebuild();
+        });
+        if (requestsOpen) {
+            for (PhoneNetView.OperatorChoice o : n.requestable()) {
+                String id = "request-" + o.id();
+                ids.add(id);
+                labels.put(id, Component.translatable(KEY + "request_row", o.name(), o.bars()));
+                String op = o.id();
+                actions.put(id, () -> send(Action.REQUEST_SIM, op, "", false));
+            }
+            if (n.requestable().isEmpty()) {
+                ids.add("request-none");
+                labels.put("request-none", Component.translatable(KEY + "no_requestable"));
+                enabled.put("request-none", false);
+            }
+        }
+        PhoneFallbackLayout.SimSheet layout = PhoneFallbackLayout.simSheet(inner, font.lineHeight, ids, simScroll);
+        simLayout = layout;
+        simScroll = layout.scroll();
+        FitButton remove = new FitButton(layout.remove(), Component.translatable(KEY + "sim_remove"),
+                b -> send(Action.REMOVE_SIM, "", "", false), null);
+        remove.active = n.sim() != PhoneSims.Validity.NONE;
+        add("sim-remove", remove);
+        for (Map.Entry<String, Rect> row : layout.rows().entrySet()) {
+            String id = row.getKey();
+            Runnable action = actions.get(id);
+            FitButton b = new FitButton(row.getValue(), fitted(labels.get(id), row.getValue().width()),
+                    btn -> {
+                        if (action != null) {
+                            action.run();
+                        }
+                    }, labels.get(id));
+            b.active = enabled.getOrDefault(id, true);
+            add(id, b);
+        }
+        add("back", new FitButton(layout.back(), Component.translatable(KEY + "back"), b -> {
+            page = Page.SETTINGS;
+            message = Component.empty();
+            rebuild();
+        }, null));
+    }
+
+    /** Un libellé coupé par « … » s'il ne tient pas dans un bouton de cette largeur (jamais rétréci illisible). */
+    private Component fitted(Component text, int buttonWidth) {
+        String s = text.getString();
+        String cut = PhoneFallbackLayout.ellipsize(s, PhoneFallbackLayout.textRoom(buttonWidth), font::width);
+        return cut.equals(s) ? text : Component.literal(cut);
     }
 
     /** Un champ de quatre chiffres, masqué ; son libellé est dessiné au-dessus de lui ({@link #drawSettings}). */
@@ -359,7 +464,62 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
             }
             case NOT_OWNER -> alert(Component.translatable(KEY + "not_owner"));
             case ERASED -> alert(Component.translatable(KEY + "erased"));
+            // Lot T2 : les textes figés à la tâche 7 (même clé que le nom de l'issue).
+            case SIM_INSERTED, SIM_REMOVED, SIM_REQUESTED -> {
+                message = Component.translatable(KEY + r.name().toLowerCase(Locale.ROOT));
+                messageAlert = false;
+            }
+            case SIM_UNKNOWN, INVENTORY_FULL, ALREADY_REQUESTED, NO_NETWORK, REQUESTS_FULL ->
+                    alert(Component.translatable(KEY + r.name().toLowerCase(Locale.ROOT)));
         }
+    }
+
+    /** La vue réseau montrée : réduite hors {@code UNLOCKED}, même si le paquet en portait plus. */
+    private PhoneNetView net() {
+        return state.lock() == Lock.UNLOCKED ? state.net() : state.net().locked();
+    }
+
+    /**
+     * Ce que la barre d'état écrit à la place de l'opérateur (mêmes règles que la page) : verrouillé, la carte n'y est
+     * que « aucune », « non reconnue » ou « présente », et 0 barre s'y lit « Pas de service ».
+     */
+    private Component carrier() {
+        PhoneNetView n = net();
+        boolean unlocked = state.lock() == Lock.UNLOCKED;
+        if (unlocked && state.airplane()) {
+            return Component.translatable(RELAY + "caller_airplane");
+        }
+        return switch (n.sim()) {
+            case NONE -> Component.translatable(KEY + "no_sim");
+            case UNKNOWN -> Component.translatable(KEY + "sim_unrecognized");
+            case SUSPENDED -> unlocked ? Component.translatable(KEY + "sim_suspended") : noService(n);
+            case DEACTIVATED -> unlocked ? Component.translatable(RELAY + "caller_sim_inactive") : noService(n);
+            case ACTIVE -> noService(n);
+        };
+    }
+
+    private static Component noService(PhoneNetView n) {
+        return n.bars() > 0 && !n.operator().isEmpty() ? Component.literal(n.operator())
+                : Component.translatable(KEY + "no_service");
+    }
+
+    /** Les barres se dessinent quand une ligne peut en avoir (carte présente, hors mode avion), vides ou pleines. */
+    private boolean barsShown() {
+        if (state.lock() == Lock.UNLOCKED && state.airplane()) {
+            return false;
+        }
+        return net().sim() == PhoneSims.Validity.ACTIVE;
+    }
+
+    /** La carte logée en quelques mots (ligne « Carte SIM » des Réglages). */
+    private Component simShort() {
+        PhoneNetView n = net();
+        return switch (n.sim()) {
+            case NONE -> Component.translatable("tooltip.oneforallsurvival.phone.no_sim");
+            case UNKNOWN -> Component.translatable(KEY + "sim_unrecognized");
+            default -> n.number().isEmpty() ? Component.translatable(KEY + "sim_unrecognized")
+                    : Component.literal(n.number());
+        };
     }
 
     private void noteLockout() {
@@ -386,6 +546,20 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
             return true;
         }
         return super.keyPressed(key, scan, modifiers);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        if (page == Page.SIM && simLayout != null && simLayout.maxScroll() > 0) {
+            int next = Math.max(0, Math.min(simLayout.maxScroll(),
+                    simScroll - (int) Math.signum(delta) * simLayout.rowStep()));
+            if (next != simScroll) {
+                simScroll = next;
+                rebuild();
+            }
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, delta);
     }
 
     @Override
@@ -426,6 +600,7 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
             case CODE -> drawCode(g);
             case HOME -> drawHome(g);
             case SETTINGS -> drawSettings(g);
+            case SIM -> drawSim(g);
         }
         super.render(g, mouseX, mouseY, partialTick);
     }
@@ -435,14 +610,34 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
         int left = inner.x();
         int right = inner.x() + inner.width();
         String battery = state.battery() + "%";
-        Component status = state.airplane()
-                ? Component.literal("✈ " + battery)
+        boolean airplane = state.lock() == Lock.UNLOCKED && state.airplane();
+        Component status = airplane
+                ? Component.literal("\u2708 " + battery)
                 : Component.literal(battery);
-        g.drawString(font, status, right - font.width(status), y, state.battery() <= 20 ? RED : WHITE, true);
-        // À gauche, l'heure ou « Pas de service », rétréci pour ne pas mordre sur la batterie.
-        Component lead = state.lock() == Lock.UNLOCKED ? Component.literal(clock())
-                : Component.translatable(KEY + "no_service");
-        int room = inner.width() - font.width(status) - 4;
+        int statusX = right - font.width(status);
+        g.drawString(font, status, statusX, y, state.battery() <= 20 ? RED : WHITE, true);
+        // Les quatre barres, pleines ou creuses, juste à gauche de la batterie.
+        int barsWidth = 0;
+        if (barsShown()) {
+            int bars = net().bars();
+            int base = y + font.lineHeight - 2;
+            for (int i = 0; i < 4; i++) {
+                int bx = statusX - 3 - (4 - i) * 3;
+                int h = 2 + 2 * i;
+                if (i < bars) {
+                    g.fill(bx, base - h, bx + 2, base, WHITE);
+                } else {
+                    g.fill(bx, base - h, bx + 2, base, 0x55FFFFFF);
+                }
+            }
+            barsWidth = 4 * 3 + 2;
+        }
+        // À gauche, l'heure et l'opérateur (ou l'état de la carte) ; verrouillé, l'opérateur seul. Rétréci pour ne pas
+        // mordre sur les barres et la batterie.
+        Component lead = state.lock() == Lock.UNLOCKED
+                ? Component.literal(clock() + "  ").append(carrier())
+                : carrier();
+        int room = inner.width() - font.width(status) - barsWidth - 4;
         float s = PhoneFallbackLayout.fit(font.width(lead), room, 1f);
         g.pose().pushPose();
         g.pose().translate(left, y + (1f - s) * font.lineHeight / 2f, 0);
@@ -521,6 +716,41 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
                     drawLeft(g, Component.translatable(KEY + name + "_code"), inner.x() + 1, top, SOFT);
                 }
             }
+        }
+    }
+
+    /**
+     * La feuille « Carte SIM » : trois lignes au-dessus de « Retirer » : le numéro (ou l'état de la carte), le titulaire
+     * (ou « SIM sans nom ») et l'opérateur ou l'état de la ligne, puis le message du dernier geste ou l'abonnement.
+     */
+    private void drawSim(GuiGraphics g) {
+        PhoneNetView n = net();
+        int cx = inner.x() + inner.width() / 2;
+        int y = inner.y();
+        boolean line = !n.number().isEmpty();
+        Component first = switch (n.sim()) {
+            case NONE -> Component.translatable("tooltip.oneforallsurvival.phone.no_sim");
+            case UNKNOWN -> Component.translatable(KEY + "sim_unrecognized");
+            default -> line ? Component.literal(n.number()) : Component.translatable(KEY + "sim_unrecognized");
+        };
+        drawCentered(g, first, cx, y, WHITE);
+        y += font.lineHeight + 1;
+        if (line) {
+            Component holder = n.holder().isEmpty()
+                    ? Component.translatable("tooltip.oneforallsurvival.sim_card.anonymous")
+                    : Component.literal(n.holder());
+            Component lineState = switch (n.sim()) {
+                case SUSPENDED -> Component.translatable(KEY + "sim_suspended");
+                case DEACTIVATED -> Component.translatable(RELAY + "caller_sim_inactive");
+                default -> Component.literal(n.operator());
+            };
+            drawCentered(g, holder.copy().append(" · ").append(lineState), cx, y, SOFT);
+        }
+        y += font.lineHeight + 1;
+        if (!message.getString().isEmpty()) {
+            drawCentered(g, message, cx, y, messageAlert ? RED : WHITE);
+        } else if (line) {
+            drawCentered(g, Component.translatable(KEY + "plan"), cx, y, SOFT);
         }
     }
 
