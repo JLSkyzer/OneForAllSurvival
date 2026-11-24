@@ -10,6 +10,11 @@ import java.util.UUID;
  *
  * <p>La poignée tient le registre où elle a été ouverte : fermée après un changement de monde, elle ne touche pas au
  * registre du monde suivant. Rien de tout cela n'est sauvegardé. Fil du serveur seulement.
+ *
+ * <p>Qui ferme, et quand : la session d'appel du lot T3, en un seul point (fin d'appel), sur raccrocher, refus, zéro
+ * barre, déconnexion, mort, changement de dimension, téléphone ou carte retiré, arrêt du serveur. Une poignée oubliée
+ * coûte 9 FE par tic (24 pour une visio) à chaque antenne du trajet jusqu'au rechargement du monde (calcul, non mesuré) :
+ * voir {@link PhoneNetwork#openTraffic}.
  */
 public final class TrafficHandle implements AutoCloseable {
 

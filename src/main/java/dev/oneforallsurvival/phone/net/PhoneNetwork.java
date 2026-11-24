@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.server.MinecraftServer;
@@ -117,6 +118,11 @@ public final class PhoneNetwork {
      * existe ; {@link SimCard#phoneId()} dit dans quel téléphone elle est (le dernier où elle a été glissée avec le bon
      * jeton ; nul si elle n'est dans aucun). Une carte suspendue a une ligne : elle n'appelle plus (sauf les urgences,
      * côté T3) et ne reçoit plus.
+     *
+     * <p>La carte rendue est celle du registre, <b>jeton compris</b> (masqué par {@link SimCard#toString()} seulement)
+     * et UUID du titulaire : le lot T3 n'en sérialise rien directement (paquet, JSON de page, journal) ; il passe par
+     * un enregistrement réduit ({@code phoneId}, {@code holderName}, état) et n'expose jamais {@code lineOf} à un client
+     * avant {@link #route}.
      */
     public static Optional<SimCard> lineOf(MinecraftServer server, String number) {
         if (number == null) {
@@ -136,9 +142,14 @@ public final class PhoneNetwork {
      * {@code ACTIVE}) ; signal de l'appelant (avant de rien dire de l'appelé : sans réseau, on n'apprend rien d'un
      * numéro) ; carte de l'appelé (numéro inconnu, opérateur supprimé, carte désactivée = numéro inconnu, carte
      * suspendue) ; puis {@link RelayPlanner#plan} sur l'instantané du réseau.
+     *
+     * <p>{@code calleePos} nul (le lot T3 n'a pas retrouvé le téléphone de l'appelé : porteur hors ligne, téléphone dans
+     * un chunk déchargé) donne {@code CALLEE_NO_COVERAGE}, jamais une exception. Le trajet rendu est figé : le lot T3
+     * refait {@code route} à chaque relevé et rouvre sa poignée de trafic si les antennes changent (changement de
+     * dimension, déplacement).
      */
     public static Either<RelayPlanner.Route, RelayFailure> route(MinecraftServer server, ServerPlayer caller,
-            ItemStack callerPhone, boolean airplane, String calleeNumber, GlobalPos calleePos) {
+            ItemStack callerPhone, boolean airplane, String calleeNumber, @Nullable GlobalPos calleePos) {
         if (airplane) {
             return fail(RelayFailure.Reason.CALLER_AIRPLANE);
         }
@@ -172,6 +183,11 @@ public final class PhoneNetwork {
             }
             case ACTIVE -> { }
         }
+        if (calleePos == null) {
+            // Le téléphone de l'appelé n'est nulle part dans le monde (porteur hors ligne, chunk déchargé) : hors réseau,
+            // sans rien dire de plus.
+            return fail(RelayFailure.Reason.CALLEE_NO_COVERAGE);
+        }
         RelayPlanner.Endpoint to = new RelayPlanner.Endpoint(callee.get().operatorId(), calleePos.dimension(),
                 calleePos.pos());
         RelayPlanner.Result result = RelayPlanner.plan(from, to, net);
@@ -201,7 +217,16 @@ public final class PhoneNetwork {
     /**
      * Ouvre ce trafic sur les antennes du trajet : chacune le compte dans sa consommation ({@code antennaCallFe} ou
      * {@code antennaFacetimeFe} par tic) tant que la poignée est ouverte. Une antenne qui relaie les deux bouts ne le
-     * compte qu'une fois. Transitoire : rien sur le disque ; le lot T3 ferme la poignée en fin d'appel.
+     * compte qu'une fois. Transitoire : rien sur le disque.
+     *
+     * <p><b>Contrat pour le lot T3.</b> La session d'appel possède sa poignée et la ferme en un seul point (le
+     * {@code finally} de la fin d'appel), atteint dans tous ces cas : raccrocher, refus, zéro barre, déconnexion de
+     * l'un ou l'autre ({@code PlayerLoggedOutEvent}), mort, changement de dimension, téléphone ou carte retiré,
+     * arrêt du serveur ({@code ServerStoppingEvent}). Ouverture et fermeture sur le fil du serveur seulement. T2
+     * n'a aucun garde-fou (une durée maximale couperait les appels longs, une purge sur l'état de l'antenne
+     * désynchroniserait les compteurs) : une poignée oubliée fait payer chaque antenne du trajet 9 FE par tic de plus
+     * (24 pour une visio) jusqu'au rechargement du monde, soit environ 15,5 millions de FE par jour réel pour un appel
+     * (9 × 20 × 86 400 : calcul, pas une mesure).
      */
     public static TrafficHandle openTraffic(MinecraftServer server, RelayPlanner.Route route, TrafficKind kind) {
         return openTraffic(PhoneOperators.get(server), route, kind);

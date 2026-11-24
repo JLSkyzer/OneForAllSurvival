@@ -35,6 +35,7 @@ import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.GlobalPos;
+import net.minecraft.gametest.framework.AfterBatch;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.chat.Component;
@@ -75,7 +76,39 @@ public final class RelaisGameTests {
     private static final Vec3 JOUEUR = new Vec3(3.5, 0, 3.5);
     private static final int RESERVE = 40_000;
 
+    /**
+     * Les joueurs et poignées ouverts par les essais du lot en cours : un essai rouge ne se range pas (il ne se range qu'à
+     * sa dernière étape) ; {@link #apres} fait quitter ses joueurs et ferme ses poignées, pour qu'un joueur d'essai
+     * resté connecté ne change pas les essais des lots suivants (retrait des mobs au loin, leçon du 2026-11-15).
+     * Fil du serveur seulement ; vidé à chaque fin de lot.
+     */
+    private static final List<JoueurDeTest> OUVERTS = new ArrayList<>();
+    private static final List<TrafficHandle> POIGNEES = new ArrayList<>();
+
     private RelaisGameTests() {}
+
+    @AfterBatch(batch = LOT_A)
+    public static void apresA(ServerLevel level) {
+        apres();
+    }
+
+    @AfterBatch(batch = LOT_TRAFIC)
+    public static void apresTrafic(ServerLevel level) {
+        apres();
+    }
+
+    private static void apres() {
+        for (TrafficHandle h : POIGNEES) {
+            h.close();
+        }
+        POIGNEES.clear();
+        for (JoueurDeTest j : OUVERTS) {
+            if (j.connecte()) {
+                j.quitter();
+            }
+        }
+        OUVERTS.clear();
+    }
 
     // ---------------------------------------------------------------------------------------------
     // Aides
@@ -118,6 +151,7 @@ public final class RelaisGameTests {
             JoueurDeTest j = JoueurDeTest.rejoindre(helper.getLevel(), nom, ici);
             j.joueur().teleportTo(ici.x, ici.y, ici.z);
             joueurs.add(j);
+            OUVERTS.add(j);
             fondateurs.add(j.uuid());
             OperateurDEssai.oublier(serveur(), j.uuid());
             helper.assertTrue(!j.joueur().hasPermissions(2), "le joueur d'essai ne doit pas être de l'équipe");
@@ -195,6 +229,7 @@ public final class RelaisGameTests {
         TrafficHandle ouvrir(RelayPlanner.Route route, TrafficKind genre) {
             TrafficHandle h = PhoneNetwork.openTraffic(serveur(), route, genre);
             poignees.add(h);
+            POIGNEES.add(h);
             return h;
         }
 
@@ -307,11 +342,27 @@ public final class RelaisGameTests {
         ItemStack phone = essai.ligne(op, f);
         essai.placer(f, A, 0);
         String num = numero(helper, essai.serveur(), phone);
+        // Une seconde carte de l'opérateur, émise (reste chez le fondateur) : un numéro qui existe.
+        Optional<UUID> autreId = SimCardItem.simId(OperateurDEssai.emettre(helper, op, f));
+        helper.assertTrue(autreId.isPresent(), "seconde carte émise");
+        String autre = exiger(helper, essai.registre().card(autreId.get()), "seconde carte au registre").number();
         helper.startSequence()
                 .thenIdle(3)
                 .thenExecute(() -> {
                     AntennaBlockEntity be = essai.antenne(A);
                     helper.assertTrue(be.state() == MachineState.NO_POWER, "sans courant : " + be.state());
+                    // Sans réseau, l'appelant n'apprend rien d'un numéro : existant ou absent, « Pas de réseau ».
+                    MinecraftServer srv = essai.serveur();
+                    RelayFailure versExistant = echec(helper,
+                            PhoneNetwork.route(srv, f.joueur(), phone, false, autre, ou(f)));
+                    helper.assertTrue(versExistant.reason() == RelayFailure.Reason.CALLER_NO_SIGNAL,
+                            "vers un numéro existant, sans réseau : " + versExistant);
+                    String absent = "0600000001";
+                    helper.assertTrue(essai.registre().cardByNumber(absent).isEmpty(), "le numéro témoin est libre");
+                    RelayFailure versAbsent = echec(helper,
+                            PhoneNetwork.route(srv, f.joueur(), phone, false, absent, ou(f)));
+                    helper.assertTrue(versAbsent.reason() == RelayFailure.Reason.CALLER_NO_SIGNAL,
+                            "vers un numéro absent, sans réseau : " + versAbsent);
                     NetworkStatus s = PhoneNetwork.status(f.joueur(), phone, false);
                     helper.assertTrue(s.sim() == PhoneSims.Validity.ACTIVE && s.operatorName().equals("Relais Vide")
                             && s.number().equals(num) && !s.airplane(), "statut : " + s);
@@ -408,6 +459,10 @@ public final class RelaisGameTests {
                             PhoneNetwork.route(srv, fl.joueur(), phoneL, false, numM, ou(fm)));
                     helper.assertTrue(retour.caller().id().equals(antenneL) && retour.callee().id().equals(antenneM),
                             "retour : " + retour);
+                    // Le téléphone de l'appelé introuvable (position nulle) : hors réseau, sans exception.
+                    RelayFailure nulle = echec(helper, PhoneNetwork.route(srv, fm.joueur(), phoneM, false, numL, null));
+                    helper.assertTrue(nulle.reason() == RelayFailure.Reason.CALLEE_NO_COVERAGE
+                            && nulle.operatorName().isEmpty(), "appelé introuvable : " + nulle);
                     essai.fermer();
                 })
                 .thenSucceed();
@@ -600,6 +655,9 @@ public final class RelaisGameTests {
                             "la ligne est dans le seul téléphone au bon jeton");
                     helper.assertTrue(PhoneSims.check(srv, phoneA) == PhoneSims.Validity.UNKNOWN
                             && PhoneSims.check(srv, phoneB) == PhoneSims.Validity.ACTIVE, "une seule carte vivante");
+                    // Témoin seulement : les cartes se comptent au registre (tâche 3, ActiveCardCache), pas par objet ;
+                    // une copie de l'objet ne peut pas compter deux fois, quoi que fasse cette tâche. Ce qui mord ici
+                    // est la ligne au bon téléphone et la copie morte, au-dessus.
                     AntennaLoad.Breakdown d = dernier(helper, essai, essai.antenne(A));
                     helper.assertTrue(d.clients() == PhoneConfig.antennaPerSimFe(),
                             "la carte ne compte qu'une fois : " + d);

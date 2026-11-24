@@ -347,6 +347,9 @@ public final class OrigineMobGameTests {
         Zombie sansZ = apparaitre(helper, EntityType.ZOMBIE, LA, MobSpawnType.SPAWN_EGG);
         for (Zombie z : List.of(sauvageZ, sansZ)) {
             z.setBaby(false);
+            // Un joueur d'essai resté connecté ailleurs (à plus de 128 blocs) ferait retirer le zombie par checkDespawn
+            // (leçon du 2026-11-15) ; le noyé hérite de la persistance à la conversion.
+            z.setPersistenceRequired();
             CompoundTag tag = z.saveWithoutId(new CompoundTag());
             tag.putInt("DrownedConversionTime", 1);
             z.load(tag);
