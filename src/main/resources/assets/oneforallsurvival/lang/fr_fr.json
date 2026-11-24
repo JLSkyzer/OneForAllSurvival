@@ -1154,5 +1154,13 @@
   "message.oneforallsurvival.antenna.panel_soon": "Le panneau de l'antenne arrive bientôt.",
   "item.oneforallsurvival.maintenance_tool": "Outil de maintenance",
   "tooltip.oneforallsurvival.maintenance_tool": "Réservé à l'ingénieur : antennes, trésor, tableau",
-  "message.oneforallsurvival.antenna.break_denied": "Seuls l'opérateur, le maire, l'équipe et l'ingénieur muni de son outil de maintenance démontent cette antenne."
+  "message.oneforallsurvival.antenna.break_denied": "Seuls l'opérateur, le maire, l'équipe et l'ingénieur muni de son outil de maintenance démontent cette antenne.",
+  "item.oneforallsurvival.sim_card": "Carte SIM",
+  "tooltip.oneforallsurvival.sim_card.number": "Numéro : %s",
+  "tooltip.oneforallsurvival.sim_card.operator": "Opérateur : %s",
+  "tooltip.oneforallsurvival.sim_card.holder": "Titulaire : %s",
+  "tooltip.oneforallsurvival.sim_card.anonymous": "SIM sans nom",
+  "tooltip.oneforallsurvival.sim_card.blank": "Carte vierge : seul un opérateur émet une carte",
+  "tooltip.oneforallsurvival.phone.sim": "Carte SIM : %s",
+  "tooltip.oneforallsurvival.phone.no_sim": "Aucune carte SIM"
 }

@@ -1,10 +1,14 @@
 package dev.oneforallsurvival.phone;
 
 import dev.oneforallsurvival.machine.ItemBattery;
+import dev.oneforallsurvival.phone.net.PhoneSims;
+import dev.oneforallsurvival.phone.net.SimCardItem;
+import dev.oneforallsurvival.phone.net.SimNumbers;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -24,14 +28,55 @@ import org.jetbrains.annotations.Nullable;
  * <p>Deux piles de même {@code phone_id} (copie en créatif, {@code /give} avec NBT) partagent leurs données : c'est un
  * choix accepté, sans contournement du code. Le service vérifie le propriétaire côté serveur à chaque ouverture, et
  * cette vérification ne doit jamais être relâchée.
+ *
+ * <p>Lot T2 : la carte SIM logée vit dans le NBT {@value #TAG_SIM} du téléphone ; son jeton n'est jamais envoyé au
+ * client ({@link #getShareTag}). Deux copies d'un téléphone avec sa carte partagent sa ligne, comme le reste.
  */
 public class PhoneItem extends Item {
 
     public static final String TAG_ID = "phone_id";
+    /** La carte SIM logée : la pile entière, telle que {@link ItemStack#save} l'écrit (lot T2). */
+    public static final String TAG_SIM = "sim";
     private static final int BAR_COLOR = 0x6FB1E8;
 
     public PhoneItem(Properties properties) {
         super(properties);
+    }
+
+    /** La carte SIM logée dans ce téléphone (une copie), ou une pile vide. */
+    public static ItemStack sim(ItemStack phone) {
+        if (phone.hasTag() && phone.getTag().contains(TAG_SIM, Tag.TAG_COMPOUND)) {
+            return ItemStack.of(phone.getTag().getCompound(TAG_SIM));
+        }
+        return ItemStack.EMPTY;
+    }
+
+    /**
+     * Loge cette carte (une copie, une seule) dans le téléphone, ou l'en retire si la pile est vide. Serveur seulement :
+     * ne vérifie rien, c'est {@link PhoneSims} qui décide.
+     */
+    public static void setSim(ItemStack phone, ItemStack sim) {
+        if (sim.isEmpty()) {
+            if (phone.hasTag()) {
+                phone.getTag().remove(TAG_SIM);
+            }
+            return;
+        }
+        phone.getOrCreateTag().put(TAG_SIM, sim.copyWithCount(1).save(new CompoundTag()));
+    }
+
+    /** Ce que le client reçoit : tout, sauf le jeton de la carte logée. */
+    @Override
+    @Nullable
+    public CompoundTag getShareTag(ItemStack stack) {
+        CompoundTag tag = stack.getTag();
+        if (tag == null || !tag.contains(TAG_SIM, Tag.TAG_COMPOUND)) {
+            return tag;
+        }
+        CompoundTag copy = tag.copy();
+        CompoundTag simTag = copy.getCompound(TAG_SIM).getCompound("tag");
+        simTag.remove(SimCardItem.TAG_TOKEN);
+        return copy;
     }
 
     private static int capacity() {
@@ -102,5 +147,13 @@ public class PhoneItem extends Item {
     @Override
     public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
         tooltip.add(Component.translatable("tooltip.oneforallsurvival.phone.energy", stored(stack), capacity()));
+        ItemStack sim = sim(stack);
+        if (sim.isEmpty()) {
+            tooltip.add(Component.translatable("tooltip.oneforallsurvival.phone.no_sim"));
+        } else {
+            CompoundTag simTag = sim.getTag();
+            String number = simTag == null ? "" : simTag.getString(SimCardItem.TAG_NUMBER);
+            tooltip.add(Component.translatable("tooltip.oneforallsurvival.phone.sim", SimNumbers.format(number)));
+        }
     }
 }

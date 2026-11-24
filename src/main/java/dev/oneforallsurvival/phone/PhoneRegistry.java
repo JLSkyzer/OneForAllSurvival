@@ -4,6 +4,7 @@ import dev.oneforallsurvival.OneForAllSurvival;
 import dev.oneforallsurvival.phone.net.AntennaBlock;
 import dev.oneforallsurvival.phone.net.AntennaBlockEntity;
 import dev.oneforallsurvival.phone.net.AntennaItem;
+import dev.oneforallsurvival.phone.net.SimCardItem;
 import java.util.List;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
@@ -60,6 +61,13 @@ public final class PhoneRegistry {
     public static final RegistryObject<BlockEntityType<AntennaBlockEntity>> ANTENNA_BE =
             BLOCK_ENTITIES.register("antenna", () -> BlockEntityType.Builder
                     .of(AntennaBlockEntity::new, ANTENNA.get()).build(null));
+
+    /**
+     * La carte SIM : émise par le fondateur d'un opérateur, jamais fabriquée (aucune recette, hors de l'onglet du mode
+     * créatif : une carte qui n'est pas au registre ne vaut rien).
+     */
+    public static final RegistryObject<Item> SIM_CARD = ITEMS.register("sim_card",
+            () -> new SimCardItem(new Item.Properties().stacksTo(1)));
 
     private PhoneRegistry() {}
 

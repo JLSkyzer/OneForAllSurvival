@@ -1154,5 +1154,13 @@
   "message.oneforallsurvival.antenna.panel_soon": "The antenna panel is coming soon.",
   "item.oneforallsurvival.maintenance_tool": "Maintenance tool",
   "tooltip.oneforallsurvival.maintenance_tool": "Engineer only: antennas, treasury, board",
-  "message.oneforallsurvival.antenna.break_denied": "Only the operator, the mayor, the staff and an engineer holding a maintenance tool can take this antenna down."
+  "message.oneforallsurvival.antenna.break_denied": "Only the operator, the mayor, the staff and an engineer holding a maintenance tool can take this antenna down.",
+  "item.oneforallsurvival.sim_card": "SIM card",
+  "tooltip.oneforallsurvival.sim_card.number": "Number: %s",
+  "tooltip.oneforallsurvival.sim_card.operator": "Operator: %s",
+  "tooltip.oneforallsurvival.sim_card.holder": "Holder: %s",
+  "tooltip.oneforallsurvival.sim_card.anonymous": "Unnamed SIM",
+  "tooltip.oneforallsurvival.sim_card.blank": "Blank card: only an operator issues a card",
+  "tooltip.oneforallsurvival.phone.sim": "SIM card: %s",
+  "tooltip.oneforallsurvival.phone.no_sim": "No SIM card"
 }
