@@ -21,7 +21,19 @@ import net.minecraft.world.level.Level;
  * lecture de la ligne. Les copies d'affichage (numéro, opérateur, titulaire) ne servent qu'à l'infobulle et ne sont
  * jamais lues pour décider.
  *
- * <p>Le jeton est un secret : il ne part jamais au client ({@link #getShareTag}), ni dans un journal.
+ * <p>Le jeton est une <b>preuve de présence</b>, pas un secret fort : il dit que cette pile est passée par le registre
+ * depuis la dernière insertion. Il n'est écrit dans aucun journal, et il n'est retiré de ce que reçoit le client que par
+ * {@link #getShareTag} (cartes en inventaire, au sol, en main, logées dans un téléphone). Il peut encore voyager vers
+ * un client par des chemins qui n'appellent pas {@code getShareTag} : une carte rangée dans un conteneur porté comme un
+ * objet (boîte de Shulker, sac d'un mod), dont le NBT part entier, ou le survol du nom d'une pile dans un message
+ * ({@code ItemStack#getDisplayName} met {@code getTag()} dans l'événement de survol ; aucune correction d'une ligne
+ * possible sans mixin). Exploiter un jeton connu demande une pile à NBT libre (créatif ou commande, l'équipe seule) ; et
+ * la première insertion d'une des deux piles fait tourner le jeton : jamais deux lignes.
+ *
+ * <p>Limite connue du mode créatif : le client créatif renvoie au serveur la pile qu'il a reçue, sans jeton. Une carte
+ * (seule ou logée dans un téléphone) déplacée dans l'inventaire créatif perd son jeton et devient morte ; sa ligne n'est
+ * plus prouvée par aucune pile. Aucune ligne n'est gagnée, mais celle-ci est perdue : le fondateur la rend par
+ * « Remplacer la carte » ({@link PhoneSims#replaceCard}), même numéro, nouveau jeton.
  */
 public class SimCardItem extends Item {
 

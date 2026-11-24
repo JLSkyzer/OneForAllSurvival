@@ -19,10 +19,13 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.IntArrayTag;
+import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
@@ -30,11 +33,13 @@ import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.crafting.Recipe;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.common.util.FakePlayer;
 import net.minecraftforge.common.util.FakePlayerFactory;
@@ -55,6 +60,7 @@ public final class CarteSimGameTests {
 
     private static final String LOT_A = "sim_a";
     private static final String LOT_COPIE = "sim_copie";
+    private static final String LOT_REMPLACE = "sim_remplace";
 
     private static final Vec3 JOUEUR = new Vec3(4.5, 0, 4.5);
 
@@ -172,6 +178,14 @@ public final class CarteSimGameTests {
         p.getInventory().setItem(slot, carte);
     }
 
+    /** Les objets au sol dans la boîte du gabarit (leçon du 2026-11-15 : jamais dans un rayon). */
+    private static int auSol(GameTestHelper helper) {
+        BlockPos a = helper.absolutePos(new BlockPos(0, -1, 0));
+        BlockPos b = helper.absolutePos(new BlockPos(8, 8, 8));
+        AABB boite = new AABB(a.getX(), a.getY(), a.getZ(), b.getX(), b.getY(), b.getZ()).inflate(1.0D);
+        return helper.getLevel().getEntitiesOfClass(ItemEntity.class, boite).size();
+    }
+
     private static boolean dit(List<Component> lignes, String cle) {
         for (Component c : lignes) {
             if (c.getContents() instanceof TranslatableContents t && t.getKey().equals(cle)) {
@@ -240,6 +254,13 @@ public final class CarteSimGameTests {
             helper.assertTrue(dit(bulle, "tooltip.oneforallsurvival.sim_card.number")
                     && dit(bulle, "tooltip.oneforallsurvival.sim_card.operator")
                     && dit(bulle, "tooltip.oneforallsurvival.sim_card.holder"), "infobulle : " + bulle);
+            // Une carte sans titulaire : nom vide, « SIM sans nom ».
+            Optional<ItemStack> sansNom = PhoneSims.issueTo(fondateur.joueur(), op, null, "ignoré", now);
+            helper.assertTrue(sansNom.isPresent(), "une carte sans nom s'émet");
+            SimCard anonyme = carteAuRegistre(helper, essai, idDe(helper, sansNom.get()));
+            helper.assertTrue(anonyme.holder() == null && anonyme.holderName().isEmpty(), "sans titulaire : " + anonyme);
+            helper.assertTrue(dit(infobulle(sansNom.get()), "tooltip.oneforallsurvival.sim_card.anonymous"),
+                    "infobulle « SIM sans nom »");
             int avant = registre.cardsOf(op.id()).size();
 
             // Personne d'autre que le fondateur n'émet : ni le demandeur, ni un faux joueur à l'UUID du fondateur.
@@ -260,9 +281,11 @@ public final class CarteSimGameTests {
             // Inventaire plein : rien d'émis, aucun numéro réservé (le registre n'a pas une carte de plus).
             remplir(fondateur.joueur());
             helper.assertTrue(fondateur.joueur().getInventory().getFreeSlot() < 0, "inventaire plein");
+            int solAvant = auSol(helper);
             helper.assertTrue(PhoneSims.issueTo(fondateur.joueur(), op, demandeur.uuid(), "sim_emet_d", now).isEmpty(),
                     "inventaire plein : rien d'émis");
             helper.assertTrue(registre.cardsOf(op.id()).size() == avant, "aucune carte de plus au registre");
+            helper.assertTrue(auSol(helper) == solAvant, "rien au sol : " + solAvant + " puis " + auSol(helper));
             helper.succeed();
         }
     }
@@ -508,8 +531,21 @@ public final class CarteSimGameTests {
             helper.assertTrue(PhoneSims.check(srv, b) == PhoneSims.Validity.ACTIVE, "B garde sa ligne");
             helper.assertTrue(PhoneSims.insert(f.joueur(), a, caseDe(f.joueur(), simId)) == PhoneSims.Insert.UNKNOWN_CARD,
                     "la pile morte est refusée");
-            helper.assertTrue(PhoneSims.choices(f.joueur()).stream()
-                    .allMatch(c -> c.validity() == PhoneSims.Validity.UNKNOWN), "au choix, elle se dit inconnue");
+            List<PhoneSims.SimChoice> choix = PhoneSims.choices(f.joueur());
+            int rendue = caseDe(f.joueur(), simId);
+            helper.assertTrue(choix.size() == 1 && choix.get(0).slot() == rendue
+                    && choix.get(0).validity() == PhoneSims.Validity.UNKNOWN, "au choix, elle se dit inconnue : " + choix);
+
+            // Logée de nouveau (par NBT), puis remplacée par une autre carte : la pile morte revient, B reste lié.
+            ItemStack morte = f.joueur().getInventory().getItem(rendue).copy();
+            f.joueur().getInventory().setItem(rendue, ItemStack.EMPTY);
+            PhoneItem.setSim(a, morte);
+            UUID autre = idDe(helper, OperateurDEssai.emettre(helper, op, f));
+            helper.assertTrue(PhoneSims.insert(f.joueur(), a, caseDe(f.joueur(), autre)) == PhoneSims.Insert.DONE,
+                    "une autre carte dans A");
+            helper.assertTrue(caseDe(f.joueur(), simId) >= 0, "la pile morte est revenue");
+            helper.assertTrue(PhoneItem.phoneId(b).get().equals(carteAuRegistre(helper, essai, simId).phoneId())
+                    && PhoneSims.check(srv, b) == PhoneSims.Validity.ACTIVE, "remplacer la pile morte ne délie pas B");
             helper.succeed();
         }
     }
@@ -647,6 +683,164 @@ public final class CarteSimGameTests {
             helper.assertTrue(jetonDe(PhoneItem.sim(phone)) != null, "le serveur garde le jeton logé");
             helper.assertTrue(!carteAuRegistre(helper, essai, simId).toString()
                     .contains(carteAuRegistre(helper, essai, simId).token().toString()), "toString sans jeton");
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_COPIE)
+    public static void unNbtCorrompuNePlantePas(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest f = essai.joueur("sim_corrompu");
+            PhoneOperator op = essai.fonder(f, "Sim Corrompu");
+            ServerPlayer p = f.joueur();
+            MinecraftServer srv = essai.serveur();
+            ItemStack phone = enMain(p, telephone());
+            UUID simId = idDe(helper, OperateurDEssai.emettre(helper, op, f));
+            SimCard vraie = carteAuRegistre(helper, essai, simId);
+
+            // Un téléphone dont « sim » n'est pas un composé : rien ne plante, aucune carte.
+            phone.getOrCreateTag().put(PhoneItem.TAG_SIM, StringTag.valueOf("pas une carte"));
+            helper.assertTrue(PhoneSims.check(srv, phone) == PhoneSims.Validity.NONE, "sim illisible : NONE");
+            helper.assertTrue(PhoneSims.line(srv, phone).isEmpty() && PhoneItem.sim(phone).isEmpty(), "aucune ligne");
+            helper.assertTrue(phone.getShareTag() != null, "le partage ne plante pas");
+            helper.assertTrue(dit(infobulle(phone), "tooltip.oneforallsurvival.phone.no_sim"), "« Aucune carte SIM »");
+            helper.assertTrue(PhoneSims.remove(p, phone) == PhoneSims.Remove.NO_SIM, "rien à retirer");
+
+            // Jetons mal formés : refusés, rien ne bouge.
+            ItemStack court = new ItemStack(PhoneRegistry.SIM_CARD.get());
+            court.getOrCreateTag().putUUID(SimCardItem.TAG_ID, simId);
+            court.getTag().put(SimCardItem.TAG_TOKEN, new IntArrayTag(new int[] {1, 2}));
+            p.getInventory().setItem(15, court);
+            helper.assertTrue(PhoneSims.insert(p, phone, 15) == PhoneSims.Insert.UNKNOWN_CARD, "jeton de 2 entiers");
+            ItemStack texte = new ItemStack(PhoneRegistry.SIM_CARD.get());
+            texte.getOrCreateTag().putUUID(SimCardItem.TAG_ID, simId);
+            texte.getTag().putString(SimCardItem.TAG_TOKEN, vraie.token().toString());
+            p.getInventory().setItem(16, texte);
+            helper.assertTrue(PhoneSims.insert(p, phone, 16) == PhoneSims.Insert.UNKNOWN_CARD, "jeton en texte");
+            ItemStack idTexte = new ItemStack(PhoneRegistry.SIM_CARD.get());
+            idTexte.getOrCreateTag().putString(SimCardItem.TAG_ID, simId.toString());
+            idTexte.getTag().putUUID(SimCardItem.TAG_TOKEN, vraie.token());
+            p.getInventory().setItem(17, idTexte);
+            helper.assertTrue(PhoneSims.insert(p, phone, 17) == PhoneSims.Insert.UNKNOWN_CARD, "sim_id en texte");
+            helper.assertTrue(carteAuRegistre(helper, essai, simId).token().equals(vraie.token())
+                    && carteAuRegistre(helper, essai, simId).phoneId() == null, "le registre n'a pas bougé");
+            helper.assertTrue(!infobulle(court).isEmpty(), "l'infobulle d'une carte abîmée ne plante pas");
+
+            // La vraie carte remplace le NBT illisible.
+            helper.assertTrue(PhoneSims.insert(p, phone, caseDe(p, simId)) == PhoneSims.Insert.DONE
+                    && PhoneSims.check(srv, phone) == PhoneSims.Validity.ACTIVE, "la vraie carte entre");
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_COPIE)
+    public static void unTelephoneForgeNeRendQueDesCartes(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest f = essai.joueur("sim_tel_forge");
+            PhoneOperator op = essai.fonder(f, "Sim Tel Forge");
+            ServerPlayer p = f.joueur();
+            MinecraftServer srv = essai.serveur();
+            ItemStack phone = enMain(p, telephone());
+            UUID simId = idDe(helper, OperateurDEssai.emettre(helper, op, f));
+
+            // « sim » forgé : 64 diamants. Ni rendus, ni comptés comme carte.
+            phone.getOrCreateTag().put(PhoneItem.TAG_SIM, new ItemStack(Items.DIAMOND, 64).save(new CompoundTag()));
+            helper.assertTrue(PhoneItem.sim(phone).isEmpty(), "des diamants ne sont pas une carte");
+            helper.assertTrue(PhoneSims.check(srv, phone) == PhoneSims.Validity.NONE, "NONE");
+            helper.assertTrue(PhoneSims.remove(p, phone) == PhoneSims.Remove.NO_SIM, "rien à retirer");
+            helper.assertTrue(PhoneSims.insert(p, phone, caseDe(p, simId)) == PhoneSims.Insert.DONE, "la carte entre");
+            for (int i = 0; i < p.getInventory().getContainerSize(); i++) {
+                helper.assertTrue(!p.getInventory().getItem(i).is(Items.DIAMOND), "aucun diamant rendu (case " + i + ")");
+            }
+            helper.assertTrue(PhoneSims.check(srv, phone) == PhoneSims.Validity.ACTIVE, "la carte porte la ligne");
+
+            // Un téléphone ne se loge jamais dans un téléphone, et une pile de cartes n'en loge qu'une.
+            ItemStack autre = telephone();
+            PhoneItem.setSim(autre, telephone());
+            helper.assertTrue(!autre.hasTag() || !autre.getTag().contains(PhoneItem.TAG_SIM), "un téléphone n'est pas logé");
+            ItemStack trois = PhoneItem.sim(phone).copyWithCount(3);
+            PhoneItem.setSim(autre, trois);
+            helper.assertTrue(PhoneItem.sim(autre).getCount() == 1, "une seule carte logée");
+            helper.succeed();
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Lot « Remplacer la carte » : la carte perdue (créatif, téléphone détruit) rendue sous le même numéro
+    // ---------------------------------------------------------------------------------------------
+
+    @GameTest(template = "test/plancher", batch = LOT_REMPLACE)
+    public static void remplacerLaCarteRendLaLigneSousLeMemeNumero(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest f = essai.joueur("sim_remplace");
+            PhoneOperator op = essai.fonder(f, "Sim Remplace");
+            ServerPlayer p = f.joueur();
+            MinecraftServer srv = essai.serveur();
+            ItemStack a = enMain(p, telephone());
+            p.getInventory().setItem(10, telephone());
+            ItemStack b = p.getInventory().getItem(10);
+            UUID simId = idDe(helper, OperateurDEssai.emettre(helper, op, f));
+            helper.assertTrue(PhoneSims.insert(p, a, caseDe(p, simId)) == PhoneSims.Insert.DONE, "dans A");
+            SimCard avant = carteAuRegistre(helper, essai, simId);
+
+            Optional<ItemStack> neuve = PhoneSims.replaceCard(p, simId);
+            helper.assertTrue(neuve.isPresent(), "la carte est remplacée");
+            SimCard apres = carteAuRegistre(helper, essai, simId);
+            helper.assertTrue(apres.number().equals(avant.number()) && apres.simId().equals(avant.simId()),
+                    "même carte, même numéro");
+            helper.assertTrue(!apres.token().equals(avant.token()) && apres.phoneId() == null,
+                    "jeton neuf, plus aucun téléphone noté");
+            helper.assertTrue(apres.token().equals(jetonDe(neuve.get())), "la nouvelle pile porte le jeton");
+            helper.assertTrue(PhoneSims.check(srv, a) == PhoneSims.Validity.UNKNOWN && PhoneSims.line(srv, a).isEmpty(),
+                    "l'ancienne pile, logée dans A, est morte");
+            int ou = caseDe(p, simId);
+            helper.assertTrue(ou >= 0 && apres.token().equals(jetonDe(p.getInventory().getItem(ou))),
+                    "la nouvelle pile est chez le fondateur");
+
+            // La nouvelle pile dans B donne la ligne au même numéro ; l'ancienne, sortie de A, est refusée.
+            helper.assertTrue(PhoneSims.insert(p, b, ou) == PhoneSims.Insert.DONE, "la nouvelle dans B");
+            helper.assertTrue(PhoneSims.line(srv, b).map(SimCard::number).equals(Optional.of(avant.number())),
+                    "B a la ligne, même numéro");
+            helper.assertTrue(PhoneSims.remove(p, a) == PhoneSims.Remove.DONE, "l'ancienne sort de A");
+            helper.assertTrue(PhoneSims.check(srv, b) == PhoneSims.Validity.ACTIVE, "B garde sa ligne");
+            helper.assertTrue(PhoneSims.insert(p, a, caseDe(p, simId)) == PhoneSims.Insert.UNKNOWN_CARD,
+                    "l'ancienne pile est refusée");
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_REMPLACE)
+    public static void remplacerLaCarteEstReserveAuFondateur(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest f = essai.joueur("sim_rempl_f");
+            JoueurDeTest c = essai.joueur("sim_rempl_c");
+            PhoneOperator op = essai.fonder(f, "Sim Rempl Refus");
+            PhoneOperators registre = essai.registre();
+            UUID x = idDe(helper, OperateurDEssai.emettre(helper, op, f));
+            UUID z = idDe(helper, OperateurDEssai.emettre(helper, op, f));
+            UUID jeton = carteAuRegistre(helper, essai, x).token();
+
+            helper.assertTrue(PhoneSims.replaceCard(c.joueur(), x).isEmpty(), "un autre joueur ne remplace pas");
+            FakePlayer faux = FakePlayerFactory.get(helper.getLevel(), new GameProfile(f.uuid(), "[SimFauxRempl]"));
+            faux.getInventory().clearContent();
+            helper.assertTrue(PhoneSims.replaceCard(faux, x).isEmpty() && faux.getInventory().isEmpty(),
+                    "un faux joueur ne remplace pas");
+            helper.assertTrue(PhoneSims.replaceCard(f.joueur(), UUID.randomUUID()).isEmpty(), "carte inconnue");
+            helper.assertTrue(registre.setState(z, SimCard.State.DEACTIVATED), "désactivation de Z");
+            helper.assertTrue(PhoneSims.replaceCard(f.joueur(), z).isEmpty(), "une désactivée ne se remplace pas");
+
+            // Inventaire plein : rien, ni jeton tourné ni pile au sol.
+            remplir(f.joueur());
+            int solAvant = auSol(helper);
+            helper.assertTrue(PhoneSims.replaceCard(f.joueur(), x).isEmpty(), "inventaire plein : refusé");
+            helper.assertTrue(auSol(helper) == solAvant, "rien au sol");
+            helper.assertTrue(carteAuRegistre(helper, essai, x).token().equals(jeton), "aucun refus ne tourne le jeton");
+
+            // Opérateur supprimé : ses cartes sont désactivées, plus rien ne se remplace.
+            f.joueur().getInventory().setItem(30, ItemStack.EMPTY);
+            OperateurDEssai.ranger(helper, f.uuid());
+            helper.assertTrue(PhoneSims.replaceCard(f.joueur(), x).isEmpty(), "opérateur supprimé : refusé");
+            helper.assertTrue(carteAuRegistre(helper, essai, x).token().equals(jeton), "toujours le même jeton");
             helper.succeed();
         }
     }

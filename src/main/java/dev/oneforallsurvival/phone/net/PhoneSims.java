@@ -19,9 +19,13 @@ import net.minecraftforge.common.util.FakePlayer;
  *
  * <p>Ce qui fait foi est le registre ({@link PhoneOperators}) : une carte vaut quelque chose si son {@code sim_id} y est
  * connu <b>et</b> si la pile porte le jeton courant du registre. Chaque insertion fait tourner ce jeton
- * ({@link PhoneOperators#rotateToken}) et note le téléphone : de deux piles identiques, celle qui est glissée la première
- * emporte la ligne, l'autre est morte (refusée à l'insertion, {@link Validity#UNKNOWN} si elle était déjà logée). Une
- * copie faite avant la première insertion porte l'ancien jeton : elle est refusée.
+ * ({@link PhoneOperators#rotateToken}) et note le téléphone. Une copie faite avant une insertion porte l'ancien jeton :
+ * elle est refusée. Deux piles au jeton courant (copie d'une carte logée) se disputent la ligne : la dernière glissée
+ * l'emporte, l'autre devient morte ({@link Validity#UNKNOWN} si elle est logée, refusée à l'insertion). Une seule ligne
+ * à la fois.
+ *
+ * <p>Le jeton est une preuve de présence, pas un secret fort (voir {@link SimCardItem}, avec la limite du mode
+ * créatif que {@link #replaceCard} compense).
  *
  * <p>Un faux joueur (déployeur, automate) n'émet, n'insère ni ne retire rien. Le jeton n'est écrit ni dans un journal ni
  * dans une exception.
@@ -230,6 +234,43 @@ public final class PhoneSims {
         SimCard card = registry.issue(current.get().id(), holder, holder == null ? "" : holderName,
                 founder.getRandom(), now);
         ItemStack stack = SimCardItem.create(card, current.get().name());
+        ItemStack copy = stack.copy();
+        inventory.add(stack);
+        inventory.setChanged();
+        return Optional.of(copy);
+    }
+
+    /**
+     * « Remplacer la carte » (geste du fondateur, branché sur le panneau à la tâche 9) : une nouvelle pile de la même
+     * carte, même {@code sim_id} et même numéro, au jeton neuf. Toute pile ancienne devient morte, et le téléphone qui
+     * portait la ligne est délié (le registre ne note plus de téléphone). La nouvelle pile arrive dans l'inventaire du
+     * fondateur, jamais au sol. Rend une carte perdue (pile tuée par le mode créatif, téléphone détruit) sans toucher au
+     * numéro.
+     *
+     * @return la nouvelle pile (une copie), ou vide sans rien changer : faux joueur, carte inconnue ou désactivée,
+     *         opérateur inconnu du registre, joueur qui n'en est pas le fondateur, ou inventaire plein
+     */
+    public static Optional<ItemStack> replaceCard(ServerPlayer founder, UUID simId) {
+        if (founder instanceof FakePlayer || simId == null) {
+            return Optional.empty();
+        }
+        PhoneOperators registry = PhoneOperators.get(founder.server);
+        Optional<SimCard> card = registry.card(simId);
+        if (card.isEmpty() || card.get().state() == SimCard.State.DEACTIVATED) {
+            return Optional.empty();
+        }
+        Optional<PhoneOperator> operator = registry.byId(card.get().operatorId());
+        if (operator.isEmpty() || !AntennaRules.mayManageCards(founder, operator.get())) {
+            return Optional.empty();
+        }
+        Inventory inventory = founder.getInventory();
+        if (inventory.getFreeSlot() < 0) {
+            return Optional.empty();
+        }
+        // Jeton neuf, aucun téléphone noté : toute pile ancienne meurt, le porteur de la ligne est délié.
+        registry.rotateToken(simId, null, founder.getRandom());
+        SimCard renewed = registry.card(simId).orElseThrow();
+        ItemStack stack = SimCardItem.create(renewed, operator.get().name());
         ItemStack copy = stack.copy();
         inventory.add(stack);
         inventory.setChanged();

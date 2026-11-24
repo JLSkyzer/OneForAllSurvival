@@ -43,19 +43,29 @@ public class PhoneItem extends Item {
         super(properties);
     }
 
-    /** La carte SIM logée dans ce téléphone (une copie), ou une pile vide. */
+    /**
+     * La carte SIM logée dans ce téléphone (une copie, une seule), ou une pile vide. Seule une carte SIM est rendue : un
+     * NBT {@value #TAG_SIM} forgé qui porte autre chose (64 diamants, un autre téléphone) ne rend rien.
+     */
     public static ItemStack sim(ItemStack phone) {
         if (phone.hasTag() && phone.getTag().contains(TAG_SIM, Tag.TAG_COMPOUND)) {
-            return ItemStack.of(phone.getTag().getCompound(TAG_SIM));
+            ItemStack lodged = ItemStack.of(phone.getTag().getCompound(TAG_SIM));
+            if (lodged.getItem() instanceof SimCardItem) {
+                return lodged.copyWithCount(1);
+            }
         }
         return ItemStack.EMPTY;
     }
 
     /**
-     * Loge cette carte (une copie, une seule) dans le téléphone, ou l'en retire si la pile est vide. Serveur seulement :
-     * ne vérifie rien, c'est {@link PhoneSims} qui décide.
+     * Loge cette carte (une copie, une seule) dans le téléphone, ou l'en retire si la pile est vide. Une pile qui n'est
+     * pas une carte SIM n'est jamais logée (rien ne change). Serveur seulement : l'authenticité de la carte, c'est
+     * {@link PhoneSims} qui en décide.
      */
     public static void setSim(ItemStack phone, ItemStack sim) {
+        if (!sim.isEmpty() && !(sim.getItem() instanceof SimCardItem)) {
+            return;
+        }
         if (sim.isEmpty()) {
             if (phone.hasTag()) {
                 phone.getTag().remove(TAG_SIM);
