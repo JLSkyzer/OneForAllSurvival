@@ -8,12 +8,22 @@ import dev.oneforallsurvival.phone.PhoneStatePacket.CloseReason;
 import dev.oneforallsurvival.phone.PhoneStatePacket.Kind;
 import dev.oneforallsurvival.phone.PhoneStatePacket.Lock;
 import dev.oneforallsurvival.phone.PhoneStatePacket.Result;
+import dev.oneforallsurvival.phone.net.NetworkStatus;
+import dev.oneforallsurvival.phone.net.PhoneNetwork;
+import dev.oneforallsurvival.phone.net.PhoneOperator;
+import dev.oneforallsurvival.phone.net.PhoneOperators;
+import dev.oneforallsurvival.phone.net.PhoneSims;
+import dev.oneforallsurvival.phone.net.RelayPlanner;
+import dev.oneforallsurvival.phone.net.SignalMath;
+import dev.oneforallsurvival.phone.net.SimNumbers;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
@@ -39,6 +49,12 @@ import net.minecraftforge.network.PacketDistributor;
  *
  * <p>Deux piles de même {@code phone_id} (copie créative) partagent leurs données, par choix ; chaque geste relit
  * {@link PhoneData} et le propriétaire est toujours comparé au joueur qui agit.
+ *
+ * <p>Lot T2 : chaque état porte la vue réseau ({@link PhoneNetView}), calculée à l'ouverture, après chaque geste et à
+ * chaque relevé du signal (toutes les {@link PhoneConfig#signalRefreshTicks()} tics, envoyée seulement si elle a
+ * changé). Les gestes de carte ({@code INSERT_SIM}, {@code REMOVE_SIM}, {@code REQUEST_SIM}) et l'appli « Antenne »
+ * ne passent que déverrouillé, et par le seul propriétaire : un autre qui connaît le code voit la ligne, sans geste
+ * de carte (choix de la tâche 7, le plan étant muet). Le jeton d'une carte ne part jamais au client.
  */
 public final class PhoneService {
 
@@ -52,6 +68,10 @@ public final class PhoneService {
     private static final Map<UUID, Integer> LAST_GESTURE = new ConcurrentHashMap<>();
     private static final AtomicInteger NEXT_SESSION = new AtomicInteger();
     private static final RandomSource SALT_SOURCE = RandomSource.create();
+    /** Une case de l'inventaire d'un joueur, écrite sans zéro en tête : {@code "0"} à {@code "40"}. */
+    private static final Pattern SLOT = Pattern.compile("0|[1-9][0-9]?");
+    /** Un identifiant d'opérateur : 12 caractères hexadécimaux en minuscules. */
+    private static final Pattern OPERATOR_ID = Pattern.compile("[0-9a-f]{12}");
 
     private PhoneService() {}
 
@@ -171,6 +191,10 @@ public final class PhoneService {
             }
             case CHANGE_CODE -> changeCode(player, session, data, record, packet.first(), packet.second(), last);
             case ERASE -> erase(player, session, data, record, packet.first(), last);
+            case INSERT_SIM -> insertSim(player, session, record, packet.first(), last);
+            case REMOVE_SIM -> removeSim(player, session, record, last);
+            case REQUEST_SIM -> requestSim(player, session, record, packet.first(), last);
+            case OPEN_OPERATOR_APP -> openOperatorApp(player, session, record, last);
         };
         if (SESSIONS.get(player.getUUID()) == session) {
             send(player, view(player, session, Kind.UPDATE, last[0], CloseReason.NONE));
@@ -289,6 +313,169 @@ public final class PhoneService {
         return Outcome.DONE;
     }
 
+    // ---------------------------------------------------------------------------------------------
+    // La carte SIM et le réseau (lot T2)
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * Un geste de carte n'est permis que déverrouillé, et au seul propriétaire ({@link Result#NOT_OWNER} sinon).
+     * Rend {@code null} s'il est permis, sinon l'issue du refus.
+     */
+    @Nullable
+    private static Outcome cardGestureRefused(ServerPlayer player, PhoneSession session, PhoneRecord record,
+            Result[] last) {
+        if (session.lock() != Lock.UNLOCKED) {
+            return Outcome.REFUSED;
+        }
+        if (!player.getUUID().equals(record.owner())) {
+            last[0] = Result.NOT_OWNER;
+            return Outcome.REFUSED;
+        }
+        return null;
+    }
+
+    /** Glisse la carte de la case {@code slotText} ; la case est relue par {@link PhoneSims#insert}. */
+    private static Outcome insertSim(ServerPlayer player, PhoneSession session, PhoneRecord record, String slotText,
+            Result[] last) {
+        Outcome refused = cardGestureRefused(player, session, record, last);
+        if (refused != null) {
+            return refused;
+        }
+        if (!SLOT.matcher(slotText).matches() || Integer.parseInt(slotText) >= PhoneNetView.MAX_CHOICES) {
+            return Outcome.REFUSED;
+        }
+        PhoneSims.Insert r = PhoneSims.insert(player, player.getItemInHand(session.hand()), Integer.parseInt(slotText));
+        switch (r) {
+            case DONE -> last[0] = Result.SIM_INSERTED;
+            case NOT_A_SIM, UNKNOWN_CARD -> last[0] = Result.SIM_UNKNOWN;
+            case NO_PHONE, REFUSED -> { }
+        }
+        return r == PhoneSims.Insert.DONE ? Outcome.DONE : Outcome.REFUSED;
+    }
+
+    private static Outcome removeSim(ServerPlayer player, PhoneSession session, PhoneRecord record, Result[] last) {
+        Outcome refused = cardGestureRefused(player, session, record, last);
+        if (refused != null) {
+            return refused;
+        }
+        PhoneSims.Remove r = PhoneSims.remove(player, player.getItemInHand(session.hand()));
+        switch (r) {
+            case DONE -> last[0] = Result.SIM_REMOVED;
+            case INVENTORY_FULL -> last[0] = Result.INVENTORY_FULL;
+            case NO_SIM, REFUSED -> { }
+        }
+        return r == PhoneSims.Remove.DONE ? Outcome.DONE : Outcome.REFUSED;
+    }
+
+    /**
+     * Demande une carte à l'opérateur {@code operatorId}, s'il est parmi ceux que la vue propose maintenant (une antenne
+     * en service couvre le joueur, téléphone sans carte active, hors mode avion) ; sinon {@link Result#NO_NETWORK}. Le
+     * fondateur est prévenu tout de suite s'il est en ligne, sinon à sa connexion (avis gardé au registre).
+     */
+    private static Outcome requestSim(ServerPlayer player, PhoneSession session, PhoneRecord record,
+            String operatorId, Result[] last) {
+        Outcome refused = cardGestureRefused(player, session, record, last);
+        if (refused != null) {
+            return refused;
+        }
+        if (!OPERATOR_ID.matcher(operatorId).matches()) {
+            return Outcome.REFUSED;
+        }
+        if (record.airplane()) {
+            last[0] = Result.NO_NETWORK;
+            return Outcome.REFUSED;
+        }
+        ItemStack phone = player.getItemInHand(session.hand());
+        if (PhoneSims.check(player.server, phone) == PhoneSims.Validity.ACTIVE) {
+            return Outcome.REFUSED;
+        }
+        boolean covered = requestable(player).stream().anyMatch(o -> o.id().equals(operatorId));
+        PhoneOperators registry = PhoneOperators.get(player.server);
+        Optional<PhoneOperator> operator = registry.byId(operatorId);
+        if (!covered || operator.isEmpty()) {
+            last[0] = Result.NO_NETWORK;
+            return Outcome.REFUSED;
+        }
+        boolean already = registry.requestsOf(operatorId).stream().anyMatch(r -> r.player().equals(player.getUUID()));
+        if (already) {
+            last[0] = Result.ALREADY_REQUESTED;
+            return Outcome.REFUSED;
+        }
+        String name = player.getGameProfile().getName();
+        if (registry.request(operatorId, player.getUUID(), name, EconomyClock.now()).isEmpty()) {
+            // File de l'opérateur pleine (simRequestsMax) : refus sans message dédié.
+            return Outcome.REFUSED;
+        }
+        Component notice = Component.translatable(MESSAGE + "sim_request.received", name, operator.get().name());
+        ServerPlayer founder = player.server.getPlayerList().getPlayer(operator.get().founder());
+        if (founder != null) {
+            founder.sendSystemMessage(notice);
+        } else {
+            registry.addNotice(operator.get().founder(), notice);
+        }
+        last[0] = Result.SIM_REQUESTED;
+        return Outcome.DONE;
+    }
+
+    /** L'appli « Antenne » : le panneau de l'opérateur arrive à la tâche 9 ; d'ici là, refus sans réseau. */
+    private static Outcome openOperatorApp(ServerPlayer player, PhoneSession session, PhoneRecord record,
+            Result[] last) {
+        Outcome refused = cardGestureRefused(player, session, record, last);
+        if (refused != null) {
+            return refused;
+        }
+        last[0] = Result.NO_NETWORK;
+        return Outcome.REFUSED;
+    }
+
+    /**
+     * Les opérateurs dont une antenne en service couvre ce joueur, avec leurs barres ici, du meilleur signal au moins
+     * bon puis par nom ; {@value PhoneNetView#MAX_REQUESTABLE} au plus.
+     */
+    private static List<PhoneNetView.OperatorChoice> requestable(ServerPlayer player) {
+        PhoneOperators registry = PhoneOperators.get(player.server);
+        RelayPlanner.Snapshot net = PhoneNetwork.snapshot(player.server, player.server.overworld().getGameTime());
+        List<PhoneNetView.OperatorChoice> out = new ArrayList<>();
+        for (PhoneOperator op : registry.all()) {
+            RelayPlanner.Endpoint here = new RelayPlanner.Endpoint(op.id(), player.level().dimension(),
+                    player.blockPosition());
+            RelayPlanner.best(here, net).ifPresent(a -> out.add(new PhoneNetView.OperatorChoice(op.id(), op.name(),
+                    SignalMath.bars(SignalMath.distance(a.pos(), here.pos()), net.range()))));
+        }
+        out.sort(Comparator.comparingInt(PhoneNetView.OperatorChoice::bars).reversed()
+                .thenComparing(PhoneNetView.OperatorChoice::name));
+        return out.size() > PhoneNetView.MAX_REQUESTABLE ? out.subList(0, PhoneNetView.MAX_REQUESTABLE) : out;
+    }
+
+    /**
+     * Ce que {@code viewer} voit du réseau sur le téléphone {@code stack}. Hors {@link Lock#UNLOCKED} : la carte,
+     * l'opérateur et les barres seulement. Déverrouillé par un autre que le propriétaire : la ligne, sans cartes de
+     * l'inventaire, sans opérateurs demandables, sans appli. Mode avion : 0 barre (par {@link PhoneNetwork#status}),
+     * ni opérateurs demandables ni appli. Le jeton d'une carte n'y entre jamais : seuls son numéro formaté, son
+     * titulaire et le nom de son opérateur.
+     */
+    private static PhoneNetView netView(ServerPlayer viewer, ItemStack stack, PhoneRecord record, boolean unlocked) {
+        if (!(stack.getItem() instanceof PhoneItem)) {
+            return PhoneNetView.NONE;
+        }
+        boolean airplane = record.airplane();
+        NetworkStatus status = PhoneNetwork.status(viewer, stack, airplane);
+        PhoneNetView full = new PhoneNetView(status.sim(), status.operatorName(), status.bars(),
+                status.number().isEmpty() ? "" : SimNumbers.format(status.number()), status.holderName(), false,
+                List.of(), List.of());
+        if (!unlocked) {
+            return full.locked();
+        }
+        if (!viewer.getUUID().equals(record.owner())) {
+            return full;
+        }
+        boolean founder = PhoneOperators.get(viewer.server).byFounder(viewer.getUUID()).isPresent();
+        List<PhoneNetView.OperatorChoice> requestable = airplane || status.sim() == PhoneSims.Validity.ACTIVE
+                ? List.of() : requestable(viewer);
+        return new PhoneNetView(full.sim(), full.operator(), full.bars(), full.number(), full.holder(),
+                founder && !airplane, PhoneSims.choices(viewer), requestable);
+    }
+
     /**
      * Un essai de code, par {@link PhoneLock#attempt} : compte l'échec, pose ou garde le blocage, et sauvegarde la
      * valeur rendue (plafonnée). Rend {@link Result#NONE} si le code est accepté.
@@ -348,9 +535,11 @@ public final class PhoneService {
         session.showPercent(battery);
         int offset = EconomyCalendar.configuredZone().getRules().getOffset(Instant.ofEpochMilli(now))
                 .getTotalSeconds();
+        PhoneNetView net = netView(viewer, stack, record, unlocked);
+        session.showNet(net);
         return new PhoneStatePacket(session.id(), kind, session.lock(), battery, now, offset, record.wallpaper(),
                 unlocked && record.airplane(), unlocked && viewer.getUUID().equals(record.owner()),
-                unlocked ? record.ownerName() : "", attemptsLeft, lockoutSeconds, last, reason);
+                unlocked ? record.ownerName() : "", attemptsLeft, lockoutSeconds, last, reason, net);
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -434,6 +623,8 @@ public final class PhoneService {
      * {@link PhoneConfig#drainPerTick()} par tic, payé par blocs de vingt tics ({@code ItemBattery.Prepaid}) :
      * un bloc que la batterie ne couvre plus la met à zéro et ferme ({@link CloseReason#BATTERY_EMPTY}). Un
      * pourcentage qui change est poussé en {@link Kind#UPDATE}. Écran fermé, il n'y a plus de session : aucune dépense.
+     * Toutes les {@link PhoneConfig#signalRefreshTicks()} tics, la vue réseau est relevée (position, dimension,
+     * antennes) et poussée en {@link Kind#UPDATE} seulement si elle a changé : jamais deux fois la même vue.
      */
     public static void onServerTick(TickEvent.ServerTickEvent event) {
         if (event.phase != TickEvent.Phase.END || SESSIONS.isEmpty()) {
@@ -464,7 +655,13 @@ public final class PhoneService {
             player.displayClientMessage(Component.translatable(MESSAGE + "battery_empty"), true);
             return;
         }
-        if (percent(stack) != session.shownPercent()) {
+        boolean changed = percent(stack) != session.shownPercent();
+        if (!changed && session.refreshDue(PhoneConfig.signalRefreshTicks())) {
+            PhoneRecord record = PhoneData.get(player.server).record(session.phoneId());
+            syncLock(session, record);
+            changed = !netView(player, stack, record, session.lock() == Lock.UNLOCKED).equals(session.shownNet());
+        }
+        if (changed) {
             send(player, view(player, session, Kind.UPDATE, Result.NONE, CloseReason.NONE));
         }
     }

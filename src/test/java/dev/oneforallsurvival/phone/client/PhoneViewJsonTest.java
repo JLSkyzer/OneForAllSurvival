@@ -20,7 +20,7 @@ class PhoneViewJsonTest {
 
     private static PhoneStatePacket etat(Lock lock, String ownerName, Result last) {
         return new PhoneStatePacket(9, Kind.UPDATE, lock, 76, 1_763_600_000_000L, 3600, "nuit", true, true, ownerName, 4,
-                0, last, CloseReason.NONE);
+                0, last, CloseReason.NONE, dev.oneforallsurvival.phone.PhoneNetView.NONE);
     }
 
     @Test

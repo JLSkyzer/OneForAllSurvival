@@ -11,7 +11,9 @@ import net.minecraftforge.network.NetworkEvent;
  * propriétaire, le format du code et le blocage.
  *
  * @param first le code ({@link Action#UNLOCK}, {@link Action#SETUP}, {@link Action#ERASE}), l'ancien code
- *     ({@link Action#CHANGE_CODE}) ou le fond ({@link Action#WALLPAPER}) ; sinon vide
+ *     ({@link Action#CHANGE_CODE}), le fond ({@link Action#WALLPAPER}), la case de l'inventaire de {@code "0"} à
+ *     {@code "40"} ({@link Action#INSERT_SIM}) ou l'identifiant d'opérateur, 12 caractères hexadécimaux en minuscules
+ *     ({@link Action#REQUEST_SIM}) ; sinon vide
  * @param second le nouveau code ({@link Action#CHANGE_CODE}), le fond choisi par l'assistant de première
  *     configuration ({@link Action#SETUP}, vide sans assistant ; un fond hors de {@link PhoneWallpapers#IDS} est
  *     ignoré par le serveur) ; sinon vide
@@ -22,7 +24,11 @@ public record PhoneActionPacket(int session, Action action, String first, String
     /** Borne de chaque texte sur le réseau : au-delà, le paquet ne se lit pas. */
     public static final int MAX_WIRE_TEXT = 16;
 
-    public enum Action { UNLOCK, SETUP, LOCK, CHANGE_CODE, WALLPAPER, AIRPLANE, ERASE, CLOSE }
+    public enum Action {
+        UNLOCK, SETUP, LOCK, CHANGE_CODE, WALLPAPER, AIRPLANE, ERASE, CLOSE,
+        // Lot T2 : la carte SIM, la demande de carte et l'appli « Antenne » (déverrouillé seulement).
+        INSERT_SIM, REMOVE_SIM, REQUEST_SIM, OPEN_OPERATOR_APP
+    }
 
     public PhoneActionPacket {
         first = first == null ? "" : first;

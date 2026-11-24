@@ -40,7 +40,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 import org.slf4j.Logger;
 
 /**
- * Le canal réseau du mod (né avec l'établi), protocole « 10 » : client et serveur doivent concorder. Chaque paquet du
+ * Le canal réseau du mod (né avec l'établi), protocole « 11 » : client et serveur doivent concorder. Chaque paquet du
  * client est traité sur le thread du serveur, et revalide tout : rôle, distance, menu ouvert. Un client
  * n'est jamais cru sur parole.
  */
@@ -48,10 +48,11 @@ public final class BenchNetwork {
 
     public static final ResourceLocation CHANNEL_ID = new ResourceLocation(OneForAllSurvival.MODID, "bench");
     /**
-     * « 10 » depuis l'écran du téléphone (lot T1, une seule montée pour tout le lot ; « 9 » : panneau du poste de
-     * fournisseur, lot E6 ; « 8 » : écran des quêtes, lot E5) : un client ou un serveur plus ancien ne le lit pas.
+     * « 11 » depuis la vue réseau du téléphone (lot T2, une seule montée pour tout le lot ; « 10 » : écran du
+     * téléphone, lot T1 ; « 9 » : panneau du poste de fournisseur, lot E6 ; « 8 » : écran des quêtes, lot E5) : un
+     * client ou un serveur d'une autre version est refusé à la connexion.
      */
-    private static final String PROTOCOL = "10";
+    private static final String PROTOCOL = "11";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(CHANNEL_ID, () -> PROTOCOL,
             PROTOCOL::equals, PROTOCOL::equals);

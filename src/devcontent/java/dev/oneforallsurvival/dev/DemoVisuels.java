@@ -2931,7 +2931,8 @@ public final class DemoVisuels {
     private static PhoneStatePacket etatTelephone(PhoneStatePacket.Lock lock) {
         boolean ouvert = lock == PhoneStatePacket.Lock.UNLOCKED;
         return new PhoneStatePacket(4242, PhoneStatePacket.Kind.OPEN, lock, 64, 1_763_640_000_000L, 3600, "jungle", false,
-                true, ouvert ? NOM_16 : "", 5, 0, PhoneStatePacket.Result.NONE, PhoneStatePacket.CloseReason.NONE);
+                true, ouvert ? NOM_16 : "", 5, 0, PhoneStatePacket.Result.NONE, PhoneStatePacket.CloseReason.NONE,
+                dev.oneforallsurvival.phone.PhoneNetView.NONE);
     }
 
     /**

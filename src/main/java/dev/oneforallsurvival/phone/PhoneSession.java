@@ -23,6 +23,10 @@ public final class PhoneSession {
     @Nullable private String unlockedSalt;
     /** Le pourcentage de batterie que le client connaît (dernier état envoyé) : un autre déclenche un {@code UPDATE}. */
     private int shownPercent;
+    /** La vue réseau que le client connaît (dernier état envoyé) : le relevé du signal n'envoie qu'une vue différente. */
+    private PhoneNetView shownNet = PhoneNetView.NONE;
+    /** Les tics depuis le dernier relevé du signal ({@code signalRefreshTicks}). */
+    private int sinceRefresh;
 
     PhoneSession(int id, UUID phoneId, InteractionHand hand, Lock lock) {
         this.id = id;
@@ -70,6 +74,23 @@ public final class PhoneSession {
 
     void showPercent(int percent) {
         this.shownPercent = percent;
+    }
+
+    PhoneNetView shownNet() {
+        return shownNet;
+    }
+
+    void showNet(PhoneNetView net) {
+        this.shownNet = net;
+    }
+
+    /** Compte un tic ; vrai (et repart de zéro) quand {@code every} tics sont passés depuis le dernier relevé. */
+    boolean refreshDue(int every) {
+        if (++sinceRefresh >= Math.max(1, every)) {
+            sinceRefresh = 0;
+            return true;
+        }
+        return false;
     }
 
     /** Les tics d'écran déjà payés (dépense par blocs, tâche 6). */

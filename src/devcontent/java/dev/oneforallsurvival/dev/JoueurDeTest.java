@@ -58,7 +58,7 @@ public final class JoueurDeTest {
     private final List<dev.oneforallsurvival.economy.quest.QuestSyncPacket> etatsQuetes = new ArrayList<>();
     /** Les états du panneau du poste de fournisseur reçus, décodés depuis les octets réellement envoyés. */
     private final List<dev.oneforallsurvival.grid.supplier.PowerPanelPacket> panneaux = new ArrayList<>();
-    /** Les états du téléphone reçus, décodés depuis les octets réellement envoyés. */
+    /** Les états du téléphone reçus, décodés depuis les octets réellement envoyés (vue réseau du lot T2 comprise). */
     private final List<dev.oneforallsurvival.phone.PhoneStatePacket> etatsTelephone = new ArrayList<>();
     /** Ceux que l'entrée en jeu elle-même a envoyés, avant qu'on ne les oublie. */
     private final List<dev.oneforallsurvival.economy.town.TownFinancesPacket> financesALaConnexion = new ArrayList<>();

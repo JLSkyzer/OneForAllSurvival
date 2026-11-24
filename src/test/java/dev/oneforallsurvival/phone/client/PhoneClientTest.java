@@ -27,7 +27,7 @@ class PhoneClientTest {
     @Test
     void laDeconnexionOublieLeDernierEtat() {
         PhoneClient.remember(new PhoneStatePacket(3, Kind.UPDATE, Lock.UNLOCKED, 50, 0L, 0, "nuit", true, true, "Alex",
-                5, 0, Result.NONE, CloseReason.NONE));
+                5, 0, Result.NONE, CloseReason.NONE, dev.oneforallsurvival.phone.PhoneNetView.NONE));
         assertTrue(PhoneClient.last().isPresent());
         PhoneClient.onLoggingOut(new ClientPlayerNetworkEvent.LoggingOut(null, null, null));
         assertEquals(Optional.empty(), PhoneClient.last());
