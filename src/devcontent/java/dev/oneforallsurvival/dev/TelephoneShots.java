@@ -139,6 +139,8 @@ public final class TelephoneShots {
     private static final String MODE = System.getProperty("oneforallsurvival.telephoneShots.mode", "parcours").trim();
     @Nullable private static final String SERVEUR = System.getProperty("oneforallsurvival.telephoneShots.server");
     private static final boolean SANS_PLAFOND = Boolean.getBoolean("oneforallsurvival.telephoneShots.sansPlafond");
+    /** Langue du client pour la passe ({@code -PtelephoneShotsLangue=fr_fr}) : en mémoire seulement, jamais écrite. */
+    @Nullable private static final String LANGUE = System.getProperty("oneforallsurvival.telephoneShots.langue");
     private static final String PAGE_PROP = "oneforallsurvival.phonePage";
     private static final String PAGE_DEMANDEE = System.getProperty(PAGE_PROP, "").trim();
     /** Une page de téléphone autre que la vraie : le repli est attendu à chaque ouverture, même avec MCEF. */
@@ -255,6 +257,14 @@ public final class TelephoneShots {
                         return; // MCEF s'initialise à l'écran titre
                     }
                     mc.options.pauseOnLostFocus = false; // en mémoire seulement
+                    if (LANGUE != null && !LANGUE.isBlank()) {
+                        // Le choix du gestionnaire de langues seulement : options.languageCode n'est pas touché, et
+                        // options.txt n'est pas réécrit.
+                        mc.getLanguageManager().setSelected(LANGUE.trim());
+                        mc.getLanguageManager().onResourceManagerReload(mc.getResourceManager());
+                        journal("langue du client : " + mc.getLanguageManager().getSelected() + " (en mémoire), "
+                                + "options.languageCode " + mc.options.languageCode);
+                    }
                     try {
                         images = new FilmCapture(mc.gameDirectory.toPath().resolve(DOSSIER), "Lost Island | téléphone");
                     } catch (IOException e) {
@@ -532,10 +542,24 @@ public final class TelephoneShots {
     @Nullable private static volatile BlockPos antenneMairie;
     @Nullable private static volatile BlockPos antenneLagon;
     private static volatile String idLagon = "";
+    private static volatile String idMairie = "";
+    private static volatile String etatCarte = "";
+    private static volatile int fileRemplie = -1;
     private static volatile String reseauNote = "";
     private static volatile boolean antennesEnService;
     private static volatile boolean carteEmise;
     @Nullable private static volatile Vec3 departReseau;
+
+    /**
+     * La vue réseau en clair pour le journal, sans le numéro ni le titulaire de la carte d'essai (on ne dit que s'ils
+     * sont là) : un numéro n'est jamais écrit dans un journal (revue de la tâche 8, M7).
+     */
+    private static String resumeReseau(PhoneNetView n) {
+        return "sim=" + n.sim() + ", opérateur=" + n.operator() + ", barres=" + n.bars() + ", numéro "
+                + (n.number().isEmpty() ? "absent" : "présent") + ", titulaire "
+                + (n.holder().isEmpty() ? "absent" : "présent") + ", appli=" + n.founderApp() + ", cartes="
+                + n.choices().size() + ", opérateurs=" + n.requestable().size();
+    }
 
     /** La vue réseau du dernier état reçu. */
     private static PhoneNetView vueReseau() {
@@ -559,7 +583,7 @@ public final class TelephoneShots {
         pas("reseau-sans-carte", () -> {}, () -> {
             PhoneNetView n = vueReseau();
             if (n.sim() != PhoneSims.Validity.NONE || n.founderApp()) {
-                echec("reseau-sans-carte", "avant toute antenne : " + n);
+                echec("reseau-sans-carte", "avant toute antenne : " + resumeReseau(n));
             }
             return true;
         }, 2, "r01-sans-carte-accueil");
@@ -580,10 +604,10 @@ public final class TelephoneShots {
         ouvrir(mc, "reseau-ouverture-1", Lock.LOCKED, "r02-verrouille-pas-de-sim");
         pas("reseau-verrouille-pas-de-sim", () -> {}, () -> {
             PhoneNetView n = vueReseau();
-            journal("verrouillé sans carte : " + n);
+            journal("verrouillé sans carte : " + resumeReseau(n));
             if (n.sim() != PhoneSims.Validity.NONE || !n.number().isEmpty() || !n.choices().isEmpty()
                     || !n.requestable().isEmpty() || n.founderApp()) {
-                echec("reseau-verrouille-pas-de-sim", "vue verrouillée trop bavarde : " + n);
+                echec("reseau-verrouille-pas-de-sim", "vue verrouillée trop bavarde : " + resumeReseau(n));
             }
             return true;
         }, 2, null);
@@ -604,6 +628,7 @@ public final class TelephoneShots {
         pause("r05-feuille-sim-sans-carte");
         clic(mc, "reseau-demander", "sim-request", () -> cible(mc, "request-" + idLagon), 10, null);
         pause("r06-liste-des-demandes");
+        taillesDuRepli(mc, "r06b-liste-des-demandes");
         pas("reseau-demande-envoyee", () -> stable(mc, "request-" + idLagon), () -> cliquer(mc, "request-" + idLagon),
                 () -> PhoneClient.last().map(p -> p.last() == Result.SIM_REQUESTED).orElse(false), 10,
                 "r07-demande-envoyee");
@@ -612,6 +637,24 @@ public final class TelephoneShots {
                 null);
         pas("reseau-demande-relevee", () -> journal(reseauNote), () -> true, 1, null);
         pause(null);
+        pas("reseau-file-remplie", () -> serveur(mc, (srv, sp) -> {
+            PhoneOperators registre = PhoneOperators.get(srv);
+            int n = 0;
+            while (n < 10_000 && registre.request(idMairie, java.util.UUID.randomUUID(), "Demandeur" + n,
+                    EconomyClock.now()).isPresent()) {
+                n++;
+            }
+            fileRemplie = registre.requestsOf(idMairie).size();
+        }), () -> fileRemplie > 0, 5, null);
+        pas("reseau-file-relevee", () -> journal("file de Mairie remplie : " + fileRemplie + " demande(s)"),
+                () -> true, 1, null);
+        pas("reseau-file-pleine", () -> stable(mc, "request-" + idMairie), () -> cliquer(mc, "request-" + idMairie),
+                () -> PhoneClient.last().map(p -> p.last() == Result.REQUESTS_FULL).orElse(false) && attendu(0.8), 10,
+                "r07b-file-pleine");
+        if (web) {
+            clic(mc, "reseau-file-pleine-ok", "alert-0", () -> stable(mc, "sim-request") && attendu(0.5), 10, null);
+        }
+        taillesDuRepli(mc, "r07c-file-pleine");
         pas("reseau-glisser", () -> carteDansLaFeuille(mc) != null && stable(mc, carteDansLaFeuille(mc)),
                 () -> cliquer(mc, carteDansLaFeuille(mc)), () -> {
                     PhoneNetView n = vueReseau();
@@ -620,12 +663,25 @@ public final class TelephoneShots {
         pause("r08-carte-inseree-4-barres");
         pas("reseau-ligne", () -> {}, () -> {
             PhoneNetView n = vueReseau();
-            journal("ligne : " + n);
+            journal("ligne : " + resumeReseau(n));
             if (n.number().isEmpty() || !mc.player.getGameProfile().getName().equals(n.holder())) {
-                echec("reseau-ligne", "numéro ou titulaire absents déverrouillé : " + n);
+                echec("reseau-ligne", "numéro ou titulaire absents déverrouillé : " + resumeReseau(n));
             }
             return true;
         }, 2, null);
+        pas("reseau-demande-grisee", () -> {}, () -> {
+            if (cible(mc, "sim-request")) {
+                echec("reseau-demande-grisee", "« Demander une carte » proposée avec une carte active");
+            }
+            return true;
+        }, 2, null);
+        taillesDuRepli(mc, "r08a-carte-inseree");
+        etatDeLaCarte(mc, "reseau-suspendue", dev.oneforallsurvival.phone.net.SimCard.State.SUSPENDED,
+                PhoneSims.Validity.SUSPENDED, "r08b-carte-suspendue");
+        taillesDuRepli(mc, "r08c-carte-suspendue");
+        etatDeLaCarte(mc, "reseau-reactivee", dev.oneforallsurvival.phone.net.SimCard.State.ACTIVE,
+                PhoneSims.Validity.ACTIVE, null);
+        pas("reseau-reactivee-barres", () -> {}, () -> vueReseau().bars() == 4, 5, null);
         clic(mc, "reseau-fermer-feuille", id("sim-close", "back"), () -> cible(mc, id("row-airplane", "airplane")),
                 10, null);
 
@@ -646,10 +702,10 @@ public final class TelephoneShots {
         ouvrir(mc, "reseau-ouverture-2", Lock.LOCKED, "r12-verrouille-operateur");
         pas("reseau-verrouille-operateur", () -> {}, () -> {
             PhoneNetView n = vueReseau();
-            journal("verrouillé avec carte : " + n);
+            journal("verrouillé avec carte : " + resumeReseau(n));
             if (n.sim() != PhoneSims.Validity.ACTIVE || !MAIRIE.equals(n.operator()) || n.bars() != 4
                     || !n.number().isEmpty() || !n.holder().isEmpty() || !n.choices().isEmpty() || n.founderApp()) {
-                echec("reseau-verrouille-operateur", "vue verrouillée : " + n);
+                echec("reseau-verrouille-operateur", "vue verrouillée : " + resumeReseau(n));
             }
             return true;
         }, 2, null);
@@ -660,6 +716,9 @@ public final class TelephoneShots {
         clic(mc, "reseau-reglages-2", id("app-settings", "settings"), () -> cible(mc, id("row-sim", "sim")), 10, null);
         clic(mc, "reseau-feuille-sim-2", id("row-sim", "sim"), () -> cible(mc, "sim-remove"), 10, null);
         pause("r13-feuille-sim-carte-active");
+        etatDeLaCarte(mc, "reseau-desactivee", dev.oneforallsurvival.phone.net.SimCard.State.DEACTIVATED,
+                PhoneSims.Validity.DEACTIVATED, "r13b-carte-desactivee");
+        taillesDuRepli(mc, "r13c-carte-desactivee");
         clic(mc, "reseau-retirer", "sim-remove", () -> {
             PhoneNetView n = vueReseau();
             return n.sim() == PhoneSims.Validity.NONE
@@ -667,8 +726,53 @@ public final class TelephoneShots {
                     .orElse(false);
         }, 10, null);
         pause("r14-carte-retiree");
+        deplacer(mc, "reseau-loin-pour-la-liste", 300, 0, null);
+        pas("reseau-loin-releve", () -> {}, () -> vueReseau().requestable().isEmpty() && attendu(1.5), 8, null);
+        clic(mc, "reseau-liste-vide", "sim-request", () -> (web || (mc.screen instanceof PhoneFallbackScreen r
+                        && r.widgets().containsKey("request-none"))) && attendu(1.0), 10,
+                "r15-aucun-operateur");
+        taillesDuRepli(mc, "r15b-aucun-operateur");
+        deplacer(mc, "reseau-retour-2", 0, 0, null);
         echap(mc, "reseau-echap-2");
         bilanDuPont();
+    }
+
+    /**
+     * Le serveur passe la carte du joueur à {@code etat} (comme le fera le panneau de l'opérateur, tâche 9) ; la vue
+     * reçue (relevé toutes les 20 tics) doit porter {@code vu}.
+     */
+    private static void etatDeLaCarte(Minecraft mc, String nom, dev.oneforallsurvival.phone.net.SimCard.State etat,
+            PhoneSims.Validity vu, @Nullable String image) {
+        pas(nom, () -> serveur(mc, (srv, sp) -> {
+            PhoneOperators registre = PhoneOperators.get(srv);
+            etatCarte = registre.cardsOf(idMairie).stream().filter(c -> sp.getUUID().equals(c.holder())).findFirst()
+                    .map(c -> registre.setState(c.simId(), etat) ? etat.name() : "refusé").orElse("aucune carte");
+        }), () -> vueReseau().sim() == vu && attendu(1.0), 8, image);
+        pas(nom + "-releve", () -> journal(nom + " : registre " + etatCarte + ", vue " + resumeReseau(vueReseau())),
+                () -> true, 1, null);
+    }
+
+    /**
+     * Repli seulement : la même feuille à l'interface de 320 × 240 (fenêtre 640 × 480, échelle 2) et à une grande
+     * interface (fenêtre 1920 × 1040, échelle 2 : 960 × 520), puis retour à 1280 × 720. Rien n'est écrit dans
+     * {@code options.txt}.
+     */
+    private static void taillesDuRepli(Minecraft mc, String image) {
+        if (web) {
+            return;
+        }
+        pas(image + "-320x240", () -> {
+            taille(mc, 640, 480);
+            echelle(mc, 2);
+        }, () -> attendu(1.5) && mc.getWindow().getGuiScaledWidth() == 320, 6, image + "-320x240");
+        pas(image + "-960x520", () -> {
+            taille(mc, 1920, 1040);
+            echelle(mc, 2);
+        }, () -> attendu(1.5) && mc.getWindow().getGuiScaledWidth() == 960, 6, image + "-960x520");
+        pas(image + "-retour", () -> {
+            taille(mc, 1280, 720);
+            echelle(mc, 2);
+        }, () -> attendu(1.5) && mc.getWindow().getGuiScaledWidth() == 640, 6, null);
     }
 
     /** L'identifiant de la première carte de l'inventaire proposée par la feuille ({@code sim-choice-<case>}), ou nul. */
@@ -717,6 +821,7 @@ public final class TelephoneShots {
         pas("reseau-fonder-mairie", () -> serveur(mc, (srv, sp) -> {
             Optional<PhoneOperators.Result> r = AntennaBlock.found(sp, antenneMairie, MAIRIE);
             reseauNote = "fondation de Mairie : " + r.map(x -> x.status().name()).orElse("refusée");
+            r.filter(PhoneOperators.Result::founded).ifPresent(x -> idMairie = x.operator().id());
         }), () -> reseauNote.startsWith("fondation") && attendu(0.3), 5, null);
         pas("reseau-fondation-relevee", () -> journal(reseauNote), () -> true, 1, null);
         poserAntenne(mc, "reseau-pose-lagon", 8, () -> antenneLagon);
@@ -756,7 +861,7 @@ public final class TelephoneShots {
             Vec3 d = departReseau;
             sp.teleportTo(sp.serverLevel(), d.x + dx, d.y, d.z, sp.getYRot(), sp.getXRot());
         }), () -> vueReseau().bars() == barres && attendu(1.0), 8, image);
-        pas(nom + "-releve", () -> journal(nom + " : " + vueReseau()), () -> true, 1, null);
+        pas(nom + "-releve", () -> journal(nom + " : " + resumeReseau(vueReseau())), () -> true, 1, null);
     }
 
     /** La prise : un bloc d'énergie créative comme mur, la prise contre lui, le téléphone branché puis repris. */

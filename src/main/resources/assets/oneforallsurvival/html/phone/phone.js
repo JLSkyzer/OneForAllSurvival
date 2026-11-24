@@ -25,6 +25,18 @@
   var WALLPAPERS = ['aube', 'lagon', 'jungle', 'nuit'];
   var LOCKS = ['SETUP', 'LOCKED', 'UNLOCKED'];
   var SIMS = ['NONE', 'UNKNOWN', 'ACTIVE', 'SUSPENDED', 'DEACTIVATED'];
+  // Les textes d'état de la carte et du réseau : mêmes noms que PhoneStatusText.Shown et mêmes textes que fr_fr.json
+  // (garde : PhoneStatusTextTest, qui relit cette table). OPERATOR (le nom de l'opérateur) et NUMBER (le numéro) viennent
+  // de la vue.
+  var STATUS_TEXTS = {
+    NO_SIM: 'Pas de SIM',
+    UNRECOGNIZED: 'SIM non reconnue',
+    SUSPENDED: 'SIM suspendue',
+    INACTIVE: 'Carte SIM inactive',
+    NO_SERVICE: 'Pas de service',
+    AIRPLANE: 'Mode avion',
+    NO_CARD: 'Aucune carte SIM'
+  };
   var SLOTS = 41; // les cases d'un inventaire de joueur (0 à 40)
   var REQUESTABLE = 16;
   var OPERATOR_ID = /^[0-9a-f]{12}$/;
@@ -248,24 +260,50 @@
    * « aucune carte », « non reconnue » ou « présente » (ACTIVE), et 0 barre s'y lit « Pas de service », quelle qu'en soit
    * la raison (mode avion compris : son drapeau n'est pas envoyé verrouillé).
    */
-  function carrierText(v) {
+  function carrierKey(v) {
     var n = v.net;
-    if (v.airplane) {
-      return 'Mode avion';
+    var unlocked = v.lock === 'UNLOCKED';
+    if (unlocked && v.airplane) {
+      return 'AIRPLANE';
     }
     if (n.sim === 'NONE') {
-      return 'Pas de SIM';
+      return 'NO_SIM';
     }
     if (n.sim === 'UNKNOWN') {
-      return 'SIM non reconnue';
+      return 'UNRECOGNIZED';
     }
-    if (v.lock === 'UNLOCKED' && n.sim === 'SUSPENDED') {
-      return 'SIM suspendue';
+    if (unlocked && n.sim === 'SUSPENDED') {
+      return 'SUSPENDED';
     }
-    if (v.lock === 'UNLOCKED' && n.sim === 'DEACTIVATED') {
-      return 'Carte SIM inactive';
+    if (unlocked && n.sim === 'DEACTIVATED') {
+      return 'INACTIVE';
     }
-    return n.bars > 0 && n.operator ? n.operator : 'Pas de service';
+    return n.bars > 0 && n.operator ? 'OPERATOR' : 'NO_SERVICE';
+  }
+
+  function carrierText(v) {
+    var key = carrierKey(v);
+    return key === 'OPERATOR' ? v.net.operator : STATUS_TEXTS[key];
+  }
+
+  /**
+   * La carte logée en une ligne (Réglages, tête de la feuille) : le numéro d'une ligne (carte active ou suspendue),
+   * sinon son état. L'état vient de la vue, jamais d'un numéro vide : une carte désactivée n'a pas de numéro sans être
+   * « non reconnue » pour autant (PhoneStatusText.card, côté Java).
+   */
+  function cardKey(sim) {
+    return sim === 'NONE' ? 'NO_CARD' : sim === 'UNKNOWN' ? 'UNRECOGNIZED' : sim === 'DEACTIVATED' ? 'INACTIVE'
+      : 'NUMBER';
+  }
+
+  function cardText(n) {
+    var key = cardKey(n.sim);
+    return key === 'NUMBER' ? (n.number || '—') : STATUS_TEXTS[key];
+  }
+
+  /** « Demander une carte » : ni avec une carte active ni en mode avion (PhoneStatusText.requestOffered). */
+  function requestOffered(v) {
+    return v.net.sim !== 'ACTIVE' && !v.airplane;
   }
 
   function paintBars(el, bars) {
@@ -275,51 +313,53 @@
     }
   }
 
-  /** La carte logée, en une ligne d'état (feuille « Carte SIM »). */
+  /** L'opérateur et l'état d'une ligne (feuille « Carte SIM ») ; rien sans ligne : l'état est déjà en tête. */
   function simStateText(n) {
-    if (n.sim === 'NONE') {
+    if (n.sim !== 'ACTIVE' && n.sim !== 'SUSPENDED') {
       return '';
     }
-    if (n.sim === 'UNKNOWN') {
-      return 'SIM non reconnue';
-    }
-    var st = n.sim === 'ACTIVE' ? 'Active' : n.sim === 'SUSPENDED' ? 'SIM suspendue' : 'Carte SIM inactive';
+    var st = n.sim === 'ACTIVE' ? 'Active' : STATUS_TEXTS.SUSPENDED;
     return (n.operator ? n.operator + ' · ' : '') + st;
   }
 
   function paintNet(v) {
     var n = v.net;
+    var key = carrierKey(v);
     var carrier = carrierText(v);
     $('st-carrier-left').textContent = carrier;
     $('st-carrier-right').textContent = carrier;
     // Un état plutôt que le nom de l'opérateur : écrit un peu plus petit, pour tenir entier.
-    $('st-carrier-right').classList.toggle('st-msg', carrier !== n.operator);
-    $('st-carrier-left').classList.toggle('st-msg', carrier !== n.operator);
+    $('st-carrier-right').classList.toggle('st-msg', key !== 'OPERATOR');
+    $('st-carrier-left').classList.toggle('st-msg', key !== 'OPERATOR');
     // Sans ligne (aucune carte, non reconnue, suspendue, inactive) : l'état prend la place des barres, vides de toute
     // façon. « Pas de service » garde ses quatre barres vides ; « Mode avion » a son avion.
-    phoneEl.classList.toggle('no-line', !v.airplane && carrier !== n.operator && carrier !== 'Pas de service');
+    phoneEl.classList.toggle('no-line', key !== 'OPERATOR' && key !== 'NO_SERVICE' && key !== 'AIRPLANE');
     paintBars($('status-bars'), v.airplane ? 0 : n.bars);
     $('app-antenna').classList.toggle('gone', !n.founderApp);
 
     // Réglages : la carte, l'opérateur, l'abonnement (le prélèvement arrive au lot T6 ; la vue ne porte pas le tarif).
-    var line = n.number !== '';
-    $('set-sim').textContent = n.sim === 'NONE' ? 'Aucune carte SIM' : n.sim === 'UNKNOWN' ? 'Non reconnue'
-      : line ? n.number : '—';
+    var line = cardKey(n.sim) === 'NUMBER';
+    $('set-sim').textContent = cardText(n);
     var sub = $('set-sim-sub');
-    sub.textContent = line ? (n.holder || 'SIM sans nom')
-      + (n.sim === 'SUSPENDED' ? ' · SIM suspendue' : n.sim === 'DEACTIVATED' ? ' · Carte SIM inactive' : '') : '';
+    sub.textContent = line ? (n.holder || 'SIM sans nom') + (n.sim === 'SUSPENDED' ? ' · ' + STATUS_TEXTS.SUSPENDED : '')
+      : '';
     sub.classList.toggle('gone', !line);
     $('set-carrier').textContent = n.operator || '—';
     $('set-plan').textContent = line ? 'Prélèvement à venir' : '—';
 
     // La feuille « Carte SIM ».
-    $('sim-number').textContent = n.sim === 'NONE' ? 'Aucune carte SIM' : line ? n.number : 'Carte non reconnue';
+    $('sim-number').textContent = cardText(n);
     $('sim-holder').textContent = line ? (n.holder || 'SIM sans nom')
       : n.sim === 'NONE' ? 'Glissez une carte de votre inventaire' : '';
     var st = $('sim-state');
     st.textContent = simStateText(n);
     st.classList.toggle('warn', n.sim !== 'ACTIVE');
     $('sim-remove-group').classList.toggle('gone', n.sim === 'NONE');
+    var offered = requestOffered(v);
+    if (!offered) {
+      state.requestsOpen = false;
+    }
+    $('sim-request').classList.toggle('disabled', !offered);
     paintChoices(n);
     paintRequests(n);
   }
@@ -1070,7 +1110,9 @@
       for (i = 0; i < simRows.length; i++) {
         add(simRows[i].id, simClip);
       }
-      add('sim-request', simClip);
+      if (!$('sim-request').classList.contains('disabled')) {
+        add('sim-request', simClip);
+      }
       return rects;
     }
     var entry = activeEntry();
@@ -1251,6 +1293,9 @@
       return;
     }
     if (t.closest('#sim-request')) {
+      if ($('sim-request').classList.contains('disabled')) {
+        return;
+      }
       state.requestsOpen = !state.requestsOpen;
       paintRequests(state.view.net);
       scheduleLayout(150);

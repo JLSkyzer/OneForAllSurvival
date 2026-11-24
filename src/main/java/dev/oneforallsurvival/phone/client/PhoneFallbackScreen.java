@@ -49,8 +49,6 @@ import org.lwjgl.glfw.GLFW;
 public final class PhoneFallbackScreen extends Screen implements PhoneClient.Shown {
 
     private static final String KEY = "screen.oneforallsurvival.phone.";
-    /** Textes figés au lot T2 (tâche 6), repris tels quels : « Mode avion », « Carte SIM inactive ». */
-    private static final String RELAY = "message.oneforallsurvival.relay.";
     private static final int WHITE = 0xFFFFFFFF;
     private static final int SOFT = 0xFFD8DCE4;
     private static final int RED = 0xFFFF6B6B;
@@ -298,11 +296,13 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
         ids.add("sim-request");
         labels.put("sim-request", Component.literal(requestsOpen ? "\u25be " : "\u25b8 ")
                 .append(Component.translatable(KEY + "sim_request")));
+        // Ni avec une carte active ni en mode avion : le serveur ne propose alors aucun opérateur (même choix que la page).
+        enabled.put("sim-request", PhoneStatusText.requestOffered(n.sim(), state.airplane()));
         actions.put("sim-request", () -> {
             requestsOpen = !requestsOpen;
             rebuild();
         });
-        if (requestsOpen) {
+        if (requestsOpen && PhoneStatusText.requestOffered(n.sim(), state.airplane())) {
             for (PhoneNetView.OperatorChoice o : n.requestable()) {
                 String id = "request-" + o.id();
                 ids.add(id);
@@ -326,7 +326,10 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
         for (Map.Entry<String, Rect> row : layout.rows().entrySet()) {
             String id = row.getKey();
             Runnable action = actions.get(id);
-            FitButton b = new FitButton(row.getValue(), fitted(labels.get(id), row.getValue().width()),
+            // Une donnée libre (carte, opérateur) est coupée par « … » ; un texte fixe est rétréci par son bouton.
+            Component label = PhoneFallbackLayout.cutWithEllipsis(id)
+                    ? fitted(labels.get(id), row.getValue().width()) : labels.get(id);
+            FitButton b = new FitButton(row.getValue(), label,
                     btn -> {
                         if (action != null) {
                             action.run();
@@ -480,46 +483,34 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
     }
 
     /**
-     * Ce que la barre d'état écrit à la place de l'opérateur (mêmes règles que la page) : verrouillé, la carte n'y est
-     * que « aucune », « non reconnue » ou « présente », et 0 barre s'y lit « Pas de service ».
+     * Ce que la barre d'état écrit à la place de l'opérateur : la règle de {@link PhoneStatusText}, la même que celle de
+     * la page. Verrouillé, la carte n'y est que « aucune », « non reconnue » ou « présente », et 0 barre s'y lit « Pas de
+     * service ».
      */
-    private Component carrier() {
+    private String carrier() {
         PhoneNetView n = net();
-        boolean unlocked = state.lock() == Lock.UNLOCKED;
-        if (unlocked && state.airplane()) {
-            return Component.translatable(RELAY + "caller_airplane");
-        }
-        return switch (n.sim()) {
-            case NONE -> Component.translatable(KEY + "no_sim");
-            case UNKNOWN -> Component.translatable(KEY + "sim_unrecognized");
-            case SUSPENDED -> unlocked ? Component.translatable(KEY + "sim_suspended") : noService(n);
-            case DEACTIVATED -> unlocked ? Component.translatable(RELAY + "caller_sim_inactive") : noService(n);
-            case ACTIVE -> noService(n);
-        };
+        PhoneStatusText.Shown shown = PhoneStatusText.carrier(n.sim(), state.lock() == Lock.UNLOCKED, state.airplane(),
+                n.bars(), n.operator());
+        return shown == PhoneStatusText.Shown.OPERATOR ? n.operator()
+                : Component.translatable(shown.key()).getString();
     }
 
-    private static Component noService(PhoneNetView n) {
-        return n.bars() > 0 && !n.operator().isEmpty() ? Component.literal(n.operator())
-                : Component.translatable(KEY + "no_service");
-    }
-
-    /** Les barres se dessinent quand une ligne peut en avoir (carte présente, hors mode avion), vides ou pleines. */
+    /** Les barres se dessinent quand une ligne peut en avoir (carte active, hors mode avion), vides ou pleines. */
     private boolean barsShown() {
-        if (state.lock() == Lock.UNLOCKED && state.airplane()) {
-            return false;
-        }
-        return net().sim() == PhoneSims.Validity.ACTIVE;
+        return PhoneStatusText.barsShown(net().sim(), state.lock() == Lock.UNLOCKED, state.airplane());
     }
 
-    /** La carte logée en quelques mots (ligne « Carte SIM » des Réglages). */
+    /**
+     * La carte logée en quelques mots (Réglages, tête de la feuille) : le numéro d'une ligne, sinon son état, lu dans la
+     * vue (jamais déduit d'un numéro vide : une carte désactivée n'a pas de numéro sans être « non reconnue »).
+     */
     private Component simShort() {
         PhoneNetView n = net();
-        return switch (n.sim()) {
-            case NONE -> Component.translatable("tooltip.oneforallsurvival.phone.no_sim");
-            case UNKNOWN -> Component.translatable(KEY + "sim_unrecognized");
-            default -> n.number().isEmpty() ? Component.translatable(KEY + "sim_unrecognized")
-                    : Component.literal(n.number());
-        };
+        PhoneStatusText.Shown shown = PhoneStatusText.card(n.sim());
+        if (shown == PhoneStatusText.Shown.NUMBER) {
+            return Component.literal(n.number().isEmpty() ? "—" : n.number());
+        }
+        return Component.translatable(shown.key());
     }
 
     private void noteLockout() {
@@ -633,17 +624,11 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
             barsWidth = 4 * 3 + 2;
         }
         // À gauche, l'heure et l'opérateur (ou l'état de la carte) ; verrouillé, l'opérateur seul. Rétréci pour ne pas
-        // mordre sur les barres et la batterie.
-        Component lead = state.lock() == Lock.UNLOCKED
-                ? Component.literal(clock() + "  ").append(carrier())
-                : carrier();
+        // mordre sur les barres et la batterie, jamais sous le plancher : au-delà, l'opérateur est coupé par « … ».
         int room = inner.width() - font.width(status) - barsWidth - 4;
-        float s = PhoneFallbackLayout.fit(font.width(lead), room, 1f);
-        g.pose().pushPose();
-        g.pose().translate(left, y + (1f - s) * font.lineHeight / 2f, 0);
-        g.pose().scale(s, s, 1f);
-        g.drawString(font, lead, 0, 0, state.lock() == Lock.UNLOCKED ? WHITE : SOFT, true);
-        g.pose().popPose();
+        PhoneFallbackLayout.StatusLine lead = PhoneFallbackLayout.statusLine(
+                state.lock() == Lock.UNLOCKED ? clock() + "  " : "", carrier(), room, font::width);
+        drawScaled(g, lead, left, y, state.lock() == Lock.UNLOCKED ? WHITE : SOFT);
     }
 
     private void drawCode(GuiGraphics g) {
@@ -727,24 +712,21 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
         PhoneNetView n = net();
         int cx = inner.x() + inner.width() / 2;
         int y = inner.y();
-        boolean line = !n.number().isEmpty();
-        Component first = switch (n.sim()) {
-            case NONE -> Component.translatable("tooltip.oneforallsurvival.phone.no_sim");
-            case UNKNOWN -> Component.translatable(KEY + "sim_unrecognized");
-            default -> line ? Component.literal(n.number()) : Component.translatable(KEY + "sim_unrecognized");
-        };
-        drawCentered(g, first, cx, y, WHITE);
+        // L'état vient de la vue, jamais d'un numéro vide : une ligne seulement pour une carte active ou suspendue.
+        boolean line = PhoneStatusText.card(n.sim()) == PhoneStatusText.Shown.NUMBER;
+        drawCentered(g, simShort(), cx, y, WHITE);
         y += font.lineHeight + 1;
         if (line) {
-            Component holder = n.holder().isEmpty()
-                    ? Component.translatable("tooltip.oneforallsurvival.sim_card.anonymous")
-                    : Component.literal(n.holder());
-            Component lineState = switch (n.sim()) {
-                case SUSPENDED -> Component.translatable(KEY + "sim_suspended");
-                case DEACTIVATED -> Component.translatable(RELAY + "caller_sim_inactive");
-                default -> Component.literal(n.operator());
-            };
-            drawCentered(g, holder.copy().append(" · ").append(lineState), cx, y, SOFT);
+            String holder = n.holder().isEmpty()
+                    ? Component.translatable("tooltip.oneforallsurvival.sim_card.anonymous").getString()
+                    : n.holder();
+            String lineState = n.sim() == PhoneSims.Validity.SUSPENDED
+                    ? Component.translatable(PhoneStatusText.Shown.SUSPENDED.key()).getString()
+                    : n.operator();
+            PhoneFallbackLayout.StatusLine second = PhoneFallbackLayout.statusLine(holder + " · ", lineState,
+                    inner.width(), font::width);
+            int w = Math.round(font.width(second.text()) * second.scale());
+            drawScaled(g, second, cx - w / 2, y, SOFT);
         }
         y += font.lineHeight + 1;
         if (!message.getString().isEmpty()) {
@@ -752,6 +734,16 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
         } else if (line) {
             drawCentered(g, Component.translatable(KEY + "plan"), cx, y, SOFT);
         }
+    }
+
+    /** Une ligne mise en page par {@link PhoneFallbackLayout#statusLine}, à son échelle, depuis {@code x}. */
+    private void drawScaled(GuiGraphics g, PhoneFallbackLayout.StatusLine line, int x, int y, int color) {
+        float s = line.scale();
+        g.pose().pushPose();
+        g.pose().translate(x, y + (1f - s) * font.lineHeight / 2f, 0);
+        g.pose().scale(s, s, 1f);
+        g.drawString(font, line.text(), 0, 0, color, true);
+        g.pose().popPose();
     }
 
     /** Un texte aligné à gauche, rétréci s'il dépasse la largeur de l'écran. */

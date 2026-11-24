@@ -1157,7 +1157,6 @@
   "screen.oneforallsurvival.phone.sim_unrecognized": "SIM not recognized",
   "screen.oneforallsurvival.phone.sim_suspended": "SIM suspended",
   "screen.oneforallsurvival.phone.sim": "SIM card: %s",
-  "screen.oneforallsurvival.phone.sim_title": "SIM card",
   "screen.oneforallsurvival.phone.sim_remove": "Remove the card",
   "screen.oneforallsurvival.phone.sim_request": "Request a card",
   "screen.oneforallsurvival.phone.request_row": "%s · %s/4",

@@ -929,6 +929,9 @@ body {
 
 #sim-request-chev { transition: transform 0.25s; }
 #sim-request.open #sim-request-chev { transform: rotate(135deg); }
+/* Ni avec une carte active ni en mode avion : grisée, comme dans le repli (le serveur ne propose alors personne). */
+#sim-request.disabled { color: #b4b4b9; }
+#sim-request.disabled:active { background: none; }
 #sim-requests .label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .req-bars { margin-left: 10px; color: #000; }
 

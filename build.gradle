@@ -164,12 +164,17 @@ minecraft {
             if (project.hasProperty('telephoneShots')) {
                 property 'oneforallsurvival.telephoneShots', project.telephoneShots ?: 'frames-telephone'
             }
-            // `-PtelephoneShotsMode=parcours|perf|webdisplays` (parcours par defaut), `-PtelephoneShotsServer=<hote:port>`
+            // `-PtelephoneShotsMode=parcours|perf|webdisplays|reseau` (parcours par defaut ; reseau : carte SIM,
+            // operateur et barres, lot T2), `-PtelephoneShotsLangue=fr_fr` (langue du client, en memoire seulement),
+            // `-PtelephoneShotsServer=<hote:port>`
             // (serveur dedie au lieu d'un monde solo), `-PtelephoneShotsSansPlafond` (perf sans synchro verticale ni
             // plafond d'images, en memoire seulement), `-PphonePage=<chemin>` (autre page du mod pour le telephone,
             // ex. phone/absente.html : essai du repli).
             if (project.hasProperty('telephoneShotsMode')) {
                 property 'oneforallsurvival.telephoneShots.mode', project.telephoneShotsMode
+            }
+            if (project.hasProperty('telephoneShotsLangue')) {
+                property 'oneforallsurvival.telephoneShots.langue', project.telephoneShotsLangue
             }
             if (project.hasProperty('telephoneShotsServer')) {
                 property 'oneforallsurvival.telephoneShots.server', project.telephoneShotsServer

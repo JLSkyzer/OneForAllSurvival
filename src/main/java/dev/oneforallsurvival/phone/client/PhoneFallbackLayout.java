@@ -179,6 +179,34 @@ public final class PhoneFallbackLayout {
         return dots;
     }
 
+    /** Plancher de l'échelle du texte de la barre d'état : en dessous, il ne se lit plus (revue de la tâche 8, M1). */
+    public static final float MIN_STATUS_SCALE = 0.6f;
+
+    /** Le texte de la barre d'état du repli et l'échelle à laquelle il se dessine. */
+    public record StatusLine(String text, float scale) {}
+
+    /**
+     * La barre d'état : {@code prefix} (l'heure) puis {@code carrier} (opérateur ou état), rétrécis pour tenir dans
+     * {@code room} px, jamais sous {@link #MIN_STATUS_SCALE} ; s'il le faut encore, {@code carrier} est coupé par « … ».
+     */
+    public static StatusLine statusLine(String prefix, String carrier, int room, ToIntFunction<String> width) {
+        String full = prefix + carrier;
+        float scale = fit(width.applyAsInt(full), room, 1f);
+        if (scale >= MIN_STATUS_SCALE) {
+            return new StatusLine(full, scale);
+        }
+        int textRoom = (int) Math.floor(room / MIN_STATUS_SCALE) - width.applyAsInt(prefix);
+        return new StatusLine(prefix + ellipsize(carrier, Math.max(0, textRoom), width), MIN_STATUS_SCALE);
+    }
+
+    /**
+     * Une ligne de la feuille « Carte SIM » qui porte une donnée libre (une carte {@code sim-choice-*}, un opérateur
+     * {@code request-<id>}) : coupée par « … » si elle ne tient pas. Un texte fixe, lui, est rétréci par son bouton.
+     */
+    public static boolean cutWithEllipsis(String id) {
+        return id.startsWith("sim-choice-") || (id.startsWith("request-") && !id.equals("request-none"));
+    }
+
     /** L'échelle (au plus {@code max}) qui fait tenir un texte de {@code textWidth} dans {@code available}. */
     public static float fit(int textWidth, int available, float max) {
         if (textWidth <= 0 || available <= 0) {

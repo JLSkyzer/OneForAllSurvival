@@ -159,7 +159,6 @@ class PhoneFallbackLayoutTest {
         dedans(haut.list(), zone, "liste");
         assertTrue(haut.remove().y() >= haut.textTop() + PhoneFallbackLayout.SIM_TEXT_LINES * (LH + 1),
                 "retirer sur le texte de la ligne");
-        assertEquals(3, PhoneFallbackLayout.SIM_TEXT_LINES, "numéro, titulaire, message : drawSim en dessine trois");
         assertFalse(chevauche(haut.remove(), haut.list()), "retirer sur la liste");
         assertFalse(chevauche(haut.back(), haut.list()), "retour sur la liste");
         assertTrue(haut.remove().height() >= PhoneFallbackLayout.MIN_ROW && haut.back().height()
@@ -219,6 +218,40 @@ class PhoneFallbackLayoutTest {
         assertTrue(coupe.length() > 2, "coupé trop court : " + coupe);
         assertEquals("Lagon", PhoneFallbackLayout.ellipsize("Lagon", place, largeur));
         assertEquals("", PhoneFallbackLayout.ellipsize("Lagon", 3, largeur), "pas même la place de « … »");
+    }
+
+    /**
+     * La barre d'état du repli : rétrécie pour tenir, jamais sous {@code MIN_STATUS_SCALE} ; au-delà, le nom de
+     * l'opérateur est coupé par « … » (revue de la tâche 8, M1).
+     */
+    @Test
+    void laBarreDEtatNeDescendPasSousSonPlancher() {
+        java.util.function.ToIntFunction<String> largeur = s -> 6 * s.codePointCount(0, s.length());
+        int place = 88;
+        PhoneFallbackLayout.StatusLine longue = PhoneFallbackLayout.statusLine("21:57  ", "Coopérative du Lagon Sud",
+                place, largeur);
+        assertTrue(longue.scale() >= PhoneFallbackLayout.MIN_STATUS_SCALE, "échelle " + longue.scale());
+        assertTrue(largeur.applyAsInt(longue.text()) * longue.scale() <= place + 0.01, longue.toString());
+        assertTrue(longue.text().startsWith("21:57  Coop") && longue.text().endsWith("…"), longue.text());
+        PhoneFallbackLayout.StatusLine courte = PhoneFallbackLayout.statusLine("21:57  ", "Mairie", place, largeur);
+        assertEquals("21:57  Mairie", courte.text());
+        assertEquals(1f, courte.scale());
+        PhoneFallbackLayout.StatusLine moyenne = PhoneFallbackLayout.statusLine("21:57  ", "Lagon du Nord", place,
+                largeur);
+        assertEquals("21:57  Lagon du Nord", moyenne.text(), "rétrécie sans coupe tant que le plancher suffit");
+        assertTrue(moyenne.scale() < 1f && moyenne.scale() >= PhoneFallbackLayout.MIN_STATUS_SCALE);
+    }
+
+    /** Seules les lignes qui portent une donnée libre (carte, opérateur) sont coupées par « … » ; un texte fixe non. */
+    @Test
+    void seulesLesDonneesLibresSontCoupees() {
+        assertTrue(PhoneFallbackLayout.cutWithEllipsis("sim-choice-12"));
+        assertTrue(PhoneFallbackLayout.cutWithEllipsis("request-3f2a9c1b0d4e"));
+        assertFalse(PhoneFallbackLayout.cutWithEllipsis("request-none"));
+        assertFalse(PhoneFallbackLayout.cutWithEllipsis("sim-none"));
+        assertFalse(PhoneFallbackLayout.cutWithEllipsis("sim-request"));
+        assertFalse(PhoneFallbackLayout.cutWithEllipsis("sim-remove"));
+        assertFalse(PhoneFallbackLayout.cutWithEllipsis("back"));
     }
 
     @Test
