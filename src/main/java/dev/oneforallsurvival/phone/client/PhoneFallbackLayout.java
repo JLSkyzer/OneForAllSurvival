@@ -24,8 +24,8 @@ public final class PhoneFallbackLayout {
     static final int ROW_GAP = 2;
     static final int MIN_ROW = 10;
     static final int MAX_ROW = 20;
-    /** Les lignes de texte au-dessus de « Retirer » dans la feuille « Carte SIM » : numéro, titulaire, message. */
-    public static final int SIM_TEXT_LINES = 3;
+    /** Les lignes de texte au-dessus de « Retirer » dans la feuille « Carte SIM » : numéro, titulaire, message (deux). */
+    public static final int SIM_TEXT_LINES = 4;
     /** En dessous de cette échelle, le texte d'Effacer cède la place à une flèche (le libellé reste lu et en bulle). */
     static final float SYMBOL_BELOW = 0.75f;
 
@@ -179,24 +179,121 @@ public final class PhoneFallbackLayout {
         return dots;
     }
 
-    /** Plancher de l'échelle du texte de la barre d'état : en dessous, il ne se lit plus (revue de la tâche 8, M1). */
-    public static final float MIN_STATUS_SCALE = 0.6f;
+    /**
+     * Plancher de l'échelle de tout texte de l'écran de repli : en dessous, il ne se lit plus sans effort. Un texte plus
+     * long passe à la ligne ({@link #wrap}), ou, sur une seule ligne (barre d'état, bouton), est coupé par « … » (revue de
+     * la tâche 8, tour 2).
+     */
+    public static final float MIN_TEXT_SCALE = 0.75f;
+    /** La barre d'état suit le même plancher. */
+    public static final float MIN_STATUS_SCALE = MIN_TEXT_SCALE;
+    /** Un message ou un texte d'état tient sur deux lignes au plus. */
+    public static final int MAX_TEXT_LINES = 2;
 
-    /** Le texte de la barre d'état du repli et l'échelle à laquelle il se dessine. */
-    public record StatusLine(String text, float scale) {}
+    /** Le texte de la barre d'état du repli et l'échelle à laquelle il se dessine ; {@code cut} : coupé par « … ». */
+    public record StatusLine(String text, float scale, boolean cut) {}
 
     /**
-     * La barre d'état : {@code prefix} (l'heure) puis {@code carrier} (opérateur ou état), rétrécis pour tenir dans
-     * {@code room} px, jamais sous {@link #MIN_STATUS_SCALE} ; s'il le faut encore, {@code carrier} est coupé par « … ».
+     * Une ligne : {@code prefix} puis {@code carrier}, rétrécis pour tenir dans {@code room} px, jamais sous
+     * {@link #MIN_STATUS_SCALE} ; s'il le faut encore, {@code carrier} est coupé par « … ».
      */
     public static StatusLine statusLine(String prefix, String carrier, int room, ToIntFunction<String> width) {
         String full = prefix + carrier;
         float scale = fit(width.applyAsInt(full), room, 1f);
         if (scale >= MIN_STATUS_SCALE) {
-            return new StatusLine(full, scale);
+            return new StatusLine(full, scale, false);
         }
         int textRoom = (int) Math.floor(room / MIN_STATUS_SCALE) - width.applyAsInt(prefix);
-        return new StatusLine(prefix + ellipsize(carrier, Math.max(0, textRoom), width), MIN_STATUS_SCALE);
+        return new StatusLine(prefix + ellipsize(carrier, Math.max(0, textRoom), width), MIN_STATUS_SCALE, true);
+    }
+
+    /** La largeur des quatre barres de signal de la barre d'état, écart compris. */
+    public static final int BARS_WIDTH = 14;
+
+    /** La place du texte de la barre d'état, à gauche de la batterie (et des barres, qui se retirent de cette place). */
+    public static int statusRoom(int innerWidth, int batteryWidth) {
+        return innerWidth - batteryWidth - 4;
+    }
+
+    /** La barre d'état mise en page : sa ligne, et si les barres se dessinent. */
+    public record Status(StatusLine line, boolean bars) {}
+
+    /**
+     * La barre d'état du repli, à gauche de la batterie : l'heure ({@code clock}, vide verrouillé) puis l'opérateur ou
+     * l'état de la carte, et les barres ({@code barsWidth} px, 0 sans barres) à droite. Si le texte ne tient pas au
+     * plancher, l'heure cède d'abord sa place (l'accueil la montre en grand), puis des barres toutes vides
+     * ({@code barsOptional} : elles ne disent rien de plus que « Pas de service ») ; un nom d'opérateur trop long est
+     * enfin coupé par « … ». {@code room} : la place sans les barres.
+     */
+    public static Status status(String clock, String carrier, int barsWidth, boolean barsOptional, int room,
+            ToIntFunction<String> width) {
+        boolean bars = barsWidth > 0;
+        int withBars = room - barsWidth;
+        StatusLine line = statusLine(clock, carrier, withBars, width);
+        if (line.cut() && !clock.isEmpty()) {
+            line = statusLine("", carrier, withBars, width);
+        }
+        if (line.cut() && bars && barsOptional) {
+            bars = false;
+            line = statusLine("", carrier, room, width);
+        }
+        return new Status(line, bars);
+    }
+
+    /** Un texte passé à la ligne : ses lignes, leur échelle commune, et s'il a fallu couper par « … ». */
+    public record Wrapped(List<String> lines, float scale, boolean cut) {}
+
+    /**
+     * Le texte passé à la ligne entre les mots pour tenir dans {@code room} px, en {@code maxLines} lignes au plus :
+     * à l'échelle 1 si c'est possible, sinon au plancher {@link #MIN_TEXT_SCALE} ; si cela ne suffit pas, la dernière
+     * ligne est coupée par « … » (un mot plus long qu'une ligne aussi). Jamais rétréci sous le plancher.
+     */
+    public static Wrapped wrap(String text, int room, ToIntFunction<String> width, int maxLines) {
+        String s = text == null ? "" : text.strip();
+        for (float scale : new float[] {1f, MIN_TEXT_SCALE}) {
+            int lineRoom = (int) Math.floor(room / scale);
+            List<String> lines = words(s, lineRoom, width);
+            if (lines.size() <= maxLines && lines.stream().allMatch(l -> width.applyAsInt(l) <= lineRoom)) {
+                return new Wrapped(Collections.unmodifiableList(lines), scale, false);
+            }
+        }
+        int lineRoom = (int) Math.floor(room / MIN_TEXT_SCALE);
+        List<String> lines = words(s, lineRoom, width);
+        List<String> out = new ArrayList<>();
+        for (int i = 0; i < Math.min(maxLines - 1, lines.size()); i++) {
+            String l = lines.get(i);
+            out.add(width.applyAsInt(l) <= lineRoom ? l : ellipsize(l, lineRoom, width));
+        }
+        String rest = String.join(" ", lines.subList(Math.min(maxLines - 1, lines.size()), lines.size()));
+        out.add(ellipsize(rest, lineRoom, width));
+        return new Wrapped(Collections.unmodifiableList(out), MIN_TEXT_SCALE, true);
+    }
+
+    /** Les lignes d'un passage à la ligne glouton entre les mots ; un mot trop long reste seul sur sa ligne. */
+    private static List<String> words(String text, int lineRoom, ToIntFunction<String> width) {
+        List<String> lines = new ArrayList<>();
+        StringBuilder line = new StringBuilder();
+        for (String word : text.split(" +")) {
+            if (word.isEmpty()) {
+                continue;
+            }
+            String tried = line.length() == 0 ? word : line + " " + word;
+            if (line.length() > 0 && width.applyAsInt(tried) > lineRoom) {
+                lines.add(line.toString());
+                line = new StringBuilder(word);
+            } else {
+                line = new StringBuilder(tried);
+            }
+        }
+        if (line.length() > 0 || lines.isEmpty()) {
+            lines.add(line.toString());
+        }
+        return lines;
+    }
+
+    /** Le libellé d'un bouton de cette largeur et son échelle : rétréci jusqu'au plancher, puis coupé par « … ». */
+    public static StatusLine button(String text, int buttonWidth, ToIntFunction<String> width) {
+        return statusLine("", text, textRoom(buttonWidth), width);
     }
 
     /**

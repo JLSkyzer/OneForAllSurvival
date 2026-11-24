@@ -243,7 +243,10 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
         PhoneFallbackLayout.Settings layout = PhoneFallbackLayout.settings(inner, font.lineHeight);
         settingsLayout = layout;
         Map<String, Rect> rows = layout.rows();
-        add("sim", new FitButton(rows.get("sim"), Component.translatable(KEY + "sim", simShort()), b -> {
+        // « SIM : 06 12 34 56 78 » pour une ligne ; sinon l'état seul (« Aucune carte SIM », « SIM inconnue »…).
+        Component simRow = PhoneStatusText.card(net().sim()) == PhoneStatusText.Shown.NUMBER
+                ? Component.translatable(KEY + "sim", simShort()) : simShort();
+        add("sim", new FitButton(rows.get("sim"), simRow, b -> {
             page = Page.SIM;
             message = Component.empty();
             requestsOpen = false;
@@ -607,28 +610,24 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
                 : Component.literal(battery);
         int statusX = right - font.width(status);
         g.drawString(font, status, statusX, y, state.battery() <= 20 ? RED : WHITE, true);
-        // Les quatre barres, pleines ou creuses, juste à gauche de la batterie.
-        int barsWidth = 0;
-        if (barsShown()) {
-            int bars = net().bars();
+        // À gauche, l'heure et l'opérateur (ou l'état de la carte) ; verrouillé, l'opérateur seul ; puis les barres.
+        // Jamais sous le plancher : l'heure cède d'abord sa place, puis des barres toutes vides ; un nom d'opérateur
+        // trop long est enfin coupé par « … » (PhoneFallbackLayout.status).
+        int room = PhoneFallbackLayout.statusRoom(inner.width(), font.width(status));
+        boolean bars = barsShown();
+        PhoneFallbackLayout.Status lead = PhoneFallbackLayout.status(
+                state.lock() == Lock.UNLOCKED ? clock() + "  " : "", carrier(),
+                bars ? PhoneFallbackLayout.BARS_WIDTH : 0, bars && net().bars() == 0, room, font::width);
+        if (lead.bars()) {
+            int filled = net().bars();
             int base = y + font.lineHeight - 2;
             for (int i = 0; i < 4; i++) {
                 int bx = statusX - 3 - (4 - i) * 3;
                 int h = 2 + 2 * i;
-                if (i < bars) {
-                    g.fill(bx, base - h, bx + 2, base, WHITE);
-                } else {
-                    g.fill(bx, base - h, bx + 2, base, 0x55FFFFFF);
-                }
+                g.fill(bx, base - h, bx + 2, base, i < filled ? WHITE : 0x55FFFFFF);
             }
-            barsWidth = 4 * 3 + 2;
         }
-        // À gauche, l'heure et l'opérateur (ou l'état de la carte) ; verrouillé, l'opérateur seul. Rétréci pour ne pas
-        // mordre sur les barres et la batterie, jamais sous le plancher : au-delà, l'opérateur est coupé par « … ».
-        int room = inner.width() - font.width(status) - barsWidth - 4;
-        PhoneFallbackLayout.StatusLine lead = PhoneFallbackLayout.statusLine(
-                state.lock() == Lock.UNLOCKED ? clock() + "  " : "", carrier(), room, font::width);
-        drawScaled(g, lead, left, y, state.lock() == Lock.UNLOCKED ? WHITE : SOFT);
+        drawScaled(g, lead.line(), left, y, state.lock() == Lock.UNLOCKED ? WHITE : SOFT);
     }
 
     private void drawCode(GuiGraphics g) {
@@ -678,7 +677,7 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
             y += font.lineHeight + 4;
         }
         if (!message.getString().isEmpty()) {
-            drawCentered(g, message, cx, y, messageAlert ? RED : WHITE);
+            drawWrapped(g, message, cx, y, messageAlert ? RED : WHITE);
         }
     }
 
@@ -705,8 +704,9 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
     }
 
     /**
-     * La feuille « Carte SIM » : trois lignes au-dessus de « Retirer » : le numéro (ou l'état de la carte), le titulaire
-     * (ou « SIM sans nom ») et l'opérateur ou l'état de la ligne, puis le message du dernier geste ou l'abonnement.
+     * La feuille « Carte SIM » : quatre lignes au-dessus de « Retirer » : le numéro (ou l'état de la carte), le
+     * titulaire (ou « SIM sans nom ») et l'opérateur ou l'état de la ligne, puis le message du dernier geste ou
+     * l'abonnement, sur deux lignes au plus.
      */
     private void drawSim(GuiGraphics g) {
         PhoneNetView n = net();
@@ -729,10 +729,29 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
             drawScaled(g, second, cx - w / 2, y, SOFT);
         }
         y += font.lineHeight + 1;
+        // Le message du dernier geste, ou l'abonnement : à la ligne sur deux lignes au plus, jamais rétréci sous le plancher.
         if (!message.getString().isEmpty()) {
-            drawCentered(g, message, cx, y, messageAlert ? RED : WHITE);
+            drawWrapped(g, message, cx, y, messageAlert ? RED : WHITE);
         } else if (line) {
-            drawCentered(g, Component.translatable(KEY + "plan"), cx, y, SOFT);
+            drawWrapped(g, Component.translatable(KEY + "plan"), cx, y, SOFT);
+        }
+    }
+
+    /**
+     * Un message centré, passé à la ligne entre les mots sur {@value PhoneFallbackLayout#MAX_TEXT_LINES} lignes au plus
+     * ({@link PhoneFallbackLayout#wrap}) : à l'échelle 1, sinon au plancher, jamais plus petit.
+     */
+    private void drawWrapped(GuiGraphics g, Component text, int cx, int y, int color) {
+        PhoneFallbackLayout.Wrapped w = PhoneFallbackLayout.wrap(text.getString(), inner.width(), font::width,
+                PhoneFallbackLayout.MAX_TEXT_LINES);
+        float s = w.scale();
+        for (String line : w.lines()) {
+            g.pose().pushPose();
+            g.pose().translate(cx - font.width(line) * s / 2f, y, 0);
+            g.pose().scale(s, s, 1f);
+            g.drawString(font, line, 0, 0, color, true);
+            g.pose().popPose();
+            y += Math.round((font.lineHeight + 1) * s);
         }
     }
 
@@ -804,7 +823,8 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
     }
 
     /**
-     * Un bouton dont le texte, trop large, est rétréci pour tenir (au lieu du défilement de Minecraft, qui le coupe).
+     * Un bouton dont le texte, trop large, est rétréci pour tenir (au lieu du défilement de Minecraft), jamais sous le
+     * plancher {@link PhoneFallbackLayout#MIN_TEXT_SCALE} : au-delà, coupé par « … ».
      * {@code spoken} remplace le texte lu par le narrateur (la flèche d'Effacer se lit « Effacer »).
      */
     private static final class FitButton extends Button {
@@ -816,17 +836,20 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
 
         @Override
         public void renderString(GuiGraphics g, Font font, int color) {
-            int w = font.width(getMessage());
             int room = PhoneFallbackLayout.textRoom(getWidth());
-            if (w <= room) {
+            if (font.width(getMessage()) <= room) {
                 super.renderString(g, font, color);
                 return;
             }
-            float s = PhoneFallbackLayout.fit(w, room, 1f);
+            // Rétréci jusqu'au plancher (0,75), puis coupé par « … » : jamais illisible.
+            PhoneFallbackLayout.StatusLine l = PhoneFallbackLayout.button(getMessage().getString(), getWidth(),
+                    font::width);
+            float s = l.scale();
+            int w = font.width(l.text());
             g.pose().pushPose();
             g.pose().translate(getX() + getWidth() / 2f, getY() + (getHeight() - font.lineHeight * s) / 2f + s, 0);
             g.pose().scale(s, s, 1f);
-            g.drawString(font, getMessage(), -w / 2, 0, color, true);
+            g.drawString(font, l.text(), -w / 2, 0, color, true);
             g.pose().popPose();
         }
     }

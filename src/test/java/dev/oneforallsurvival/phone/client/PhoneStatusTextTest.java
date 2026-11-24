@@ -33,9 +33,9 @@ class PhoneStatusTextTest {
 
     static {
         FRANCAIS.put(Shown.NO_SIM, "Pas de SIM");
-        FRANCAIS.put(Shown.UNRECOGNIZED, "SIM non reconnue");
+        FRANCAIS.put(Shown.UNRECOGNIZED, "SIM inconnue");
         FRANCAIS.put(Shown.SUSPENDED, "SIM suspendue");
-        FRANCAIS.put(Shown.INACTIVE, "Carte SIM inactive");
+        FRANCAIS.put(Shown.INACTIVE, "SIM inactive");
         FRANCAIS.put(Shown.NO_SERVICE, "Pas de service");
         FRANCAIS.put(Shown.AIRPLANE, "Mode avion");
         FRANCAIS.put(Shown.NO_CARD, "Aucune carte SIM");

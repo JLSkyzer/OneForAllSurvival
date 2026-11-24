@@ -30,9 +30,9 @@
   // de la vue.
   var STATUS_TEXTS = {
     NO_SIM: 'Pas de SIM',
-    UNRECOGNIZED: 'SIM non reconnue',
+    UNRECOGNIZED: 'SIM inconnue',
     SUSPENDED: 'SIM suspendue',
-    INACTIVE: 'Carte SIM inactive',
+    INACTIVE: 'SIM inactive',
     NO_SERVICE: 'Pas de service',
     AIRPLANE: 'Mode avion',
     NO_CARD: 'Aucune carte SIM'
@@ -50,10 +50,10 @@
     SIM_REQUESTED: "Demande envoyée à l'opérateur."
   };
   var SIM_ALERTS = {
-    SIM_UNKNOWN: ['Carte SIM', 'Aucune carte SIM valable dans cette case.'],
-    INVENTORY_FULL: ['Carte SIM', 'Inventaire plein : la carte reste dans le téléphone.'],
-    ALREADY_REQUESTED: ['Demande de carte', 'Vous avez déjà demandé une carte à cet opérateur.'],
-    REQUESTS_FULL: ['Demande de carte', 'La file de demandes de cet opérateur est pleine. Réessayez plus tard.'],
+    SIM_UNKNOWN: ['Carte SIM', 'Carte SIM non valable.'],
+    INVENTORY_FULL: ['Carte SIM', 'Inventaire plein : carte gardée.'],
+    ALREADY_REQUESTED: ['Demande de carte', 'Déjà demandée à cet opérateur.'],
+    REQUESTS_FULL: ['Demande de carte', 'File pleine : réessayez plus tard.'],
     NO_NETWORK: ['Réseau', 'Pas de réseau.']
   };
   var DAYS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
@@ -408,7 +408,7 @@
     var box = $('sim-choices');
     clearBox(box);
     if (n.choices.length === 0) {
-      box.appendChild(emptyRow("Aucune carte SIM dans l'inventaire"));
+      box.appendChild(emptyRow('Aucune carte ici'));
       return;
     }
     for (var i = 0; i < n.choices.length; i++) {
@@ -428,7 +428,7 @@
       return;
     }
     if (n.requestable.length === 0) {
-      box.appendChild(emptyRow('Aucun opérateur à qui demander ici'));
+      box.appendChild(emptyRow('Aucun opérateur ici'));
       return;
     }
     for (var i = 0; i < n.requestable.length; i++) {

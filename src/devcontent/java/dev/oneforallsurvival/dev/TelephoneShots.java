@@ -572,6 +572,7 @@ public final class TelephoneShots {
             return;
         }
         decor(mc, 80);
+        largeursReelles(mc);
         // Un téléphone neuf configuré : code cliqué, confirmé au clavier.
         ouvrir(mc, "reseau-ouverture-0", Lock.SETUP, null);
         assistantJusquAuFond(mc, "reseau-assistant", "aube", false);
@@ -747,7 +748,10 @@ public final class TelephoneShots {
             PhoneOperators registre = PhoneOperators.get(srv);
             etatCarte = registre.cardsOf(idMairie).stream().filter(c -> sp.getUUID().equals(c.holder())).findFirst()
                     .map(c -> registre.setState(c.simId(), etat) ? etat.name() : "refusé").orElse("aucune carte");
-        }), () -> vueReseau().sim() == vu && attendu(1.0), 8, image);
+        }), () -> vueReseau().sim() == vu, 8, null);
+        // La page renvoie sa mise en page 720 ms après le rendu : un clic plus tôt viserait l'ancienne (la feuille
+        // change de hauteur avec l'état de la carte). Une seconde de pause, puis l'image.
+        pause(image);
         pas(nom + "-releve", () -> journal(nom + " : registre " + etatCarte + ", vue " + resumeReseau(vueReseau())),
                 () -> true, 1, null);
     }
@@ -773,6 +777,53 @@ public final class TelephoneShots {
             taille(mc, 1280, 720);
             echelle(mc, 2);
         }, () -> attendu(1.5) && mc.getWindow().getGuiScaledWidth() == 640, 6, null);
+    }
+
+    /**
+     * Les textes fixes de l'écran de repli (lot T2) dans la langue du client : la largeur réelle de la police du jeu
+     * ({@code Font.width}) ne doit dépasser nulle part la borne {@code FontEstimate} qui sert aux essais JUnit
+     * ({@code PhoneFallbackTextsTest}) ; sinon ces essais ne prouveraient rien.
+     */
+    private static void largeursReelles(Minecraft mc) {
+        pas("reseau-largeurs", () -> {
+            String k = "screen.oneforallsurvival.phone.";
+            List<Component> textes = new ArrayList<>();
+            for (String nom : List.of("settings", "antenna_app", "sim_remove", "sim_request", "no_choices",
+                    "no_requestable", "back", "change_code", "lock", "erase", "erase_confirm", "sim_inserted",
+                    "sim_removed", "sim_unknown", "inventory_full", "sim_requested", "already_requested", "no_network",
+                    "requests_full", "not_owner", "plan", "no_sim", "sim_unrecognized", "sim_suspended", "sim_inactive",
+                    "no_service")) {
+                textes.add(Component.translatable(k + nom));
+            }
+            textes.add(Component.translatable("message.oneforallsurvival.relay.caller_airplane"));
+            textes.add(Component.translatable("tooltip.oneforallsurvival.phone.no_sim"));
+            textes.add(Component.translatable(k + "sim", "06 12 34 56 78"));
+            for (String oui : List.of("on", "off")) {
+                textes.add(Component.translatable(k + "airplane", Component.translatable(k + oui)));
+            }
+            for (String fond : PhoneWallpapers.IDS) {
+                textes.add(Component.translatable(k + "wallpaper", Component.translatable(k + "wallpaper." + fond)));
+            }
+            int depasse = 0;
+            StringBuilder plus = new StringBuilder();
+            for (Component c : textes) {
+                String s = c.getString();
+                int reel = mc.font.width(s);
+                int estime = dev.oneforallsurvival.phone.client.FontEstimate.width(s);
+                if (reel > estime) {
+                    depasse++;
+                    plus.append(" « ").append(s).append(" » ").append(reel).append(" > ").append(estime).append(';');
+                }
+                if (s.equals(textes.get(0).getString()) || reel > estime) {
+                    journal("largeur « " + s + " » : réelle " + reel + ", estimée " + estime);
+                }
+            }
+            journal("largeurs : " + textes.size() + " textes fixes, " + depasse + " plus large(s) que l'estimation"
+                    + plus);
+            if (depasse > 0) {
+                echec("reseau-largeurs", depasse + " texte(s) plus large(s) que FontEstimate :" + plus);
+            }
+        }, () -> true, 1, null);
     }
 
     /** L'identifiant de la première carte de l'inventaire proposée par la feuille ({@code sim-choice-<case>}), ou nul. */

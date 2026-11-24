@@ -18,7 +18,7 @@ public final class PhoneStatusText {
         NO_SIM("screen.oneforallsurvival.phone.no_sim"),
         UNRECOGNIZED("screen.oneforallsurvival.phone.sim_unrecognized"),
         SUSPENDED("screen.oneforallsurvival.phone.sim_suspended"),
-        INACTIVE("message.oneforallsurvival.relay.caller_sim_inactive"),
+        INACTIVE("screen.oneforallsurvival.phone.sim_inactive"),
         NO_SERVICE("screen.oneforallsurvival.phone.no_service"),
         AIRPLANE("message.oneforallsurvival.relay.caller_airplane"),
         NO_CARD("tooltip.oneforallsurvival.phone.no_sim"),

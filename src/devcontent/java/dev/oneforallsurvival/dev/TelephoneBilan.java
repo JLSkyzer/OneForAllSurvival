@@ -81,7 +81,7 @@ final class TelephoneBilan {
                     "reseau-mode-avion", "reseau-mode-avion-coupe", "reseau-150-blocs", "reseau-300-blocs",
                     "reseau-retour", "reseau-verrouille-operateur", "reseau-retirer", "reseau-file-pleine",
                     "reseau-demande-grisee", "reseau-suspendue", "reseau-reactivee", "reseau-desactivee",
-                    "reseau-liste-vide", "bilan-du-pont");
+                    "reseau-liste-vide", "reseau-largeurs", "bilan-du-pont");
             default -> {
                 List<String> l = new ArrayList<>(List.of("ouverture-1", "confirmation-au-clavier", "reglages",
                         "mode-avion", "modification-du-code", "ouverture-2", "faux-5-reponse", "blocage",

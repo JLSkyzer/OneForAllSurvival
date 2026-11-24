@@ -236,10 +236,66 @@ class PhoneFallbackLayoutTest {
         PhoneFallbackLayout.StatusLine courte = PhoneFallbackLayout.statusLine("21:57  ", "Mairie", place, largeur);
         assertEquals("21:57  Mairie", courte.text());
         assertEquals(1f, courte.scale());
-        PhoneFallbackLayout.StatusLine moyenne = PhoneFallbackLayout.statusLine("21:57  ", "Lagon du Nord", place,
+        PhoneFallbackLayout.StatusLine moyenne = PhoneFallbackLayout.statusLine("21:57  ", "Lagon du Nord", 100,
                 largeur);
         assertEquals("21:57  Lagon du Nord", moyenne.text(), "rétrécie sans coupe tant que le plancher suffit");
         assertTrue(moyenne.scale() < 1f && moyenne.scale() >= PhoneFallbackLayout.MIN_STATUS_SCALE);
+    }
+
+    /**
+     * Un message plus long que la ligne passe à la ligne entre les mots, à l'échelle 1 si deux lignes suffisent, sinon
+     * au plancher 0,75 ; jamais plus de deux lignes, jamais sous le plancher ; ce qui ne tient pas finit par « … »
+     * (revue de la tâche 8, tour 2).
+     */
+    @Test
+    void unMessageLongPasseALaLigne() {
+        java.util.function.ToIntFunction<String> largeur = s -> 6 * s.codePointCount(0, s.length());
+        PhoneFallbackLayout.Wrapped court = PhoneFallbackLayout.wrap("Carte SIM retirée.", 120, largeur, 2);
+        assertEquals(List.of("Carte SIM retirée."), court.lines());
+        assertEquals(1f, court.scale());
+        // 36 caractères : deux lignes de 15 caractères au plus à l'échelle 1 (90 px).
+        PhoneFallbackLayout.Wrapped deux = PhoneFallbackLayout.wrap("Seul le propriétaire peut le faire.", 90, largeur,
+                2);
+        assertEquals(List.of("Seul le", "propriétaire", "peut le faire."), PhoneFallbackLayout.wrap(
+                "Seul le propriétaire peut le faire.", 90, largeur, 3).lines(), "passage glouton entre les mots");
+        assertEquals(2, deux.lines().size(), deux.toString());
+        assertEquals(PhoneFallbackLayout.MIN_TEXT_SCALE, deux.scale(), "trois lignes à l'échelle 1 : le plancher");
+        assertFalse(deux.cut());
+        for (String l : deux.lines()) {
+            assertTrue(largeur.applyAsInt(l) * deux.scale() <= 90, l);
+        }
+        // Trop long pour deux lignes même au plancher : coupé par « … » à la fin de la seconde.
+        PhoneFallbackLayout.Wrapped trop = PhoneFallbackLayout.wrap(
+                "La file de demandes de cet opérateur est pleine. Réessayez plus tard.", 90, largeur, 2);
+        assertTrue(trop.cut());
+        assertEquals(2, trop.lines().size());
+        assertTrue(trop.lines().get(1).endsWith("…"), trop.toString());
+        assertTrue(trop.scale() >= PhoneFallbackLayout.MIN_TEXT_SCALE);
+        for (String l : trop.lines()) {
+            assertTrue(largeur.applyAsInt(l) * trop.scale() <= 90 + 0.01, l);
+        }
+    }
+
+    /** La barre d'état lâche l'heure, puis des barres toutes vides, avant de couper un texte d'état. */
+    @Test
+    void laBarreDEtatLacheLHeurePuisLesBarresVides() {
+        java.util.function.ToIntFunction<String> largeur = s -> 6 * s.codePointCount(0, s.length());
+        PhoneFallbackLayout.Status large = PhoneFallbackLayout.status("21:57  ", "Mairie", 14, false, 200, largeur);
+        assertEquals("21:57  Mairie", large.line().text());
+        assertTrue(large.bars());
+        PhoneFallbackLayout.Status sansHeure = PhoneFallbackLayout.status("21:57  ", "Pas de SIM", 0, false, 62,
+                largeur);
+        assertEquals("Pas de SIM", sansHeure.line().text(), "l'heure cède sa place");
+        assertFalse(sansHeure.line().cut());
+        PhoneFallbackLayout.Status sansBarres = PhoneFallbackLayout.status("21:57  ", "Pas de service", 14, true, 64,
+                largeur);
+        assertFalse(sansBarres.bars(), "quatre barres vides cèdent leur place");
+        assertEquals("Pas de service", sansBarres.line().text());
+        PhoneFallbackLayout.Status avecBarres = PhoneFallbackLayout.status("", "Coopérative du Lagon Sud", 14, false,
+                62, largeur);
+        assertTrue(avecBarres.bars(), "des barres pleines restent");
+        assertTrue(avecBarres.line().cut() && avecBarres.line().text().endsWith("…"));
+        assertEquals(PhoneFallbackLayout.MIN_STATUS_SCALE, avecBarres.line().scale());
     }
 
     /** Seules les lignes qui portent une donnée libre (carte, opérateur) sont coupées par « … » ; un texte fixe non. */
