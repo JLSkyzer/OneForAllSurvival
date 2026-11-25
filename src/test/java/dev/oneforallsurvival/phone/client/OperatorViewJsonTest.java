@@ -55,9 +55,9 @@ class OperatorViewJsonTest {
         VUE.put("session", "session");
         VUE.put("name", "name");
         VUE.put("rights", "rights");
-        VUE.put("tariff", "tariff");
-        VUE.put("nextTariff", "nextTariff");
-        VUE.put("cap", "cap");
+        VUE.put("tariff", "tariff,tariffText");
+        VUE.put("nextTariff", "nextTariff,nextTariffText");
+        VUE.put("cap", "cap,capText");
         VUE.put("antennas", "antennas");
         VUE.put("cardPage", "cards.page");
         VUE.put("cardPages", "cards.pages");
@@ -93,6 +93,13 @@ class OperatorViewJsonTest {
                         new PhoneNetwork.RelayState("aaaaaaaaaaaa", "Vide", 0, 0)));
     }
 
+    /** Un formateur de montants factice (le jeu passe {@code CoinMath.format}) : « <n> ». */
+    private static final java.util.function.LongFunction<String> COUPURES = n -> "<" + n + ">";
+
+    private static JsonObject json(OperatorView v) {
+        return OperatorViewJson.toJson(v, COUPURES);
+    }
+
     private static Set<String> composants(Class<?> type) {
         Set<String> out = new TreeSet<>();
         for (RecordComponent c : type.getRecordComponents()) {
@@ -124,9 +131,9 @@ class OperatorViewJsonTest {
 
     @Test
     void chaqueChampDeLaVueEstTraite() {
-        JsonObject v = OperatorViewJson.toJson(vue("Alex", 15L));
-        traite(OperatorView.class, VUE, VUE_ABSENTS, v, Set.of("session", "name", "rights", "tariff", "nextTariff",
-                "cap", "antennas", "cards", "requests", "relay"));
+        JsonObject v = json(vue("Alex", 15L));
+        traite(OperatorView.class, VUE, VUE_ABSENTS, v, Set.of("session", "name", "rights", "tariff", "tariffText",
+                "nextTariff", "nextTariffText", "cap", "capText", "antennas", "cards", "requests", "relay"));
         assertEquals(Set.of("page", "pages", "total", "items"), v.getAsJsonObject("cards").keySet(), "cartes");
         traite(OperatorView.Rights.class, DROITS, DROITS_ABSENTS, v.getAsJsonObject("rights"),
                 Set.of("cards", "tariff"));
@@ -149,7 +156,7 @@ class OperatorViewJsonTest {
 
     @Test
     void lesValeursSuiventLaVue() {
-        JsonObject v = OperatorViewJson.toJson(vue("Alex", 15L));
+        JsonObject v = json(vue("Alex", 15L));
         assertEquals(7, v.get("session").getAsInt());
         assertEquals("Mairie", v.get("name").getAsString());
         assertTrue(v.getAsJsonObject("rights").get("cards").getAsBoolean());
@@ -195,7 +202,7 @@ class OperatorViewJsonTest {
     /** Ni caisse, ni position de l'antenne cliquée, ni droits de caisse et de nom, ni identifiant d'opérateur. */
     @Test
     void pasDeCaisseNiDePositionDansLaPage() {
-        JsonObject v = OperatorViewJson.toJson(vue("Alex", 15L));
+        JsonObject v = json(vue("Alex", 15L));
         for (String interdit : List.of("till", "tillText", "pos", "source", "operatorId")) {
             assertFalse(v.has(interdit), "clé interdite dans la page : " + interdit);
         }
@@ -209,7 +216,7 @@ class OperatorViewJsonTest {
 
     @Test
     void numeroFormate() {
-        JsonObject c = OperatorViewJson.toJson(vue("", 15L)).getAsJsonObject("cards").getAsJsonArray("items").get(0)
+        JsonObject c = json(vue("", 15L)).getAsJsonObject("cards").getAsJsonArray("items").get(0)
                 .getAsJsonObject();
         assertEquals("06 12 34 56 78", c.get("number").getAsString());
         assertEquals("", c.get("holder").getAsString(), "une carte sans nom a un titulaire vide");
@@ -219,7 +226,7 @@ class OperatorViewJsonTest {
     @Test
     void unTitulaireHostileEstReluALIdentique() {
         String hostile = "</script>\u2028";
-        String appel = WebScript.call("phone.antenna", OperatorViewJson.toJson(vue(hostile, 15L)));
+        String appel = WebScript.call("phone.antenna", json(vue(hostile, 15L)));
         assertTrue(appel.startsWith("phone.antenna(") && appel.endsWith(")"), appel);
         assertFalse(appel.contains("</script>"), "balise de fin brute dans l'appel : " + appel);
         assertFalse(appel.contains("\u2028"), "séparateur de ligne brut dans l'appel");
@@ -229,9 +236,52 @@ class OperatorViewJsonTest {
                 .getAsJsonObject().get("holder").getAsString());
     }
 
+    /**
+     * Revue de la tâche 10 (mineur 2) : les montants sont aussi écrits comme le panneau et la ligne d'état les écrivent
+     * (coupures), à côté des cuivres bruts ; {@code nextTariffText} nul s'il ne change pas.
+     */
+    @Test
+    void lesMontantsSontEcritsCommeLePanneau() {
+        JsonObject v = json(vue("Alex", 15L));
+        assertEquals("<12>", v.get("tariffText").getAsString());
+        assertEquals("<15>", v.get("nextTariffText").getAsString());
+        assertEquals("<40>", v.get("capText").getAsString());
+        JsonObject sans = json(vue("Alex", null));
+        assertTrue(sans.get("nextTariffText").isJsonNull(), "nextTariffText nul : " + sans.get("nextTariffText"));
+    }
+
+    /** Revue de la tâche 10 (mineur 8) : des textes hostiles pour le nom, le titulaire et le demandeur, relus tels quels. */
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"\"><img src=x onerror=alert(1)>", "", "\uD83D\uDCF1 Ana \uD83C\uDF34",
+        "\u202E\u0645\u0631\u062D\u0628\u0627", "</script>\u2028<!--"})
+    void unTexteHostileEstReluALIdentique(String hostile) {
+        verifierHostile(hostile);
+    }
+
+    @Test
+    void unTexteTresLongEstReluALIdentique() {
+        verifierHostile("x<".repeat(5_000));
+    }
+
+    private static void verifierHostile(String hostile) {
+        OperatorView v = new OperatorView(OperatorView.Source.PHONE, BlockPos.ZERO, 2, "0123456789ab", hostile,
+                new OperatorView.Rights(true, true, false, false), 1L, null, 1L, 0L, List.of(), 0, 1, 1,
+                List.of(new OperatorView.CardLine(CARTE_ID, "0612345678", hostile, SimCard.State.ACTIVE)),
+                List.of(new OperatorView.RequestLine(DEMANDE_ID, hostile, 1L)), List.of());
+        String appel = WebScript.call("phone.antenna", json(v));
+        assertFalse(appel.contains("</script>") || appel.contains("<img") || appel.contains(" "),
+                "texte brut dangereux dans l'appel");
+        JsonObject relu = JsonParser.parseString(appel.substring("phone.antenna(".length(), appel.length() - 1))
+                .getAsJsonObject();
+        assertEquals(hostile, relu.get("name").getAsString());
+        assertEquals(hostile, relu.getAsJsonObject("cards").getAsJsonArray("items").get(0).getAsJsonObject()
+                .get("holder").getAsString());
+        assertEquals(hostile, relu.getAsJsonArray("requests").get(0).getAsJsonObject().get("name").getAsString());
+    }
+
     @Test
     void nextTariffNulQuandIlNeChangePas() {
-        JsonObject v = OperatorViewJson.toJson(vue("Alex", null));
+        JsonObject v = json(vue("Alex", null));
         assertTrue(v.has("nextTariff"), "la clé reste là");
         assertTrue(v.get("nextTariff").isJsonNull(), "nextTariff nul : " + v.get("nextTariff"));
     }
@@ -241,9 +291,9 @@ class OperatorViewJsonTest {
     void uneVueVideALesMemesCles() {
         OperatorView vide = new OperatorView(OperatorView.Source.PHONE, BlockPos.ZERO, 1, "0123456789ab", "Seul",
                 OperatorView.Rights.NONE, 0L, null, 0L, 0L, List.of(), 0, 1, 0, List.of(), List.of(), new ArrayList<>());
-        JsonObject v = OperatorViewJson.toJson(vide);
-        assertEquals(Set.of("session", "name", "rights", "tariff", "nextTariff", "cap", "antennas", "cards", "requests",
-                "relay"), v.keySet());
+        JsonObject v = json(vide);
+        assertEquals(Set.of("session", "name", "rights", "tariff", "tariffText", "nextTariff", "nextTariffText", "cap",
+                "capText", "antennas", "cards", "requests", "relay"), v.keySet());
         assertEquals(0, v.getAsJsonArray("antennas").size());
         assertEquals(0, v.getAsJsonObject("cards").getAsJsonArray("items").size());
     }

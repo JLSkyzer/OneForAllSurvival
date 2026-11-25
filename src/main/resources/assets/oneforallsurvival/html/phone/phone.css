@@ -1236,7 +1236,7 @@ body {
   font-variant-numeric: tabular-nums;
 }
 .ant-field.focus { box-shadow: inset 0 0 0 1.5px #007aff; background: #fff; }
-#ant-field-text:empty::before { content: "0"; color: #c4c4c7; }
+#ant-field-text:empty::before { content: "en cuivres"; color: #c4c4c7; }
 .ant-caret { display: none; width: 2px; height: 20px; margin-left: 1px; background: #007aff; animation: ant-blink 1s steps(1) infinite; }
 .ant-field.focus .ant-caret { display: block; }
 @keyframes ant-blink { 50% { opacity: 0; } }

@@ -62,6 +62,8 @@ public final class OperatorPanelScreen extends Screen {
     /** Le dernier retour du serveur, sur la ligne d'état. */
     private String status = "";
     private boolean closedByServer;
+    /** La sortie passe par {@link #leave} (Échap, ou fermeture par le serveur) : le serveur est déjà prévenu. */
+    private boolean leaving;
 
     public OperatorPanelScreen(OperatorView view) {
         this(view, null);
@@ -518,9 +520,41 @@ public final class OperatorPanelScreen extends Screen {
 
     /** Rend l'écran d'avant : le repli du téléphone (source {@code PHONE}), sinon le jeu. */
     private void leave() {
+        leaving = true;
         if (minecraft != null) {
             minecraft.setScreen(back);
         }
+    }
+
+    /**
+     * Retiré sans Échap ni fermeture par le serveur (écran de chargement, écran ouvert par le serveur ou un autre mod) :
+     * le serveur est prévenu ; pour le panneau du repli, la session du téléphone est fermée aussi, puisque le repli
+     * caché ne l'a pas fait (revue de la tâche 10, mineur 1).
+     */
+    @Override
+    public void removed() {
+        super.removed();
+        OperatorPanelLayout.Removal r = OperatorPanelLayout.onRemoval(back != null, leaving, closedByServer);
+        leaving = true;
+        if (r == OperatorPanelLayout.Removal.NONE) {
+            return;
+        }
+        BenchNetwork.CHANNEL.sendToServer(new OperatorActionPacket(view.session(), Action.CLOSE, "", 0L));
+        if (r == OperatorPanelLayout.Removal.PANEL_AND_PHONE
+                && back instanceof dev.oneforallsurvival.phone.client.PhoneFallbackScreen fallback) {
+            dev.oneforallsurvival.phone.client.PhoneClient.antennaClosed(view.session());
+            fallback.closedUnderPanel();
+        }
+    }
+
+    /** La session du téléphone fermée (ou remplacée) par le serveur : ce panneau se retire sans rien envoyer. */
+    public void phoneClosedByServer() {
+        closedByServer = true;
+    }
+
+    /** La sortie du monde : les numéros vus ne valent plus (un serveur relancé repart de 1, revue de la tâche 10). */
+    public static void forgetSessions() {
+        lastSession = -1;
     }
 
     @Override

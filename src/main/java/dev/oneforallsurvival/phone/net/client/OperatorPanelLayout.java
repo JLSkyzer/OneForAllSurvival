@@ -158,6 +158,28 @@ public final class OperatorPanelLayout {
 
     static final double MAX_DISTANCE_SQR = 64.0;
 
+    /** Ce que le panneau dit au serveur quand son écran est retiré. */
+    public enum Removal {
+        /** Rien : sorti par Échap (déjà dit) ou fermé par le serveur. */
+        NONE,
+        /** Le {@code CLOSE} du panneau (un autre écran l'a remplacé). */
+        PANEL,
+        /** Le {@code CLOSE} du panneau et celui de la session du téléphone (panneau ouvert depuis le repli). */
+        PANEL_AND_PHONE
+    }
+
+    /**
+     * Revue de la tâche 10 (mineur 1) : un panneau retiré sans passer par sa sortie ({@code leaving} : Échap, qui a déjà
+     * prévenu) ni par une fermeture du serveur prévient le serveur ; celui ouvert depuis le repli ({@code fromPhone})
+     * ferme aussi la session du téléphone, que le repli caché n'a pas fermée. Jamais deux fois.
+     */
+    public static Removal onRemoval(boolean fromPhone, boolean leaving, boolean closedByServer) {
+        if (leaving || closedByServer) {
+            return Removal.NONE;
+        }
+        return fromPhone ? Removal.PANEL_AND_PHONE : Removal.PANEL;
+    }
+
     /** La même mise en page, avec {@code status}, le dernier retour du serveur, sur la ligne d'état. */
     public static Layout of(int guiWidth, int guiHeight, ToIntFunction<String> textWidth, OperatorView view,
             Texts texts, String status) {
@@ -277,7 +299,8 @@ public final class OperatorPanelLayout {
             rows.out.add(new Row("relay-" + i, box, List.of(
                     line(box.x() + 2, box.y() + 1, box.w() - 4, s.name(), textWidth),
                     line(box.x() + 2, box.y() + 1 + LINE, box.w() - 4,
-                            texts.t(KEY + "relay_line", s.antennas(), s.inService(), status), textWidth)),
+                            texts.t(KEY + (s.antennas() <= 1 ? "relay_line_one" : "relay_line"), s.antennas(),
+                                    s.inService(), status), textWidth)),
                     List.of(), null, false));
         }
         return rows.pane(Tab.NETWORK);

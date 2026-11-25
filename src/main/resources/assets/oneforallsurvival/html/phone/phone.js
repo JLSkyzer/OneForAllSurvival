@@ -16,7 +16,8 @@
 //   sim-remove, sim-request, request-<id>, app-antenna, status-bars (et sim-close, la fermeture de la feuille) ;
 //   appli « Antenne » : op-close, op-tab-network, op-tab-cards, op-tab-tariff, op-tariff-field, op-tariff-save,
 //   op-anonymous, op-issue-<id>, op-refuse-<id>, op-card-<id>, op-replace-<id>, op-main-<id>, op-page-prev,
-//   op-page-next. Java -> page, appli : phone.antenna(vue | null), phone.antennaStatus(texte) (voir plus bas).
+//   op-page-next. Java -> page, appli : phone.antenna(vue | null), phone.antennaStatus(texte) (voir plus bas) ; la vue
+//   porte aussi tariffText, nextTariffText (ou null) et capText, les montants écrits par le jeu (revue de la tâche 10).
 // Le serveur fait foi : la page ne juge aucun code, elle les transmet. Tout texte venu de la vue passe par textContent.
 // Un téléphone neuf (lock SETUP) montre l'assistant de première configuration : Bonjour, Configuration rapide, Fond
 // d'écran, le code (écran #lock), puis Tout est prêt. Rien n'est configuré avant l'envoi du code : fermer avant laisse
@@ -1113,8 +1114,11 @@
       name: text(v.name, 32),
       rights: { cards: bool(v.rights && v.rights.cards), tariff: bool(v.rights && v.rights.tariff) },
       tariff: count(v.tariff),
+      tariffText: text(v.tariffText, 64),
       nextTariff: typeof v.nextTariff === 'number' && isFinite(v.nextTariff) ? count(v.nextTariff) : null,
+      nextTariffText: text(v.nextTariffText, 64),
       cap: count(v.cap),
+      capText: text(v.capText, 64),
       antennas: [],
       cards: { page: 0, pages: 1, total: 0, items: [] },
       requests: [],
@@ -1335,9 +1339,11 @@
   }
 
   function paintTariffTab(v) {
-    $('ant-tariff-today').textContent = coppers(v.tariff);
-    $('ant-tariff-next').textContent = v.nextTariff === null ? 'Inchangé' : coppers(v.nextTariff);
-    $('ant-cap').textContent = coppers(v.cap);
+    // Les montants comme le panneau et la ligne d'état les écrivent (coupures, formatées par le jeu) ; les cuivres
+    // bruts seulement si le texte manque.
+    $('ant-tariff-today').textContent = v.tariffText || coppers(v.tariff);
+    $('ant-tariff-next').textContent = v.nextTariff === null ? 'Inchangé' : (v.nextTariffText || coppers(v.nextTariff));
+    $('ant-cap').textContent = v.capText || coppers(v.cap);
     $('ant-tariff-edit').classList.toggle('gone', !v.rights.tariff);
     $('ant-tariff-readonly').classList.toggle('gone', v.rights.tariff);
     if (!v.rights.tariff) {
@@ -1444,6 +1450,9 @@
     var n = Number(ant.field);
     if (integer(n, 0, MAX_TARIFF)) {
       send({ a: 'opTariff', value: n });
+    } else {
+      // Revue de la tâche 10 (mineur 6) : jamais jeté sans un mot.
+      antennaStatus('Au plus ' + group(MAX_TARIFF) + " cuivres : rien n'est envoyé.");
     }
     ant.field = '';
     paintField();
@@ -2141,9 +2150,24 @@
           status: s.inService > 0 ? 'joignable' : s.antennas > 0 ? 'hors tension' : 'sans antenne' });
       }
       return { session: op.session, name: op.name, rights: { cards: op.rights.cards, tariff: op.rights.tariff },
-        tariff: op.tariff, nextTariff: op.nextTariff, cap: op.cap, antennas: antennas,
+        tariff: op.tariff, tariffText: mockCoins(op.tariff), nextTariff: op.nextTariff,
+        nextTariffText: op.nextTariff === null ? null : mockCoins(op.nextTariff), cap: op.cap, capText: mockCoins(op.cap),
+        antennas: antennas,
         cards: { page: op.page, pages: pages, total: op.cards.length,
           items: op.cards.slice(op.page * 32, op.page * 32 + 32) }, requests: op.requests.slice(), relay: relay };
+    }
+
+    /** Comme CoinMath.format, avec les valeurs par défaut (10 pièces font la coupure suivante) : faux serveur seulement. */
+    function mockCoins(n) {
+      var names = [['cuivre', 'cuivres'], ['argent', 'argent'], ['or', 'or'], ['émeraude', 'émeraudes'], ['rubis', 'rubis']];
+      if (n <= 0) { return '0 cuivre'; }
+      var parts = [];
+      for (var i = 4; i >= 0; i--) {
+        var unit = Math.pow(10, i);
+        var k = i === 4 ? Math.floor(n / unit) : Math.floor(n / unit) % 10;
+        if (k > 0) { parts.push(k + ' ' + names[i][k > 1 ? 1 : 0]); }
+      }
+      return parts.join(' ');
     }
 
     function pushOp(message) {
@@ -2188,9 +2212,9 @@
           return;
         case 'opTariff':
           if (!op.rights.tariff) { pushOp("Vous n'avez pas ce droit."); return; }
-          if (m.value > op.cap) { pushOp('Au-dessus du plafond : ' + op.cap + ' cuivres au plus.'); return; }
+          if (m.value > op.cap) { pushOp('Au-dessus du plafond : ' + mockCoins(op.cap) + ' au plus.'); return; }
           op.nextTariff = m.value;
-          pushOp('Tarif de demain : ' + m.value + ' cuivres.');
+          pushOp('Tarif de demain : ' + mockCoins(m.value) + '.');
           return;
         case 'opIssue':
         case 'opRefuse':

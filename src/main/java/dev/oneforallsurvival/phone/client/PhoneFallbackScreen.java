@@ -172,6 +172,18 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
         minecraft.setScreen(new dev.oneforallsurvival.phone.net.client.OperatorPanelScreen(view, this));
     }
 
+    /**
+     * Le panneau de l'appli posé par-dessus est retiré par un autre écran que le retour d'Échap : la session du
+     * téléphone, que cet écran caché n'a pas fermée, l'est maintenant (sauf si le serveur l'a déjà fermée).
+     */
+    public void closedUnderPanel() {
+        toAntenna = false;
+        if (!byServer) {
+            byServer = true;
+            PhoneClient.sendClose(state.session());
+        }
+    }
+
     @Override
     protected void init() {
         toAntenna = false;

@@ -55,6 +55,9 @@ public final class PhoneClient {
     @SubscribeEvent
     public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         last = null;
+        // Les numéros de panneau repartent de 1 sur un serveur relancé (revue de la tâche 10, mineur 5).
+        closedAntenna = -1;
+        OperatorPanelScreen.forgetSessions();
     }
 
     static void remember(PhoneStatePacket state) {
@@ -77,6 +80,12 @@ public final class PhoneClient {
         Minecraft mc = Minecraft.getInstance();
         remember(state);
         Shown shown = shown(mc.screen);
+        if ((state.kind() == PhoneStatePacket.Kind.OPEN || state.kind() == PhoneStatePacket.Kind.CLOSE)
+                && mc.screen instanceof OperatorPanelScreen panel && shown != null
+                && (state.kind() == PhoneStatePacket.Kind.OPEN || shown.session() == state.session())) {
+            // La session sous le panneau est fermée ou remplacée par le serveur : le panneau se retire sans rien dire.
+            panel.phoneClosedByServer();
+        }
         switch (state.kind()) {
             case OPEN -> {
                 if (shown != null) {

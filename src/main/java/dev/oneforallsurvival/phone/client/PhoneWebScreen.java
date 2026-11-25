@@ -51,8 +51,8 @@ public final class PhoneWebScreen extends WebScreen implements PhoneClient.Shown
     private Map<String, int[]> rects = Map.of();
     private boolean byServer;
     private boolean toFallback;
-    /** Le panneau de l'appli « Antenne » ouvert (son numéro), -1 sans appli ; sa dernière vue, pour un rechargement. */
-    private int antennaSession = -1;
+    /** Le panneau de l'appli « Antenne » montré par la page (son numéro), et sa dernière vue. */
+    private final AntennaSession antenna = new AntennaSession();
     @Nullable private OperatorView antennaView;
 
     public PhoneWebScreen(PhoneStatePacket state) {
@@ -102,7 +102,12 @@ public final class PhoneWebScreen extends WebScreen implements PhoneClient.Shown
 
     /** Une vue de l'appli, reçue du serveur. */
     void antenna(OperatorView view) {
-        antennaSession = view.session();
+        if (antenna.view(view.session()) == AntennaSession.OnView.CLOSE) {
+            // « Accueil » touché avant la première vue : ce panneau-là se ferme sans être montré.
+            antennaView = null;
+            closeAntennaPanel(view.session());
+            return;
+        }
         antennaView = view;
         if (isReady()) {
             run(WebScript.call("phone.antenna", OperatorViewJson.toJson(view)));
@@ -111,11 +116,11 @@ public final class PhoneWebScreen extends WebScreen implements PhoneClient.Shown
 
     /** Un mot du serveur pour l'appli : la ligne d'état, ou la fermeture ({@code phone.antenna(null)}). */
     void antennaNotice(OperatorNoticePacket notice) {
-        if (notice.session() != antennaSession) {
+        if (notice.session() != antenna.session()) {
             return;
         }
         if (notice.closed()) {
-            antennaSession = -1;
+            antenna.serverClosed(notice.session());
             antennaView = null;
             if (isReady()) {
                 run(WebScript.call("phone.antenna", JsonNull.INSTANCE));
@@ -133,7 +138,7 @@ public final class PhoneWebScreen extends WebScreen implements PhoneClient.Shown
 
     /** Le numéro du panneau de l'appli ouvert, -1 sans appli (lu par un automate). */
     public int antennaSession() {
-        return antennaSession;
+        return antenna.session();
     }
 
     // --- Lu par un automate (tâche 11) -----------------------------------------------------------------------------
@@ -205,9 +210,7 @@ public final class PhoneWebScreen extends WebScreen implements PhoneClient.Shown
     @Override
     public void removed() {
         super.removed();
-        if (antennaSession >= 0) {
-            sendAntenna(new OperatorActionPacket(antennaSession, OperatorActionPacket.Action.CLOSE, "", 0L));
-        }
+        antenna.removed().ifPresent(this::closeAntennaPanel);
         if (!byServer && !toFallback) {
             PhoneClient.sendClose(state.session());
         }
@@ -222,31 +225,48 @@ public final class PhoneWebScreen extends WebScreen implements PhoneClient.Shown
         switch (a) {
             case "ready" -> {
                 render();
-                if (antennaView != null) {
-                    run(WebScript.call("phone.antenna", OperatorViewJson.toJson(antennaView)));
-                }
+                // Page (re)chargée : elle ne montre plus l'appli, le panneau encore ouvert se ferme (revue, mineur 4).
+                antennaView = null;
+                antenna.ready().ifPresent(this::closeAntennaPanel);
             }
             case "layout" -> rects = PhoneBridgeMessages.layout(message);
             case "close" -> onClose();
             default -> {
                 if (AntennaBridgeMessages.isAntenna(a)) {
-                    if (antennaSession >= 0) {
-                        AntennaBridgeMessages.toAction(message, antennaSession).ifPresent(this::sendAntenna);
-                    }
+                    onAntennaMessage(message);
                 } else {
-                    PhoneBridgeMessages.toAction(message, state.session()).ifPresent(PhoneClient::send);
+                    PhoneBridgeMessages.toAction(message, state.session()).ifPresent(p -> {
+                        if (p.action() == dev.oneforallsurvival.phone.PhoneActionPacket.Action.OPEN_OPERATOR_APP) {
+                            antenna.appRequested();
+                        }
+                        PhoneClient.send(p);
+                    });
                 }
             }
         }
     }
 
-    /** Un geste de l'appli vers le serveur ; {@code CLOSE} oublie le panneau ici (une vue en route ne le rouvre pas). */
-    private void sendAntenna(OperatorActionPacket packet) {
-        if (packet.action() == OperatorActionPacket.Action.CLOSE) {
-            PhoneClient.antennaClosed(antennaSession);
-            antennaSession = -1;
-            antennaView = null;
+    /** Un geste de l'appli, relu ; {@code opClose} ferme le panneau montré, ou le prochain s'il n'est pas encore là. */
+    private void onAntennaMessage(JsonObject message) {
+        java.util.Optional<OperatorActionPacket> relu = AntennaBridgeMessages.toAction(message, antenna.session());
+        if (relu.isEmpty()) {
+            return;
         }
+        if (relu.get().action() == OperatorActionPacket.Action.CLOSE) {
+            antennaView = null;
+            antenna.pageClose().ifPresent(this::closeAntennaPanel);
+        } else if (antenna.session() >= 0) {
+            sendAntenna(relu.get());
+        }
+    }
+
+    /** Ferme côté serveur le panneau de ce numéro ; une vue de ce numéro en route ne le rouvre pas. */
+    private void closeAntennaPanel(int number) {
+        PhoneClient.antennaClosed(number);
+        sendAntenna(new OperatorActionPacket(number, OperatorActionPacket.Action.CLOSE, "", 0L));
+    }
+
+    private void sendAntenna(OperatorActionPacket packet) {
         if (minecraft != null && minecraft.getConnection() != null) {
             BenchNetwork.CHANNEL.sendToServer(packet);
         }

@@ -1217,6 +1217,7 @@
   "screen.oneforallsurvival.operator_panel.antenna_fe": "Today %s FE · yesterday %s FE",
   "screen.oneforallsurvival.operator_panel.relay_header": "Relay between operators",
   "screen.oneforallsurvival.operator_panel.relay_line": "%s antennas, %s in service · %s",
+  "screen.oneforallsurvival.operator_panel.relay_line_one": "%s antenna, %s in service · %s",
   "screen.oneforallsurvival.operator_panel.relay.reachable": "reachable",
   "screen.oneforallsurvival.operator_panel.relay.down": "powered down",
   "screen.oneforallsurvival.operator_panel.relay.none": "no antenna",

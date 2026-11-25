@@ -296,6 +296,41 @@ class OperatorPanelLayoutTest {
         assertFalse(OperatorPanelLayout.closesAtDistance(telephone, 1.0e12), "téléphone : jamais fermé par la distance");
     }
 
+    /** Revue de la tâche 10 (mineur 3) : « 1 antenne » et « 0 antenne » au singulier, « 2 antennes » au pluriel. */
+    @Test
+    void leRelaisAccordeLeNombreDAntennes() {
+        OperatorView base = leContenuLePlusLong(FONDATEUR);
+        OperatorView v = new OperatorView(base.source(), base.pos(), base.session(), base.operatorId(), base.name(),
+                base.rights(), 0L, null, 0L, 0L, List.of(), 0, 1, 0, List.of(), List.of(),
+                List.of(new PhoneNetwork.RelayState("a", "Zero", 0, 0), new PhoneNetwork.RelayState("b", "Une", 1, 1),
+                        new PhoneNetwork.RelayState("c", "Deux", 2, 1)));
+        Layout l = OperatorPanelLayout.of(640, 360, SIX, v, francais());
+        List<String> lignes = new ArrayList<>();
+        for (Row r : l.panes().get(OperatorPanelLayout.Tab.NETWORK.ordinal()).rows()) {
+            if (r.id().startsWith("relay-") && !r.id().equals("relay-header")) {
+                lignes.add(r.texts().get(1).full());
+            }
+        }
+        assertEquals(3, lignes.size(), "trois lignes de relais : " + lignes);
+        assertTrue(lignes.get(0).startsWith("0 antenne,") && lignes.get(1).startsWith("1 antenne,")
+                && lignes.get(2).startsWith("2 antennes,"), "accord : " + lignes);
+    }
+
+    /**
+     * Revue de la tâche 10 (mineur 1) : un panneau retiré sans Échap ni fermeture par le serveur prévient le serveur ;
+     * celui du téléphone ferme aussi la session du téléphone ; jamais deux fois.
+     */
+    @Test
+    void unPanneauRetireSansEchapPrevientLeServeur() {
+        assertEquals(OperatorPanelLayout.Removal.PANEL_AND_PHONE, OperatorPanelLayout.onRemoval(true, false, false));
+        assertEquals(OperatorPanelLayout.Removal.PANEL, OperatorPanelLayout.onRemoval(false, false, false));
+        assertEquals(OperatorPanelLayout.Removal.NONE, OperatorPanelLayout.onRemoval(true, true, false),
+                "sortie par Échap : déjà dit");
+        assertEquals(OperatorPanelLayout.Removal.NONE, OperatorPanelLayout.onRemoval(true, false, true),
+                "fermé par le serveur : rien à dire");
+        assertEquals(OperatorPanelLayout.Removal.NONE, OperatorPanelLayout.onRemoval(false, true, false));
+    }
+
     @Test
     void audelaDeLaReceptionEnRouge() {
         Layout l = OperatorPanelLayout.of(320, 240, SIX, leContenuLePlusLong(FONDATEUR), francais());
