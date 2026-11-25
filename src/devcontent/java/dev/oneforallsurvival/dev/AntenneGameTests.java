@@ -83,7 +83,10 @@ public final class AntenneGameTests {
     private static final Vec3 JOUEUR = new Vec3(4.5, 0, 4.5);
 
     /** La forme attendue, écrite en clair (semelle 10 x 2 x 10, mât 4 x 16 x 4, centrés). */
-    private static final VoxelShape FORME = Shapes.or(Block.box(3, 0, 3, 13, 2, 13), Block.box(6, 0, 6, 10, 16, 10));
+    /** Semelle, mât et quatre haubans (tâche 12), écrits en clair. */
+    private static final VoxelShape FORME = Shapes.or(Block.box(3, 0, 3, 13, 2, 13), Block.box(6, 0, 6, 10, 16, 10),
+            Block.box(7.5, 2, 3, 8.5, 9, 6), Block.box(7.5, 2, 10, 8.5, 9, 13), Block.box(3, 2, 7.5, 6, 9, 8.5),
+            Block.box(10, 2, 7.5, 13, 9, 8.5));
 
     private AntenneGameTests() {}
 

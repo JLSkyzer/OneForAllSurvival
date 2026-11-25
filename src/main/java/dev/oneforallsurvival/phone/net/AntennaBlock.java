@@ -59,10 +59,17 @@ public final class AntennaBlock extends ElectricMachineBlock {
 
     public static final String MESSAGE = "message.oneforallsurvival.antenna.";
 
-    /** La semelle (10 x 2 x 10) et le mât (4 x 16 x 4), centrés : mêmes boîtes que les modèles {@code antenna*}. */
+    /**
+     * La semelle (10 x 2 x 10), le mât (4 x 16 x 4), centrés, et les quatre haubans (une lame de 1 x 7 x 3 de la
+     * semelle au mât, sur chaque côté) : les boîtes des modèles {@code antenna*}, le hauban incliné pris dans sa boîte.
+     */
     private static final VoxelShape SHAPE = Shapes.or(
             Block.box(3, 0, 3, 13, 2, 13),
-            Block.box(6, 0, 6, 10, 16, 10));
+            Block.box(6, 0, 6, 10, 16, 10),
+            Block.box(7.5, 2, 3, 8.5, 9, 6),
+            Block.box(7.5, 2, 10, 8.5, 9, 13),
+            Block.box(3, 2, 7.5, 6, 9, 8.5),
+            Block.box(10, 2, 7.5, 13, 9, 8.5));
 
     public AntennaBlock(Properties properties) {
         super(properties, () -> PhoneRegistry.ANTENNA_BE.get());

@@ -133,7 +133,9 @@ public final class DemoVisuels {
      * {@code etal} ou {@code commerce} : ne jouer que les captures du commerce ; {@code tresor} : que celles du trésor et du
      * tableau de la mairie ; {@code quetes} : que celles de l'écran des quêtes (contrôle rapide d'une tâche) ;
      * {@code electricite} : que celles du panneau du poste, de la facture d'électricité et du poste posé (lot E6) ;
-     * {@code telephone} : que celles du téléphone, de la prise murale et de l'écran de repli (lot T1) ; sans les autres.
+     * {@code telephone} : que celles du téléphone, de la prise murale et de l'écran de repli (lot T1) ;
+     * {@code telephone_reseau} : que celles de l'antenne, de la carte SIM, de l'outil de maintenance, du panneau de
+     * l'opérateur et du repli avec une ligne (lot T2) ; sans les autres.
      */
     private static final String SEUL = System.getProperty("oneforallsurvival.demo.visuels.seul", "");
     private static final String MONDE = "demo_visuels";
@@ -832,6 +834,10 @@ public final class DemoVisuels {
         }
         if ("telephone".equals(SEUL)) {
             construireTelephone(mc);
+            return;
+        }
+        if ("telephone_reseau".equals(SEUL)) {
+            construireTelephoneReseau(mc);
             return;
         }
         Vec3 sudEst = new Vec3(1.35, 1.0, 1.75);
@@ -2163,10 +2169,14 @@ public final class DemoVisuels {
 
     private static void souris(Minecraft mc) {
         try {
-            for (String nom : new String[] {"xpos", "ypos"}) {
-                Field f = net.minecraft.client.MouseHandler.class.getDeclaredField(nom);
+            double[] gui = sourisGui;
+            double echelle = mc.getWindow().getGuiScale();
+            double[] xy = gui == null ? new double[] {1, 1} : new double[] {gui[0] * echelle, gui[1] * echelle};
+            String[] noms = {"xpos", "ypos"};
+            for (int i = 0; i < 2; i++) {
+                Field f = net.minecraft.client.MouseHandler.class.getDeclaredField(noms[i]);
                 f.setAccessible(true);
-                f.setDouble(mc.mouseHandler, 1);
+                f.setDouble(mc.mouseHandler, xy[i]);
             }
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException(e);
@@ -2971,6 +2981,488 @@ public final class DemoVisuels {
                         .append(w.getY()).append(',').append(w.getWidth()).append('x').append(w.getHeight()));
                 LOG.info("[visuels] repli {} : page {}, cadre {} dans une interface de {}x{} ;{}", nom, ecran.page(),
                         ecran.frameRect(), mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight(), b);
+            }
+            return true;
+        }, 1000, image);
+    }
+
+    // ================================================================================================
+    // Lot T2 : l'antenne, la carte SIM, l'outil de maintenance, le panneau de l'opérateur
+    // ================================================================================================
+
+    private static final String RES = "telephone_reseau-";
+    private static BlockPos zoneReseau;
+    private static volatile boolean reseauPose;
+    private static volatile String echecReseau;
+    /**
+     * Les antennes posées par les vrais chemins (objet posé par un clic, fondation, réserve) : contre le mur en service,
+     * sans courant, en panne ; la quatrième en service sous un bloc de pierre, entre deux pierres, contre le mur.
+     */
+    private static final BlockPos[] ANTENNES = new BlockPos[4];
+    private static final dev.oneforallsurvival.machine.MachineState[] ETATS_ANTENNE = {
+        dev.oneforallsurvival.machine.MachineState.RUNNING, dev.oneforallsurvival.machine.MachineState.NO_POWER,
+        dev.oneforallsurvival.machine.MachineState.FAULT, dev.oneforallsurvival.machine.MachineState.RUNNING};
+    private static final String[] NOMS_ANTENNE = {"en_service", "sans_courant", "en_panne", "sous_un_bloc"};
+    private static final String OPERATEUR_DEMO = "Radio du Lagon";
+    /** La souris tenue à ce point de l'interface (une bulle), ou nul : le coin (1, 1) de la fenêtre. */
+    private static volatile double[] sourisGui;
+    private static final java.util.Set<String> RESEAU_JOURNAL = new java.util.HashSet<>();
+
+    /**
+     * L'antenne posée contre un mur de pierre en service, sans courant et en panne (de jour, de nuit, de près, de
+     * profil, de dessus), puis sous un bloc ; la carte SIM et l'outil de maintenance en main, dans la barre (à côté du
+     * testeur et du soudeur) et l'inventaire, leurs infobulles (carte nommée, sans nom, vierge) ; le panneau de
+     * l'opérateur, contenu le plus long et le plus court, ses trois onglets et une bulle de texte coupé, dans
+     * l'interface de 320 × 240 et dans une grande (640 × 360) ; l'écran de repli (barre d'état, feuille « Carte SIM »,
+     * panneau ouvert depuis l'appli « Antenne »). Activé par {@code -PvisuelsSeul=telephone_reseau}.
+     */
+    private static void construireTelephoneReseau(Minecraft mc) {
+        MinecraftServer serveur = mc.getSingleplayerServer();
+        zoneReseau = origine.offset(-24, 0, 440);
+        for (int i = 0; i < 3; i++) {
+            ANTENNES[i] = zoneReseau.offset(2 + 3 * i, 0, 1);
+        }
+        ANTENNES[3] = zoneReseau.offset(13, 0, 1);
+        etape("reseau pose", () -> {
+            fermer(mc);
+            mc.options.hideGui = false;
+            mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+            serveur.execute(() -> preparerTelephoneReseau(serveur));
+        }, () -> reseauPose || echecReseau != null, 1000, null);
+        etape("reseau etats", () -> {
+            if (echecReseau != null) {
+                throw new IllegalStateException("pose du réseau : " + echecReseau);
+            }
+            regarder(mc, ANTENNES[1], new Vec3(0.0, 1.0, 6.0), false);
+        }, () -> antennesPretes(mc), 2500, null);
+
+        // Les trois états contre le mur, de jour puis de nuit (le voyant doit se lire).
+        vue(mc, RES + "antennes_jour.png", ANTENNES[1], new Vec3(0.0, 1.0, 6.0), false);
+        vue(mc, RES + "antennes_nuit.png", ANTENNES[1], new Vec3(0.0, 1.0, 6.0), true);
+        for (int i = 0; i < 4; i++) {
+            int n = i;
+            etape("vue antenne " + NOMS_ANTENNE[n], () -> regarder(mc, ANTENNES[n], new Vec3(1.0, 0.45, 1.8), false),
+                    () -> true, 1500, RES + "antenne_" + NOMS_ANTENNE[n] + ".png");
+        }
+        etape("vue antenne nuit de pres", () -> regarder(mc, ANTENNES[0], new Vec3(0.9, 0.4, 1.6), true), () -> true,
+                1500, RES + "antenne_en_service_nuit.png");
+        // De profil (les haubans), de dessus (semelle et ancrages), sous le bloc vu d'en bas, et de dos (le mur ne doit
+        // pas laisser voir à travers).
+        etape("vue antenne profil", () -> regarder(mc, ANTENNES[0], new Vec3(2.0, 0.3, 0.05), false), () -> true, 1500,
+                RES + "antenne_profil_haubans.png");
+        etape("vue antenne dessus", () -> regarder(mc, ANTENNES[0], new Vec3(0.3, 2.3, 1.0), false), () -> true, 1500,
+                RES + "antenne_dessus.png");
+        etape("vue antenne sous le bloc d'en bas", () -> regarder(mc, ANTENNES[3], new Vec3(-0.6, -0.15, 1.6), false),
+                () -> true, 1500, RES + "antenne_sous_un_bloc_bas.png");
+        etape("vue antennes de haut", () -> regarder(mc, ANTENNES[1], new Vec3(1.5, 3.2, 4.0), false), () -> true, 1500,
+                RES + "antennes_de_haut.png");
+
+        // Les objets : la barre, l'outil à côté du testeur et du soudeur, les cartes.
+        etape("reseau objets", () -> serveur.execute(() -> {
+            ServerPlayer joueur = serveur.getPlayerList().getPlayers().get(0);
+            joueur.getInventory().clearContent();
+            ItemStack[] barre = {new ItemStack(RepairRegistry.MAINTENANCE_TOOL.get()),
+                new ItemStack(RepairRegistry.TESTER.get()), new ItemStack(RepairRegistry.WELDER.get()),
+                carteSim("0612345678", OPERATEUR_DEMO, NOM_16), carteSim("0698765432", "Mairie", ""), carteSim(null, null, null),
+                new ItemStack(dev.oneforallsurvival.phone.PhoneRegistry.ANTENNA_ITEM.get()), telephone(
+                        dev.oneforallsurvival.phone.PhoneConfig.capacity())};
+            for (int i = 0; i < barre.length; i++) {
+                joueur.getInventory().setItem(i, barre[i]);
+            }
+            joueur.getInventory().setItem(9, carteSim("0611111111", NOM_24, "Alice"));
+            joueur.getInventory().setItem(10, new ItemStack(Items.SHEARS));
+            joueur.getInventory().setItem(11, new ItemStack(Items.PAPER));
+            joueur.getInventory().setItem(12, new ItemStack(Items.LIGHTNING_ROD));
+        }), () -> mc.player.getInventory().getItem(7).is(dev.oneforallsurvival.phone.PhoneRegistry.PHONE.get()), 500,
+                null);
+        etape("outil en main premiere personne", () -> {
+            fermer(mc);
+            mc.options.hideGui = false;
+            mc.gameRenderer.setRenderHand(true);
+            mc.options.setCameraType(CameraType.FIRST_PERSON);
+            mc.player.getInventory().selected = 0;
+            BlockPos z = zoneReseau;
+            serveur.execute(() -> {
+                ServerLevel monde = serveur.overworld();
+                ServerPlayer joueur = serveur.getPlayerList().getPlayers().get(0);
+                monde.setDayTime(6000);
+                joueur.setNoGravity(true);
+                joueur.teleportTo(monde, z.getX() + 5.5, z.getY(), z.getZ() + 5.5, 180F, 15F);
+            });
+        }, () -> true, 2000, RES + "outil_main_premiere_personne_et_barre.png");
+        etape("carte en main premiere personne", () -> mc.player.getInventory().selected = 3, () -> true, 1200,
+                RES + "carte_main_premiere_personne.png");
+        etape("outil en main troisieme personne", () -> {
+            mc.player.getInventory().selected = 0;
+            mc.options.hideGui = true;
+            mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+            BlockPos z = zoneReseau;
+            serveur.execute(() -> {
+                ServerLevel monde = serveur.overworld();
+                ServerPlayer joueur = serveur.getPlayerList().getPlayers().get(0);
+                joueur.teleportTo(monde, z.getX() + 5.5, z.getY(), z.getZ() + 4.5, 0F, 15F);
+            });
+        }, () -> true, 2000, RES + "outil_main_troisieme_personne.png");
+        etape("infobulle outil", () -> {
+            mc.options.setCameraType(CameraType.FIRST_PERSON);
+            mc.options.hideGui = false;
+            mc.setScreen(new Infobulle(new ItemStack(RepairRegistry.MAINTENANCE_TOOL.get())));
+        }, () -> true, 800, RES + "outil_infobulle.png");
+        etape("infobulle carte nommee", () -> mc.setScreen(new Infobulle(carteSim("0612345678", OPERATEUR_DEMO, NOM_16))),
+                () -> true, 800, RES + "carte_infobulle_nommee.png");
+        etape("infobulle carte sans nom", () -> mc.setScreen(new Infobulle(carteSim("0698765432", "Mairie", ""))),
+                () -> true, 800, RES + "carte_infobulle_sans_nom.png");
+        etape("infobulle carte vierge", () -> mc.setScreen(new Infobulle(carteSim(null, null, null))), () -> true, 800,
+                RES + "carte_infobulle_vierge.png");
+        etape("infobulle antenne objet", () -> mc.setScreen(new Infobulle(
+                new ItemStack(dev.oneforallsurvival.phone.PhoneRegistry.ANTENNA_ITEM.get()))), () -> true, 800,
+                RES + "antenne_objet_infobulle.png");
+        etape("reseau survie", () -> {
+            fermer(mc);
+            serveur.execute(() -> serveur.getPlayerList().getPlayers().get(0).setGameMode(GameType.SURVIVAL));
+        }, () -> !mc.player.getAbilities().instabuild, 500, null);
+        etape("reseau inventaire", () -> mc.setScreen(new InventoryScreen(mc.player)), () -> true, 800,
+                RES + "inventaire.png");
+        etape("reseau barre survie", () -> {
+            fermer(mc);
+            mc.options.hideGui = false;
+            mc.player.getInventory().selected = 0;
+        }, () -> true, 800, RES + "barre_survie.png");
+        etape("reseau retour creatif", () -> serveur.execute(() -> serveur.getPlayerList().getPlayers().get(0)
+                .setGameMode(GameType.CREATIVE)), () -> mc.player.getAbilities().instabuild, 300, null);
+
+        // Le panneau du bloc : le joueur se tient près de l'antenne (le panneau se ferme au-delà de huit blocs).
+        etape("reseau devant l'antenne", () -> {
+            fermer(mc);
+            mc.options.hideGui = false;
+            BlockPos a = ANTENNES[0];
+            serveur.execute(() -> {
+                ServerLevel monde = serveur.overworld();
+                ServerPlayer joueur = serveur.getPlayerList().getPlayers().get(0);
+                monde.setDayTime(6000);
+                joueur.teleportTo(monde, a.getX() + 0.5, a.getY(), a.getZ() + 3.5, 180F, 20F);
+            });
+        }, () -> mc.player != null && mc.player.blockPosition().distSqr(ANTENNES[0]) < 30, 1000, null);
+        var reseau = dev.oneforallsurvival.phone.net.client.OperatorPanelLayout.Tab.NETWORK;
+        var cartes = dev.oneforallsurvival.phone.net.client.OperatorPanelLayout.Tab.CARDS;
+        var tarif = dev.oneforallsurvival.phone.net.client.OperatorPanelLayout.Tab.TARIFF;
+        taille(mc, 960, 720, 3, 320, 240);
+        panneauOperateur(mc, "320 long reseau", true, reseau, false, RES + "panneau_320_long_reseau.png");
+        panneauOperateur(mc, "320 long cartes", true, cartes, false, RES + "panneau_320_long_cartes.png");
+        panneauOperateur(mc, "320 long tarif", true, tarif, false, RES + "panneau_320_long_tarif.png");
+        panneauOperateur(mc, "320 bulle reseau", true, reseau, true, RES + "panneau_320_bulle_reseau.png");
+        panneauOperateur(mc, "320 bulle cartes", true, cartes, true, RES + "panneau_320_bulle_cartes.png");
+        panneauOperateur(mc, "320 court reseau", false, reseau, false, RES + "panneau_320_court_reseau.png");
+        panneauOperateur(mc, "320 court cartes", false, cartes, false, RES + "panneau_320_court_cartes.png");
+        panneauOperateur(mc, "320 court tarif", false, tarif, false, RES + "panneau_320_court_tarif.png");
+        repliReseau(mc, "320 accueil", "accueil", RES + "repli_320_accueil.png");
+        repliReseau(mc, "320 carte sim", "sim", RES + "repli_320_feuille_carte_sim.png");
+        repliReseau(mc, "320 carte sim bulle", "bulle", RES + "repli_320_feuille_carte_sim_bulle.png");
+        repliReseau(mc, "320 carte sim demandes", "demandes", RES + "repli_320_feuille_carte_sim_demandes.png");
+        repliReseau(mc, "320 appli antenne", "appli", RES + "repli_320_appli_antenne.png");
+        taille(mc, 1280, 720, 2, 640, 360);
+        panneauOperateur(mc, "640 long reseau", true, reseau, false, RES + "panneau_640_long_reseau.png");
+        panneauOperateur(mc, "640 long cartes", true, cartes, false, RES + "panneau_640_long_cartes.png");
+        panneauOperateur(mc, "640 long tarif", true, tarif, false, RES + "panneau_640_long_tarif.png");
+        panneauOperateur(mc, "640 bulle reseau", true, reseau, true, RES + "panneau_640_bulle_reseau.png");
+        panneauOperateur(mc, "640 court reseau", false, reseau, false, RES + "panneau_640_court_reseau.png");
+        repliReseau(mc, "640 accueil", "accueil", RES + "repli_640_accueil.png");
+        repliReseau(mc, "640 carte sim", "sim", RES + "repli_640_feuille_carte_sim.png");
+        repliReseau(mc, "640 appli antenne", "appli", RES + "repli_640_appli_antenne.png");
+        etape("fin du reseau", () -> {
+            sourisGui = null;
+            fermer(mc);
+        }, () -> true, 300, null);
+    }
+
+    /** Une carte SIM d'affichage (numéro, opérateur, titulaire écrits sur la pile, sans jeton) ; numéro nul : vierge. */
+    private static ItemStack carteSim(String numero, String operateur, String titulaire) {
+        ItemStack pile = new ItemStack(dev.oneforallsurvival.phone.PhoneRegistry.SIM_CARD.get());
+        if (numero != null) {
+            CompoundTag t = pile.getOrCreateTag();
+            t.putString(dev.oneforallsurvival.phone.net.SimCardItem.TAG_NUMBER, numero);
+            t.putString(dev.oneforallsurvival.phone.net.SimCardItem.TAG_OPERATOR, operateur);
+            t.putString(dev.oneforallsurvival.phone.net.SimCardItem.TAG_HOLDER, titulaire);
+        }
+        return pile;
+    }
+
+    /** Vrai quand les quatre antennes sont, chez le client, dans l'état attendu ; le note au journal une fois. */
+    private static boolean antennesPretes(Minecraft mc) {
+        if (echecReseau != null) {
+            throw new IllegalStateException("pose du réseau : " + echecReseau);
+        }
+        for (int i = 0; i < 4; i++) {
+            BlockState s = mc.level.getBlockState(ANTENNES[i]);
+            if (!s.is(dev.oneforallsurvival.phone.PhoneRegistry.ANTENNA.get())
+                    || s.getValue(dev.oneforallsurvival.machine.ElectricMachineBlock.STATE) != ETATS_ANTENNE[i]) {
+                return false;
+            }
+        }
+        if (RESEAU_JOURNAL.add("antennes")) {
+            for (int i = 0; i < 4; i++) {
+                LOG.info("[visuels] antenne {} : {}", NOMS_ANTENNE[i], mc.level.getBlockState(ANTENNES[i]));
+            }
+        }
+        return true;
+    }
+
+    private static void preparerTelephoneReseau(MinecraftServer serveur) {
+        try {
+            ServerLevel monde = serveur.overworld();
+            ServerPlayer joueur = serveur.getPlayerList().getPlayers().get(0);
+            BlockPos z = zoneReseau;
+            for (int dx = -4; dx <= 18; dx++) {
+                for (int dz = -4; dz <= 9; dz++) {
+                    monde.setBlock(z.offset(dx, -1, dz), Blocks.GRASS_BLOCK.defaultBlockState(), 3);
+                    for (int dy = 0; dy <= 5; dy++) {
+                        monde.setBlock(z.offset(dx, dy, dz), Blocks.AIR.defaultBlockState(), 3);
+                    }
+                }
+            }
+            // Le mur de pierre (16 x 3) au nord ; les antennes contre sa face sud.
+            for (int x = 0; x <= 15; x++) {
+                for (int y = 0; y <= 2; y++) {
+                    monde.setBlock(z.offset(x, y, 0), Blocks.STONE.defaultBlockState(), 3);
+                }
+            }
+            OperateurDEssai.oublier(serveur, joueur.getUUID());
+            poserAntenne(monde, joueur, ANTENNES[0]);
+            var fonde = dev.oneforallsurvival.phone.net.AntennaBlock.found(joueur, ANTENNES[0], OPERATEUR_DEMO);
+            if (fonde.isEmpty() || !fonde.get().founded()) {
+                throw new IllegalStateException("fondation : " + fonde);
+            }
+            for (int i = 1; i < 4; i++) {
+                poserAntenne(monde, joueur, ANTENNES[i]);
+            }
+            // La quatrième sous un bloc, entre deux pierres : aucune face voisine ne doit manquer.
+            for (BlockPos p : new BlockPos[] {ANTENNES[3].above(), ANTENNES[3].west(), ANTENNES[3].east()}) {
+                monde.setBlock(p, Blocks.STONE.defaultBlockState(), 3);
+            }
+            ALIMENTES.add(ANTENNES[0]);
+            ALIMENTES.add(ANTENNES[3]);
+            ((ElectricMachineBlockEntity) monde.getBlockEntity(ANTENNES[2])).breakDown(FaultType.FUSE);
+            reseauPose = true;
+        } catch (RuntimeException e) {
+            LOG.error("[visuels] pose du réseau", e);
+            echecReseau = e.toString();
+        }
+    }
+
+    /** Pose une antenne neuve en {@code p} par un clic du joueur sur le bloc du dessous (le vrai chemin de l'objet). */
+    private static void poserAntenne(ServerLevel monde, ServerPlayer joueur, BlockPos p) {
+        ItemStack avant = joueur.getItemInHand(InteractionHand.MAIN_HAND);
+        ItemStack pile = new ItemStack(dev.oneforallsurvival.phone.PhoneRegistry.ANTENNA_ITEM.get());
+        joueur.setItemInHand(InteractionHand.MAIN_HAND, pile);
+        BlockPos sol = p.below();
+        BlockHitResult tir = new BlockHitResult(Vec3.atCenterOf(sol).add(0, 0.5, 0), Direction.UP, sol, false);
+        var r = pile.useOn(new net.minecraft.world.item.context.UseOnContext(monde, joueur, InteractionHand.MAIN_HAND,
+                pile, tir));
+        joueur.setItemInHand(InteractionHand.MAIN_HAND, avant);
+        if (!r.consumesAction() || !(monde.getBlockEntity(p) instanceof dev.oneforallsurvival.phone.net.AntennaBlockEntity)) {
+            throw new IllegalStateException("antenne non posée en " + p + " : " + r);
+        }
+    }
+
+    /** Les textes du jeu pour mesurer le panneau comme l'écran le fait (langue du joueur, montants en coupures). */
+    private static final dev.oneforallsurvival.phone.net.client.OperatorPanelLayout.Texts TEXTES_PANNEAU =
+            new dev.oneforallsurvival.phone.net.client.OperatorPanelLayout.Texts() {
+                @Override
+                public String t(String key, Object... args) {
+                    return net.minecraft.client.resources.language.I18n.get(key, args);
+                }
+
+                @Override
+                public String coins(long amount) {
+                    return dev.oneforallsurvival.economy.CoinMath.format(amount).getString();
+                }
+
+                @Override
+                public String number(long value) {
+                    String digits = Long.toString(Math.abs(value));
+                    StringBuilder out = new StringBuilder();
+                    for (int i = 0; i < digits.length(); i++) {
+                        if (i > 0 && (digits.length() - i) % 3 == 0) {
+                            out.append(' ');
+                        }
+                        out.append(digits.charAt(i));
+                    }
+                    return (value < 0 ? "-" : "") + out;
+                }
+            };
+
+    /**
+     * Le panneau du bloc sur une vue imposée chez le client (aucun geste n'est joué : le numéro 4343 n'existe pas au
+     * serveur), sur l'onglet {@code onglet} ; avec {@code bulle}, la souris est posée sur le premier texte coupé de
+     * l'onglet (ou du titre) pour montrer sa bulle ; le journal dit ce qui est coupé.
+     */
+    private static void panneauOperateur(Minecraft mc, String nom, boolean long_,
+            dev.oneforallsurvival.phone.net.client.OperatorPanelLayout.Tab onglet, boolean bulle, String image) {
+        etape("panneau operateur " + nom, () -> {
+            sourisGui = null;
+            fermer(mc);
+            mc.options.hideGui = false;
+            var vue = long_ ? vueLaPlusLongue(dev.oneforallsurvival.phone.net.OperatorView.Source.BLOCK, ANTENNES[0])
+                    : vueLaPlusCourte(dev.oneforallsurvival.phone.net.OperatorView.Source.BLOCK, ANTENNES[0]);
+            var ecran = new dev.oneforallsurvival.phone.net.client.OperatorPanelScreen(vue);
+            mc.setScreen(ecran);
+            double[] c = ecran.centreOf(onglet, null, "");
+            if (c != null) {
+                ecran.mouseClicked(c[0], c[1], 0);
+            }
+            var l = dev.oneforallsurvival.phone.net.client.OperatorPanelLayout.of(ecran.width, ecran.height,
+                    mc.font::width, vue, TEXTES_PANNEAU, "");
+            List<String> coupes = new ArrayList<>();
+            double[] cible = null;
+            if (l.title().cut()) {
+                coupes.add("titre « " + l.title().full() + " »");
+            }
+            if (!l.panes().isEmpty()) {
+                var pane = l.panes().get(onglet.ordinal());
+                for (var row : pane.rows()) {
+                    for (var t : row.texts()) {
+                        if (t.cut()) {
+                            coupes.add("« " + t.full() + " » → « " + t.shown() + " »");
+                            boolean visible = pane.list().contains(t.area());
+                            if (visible && cible == null) {
+                                cible = new double[] {t.x() + Math.min(t.room(), 20) / 2.0, t.y() + 4};
+                            }
+                        }
+                    }
+                }
+            }
+            if (cible == null && l.title().cut()) {
+                cible = new double[] {l.title().x() + 4, l.title().y() + 4};
+            }
+            LOG.info("[visuels] panneau operateur {} : cadre {} dans une interface de {}x{}, onglet {} ; textes coupes : {}",
+                    nom, l.frame(), mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight(), ecran.tab(),
+                    coupes.isEmpty() ? "aucun" : String.join(", ", coupes));
+            if (bulle) {
+                if (cible == null) {
+                    LOG.info("[visuels] panneau operateur {} : aucun texte coupe, pas de bulle", nom);
+                } else {
+                    sourisGui = cible;
+                }
+            }
+        }, () -> mc.screen instanceof dev.oneforallsurvival.phone.net.client.OperatorPanelScreen, 1200, image);
+    }
+
+    /** Le contenu le plus long : nom de 24, 32 antennes, 32 cartes aux titulaires de 16, 32 demandes, 32 opérateurs. */
+    private static dev.oneforallsurvival.phone.net.OperatorView vueLaPlusLongue(
+            dev.oneforallsurvival.phone.net.OperatorView.Source source, BlockPos pos) {
+        var max = dev.oneforallsurvival.phone.net.OperatorView.MAX_LIST;
+        List<dev.oneforallsurvival.phone.net.OperatorView.AntennaLine> antennes = new ArrayList<>();
+        for (int i = 0; i < max; i++) {
+            antennes.add(new dev.oneforallsurvival.phone.net.OperatorView.AntennaLine(new java.util.UUID(0x7A, i),
+                    "minecraft:the_nether", new BlockPos(-29_999_999, -64, 29_999_999),
+                    dev.oneforallsurvival.machine.MachineState.values()[i % 4],
+                    new dev.oneforallsurvival.phone.net.AntennaLoad.Breakdown(9_999, 99_999, 99_999), 6_912_000_000L,
+                    6_912_000_000L, i == 0, i % 2 == 1));
+        }
+        List<dev.oneforallsurvival.phone.net.OperatorView.CardLine> cartes = new ArrayList<>();
+        for (int i = 0; i < max; i++) {
+            cartes.add(new dev.oneforallsurvival.phone.net.OperatorView.CardLine(new java.util.UUID(0x7B, i),
+                    "0612345678", i % 5 == 0 ? "" : NOM_16, dev.oneforallsurvival.phone.net.SimCard.State.values()[i % 3]));
+        }
+        List<dev.oneforallsurvival.phone.net.OperatorView.RequestLine> demandes = new ArrayList<>();
+        for (int i = 0; i < max; i++) {
+            demandes.add(new dev.oneforallsurvival.phone.net.OperatorView.RequestLine(new java.util.UUID(0x7C, i), NOM_16,
+                    1_789_000_000_000L));
+        }
+        List<dev.oneforallsurvival.phone.net.PhoneNetwork.RelayState> relais = new ArrayList<>();
+        for (int i = 0; i < max; i++) {
+            relais.add(new dev.oneforallsurvival.phone.net.PhoneNetwork.RelayState(String.format("%012x", i), NOM_24, 32,
+                    i % 2 == 0 ? 0 : 16));
+        }
+        return new dev.oneforallsurvival.phone.net.OperatorView(source, pos, 4343, "0123456789ab", NOM_24,
+                new dev.oneforallsurvival.phone.net.OperatorView.Rights(true, true, true, false), CINQ_COUPURES,
+                CINQ_COUPURES - 1, CINQ_COUPURES, 99_999_999_999L, antennes, 99, 100, 3_200, cartes, demandes, relais);
+    }
+
+    /** Le contenu le plus court : nom de deux lettres, une antenne, aucune carte ni demande, un opérateur au relais. */
+    private static dev.oneforallsurvival.phone.net.OperatorView vueLaPlusCourte(
+            dev.oneforallsurvival.phone.net.OperatorView.Source source, BlockPos pos) {
+        var antenne = new dev.oneforallsurvival.phone.net.OperatorView.AntennaLine(new java.util.UUID(0x7D, 0),
+                "minecraft:overworld", new BlockPos(1, 64, 1), dev.oneforallsurvival.machine.MachineState.RUNNING,
+                new dev.oneforallsurvival.phone.net.AntennaLoad.Breakdown(40, 0, 0), 0L, 0L, true, false);
+        return new dev.oneforallsurvival.phone.net.OperatorView(source, pos, 4343, "0123456789ac", "Ab",
+                new dev.oneforallsurvival.phone.net.OperatorView.Rights(true, true, false, false), 0L, null, 1L, 0L,
+                List.of(antenne), 0, 1, 0, List.of(), List.of(), List.of(
+                        new dev.oneforallsurvival.phone.net.PhoneNetwork.RelayState("0123456789ac", "Ab", 1, 1)));
+    }
+
+    /** Le téléphone ouvert, avec une ligne de l'opérateur de démonstration et des cartes dans l'inventaire. */
+    private static PhoneStatePacket etatTelephoneReseau(boolean ligne) {
+        List<dev.oneforallsurvival.phone.net.PhoneSims.SimChoice> choix = List.of(
+                new dev.oneforallsurvival.phone.net.PhoneSims.SimChoice(3, "06 12 34 56 78", NOM_24,
+                        dev.oneforallsurvival.phone.net.PhoneSims.Validity.ACTIVE),
+                new dev.oneforallsurvival.phone.net.PhoneSims.SimChoice(4, "06 98 76 54 32", "Mairie",
+                        dev.oneforallsurvival.phone.net.PhoneSims.Validity.SUSPENDED),
+                new dev.oneforallsurvival.phone.net.PhoneSims.SimChoice(5, "06 11 22 33 44", "Radio Île",
+                        dev.oneforallsurvival.phone.net.PhoneSims.Validity.UNKNOWN),
+                new dev.oneforallsurvival.phone.net.PhoneSims.SimChoice(9, "06 55 44 33 22", "Radio Île",
+                        dev.oneforallsurvival.phone.net.PhoneSims.Validity.DEACTIVATED));
+        List<dev.oneforallsurvival.phone.PhoneNetView.OperatorChoice> demandables = List.of(
+                new dev.oneforallsurvival.phone.PhoneNetView.OperatorChoice("0123456789ab", NOM_24, 4),
+                new dev.oneforallsurvival.phone.PhoneNetView.OperatorChoice("ba9876543210", "Mairie", 2),
+                new dev.oneforallsurvival.phone.PhoneNetView.OperatorChoice("aaaaaaaaaaaa", "Radio Île", 0));
+        // Sans ligne (aucune carte logée), le téléphone propose de demander une carte : la liste des opérateurs.
+        var net = ligne ? new dev.oneforallsurvival.phone.PhoneNetView(
+                dev.oneforallsurvival.phone.net.PhoneSims.Validity.ACTIVE, NOM_24, 3, "06 12 34 56 78", NOM_16, true, choix,
+                demandables)
+                : new dev.oneforallsurvival.phone.PhoneNetView(dev.oneforallsurvival.phone.net.PhoneSims.Validity.NONE, "",
+                        0, "", "", true, choix, demandables);
+        return new PhoneStatePacket(4242, PhoneStatePacket.Kind.OPEN, PhoneStatePacket.Lock.UNLOCKED, 64,
+                1_763_640_000_000L, 3600, "jungle", false, true, NOM_16, 5, 0, PhoneStatePacket.Result.NONE,
+                PhoneStatePacket.CloseReason.NONE, net);
+    }
+
+    /**
+     * L'écran de repli avec une ligne : {@code accueil} (barre d'état, bouton de l'appli « Antenne ») ; {@code sim} (la
+     * feuille « Carte SIM ») ; {@code bulle} (la même, souris sur une carte au libellé coupé) ; {@code demandes} (la
+     * même sans carte logée, demandes ouvertes) ; {@code appli} (le panneau de l'opérateur
+     * ouvert par-dessus, source {@code PHONE}, contenu le plus long).
+     */
+    private static void repliReseau(Minecraft mc, String nom, String page, String image) {
+        etape("repli reseau " + nom, () -> {
+            sourisGui = null;
+            fermer(mc);
+            mc.options.hideGui = false;
+            mc.options.setCameraType(CameraType.FIRST_PERSON);
+            var ecran = new dev.oneforallsurvival.phone.client.PhoneFallbackScreen(
+                    etatTelephoneReseau(!"demandes".equals(page)));
+            if ("appli".equals(page)) {
+                mc.setScreen(new dev.oneforallsurvival.phone.net.client.OperatorPanelScreen(
+                        vueLaPlusLongue(dev.oneforallsurvival.phone.net.OperatorView.Source.PHONE, BlockPos.ZERO), ecran));
+                return;
+            }
+            mc.setScreen(ecran);
+            if (!"accueil".equals(page)) {
+                ((net.minecraft.client.gui.components.Button) ecran.widgets().get("settings")).onPress();
+                ((net.minecraft.client.gui.components.Button) ecran.widgets().get("sim")).onPress();
+                if ("demandes".equals(page)) {
+                    ((net.minecraft.client.gui.components.Button) ecran.widgets().get("sim-request")).onPress();
+                }
+                if ("bulle".equals(page)) {
+                    // La souris sur la première carte de l'inventaire, dont le libellé est coupé : sa bulle.
+                    var w = ecran.widgets().get("sim-choice-3");
+                    sourisGui = new double[] {w.getX() + w.getWidth() / 2.0, w.getY() + w.getHeight() / 2.0};
+                }
+            }
+        }, () -> {
+            if (mc.screen instanceof dev.oneforallsurvival.phone.net.client.OperatorPanelScreen) {
+                return true;
+            }
+            if (!(mc.screen instanceof dev.oneforallsurvival.phone.client.PhoneFallbackScreen ecran)) {
+                return false;
+            }
+            if (RESEAU_JOURNAL.add(nom)) {
+                StringBuilder b = new StringBuilder();
+                ecran.widgets().forEach((k, w) -> b.append(' ').append(k).append('=').append(w.getX()).append(',')
+                        .append(w.getY()).append(',').append(w.getWidth()).append('x').append(w.getHeight()));
+                LOG.info("[visuels] repli reseau {} : page {}, cadre {} dans une interface de {}x{} ;{}", nom,
+                        ecran.page(), ecran.frameRect(), mc.getWindow().getGuiScaledWidth(),
+                        mc.getWindow().getGuiScaledHeight(), b);
             }
             return true;
         }, 1000, image);

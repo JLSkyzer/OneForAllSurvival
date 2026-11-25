@@ -94,10 +94,17 @@ public final class AntenneDroitsGameTests {
     private static final BlockPos C = new BlockPos(2, 0, 5);
     private static final Vec3 JOUEUR = new Vec3(4.5, 0, 4.5);
 
-    /** La forme attendue, écrite en clair : semelle 10 x 2 x 10 et mât 4 x 16 x 4, centrés. */
+    /**
+     * La forme attendue, écrite en clair : semelle 10 x 2 x 10 et mât 4 x 16 x 4, centrés ; un hauban de chaque côté,
+     * lame de 1 px d'épaisseur, de y 2 à 9, de la semelle (3 px du bord) au mât (tâche 12).
+     */
     private static final VoxelShape FORME = Shapes.or(
             Shapes.box(3 / 16.0, 0, 3 / 16.0, 13 / 16.0, 2 / 16.0, 13 / 16.0),
-            Shapes.box(6 / 16.0, 0, 6 / 16.0, 10 / 16.0, 1.0, 10 / 16.0));
+            Shapes.box(6 / 16.0, 0, 6 / 16.0, 10 / 16.0, 1.0, 10 / 16.0),
+            Shapes.box(7.5 / 16.0, 2 / 16.0, 3 / 16.0, 8.5 / 16.0, 9 / 16.0, 6 / 16.0),
+            Shapes.box(7.5 / 16.0, 2 / 16.0, 10 / 16.0, 8.5 / 16.0, 9 / 16.0, 13 / 16.0),
+            Shapes.box(3 / 16.0, 2 / 16.0, 7.5 / 16.0, 6 / 16.0, 9 / 16.0, 8.5 / 16.0),
+            Shapes.box(10 / 16.0, 2 / 16.0, 7.5 / 16.0, 13 / 16.0, 9 / 16.0, 8.5 / 16.0));
 
     private AntenneDroitsGameTests() {}
 

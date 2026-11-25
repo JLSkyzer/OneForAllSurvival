@@ -366,6 +366,10 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
                         }
                     }, labels.get(id));
             b.active = enabled.getOrDefault(id, true);
+            // Libellé coupé (« 06 12 34 56 78… ») : la bulle donne le texte entier, opérateur et état compris.
+            if (!label.getString().equals(labels.get(id).getString())) {
+                b.setTooltip(Tooltip.create(labels.get(id)));
+            }
             add(id, b);
         }
         add("back", new FitButton(layout.back(), Component.translatable(KEY + "back"), b -> {
