@@ -23,6 +23,7 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.common.util.FakePlayer;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.event.server.ServerStoppedEvent;
 import net.minecraftforge.network.PacketDistributor;
 
 /**
@@ -38,7 +39,7 @@ import net.minecraftforge.network.PacketDistributor;
  *
  * Toutes les {@value #REFRESH_TICKS} tics, chaque panneau est revérifié (fermé sinon) et sa vue renvoyée si elle a
  * changé : jamais deux fois de suite la même. Fermé à la déconnexion, au geste {@code CLOSE} et à l'ouverture de la
- * caisse. Fil du serveur.
+ * caisse ; tous oubliés à l'arrêt du serveur. Fil du serveur.
  */
 public final class OperatorPanels {
 
@@ -206,11 +207,11 @@ public final class OperatorPanels {
     /** Le panneau tient-il toujours (voir la documentation de la classe) ? */
     static boolean stillValid(ServerPlayer player, Panel panel) {
         if (panel.source == OperatorView.Source.PHONE) {
+            // La règle unique de l'appli ({@link #appOperator}), sur la session qui a ouvert ce panneau et pour
+            // l'opérateur qu'il montre (revue de la tâche 13b, mineur 4).
             Optional<PhoneSession> session = PhoneService.session(player.getUUID());
             return panel.operatorId != null && session.isPresent() && session.get().id() == panel.phoneSession
-                    && PhoneOperators.get(player.server).byId(panel.operatorId)
-                            .filter(op -> op.founder().equals(player.getUUID())).isPresent()
-                    && phoneValid(player, session.get(), panel.operatorId);
+                    && appOperator(player, session.get()).filter(op -> op.id().equals(panel.operatorId)).isPresent();
         }
         if (!player.level().dimension().equals(panel.dimension) || !player.serverLevel().isLoaded(panel.pos)
                 || player.distanceToSqr(Vec3.atCenterOf(panel.pos)) > MAX_DISTANCE_SQR) {
@@ -302,5 +303,14 @@ public final class OperatorPanels {
 
     public static void onLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
         OPEN.remove(event.getEntity().getUUID());
+    }
+
+    /**
+     * Arrêt du serveur : les panneaux ouverts sont oubliés (revue finale du lot T2, m3). En solo, un panneau d'un monde
+     * quitté ne doit pas « tenir » sur l'antenne d'un autre monde à la même position. Comme
+     * {@code OperatorCommands.onServerStopped}.
+     */
+    public static void onServerStopped(ServerStoppedEvent event) {
+        OPEN.clear();
     }
 }

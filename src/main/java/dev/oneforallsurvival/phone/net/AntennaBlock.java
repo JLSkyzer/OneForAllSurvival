@@ -35,9 +35,10 @@ import net.minecraftforge.event.level.BlockEvent;
 import org.slf4j.Logger;
 
 /**
- * L'antenne d'un opérateur de téléphone : un mât de 4 x 16 x 4 px sur une semelle de 10 x 2 x 10 px, machine électrique
- * sans orientation, dont le voyant ne s'allume qu'en marche ({@code STATE} à {@code RUNNING}). Modèle hors du cube :
- * {@code noOcclusion()} (dans {@link PhoneRegistry}) et forme exacte.
+ * L'antenne d'un opérateur de téléphone : un mât de 4 x 16 x 4 px sur une semelle de 10 x 2 x 10 px, tenu par quatre
+ * haubans (lames de 1 x 7 x 3 px, de la semelle au mât), machine électrique sans orientation, dont le voyant ne
+ * s'allume qu'en marche ({@code STATE} à {@code RUNNING}). Modèle hors du cube : {@code noOcclusion()} (dans
+ * {@link PhoneRegistry}) et forme exacte, haubans compris ; la collision n'a que la semelle et le mât.
  *
  * <ul>
  *   <li><b>Pose</b> : refusée sans joueur (distributeur, automate, faux joueur). L'objet d'une antenne démontée porte son

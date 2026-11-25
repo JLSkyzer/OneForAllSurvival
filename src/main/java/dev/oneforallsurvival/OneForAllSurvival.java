@@ -154,6 +154,8 @@ public final class OneForAllSurvival {
         // l'arrêt du serveur).
         MinecraftForge.EVENT_BUS.register(new dev.oneforallsurvival.phone.net.OperatorCommands());
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.phone.net.OperatorCommands::onServerStopped);
+        // Revue finale du lot T2 (m3) : les panneaux de l'opérateur ouverts sont oubliés à l'arrêt du serveur.
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.phone.net.OperatorPanels::onServerStopped);
         // Le tableau de la mairie : les comptes publics partent à la connexion puis quand ils changent (1 fois par seconde).
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.town.TownFinances::onLoggedIn);
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.town.TownFinances::onServerTick);

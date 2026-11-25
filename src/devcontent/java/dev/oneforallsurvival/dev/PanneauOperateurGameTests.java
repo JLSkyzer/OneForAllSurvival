@@ -118,6 +118,13 @@ public final class PanneauOperateurGameTests {
     private static final String LOT_CARTES = "panneau_cartes";
     private static final String LOT_VUE = "panneau_vue";
     private static final String LOT_TARIF = "panneau_tarif";
+    /** Revue finale, I2 : le droit de nommer, jugé comme la fondation ({@code idleOwner}). */
+    private static final String LOT_NOM = "panneau_nom";
+    /** Revue finale, I3 : le plafond de cartes, réglé à 2 le temps du lot. */
+    private static final String LOT_PLAFOND = "panneau_plafond";
+    /** Revue finale, m3 : l'arrêt du serveur oublie les panneaux ouverts (seul dans son lot : il les oublie tous). */
+    private static final String LOT_ARRET = "panneau_arret";
+    private static final int PLAFOND_ESSAI = 2;
 
     static final BlockPos A = new BlockPos(1, 0, 1);
     static final BlockPos B = new BlockPos(6, 0, 6);
@@ -160,6 +167,27 @@ public final class PanneauOperateurGameTests {
         EconomyClock.reset();
         OperatorDay.install(OperatorDay.SERVER);
         PowerBilling.install(PowerBilling.SERVER);
+        apres();
+    }
+
+    @AfterBatch(batch = LOT_NOM)
+    public static void apresNom(ServerLevel level) {
+        apres();
+    }
+
+    @BeforeBatch(batch = LOT_PLAFOND)
+    public static void avantPlafond(ServerLevel level) {
+        PhoneConfig.overrideSimCardsMax(PLAFOND_ESSAI);
+    }
+
+    @AfterBatch(batch = LOT_PLAFOND)
+    public static void apresPlafond(ServerLevel level) {
+        PhoneConfig.overrideSimCardsMax(null);
+        apres();
+    }
+
+    @AfterBatch(batch = LOT_ARRET)
+    public static void apresArret(ServerLevel level) {
         apres();
     }
 
@@ -1300,6 +1328,186 @@ public final class PanneauOperateurGameTests {
                 "à minuit, le jour passe à hier et repart de zéro : " + apres);
         registre.noteTick(antenne, true, t + 3, 46, detail);
         helper.assertTrue(registre.antenna(antenne).get().feToday() == 46L, "le nouveau jour compte de zéro");
+        e.fermer();
+        helper.succeed();
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Lot panneau_nom (revue finale, I2) : le champ du nom suit la règle de la fondation
+    // ---------------------------------------------------------------------------------------------
+
+    /** Un clic droit sur l'antenne qui n'ouvre aucun panneau (le joueur n'a pas la main sur elle). */
+    private static void aucunPanneau(GameTestHelper helper, JoueurDeTest j, BlockPos pos, String qui) {
+        j.panneauxOperateurRecus();
+        ServerPlayer p = j.joueur();
+        BlockPos abs = helper.absolutePos(pos);
+        BlockHitResult tir = new BlockHitResult(Vec3.atCenterOf(abs), Direction.UP, abs, false);
+        p.gameMode.useItemOn(p, p.serverLevel(), p.getItemInHand(InteractionHand.MAIN_HAND), InteractionHand.MAIN_HAND,
+                tir);
+        helper.assertTrue(j.panneauxOperateurRecus().isEmpty(), qui + " ne doit ouvrir aucun panneau");
+        OperatorPanels.close(j.uuid());
+    }
+
+    /**
+     * L'ingénieur outillé démonte l'antenne d'un fondateur et la repose ailleurs : il en devient le poseur. L'opérateur
+     * est ensuite supprimé. L'ancien fondateur, à qui l'antenne revient, voit le champ du nom et la refonde au panneau ;
+     * l'ingénieur ne voit pas le champ et son nom est refusé.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_NOM)
+    public static void uneAntenneDeplaceeSeRefondeParLAncienFondateur(GameTestHelper helper) {
+        Essai e = new Essai(helper);
+        JoueurDeTest f = e.joueur("pn_dep_f");
+        JoueurDeTest inge = e.ingenieur("pn_dep_inge");
+        for (String nom : List.of("Nom Usurpe", "Nom Refonde")) {
+            e.registre().byName(nom).ifPresent(reste -> OperateurDEssai.oublier(e.serveur(), reste.founder()));
+        }
+        PhoneOperator op = e.fonder(f, A, "Nom Deplace", 0);
+        ServerPlayer p = inge.joueur();
+        helper.assertTrue(p.gameMode.destroyBlock(helper.absolutePos(A)) && helper.getBlockState(A).isAir(),
+                "l'ingénieur outillé démonte l'antenne");
+        List<ItemEntity> lache = helper.getLevel().getEntitiesOfClass(ItemEntity.class, e.boite());
+        helper.assertTrue(lache.size() == 1, "un objet tombé, vu " + lache);
+        ItemStack objet = lache.get(0).getItem().copy();
+        lache.get(0).discard();
+        // Reposée en B par l'ingénieur, l'outil en main secondaire.
+        p.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(RepairRegistry.MAINTENANCE_TOOL.get()));
+        p.setItemInHand(InteractionHand.MAIN_HAND, objet);
+        BlockPos sol = helper.absolutePos(B.below());
+        BlockHitResult tir = new BlockHitResult(Vec3.atCenterOf(sol).add(0, 0.5, 0), Direction.UP, sol, false);
+        InteractionResult r = objet.useOn(new UseOnContext(p.serverLevel(), p, InteractionHand.MAIN_HAND, objet, tir));
+        p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(RepairRegistry.MAINTENANCE_TOOL.get()));
+        p.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY);
+        helper.assertTrue(r.consumesAction(), "repose par l'ingénieur outillé : " + r);
+        helper.assertTrue(op.id().equals(e.antenne(B).operatorId()) && inge.uuid().equals(e.antenne(B).placer()),
+                "reposée, elle reprend l'opérateur, l'ingénieur noté comme poseur");
+        OperateurDEssai.oublier(e.serveur(), f.uuid());
+        helper.assertTrue(e.registre().byId(op.id()).isEmpty(), "opérateur supprimé");
+
+        OperatorView vueInge = e.ouvrir(inge, B);
+        helper.assertTrue(vueInge.operatorId().isEmpty() && !vueInge.rights().name(),
+                "le déménageur ne voit pas le champ du nom : " + vueInge.rights());
+        e.geste(inge, vueInge.session(), OperatorActionPacket.Action.NAME, "Nom Usurpe", 0L);
+        helper.assertTrue(e.registre().byName("Nom Usurpe").isEmpty() && e.registre().byFounder(inge.uuid()).isEmpty()
+                && e.registre().byFounder(f.uuid()).isEmpty(), "le nom du déménageur est refusé");
+
+        OperatorView vueF = e.ouvrir(f, B);
+        helper.assertTrue(vueF.operatorId().isEmpty() && vueF.rights().name(),
+                "l'ancien fondateur voit le champ du nom : " + vueF.rights());
+        OperatorView apres = e.geste(f, vueF.session(), OperatorActionPacket.Action.NAME, "Nom Refonde", 0L);
+        Optional<PhoneOperator> refonde = e.registre().byFounder(f.uuid());
+        helper.assertTrue(refonde.isPresent() && refonde.get().name().equals("Nom Refonde"),
+                "l'ancien fondateur refonde au panneau : " + refonde);
+        helper.assertTrue(apres != null && apres.operatorId().equals(refonde.get().id())
+                && refonde.get().id().equals(e.antenne(B).operatorId()), "l'antenne déplacée porte le nouvel opérateur");
+        e.fermer();
+        helper.succeed();
+    }
+
+    /**
+     * L'opérateur passe à un autre fondateur ({@code setFounder}), puis il est supprimé : l'antenne revient au fondateur
+     * du moment, qui voit le champ du nom et la refonde ; son poseur, premier fondateur, n'ouvre plus rien et ne la
+     * fonde pas.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_NOM)
+    public static void apresUnChangementDeFondateurLeNouveauRefonde(GameTestHelper helper) {
+        Essai e = new Essai(helper);
+        JoueurDeTest premier = e.joueur("pn_her_f1");
+        JoueurDeTest heritier = e.joueur("pn_her_f2");
+        for (String nom : List.of("Nom Vole", "Nom Herite Bis")) {
+            e.registre().byName(nom).ifPresent(reste -> OperateurDEssai.oublier(e.serveur(), reste.founder()));
+        }
+        PhoneOperator op = e.fonder(premier, A, "Nom Herite", 0);
+        helper.assertTrue(e.registre().setFounder(op.id(), heritier.uuid(), "pn_her_f2"), "changement de fondateur");
+        OperateurDEssai.oublier(e.serveur(), heritier.uuid());
+        helper.assertTrue(e.registre().byId(op.id()).isEmpty(), "opérateur supprimé");
+        helper.assertTrue(premier.uuid().equals(e.antenne(A).placer()), "témoin : le premier fondateur est le poseur");
+
+        aucunPanneau(helper, premier, A, "le premier fondateur");
+        helper.assertTrue(AntennaBlock.found(premier.joueur(), helper.absolutePos(A), "Nom Vole").isEmpty()
+                && e.registre().byFounder(premier.uuid()).isEmpty(), "le premier fondateur ne la fonde pas");
+
+        OperatorView vue = e.ouvrir(heritier, A);
+        helper.assertTrue(vue.operatorId().isEmpty() && vue.rights().name(),
+                "le fondateur au moment de la suppression voit le champ du nom : " + vue.rights());
+        OperatorView apres = e.geste(heritier, vue.session(), OperatorActionPacket.Action.NAME, "Nom Herite Bis", 0L);
+        Optional<PhoneOperator> refonde = e.registre().byFounder(heritier.uuid());
+        helper.assertTrue(refonde.isPresent() && refonde.get().name().equals("Nom Herite Bis")
+                && apres != null && apres.operatorId().equals(refonde.get().id()), "il la refonde : " + refonde);
+        e.fermer();
+        helper.succeed();
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Lot panneau_plafond (revue finale, I3) : plafond de cartes non désactivées par opérateur
+    // ---------------------------------------------------------------------------------------------
+
+    /** Ce joueur a-t-il reçu cette clé sur la ligne d'état du panneau ? */
+    private static boolean avisRecu(JoueurDeTest j, String cle) {
+        for (dev.oneforallsurvival.phone.net.OperatorNoticePacket avis : j.avisOperateurRecus()) {
+            if (avis.message().getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents t
+                    && t.getKey().equals(cle)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Au plafond ({@value #PLAFOND_ESSAI} cartes non désactivées, une suspendue comprise), ni « Émettre une SIM sans
+     * nom » ni « Émettre » d'une demande ne tirent de carte : message au panneau et en barre d'action, demande gardée.
+     * « Remplacer la carte » (même carte) reste possible.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_PLAFOND)
+    public static void auPlafondAucuneCarteNeSEmet(GameTestHelper helper) {
+        Essai e = new Essai(helper);
+        JoueurDeTest f = e.joueur("pp_f");
+        JoueurDeTest d = e.joueur("pp_d");
+        PhoneOperator op = e.fonder(f, A, "Plafond Cartes", RESERVE);
+        helper.assertTrue(PhoneConfig.simCardsMax() == PLAFOND_ESSAI, "plafond de l'essai : " + PhoneConfig.simCardsMax());
+        SimCard active = e.carte(op, f);
+        SimCard suspendue = e.carte(op, null);
+        helper.assertTrue(e.registre().setState(suspendue.simId(), SimCard.State.SUSPENDED), "suspension");
+        Optional<SimRequest> demande = e.registre().request(op.id(), d.uuid(), "pp_d", EconomyClock.now());
+        helper.assertTrue(demande.isPresent(), "demande de carte");
+        OperatorView vue = e.ouvrir(f, A);
+        int portees = cartesPortees(f.joueur());
+        int total = e.registre().cardsOf(op.id()).size();
+
+        for (OperatorActionPacket.Action geste : List.of(OperatorActionPacket.Action.ISSUE_ANONYMOUS,
+                OperatorActionPacket.Action.ISSUE)) {
+            f.messagesRecus();
+            f.avisOperateurRecus();
+            String arg = geste == OperatorActionPacket.Action.ISSUE ? demande.get().id().toString() : "";
+            e.geste(f, vue.session(), geste, arg, 0L);
+            helper.assertTrue(cartesPortees(f.joueur()) == portees && e.registre().cardsOf(op.id()).size() == total,
+                    geste + " au plafond : aucune carte tirée (" + e.registre().cardsOf(op.id()).size() + " au registre)");
+            helper.assertTrue(f.messagesRecus().contains(MSG + "card_limit"), geste + " : message en barre d'action");
+            helper.assertTrue(avisRecu(f, MSG + "card_limit"), geste + " : message sur la ligne d'état du panneau");
+        }
+        helper.assertTrue(e.registre().requestsOf(op.id()).size() == 1, "la demande reste en attente");
+        helper.assertTrue(PhoneSims.issueTo(f.joueur(), op, null, "", EconomyClock.now()).isEmpty()
+                && e.registre().cardsOf(op.id()).size() == total, "issueTo refuse aussi au plafond");
+
+        e.geste(f, vue.session(), OperatorActionPacket.Action.REPLACE, active.simId().toString(), 0L);
+        helper.assertTrue(cartesPortees(f.joueur()) == portees + 1 && e.registre().cardsOf(op.id()).size() == total,
+                "Remplacer la carte reste possible au plafond, sans carte de plus au registre");
+        e.fermer();
+        helper.succeed();
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Lot panneau_arret (revue finale, m3)
+    // ---------------------------------------------------------------------------------------------
+
+    @GameTest(template = "test/plancher", batch = LOT_ARRET)
+    public static void lArretDuServeurOublieLesPanneaux(GameTestHelper helper) {
+        Essai e = new Essai(helper);
+        JoueurDeTest f = e.joueur("pz_f");
+        e.fonder(f, A, "Panneau Arret", 0);
+        e.ouvrir(f, A);
+        helper.assertTrue(OperatorPanels.session(f.uuid()).isPresent(), "témoin : panneau ouvert");
+        OperatorPanels.onServerStopped(new net.minecraftforge.event.server.ServerStoppedEvent(e.serveur()));
+        helper.assertTrue(OperatorPanels.session(f.uuid()).isEmpty(), "l'arrêt du serveur doit oublier les panneaux");
         e.fermer();
         helper.succeed();
     }
