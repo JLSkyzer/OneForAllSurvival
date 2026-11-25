@@ -1,6 +1,6 @@
 # Vérifications du lot T2 : réseau, antenne, opérateur et carte SIM
 
-Relevés du 2026-11-20 au 2026-11-25, sur `main` (le travail est fait directement sur `main`). Ce document couvre la tâche 14 (preuve du lot). Les tâches 1 à 13, puis la tâche 13b (icône « Antenne » grisée), ont leurs JUnit, GameTests, essais réels, rapports et revues ; ils sont repris ici d'après ces rapports, les journaux et le code. La tâche 14 a rejoué la suite complète (JUnit et GameTests, sans puis avec le pack) et relu le code et les journaux pour les affirmations sensibles ; **elle n'a lancé aucun client ni aucun serveur dédié**. Cahier : [le téléphone](../superpowers/specs/2026-11-08-telephone-design.md). Plan : [`2026-11-20-lot-t2-telephone-reseau.md`](../superpowers/plans/2026-11-20-lot-t2-telephone-reseau.md) (pas encore archivé : la revue finale du lot reste à faire).
+Relevés du 2026-11-20 au 2026-11-25, sur `main` (le travail est fait directement sur `main`). Ce document couvre la tâche 14 (preuve du lot). Les tâches 1 à 13, puis la tâche 13b (icône « Antenne » grisée), ont leurs JUnit, GameTests, essais réels, rapports et revues ; ils sont repris ici d'après ces rapports, les journaux et le code. La tâche 14 a rejoué la suite complète (JUnit et GameTests, sans puis avec le pack) et relu le code et les journaux pour les affirmations sensibles ; **elle n'a lancé aucun client ni aucun serveur dédié**. La revue finale du lot a suivi, puis un **passage de corrections et de nettoyage** (le même jour), repris ici d'après les journaux de ses passes. Cahier : [le téléphone](../superpowers/specs/2026-11-08-telephone-design.md). Plan : [`2026-11-20-lot-t2-telephone-reseau.md`](../superpowers/plans/2026-11-20-lot-t2-telephone-reseau.md) (pas encore archivé : la relecture ciblée du passage de nettoyage reste à faire).
 
 Commits du lot, par tâche :
 
@@ -20,8 +20,9 @@ Commits du lot, par tâche :
 | 12 | textures et modèles | `208fdbe` puis `6c8f729` |
 | 13 | essais réels | `78004b3`, `394ecbe`, `c69ab9c` puis `214e574` |
 | 13b | icône « Antenne » grisée | `ff53009` |
+| nettoyage | corrections de la revue finale (I1 à I3, mineurs, recette, essais) | `92cb95b`, `2cd3797`, `b395a22`, `2f834d4`, `3834b36`, `bd6fabe`, `0f395fb`, puis les réglages de l'automate et ce document |
 
-**État : le lot est prouvé dans les limites des sections « Défauts connus » et « Non prouvé et limites ».** Un joueur fonde un opérateur en nommant une antenne ; l'antenne consomme du courant, garde son chunk chargé et tombe hors service sans courant ; le fondateur émet, suspend, réactive et remplace des cartes SIM et fixe le tarif du lendemain, au panneau de l'antenne ou dans l'appli « Antenne » de son téléphone ; une carte glissée dans un téléphone lui donne un numéro, un opérateur et un signal de 0 à 4 barres ; une copie de carte faite avant l'insertion est morte ; l'ingénieur n'a la main qu'avec son outil de maintenance ; le maire plafonne, modifie et supprime. Un vrai client sur serveur dédié a joué le parcours avec le pack, relance comprise, avant les derniers durcissements ; un client avec MCEF et un client sans MCEF ont montré les barres et l'appli. **Aucun appel n'existe encore** (lot T3) et **aucune pièce n'est prélevée** (lot T6). La revue de la dernière tâche (13b) est approuvée ; la revue finale du lot entier n'est pas faite.
+**État : le lot est prouvé dans les limites des sections « Défauts connus » et « Non prouvé et limites ».** Un joueur fonde un opérateur en nommant une antenne ; l'antenne consomme du courant, garde son chunk chargé et tombe hors service sans courant ; le fondateur émet, suspend, réactive et remplace des cartes SIM et fixe le tarif du lendemain, au panneau de l'antenne ou dans l'appli « Antenne » de son téléphone ; une carte glissée dans un téléphone lui donne un numéro, un opérateur et un signal de 0 à 4 barres ; une copie de carte faite avant l'insertion est morte ; l'ingénieur n'a la main qu'avec son outil de maintenance ; le maire plafonne, modifie et supprime. Après le nettoyage, un vrai client sur serveur dédié avec le pack a joué le parcours du téléphone et sa relance (étape seule), trois passages complets ont abouti sur six (les trois échecs sont dans des étapes de lots plus anciens), et les modes `signal` et `antenne` ont passé avec MCEF. **La relance complète n'a pas encore de résultat avec les derniers réglages de l'automate.** **Aucun appel n'existe encore** (lot T3) et **aucune pièce n'est prélevée** (lot T6). La revue finale du lot est faite (à corriger, corrigée) ; la relecture ciblée de ces corrections ne l'est pas.
 
 ## Ce qui passe
 
@@ -33,6 +34,16 @@ Commits du lot, par tâche :
 | `./gradlew --offline runGameTestServer -PwithPack` (18:59:49 à 19:02:31) | « **All 1165 required tests passed** » (19:02:27) ; 113 lignes `createaddition` au journal (le pack est chargé) |
 
 Les deux passes ont été jouées sous le verrou de lancement, cédé entre elles à AXIONENGINE. La compilation (`compileJava compileDevcontentJava compileTestJava`) a été faite avant la prise.
+
+### Suite complète du passage de nettoyage (2026-11-25)
+
+| Commande | Résultat lu |
+|---|---|
+| `compileJava compileDevcontentJava compileTestJava test` (19:30:25 à 19:30:59) | JUnit : « BUILD SUCCESSFUL ». **984 tests** d'après la passe rouge jouée juste avant sur les mêmes essais (19:26:55 : « 984 tests completed, 2 failed ») ; la somme des XML de la passe verte n'a pas été relevée (rapports réécrits à 19:35 par une mutation jouée sur une seule classe) |
+| `runGameTestServer` (19:31 à 19:32:17) | « **All 1173 required tests passed** » |
+| `runGameTestServer -PwithPack` (19:32:53 à 19:34:29) | « **All 1173 required tests passed** » ; 113 lignes `createaddition` ; les seules pièces expirées sont les deux voulues par leurs essais (aucun cuivre oublié) |
+
+Depuis ces passes, dans `src/main`, seule une espace a été ajoutée dans une Javadoc (`TownBlockRules`, 19:41) ; les mutations ont été retirées par recopie des fichiers sauvegardés ; les autres changements postérieurs portent sur l'automate de bout en bout (`E2eProtection`, `E2eElectricite`).
 
 ### Compteurs tâche par tâche (rapports)
 
@@ -53,12 +64,13 @@ Les deux passes ont été jouées sous le verrou de lancement, cédé entre elle
 | 12 | 961 puis 970 | 1158 puis 1159 |
 | 13 | 971 | 1159 (non rejoués après `214e574`, code d'essai seul) |
 | 13b | 982 | 1165 |
+| nettoyage | 984 | 1173 |
 
 Le nombre de GameTests est le même avec et sans le pack : les essais propres au pack passent sans rien faire quand le mod visé est absent. Entre la tâche 1 et ses corrections, la correction de la revue de l'assistant de première configuration (hors lot, `4b3d759`) a ajouté 8 JUnit.
 
-JUnit des paquets du téléphone à la fin : `phone.net` 126 tests, `phone.client` 226 (dont ceux du lot T1), le reste de `phone` 36 (somme des rapports de la passe de la tâche 14).
+JUnit des paquets du téléphone à la fin de la tâche 14 : `phone.net` 126 tests, `phone.client` 226 (dont ceux du lot T1), le reste de `phone` 36 (somme des rapports de la passe de la tâche 14).
 
-### GameTests ajoutés par le lot : 127, en 25 lots de 8 au plus
+### GameTests ajoutés par le lot : 135, en 29 lots de 8 au plus (127 en 25 lots avant le passage de nettoyage)
 
 | Classe | Lots (nombre) | Ce qu'ils prouvent côté serveur |
 |---|---|---|
@@ -67,8 +79,8 @@ JUnit des paquets du téléphone à la fin : `phone.net` 126 tests, `phone.clien
 | `PackGameTests` (4) | `pack_antenne_deployeur`, `_perceuse`, `_engin`, `_tag` (1 chacun) | déployeur, perceuse et engin de Create, tag `create:non_movable` |
 | `CarteSimGameTests` (17) | `sim_a` (8), `sim_copie` (7), `sim_remplace` (2) | émission, insertion, retrait, numéro qui suit la carte, copies et cartes forgées, jeton retiré du paquet, NBT corrompu, remplacement |
 | `RelaisGameTests` (13) | `relais_a` (8), `relais_trafic` (5) | signal selon la distance, opérateur et urgences, trajet entre deux opérateurs et raisons d'échec, mode avion, consommation du trafic ouvert, message |
-| `TelephoneReseauGameTests` (21) | `telephone_reseau` (8), `telephone_sim` (7), `telephone_icone` (6) | barres, écran verrouillé, mode avion, coupure, gestes de carte, demande, session périmée, protocole 10 refusé, icône « Antenne » vive, grisée ou absente |
-| `PanneauOperateurGameTests` (26) | `panneau_a` (8), `panneau_cartes` (8), `panneau_vue` (5), `panneau_tarif` (5) | nom, consommation, caisse, droits, cartes, vue sans jeton, tarif au lendemain sous plafond, horloge qui recule |
+| `TelephoneReseauGameTests` (25) | `telephone_reseau` (8), `telephone_sim` (7), `telephone_icone` (7), `telephone_fuite` (3) | barres, écran verrouillé, mode avion, coupure, gestes de carte, demande, session périmée, protocole 10 refusé, icône « Antenne » vive, grisée ou absente, et qui suit un changement de fondateur ; fermeture sans rien d'un autre téléphone tenu (`PHONE_GONE`, ouverture d'un téléphone vide, effacement) |
+| `PanneauOperateurGameTests` (30) | `panneau_a` (8), `panneau_cartes` (8), `panneau_vue` (5), `panneau_tarif` (5), `panneau_nom` (2), `panneau_plafond` (1), `panneau_arret` (1) | nom, consommation, caisse, droits, cartes, vue sans jeton, tarif au lendemain sous plafond, horloge qui recule ; champ du nom après un déplacement et après un changement de fondateur ; plafond de cartes ; panneaux oubliés à l'arrêt |
 | `AppliAntenneGameTests` (12) | `appli_antenne` (4), `appli_antenne_b` (8) | appli périmée, non-fondateur, caisse jamais vidée à distance, fermeture, frein, mort, dimension, pages, antenne principale, chunk non chargé |
 | `MaireTelephoneGameTests` (8) | `maire_telephone` (6), `maire_telephone_b` (2) | droits des commandes, tarif, fondateur, suppression (rien d'actif, caisse conservée au cuivre, aucune résurrection), plafond au lendemain, confirmation |
 
@@ -90,6 +102,7 @@ JUnit des paquets du téléphone à la fin : `phone.net` 126 tests, `phone.clien
 | 12 | 3 ; la ronde de corrections a des passes rouges, pas de mutation |
 | 13 | aucune mutation du produit ; au durcissement, deux gestes neutralisés ont fait échouer l'essai réel (« sans outil », « copie ») |
 | 13b | 5 |
+| nettoyage | passe rouge d'abord : **8 GameTests** (3 de la fuite, 2 du nom, plafond, arrêt, recette) et **2 JUnit** (plafond, tarif ramené) rouges sur le code d'avant, eux seuls ; puis 5 mutations rouges : icône au changement de fondateur, pose et bris du tableau par un faux joueur (deux), message du plafond au panneau, lecture de `n.founderApp` par la page (que l'ancien essai laissait passer) ; l'essai de l'icône rougit dès son témoin |
 
 Plusieurs tâches ont écrit du code avant ses essais (3, `replaceCard` à la tâche 5, 11, M1 et M2 à la tâche 12) : la preuve que ces essais mordent vient des mutations ou d'une passe rouge obtenue après coup, pas d'une passe rouge initiale.
 
@@ -118,6 +131,7 @@ Relues dans `PhoneConfig` et dans `run-gametest/world/serverconfig/oneforallsurv
 | `antennaCapacity` / `antennaMaxReceive` | 40 000 / 4 000 | réserve, réception par tic |
 | `antennaKeepsChunkLoaded` / `antennaStaleTicks` | vrai / 40 | chunk gardé chargé ; au-delà de 40 tics sans nouvelle, une antenne est hors service |
 | `simRequestsMax` | 32 | demandes en attente par opérateur |
+| `simCardsMax` | 256 (de 1 à 2 048) | cartes non désactivées (actives ou suspendues) par opérateur ; au-delà, plus aucune émission, « Remplacer la carte » reste possible (passage de nettoyage) |
 | `phoneTariffMax` / `phoneDefaultTariffCap` | 1 000 / 20 | tarif maximal ; plafond du maire au départ (cuivres par jour) |
 | `signalRefreshTicks` | 20 | tics entre deux relevés du signal d'un téléphone |
 
@@ -137,7 +151,7 @@ L'étape `TELEPHONE` (`E2eTelephone`, commandes RCON `e2etel` d'`E2eTelephoneSer
 | Après durcissement des essais (`214e574`) : étape seule, puis sa relance | 17:54 puis 17:59 | TOUT PASSE, 57 puis 12 PASS |
 | Étape seule, code final de la ronde | 18:14 à 18:17 | TOUT PASSE, 57 PASS (relu à la tâche 14 dans `run-e2e/logs/latest.log` : 57 lignes PASS, « bilan : TOUT PASSE ») |
 
-Les passages complets et leurs relances **précèdent** le durcissement (`214e574`) et l'icône grisée (`ff53009`).
+Les passages complets et leurs relances de ce tableau **précèdent** le durcissement (`214e574`) et l'icône grisée (`ff53009`) ; ceux qui les suivent sont ci-dessous.
 
 Relevés de l'étape (premier passage et relance) :
 
@@ -178,6 +192,40 @@ Appli « Antenne » (MCEF, PID 27272, rejouée à 18:05, PID 60224) : vue de la 
 
 Les tâches 8 et 10 avaient déjà joué les mêmes écrans en solo, avec et sans MCEF, en français (feuille « Carte SIM », file de demandes pleine, carte suspendue et désactivée, appli et panneau du repli).
 
+### Après le passage de nettoyage (code du mod de `0f395fb`, 2026-11-25)
+
+Serveur dédié avec le pack, monde neuf à chaque premier passage. Chaque client a journalisé « [fenetre] second écran (2600, 40) » et « [souris] rendue ». Les réglages de l'automate ont changé en cours de série (couveuse à partir de 20:20, aire de l'électricité à partir de 20:57).
+
+| Passage | Heures | Résultat lu |
+|---|---|---|
+| Passage complet | 19:44 à 20:04 | **TOUT PASSE, 474 PASS** |
+| Relance complète | 20:07 à 20:09 | 1 échec : couveuse (lot 5), cause établie et corrigée (automate) |
+| Modes `signal` puis `antenne`, MCEF (PID 34668 puis 30548) | 20:12 à 20:17 | **TOUT PASSE** les deux (21 images et 158 pas ; 10 images et 28 pas) ; pont : 74 puis 19 messages, 0 étranger ; 0 « Downloading Chromium » |
+| Passage complet | 20:20 à 20:26 | 1 échec : détecteur (lot 7), instabilité |
+| Passage complet | 20:26 à 20:48 | **TOUT PASSE, 474 PASS** |
+| Relance complète | 20:50 à 20:53 | 1 échec : minuit de l'électricité (E6), cause établie et corrigée (automate) |
+| Passage complet | 20:57 à 21:08 | 1 échec : zombie du butin (E4), instabilité |
+| Passage complet | 21:10 à 21:17 | 1 échec : cache enterrée (lot 7), instabilité |
+| **Étape du téléphone seule** | 21:19 à 21:22 | **TOUT PASSE, 57 PASS** |
+| **Relance de l'étape seule** | 21:22 à 21:23 | **TOUT PASSE, 12 PASS** |
+| Passage complet | 21:23 à 21:43 | **TOUT PASSE, 474 PASS** |
+| Relance complète | 21:43 à 21:45 | **sans résultat** : arrêtée à la demande de Killian (pause), 63 PASS avant l'arrêt ; le « FAIL … `mc.player` is null » vient de l'arrêt du serveur par RCON (21:45:33), pas d'un défaut |
+
+Dans les trois passages complets aboutis, l'étape du téléphone a passé, source de Mairie dans le chunk de son antenne (asserté). **La partie téléphone de la relance n'a passé que dans l'étape seule** : aucune relance complète n'est arrivée jusqu'à elle après le nettoyage.
+
+#### Étapes d'anciens lots tombées en échec
+
+Fréquences relevées sur les journaux de bout en bout du jour (`run-e2e/logs`, 13:47 à 21:45), passages arrivés jusqu'à l'étape. Aucune attente n'a été affaiblie.
+
+| Heure | Message exact (journal du client, `[e2e] FAIL`) | Fréquence | Cause |
+|---|---|---|---|
+| 20:26:10 | « Le détecteur en main à 20 blocs de la cache : intervalle moyen 39,2 ticks pour 34 attendus a 20,0 blocs (34 34 34 128 0 0 ) » | 1 sur 10 | **non établie** : 128 ticks sans bip puis des bips relevés au même instant ; aucun « Can't keep up » au serveur (blocage passager du client : hypothèse) |
+| 21:08:21 | « Dev tue le zombie A à l'épée (vrais coups) : mob Bete[uuid=46dc37a0-1ced-4017-8221-9569134b4133, type=zombie, sauvage=true, origine=NATURAL, bebe=false, garde=false, amour=false, vivant=true, x=89.5, y=150.0, z=596.5], 42 coup(s) » | 1 sur 8 (3 coups suffisent dans les passages réussis relus) | **non établie** : rien au journal du serveur |
+| 21:17:03 | « Le joueur casse la cache à la main (survie) et ramasse son butin : bloc Block{oneforallsurvival:buried_cache} apres 30,0 s » | 1 sur 9 (3,3 s d'ordinaire, 8,6 s une fois) | **non établie** |
+| 16:05:59 (tâche 13) | « Origines du monde neuf : un animal apparu à la génération des chunks est marqué sauvage : ORIGINES animaux=0 […] » | 1 sur 10 | la graine du monde : aucun animal né à la génération (déjà vu au lot E6) |
+| 15:49:57 et 20:09:41 | « Relance : le compteur de coupure a été relu, l'œuf est toujours là : case 0 0 air, compteur 0 (avant l'arret 300 puis 301) […] » | 2 sur 4 avant ce réglage (la première avant le correctif de la tâche 13) ; passé les 2 fois depuis | **établie** : le compteur de la couveuse, dans les chunks de l'apparition, repart au démarrage ; menu ouvert 46 s après « Done » à 20:09 pour 45 s de marge. La coupure du premier passage s'arrête à 100 tics au lieu de 300 (55 s de marge) ; l'assertion de la relance est inchangée |
+| 20:53:37 | « Relance : à minuit (au démarrage), deux jours clos ; l'aire n'a jamais été chargée depuis : […] {charge=true, joueurs=1} » | 1 sur 4 | **établie** par `data/chunks.dat` : un fil de l'aire traversait une frontière de chunk en z, l'addon du pack forçait ses deux chunks et le compteur, dans le chunk voisin, était chargé. Origine alignée aussi en z ; **correction pas encore éprouvée par une relance** |
+
 ## Appli « Antenne » en HTML et panneau dans le repli : le contrat tel que livré
 
 **Une vue, un seul jeu de règles.** Le serveur construit `OperatorView` (`OperatorViews.build`) et rejoue tout geste par `OperatorActions.apply`. Trois écrans la montrent : le panneau Minecraft du bloc (`OperatorPanelScreen`, onglets « Réseau », « Cartes », « Tarif et caisse »), l'appli « Antenne » de la page, et le même panneau Minecraft ouvert par « Antenne » dans le repli.
@@ -198,7 +246,7 @@ Les tâches 8 et 10 avaient déjà joué les mêmes écrans en solo, avec et san
 
 ## Outil de maintenance
 
-- Objet `maintenance_tool` (un par pile, sans usure), tag `oneforallsurvival:maintenance_tools`. Recette de table **absente** de `table_only`, donc rangée par `BenchCatalog` à l'établi d'ingénieur (`oneforallsurvival` est un mod géré) ; prouvé par `lOutilNeSeFabriqueQuALEtabli` et `leMaterielDuMetierEstALEtabliSeulement`. Recette livrée : **2 lingots de fer, 1 lingot de cuivre, 1 bâton** (voir « Défauts connus » : le plan prévoyait en plus une redstone).
+- Objet `maintenance_tool` (un par pile, sans usure), tag `oneforallsurvival:maintenance_tools`. Recette de table **absente** de `table_only`, donc rangée par `BenchCatalog` à l'établi d'ingénieur (`oneforallsurvival` est un mod géré) ; prouvé par `lOutilNeSeFabriqueQuALEtabli` et `leMaterielDuMetierEstALEtabliSeulement`. Recette : celle du plan, `[" IR", " CI", "S  "]`, soit **2 lingots de fer, 1 redstone, 1 lingot de cuivre, 1 bâton** (rétablie au passage de nettoyage ; la tâche 4 l'avait livrée sans redstone). `leMaterielDuMetierEstALEtabliSeulement` compte les 5 ingrédients, et chacun (vu rouge sur l'ancienne recette). Aucune autre recette du mod n'a cette forme, et elle ne vit qu'à l'établi : aucun conflit possible à la table.
 - L'antenne suit la même voie (1 paratonnerre, 2 lingots de cuivre, 1 bloc de redstone, 2 lingots de fer, 1 barreaux de fer ; `lAntenneNeSeFabriqueQuALEtabli`). La carte SIM n'a aucune recette (`aucuneRecetteNeDonneDeCarte`).
 - **Rôle et outil** (`AntennaRules.mayManage`) : fondateur, maire, équipe (niveau 2), ou ingénieur **tenant l'outil dans une main**. Un citoyen qui tient l'outil n'a rien. Un faux joueur n'a jamais rien : le faux joueur du déployeur de Create rend l'UUID de qui l'a posé (lu dans le jar de Create 6.0.8).
 - **Trésor et tableau** : `TownBlockRules.engineerMayMove` exige désormais le même outil (point d'extension laissé par E3), la repose du trésor comprise. Brèche trouvée en corrigeant la revue, puis fermée : le déployeur posé par le maire pouvait casser le trésor ou le tableau.
@@ -236,7 +284,7 @@ Ouvertes par les tâches (outil de lecture d'images), rangées hors du dépôt (
 | 2026-11-25 | **Q5 : « Attendre le lot T6 »** : aucun dépôt de développement ; le versement d'une caisse non vide s'essaiera en jeu avec les factures |
 | 2026-11-25 | **Q6 : « La griser »** : l'icône « Antenne » sous « Pas de service » (tâche 13b) |
 
-**En attente** : **Q7** (ajouter à la base de connaissances la note « le bloc d'énergie créative de Crafts & Additions remplit directement ses voisins ») ; **Q8** (toucher l'icône grisée : l'appli commence à s'ouvrir puis se referme avec « Pas de réseau. » ; retenu : garder ; autre choix : l'alerte seule).
+**En attente** : **Q7** (ajouter à la base de connaissances la note « le bloc d'énergie créative de Crafts & Additions remplit directement ses voisins ») ; **Q8** (toucher l'icône grisée : l'appli commence à s'ouvrir puis se referme avec « Pas de réseau. » ; retenu : garder ; autre choix : l'alerte seule) ; **Q9** (recette de l'outil de maintenance ; retenu et fait : celle du plan, avec redstone ; autre choix : sans redstone) ; **Q10** (cartes non désactivées par opérateur ; retenu et fait : 256, réglable ; autre choix : plus ou moins) ; **Q11** (numéro et titulaire diffusés aux clients voisins ; retenu : trancher avant le lot T3, rien changé ; autre choix : les retirer dès maintenant).
 
 Les « choix de l'auteur du plan (à valider par Killian) » n'ont pas été revalidés avant l'exécution (décision du contrôleur, autonomie demandée).
 
@@ -281,7 +329,7 @@ Les « choix de l'auteur du plan (à valider par Killian) » n'ont pas été rev
 | Carte active possible pour un opérateur supprimé ; jeton prévisible (générateur du jeu) | revue, tâche 2 | refus et désactivation ; `UUID.randomUUID()` |
 | Antenne posée avant la fondation inerte pour toujours ; inscription fantôme qui perdait le ticket | revue, tâche 3 | rattachement toutes les 20 tics ; recherche de toutes les inscriptions |
 | Le déployeur du maire pouvait casser le trésor et le tableau | revue, tâche 4 | un faux joueur n'a aucun droit sur les blocs de la ville |
-| Pièces oubliées par des essais, qui faisaient rougir un autre | tâche 4 | écouteur `PiecesOubliees`, deux essais rangés (un troisième reste, voir plus bas) |
+| Pièces oubliées par des essais, qui faisaient rougir un autre | tâche 4 | écouteur `PiecesOubliees`, deux essais rangés (le troisième a été corrigé au nettoyage) |
 | Un téléphone forgé rendait ou logeait autre chose qu'une carte | revue, tâche 5 | seule une carte valide est rendue ou logée |
 | L'écran verrouillé donnait l'état exact de la carte ; une liste trop longue déconnectait le client ; file pleine muette | revue, tâche 7 | vue grossière, bornes, `REQUESTS_FULL` |
 | Carte désactivée affichée « non reconnue » ; textes fixes coupés au repli | revue, tâche 8 | table de textes partagée et testée ; retour à la ligne, plancher 0,75 |
@@ -293,16 +341,25 @@ Les « choix de l'auteur du plan (à valider par Killian) » n'ont pas été rev
 | La ligne d'état de l'appli retenait les touchers (« Réactiver » sans effet) | essai réel, tâche 13 | `pointer-events: none` |
 | Banc : relance complète en échec depuis le lot 5 (couveuse, ragoûts) | tâche 13 | client lancé avec le serveur ; rangement date par date |
 | Preuve du fil vide ; contrôles qui passaient sans geste ; droits non rendus après un échec | revue, tâche 13 | essais durcis (`214e574`) |
+| La fermeture d'une session envoyait la ligne (numéro, titulaire, vue propriétaire) et la batterie d'un **autre** téléphone tenu : `PHONE_GONE`, ouverture d'un autre téléphone vide, `/phone reset` après un changement de case | revue 13b, revue finale (I1) | vue réseau vide et batterie 0 si la pile n'est pas le téléphone de la session (`92cb95b`) |
+| Champ du nom jugé sur le poseur et non sur `idleOwner()` comme la fondation | revue finale (I2) | `2cd3797` |
+| Émission de cartes sans borne (registre sans fin, recomptage à chaque tic) | revue finale (I3) | `simCardsMax`, 256 par défaut (`2f834d4`) |
+| Panneaux non oubliés à l'arrêt du serveur ; `phoneTariffMax` abaissé sans effet sur un tarif en vigueur ; `stillValid` qui redisait la règle de l'appli ; deux Javadoc fausses | revue finale (m3 à m5), revue 13b (mineur 4) | `b395a22`, `2f834d4` |
+| Recette de l'outil de maintenance sans la redstone du plan | tâche 14 | recette du plan (`3834b36`) |
+| Pièces de deux essais de quêtes expirées dans la fenêtre d'un autre (avec le pack) ; faux joueur non essayé sur le tableau ; essai expiré non rangé ; trace de mise au point | revue de la tâche 4 (m-A à m-E) | `bd6fabe`, `3834b36` |
+| L'essai de lecture des clés par la page ne prouvait rien pour `founderApp` | revue 13b (mineur 1) | `0f395fb` |
+| Banc : source d'une antenne parfois hors de son chunk ; mode de jeu non rendu après un échec précoce de l'étape | relecture, tâche 13 (N1, N3) | origine alignée en x et en z et assertée ; rangement armé dès le passage en spectateur (non provoqué par un échec) |
+| Banc : couveuse du lot 5 et minuit de l'électricité en échec à la relance | passes du nettoyage | coupure arrêtée à 100 tics ; aire alignée en z (voir « Essais réels ») |
 
-## Défauts connus, à corriger au passage de nettoyage qui suit
+## Défauts connus
 
-- **Fermeture `PHONE_GONE` avec un autre téléphone en main** (antérieur à la tâche 13b, depuis `f6b2a7a`) : `PhoneService.netView` calcule la ligne de la pile tenue avec la session déverrouillée du premier téléphone ; le paquet `CLOSE` porte alors **le numéro et le titulaire de cet autre téléphone, même verrouillé** (lisible par un client modifié). Trouvé par la revue de la tâche 13b, confirmé à la lecture du code à la tâche 14 (`view`, `netView`, `tick`) ; **non reproduit**.
-- **À rejouer** depuis `ff53009` : les modes `antenne` et `signal` de l'automate sur serveur dédié, et le bout en bout (E2E), compilés seulement.
-- **Recette de l'outil de maintenance** : le plan prévoyait `[" IR", " CI", "S  "]` (fer, **redstone**, cuivre, bâton) ; la recette livrée est `[" I ", " CI", "S  "]`, sans redstone. Aucun rapport ne signale l'écart ; **à trancher** (constaté à la tâche 14).
-- Mineurs de la revue de la tâche 13b : `PhoneViewJsonTest` ne prouve pas que la page lit `founderApp` (« n.founderApp » est un préfixe de « n.founderAppAvailable ») ; au repli, le bouton grisé n'a ni surbrillance au survol ou au clavier ni mention au narrateur ; l'icône n'est pas visitée pour une carte désactivée, un opérateur supprimé, un changement de fondateur ni une autre dimension ; `OperatorPanels.stillValid` redit la règle sans passer par `appOperator`.
-- **Fuite de pièces avec le pack**, toujours là : `QuestProgressGameTests.leCreatifNAvanceRien` tue un zombie et se termine dans le même tic ; les pièces naissent au tic suivant et restent au sol (code relu à la tâche 14). La passe avec le pack de la tâche 14 relève **deux** grappes de 3 cuivres expirées après 6 000 tics vécus (« [pieces-oubliees] ») : une près du joueur d'essai `QueteCreatif` (ce test), l'autre près de `QueteZombie` ; que la seconde vienne de `unZombieSauvageAvanceUnZombieDeGenerateurNon`, bâti de la même façon, est une **hypothèse** tirée de la seule proximité. La passe sans le pack n'en relève aucune. Les deux passes montrent aussi deux expirations voulues par leurs essais. Inscrit au `tasks/todo.md`.
-- Mineurs de la relecture de la tâche 13 : la source du fil n'est pas toujours dans le même chunk que l'antenne (la Javadoc d'`E2eTelephone.sourceMairie` dit « même chunk » : **faux en général**) ; fenêtre d'échec où le mode du joueur n'est pas rendu ; saut de ligne final perdu.
-- Restes de la tâche 4 (relus à la tâche 14, toujours là) : le refus d'un faux joueur n'est pas essayé sur la pose du tableau, sa progression de casse ni les bris annulés ; `lEauNEmportePasLAntenne` ne range pas son essai s'il expire ; une trace de mise au point reste dans `PackGameTests` ; une double négation dans la Javadoc de `TownBlockRules`.
+Les défauts de la revue finale, la recette, la fuite de pièces et les mineurs repris sont corrigés (tableau précédent). Restent, laissés par choix :
+
+- Repli : le bouton « Antenne » grisé n'a ni surbrillance au survol ou au clavier ni mention au narrateur (revue 13b, mineur 2).
+- Automate : le pas « sans fil » de l'étape du téléphone est sans effet sur la preuve (relecture 13, N2) ; les assertions de tarif durcies ne sont pas rejouées en repli ni en solo (N5).
+- Les pages gardent `'unsafe-inline'` dans leur CSP (`textContent` est la barrière) ; au repli, le cadre chevauche la barre d'action à 320 × 240.
+- Historique : le commit `b395a22` ne compile pas seul (ses essais appellent un réglage ajouté au commit suivant, `2f834d4`).
+- Les limites m1, m2, m6, m7 et m8 de la revue finale sont écrites ci-dessous.
 
 ## Non prouvé et limites
 
@@ -312,7 +369,12 @@ Les « choix de l'auteur du plan (à valider par Killian) » n'ont pas été rev
 - **Un générateur hors du chunk de l'antenne n'est pas gardé chargé** : seul le chunk de l'antenne porte le ticket.
 - **Coût serveur de nombreux chunks forcés non mesuré** (une antenne = un chunk qui tique en permanence).
 - Réglage `antennaKeepsChunkLoaded` coupé, serveur relancé, puis rallumé : les antennes loin des joueurs restent déchargées, donc hors service, jusqu'au passage d'un joueur.
-- **Antenne restée posée d'un opérateur supprimé** : elle ne rejoint pas d'elle-même un nouvel opérateur de l'ancien fondateur ; il la refonde au panneau (refusé s'il en a déjà fondé un autre) ou la démonte et la repose. Non essayé en jeu.
+- **Antenne restée posée d'un opérateur supprimé** : elle ne rejoint pas d'elle-même un nouvel opérateur de l'ancien fondateur (le fondateur au moment de la suppression) ; il la refonde au panneau (refusé s'il en a déjà fondé un autre) ou la démonte et la repose, même si un ingénieur l'avait déplacée entre-temps (GameTests du lot `panneau_nom`). Avant le passage de nettoyage, le champ du nom suivait le poseur et cette phrase était fausse dans ces deux cas (revue finale, I2). Non essayé en jeu.
+- **Numéro et titulaire diffusés aux clients voisins** (revue finale, m1) : `getShareTag` du téléphone et de la carte ne retire que le jeton ; un client modifié relie nom et numéro de qui tient son téléphone. À trancher avant le lot T3 (question Q11).
+- **Tickets du mod rendus au démarrage** (m2) : `AntennaChunks.validate` rend tout ticket du mod qui n'est pas une antenne ; aujourd'hui l'antenne est seule à en poser, un futur bloc perdrait les siens.
+- **Listes tronquées sans le dire** (m6) : la vue ne montre que 32 demandes (alors que `simRequestsMax` va jusqu'à 10 000) et 32 opérateurs au relais.
+- **Chunks forcés sans borne** (m7) : une antenne inscrite tient son chunk même sans courant ; seul le coût de fabrication freine leur nombre.
+- **Noms d'opérateur** (m8) : les caractères de format (U+202E…) ne sont pas refusés ; un nom peut s'afficher retourné ou en imiter un autre (hérité d'E6).
 - **La caisse d'un opérateur n'est alimentée par rien au lot T2** : le versement au fondateur n'a été vu **qu'à 0** en jeu ; une caisse non vide n'est prouvée qu'en GameTest (`laCaisseVaAuFondateur`). Un versement qui lèverait après avoir payé une partie ferait remettre la caisse entière (duplication théorique ; contrat écrit dans la Javadoc, aucun cas connu).
 - Aucune pièce prélevée ; le tarif n'a d'effet que son affichage et ses avis.
 - Non prouvé contre l'antenne : `/clone`, copie de chunk, mods du pack autres que Create ; un membre de l'équipe accroupi en créatif peut copier le bloc.
@@ -336,7 +398,7 @@ Les « choix de l'auteur du plan (à valider par Killian) » n'ont pas été rev
 
 1. **Le fil de Crafts & Additions n'est prouvé que pour l'antenne de Mairie** (sans bobine : hors service, réserve 0 ; avec : en service). Lagon est alimentée par une source collée et ne prouve rien du fil.
 2. Après la relance, l'assertion n'exige que « en service » et le ticket : une réserve pleine suffirait environ 38 s à 52 FE/t (calcul). L'alimentation par le fil après redémarrage n'est que vue au journal (réserve 39 948 à 18:00:51), source et antenne alors dans le même chunk.
-3. La position de la source par rapport à la frontière de chunk en z dépend du point de départ (au passage de 18:15 : antenne en 640 150 640, chunk (40, 40) ; source en 642 150 638, chunk (40, 39)). La relance n'a pas été jouée avec la source dans le chunk voisin.
+3. Depuis le nettoyage, chaque source est dans le chunk de son antenne (origine alignée en x et en z, assertée) : l'alimentation par un fil qui traverse une frontière de chunk, source dans un chunk voisin, n'est pas jouée.
 4. Clics par les méthodes de l'écran, pas par la souris du système ; « Accueil » avant la première vue par deux clics JavaScript (ouverture et fermeture prouvées par le pont). Pas de rouge joué pour ce contrôle ni pour celui du tarif.
 5. Joueurs simulés (demande de carte, carte ou copie glissée, intrus) par le chemin serveur, sans vrai client ; l'appel s'arrête à `PhoneNetwork.route`. **Aucun essai à deux vrais clients en même temps.**
 6. La caisse au fondateur n'a jamais été vue avec de l'argent : 0 avant, 0 en attente, 0 porté ne prouvent aucun transfert.
@@ -346,9 +408,9 @@ Les « choix de l'auteur du plan (à valider par Killian) » n'ont pas été rev
 10. Repli : relevé à 100 blocs de Mairie seulement ; les assertions de tarif durcies n'ont pas été rejouées en repli ni en solo.
 11. Panneau à 320 × 240 : un bouton ou un cadre hors limites fait échouer ; les textes coupés sont comptés, non assertés. La bulle du repli posée au rendu n'a ni essai ni capture au survol.
 12. La ligne d'état de l'appli laisse passer les touchers : les boutons cachés dessous restent atteignables (« Remplacer » n'a pas de confirmation).
-13. Relance complète : marge de la couveuse du lot 5 de 8 à 12 s (relevé de la revue de la tâche 13).
-14. Le passage complet et sa relance n'ont pas été rejoués après les durcissements (473 et 135 PASS sur le code d'avant) ; la relance de l'étape seule a été jouée à 17:59, avant la dernière retouche de `rangerAvantArret`.
-15. Après un échec de l'étape : inventaire et position non rendus ; rien n'est rangé si le client est déconnecté (`Dev` peut rester non opérateur) ; mode de jeu non rendu si l'échec tombe avant le passage en survie ; la difficulté rendue est ensuite remise à « peaceful » par le rangement commun.
+13. Relance complète : la couveuse du lot 5 court contre le démarrage du serveur ; marge portée à 55 s (31 à 46 s mesurés de « Done » au menu sur cinq relances du jour). Une machine plus lente peut encore la dépasser.
+14. **Aucune relance complète valable avec les derniers réglages de l'automate** (celle de 21:43 a été interrompue) : la correction du minuit de l'électricité et la partie téléphone au sein d'une relance complète restent à jouer. Trois étapes d'anciens lots sont instables (tableau des « Essais réels »).
+15. Après un échec de l'étape : inventaire et position non rendus ; rien n'est rangé si le client est déconnecté (`Dev` peut rester non opérateur) ; la difficulté rendue est ensuite remise à « peaceful » par le rangement commun.
 16. Non joués : écran de mort réel, autre dimension que le Nether.
 17. L'absence du code d'essai dans le jar livré n'est vue que sur le jar du 2026-11-14 (aucune classe `dev/`) et dans `build.gradle` ; **le jar n'a pas été reconstruit**.
 
@@ -362,10 +424,10 @@ Et aussi : le passage « vive ↔ grisée » écran d'accueil ouvert n'a pas ét
 
 ## Pour le pack
 
-- **Client et serveur se livrent ensemble, depuis le même commit (`ff53009` ou après).** Le protocole est `"11"` (un client du protocole `"10"` est refusé, `unClientDuProtocole10EstRefuse`), mais le paquet d'état a gagné un champ à la tâche 13b **sans nouvelle montée** : un jar T2 antérieur serait accepté à la connexion puis lirait mal les états. Aucun jar du lot T2 n'a été livré.
+- **Client et serveur se livrent ensemble, depuis le même commit (`0f395fb` ou après).** Le protocole est `"11"` (un client du protocole `"10"` est refusé, `unClientDuProtocole10EstRefuse`), mais le paquet d'état a gagné un champ à la tâche 13b **sans nouvelle montée** : un jar T2 antérieur serait accepté à la connexion puis lirait mal les états. Le nettoyage n'a changé aucun paquet, mais il ajoute le message du plafond de cartes aux langues. Aucun jar du lot T2 n'a été livré.
 - Réglages du serveur : `oneforallsurvival-phone.toml` (voir « Valeurs livrées »). Garder les générateurs dans le chunk de leur antenne, ou chargés autrement.
 - MCEF et WebDisplays : rien de nouveau par rapport au lot T1 (décision WebDisplays sur le serveur de production toujours en attente).
 
 ## Revues
 
-Chaque tâche a eu sa revue par un relecteur distinct, en lecture seule. Tâches 1 à 8 : corrections demandées, faites dans un tour (re-revue ciblée à la tâche 4 ; la tâche 5 relue avec la tâche 9). Tâche 9 : approuvée. Tâche 10 : approuvée, mineurs corrigés sans nouvelle revue. Tâche 11 : approuvée. Tâche 12 : à corriger, puis relecture à corriger (barre de défilement), corrigée à la tâche 13. Tâche 13 : à corriger (preuve du fil), corrigée, relecture **approuvée**. Tâche 13b : **approuvée**. **La revue finale du lot reste à faire**, avec le passage de nettoyage et l'archivage du plan.
+Chaque tâche a eu sa revue par un relecteur distinct, en lecture seule. Tâches 1 à 8 : corrections demandées, faites dans un tour (re-revue ciblée à la tâche 4 ; la tâche 5 relue avec la tâche 9). Tâche 9 : approuvée. Tâche 10 : approuvée, mineurs corrigés sans nouvelle revue. Tâche 11 : approuvée. Tâche 12 : à corriger, puis relecture à corriger (barre de défilement), corrigée à la tâche 13. Tâche 13 : à corriger (preuve du fil), corrigée, relecture **approuvée**. Tâche 13b : **approuvée**. **Revue finale du lot** : à corriger (I1 à I3 et huit mineurs) ; le passage de nettoyage a corrigé I1 à I3, m3 à m5, la recette, les restes de la tâche 4 (m-A à m-E), les mineurs 1, 3 (changement de fondateur) et 4 de la revue 13b, et N1, N3, N4 de la relecture 13. **Restent la relecture ciblée de ces corrections et l'archivage du plan.**

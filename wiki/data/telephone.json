@@ -200,7 +200,7 @@
         "Elle s'use et tombe en panne comme les autres machines ; l'ingénieur la répare.",
         "Protégée : ni pistons, ni explosions, ni Wither ni dragon, ni machines de Create, ni faux joueurs. Les autres joueurs lisent seulement à quel opérateur elle est.",
         "Démontée, l'objet garde son opérateur : seul un ayant droit la repose.",
-        "Opérateur supprimé : l'antenne s'arrête et revient à l'ancien fondateur, objet démonté compris ; restée posée, il la fonde de nouveau ou la repose.",
+        "Opérateur supprimé : l'antenne s'arrête et revient à son fondateur du moment de la suppression, objet démonté compris, même si un ingénieur l'avait déplacée ; restée posée, il la fonde de nouveau au panneau ou la repose.",
         "Portée, consommations, réserve et réception réglables dans `oneforallsurvival-phone.toml` (serveur)."
       ]
     },
@@ -214,7 +214,7 @@
       "what": "Sans lui, le métier d'ingénieur ne suffit pas pour toucher aux antennes, au trésor et au tableau de la mairie.",
       "who": {"fabrique": "Ingénieur (établi)", "utilise": "Ingénieur"},
       "steps": [
-        "Le fabriquer à l'établi d'ingénieur : 2 lingots de fer, 1 lingot de cuivre, 1 bâton.",
+        "Le fabriquer à l'établi d'ingénieur : 2 lingots de fer, 1 redstone, 1 lingot de cuivre, 1 bâton.",
         "Le tenir dans une main, puis clic droit sur une antenne : le panneau de l'opérateur, sans toucher aux cartes, au tarif ni à la caisse.",
         "Le tenir pour casser une antenne et pour en reposer une qui porte un opérateur.",
         "Le tenir pour déplacer le trésor et le tableau de la mairie.",
@@ -245,6 +245,7 @@
         "Clic droit sur une antenne : onglets « Réseau », « Cartes », « Tarif et caisse ».",
         "Réseau : consommation en direct de chaque antenne (veille, cartes, trafic, jour et veille), antenne principale à désigner, état du relais.",
         "Cartes (fondateur seul) : émettre ou refuser une demande, émettre une SIM sans nom, suspendre, réactiver, « Remplacer » (même numéro).",
+        "Au plafond de cartes (actives et suspendues), plus aucune n'est émise et le panneau le dit ; « Remplacer » reste possible.",
         "Tarif par jour (fondateur, maire, staff) : il vaut au lendemain, sous le plafond du maire ; les abonnés sont prévenus. Aucune pièce n'est prélevée avant le lot T6.",
         "Caisse (fondateur et staff) : en personne, sur l'antenne principale. Elle reste vide jusqu'au lot T6.",
         "Appli « Antenne » : une icône sur le téléphone du fondateur. Elle demande une carte active de son opérateur dans ce téléphone, au moins une barre et le mode avion coupé.",
@@ -255,13 +256,14 @@
         {"k": "Tarif", "v": "0 à 1 000 cuivres par jour"},
         {"k": "Plafond de départ", "v": "20 cuivres par jour"},
         {"k": "Demandes en attente", "v": "32 par opérateur"},
+        {"k": "Cartes actives ou suspendues", "v": "256 par opérateur"},
         {"k": "Mise à jour", "v": "toutes les 20 tics"}
       ],
       "staff": [
         "Maire ou équipe (niveau 2) : `/operator list [page]`, `/operator cap <cuivres>`, `/operator set <opérateur> tariff <cuivres>`, `/operator owner <opérateur> <joueur>` ; un nom avec des espaces s'écrit entre guillemets.",
         "`/operator remove <opérateur> <motif>`, puis `/operator remove <opérateur> confirm` dans les 60 s : cartes désactivées, antennes arrêtées, demandes retirées, caisse versée au fondateur, chacun prévenu.",
         "Plafond et tarif changent au lendemain ; un tarif au-dessus d'un nouveau plafond y est ramené à la clôture du jour.",
-        "Réglages dans `oneforallsurvival-phone.toml` (serveur) : `phoneTariffMax`, `phoneDefaultTariffCap`, `simRequestsMax`.",
+        "Réglages dans `oneforallsurvival-phone.toml` (serveur) : `phoneTariffMax`, `phoneDefaultTariffCap`, `simRequestsMax`, `simCardsMax`. Un `phoneTariffMax` abaissé ramène les tarifs au-dessus de lui à la clôture du jour.",
         "L'ingénieur outillé voit les cartes et les demandes sans pouvoir y toucher.",
         "Chaque geste est vérifié par le serveur ; les commandes `/operator` sont notées au registre de l'économie."
       ]
