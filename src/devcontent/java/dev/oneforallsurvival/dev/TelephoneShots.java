@@ -718,6 +718,10 @@ public final class TelephoneShots {
 
     // --- Serveur dédié : le signal à deux téléphones et l'appli « Antenne » (lot T2, tâche 13) ------------------------
 
+    private static int appliAvant;
+    private static int fermeAvant;
+    private static int tarifsAvant;
+
     private static final java.util.regex.Pattern CLE_VALEUR =
             java.util.regex.Pattern.compile("(\\w+)=(\\[[^\\]]*\\]|\\{[^}]*\\}|[^ ]+)");
     @Nullable private static volatile BlockPos origine;
@@ -916,7 +920,7 @@ public final class TelephoneShots {
                 releverBarres(mc, "signal-lagon-" + d + "-b", 1, a, "s-lagon-" + d + "-b");
             }
         }
-        // Source de Lagon coupée : B à 0, A inchangé (près de Mairie, Lagon à 118 blocs : B avait 3 barres).
+        // Source de Lagon coupée : B à 0, A inchangé (près de Mairie, Lagon à 62 blocs : B avait 4 barres).
         allerA(mc, "signal-coupure-place", antenneM().offset(0, 0, 2));
         pas("signal-lagon-coupee", () -> {
             E2eReseau.rcon("e2etel source " + xyz(antenneL().west()) + " false");
@@ -1069,12 +1073,22 @@ public final class TelephoneShots {
                     return attendu(4.0) && !appliPanneau && stable(mc, "app-settings");
                 }, 20, "a09-apres-rechargement");
         // « Accueil » avant la première vue : l'icône puis la flèche de retour dans le même instant.
-        pas("antenne-accueil-avant-vue", () -> mc.screen instanceof PhoneWebScreen && stable(mc, "app-antenna"),
-                () -> executerDansLaPage((PhoneWebScreen) mc.screen,
-                        "document.getElementById('app-antenna').click();document.getElementById('op-close').click();"), () -> {
-                    lireAppli(mc);
-                    return attendu(3.0) && !appliPanneau && ((PhoneWebScreen) mc.screen).antennaSession() < 0;
-                }, 20, "a10-accueil-avant-la-vue");
+        // Le panneau est déjà fermé après le rechargement : seul le pont prouve que l'appli s'est ouverte (antennaApp) et
+        // refermée (opClose) par ces deux clics (revue de la tâche 13, I2).
+        pas("antenne-accueil-avant-vue", () -> mc.screen instanceof PhoneWebScreen && stable(mc, "app-antenna"), () -> {
+            appliAvant = SORTES_DU_PONT.getOrDefault("antennaApp", 0);
+            fermeAvant = SORTES_DU_PONT.getOrDefault("opClose", 0);
+            executerDansLaPage((PhoneWebScreen) mc.screen,
+                    "document.getElementById('app-antenna').click();document.getElementById('op-close').click();");
+        }, () -> {
+            lireAppli(mc);
+            return attendu(3.0) && !appliPanneau && ((PhoneWebScreen) mc.screen).antennaSession() < 0
+                    && SORTES_DU_PONT.getOrDefault("antennaApp", 0) == appliAvant + 1
+                    && SORTES_DU_PONT.getOrDefault("opClose", 0) == fermeAvant + 1;
+        }, 20, "a10-accueil-avant-la-vue");
+        pas("antenne-accueil-avant-vue-releve", () -> journal("« Accueil » avant la vue : antennaApp " + appliAvant + " -> "
+                + SORTES_DU_PONT.getOrDefault("antennaApp", 0) + ", opClose " + fermeAvant + " -> "
+                + SORTES_DU_PONT.getOrDefault("opClose", 0) + ", panneau au serveur " + appliPanneau), () -> true, 1, null);
         echap(mc, "antenne-echap-fin");
         bilanDuPont();
     }
@@ -1202,6 +1216,7 @@ public final class TelephoneShots {
         pas(nom + "-clavier", () -> true, () -> taper(mc, Long.toString(tarifEssaye)), () -> attendu(0.4), 3, null);
         pas(nom + "-enregistrer", () -> web ? stable(mc, "op-tariff-save") : panneau(mc) != null,
                 () -> {
+                    tarifsAvant = SORTES_DU_PONT.getOrDefault("opTariff", 0);
                     if (web) {
                         cliquer(mc, "op-tariff-save");
                     } else {
@@ -1210,7 +1225,12 @@ public final class TelephoneShots {
                 }, () -> {
                     lireAppli(mc);
                     boolean statut = web || (panneau(mc) != null && !panneau(mc).status().isEmpty());
-                    return (refus ? appliDemain != tarifEssaye : appliDemain == tarifEssaye) && statut && attendu(1.0);
+                    // Le geste est parti (page : un opTariff de plus au pont) et le serveur a répondu ce qu'il fallait (barre
+                    // d'action : refus au-dessus du plafond, ou tarif noté) : sans geste, rien de cela n'arrive (revue, I2).
+                    String attendue = dev.oneforallsurvival.phone.net.OperatorActions.MESSAGE + (refus ? "tariff_above_cap" : "tariff_set");
+                    boolean parti = !web || SORTES_DU_PONT.getOrDefault("opTariff", 0) == tarifsAvant + 1;
+                    return (refus ? appliDemain != tarifEssaye : appliDemain == tarifEssaye) && statut && parti
+                            && attendue.equals(messageEnBarre(mc)) && attendu(1.0);
                 }, 10, image);
         pas(nom + "-releve", () -> journal(nom + " : tapé " + tarifEssaye + ", demain au serveur " + appliDemain
                 + " ; " + resumeAppli(mc)), () -> true, 1, null);

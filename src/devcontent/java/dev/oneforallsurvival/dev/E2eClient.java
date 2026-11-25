@@ -334,8 +334,10 @@ public final class E2eClient {
     private static void avancer(Minecraft mc) {
         switch (phase) {
             case TITRE -> {
+                // Borne aussi l'attente du serveur au menu (sonde de la console RCON) : au-delà, le client se ferme.
                 if (secondes() > 300) {
-                    fail("menu principal jamais atteint en 300 s, ecran " + mc.screen);
+                    fail("menu principal jamais atteint ou serveur muet en 300 s (console RCON joignable : " + joignable
+                            + "), ecran " + mc.screen);
                     return;
                 }
                 // Premier lancement d'un dossier neuf : l'écran d'accessibilité précède le menu.

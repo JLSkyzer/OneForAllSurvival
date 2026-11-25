@@ -95,6 +95,10 @@ final class E2eTelephone {
     private static String naissancesAvant = "true";
     private static String roleDevAvant = "citoyen";
     private static String maireAvant = "aucun";
+    /** La seconde main de Dev était vide au départ : l'étape y met l'outil de maintenance, elle la vide en sortant. */
+    private static boolean secondeMainAvant;
+    /** Vrai entre la mise en survie de Dev et son retour : un échec dans cet intervalle laisse ses droits à rendre. */
+    private static boolean enCours;
     private static int chatAvant;
     private static int cartesAvant;
     private static String idDemandeUsager = "";
@@ -144,8 +148,12 @@ final class E2eTelephone {
         return p(2, 0, 4);
     }
 
+    /**
+     * La source de Mairie, à deux blocs de l'antenne vers +x (un bloc d'air entre elles, même chunk) : elle ne la touche
+     * pas, l'antenne ne reçoit que par le fil (revue de la tâche 13, C1 : collée, elle la remplissait directement).
+     */
     private static BlockPos sourceMairie() {
-        return p(1, 0, 4);
+        return p(4, 0, 2);
     }
 
     private static BlockPos mairie2() {
@@ -617,6 +625,10 @@ final class E2eTelephone {
                 }
             }
         }
+        // Revue de la tâche 13 : un bouton hors du cadre fait échouer le pas (un texte coupé, lui, a sa bulle).
+        if (dehors > 0 || lay.frame().w() > l || lay.frame().h() > h) {
+            throw new IllegalStateException(dehors + " bouton(s) hors du cadre a " + l + " x " + h + " (cadre " + lay.frame() + ")");
+        }
         return "cadre " + lay.frame().w() + "x" + lay.frame().h() + ", " + coupes + " texte(s) coupe(s) (en bulle), " + dehors
                 + " bouton(s) hors du cadre";
     }
@@ -637,6 +649,7 @@ final class E2eTelephone {
             Map<String, String> m = lire(rcon("e2etresor maire"));
             roleDevAvant = m.getOrDefault("roleDev", "citoyen");
             maireAvant = m.getOrDefault("nom", "aucun");
+            secondeMainAvant = mc.player.getOffhandItem().isEmpty();
         }, () -> ecoule() >= 0.3, () -> "", () -> "depart " + depart.toShortString() + " ; porte " + porteAvant + " ; difficulte "
                 + difficulteAvant + ", naissances " + naissancesAvant + ", role de Dev " + roleDevAvant + ", maire " + maireAvant);
     }
@@ -652,6 +665,7 @@ final class E2eTelephone {
 
     private static void survie(String quand) {
         pas(quand + "Dev, ingénieur, en survie et non opérateur", () -> {
+            enCours = true;
             if (DEV.equals(maireAvant)) {
                 rcon("role mayor remove");
             }
@@ -677,7 +691,9 @@ final class E2eTelephone {
             airePrete = false;
             fermer();
             reponse = rangerInventaire();
-            rcon("item replace entity " + nom() + " weapon.offhand with minecraft:air");
+            if (secondeMainAvant) {
+                rcon("item replace entity " + nom() + " weapon.offhand with minecraft:air");
+            }
             rcon("difficulty " + difficulteAvant);
             rcon("gamerule doMobSpawning " + naissancesAvant);
             rcon("role set " + nom() + " " + roleDevAvant);
@@ -688,12 +704,13 @@ final class E2eTelephone {
             rcon("gamemode survival " + nom());
             rcon("tp " + nom() + " " + (depart.getX() + 0.5) + " " + depart.getY() + " " + (depart.getZ() + 0.5));
         }, () -> ecoule() >= 1.5 && operateur() && mc.player.blockPosition().distSqr(depart) < 9 && cases().equals(casesAvant)
-                && mc.player.getOffhandItem().isEmpty(),
+                && (!secondeMainAvant || mc.player.getOffhandItem().isEmpty()),
                 () -> "cases " + cases() + " (avant " + casesAvant + "), operateur " + operateur(), () -> {
                     if (valeurPortee() != porteAvant) {
                         throw new IllegalStateException("Dev porte " + valeurPortee() + " (avant " + porteAvant + ")");
                     }
                     Map<String, String> m = lire(rcon("e2etresor maire"));
+                    enCours = false;
                     return "objets de l'etape retires case par case (" + reponse + ") ; chaque case du sac et de la barre comme au depart ; "
                             + "seconde main vide ; Dev porte " + valeurPortee() + " cuivres comme avant ; role " + m.get("roleDev")
                             + ", maire " + m.get("nom") + " ; il rentre, operateur";
@@ -773,7 +790,8 @@ final class E2eTelephone {
             chatAvant = CHAT.size();
             tenirVide();
             clic(lagon(), Direction.EAST);
-        }, () -> ecoule() >= 2.0, () -> "", () -> {
+        }, () -> ecoule() >= 2.0 && chatCompte("message.oneforallsurvival.antenna.of", chatAvant) >= 1,
+                () -> "le clic n'a rien rendu (aucun « antenna.of ») : chat " + CHAT.subList(chatAvant, CHAT.size()), () -> {
             Map<String, String> e = etatDe(DEV);
             if (panneauOuvert() || !"false".equals(e.get("panneau"))) {
                 throw new IllegalStateException("panneau ouvert sans outil : ecran " + mc.screen + " ; " + e);
@@ -845,25 +863,33 @@ final class E2eTelephone {
         });
 
         // --- Le fil de Crafts & Additions de la source à l'antenne.
-        pasD(30, "Fil suspendu de Crafts & Additions de la source à l'antenne de Mairie (connecteurs, modes, bobine de cuivre)", () -> {
+        // Revue de la tâche 13 (C1) : la source ne touche pas l'antenne ; sans fil, rien ne passe (réserve vide, hors
+        // service) ; la bobine tirée, l'antenne se remplit par le fil seul.
+        pasD(15, "Source d'énergie créative à deux blocs de l'antenne, connecteurs posés sur le dessus, sans fil : rien ne passe (3 s)", () -> {
             fermer();
             reponse = rcon("e2etel source " + xyz(sourceMairie()) + " true") + " | " + rcon("e2etel fil " + xyz(sourceMairie()) + " "
                     + xyz(mairie()) + " 1");
-            VU.put("fil", Long.toString(System.nanoTime()));
-        }, () -> {
-            if (!VU.containsKey("fil2") && System.nanoTime() - Long.parseLong(VU.get("fil")) > 1_500_000_000L) {
-                reponse = reponse + " | " + rcon("e2etel fil " + xyz(sourceMairie()) + " " + xyz(mairie()) + " 2");
-                VU.put("fil2", "1");
-                return false;
+        }, () -> ecoule() >= 3.0, () -> reponse, () -> {
+            Map<String, String> a = antenneLue(mairie());
+            String journal = reponse.toLowerCase(java.util.Locale.ROOT);
+            if (!"false".equals(a.get("enService")) || num(a, "reserve") != 0 || !"0".equals(operateurLu(MAIRIE).get("enService"))
+                    || !reponse.contains("creative_energy") || journal.split("connector_sur", -1).length - 1 != 2) {
+                throw new IllegalStateException("sans fil : " + a + " ; " + reponse);
             }
-            return VU.containsKey("fil2") && "1".equals(operateurLu(MAIRIE).get("enService"));
-        }, () -> reponse + " ; antenne " + antenneLue(mairie()), () -> {
-            if (!reponse.toLowerCase(java.util.Locale.ROOT).contains("connector:pull,connector:push")) {
-                throw new IllegalStateException(reponse);
-            }
-            return "fil : " + sans(reponse) + " ; Mairie en service : " + sans(rcon("e2etel antenne " + xyz(mairie())));
+            return "sans fil (source a " + court(sourceMairie()) + ", antenne a " + court(mairie()) + ", un bloc d'air entre elles) : "
+                    + sans(reponse) + " ; antenne : enService=" + a.get("enService") + ", reserve=" + a.get("reserve") + ", etat " + a.get("etat");
         });
-
+        pasD(30, "Bobine de cuivre tirée d'un connecteur à l'autre : l'antenne de Mairie se remplit par le fil et entre en service", () ->
+                reponse = rcon("e2etel fil " + xyz(sourceMairie()) + " " + xyz(mairie()) + " 2"),
+                () -> ecoule() >= 1.0 && "1".equals(operateurLu(MAIRIE).get("enService")) && num(antenneLue(mairie()), "reserve") > 0,
+                () -> reponse + " ; antenne " + antenneLue(mairie()), () -> {
+                    String journal = reponse.toLowerCase(java.util.Locale.ROOT);
+                    if (!journal.contains("connector:pull,connector:push") || journal.split("->_consume", -1).length - 1 < 2) {
+                        throw new IllegalStateException("bobine : " + reponse);
+                    }
+                    return "fil tire (deux clics de bobine CONSUME) : " + sans(reponse) + " ; Mairie en service par le fil : "
+                            + sans(rcon("e2etel antenne " + xyz(mairie())));
+                });
         // --- Le tarif du lendemain.
         ouvrirPanneau("Tarif : ", E2eTelephone::alleeA, 90, E2eTelephone::mairie);
         pas("Onglet « Tarif » (vrai clic)", () -> onglet(OperatorPanelLayout.Tab.TARIFF),
@@ -962,7 +988,9 @@ final class E2eTelephone {
                     Map<String, String> g = lire(reponse);
                     Map<String, String> u = etatDe(USAGER);
                     Map<String, String> v = etatDe(VOISIN);
-                    if ("ACTIVE".equals(g.get("validite")) || !"ACTIVE".equals(u.get("sim")) || !"NONE".equals(v.get("sim"))
+                    // Le geste a bien eu lieu et a été refusé pour une carte morte (revue, I2) : ni « REFUS », ni « ABSENT ».
+                    if (!reponse.startsWith("GLISSER") || !"REFUSED".equals(g.get("issue")) || !"SIM_UNKNOWN".equals(g.get("dernier"))
+                            || "ACTIVE".equals(g.get("validite")) || !"ACTIVE".equals(u.get("sim")) || !"NONE".equals(v.get("sim"))
                             || !v.get("cartes").contains(":false")) {
                         throw new IllegalStateException(reponse + " ; Usager " + u + " ; Voisin " + v);
                     }
@@ -1214,6 +1242,7 @@ final class E2eTelephone {
             Map<String, String> v = etatDe(VOISIN);
             Map<String, String> g = lire(reponse.split(" \\| ")[2]);
             if (!"ACTIVE".equals(u.get("sim")) || num(u, "barres") != 4 || !MAIRIE.equals(u.get("operateur")) || "ACTIVE".equals(g.get("validite"))
+                    || !"REFUSED".equals(g.get("issue")) || !"SIM_UNKNOWN".equals(g.get("dernier"))
                     || !v.get("cartes").contains(":false")) {
                 throw new IllegalStateException(reponse + " ; Usager " + u + " ; Voisin " + v);
             }
@@ -1229,44 +1258,84 @@ final class E2eTelephone {
                     }
                     return "motif vide refuse : " + sans(reponse) + " (« " + tr("command.oneforallsurvival.operator.remove_reason_required") + " »)";
                 });
-        pas("Relance : le maire simulé supprime « Lagon » (/operator remove … puis confirm)", () ->
-                reponse = rcon("e2etel maire supprimer " + LAGON + " fin de l'essai du telephone"), () -> ecoule() >= 0.3, () -> "", () -> {
-                    Map<String, String> r = lire(reponse);
-                    if (!"1".equals(r.get("demande")) || !"1".equals(r.get("confirme")) || !"false".equals(r.get("existe"))) {
-                        throw new IllegalStateException(reponse);
+        pas("Relance : le maire simulé supprime « Lagon » (/operator remove … puis confirm)", () -> {
+            // La caisse de Lagon avant la suppression : ce que le fondateur doit recevoir (0 au lot T2, aucun dépôt).
+            VU.put("caisseLagon", operateurLu(LAGON).get("caisse"));
+            reponse = rcon("e2etel maire supprimer " + LAGON + " fin de l'essai du telephone");
+        }, () -> ecoule() >= 0.3, () -> "", () -> {
+            Map<String, String> r = lire(reponse);
+            if (!"1".equals(r.get("demande")) || !"1".equals(r.get("confirme")) || !"false".equals(r.get("existe"))
+                    || !r.get("clesConfirme").contains("command.oneforallsurvival.operator.removed") || !"0".equals(VU.get("caisseLagon"))) {
+                throw new IllegalStateException(reponse + " ; caisse avant " + VU.get("caisseLagon"));
+            }
+            return "Lagon supprime : " + sans(reponse) + " ; caisse avant la suppression " + VU.get("caisseLagon");
+        });
+        pas("Relance : toutes les cartes de Lagon sont désactivées au registre", () -> {}, () -> ecoule() >= 0.3, () -> "", () -> {
+            Map<String, String> f = lireFichier();
+            Map<String, String> c = lire(rcon("e2etel cartesde " + f.get("idLagon")));
+            long attendu = Long.parseLong(f.get("activesLagon"));
+            if (num(c, "total") != attendu || num(c, "desactivees") != attendu || num(c, "actives") != 0 || num(c, "suspendues") != 0
+                    || !"false".equals(c.get("operateurExiste"))) {
+                throw new IllegalStateException("cartes de Lagon : " + c + " (" + attendu + " attendues, toutes desactivees)");
+            }
+            return "cartes de Lagon relues au registre : " + sans(rcon("e2etel cartesde " + f.get("idLagon")));
+        });
+        pasD(20, "Relance : l'antenne de Lagon s'arrête (STOPPED), désinscrite, ticket rendu", () -> {},
+                () -> ecoule() >= 1.0 && "STOPPED".equals(antenneLue(lagon()).get("etat")), () -> antenneLue(lagon()).toString(), () -> {
+                    Map<String, String> a = antenneLue(lagon());
+                    if (!"false".equals(a.get("inscrite")) || !"false".equals(a.get("ticket")) || !"false".equals(a.get("enService"))) {
+                        throw new IllegalStateException("antenne de Lagon " + a);
                     }
-                    return "Lagon supprime : " + sans(reponse);
+                    return "Lagon : " + sans(rcon("e2etel antenne " + xyz(lagon())));
                 });
-        pasD(20, "Relance : l'antenne de Lagon s'arrête (STOPPED), sans plus consommer", () -> {},
-                () -> ecoule() >= 1.0 && "STOPPED".equals(antenneLue(lagon()).get("etat")), () -> antenneLue(lagon()).toString(),
-                () -> "Lagon : " + sans(rcon("e2etel antenne " + xyz(lagon()))));
-        pas("Relance : Fondatrice revient : sa carte de Lagon est désactivée ; l'avis et la caisse lui arrivent", () ->
+        pas("Relance : Fondatrice revient : sa carte de Lagon est désactivée ; l'avis et la caisse (0) lui arrivent", () ->
                 reponse = rcon("e2etel entrer " + FONDATRICE + " " + xyz(p(52, 0, 6))), () -> ecoule() >= 0.5, () -> "", () -> {
                     Map<String, String> e = lire(reponse);
                     Map<String, String> s = etatDe(FONDATRICE);
                     Map<String, String> att = lire(rcon("e2etel attente " + FONDATRICE));
-                    if (!e.get("connexion").contains("message.oneforallsurvival.operator_panel.removed_founder")
-                            && !e.get("connexion").contains("message.oneforallsurvival.operator.removed_founder")) {
-                        throw new IllegalStateException(reponse);
-                    }
-                    if (!"DEACTIVATED".equals(s.get("sim")) && !"NONE".equals(s.get("sim"))) {
-                        throw new IllegalStateException("telephone de Fondatrice " + s);
+                    if (!e.get("connexion").contains("message.oneforallsurvival.operator.removed_founder")
+                            || !"DEACTIVATED".equals(s.get("sim")) || num(att, "valeur") != 0 || num(e, "porte") != 0) {
+                        throw new IllegalStateException(reponse + " ; telephone " + s + " ; attente " + att);
                     }
                     return "Fondatrice a la connexion : " + e.get("connexion") + " ; son telephone : sim " + s.get("sim") + " ; en attente "
-                            + att.get("valeur") + " cuivres (caisse de Lagon : 0, aucun depot au lot T2) ; porte " + e.get("porte");
+                            + att.get("valeur") + " cuivre, porte " + e.get("porte") + " (caisse de Lagon : 0, aucun depot au lot T2)";
                 });
         pas("Relance : Fondatrice, Usager et Voisin se déconnectent", () -> reponse = rcon("e2etel quitter " + FONDATRICE) + " | "
                 + rcon("e2etel quitter " + USAGER) + " | " + rcon("e2etel quitter " + VOISIN), () -> ecoule() >= 0.5, () -> "",
                 () -> "deconnectes : " + sans(reponse));
     }
 
-    /** À l'arrêt (succès ou échec) : les joueurs simulés de l'étape partent, Dev retrouve sa seconde main. */
+    /**
+     * Avant le {@code /stop}, même après un échec (revue de la tâche 13, I1) : Dev redevient opérateur d'abord (sinon
+     * le {@code /stop} est refusé et le serveur reste allumé), puis son mode, la difficulté, la règle des naissances, son
+     * rôle, le maire et sa seconde main sont rendus, et les joueurs simulés de l'étape sortent.
+     */
     static void rangerAvantArret(Minecraft minecraft) {
-        if (o == null) {
+        if (minecraft.player == null || depart == null) {
             return;
         }
-        rcon("e2etel quitter " + FONDATRICE);
-        rcon("e2etel quitter " + USAGER);
-        rcon("e2etel quitter " + VOISIN);
+        mc = minecraft;
+        try {
+            rcon("op " + nom());
+            rcon("e2etel quitter " + FONDATRICE);
+            rcon("e2etel quitter " + USAGER);
+            rcon("e2etel quitter " + VOISIN);
+            if (!enCours) {
+                // L'étape est finie (ou pas commencée) : ses réglages sont déjà rendus ; ceux des étapes suivantes restent.
+                return;
+            }
+            rcon("gamemode survival " + nom());
+            rcon("difficulty " + difficulteAvant);
+            rcon("gamerule doMobSpawning " + naissancesAvant);
+            rcon("role set " + nom() + " " + roleDevAvant);
+            if (DEV.equals(maireAvant)) {
+                rcon("role mayor set " + nom());
+            }
+            if (secondeMainAvant) {
+                rcon("item replace entity " + nom() + " weapon.offhand with minecraft:air");
+            }
+        } catch (RuntimeException e) {
+            LOG.error("[e2e] rcon impossible avant l'arret", e);
+        }
     }
 }

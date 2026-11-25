@@ -70,8 +70,10 @@ import net.minecraftforge.fml.common.Mod;
 
 /**
  * Le côté serveur de l'essai de bout en bout du réseau téléphonique (lot T2, tâche 13 ; développement seulement, jamais
- * empaqueté). Des commandes réservées à la console (niveau 4, donc au RCON : le joueur de l'essai n'est pas opérateur
- * pendant ses gestes), sur le modèle d'{@link E2eElectriciteServeur} :
+ * empaqueté). Des commandes de niveau 4 : la console, le RCON, et aussi tout joueur opérateur de niveau 4 (Dev l'est
+ * dans le {@code ops.json} du serveur de développement ; le joueur de l'essai ne l'est pas pendant ses gestes). Rien
+ * d'autre ne les protège que leur absence du jar du mod (classes de développement, jamais empaquetées). Sur le modèle
+ * d'{@link E2eElectriciteServeur} :
  *
  * <ul>
  *   <li>{@code e2etel entrer <nom> <pos>} et {@code quitter <nom>} : un joueur simulé ({@link JoueurDeTest}), entré sans
@@ -145,6 +147,8 @@ public final class E2eTelephoneServeur {
                         .then(Commands.argument("vers", StringArgumentType.word()).executes(E2eTelephoneServeur::copier))))
                 .then(Commands.literal("carte").then(Commands.argument("id", StringArgumentType.string())
                         .executes(E2eTelephoneServeur::carte)))
+                .then(Commands.literal("cartesde").then(Commands.argument("id", StringArgumentType.word())
+                        .executes(E2eTelephoneServeur::cartesde)))
                 .then(Commands.literal("remettre").then(Commands.argument("operateur", StringArgumentType.word())
                         .then(Commands.argument("titulaire", StringArgumentType.word()).executes(E2eTelephoneServeur::remettre))))
                 .then(Commands.literal("cartes").then(Commands.argument("operateur", StringArgumentType.word())
@@ -543,6 +547,22 @@ public final class E2eTelephoneServeur {
         Optional<SimCard> c = PhoneOperators.get(ctx.getSource().getServer()).card(id);
         return dire(ctx, "CARTE etat=" + c.map(x -> x.state().name()).orElse("ABSENTE") + " titulaire="
                 + c.map(x -> x.holderName().isEmpty() ? "-" : nettoyer(x.holderName())).orElse("-"));
+    }
+
+    /**
+     * Les cartes émises par l'opérateur d'identifiant {@code id}, relues au registre (elles y restent après la suppression
+     * de l'opérateur, désactivées) : leur nombre par état, et combien sont encore notées dans un téléphone.
+     */
+    private static int cartesde(CommandContext<CommandSourceStack> ctx) {
+        PhoneOperators r = PhoneOperators.get(ctx.getSource().getServer());
+        Map<String, Integer> etats = new LinkedHashMap<>();
+        List<SimCard> cartes = r.cardsOf(StringArgumentType.getString(ctx, "id"));
+        for (SimCard c : cartes) {
+            etats.merge(c.state().name(), 1, Integer::sum);
+        }
+        return dire(ctx, "CARTESDE total=" + cartes.size() + " actives=" + etats.getOrDefault("ACTIVE", 0) + " suspendues="
+                + etats.getOrDefault("SUSPENDED", 0) + " desactivees=" + etats.getOrDefault("DEACTIVATED", 0) + " operateurExiste="
+                + r.byId(StringArgumentType.getString(ctx, "id")).isPresent());
     }
 
     /**
