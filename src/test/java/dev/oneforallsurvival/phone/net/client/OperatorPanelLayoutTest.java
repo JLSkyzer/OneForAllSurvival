@@ -331,6 +331,32 @@ class OperatorPanelLayoutTest {
         assertEquals(OperatorPanelLayout.Removal.NONE, OperatorPanelLayout.onRemoval(false, true, false));
     }
 
+    /**
+     * Revue de la tâche 12 (M1) : « Émettre une SIM sans nom » tient à l'échelle 1 avec au moins 4 px de marge de chaque
+     * côté, dans le cadre, à toutes les tailles (320 × 240 compris).
+     */
+    @Test
+    void leBoutonSimSansNomAUneMarge() {
+        for (int[] taille : TAILLES) {
+            Layout l = OperatorPanelLayout.of(taille[0], taille[1], SIX, leContenuLePlusLong(FONDATEUR), francais());
+            Pane cartes = l.panes().get(OperatorPanelLayout.Tab.CARDS.ordinal());
+            Row r = cartes.rows().stream().filter(x -> x.id().equals("anonymous")).findFirst().orElseThrow();
+            OperatorPanelLayout.Button b = r.buttons().get(0);
+            Text t = b.label();
+            String ou = taille[0] + "x" + taille[1] + " : ";
+            assertFalse(t.cut(), ou + "libellé coupé");
+            assertEquals(1f, t.scale(), 0.001f, ou + "libellé rétréci");
+            int drawn = t.drawn().w();
+            assertTrue(t.x() - b.box().x() >= 4, ou + "marge gauche " + (t.x() - b.box().x()));
+            assertTrue(b.box().x() + b.box().w() - (t.x() + drawn) >= 4,
+                    ou + "marge droite " + (b.box().x() + b.box().w() - t.x() - drawn));
+            // Les lignes sont placées avant défilement (en dessous du cadre au contenu le plus long) : on compare en x.
+            assertTrue(r.box().contains(b.box()), ou + "bouton hors de sa ligne");
+            assertTrue(b.box().x() >= cartes.list().x()
+                    && b.box().x() + b.box().w() <= cartes.list().x() + cartes.list().w(), ou + "bouton hors de la liste");
+        }
+    }
+
     @Test
     void audelaDeLaReceptionEnRouge() {
         Layout l = OperatorPanelLayout.of(320, 240, SIX, leContenuLePlusLong(FONDATEUR), francais());

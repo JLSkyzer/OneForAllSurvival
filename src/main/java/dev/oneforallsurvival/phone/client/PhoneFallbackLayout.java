@@ -7,6 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.ToIntFunction;
+import javax.annotation.Nullable;
 
 /**
  * La mise en page de l'écran de repli du téléphone, en coordonnées d'interface, sans Minecraft (testable) : la zone
@@ -124,12 +125,18 @@ public final class PhoneFallbackLayout {
      * dernier geste), « Retirer » dessous, « Retour » en bas,
      * et entre eux une liste qui défile (une ligne par carte de l'inventaire, « Demander une carte », puis un opérateur
      * par ligne). {@code rows} ne garde que les lignes entièrement visibles au défilement {@code scroll} (ramené entre 0
-     * et {@code maxScroll}) ; {@code rowStep} est le pas d'une ligne (hauteur et écart).
+     * et {@code maxScroll}) ; {@code rowStep} est le pas d'une ligne (hauteur et écart). Quand la liste défile, une barre
+     * fine ({@code track}, {@value #SIM_SCROLL_W} px, à droite de la liste) et son curseur ({@code thumb}) l'annoncent,
+     * et les lignes s'arrêtent avant elle ; sinon les deux sont nuls (revue de la tâche 12, I2).
      */
     public record SimSheet(int textTop, Rect remove, Rect list, Map<String, Rect> rows, int scroll, int maxScroll,
-            int rowStep, Rect back) {}
+            int rowStep, Rect back, @Nullable Rect track, @Nullable Rect thumb) {}
 
     /** Les lignes de la feuille « Carte SIM », de {@value #MIN_ROW} à {@value #MAX_ROW} px : une ligne de texte et 5 px. */
+    public static final int SIM_SCROLL_W = 2;
+    /** L'écart entre les lignes et la barre de défilement. */
+    public static final int SIM_SCROLL_GAP = 2;
+
     public static int simRow(int lineHeight) {
         return clamp(lineHeight + 5);
     }
@@ -146,14 +153,25 @@ public final class PhoneFallbackLayout {
         int total = ids.isEmpty() ? 0 : ids.size() * step - ROW_GAP;
         int maxScroll = Math.max(0, total - listHeight);
         int shown = Math.max(0, Math.min(maxScroll, scroll));
+        Rect track = null;
+        Rect thumb = null;
+        int rowWidth = inner.width();
+        if (maxScroll > 0) {
+            track = new Rect(inner.x() + inner.width() - SIM_SCROLL_W, listTop, SIM_SCROLL_W, listHeight);
+            int thumbH = Math.min(listHeight, Math.max(6, listHeight * listHeight / (listHeight + maxScroll)));
+            int thumbY = listTop + (int) ((long) (listHeight - thumbH) * shown / maxScroll);
+            thumb = new Rect(track.x(), thumbY, SIM_SCROLL_W, thumbH);
+            rowWidth = Math.max(0, inner.width() - SIM_SCROLL_W - SIM_SCROLL_GAP);
+        }
         Map<String, Rect> rows = new LinkedHashMap<>();
         for (int i = 0; i < ids.size(); i++) {
             int y = listTop + i * step - shown;
             if (y >= listTop && y + rh <= listTop + listHeight) {
-                rows.put(ids.get(i), new Rect(inner.x(), y, inner.width(), rh));
+                rows.put(ids.get(i), new Rect(inner.x(), y, rowWidth, rh));
             }
         }
-        return new SimSheet(inner.y(), remove, list, Collections.unmodifiableMap(rows), shown, maxScroll, step, back);
+        return new SimSheet(inner.y(), remove, list, Collections.unmodifiableMap(rows), shown, maxScroll, step, back,
+                track, thumb);
     }
 
     /**

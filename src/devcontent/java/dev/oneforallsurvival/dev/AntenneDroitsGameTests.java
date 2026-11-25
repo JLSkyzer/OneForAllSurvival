@@ -106,6 +106,11 @@ public final class AntenneDroitsGameTests {
             Shapes.box(3 / 16.0, 2 / 16.0, 7.5 / 16.0, 6 / 16.0, 9 / 16.0, 8.5 / 16.0),
             Shapes.box(10 / 16.0, 2 / 16.0, 7.5 / 16.0, 13 / 16.0, 9 / 16.0, 8.5 / 16.0));
 
+    /** La collision attendue, écrite en clair : la semelle et le mât seulement, sans les haubans (revue de la tâche 12). */
+    private static final VoxelShape COLLISION = Shapes.or(
+            Shapes.box(3 / 16.0, 0, 3 / 16.0, 13 / 16.0, 2 / 16.0, 13 / 16.0),
+            Shapes.box(6 / 16.0, 0, 6 / 16.0, 10 / 16.0, 1.0, 10 / 16.0));
+
     private AntenneDroitsGameTests() {}
 
     // ---------------------------------------------------------------------------------------------
@@ -666,6 +671,43 @@ public final class AntenneDroitsGameTests {
                     BlockState etat = helper.getBlockState(antenne);
                     essai.close();
                     helper.assertTrue(enPlace, "l'eau ne devait pas emporter l'antenne : " + etat);
+                })
+                .thenSucceed();
+    }
+
+    /**
+     * Revue de la tâche 12 (M3) : le contour garde les haubans, la collision non (semelle et mât, boîtes en clair) ; un
+     * objet lâché juste au-dessus du hauban nord (y = 10,5 px, plus haut que le hauban) tombe jusqu'à la semelle (2 px)
+     * au lieu de rester perché à 9 px.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_DROITS, timeoutTicks = 200)
+    public static void onNeSePerchePasSurUnHauban(GameTestHelper helper) {
+        Essai essai = new Essai(helper);
+        BlockPos antenne = new BlockPos(2, 0, 2);
+        for (int dy = 0; dy <= 2; dy++) {
+            helper.setBlock(antenne.above(dy), Blocks.AIR);
+        }
+        helper.setBlock(antenne, PhoneRegistry.ANTENNA.get());
+        BlockPos abs = helper.absolutePos(antenne);
+        BlockState etat = helper.getBlockState(antenne);
+        VoxelShape collision = etat.getCollisionShape(helper.getLevel(), abs);
+        VoxelShape contour = etat.getShape(helper.getLevel(), abs);
+        helper.assertTrue(!Shapes.joinIsNotEmpty(collision, COLLISION, BooleanOp.NOT_SAME), "collision : " + collision);
+        helper.assertTrue(!Shapes.joinIsNotEmpty(contour, FORME, BooleanOp.NOT_SAME), "contour : " + contour);
+        Vec3 depart = helper.absoluteVec(new Vec3(antenne.getX() + 0.5, antenne.getY() + 10.5 / 16.0,
+                antenne.getZ() + 0.22));
+        ItemEntity objet = new ItemEntity(helper.getLevel(), depart.x, depart.y, depart.z,
+                new ItemStack(net.minecraft.world.item.Items.STONE_BUTTON));
+        objet.setDeltaMovement(Vec3.ZERO);
+        objet.setPickUpDelay(600);
+        helper.getLevel().addFreshEntity(objet);
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(objet.onGround(), "l'objet doit se poser"))
+                .thenExecute(() -> {
+                    double px = (objet.getY() - abs.getY()) * 16.0;
+                    objet.discard();
+                    essai.close();
+                    helper.assertTrue(px < 3.0, "l'objet s'est posé à " + px + " px : perché sur un hauban");
                 })
                 .thenSucceed();
     }

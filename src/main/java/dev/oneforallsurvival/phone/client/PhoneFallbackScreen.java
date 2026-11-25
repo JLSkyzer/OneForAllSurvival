@@ -766,6 +766,13 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
         } else if (line) {
             drawWrapped(g, Component.translatable(KEY + "plan"), cx, y, SOFT);
         }
+        // La liste défile : une barre fine et son curseur, comme dans le panneau de l'opérateur (revue de la tâche 12, I2).
+        if (simLayout != null && simLayout.track() != null && simLayout.thumb() != null) {
+            Rect t = simLayout.track();
+            Rect c = simLayout.thumb();
+            g.fill(t.x(), t.y(), t.x() + t.width(), t.y() + t.height(), dev.oneforallsurvival.bench.client.BenchTheme.WELL);
+            g.fill(c.x(), c.y(), c.x() + c.width(), c.y() + c.height(), dev.oneforallsurvival.bench.client.BenchTheme.BRASS);
+        }
     }
 
     /**

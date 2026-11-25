@@ -342,9 +342,12 @@ public final class OperatorPanelLayout {
         }
         if (may) {
             Rect box = rows.next(BUTTON_H + 2);
-            Rect b = new Rect(box.x() + 1, box.y() + 1, 2 * BUTTON_W + GAP, BUTTON_H);
+            // Le texte entier et 4 px de marge de chaque côté (revue de la tâche 12, M1), jamais plus large que la ligne.
+            String label = texts.t(KEY + "issue_anonymous");
+            int w = Math.min(box.w() - 2, Math.max(2 * BUTTON_W + GAP, textWidth.applyAsInt(label) + 8));
+            Rect b = new Rect(box.x() + 1, box.y() + 1, w, BUTTON_H);
             rows.out.add(new Row("anonymous", box, List.of(), List.of(new Button(Action.ISSUE_ANONYMOUS, "", 0L, b,
-                    centered(b, texts.t(KEY + "issue_anonymous"), textWidth))), null, false));
+                    centered(b, label, textWidth))), null, false));
         }
         single(rows, "cards-header", texts.t(KEY + "cards_header", view.cardTotal()), textWidth);
         if (view.cards().isEmpty()) {

@@ -197,6 +197,54 @@ class PhoneFallbackLayoutTest {
         assertEquals(0, s.maxScroll());
         assertEquals(0, s.scroll());
         assertEquals(3, s.rows().size());
+        assertEquals(null, s.track(), "rien à défiler : pas de barre");
+        for (Rect r : s.rows().values()) {
+            assertEquals(s.list().width(), r.width(), "sans barre, la ligne prend toute la largeur");
+        }
+    }
+
+    /**
+     * Revue de la tâche 12 (I2) : une liste qui défile montre une barre de défilement fine à droite (aucune ligne cachée
+     * sans indice), à toutes les tailles ; la barre ne recouvre aucune ligne, son curseur est en haut au départ, en bas
+     * à la fin, et descend avec le défilement. Cas de la démo : quatre cartes et trois opérateurs à 320 × 240.
+     */
+    @ParameterizedTest(name = "interface {0} x {1}")
+    @CsvSource({"320, 240", "427, 240", "480, 270", "640, 328", "640, 360", "960, 540", "1920, 1080", "320, 480"})
+    void uneListeQuiDefileMontreSaBarre(int w, int h) {
+        Rect zone = inner(w, h);
+        for (List<String> ids : List.of(lignesSim(41, 16), lignesSim(4, 3))) {
+            PhoneFallbackLayout.SimSheet haut = PhoneFallbackLayout.simSheet(zone, LH, ids, 0);
+            if (haut.maxScroll() == 0) {
+                assertEquals(null, haut.track(), "rien à défiler : pas de barre");
+                continue;
+            }
+            Rect piste = haut.track();
+            assertTrue(piste != null && haut.thumb() != null, "la liste défile sans barre à " + w + " x " + h);
+            dedans(piste, haut.list(), "barre");
+            assertTrue(piste.width() >= 2 && piste.width() <= 4, "barre fine : " + piste);
+            assertEquals(haut.list().height(), piste.height(), "barre de toute la hauteur de la liste");
+            int bas = Integer.MAX_VALUE;
+            int precedent = -1;
+            for (int defile = 0; defile <= haut.maxScroll() + haut.rowStep(); defile += haut.rowStep()) {
+                PhoneFallbackLayout.SimSheet s = PhoneFallbackLayout.simSheet(zone, LH, ids, defile);
+                dedans(s.thumb(), s.track(), "curseur");
+                assertTrue(s.thumb().height() >= 6, "curseur trop petit : " + s.thumb());
+                assertTrue(s.thumb().y() >= precedent, "le curseur remonte au cran " + defile);
+                precedent = s.thumb().y();
+                for (Rect r : s.rows().values()) {
+                    assertFalse(chevauche(r, s.track()), "une ligne sous la barre au cran " + defile);
+                }
+            }
+            assertEquals(piste.y(), haut.thumb().y(), "curseur en haut au départ");
+            PhoneFallbackLayout.SimSheet fin = PhoneFallbackLayout.simSheet(zone, LH, ids, Integer.MAX_VALUE);
+            assertEquals(fin.track().y() + fin.track().height(), fin.thumb().y() + fin.thumb().height(),
+                    "curseur en bas à la fin");
+        }
+        // À 320 × 240, la démo (quatre cartes, « Demander », trois opérateurs) défile : la barre l'annonce.
+        if (w == 320 && h == 240) {
+            assertTrue(PhoneFallbackLayout.simSheet(zone, LH, lignesSim(4, 3), 0).track() != null,
+                    "huit lignes à 320 x 240 : la barre doit se voir");
+        }
     }
 
     /**

@@ -23,7 +23,7 @@ boitier brun, et du soudeur, laiton).
 """
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageOps
 
 ASSETS = Path(__file__).resolve().parent.parent / "src/main/resources/assets/oneforallsurvival/textures"
 
@@ -136,29 +136,33 @@ CONTOUR = (30, 32, 38, 255)
 
 
 def contour(img, couleur=CONTOUR):
-    """Un contour sombre d'un pixel autour de tout ce qui est dessine (style des objets du mod)."""
+    """Un contour sombre d'un pixel autour de la silhouette, a l'exterieur seulement (style des objets du mod) : le vide
+    est rempli par diffusion depuis les bords, et seul ce vide-la est detoure ; les jours interieurs (treillis, gorge
+    d'une machoire) restent transparents (revue de la tache 12, M4)."""
     p = img.load()
     w, h = img.size
     plein = {(x, y) for y in range(h) for x in range(w) if p[x, y][3] > 0}
-    for (x, y) in list(plein):
-        for (dx, dy) in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-            nx, ny = x + dx, y + dy
-            if 0 <= nx < w and 0 <= ny < h and (nx, ny) not in plein:
-                p[nx, ny] = couleur
+    dehors = set()
+    pile = [(x, y) for x in range(w) for y in (0, h - 1)] + [(x, y) for y in range(h) for x in (0, w - 1)]
+    while pile:
+        x, y = pile.pop()
+        if (x, y) in dehors or (x, y) in plein or not (0 <= x < w and 0 <= y < h):
+            continue
+        dehors.add((x, y))
+        pile.extend(((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)))
+    for (x, y) in dehors:
+        if any((x + dx, y + dy) in plein for (dx, dy) in ((1, 0), (-1, 0), (0, 1), (0, -1))):
+            p[x, y] = couleur
     return img
 
 
 def antenna_item():
     img = Image.new("RGBA", (16, 16), VIDE)
     p = img.load()
-    # Semelle : x 3..12, y 13..14.
-    for x in range(3, 13):
+    # Semelle : x 2..13, y 13..14.
+    for x in range(2, 14):
         p[x, 13] = BETON_CLAIR
         p[x, 14] = BETON_SOMBRE
-    # Haubans : de la tete du mat aux bords de la semelle.
-    for i in range(7):
-        p[5 - i // 3, 6 + i] = CABLE_CLAIR
-        p[10 + i // 3, 6 + i] = CABLE_CLAIR
     # Mat en treillis : x 6..9, y 5..12.
     for y in range(5, 13):
         p[6, y] = ACIER_CLAIR
@@ -179,7 +183,13 @@ def antenna_item():
     # Fouet : x 8, y 0..1.
     p[8, 0] = ACIER_CLAIR
     p[8, 1] = ACIER
-    return contour(img)
+    contour(img)
+    # Haubans, apres le contour (un cable n'a pas de contour) : du haut du mat aux bords de la semelle, un pixel
+    # transparent entre eux et le contour du mat, pour qu'ils se lisent en 16 x 16 (revue de la tache 12, M4).
+    for i in range(7):
+        p[3 - i // 3, 6 + i] = CABLE_CLAIR
+        p[12 + i // 3, 6 + i] = CABLE_CLAIR
+    return img
 
 
 # --- La carte SIM ---------------------------------------------------------------------------------------------------
@@ -240,14 +250,15 @@ def sim_card():
 
 # --- L'outil de maintenance -----------------------------------------------------------------------------------------
 
+CONTOUR_OUTIL = (62, 64, 74, 255)
 CUIVRE = (196, 112, 62, 255)
 CUIVRE_CLAIR = (236, 162, 104, 255)
 CUIVRE_SOMBRE = (138, 70, 36, 255)
 
 
 def maintenance_tool():
-    """Une cle plate (bas-gauche vers haut-droit, machoire ouverte en haut) et un tournevis (pointe en haut a gauche,
-    manche de cuivre en bas a droite), croises."""
+    """Une cle plate et un tournevis croises, dessines cle de bas-gauche en haut-droit (machoire ouverte en haut) et
+    tournevis pointe en haut a gauche, puis retournes en miroir : manche de cuivre en bas a gauche."""
     img = Image.new("RGBA", (16, 16), VIDE)
     p = img.load()
     # Cle : manche diagonal de (2, 13) a (9, 6), deux pixels d'epaisseur.
@@ -279,7 +290,10 @@ def maintenance_tool():
         p[x, y - 1] = CUIVRE_SOMBRE
     p[14, 14] = CUIVRE_SOMBRE
     p[11, 11] = CUIVRE_CLAIR
-    return contour(img)
+    # Contour plus clair que celui des autres objets (un outil d'acier tout sombre se lit mal en main), puis miroir : le
+    # manche de cuivre passe en bas a gauche, du cote de l'ecran ou la main le tient (revue de la tache 12, I1).
+    contour(img, CONTOUR_OUTIL)
+    return ImageOps.mirror(img)
 
 
 def main():

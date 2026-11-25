@@ -71,6 +71,19 @@ public final class AntennaBlock extends ElectricMachineBlock {
             Block.box(3, 2, 7.5, 6, 9, 8.5),
             Block.box(10, 2, 7.5, 13, 9, 8.5));
 
+    /**
+     * La collision : la semelle et le mât seulement. Les haubans (lames de 1 px jusqu'à 9 px, sous la hauteur de pas
+     * d'un joueur) restent au contour mais ne portent rien : on ne se perche pas dessus (revue de la tâche 12, M3).
+     */
+    private static final VoxelShape COLLISION = Shapes.or(
+            Block.box(3, 0, 3, 13, 2, 13),
+            Block.box(6, 0, 6, 10, 16, 10));
+
+    @Override
+    public VoxelShape getCollisionShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+        return COLLISION;
+    }
+
     public AntennaBlock(Properties properties) {
         super(properties, () -> PhoneRegistry.ANTENNA_BE.get());
     }
