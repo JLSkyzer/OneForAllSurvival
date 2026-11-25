@@ -34,6 +34,7 @@ import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import org.apache.logging.log4j.LogManager;
@@ -97,7 +98,10 @@ final class E2eTelephone {
     private static String maireAvant = "aucun";
     /** La seconde main de Dev était vide au départ : l'étape y met l'outil de maintenance, elle la vide en sortant. */
     private static boolean secondeMainAvant;
-    /** Vrai entre la mise en survie de Dev et son retour : un échec dans cet intervalle laisse ses droits à rendre. */
+    /**
+     * Vrai du départ de Dev vers l'aire (spectateur) jusqu'à son retour : un échec dans cet intervalle laisse son mode,
+     * ses droits et les règles du monde à rendre ({@link #rangerAvantArret}).
+     */
     private static boolean enCours;
     private static int chatAvant;
     private static int cartesAvant;
@@ -149,7 +153,8 @@ final class E2eTelephone {
     }
 
     /**
-     * La source de Mairie, à deux blocs de l'antenne vers +x (un bloc d'air entre elles, même chunk) : elle ne la touche
+     * La source de Mairie, à deux blocs de l'antenne vers +x (un bloc d'air entre elles, même chunk : l'origine est
+     * alignée en x et en z, et le pas qui la choisit le vérifie) : elle ne la touche
      * pas, l'antenne ne reçoit que par le fil (revue de la tâche 13, C1 : collée, elle la remplissait directement).
      */
     private static BlockPos sourceMairie() {
@@ -656,6 +661,8 @@ final class E2eTelephone {
 
     private static void allerALAire(String quand) {
         pas(quand + "Le joueur, en spectateur, se rend à l'aire du téléphone (loin de tout ; les chunks se chargent)", () -> {
+            // Dès le passage en spectateur (relecture de la tâche 13, N3) : un échec avant la survie rend aussi le mode.
+            enCours = true;
             fermer();
             rcon("gamemode spectator " + nom());
             rcon("tp " + nom() + " " + (o.getX() + 7.5) + " " + (o.getY() + 1) + " " + (o.getZ() + 4.5));
@@ -723,12 +730,25 @@ final class E2eTelephone {
 
     static void premierePhase() {
         relever("");
-        pas("Origine de l'aire choisie (antennes sur la première colonne de leur chunk)", () -> {
+        pas("Origine de l'aire choisie (antennes sur la première colonne de leur chunk, sources dans le même chunk)", () -> {
             int x = depart.getX() + 640;
             x -= Math.floorMod(x + 2, 16);
-            o = new BlockPos(x, Y_AIRE, depart.getZ() + 640);
-        }, () -> true, () -> "", () -> "Mairie en " + court(mairie()) + " (x mod 16 = " + Math.floorMod(mairie().getX(), 16) + "), Lagon en "
-                + court(lagon()) + " (x mod 16 = " + Math.floorMod(lagon().getX(), 16) + ")");
+            // Aligné en z aussi (relecture de la tâche 13, N1) : Mairie en z mod 16 = 4, sa source en 2, celle de Lagon en 3.
+            int z = depart.getZ() + 640;
+            z -= Math.floorMod(z, 16);
+            o = new BlockPos(x, Y_AIRE, z);
+        }, () -> true, () -> "", () -> {
+            if (!new ChunkPos(mairie()).equals(new ChunkPos(sourceMairie()))
+                    || !new ChunkPos(lagon()).equals(new ChunkPos(sourceLagon()))) {
+                throw new IllegalStateException("une source hors du chunk de son antenne : Mairie " + new ChunkPos(mairie())
+                        + ", sa source " + new ChunkPos(sourceMairie()) + " ; Lagon " + new ChunkPos(lagon()) + ", sa source "
+                        + new ChunkPos(sourceLagon()));
+            }
+            return "Mairie en " + court(mairie()) + " (x mod 16 = " + Math.floorMod(mairie().getX(), 16) + ", z mod 16 = "
+                    + Math.floorMod(mairie().getZ(), 16) + "), chunk " + new ChunkPos(mairie()) + " comme sa source ; Lagon en "
+                    + court(lagon()) + " (x mod 16 = " + Math.floorMod(lagon().getX(), 16) + "), chunk " + new ChunkPos(lagon())
+                    + " comme sa source";
+        });
         allerALAire("");
         pas("Deux aires closes, couvertes et éclairées (A : Mairie et l'allée de Dev ; B : Lagon, un autre chunk)", () -> {
             rcon("difficulty peaceful");

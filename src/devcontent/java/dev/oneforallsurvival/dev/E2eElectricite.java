@@ -736,9 +736,14 @@ final class E2eElectricite {
             // un chunk forcé, chargé dès le démarrage de la relance (vu à la revue finale, selon la position de départ).
             int x = depart.getX() - 640;
             x -= Math.floorMod(x + 9, 16);
+            // Aligné en z aussi (passage de nettoyage du lot T2) : l'addon force les deux chunks d'un fil qui traverse une
+            // frontière de chunk. Les fils de l'aire vont de z + 1 à z + 7 ; non alignés, ils traversaient parfois la
+            // frontière en z, les chunks des connecteurs étaient forcés, et le compteur d'Abonne, dans le chunk voisin,
+            // était chargé avec eux (relance en échec ; tickets relus dans data/chunks.dat de cinq mondes).
             int z = depart.getZ() - 640;
+            z -= Math.floorMod(z, 16);
             if (Math.abs(x - spawn.getX()) <= 40 && Math.abs(z - spawn.getZ()) <= 40) {
-                z -= 120;
+                z -= 128;
             }
             o = new BlockPos(x, Y_AIRE, z);
         }, () -> true, () -> "", null);

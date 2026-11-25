@@ -999,10 +999,13 @@ final class E2eProtection {
         pas("Un œuf dans la seconde couveuse", () -> deplacer(fenteMenu(est(Items.EGG), true)),
                 () -> couveuse().getSlot(0).getItem().is(Items.EGG) && etat(incB) == MachineState.RUNNING,
                 () -> "case 0 " + couveuse().getSlot(0).getItem() + ", etat " + etat(incB), null);
+        // 100 tics et non 300 : la couveuse est dans les chunks de l'apparition, son compteur repart dès le démarrage de
+        // la relance, avant que le client ne la relise. Avec 300, il restait 900 tics (45 s) ; une relance a ouvert le
+        // menu 46 s après « Done » (client lent à se connecter) et l'œuf était perdu (passage de nettoyage du lot T2).
         pasD(60, "Coupure en cours : source retirée, réserve vidée, le compteur monte", () -> {
             commande("setblock " + xyz(srcB) + " minecraft:air");
             commande("data merge block " + xyz(incB) + " {energy:0}");
-        }, () -> etat(incB) == MachineState.NO_POWER && couveuse().outage() >= 300,
+        }, () -> etat(incB) == MachineState.NO_POWER && couveuse().outage() >= 100,
                 () -> "etat " + etat(incB) + ", compteur " + couveuse().outage() + "/" + couveuse().outageTotal(), null);
         pasC("Compteur de coupure retenu, positions écrites ; le serveur s'arrête en pleine coupure", () -> {
             outageAvantArret = couveuse().outage();
