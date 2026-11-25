@@ -136,8 +136,9 @@ public final class PackGameTests {
                 new Materiel("cleaning_kit", 3, 1, true, false),
                 new Materiel("tester", 4, 1, true, false),
                 new Materiel("welder", 5, 1, true, false),
-                // Lot T2 : l'outil de maintenance de l'ingénieur, sans Create (comme l'antenne qu'il entretient).
-                new Materiel("maintenance_tool", 4, 1, false, false),
+                // Lot T2 : l'outil de maintenance de l'ingénieur, sans Create (comme l'antenne qu'il entretient) :
+                // 2 lingots de fer, 1 redstone, 1 lingot de cuivre, 1 bâton (recette du plan).
+                new Materiel("maintenance_tool", 5, 1, false, false),
                 new Materiel("galvanic_bath", 6, 1, true, true),
                 new Materiel("fridge", 6, 1, true, false),
                 new Materiel("desalinator", 6, 1, true, false),
@@ -198,6 +199,13 @@ public final class PackGameTests {
             helper.assertTrue(accepte(catalogue, "lighthouse", new ItemStack(net.minecraft.world.item.Items.GLASS)),
                     "le phare n'a aucun ingrédient qui accepte le verre");
         }
+        // Lot T2 : l'outil de maintenance exige une redstone, deux lingots de fer, un lingot de cuivre et un bâton.
+        var catalogueT2 = BenchCatalog.current();
+        helper.assertTrue(nombreAcceptant(catalogueT2, "maintenance_tool", new ItemStack(net.minecraft.world.item.Items.REDSTONE)) == 1
+                && nombreAcceptant(catalogueT2, "maintenance_tool", new ItemStack(net.minecraft.world.item.Items.IRON_INGOT)) == 2
+                && nombreAcceptant(catalogueT2, "maintenance_tool", new ItemStack(net.minecraft.world.item.Items.COPPER_INGOT)) == 1
+                && nombreAcceptant(catalogueT2, "maintenance_tool", new ItemStack(net.minecraft.world.item.Items.STICK)) == 1,
+                "l'outil de maintenance : 1 redstone, 2 lingots de fer, 1 lingot de cuivre, 1 bâton");
         // Lot 7 : chaque ingrédient clé est exigé, et en bon nombre (échanger un ingrédient doit faire échouer).
         if (create) {
             var catalogue = BenchCatalog.current();
@@ -1715,10 +1723,6 @@ public final class PackGameTests {
                     boolean droit = faux != null && dev.oneforallsurvival.phone.net.AntennaRules.mayManage(faux, null);
                     float progression = faux == null || !present ? -1F : helper.getBlockState(antenne).getDestroyProgress(
                             faux, helper.getLevel(), helper.absolutePos(antenne));
-                    org.apache.logging.log4j.LogManager.getLogger("oneforallsurvival-antenne").info(
-                            "[antenne] deployeur : uuid {}, main {}, ayant droit {}, progression {}, antenne {}",
-                            faux == null ? null : faux.getUUID(), faux == null ? null : faux.getMainHandItem(), droit,
-                            progression, present);
                     rendre.run();
                     helper.assertTrue(present, "le déployeur ne devait pas casser l'antenne");
                     helper.assertTrue(faux != null && !droit && progression == 0.0F,
