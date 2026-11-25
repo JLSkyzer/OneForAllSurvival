@@ -2,6 +2,8 @@ package dev.oneforallsurvival.phone;
 
 import dev.oneforallsurvival.machine.ElectricMachineBlockEntity;
 import dev.oneforallsurvival.machine.MachineState;
+import java.util.HashSet;
+import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
@@ -22,8 +24,11 @@ public final class WallSocketBlockEntity extends ElectricMachineBlockEntity {
     public static final int CAPACITY = 4000;
     public static final int MAX_RECEIVE = TOWN_MAX_RECEIVE;
     private static final String TAG_PHONE = "phone";
+    private static final String TAG_WALL = "wall_connectors";
 
     private ItemStack phone = ItemStack.EMPTY;
+    /** Les connecteurs du mur déjà vus ({@link WallFeed#wake}). */
+    private final Set<Long> wallConnectors = new HashSet<>();
 
     public WallSocketBlockEntity(BlockPos pos, BlockState state) {
         super(PhoneRegistry.WALL_SOCKET_BE.get(), pos, state, CAPACITY, MAX_RECEIVE);
@@ -69,8 +74,9 @@ public final class WallSocketBlockEntity extends ElectricMachineBlockEntity {
     /** Les connecteurs posés sur le mur de la prise l'alimentent ({@link WallFeed}). */
     @Override
     protected void afterTick(Level level, MachineState tickState) {
-        if (level.getGameTime() % WallFeed.PERIOD == 0) {
-            WallFeed.wake(level, worldPosition, getBlockState());
+        if (level.getGameTime() % WallFeed.PERIOD == 0
+                && WallFeed.wake(level, worldPosition, getBlockState(), wallConnectors)) {
+            setChanged();
         }
     }
 
@@ -80,11 +86,18 @@ public final class WallSocketBlockEntity extends ElectricMachineBlockEntity {
         if (!phone.isEmpty()) {
             tag.put(TAG_PHONE, phone.save(new CompoundTag()));
         }
+        if (!wallConnectors.isEmpty()) {
+            tag.putLongArray(TAG_WALL, wallConnectors.stream().mapToLong(Long::longValue).toArray());
+        }
     }
 
     @Override
     public void load(CompoundTag tag) {
         super.load(tag);
         phone = tag.contains(TAG_PHONE) ? ItemStack.of(tag.getCompound(TAG_PHONE)) : ItemStack.EMPTY;
+        wallConnectors.clear();
+        for (long connector : tag.getLongArray(TAG_WALL)) {
+            wallConnectors.add(connector);
+        }
     }
 }

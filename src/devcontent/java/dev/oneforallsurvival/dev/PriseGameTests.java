@@ -603,6 +603,50 @@ public final class PriseGameTests {
                 .thenSucceed();
     }
 
+    @GameTest(template = "test/plancher", batch = LOT_FIL, timeoutTicks = 400, setupTicks = 20)
+    public static void unConnecteurRemisSurAucunLeReste(GameTestHelper helper) {
+        if (!ReseauxDev.Reseau.CREATE_ADDITION.disponible()) {
+            helper.succeed();
+            return;
+        }
+        List<String> journal = new java.util.ArrayList<>();
+        poser(helper, Blocks.DIRT).setPhone(telephone(0));
+        connecteurs(helper, journal);
+        helper.startSequence()
+                .thenExecuteAfter(5, () -> fil(helper, journal))
+                .thenWaitUntil(() -> telephoneCharge(helper, 400, journal))
+                // Comme un tour de clé : de « sortie » à « aucun ».
+                .thenExecute(() -> helper.setBlock(MUR.above(),
+                        ReseauxDev.avec(helper.getBlockState(MUR.above()), "mode", "none")))
+                .thenExecuteAfter(70, () -> helper.assertTrue("none".equals(modeDuMur(helper)),
+                        "le réglage à la clé a été écrasé : " + modeDuMur(helper)))
+                .thenSucceed();
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_FIL, timeoutTicks = 200, setupTicks = 20)
+    public static void unMurMachineRecoitSonCourantPasLaPrise(GameTestHelper helper) {
+        if (!ReseauxDev.Reseau.CREATE_ADDITION.disponible()) {
+            helper.succeed();
+            return;
+        }
+        List<String> journal = new java.util.ArrayList<>();
+        // Le mur est une machine qui prend du courant : le connecteur posé sur elle reste le sien.
+        poser(helper, DevBlocks.testMachine()).setPhone(telephone(0));
+        connecteurs(helper, journal);
+        helper.startSequence()
+                .thenExecuteAfter(5, () -> fil(helper, journal))
+                .thenExecuteAfter(80, () -> {
+                    TestMachineBlockEntity machine = (TestMachineBlockEntity) helper.getBlockEntity(MUR);
+                    WallSocketBlockEntity be = (WallSocketBlockEntity) helper.getBlockEntity(PRISE);
+                    helper.assertTrue(PhoneItem.stored(be.phone()) == 0 && be.energy().getEnergyStored() == 0,
+                            "la prise a pris le courant de la machine : téléphone " + PhoneItem.stored(be.phone())
+                                    + ", réserve " + be.energy().getEnergyStored());
+                    helper.assertTrue(machine.progress() > 0, "la machine n'a rien reçu, mode " + modeDuMur(helper)
+                            + ", journal " + journal);
+                })
+                .thenSucceed();
+    }
+
     @GameTest(template = "test/plancher", batch = LOT_FIL, timeoutTicks = 200, setupTicks = 20)
     public static void unMurQuiAUnBlocEntiteGardeSonConnecteur(GameTestHelper helper) {
         if (!ReseauxDev.Reseau.CREATE_ADDITION.disponible()) {

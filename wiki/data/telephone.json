@@ -130,7 +130,8 @@
         "La prise n'a pas de propriétaire : n'importe quel joueur reprend le téléphone d'un autre, mais ses données restent protégées par le code. À garder en tête pour les lois en RP.",
         "Elle ne reçoit que des téléphones, un seul à la fois ; un faux joueur (déployeur de Create) ne le sort pas.",
         "Voyant éteint à l'arrêt et sans courant, vert pendant la charge.",
-        "À travers le mur : le bloc porteur ne doit pas être lui-même une machine ou un coffre (son connecteur reste alors le sien). Un connecteur laissé « aucun » passe en sortie tout seul ; un mode réglé à la clé n'est pas changé.",
+        "À travers le mur : le bloc porteur ne doit pas être une machine, un coffre ou un panneau (son connecteur reste alors le sien). Un connecteur « aucun » découvert sur ce bloc passe en sortie une seule fois ; remis à la clé, il garde le réglage. Une seule prise par bloc porteur est servie à la fois.",
+        "Accrocher une prise à un bloc qui porte déjà un connecteur « aucun », même le relais d'un autre, lui prend du courant : c'est une affaire de RP, le mod ne l'interdit pas.",
         "Machine électrique du mod : elle s'use et tombe en panne comme les autres."
       ]
     },
