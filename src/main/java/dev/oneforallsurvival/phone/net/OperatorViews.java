@@ -110,13 +110,19 @@ public final class OperatorViews {
                 .isPresent();
     }
 
-    /** Peut-il nommer l'antenne à fonder de ce bloc (chunk chargé, bloc d'antenne sans opérateur) ? */
+    /**
+     * Peut-il nommer l'antenne à fonder de ce bloc (chunk chargé, bloc d'antenne sans opérateur) ? Jugé exactement comme
+     * {@link AntennaBlock#found} : au nom de {@link AntennaBlockEntity#idleOwner} (l'ancien fondateur d'un opérateur
+     * supprimé, sinon le poseur), jamais du seul poseur (revue finale du lot T2, I2 : antenne déplacée par un ingénieur
+     * outillé, ou opérateur passé à un autre fondateur avant sa suppression).
+     */
     private static boolean mayName(ServerPlayer viewer, BlockPos pos) {
         AntennaBlockEntity be = loadedAntenna(viewer.serverLevel(), pos);
         if (be == null || be.operator().isPresent()) {
             return false;
         }
-        return AntennaRules.mayFoundFor(viewer, be.placer());
+        PhoneOperators.FormerFounder idle = be.idleOwner();
+        return AntennaRules.mayFoundFor(viewer, idle == null ? null : idle.uuid());
     }
 
     /** L'entité de l'antenne de ce bloc, si son chunk est chargé (rien n'est chargé ici) ; nulle sinon. */
