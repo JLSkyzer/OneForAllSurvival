@@ -552,11 +552,17 @@ public final class PhoneService {
         int attemptsLeft = lockoutSeconds > 0 ? 0 : Math.max(0, PhoneConfig.maxAttempts() - record.failures());
         boolean unlocked = session.lock() == Lock.UNLOCKED;
         ItemStack stack = viewer.getItemInHand(session.hand());
-        int battery = percent(stack);
+        // La pile tenue n'est peut-être plus le téléphone de la session (fermeture PHONE_GONE, ouverture d'un autre
+        // téléphone vide, /phone reset après un changement de case) : rien d'elle ne part, ni sa ligne ni sa batterie
+        // (revue finale du lot T2, I1).
+        boolean same = stack.getItem() instanceof PhoneItem
+                && PhoneItem.phoneId(stack).equals(Optional.of(session.phoneId()));
+        int battery = same ? percent(stack) : 0;
         session.showPercent(battery);
         int offset = EconomyCalendar.configuredZone().getRules().getOffset(Instant.ofEpochMilli(now))
                 .getTotalSeconds();
-        PhoneNetView net = computed != null ? computed : netView(viewer, session, stack, record);
+        PhoneNetView net = !same ? PhoneNetView.NONE
+                : computed != null ? computed : netView(viewer, session, stack, record);
         session.showNet(net);
         return new PhoneStatePacket(session.id(), kind, session.lock(), battery, now, offset, record.wallpaper(),
                 unlocked && record.airplane(), unlocked && viewer.getUUID().equals(record.owner()),

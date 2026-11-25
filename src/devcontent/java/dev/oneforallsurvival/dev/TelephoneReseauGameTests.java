@@ -85,6 +85,7 @@ public final class TelephoneReseauGameTests {
     private static final String LOT_RESEAU = "telephone_reseau";
     private static final String LOT_SIM = "telephone_sim";
     private static final String LOT_ICONE = "telephone_icone";
+    private static final String LOT_FUITE = "telephone_fuite";
 
     private static final BlockPos A = new BlockPos(1, 0, 1);
     /** La seconde antenne : celle d'un autre opérateur (essais de l'icône « Antenne »). */
@@ -110,6 +111,11 @@ public final class TelephoneReseauGameTests {
 
     @AfterBatch(batch = LOT_ICONE)
     public static void apresIcone(ServerLevel level) {
+        apres();
+    }
+
+    @AfterBatch(batch = LOT_FUITE)
+    public static void apresFuite(ServerLevel level) {
         apres();
     }
 
@@ -1276,5 +1282,157 @@ public final class TelephoneReseauGameTests {
                     e.fermer();
                 })
                 .thenSucceed();
+    }
+
+    /**
+     * Revue de la tâche 13b (mineur 3) : l'opérateur passe à un autre fondateur ({@code setFounder}, geste du maire) ;
+     * au relevé suivant, l'icône quitte le téléphone de l'ancien et vient, vive, sur celui du nouveau, qui a une carte
+     * active de l'opérateur. L'ancien qui touche encore l'appli est refusé sans panneau.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_ICONE, timeoutTicks = 300)
+    public static void lIconeSuitLeChangementDeFondateur(GameTestHelper helper) {
+        Essai e = new Essai(helper);
+        JoueurDeTest f = e.joueur("ti_owner_f");
+        JoueurDeTest h = e.joueur("ti_owner_h");
+        PhoneOperator op = e.fonder(f, "Icone Heritier", RESERVE);
+        e.ligne(op, f);
+        e.ligne(op, h);
+        List<PhoneStatePacket> recusF = new ArrayList<>();
+        List<PhoneStatePacket> recusH = new ArrayList<>();
+        long[] depuis = {-1L};
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(e.enService(), "antenne en service"))
+                .thenExecute(() -> {
+                    e.placer(f, 0);
+                    e.placer(h, 1);
+                    deverrouiller(helper, f);
+                    icone(helper, f, true, "fondateur d'origine");
+                    PhoneStatePacket vueH = deverrouiller(helper, h);
+                    helper.assertTrue(vueH.net().sim() == PhoneSims.Validity.ACTIVE && !vueH.net().founderApp()
+                            && !vueH.net().founderAppAvailable(), "témoin : abonné, aucune icône : " + vueH.net());
+                    f.etatsTelephoneRecus();
+                    h.etatsTelephoneRecus();
+                    helper.assertTrue(e.registre().setFounder(op.id(), h.uuid(), "ti_owner_h"), "changement de fondateur");
+                    depuis[0] = helper.getLevel().getGameTime();
+                })
+                .thenWaitUntil(() -> {
+                    recusF.addAll(f.etatsTelephoneRecus());
+                    recusH.addAll(h.etatsTelephoneRecus());
+                    helper.assertTrue(recusF.stream().anyMatch(p -> p.kind() == Kind.UPDATE && !p.net().founderApp()
+                            && !p.net().founderAppAvailable()), "l'icône doit quitter le téléphone de l'ancien fondateur");
+                    helper.assertTrue(recusH.stream().anyMatch(p -> p.kind() == Kind.UPDATE && p.net().founderApp()
+                            && p.net().founderAppAvailable()), "l'icône vive doit venir sur le téléphone du nouveau");
+                    long passe = helper.getLevel().getGameTime() - depuis[0];
+                    helper.assertTrue(passe <= PhoneConfig.signalRefreshTicks() + 1,
+                            "au relevé suivant (" + PhoneConfig.signalRefreshTicks() + " tics), vu " + passe);
+                })
+                .thenIdle(3)
+                .thenExecute(() -> {
+                    icone(helper, h, true, "nouveau fondateur");
+                    f.panneauxOperateurRecus();
+                    attendre(helper, geste(helper, f, Action.OPEN_OPERATOR_APP, ""), Lock.UNLOCKED, Result.NO_NETWORK,
+                            "toucher de l'ancien fondateur");
+                    helper.assertTrue(f.panneauxOperateurRecus().isEmpty(), "aucun panneau pour l'ancien fondateur");
+                    e.fermer();
+                })
+                .thenSucceed();
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Lot telephone_fuite (revue finale, I1) : une fermeture n'envoie rien d'un autre téléphone
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * L'état de fermeture ne porte rien du téléphone tenu s'il n'est pas celui de la session : vue réseau vide
+     * ({@link PhoneNetView#NONE} : ni numéro, ni titulaire, ni opérateur, ni barres, ni cartes, ni appli) et batterie 0.
+     */
+    private static void fermetureSansAutreTelephone(GameTestHelper helper, PhoneStatePacket p, CloseReason raison,
+            String cas) {
+        helper.assertTrue(p.kind() == Kind.CLOSE && p.reason() == raison,
+                cas + " : un CLOSE " + raison + " attendu, vu " + p.kind() + "/" + p.reason());
+        helper.assertTrue(p.net().equals(PhoneNetView.NONE),
+                cas + " : la vue réseau de l'autre téléphone est partie au client : " + p.net());
+        helper.assertTrue(p.battery() == 0, cas + " : la batterie de l'autre téléphone est partie : " + p.battery());
+    }
+
+    /**
+     * A, déverrouillé sur son téléphone, prend en main le téléphone de B (carte active, numéro, titulaire) : au tic
+     * suivant la session se ferme ({@code PHONE_GONE}) sans rien envoyer de la ligne de B.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_FUITE, timeoutTicks = 100)
+    public static void fermerParUnAutreTelephoneNeMontrePasSaLigne(GameTestHelper helper) {
+        Essai e = new Essai(helper);
+        JoueurDeTest a = e.joueur("tf_gone_a");
+        JoueurDeTest b = e.joueur("tf_gone_b");
+        PhoneOperator op = e.fonder(b, "Fuite Gone", RESERVE);
+        ItemStack deB = e.ligne(op, b);
+        e.telephone(a);
+        deverrouiller(helper, a);
+        ItemStack pris = deB.copy();
+        b.joueur().setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        a.joueur().setItemInHand(InteractionHand.MAIN_HAND, pris);
+        a.etatsTelephoneRecus();
+        List<PhoneStatePacket> recus = new ArrayList<>();
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    recus.addAll(a.etatsTelephoneRecus());
+                    helper.assertTrue(recus.stream().anyMatch(p -> p.kind() == Kind.CLOSE), "fermeture attendue");
+                })
+                .thenExecute(() -> {
+                    helper.assertTrue(recus.size() == 1, "un seul état attendu, vu " + recus);
+                    fermetureSansAutreTelephone(helper, recus.get(0), CloseReason.PHONE_GONE, "téléphone de B en main");
+                    e.fermer();
+                })
+                .thenSucceed();
+    }
+
+    /** A, déverrouillé, essaie d'ouvrir le téléphone de B à batterie vide : la fermeture de sa session n'en dit rien. */
+    @GameTest(template = "test/plancher", batch = LOT_FUITE)
+    public static void ouvrirUnAutreTelephoneVideNeMontrePasSaLigne(GameTestHelper helper) {
+        Essai e = new Essai(helper);
+        JoueurDeTest a = e.joueur("tf_vide_a");
+        JoueurDeTest b = e.joueur("tf_vide_b");
+        PhoneOperator op = e.fonder(b, "Fuite Vide", RESERVE);
+        ItemStack deB = e.ligne(op, b);
+        e.telephone(a);
+        deverrouiller(helper, a);
+        ItemStack vide = deB.copy();
+        PhoneItem.store(vide, 0);
+        b.joueur().setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        a.joueur().setItemInHand(InteractionHand.MAIN_HAND, vide);
+        a.etatsTelephoneRecus();
+        Outcome r = PhoneService.open(a.joueur(), InteractionHand.MAIN_HAND);
+        helper.assertTrue(r == Outcome.EMPTY_BATTERY, "ouverture d'un téléphone vide : " + r);
+        List<PhoneStatePacket> recus = a.etatsTelephoneRecus();
+        helper.assertTrue(recus.size() == 1, "un seul état attendu, vu " + recus);
+        fermetureSansAutreTelephone(helper, recus.get(0), CloseReason.CLOSED, "téléphone vide de B ouvert");
+        e.fermer();
+        helper.succeed();
+    }
+
+    /**
+     * {@code /phone reset} du téléphone de A ({@code closeAll}) alors que A a changé de case dans le tic et tient le
+     * téléphone de B : la fermeture n'en dit rien.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_FUITE)
+    public static void effacerApresUnChangementDeMainNeMontrePasLAutreLigne(GameTestHelper helper) {
+        Essai e = new Essai(helper);
+        JoueurDeTest a = e.joueur("tf_reset_a");
+        JoueurDeTest b = e.joueur("tf_reset_b");
+        PhoneOperator op = e.fonder(b, "Fuite Reset", RESERVE);
+        ItemStack deB = e.ligne(op, b);
+        ItemStack deA = e.telephone(a);
+        UUID idA = exiger(helper, PhoneItem.phoneId(deA), "identifiant du téléphone de A");
+        deverrouiller(helper, a);
+        ItemStack pris = deB.copy();
+        b.joueur().setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        a.joueur().setItemInHand(InteractionHand.MAIN_HAND, pris);
+        a.etatsTelephoneRecus();
+        PhoneService.closeAll(e.serveur(), idA, CloseReason.ERASED);
+        List<PhoneStatePacket> recus = a.etatsTelephoneRecus();
+        helper.assertTrue(recus.size() == 1, "un seul état attendu, vu " + recus);
+        fermetureSansAutreTelephone(helper, recus.get(0), CloseReason.ERASED, "effacement, téléphone de B en main");
+        e.fermer();
+        helper.succeed();
     }
 }
