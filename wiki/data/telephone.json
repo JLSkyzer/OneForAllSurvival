@@ -248,7 +248,7 @@
         "Clic droit sur une antenne : onglets « Réseau », « Cartes », « Tarif et caisse ».",
         "Réseau : consommation en direct de chaque antenne (veille, cartes, trafic, jour et veille), antenne principale à désigner, état du relais.",
         "Cartes (fondateur seul) : émettre ou refuser une demande, émettre une SIM sans nom, suspendre, réactiver, « Remplacer » (même numéro).",
-        "Au plafond de cartes (actives et suspendues), plus aucune n'est émise et le panneau le dit ; « Remplacer » reste possible.",
+        "Au plafond de cartes (actives et suspendues), plus aucune n'est émise et le panneau le dit ; « Remplacer » reste possible. Aucun geste ne désactive une carte : seule la suppression de l'opérateur libère ses cartes.",
         "Tarif par jour (fondateur, maire, staff) : il vaut au lendemain, sous le plafond du maire ; les abonnés sont prévenus. Aucune pièce n'est prélevée avant le lot T6.",
         "Caisse (fondateur et staff) : en personne, sur l'antenne principale. Elle reste vide jusqu'au lot T6.",
         "Appli « Antenne » : une icône sur le téléphone du fondateur. Elle demande une carte active de son opérateur dans ce téléphone, au moins une barre et le mode avion coupé.",
