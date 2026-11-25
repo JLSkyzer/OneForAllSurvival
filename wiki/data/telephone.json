@@ -40,7 +40,7 @@
         {"k": "Faux codes", "v": "5, puis 60 s de blocage"}
       ],
       "staff": [
-        "Les cartes SIM, les appels, les messages et les urgences viennent aux lots T2 et T3 : à ce lot, l'écran affiche « Aucune carte SIM ».",
+        "Cartes SIM et réseau : voir les fiches « Carte SIM » et « Antenne ». Les appels, les messages et les urgences viennent au lot T3.",
         "Interface HTML par MCEF 2.1.6, mod client seulement et facultatif ; le serveur n'en a pas besoin.",
         "Si MCEF est absent ou ne répond pas : écran de repli en interface classique, mêmes fonctions, un seul avis par session.",
         "MCEF télécharge Chromium au premier lancement d'un client (environ 100 Mo, chiffre externe) et fait à chaque démarrage une petite requête de somme de contrôle ; aucune page extérieure ne se charge.",
@@ -136,23 +136,31 @@
       "id": "carte-sim",
       "name": "Carte SIM",
       "kind": "objet",
-      "status": "prevu",
+      "status": "dispo",
       "lot": "Lot T2",
-      "image": null,
-      "what": "Porte le numéro et le titulaire ; le numéro suit la carte.",
-      "who": {"fabrique": "Fondateur d'opérateur", "utilise": "Son porteur"},
+      "image": {"type": "item", "file": "sim_card.png"},
+      "what": "Glissée dans un téléphone, elle lui donne un numéro, un opérateur et du signal ; le numéro suit la carte.",
+      "who": {"fabrique": "Émise par l'opérateur", "utilise": "Son porteur"},
       "steps": [
-        "Demander une carte au fondateur d'un opérateur.",
-        "La recevoir en main propre.",
-        "La glisser dans un téléphone."
+        "La demander : Réglages, « Carte SIM », « Demander une carte », sur son propre téléphone déverrouillé, sans carte active, hors mode avion et à portée d'une antenne en service de l'opérateur choisi.",
+        "Le fondateur est prévenu (à sa connexion s'il est absent). Il émet la carte : elle arrive dans son inventaire (refusé s'il est plein) et il la remet en main propre. Il peut aussi refuser ; le demandeur est prévenu.",
+        "La glisser : Réglages, « Carte SIM », choisir une carte de l'inventaire. « Retirer la carte » la rend à l'inventaire (refusé s'il est plein).",
+        "Changer de téléphone : retirer la carte et la glisser dans l'autre, le numéro la suit."
       ],
+      "flow": ["Demande", "Fondateur", "Main propre", "Téléphone"],
       "numbers": [
-        {"k": "Numéro", "v": "06 xx xx xx xx"}
+        {"k": "Numéro", "v": "06 xx xx xx xx"},
+        {"k": "Demandes", "v": "1 par joueur et par opérateur"},
+        {"k": "États", "v": "active, suspendue, désactivée"}
       ],
       "staff": [
-        "Contacts et conversations suivent la carte.",
-        "Se donne, se vend, se vole ; fouillable par le policier.",
-        "Une SIM sans nom ne porte aucun titulaire."
+        "Aucune recette : seul le fondateur d'un opérateur l'émet. Une carte émise sans titulaire s'appelle « SIM sans nom ».",
+        "Se donne, se vend, se vole ; la fouille par le policier viendra avec son lot.",
+        "Une copie faite avant une insertion est « non reconnue » ; de deux copies à jour, la dernière glissée prend la ligne. Jamais deux lignes.",
+        "En créatif, une carte déplacée dans l'inventaire devient morte. Carte morte, perdue ou détruite : le fondateur la rend par « Remplacer » (même numéro, l'ancienne ne vaut plus rien).",
+        "Suspendue : plus de signal jusqu'à la réactivation. Désactivée (opérateur supprimé) : pour toujours.",
+        "Un téléphone détruit emporte sa carte, qui reste active et comptée par les antennes tant qu'elle n'est ni suspendue ni remplacée.",
+        "Contacts et conversations suivront la carte au lot T3."
       ]
     },
     {
@@ -160,28 +168,67 @@
       "num": 89,
       "name": "Antenne",
       "kind": "machine",
-      "status": "prevu",
+      "status": "dispo",
       "lot": "Lot T2",
-      "image": null,
-      "what": "Bloc qui fonde ou étend un opérateur ; consomme du FE, encaisse les abonnements.",
-      "who": {"fabrique": "Ingénieur", "pose": "Tous", "utilise": "Fondateur", "casse": "Fondateur, maire, staff"},
+      "image": {"type": "item", "file": "antenna.png"},
+      "what": "Bloc qui fonde un opérateur ou étend le sien ; il consomme du FE et donne le réseau autour de lui.",
+      "who": {"fabrique": "Ingénieur (établi)", "pose": "Tous", "gere": "Fondateur, maire, staff, ingénieur avec l'outil de maintenance", "casse": "Fondateur, maire, staff, ingénieur avec l'outil de maintenance"},
       "steps": [
-        "Poser sa première antenne fonde un opérateur.",
-        "L'alimenter en FE par n'importe quel câble.",
-        "Sans courant : panne, plus de signal."
+        "La fabriquer à l'établi d'ingénieur : 1 paratonnerre, 2 lingots de cuivre, 1 bloc de redstone, 2 lingots de fer, 1 barreaux de fer.",
+        "La poser, puis clic droit : donner un nom à l'opérateur (1 à 24 caractères, unique). Le poseur en devient le fondateur ; un joueur n'a qu'un opérateur.",
+        "Les antennes que le fondateur pose ensuite rejoignent son opérateur ; la première est la principale, il peut en désigner une autre.",
+        "L'alimenter en FE par un câble. Seul le chunk de l'antenne reste chargé : le générateur doit s'y trouver, ou être chargé autrement.",
+        "Sans courant ou en panne : hors service, voyant éteint, plus de signal."
       ],
       "flow": ["Générateur", "Câble", "Antenne", "Signal"],
       "numbers": [
         {"k": "Portée", "v": "270 blocs"},
+        {"k": "4 barres", "v": "sous 67,5 blocs"},
+        {"k": "3 barres", "v": "sous 135 blocs"},
+        {"k": "2 barres", "v": "sous 202,5 blocs"},
+        {"k": "1 barre", "v": "jusqu'à 270 blocs"},
         {"k": "Veille", "v": "40 FE/t"},
         {"k": "Par SIM active", "v": "+6 FE/t"},
-        {"k": "Par appel", "v": "+9 FE/t"},
-        {"k": "Par FaceTime", "v": "+24 FE/t"}
+        {"k": "Par appel (lot T3)", "v": "+9 FE/t"},
+        {"k": "Par FaceTime (lot T4)", "v": "+24 FE/t"},
+        {"k": "Réserve", "v": "40 000 FE"},
+        {"k": "Réception", "v": "4 000 FE/t"}
       ],
       "staff": [
-        "Portée et consommations réglables.",
-        "Signal de 0 à 4 barres ; à zéro, l'appel coupe.",
-        "Un ingénieur la casse avec l'outil de maintenance."
+        "Chaque antenne en service paie 6 FE/t par carte active de son opérateur, insérée ou non.",
+        "Chunk gardé chargé (`antennaKeepsChunkLoaded`) ; coût serveur de nombreuses antennes non mesuré. Réglage coupé, serveur relancé puis réglage rallumé : les antennes loin des joueurs restent hors service jusqu'au passage d'un joueur.",
+        "Elle s'use et tombe en panne comme les autres machines ; l'ingénieur la répare.",
+        "Protégée : ni pistons, ni explosions, ni Wither ni dragon, ni machines de Create, ni faux joueurs. Les autres joueurs lisent seulement à quel opérateur elle est.",
+        "Démontée, l'objet garde son opérateur : seul un ayant droit la repose.",
+        "Opérateur supprimé : l'antenne s'arrête et revient à l'ancien fondateur, objet démonté compris ; restée posée, il la fonde de nouveau ou la repose.",
+        "Portée, consommations, réserve et réception réglables dans `oneforallsurvival-phone.toml` (serveur)."
+      ]
+    },
+    {
+      "id": "outil-maintenance",
+      "name": "Outil de maintenance",
+      "kind": "objet",
+      "status": "dispo",
+      "lot": "Lot T2",
+      "image": {"type": "item", "file": "maintenance_tool.png"},
+      "what": "Sans lui, le métier d'ingénieur ne suffit pas pour toucher aux antennes, au trésor et au tableau de la mairie.",
+      "who": {"fabrique": "Ingénieur (établi)", "utilise": "Ingénieur"},
+      "steps": [
+        "Le fabriquer à l'établi d'ingénieur : 2 lingots de fer, 1 lingot de cuivre, 1 bâton.",
+        "Le tenir dans une main, puis clic droit sur une antenne : le panneau de l'opérateur, sans toucher aux cartes, au tarif ni à la caisse.",
+        "Le tenir pour casser une antenne et pour en reposer une qui porte un opérateur.",
+        "Le tenir pour déplacer le trésor et le tableau de la mairie.",
+        "Le testeur en main principale garde son rapport de machine."
+      ],
+      "numbers": [
+        {"k": "Par pile", "v": "1"},
+        {"k": "Usure", "v": "aucune"}
+      ],
+      "staff": [
+        "Il faut le rôle d'ingénieur et l'outil : un autre joueur qui le tient n'a rien, un faux joueur (déployeur) jamais.",
+        "Perdu ou volé : sans effet sans le rôle, mais rien ne le rend à l'ingénieur, qui en refait un.",
+        "Le maire et l'équipe n'en ont pas besoin.",
+        "L'ingénieur outillé voit au panneau les cartes (numéros et titulaires) et les demandes de l'opérateur."
       ]
     },
     {
@@ -189,15 +236,34 @@
       "num": 90,
       "name": "Panneau de l'opérateur",
       "kind": "appli",
-      "status": "prevu",
+      "status": "dispo",
       "lot": "Lot T2",
-      "image": null,
-      "what": "Gestion du fondateur : SIM, tarif, consommation, sur l'antenne ou l'appli.",
-      "who": {"utilise": "Fondateur"},
+      "image": {"type": "item", "file": "antenna.png"},
+      "what": "Cartes, tarif et consommation d'un opérateur, au panneau de l'antenne ou dans l'appli « Antenne » du téléphone.",
+      "who": {"utilise": "Fondateur ; au panneau aussi maire, staff et ingénieur outillé"},
       "steps": [
-        "Émettre, refuser, suspendre ou réactiver une SIM.",
-        "Fixer le tarif par jour.",
-        "Suivre recette, électricité et état du relais."
+        "Clic droit sur une antenne : onglets « Réseau », « Cartes », « Tarif et caisse ».",
+        "Réseau : consommation en direct de chaque antenne (veille, cartes, trafic, jour et veille), antenne principale à désigner, état du relais.",
+        "Cartes (fondateur seul) : émettre ou refuser une demande, émettre une SIM sans nom, suspendre, réactiver, « Remplacer » (même numéro).",
+        "Tarif par jour (fondateur, maire, staff) : il vaut au lendemain, sous le plafond du maire ; les abonnés sont prévenus. Aucune pièce n'est prélevée avant le lot T6.",
+        "Caisse (fondateur et staff) : en personne, sur l'antenne principale. Elle reste vide jusqu'au lot T6.",
+        "Appli « Antenne » : une icône sur le téléphone du fondateur. Elle demande une carte active de son opérateur dans ce téléphone, au moins une barre et le mode avion coupé.",
+        "Sinon l'icône est grisée, mode avion compris, et un toucher répond « Pas de réseau. ».",
+        "Dans l'appli, ni caisse ni nom : ces gestes se font sur l'antenne. Sans MCEF, « Antenne » ouvre le panneau depuis le téléphone."
+      ],
+      "numbers": [
+        {"k": "Tarif", "v": "0 à 1 000 cuivres par jour"},
+        {"k": "Plafond de départ", "v": "20 cuivres par jour"},
+        {"k": "Demandes en attente", "v": "32 par opérateur"},
+        {"k": "Mise à jour", "v": "toutes les 20 tics"}
+      ],
+      "staff": [
+        "Maire ou équipe (niveau 2) : `/operator list [page]`, `/operator cap <cuivres>`, `/operator set <opérateur> tariff <cuivres>`, `/operator owner <opérateur> <joueur>` ; un nom avec des espaces s'écrit entre guillemets.",
+        "`/operator remove <opérateur> <motif>`, puis `/operator remove <opérateur> confirm` dans les 60 s : cartes désactivées, antennes arrêtées, demandes retirées, caisse versée au fondateur, chacun prévenu.",
+        "Plafond et tarif changent au lendemain ; un tarif au-dessus d'un nouveau plafond y est ramené à la clôture du jour.",
+        "Réglages dans `oneforallsurvival-phone.toml` (serveur) : `phoneTariffMax`, `phoneDefaultTariffCap`, `simRequestsMax`.",
+        "L'ingénieur outillé voit les cartes et les demandes sans pouvoir y toucher.",
+        "Chaque geste est vérifié par le serveur ; les commandes `/operator` sont notées au registre de l'économie."
       ]
     },
     {
@@ -205,15 +271,26 @@
       "num": 91,
       "name": "Relais entre opérateurs",
       "kind": "systeme",
-      "status": "prevu",
+      "status": "dispo",
       "lot": "Lot T2",
-      "image": null,
-      "what": "Les antennes alimentées se relaient seules, sans réglage ni portée.",
+      "image": {"type": "item", "file": "antenna.png"},
+      "what": "Les antennes alimentées se relaient seules, sans réglage ni portée entre elles.",
       "steps": [
-        "Chacune des deux antennes consomme pour l'appel.",
-        "Antenne de l'appelé en panne : message « Injoignable »."
+        "Un téléphone ne parle qu'aux antennes de son opérateur ; entre deux endroits ou deux opérateurs, les antennes se relaient.",
+        "Le panneau de l'opérateur montre pour chacun : joignable, hors tension ou sans antenne.",
+        "Les appels arrivent au lot T3 : l'antenne de l'appelant et celle de l'appelé consommeront alors pour l'appel.",
+        "Antenne de l'appelé en panne ou sans courant : l'appel répondra « Injoignable · Antenne de <opérateur> hors tension »."
       ],
-      "flow": ["Téléphone A", "Antenne A", "Antenne B", "Téléphone B"]
+      "flow": ["Téléphone A", "Antenne A", "Antenne B", "Téléphone B"],
+      "numbers": [
+        {"k": "Appel (lot T3)", "v": "+9 FE/t par antenne"},
+        {"k": "Message (lot T3)", "v": "100 FE par antenne"}
+      ],
+      "staff": [
+        "Au lot T2, le trajet se calcule et le relais s'affiche ; aucun appel ni message n'existe encore.",
+        "Une antenne qui relaie les deux bouts ne compte qu'une fois.",
+        "Les urgences (lot T3) passeront par n'importe quelle antenne en service, de tout opérateur."
+      ]
     },
     {
       "id": "abonnement",
@@ -414,17 +491,22 @@
       "status": "dispo",
       "lot": "Lot T1",
       "image": null,
-      "what": "Mode avion, code, fond d'écran, batterie et informations ; la carte SIM, l'opérateur et l'abonnement s'afficheront aux lots suivants.",
+      "what": "Carte SIM, opérateur, mode avion, code, fond d'écran, batterie et informations ; l'abonnement s'affichera au lot T6.",
       "who": {"utilise": "Son porteur"},
       "steps": [
-        "Activer le mode avion : l'icône avion remplace « Pas de service » dans la barre d'état (sans autre effet tant que le réseau n'existe pas).",
+        "Carte SIM : voir la carte logée, en glisser une de l'inventaire, la retirer ou en demander une.",
+        "Opérateur et signal : la barre d'état montre le nom de l'opérateur et 0 à 4 barres, ou « Pas de SIM », « SIM inconnue », « SIM suspendue », « SIM inactive », « Pas de service ».",
+        "Activer le mode avion : plus de réseau (aucune barre, aucune demande de carte, appli « Antenne » grisée) ; « Mode avion » s'affiche dans la barre d'état.",
         "Choisir un des quatre fonds d'écran : aube, lagon, jungle ou nuit.",
         "Changer le code de verrouillage (propriétaire seulement), ou verrouiller le téléphone tout de suite.",
         "Lire la batterie et le nom du propriétaire, ou effacer le téléphone avec son code."
       ],
       "staff": [
-        "Les lignes Carte SIM, Opérateur et Abonnement sont déjà dessinées mais restent vides : « Aucune carte SIM » et « — » jusqu'aux lots T2 et T6.",
-        "Page HTML dans MCEF ; sans MCEF, l'écran de repli propose les mêmes réglages (mode avion, fond suivant, changement de code, verrouiller, effacer).",
+        "Seul le propriétaire, téléphone déverrouillé, change de carte ou en demande une ; un autre joueur qui connaît le code voit la ligne sans pouvoir la toucher.",
+        "Écran verrouillé : opérateur et barres visibles, jamais le numéro ni le titulaire, ni la mention « Mode avion ».",
+        "La ligne Abonnement affiche « Prélèvement à venir » jusqu'au lot T6.",
+        "Le signal est relevé toutes les 20 tics tant que l'écran est ouvert (`signalRefreshTicks`).",
+        "Page HTML dans MCEF ; sans MCEF, l'écran de repli propose les mêmes réglages (carte SIM, mode avion, fond suivant, changement de code, verrouiller, effacer).",
         "Mode avion et fond d'écran sont gardés par le serveur avec le téléphone (une copie du même téléphone les partage)."
       ]
     }
