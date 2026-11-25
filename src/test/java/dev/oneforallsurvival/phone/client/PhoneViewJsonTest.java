@@ -129,7 +129,10 @@ class PhoneViewJsonTest {
         JsonObject net = PhoneViewJson.toJson(etat(Lock.UNLOCKED, "Alex", Result.NONE, pleine("Mairie")))
                 .getAsJsonObject("net");
         for (String cle : net.keySet()) {
-            assertTrue(corps.contains("n." + cle), "la page ne lit pas net." + cle);
+            // La clé entière : « n.founderApp » est aussi le début de « n.founderAppAvailable » (revue de la tâche 13b).
+            java.util.regex.Pattern lue = java.util.regex.Pattern.compile(
+                    "(?<![A-Za-z0-9_$])" + java.util.regex.Pattern.quote("n." + cle) + "(?![A-Za-z0-9_$])");
+            assertTrue(lue.matcher(corps).find(), "la page ne lit pas net." + cle);
         }
         assertTrue(js.contains("$('app-antenna').classList.toggle('off', !n.founderAppAvailable);"),
                 "l'icône n'est pas grisée d'après founderAppAvailable seul");
