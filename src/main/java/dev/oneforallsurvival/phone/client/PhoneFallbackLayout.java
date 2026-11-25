@@ -126,17 +126,19 @@ public final class PhoneFallbackLayout {
      * et entre eux une liste qui défile (une ligne par carte de l'inventaire, « Demander une carte », puis un opérateur
      * par ligne). {@code rows} ne garde que les lignes entièrement visibles au défilement {@code scroll} (ramené entre 0
      * et {@code maxScroll}) ; {@code rowStep} est le pas d'une ligne (hauteur et écart). Quand la liste défile, une barre
-     * fine ({@code track}, {@value #SIM_SCROLL_W} px, à droite de la liste) et son curseur ({@code thumb}) l'annoncent,
-     * et les lignes s'arrêtent avant elle ; sinon les deux sont nuls (revue de la tâche 12, I2).
+     * fine ({@code track}, {@value #SIM_SCROLL_W} px) et son curseur ({@code thumb}) l'annoncent, dans la marge droite du
+     * cadre, {@value #SIM_SCROLL_GAP} px après la liste (la marge fait 3 px au moins) : les lignes gardent toute la largeur
+     * de la liste ; sinon les deux sont nuls (revue de la tâche 12, I2, et sa relecture).
      */
     public record SimSheet(int textTop, Rect remove, Rect list, Map<String, Rect> rows, int scroll, int maxScroll,
             int rowStep, Rect back, @Nullable Rect track, @Nullable Rect thumb) {}
 
-    /** Les lignes de la feuille « Carte SIM », de {@value #MIN_ROW} à {@value #MAX_ROW} px : une ligne de texte et 5 px. */
+    /** La largeur de la barre de défilement de la feuille « Carte SIM ». */
     public static final int SIM_SCROLL_W = 2;
-    /** L'écart entre les lignes et la barre de défilement. */
-    public static final int SIM_SCROLL_GAP = 2;
+    /** L'écart entre la liste et la barre de défilement, dans la marge du cadre. */
+    public static final int SIM_SCROLL_GAP = 1;
 
+    /** Les lignes de la feuille « Carte SIM », de {@value #MIN_ROW} à {@value #MAX_ROW} px : une ligne de texte et 5 px. */
     public static int simRow(int lineHeight) {
         return clamp(lineHeight + 5);
     }
@@ -157,11 +159,10 @@ public final class PhoneFallbackLayout {
         Rect thumb = null;
         int rowWidth = inner.width();
         if (maxScroll > 0) {
-            track = new Rect(inner.x() + inner.width() - SIM_SCROLL_W, listTop, SIM_SCROLL_W, listHeight);
+            track = new Rect(inner.x() + inner.width() + SIM_SCROLL_GAP, listTop, SIM_SCROLL_W, listHeight);
             int thumbH = Math.min(listHeight, Math.max(6, listHeight * listHeight / (listHeight + maxScroll)));
             int thumbY = listTop + (int) ((long) (listHeight - thumbH) * shown / maxScroll);
             thumb = new Rect(track.x(), thumbY, SIM_SCROLL_W, thumbH);
-            rowWidth = Math.max(0, inner.width() - SIM_SCROLL_W - SIM_SCROLL_GAP);
         }
         Map<String, Rect> rows = new LinkedHashMap<>();
         for (int i = 0; i < ids.size(); i++) {

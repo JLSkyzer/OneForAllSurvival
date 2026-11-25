@@ -220,7 +220,16 @@ class PhoneFallbackLayoutTest {
             }
             Rect piste = haut.track();
             assertTrue(piste != null && haut.thumb() != null, "la liste défile sans barre à " + w + " x " + h);
-            dedans(piste, haut.list(), "barre");
+            // Relecture de la tâche 12 : la barre vit dans la marge droite, dans le cadre, hors de la liste ; les lignes
+            // gardent toute la largeur de la liste (les numéros entiers à 320 × 240).
+            Rect cadre = PhoneFrameLayout.fit(w, h);
+            dedans(piste, cadre, "barre");
+            assertTrue(piste.x() >= haut.list().x() + haut.list().width() + 1, "barre hors de la liste, 1 px d'écart : "
+                    + piste + " / " + haut.list());
+            assertEquals(haut.list().y(), piste.y(), "barre en face de la liste");
+            for (Rect r : haut.rows().values()) {
+                assertEquals(haut.list().width(), r.width(), "avec barre, la ligne garde toute la largeur de la liste");
+            }
             assertTrue(piste.width() >= 2 && piste.width() <= 4, "barre fine : " + piste);
             assertEquals(haut.list().height(), piste.height(), "barre de toute la hauteur de la liste");
             int bas = Integer.MAX_VALUE;

@@ -882,6 +882,11 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
             // Rétréci jusqu'au plancher (0,75), puis coupé par « … » : jamais illisible.
             PhoneFallbackLayout.StatusLine l = PhoneFallbackLayout.button(getMessage().getString(), getWidth(),
                     font::width);
+            // Coupé au rendu (« ▾ Demander une car… ») : la bulle donne le texte entier, s'il n'en a pas déjà une
+            // (relecture de la tâche 12).
+            if (l.cut() && getTooltip() == null) {
+                setTooltip(Tooltip.create(getMessage()));
+            }
             float s = l.scale();
             int w = font.width(l.text());
             g.pose().pushPose();

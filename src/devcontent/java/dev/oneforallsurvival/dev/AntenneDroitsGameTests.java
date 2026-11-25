@@ -707,7 +707,9 @@ public final class AntenneDroitsGameTests {
                     double px = (objet.getY() - abs.getY()) * 16.0;
                     objet.discard();
                     essai.close();
-                    helper.assertTrue(px < 3.0, "l'objet s'est posé à " + px + " px : perché sur un hauban");
+                    // Posé sur la semelle (2 px), ni perché sur un hauban (9 px) ni tombé à travers (0 px).
+                    helper.assertTrue(Math.abs(px - 2.0) < 0.1, "l'objet s'est posé à " + px
+                            + " px : attendu sur la semelle (2 px)");
                 })
                 .thenSucceed();
     }
