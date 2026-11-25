@@ -141,6 +141,31 @@ public final class OperatorPanels {
         }
     }
 
+    /**
+     * Ferme tout de suite (le client en est prévenu) les panneaux ouverts qui montrent cet opérateur, sur un bloc ou dans
+     * l'appli « Antenne » d'un téléphone ; seulement ceux de {@code onlyPlayer} s'il n'est pas nul (geste du maire,
+     * tâche 11 : opérateur supprimé, ou ancien fondateur après un changement de propriétaire).
+     *
+     * @return le nombre de panneaux fermés
+     */
+    public static int closeOperator(MinecraftServer server, String operatorId, @Nullable UUID onlyPlayer) {
+        int closed = 0;
+        for (Map.Entry<UUID, Panel> entry : new ArrayList<>(OPEN.entrySet())) {
+            Panel panel = entry.getValue();
+            if (!operatorId.equals(panel.operatorId) || (onlyPlayer != null && !onlyPlayer.equals(entry.getKey()))) {
+                continue;
+            }
+            ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
+            if (player == null) {
+                OPEN.remove(entry.getKey(), panel);
+            } else {
+                closeByServer(player, panel);
+            }
+            closed++;
+        }
+        return closed;
+    }
+
     /** Le retour d'un geste, pour la ligne d'état du panneau ouvert de ce joueur (rien s'il n'en a pas). */
     static void tellPanel(ServerPlayer player, net.minecraft.network.chat.Component message) {
         Panel panel = OPEN.get(player.getUUID());

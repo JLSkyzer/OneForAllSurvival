@@ -84,11 +84,24 @@ public final class AntennaBlock extends ElectricMachineBlock {
 
     /**
      * L'opérateur que reprend une antenne posée par {@code player} avec {@code stack}, ou vide pour une antenne à fonder.
-     * L'objet qui porte un opérateur existant le reprend ; sinon, l'opérateur de ce joueur s'il en a un.
+     * L'objet qui porte un opérateur existant le reprend ; l'objet d'un opérateur supprimé dont l'ancien fondateur est
+     * connu ({@link #formerOf}) ne reprend rien (antenne à fonder pour cet ancien fondateur, jamais l'opérateur d'un
+     * autre) ; sinon, l'opérateur de ce joueur s'il en a un.
      */
     private static Optional<PhoneOperator> resumed(PhoneOperators registry, Player player, ItemStack stack) {
         Optional<PhoneOperator> carried = AntennaItem.operatorOf(stack).flatMap(registry::byId);
-        return carried.isPresent() ? carried : registry.byFounder(player.getUUID());
+        if (carried.isPresent()) {
+            return carried;
+        }
+        if (formerOf(registry, stack).isPresent()) {
+            return Optional.empty();
+        }
+        return registry.byFounder(player.getUUID());
+    }
+
+    /** L'ancien fondateur de l'opérateur supprimé que porte cet objet, s'il est connu du registre. */
+    private static Optional<PhoneOperators.FormerFounder> formerOf(PhoneOperators registry, ItemStack stack) {
+        return AntennaItem.operatorOf(stack).flatMap(registry::formerFounder);
     }
 
     @Nullable
@@ -99,11 +112,16 @@ public final class AntennaBlock extends ElectricMachineBlock {
             return null;
         }
         if (context.getLevel() instanceof ServerLevel level && player instanceof ServerPlayer serverPlayer) {
-            Optional<PhoneOperator> operator = resumed(PhoneOperators.get(level.getServer()), player,
-                    context.getItemInHand());
-            if (operator.isPresent() && !AntennaRules.mayManage(player, operator.get().founder())) {
-                serverPlayer.displayClientMessage(Component.translatable(MESSAGE + "not_yours", operator.get().name()),
-                        true);
+            PhoneOperators registry = PhoneOperators.get(level.getServer());
+            Optional<PhoneOperator> operator = resumed(registry, player, context.getItemInHand());
+            Optional<PhoneOperators.FormerFounder> former = formerOf(registry, context.getItemInHand());
+            // L'objet d'un opérateur supprimé appartient à son ancien fondateur : ses ayants droit seuls le reposent.
+            boolean refused = operator.isPresent() ? !AntennaRules.mayManage(player, operator.get().founder())
+                    : former.isPresent() && !AntennaRules.mayManage(player, former.get().uuid());
+            if (refused) {
+                serverPlayer.displayClientMessage(operator.isPresent()
+                        ? Component.translatable(MESSAGE + "not_yours", operator.get().name())
+                        : Component.translatable(MESSAGE + "not_yours_removed", former.get().name()), true);
                 // Le client a prédit la pose et retiré l'objet de sa main : on lui renvoie l'inventaire réel.
                 serverPlayer.containerMenu.sendAllDataToRemote();
                 return null;
@@ -122,7 +140,14 @@ public final class AntennaBlock extends ElectricMachineBlock {
         PhoneOperators registry = PhoneOperators.get(server.getServer());
         Optional<PhoneOperator> operator = resumed(registry, player, stack);
         // Une antenne posée ne garde rien de l'objet (un BlockEntityTag copié en créatif) : identité neuve, ou aucune.
-        be.detach(player.getUUID(), player.getGameProfile().getName());
+        // L'objet d'un opérateur supprimé redevient une antenne à fonder pour l'ancien fondateur, pas pour le poseur.
+        Optional<PhoneOperators.FormerFounder> former = operator.isPresent() ? Optional.empty()
+                : formerOf(registry, stack);
+        if (former.isPresent()) {
+            be.detach(former.get().uuid(), former.get().name());
+        } else {
+            be.detach(player.getUUID(), player.getGameProfile().getName());
+        }
         if (operator.isPresent()) {
             inscribe(server, pos, be, operator.get().id());
             LOGGER.info("Telephone : {} a pose une antenne de l'operateur {} en {} ({})",
@@ -162,12 +187,14 @@ public final class AntennaBlock extends ElectricMachineBlock {
                 || !(level.getBlockEntity(pos) instanceof AntennaBlockEntity be) || be.operator().isPresent()) {
             return Optional.empty();
         }
-        UUID placer = be.placer();
+        // Une antenne restée posée d'un opérateur supprimé est à fonder pour son ancien fondateur (tâche 11).
+        PhoneOperators.FormerFounder idle = be.idleOwner();
+        UUID placer = idle == null ? null : idle.uuid();
         if (!AntennaRules.mayFoundFor(actor, placer)) {
             return Optional.empty();
         }
         UUID founder = placer == null ? actor.getUUID() : placer;
-        String founderName = placer == null ? actor.getGameProfile().getName() : be.placerName();
+        String founderName = placer == null ? actor.getGameProfile().getName() : idle.name();
         PhoneOperators registry = PhoneOperators.get(level.getServer());
         PhoneOperators.Result result = registry.found(founder, founderName, name, EconomyClock.now());
         if (result.founded()) {
@@ -217,13 +244,21 @@ public final class AntennaBlock extends ElectricMachineBlock {
     // Casse
     // ---------------------------------------------------------------------------------------------
 
-    /** Le propriétaire de l'antenne : le fondateur de son opérateur ; sans opérateur, qui l'a posée (nul si personne). */
+    /**
+     * Le propriétaire de l'antenne : le fondateur de son opérateur ; sans opérateur en service, l'ancien fondateur de
+     * l'opérateur supprimé qu'elle portait, sinon qui l'a posée ({@link AntennaBlockEntity#idleOwner} ; nul si personne).
+     */
     @Nullable
     static UUID owner(BlockGetter level, BlockPos pos) {
         if (!(level.getBlockEntity(pos) instanceof AntennaBlockEntity be)) {
             return null;
         }
-        return be.operator().map(PhoneOperator::founder).orElse(be.placer());
+        Optional<PhoneOperator> operator = be.operator();
+        if (operator.isPresent()) {
+            return operator.get().founder();
+        }
+        PhoneOperators.FormerFounder idle = be.idleOwner();
+        return idle == null ? null : idle.uuid();
     }
 
     /**
@@ -265,20 +300,29 @@ public final class AntennaBlock extends ElectricMachineBlock {
         }
     }
 
-    /** L'objet de l'antenne garde son opérateur (plus l'usure, par {@link ElectricMachineBlock}). */
+    /**
+     * L'objet de l'antenne garde son opérateur (plus l'usure, par {@link ElectricMachineBlock}) ; celui d'une antenne
+     * dont l'opérateur a été supprimé garde la marque de l'opérateur supprimé (reposé, il redevient une antenne à fonder
+     * pour l'ancien fondateur).
+     */
     @Override
     public List<ItemStack> getDrops(BlockState state, LootParams.Builder params) {
         List<ItemStack> drops = super.getDrops(state, params);
         // L'inscription est déjà effacée ici (onRemove passe avant) : on lit l'opérateur par son identifiant.
         if (params.getOptionalParameter(LootContextParams.BLOCK_ENTITY) instanceof AntennaBlockEntity be
                 && be.operatorId() != null) {
-            PhoneOperators.get(params.getLevel().getServer()).byId(be.operatorId()).ifPresent(operator -> {
-                for (ItemStack drop : drops) {
-                    if (drop.is(asItem())) {
-                        AntennaItem.markOperator(drop, operator);
+            PhoneOperators registry = PhoneOperators.get(params.getLevel().getServer());
+            Optional<PhoneOperator> operator = registry.byId(be.operatorId());
+            boolean removed = operator.isEmpty() && registry.formerFounder(be.operatorId()).isPresent();
+            for (ItemStack drop : drops) {
+                if (drop.is(asItem())) {
+                    if (operator.isPresent()) {
+                        AntennaItem.markOperator(drop, operator.get());
+                    } else if (removed) {
+                        AntennaItem.markRemovedOperator(drop, be.operatorId());
                     }
                 }
-            });
+            }
         }
         return drops;
     }

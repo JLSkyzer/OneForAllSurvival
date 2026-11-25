@@ -217,6 +217,7 @@ public final class AntenneDroitsGameTests {
                         AntennaChunks.release(level, antenne.pos());
                     }
                 }
+                OperateurDEssai.viderCaisse(registre, op);
                 registre.remove(op.id());
             });
         }

@@ -150,6 +150,10 @@ public final class OneForAllSurvival {
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.phone.net.OperatorActions::onLoggedOut);
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.phone.net.OperatorDay::onLoggedIn);
         dev.oneforallsurvival.phone.net.OperatorDay.install(dev.oneforallsurvival.phone.net.OperatorDay.SERVER);
+        // Lot T2, tâche 11 : /operator, les gestes du maire et de l'équipe sur les opérateurs (confirmations oubliées à
+        // l'arrêt du serveur).
+        MinecraftForge.EVENT_BUS.register(new dev.oneforallsurvival.phone.net.OperatorCommands());
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.phone.net.OperatorCommands::onServerStopped);
         // Le tableau de la mairie : les comptes publics partent à la connexion puis quand ils changent (1 fois par seconde).
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.town.TownFinances::onLoggedIn);
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.town.TownFinances::onServerTick);

@@ -43,10 +43,20 @@ public final class AntennaItem extends BlockItem {
         tag.putString(ITEM_OPERATOR_NAME, operator.name());
     }
 
+    /**
+     * Marque l'objet d'une antenne dont l'opérateur a été supprimé : l'identifiant reste (il désigne l'ancien fondateur,
+     * {@link PhoneOperators#formerFounder}) ; le nom n'est pas connu ici, l'infobulle dit « nouvelle antenne ».
+     */
+    public static void markRemovedOperator(ItemStack stack, String operatorId) {
+        CompoundTag tag = stack.getOrCreateTag();
+        tag.putString(ITEM_OPERATOR, operatorId);
+        tag.remove(ITEM_OPERATOR_NAME);
+    }
+
     @Override
     public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
         CompoundTag tag = stack.getTag();
-        if (tag != null && tag.contains(ITEM_OPERATOR)) {
+        if (tag != null && tag.contains(ITEM_OPERATOR) && !tag.getString(ITEM_OPERATOR_NAME).isEmpty()) {
             tooltip.add(Component.translatable("tooltip.oneforallsurvival.antenna.operator",
                     tag.getString(ITEM_OPERATOR_NAME)).withStyle(ChatFormatting.GRAY));
         } else {

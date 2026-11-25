@@ -99,6 +99,23 @@ public final class AntennaBlockEntity extends ElectricMachineBlockEntity {
         setChanged();
     }
 
+    /**
+     * À qui appartient cette antenne tant qu'elle n'a pas d'opérateur en service : le fondateur, à sa suppression, de
+     * l'opérateur qu'elle portait (tâche 11 : elle redevient une antenne à fonder pour lui, comme le poste d'E6) ;
+     * sinon qui l'a posée ; nul si personne n'est noté. Côté serveur ; côté client, le poseur.
+     */
+    @Nullable
+    public PhoneOperators.FormerFounder idleOwner() {
+        if (operatorId != null && level instanceof ServerLevel server) {
+            Optional<PhoneOperators.FormerFounder> former =
+                    PhoneOperators.get(server.getServer()).formerFounder(operatorId);
+            if (former.isPresent()) {
+                return former.get();
+            }
+        }
+        return placer == null ? null : new PhoneOperators.FormerFounder(placer, placerName);
+    }
+
     /** L'opérateur de cette antenne, s'il existe (côté serveur seulement). */
     public Optional<PhoneOperator> operator() {
         if (operatorId == null || !(level instanceof ServerLevel server)) {

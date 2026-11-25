@@ -348,15 +348,75 @@ class PhoneOperatorsTest {
     }
 
     @Test
-    void laCaisseNonVideEstPerdueAvecLOperateur() {
-        // Comportement actuel, écrit tel quel : remove ne protège pas la caisse (le refus viendra à la tâche 11).
+    void uneCaisseNonVideEmpecheLeRetrait() {
+        // Tâche 11 : la caisse se verse d'abord au fondateur ; tant qu'elle n'est pas vide, rien ne bouge.
         PhoneOperators registry = new PhoneOperators();
         PhoneOperator op = found(registry, U1, "Mairie");
+        SimCard card = registry.issue(op.id(), U3, "Alice", RandomSource.create(7L), 1L);
         registry.deposit(op.id(), Coin.GOLD, 3L);
+        registry.setDirty(false);
+        assertFalse(registry.remove(op.id()));
+        assertFalse(registry.isDirty());
+        assertTrue(registry.byId(op.id()).isPresent());
+        assertEquals(3L, registry.till(op.id()).get(Coin.GOLD));
+        assertEquals(SimCard.State.ACTIVE, registry.card(card.simId()).orElseThrow().state());
+        assertTrue(registry.formerFounder(op.id()).isEmpty());
+        // Vidée, la caisse ne retient plus rien.
+        assertTrue(registry.withdraw(op.id(), Coin.GOLD, 3L));
         assertTrue(registry.remove(op.id()));
-        assertTrue(registry.till(op.id()).isEmpty());
-        assertEquals(0L, registry.tillRoom(op.id(), Coin.GOLD));
-        assertThrows(IllegalArgumentException.class, () -> registry.deposit(op.id(), Coin.GOLD, 1L));
+        assertTrue(registry.byId(op.id()).isEmpty());
+    }
+
+    @Test
+    void lAncienFondateurEstGardeEtRelu() {
+        PhoneOperators registry = new PhoneOperators();
+        PhoneOperator op = found(registry, U1, "Mairie");
+        assertTrue(registry.formerFounder(op.id()).isEmpty(), "un opérateur vivant n'a pas d'ancien fondateur");
+        assertTrue(registry.formerFounder(null).isEmpty());
+        assertTrue(registry.remove(op.id()));
+        PhoneOperators.FormerFounder former = registry.formerFounder(op.id()).orElseThrow();
+        assertEquals(U1, former.uuid());
+        assertEquals("Fondateur", former.name());
+        PhoneOperators back = reload(registry);
+        assertEquals(Optional.of(former), back.formerFounder(op.id()));
+        assertTrue(back.formerFounder("inconnu").isEmpty());
+    }
+
+    @Test
+    void desactiverLesCartesRendCellesQuiChangent() {
+        PhoneOperators registry = new PhoneOperators();
+        RandomSource random = RandomSource.create(3L);
+        PhoneOperator op = found(registry, U1, "Mairie");
+        PhoneOperator other = found(registry, U2, "Sud");
+        SimCard active = registry.issue(op.id(), U3, "Alice", random, 1L);
+        SimCard suspended = registry.issue(op.id(), U4, "Bob", random, 2L);
+        registry.setState(suspended.simId(), SimCard.State.SUSPENDED);
+        SimCard elsewhere = registry.issue(other.id(), U3, "Alice", random, 3L);
+        int revision = registry.cardRevision();
+        registry.setDirty(false);
+        List<SimCard> changed = registry.deactivateCards(op.id());
+        assertEquals(2, changed.size());
+        assertTrue(registry.isDirty());
+        assertNotEquals(revision, registry.cardRevision());
+        assertEquals(0, registry.activeCards(op.id()));
+        assertEquals(SimCard.State.DEACTIVATED, registry.card(active.simId()).orElseThrow().state());
+        assertEquals(SimCard.State.DEACTIVATED, registry.card(suspended.simId()).orElseThrow().state());
+        assertEquals(SimCard.State.ACTIVE, registry.card(elsewhere.simId()).orElseThrow().state());
+        registry.setDirty(false);
+        assertTrue(registry.deactivateCards(op.id()).isEmpty(), "une seconde fois : rien ne change");
+        assertFalse(registry.isDirty());
+    }
+
+    @Test
+    void lePlafondDuLendemainSeRemetTelQuIlEtait() {
+        PhoneOperators registry = new PhoneOperators();
+        registry.setNextTariffCap(9L);
+        registry.setDirty(false);
+        registry.resetNextTariffCap(null);
+        assertTrue(registry.isDirty());
+        assertTrue(registry.nextTariffCap().isEmpty());
+        registry.resetNextTariffCap(4L);
+        assertEquals(Optional.of(4L), registry.nextTariffCap());
     }
 
     // ---------------------------------------------------------------------------------------------

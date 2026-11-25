@@ -89,7 +89,18 @@ public final class OperateurDEssai {
         return emise.get();
     }
 
-    /** Retire l'opérateur de ce joueur (ses cartes sont désactivées par le registre) et les inscriptions de ses antennes. */
+    /**
+     * Vide la caisse de cet opérateur (pièces des essais, jamais versées à personne) : le registre refuse de retirer un
+     * opérateur dont la caisse n'est pas vide (tâche 11).
+     */
+    public static void viderCaisse(PhoneOperators registre, PhoneOperator op) {
+        registre.till(op.id()).forEach((coin, n) -> registre.withdraw(op.id(), coin, n));
+    }
+
+    /**
+     * Retire l'opérateur de ce joueur (caisse vidée d'abord ; ses cartes sont désactivées par le registre) et les
+     * inscriptions de ses antennes.
+     */
     public static void oublier(MinecraftServer serveur, UUID fondateur) {
         PhoneOperators registre = PhoneOperators.get(serveur);
         registre.byFounder(fondateur).ifPresent(op -> {
@@ -100,6 +111,7 @@ public final class OperateurDEssai {
                     AntennaChunks.release(level, antenne.pos());
                 }
             }
+            viderCaisse(registre, op);
             registre.remove(op.id());
         });
     }

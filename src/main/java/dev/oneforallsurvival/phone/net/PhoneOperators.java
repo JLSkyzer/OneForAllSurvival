@@ -61,6 +61,12 @@ public final class PhoneOperators extends SavedData {
     /** Issue d'une fondation. */
     public enum Status { FOUNDED, BAD_NAME, NAME_TAKEN, ALREADY_HAS_ONE }
 
+    /**
+     * Le fondateur d'un opérateur supprimé, tel qu'il était à la suppression : les antennes restées posées et les objets
+     * d'antenne marqués de cet opérateur redeviennent des antennes à fonder pour lui (comme le poste d'E6).
+     */
+    public record FormerFounder(UUID uuid, String name) {}
+
     /** Ce qu'a donné {@link #found} : l'opérateur créé, ou nul si refusé. */
     public record Result(Status status, @Nullable PhoneOperator operator) {
 
@@ -85,6 +91,8 @@ public final class PhoneOperators extends SavedData {
     private final Set<String> usedNumbers = new LinkedHashSet<>();
     private final Map<UUID, SimRequest> requests = new LinkedHashMap<>();
     private final Map<UUID, AntennaRecord> antennas = new LinkedHashMap<>();
+    /** Identifiant d'un opérateur supprimé → son fondateur à la suppression (sauvegardé). */
+    private final Map<String, FormerFounder> formerFounders = new HashMap<>();
     /** Avis à donner à un joueur absent (texte sérialisé), lus à sa connexion ; au plus {@link #MAX_NOTICES} chacun. */
     private final Map<UUID, List<String>> notices = new HashMap<>();
     @Nullable
@@ -175,23 +183,51 @@ public final class PhoneOperators extends SavedData {
 
     /**
      * Retire cet opérateur du registre et désactive aussitôt toutes ses cartes (leurs numéros restent réservés pour
-     * toujours : aucune carte active ne survit à son opérateur). Rien d'autre ne bouge : ses antennes et ses demandes
-     * restent là où elles sont, à la charge de l'appelant.
+     * toujours : aucune carte active ne survit à son opérateur) ; son fondateur est noté comme ancien fondateur
+     * ({@link #formerFounder}). Rien d'autre ne bouge : ses antennes et ses demandes restent là où elles sont, à la
+     * charge de l'appelant ({@code OperatorCommands.remove} les retire).
      *
-     * <p>La caisse n'est pas protégée : l'appelant doit la verser avant (au fondateur) ; une caisse non vide est perdue
-     * avec l'opérateur. Le refus de retirer un opérateur dont la caisse n'est pas vide viendra avec la suite de la
-     * suppression (tâche 11).
+     * <p>Une caisse non vide n'est jamais perdue : l'appelant la verse d'abord au fondateur, sinon le retrait est refusé.
      *
-     * @return faux, et rien ne bouge, si l'opérateur n'existe pas
+     * @return faux, et rien ne bouge, si l'opérateur n'existe pas ou si sa caisse n'est pas vide
      */
     public boolean remove(String id) {
-        if (operators.remove(id) == null) {
+        PhoneOperator operator = operators.get(id);
+        if (operator == null || !operator.till().isEmpty()) {
             return false;
         }
-        cards.replaceAll((simId, card) -> card.operatorId().equals(id) ? card.withState(SimCard.State.DEACTIVATED) : card);
+        operators.remove(id);
+        deactivateCards(id);
+        formerFounders.put(id, new FormerFounder(operator.founder(), operator.founderName()));
         cardRevision++;
         setDirty();
         return true;
+    }
+
+    /**
+     * Désactive, pour toujours, toutes les cartes de cet opérateur qui ne l'étaient pas (numéros réservés).
+     *
+     * @return les cartes désactivées par cet appel, telles qu'elles étaient avant (titulaires à prévenir)
+     */
+    public List<SimCard> deactivateCards(String operatorId) {
+        List<SimCard> changed = new ArrayList<>();
+        for (Map.Entry<UUID, SimCard> entry : cards.entrySet()) {
+            SimCard card = entry.getValue();
+            if (card.operatorId().equals(operatorId) && card.state() != SimCard.State.DEACTIVATED) {
+                changed.add(card);
+                entry.setValue(card.withState(SimCard.State.DEACTIVATED));
+            }
+        }
+        if (!changed.isEmpty()) {
+            cardRevision++;
+            setDirty();
+        }
+        return changed;
+    }
+
+    /** Le fondateur, à sa suppression, de cet opérateur qui n'existe plus ; vide s'il existe ou est inconnu. */
+    public Optional<FormerFounder> formerFounder(@Nullable String id) {
+        return id == null || operators.containsKey(id) ? Optional.empty() : Optional.ofNullable(formerFounders.get(id));
     }
 
     /**
@@ -584,6 +620,12 @@ public final class PhoneOperators extends SavedData {
         setDirty();
     }
 
+    /** Remet le plafond du lendemain tel qu'il était (nul : aucun changement prévu). Pour les essais. */
+    public void resetNextTariffCap(@Nullable Long cap) {
+        nextTariffCap = cap == null ? null : Math.max(0L, cap);
+        setDirty();
+    }
+
     /**
      * Clôture de minuit : le plafond du lendemain, s'il y en a un, entre en vigueur ; puis chaque opérateur prend le
      * tarif qu'il a demandé pour aujourd'hui (le sien s'il n'a rien demandé), ramené au plafond en vigueur (même s'il
@@ -728,6 +770,15 @@ public final class PhoneOperators extends SavedData {
             noticeList.add(entry);
         });
         tag.put("notices", noticeList);
+        ListTag formerList = new ListTag();
+        formerFounders.forEach((id, former) -> {
+            CompoundTag line = new CompoundTag();
+            line.putString("id", id);
+            line.putUUID("founder", former.uuid());
+            line.putString("name", former.name());
+            formerList.add(line);
+        });
+        tag.put("formerFounders", formerList);
         if (tariffCap != null) {
             tag.putLong("tariffCap", tariffCap);
         }
@@ -799,6 +850,13 @@ public final class PhoneOperators extends SavedData {
                 if (!lines.isEmpty()) {
                     registry.notices.put(row.getUUID("player"), lines);
                 }
+            }
+        }
+        for (CompoundTag row : rows(tag, "formerFounders")) {
+            if (!row.getString("id").isEmpty() && row.hasUUID("founder")
+                    && !registry.operators.containsKey(row.getString("id"))) {
+                registry.formerFounders.put(row.getString("id"),
+                        new FormerFounder(row.getUUID("founder"), row.getString("name")));
             }
         }
         registry.tariffCap = tag.contains("tariffCap", Tag.TAG_ANY_NUMERIC)

@@ -75,6 +75,16 @@ public final class EconomyLedger extends SavedData {
     public static final String KIND_POWER_OWNER = "power.owner";
     public static final String KIND_POWER_REMOVE = "power.remove";
 
+    /**
+     * Genres des lignes du journal des gestes du maire et de l'équipe sur les opérateurs du téléphone (lot T2, tâche
+     * 11), comme ceux de l'électricité : le montant est le réglage en cuivres (plafond, tarif), la caisse versée au
+     * fondateur (suppression), ou 0.
+     */
+    public static final String KIND_PHONE_CAP = "phone.cap";
+    public static final String KIND_PHONE_TARIFF = "phone.tariff";
+    public static final String KIND_PHONE_OWNER = "phone.owner";
+    public static final String KIND_PHONE_REMOVE = "phone.remove";
+
     /** Factures d'électricité payées (prélevées ou réglées par l'objet), et leur total en cuivres. */
     private long electricityBills;
     private long electricityTotal;
