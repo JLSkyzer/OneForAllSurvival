@@ -215,7 +215,8 @@ public final class PhoneSims {
      * nom). Elle arrive dans l'inventaire du fondateur, jamais au sol.
      *
      * @return la pile émise (une copie), ou vide sans rien émettre ni réserver : faux joueur, opérateur inconnu du
-     *         registre, joueur qui n'en est pas le fondateur, ou inventaire plein
+     *         registre, joueur qui n'en est pas le fondateur, opérateur à son plafond de cartes
+     *         ({@link PhoneOperators#mayIssue}), ou inventaire plein
      */
     public static Optional<ItemStack> issueTo(ServerPlayer founder, PhoneOperator op, @Nullable UUID holder,
             String holderName, long now) {
@@ -224,7 +225,8 @@ public final class PhoneSims {
         }
         PhoneOperators registry = PhoneOperators.get(founder.server);
         Optional<PhoneOperator> current = registry.byId(op.id());
-        if (current.isEmpty() || !AntennaRules.mayManageCards(founder, current.get())) {
+        if (current.isEmpty() || !AntennaRules.mayManageCards(founder, current.get())
+                || !registry.mayIssue(current.get().id())) {
             return Optional.empty();
         }
         Inventory inventory = founder.getInventory();

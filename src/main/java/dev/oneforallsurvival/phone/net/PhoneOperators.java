@@ -44,7 +44,8 @@ import net.minecraft.world.level.saveddata.SavedData;
  * {@code usedNumbers} garde tous les numéros jamais émis, cartes désactivées comprises, et se sauvegarde. Le registre
  * ne crée ni ne détruit aucune pièce : la caisse ne reçoit que ce que l'appelant a pris ailleurs.
  *
- * <p>Le jeton d'une carte ({@link SimCard#token()}) est un secret : rien ici ne l'écrit dans un message d'erreur.
+ * <p>Le jeton d'une carte ({@link SimCard#token()}) est une preuve de présence, pas un secret fort (voir
+ * {@link SimCardItem}) : rien ici ne l'écrit pour autant dans un message d'erreur.
  */
 public final class PhoneOperators extends SavedData {
 
@@ -255,11 +256,16 @@ public final class PhoneOperators extends SavedData {
      * l'identifiant, que le client voit).
      *
      * @throws IllegalArgumentException si l'opérateur n'existe pas (rien n'est tiré ni réservé)
-     * @throws IllegalStateException si le plan de numérotation est saturé ({@link SimNumbers#draw})
+     * @throws IllegalStateException si l'opérateur est à son plafond de cartes ({@link #mayIssue} : rien n'est tiré ni
+     *         réservé), ou si le plan de numérotation est saturé ({@link SimNumbers#draw})
      */
     public SimCard issue(String operatorId, @Nullable UUID holder, String holderName, RandomSource random, long now) {
         if (!operators.containsKey(operatorId)) {
             throw new IllegalArgumentException("opérateur inconnu " + operatorId);
+        }
+        if (!mayIssue(operatorId)) {
+            throw new IllegalStateException("plafond de " + PhoneConfig.simCardsMax() + " cartes atteint pour "
+                    + operatorId);
         }
         String number = SimNumbers.draw(random, usedNumbers::contains);
         UUID simId;
@@ -328,6 +334,25 @@ public final class PhoneOperators extends SavedData {
             }
         }
         return out;
+    }
+
+    /** Combien de cartes non désactivées (actives ou suspendues) cet opérateur a-t-il ? */
+    public int liveCards(String operatorId) {
+        int count = 0;
+        for (SimCard card : cards.values()) {
+            if (card.state() != SimCard.State.DEACTIVATED && card.operatorId().equals(operatorId)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Cet opérateur peut-il émettre une carte de plus ? Faux s'il a déjà {@link PhoneConfig#simCardsMax()} cartes non
+     * désactivées (revue finale du lot T2, I3 : sans borne, un fondateur faisait grossir le registre sans fin).
+     */
+    public boolean mayIssue(String operatorId) {
+        return liveCards(operatorId) < PhoneConfig.simCardsMax();
     }
 
     /** Combien de cartes actives (ni suspendues ni désactivées) cet opérateur a-t-il ? */
@@ -629,7 +654,7 @@ public final class PhoneOperators extends SavedData {
     /**
      * Clôture de minuit : le plafond du lendemain, s'il y en a un, entre en vigueur ; puis chaque opérateur prend le
      * tarif qu'il a demandé pour aujourd'hui (le sien s'il n'a rien demandé), ramené au plafond en vigueur (même s'il
-     * n'a rien demandé : un plafond abaissé s'applique à tous).
+     * n'a rien demandé : un plafond abaissé s'applique à tous) et à {@code phoneTariffMax} (un réglage abaissé aussi).
      *
      * @return un changement par opérateur dont le tarif a bougé ou a été ramené au plafond ; vide si rien de nouveau
      */
@@ -639,7 +664,9 @@ public final class PhoneOperators extends SavedData {
             nextTariffCap = null;
             setDirty();
         }
-        long cap = tariffCap();
+        // Le plafond du maire, et jamais au-dessus du tarif maximal de la configuration, s'il a été abaissé depuis
+        // (revue finale du lot T2, m5).
+        long cap = Math.min(tariffCap(), PhoneConfig.phoneTariffMax());
         List<DayChange> changes = new ArrayList<>();
         for (PhoneOperator operator : List.copyOf(operators.values())) {
             long wanted = operator.nextTariff() != null ? operator.nextTariff() : operator.tariff();

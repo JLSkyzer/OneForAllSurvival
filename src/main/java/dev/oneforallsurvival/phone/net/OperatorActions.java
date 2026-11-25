@@ -151,6 +151,9 @@ public final class OperatorActions {
                 if (!rights.cards()) {
                     yield notAllowed(player);
                 }
+                if (!registry.mayIssue(op.id())) {
+                    yield cardLimit(player);
+                }
                 Optional<ItemStack> issued = PhoneSims.issueTo(player, op, null, "", EconomyClock.now());
                 if (issued.isEmpty()) {
                     tell(player, Component.translatable(MESSAGE + "inventory_full"));
@@ -227,6 +230,10 @@ public final class OperatorActions {
         }
         SimRequest r = request.get();
         if (packet.action() == OperatorActionPacket.Action.ISSUE) {
+            if (!registry.mayIssue(op.id())) {
+                // La demande reste en attente : le fondateur la refuse, ou attend qu'une carte se libère.
+                return cardLimit(player);
+            }
             Optional<ItemStack> issued = PhoneSims.issueTo(player, op, r.player(), r.playerName(), EconomyClock.now());
             if (issued.isEmpty()) {
                 tell(player, Component.translatable(MESSAGE + "inventory_full"));
@@ -306,6 +313,12 @@ public final class OperatorActions {
 
     private static Result notAllowed(ServerPlayer player) {
         tell(player, Component.translatable(MESSAGE + "not_allowed"));
+        return Result.REFUSED;
+    }
+
+    /** L'opérateur est à son plafond de cartes non désactivées (revue finale du lot T2, I3) : rien n'est émis. */
+    private static Result cardLimit(ServerPlayer player) {
+        tell(player, Component.translatable(MESSAGE + "card_limit", PhoneConfig.simCardsMax()));
         return Result.REFUSED;
     }
 

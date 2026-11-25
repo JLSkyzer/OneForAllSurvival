@@ -1287,6 +1287,7 @@
   "message.oneforallsurvival.operator_panel.issued": "Carte émise pour %s : elle est dans votre inventaire.",
   "message.oneforallsurvival.operator_panel.issued_anonymous": "SIM sans nom émise : elle est dans votre inventaire.",
   "message.oneforallsurvival.operator_panel.inventory_full": "Inventaire plein : aucune carte émise.",
+  "message.oneforallsurvival.operator_panel.card_limit": "Plafond de %s cartes atteint : aucune carte émise.",
   "message.oneforallsurvival.operator_panel.refused": "Demande de %s refusée.",
   "message.oneforallsurvival.operator_panel.suspended": "Carte %s suspendue.",
   "message.oneforallsurvival.operator_panel.reactivated": "Carte %s réactivée.",

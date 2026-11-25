@@ -950,6 +950,73 @@ class PhoneOperatorsTest {
         assertEquals(1_000, PhoneConfig.phoneTariffMax());
         assertEquals(20, PhoneConfig.phoneDefaultTariffCap());
         assertEquals(20, PhoneConfig.signalRefreshTicks());
+        assertEquals(256, PhoneConfig.simCardsMax());
+    }
+
+    /**
+     * Revue finale, I3 : au plafond de cartes non désactivées (une suspendue comprise), une émission est refusée avant
+     * tout tirage, sans rien réserver ni salir ; l'autre opérateur n'est pas touché ; des cartes désactivées ne comptent
+     * plus.
+     */
+    @Test
+    void auPlafondUneEmissionEstRefuseeSansRienTirerNiSalir() {
+        PhoneConfig.overrideSimCardsMax(3);
+        try {
+            PhoneOperators registry = new PhoneOperators();
+            PhoneOperator op = found(registry, U1, "Mairie");
+            PhoneOperator other = found(registry, U2, "Sud");
+            RandomSource random = RandomSource.create(5L);
+            registry.issue(op.id(), U3, "Alice", random, 1L);
+            SimCard suspended = registry.issue(op.id(), null, "", random, 2L);
+            registry.issue(op.id(), U4, "Bob", random, 3L);
+            assertTrue(registry.setState(suspended.simId(), SimCard.State.SUSPENDED));
+            assertEquals(3, registry.liveCards(op.id()));
+            assertFalse(registry.mayIssue(op.id()));
+            assertTrue(registry.mayIssue(other.id()));
+            registry.setDirty(false);
+            int revision = registry.cardRevision();
+            CompoundTag before = registry.save(new CompoundTag());
+            RandomSource seed = RandomSource.create(42L);
+            assertThrows(IllegalStateException.class, () -> registry.issue(op.id(), U3, "Alice", seed, 4L));
+            assertFalse(registry.isDirty());
+            assertEquals(revision, registry.cardRevision());
+            assertEquals(before, registry.save(new CompoundTag()));
+            // Le générateur n'a pas servi : la carte suivante, chez l'autre, prend le premier numéro de la graine.
+            Set<String> used = new HashSet<>();
+            registry.cardsOf(op.id()).forEach(c -> used.add(c.number()));
+            SimCard elsewhere = registry.issue(other.id(), U3, "Alice", seed, 5L);
+            assertEquals(SimNumbers.draw(RandomSource.create(42L), used::contains), elsewhere.number());
+            // Désactivées, ses cartes ne comptent plus.
+            registry.deactivateCards(op.id());
+            assertEquals(0, registry.liveCards(op.id()));
+            assertTrue(registry.mayIssue(op.id()));
+            registry.issue(op.id(), null, "", random, 6L);
+            assertEquals(4, registry.cardsOf(op.id()).size());
+        } finally {
+            PhoneConfig.overrideSimCardsMax(null);
+        }
+    }
+
+    /** Revue finale, m5 : un {@code phoneTariffMax} abaissé ramène à la clôture un tarif en vigueur au-dessus de lui. */
+    @Test
+    void unMaximumAbaisseRameneLeTarifEnVigueurALaCloture() {
+        PhoneOperators registry = new PhoneOperators();
+        PhoneOperator op = found(registry, U1, "Mairie");
+        registry.setNextTariffCap(5_000L);
+        assertTrue(registry.setNextTariff(op.id(), 800L));
+        registry.applyNextTariffs();
+        assertEquals(800L, registry.byId(op.id()).orElseThrow().tariff());
+        PhoneConfig.overridePhoneTariffMax(500);
+        try {
+            List<PhoneOperators.DayChange> changes = registry.applyNextTariffs();
+            assertEquals(500L, registry.byId(op.id()).orElseThrow().tariff());
+            assertEquals(1, changes.size());
+            assertTrue(changes.get(0).capped());
+            assertEquals(800L, changes.get(0).before());
+            assertEquals(500L, changes.get(0).after());
+        } finally {
+            PhoneConfig.overridePhoneTariffMax(null);
+        }
     }
 
     @Test

@@ -1287,6 +1287,7 @@
   "message.oneforallsurvival.operator_panel.issued": "Card issued for %s: it is in your inventory.",
   "message.oneforallsurvival.operator_panel.issued_anonymous": "Unnamed SIM issued: it is in your inventory.",
   "message.oneforallsurvival.operator_panel.inventory_full": "Inventory full: no card issued.",
+  "message.oneforallsurvival.operator_panel.card_limit": "Limit of %s cards reached: no card issued.",
   "message.oneforallsurvival.operator_panel.refused": "Request from %s refused.",
   "message.oneforallsurvival.operator_panel.suspended": "Card %s suspended.",
   "message.oneforallsurvival.operator_panel.reactivated": "Card %s reactivated.",

@@ -24,6 +24,7 @@ public final class PhoneConfig {
     private static final boolean DEFAULT_ANTENNA_KEEPS_CHUNK_LOADED = true;
     private static final int DEFAULT_ANTENNA_STALE_TICKS = 40;
     private static final int DEFAULT_SIM_REQUESTS_MAX = 32;
+    private static final int DEFAULT_SIM_CARDS_MAX = 256;
     private static final int DEFAULT_TARIFF_MAX = 1_000;
     private static final int DEFAULT_TARIFF_CAP = 20;
     private static final int DEFAULT_SIGNAL_REFRESH_TICKS = 20;
@@ -46,6 +47,7 @@ public final class PhoneConfig {
     private static final ForgeConfigSpec.BooleanValue ANTENNA_KEEPS_CHUNK_LOADED;
     private static final ForgeConfigSpec.IntValue ANTENNA_STALE_TICKS;
     private static final ForgeConfigSpec.IntValue SIM_REQUESTS_MAX;
+    private static final ForgeConfigSpec.IntValue SIM_CARDS_MAX;
     private static final ForgeConfigSpec.IntValue TARIFF_MAX;
     private static final ForgeConfigSpec.IntValue TARIFF_CAP;
     private static final ForgeConfigSpec.IntValue SIGNAL_REFRESH_TICKS;
@@ -100,6 +102,10 @@ public final class PhoneConfig {
         SIM_REQUESTS_MAX = builder
                 .comment("Demandes de carte SIM en attente, au plus, chez un même opérateur.")
                 .defineInRange("simRequestsMax", DEFAULT_SIM_REQUESTS_MAX, 1, 10_000);
+        SIM_CARDS_MAX = builder
+                .comment("Cartes SIM non désactivées (actives ou suspendues), au plus, chez un même opérateur ; au-delà,"
+                        + " le fondateur n'en émet plus (remplacer une carte reste possible).")
+                .defineInRange("simCardsMax", DEFAULT_SIM_CARDS_MAX, 1, 2_048);
         TARIFF_MAX = builder
                 .comment("Tarif le plus haut qu'un opérateur puisse demander (cuivres).")
                 .defineInRange("phoneTariffMax", DEFAULT_TARIFF_MAX, 0, 1_000_000);
@@ -257,7 +263,40 @@ public final class PhoneConfig {
         }
     }
 
+    /** Valeur imposée par un essai à {@link #simCardsMax()} (nulle : le fichier fait foi). En mémoire seulement. */
+    private static volatile Integer simCardsMaxOverride;
+
+    /** Essais seulement : impose {@link #simCardsMax()}, ou rend la main au fichier avec {@code null}. */
+    public static void overrideSimCardsMax(Integer value) {
+        simCardsMaxOverride = value;
+    }
+
+    /** Cartes non désactivées (actives ou suspendues), au plus, par opérateur (revue finale du lot T2, I3). */
+    public static int simCardsMax() {
+        Integer forced = simCardsMaxOverride;
+        if (forced != null) {
+            return forced;
+        }
+        try {
+            return SIM_CARDS_MAX.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_SIM_CARDS_MAX;
+        }
+    }
+
+    /** Valeur imposée par un essai à {@link #phoneTariffMax()} (nulle : le fichier fait foi). En mémoire seulement. */
+    private static volatile Integer tariffMaxOverride;
+
+    /** Essais seulement : impose {@link #phoneTariffMax()} (un réglage abaissé), ou rend la main au fichier. */
+    public static void overridePhoneTariffMax(Integer value) {
+        tariffMaxOverride = value;
+    }
+
     public static int phoneTariffMax() {
+        Integer forced = tariffMaxOverride;
+        if (forced != null) {
+            return forced;
+        }
         try {
             return TARIFF_MAX.get();
         } catch (IllegalStateException e) {
