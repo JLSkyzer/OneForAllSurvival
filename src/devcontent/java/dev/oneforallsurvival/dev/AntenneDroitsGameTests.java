@@ -30,6 +30,7 @@ import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.gametest.framework.AfterBatch;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.ResourceLocation;
@@ -111,7 +112,30 @@ public final class AntenneDroitsGameTests {
             Shapes.box(3 / 16.0, 0, 3 / 16.0, 13 / 16.0, 2 / 16.0, 13 / 16.0),
             Shapes.box(6 / 16.0, 0, 6 / 16.0, 10 / 16.0, 1.0, 10 / 16.0));
 
+    /**
+     * Les essais pas encore fermés : un essai à séquence qui expire avant sa dernière étape (eau, piston, hauban) ne se
+     * ferme pas lui-même ; l'{@code @AfterBatch} de son lot le fait (revue de la tâche 4, m-C). Fil du serveur.
+     */
+    private static final List<Essai> OUVERTS = new ArrayList<>();
+
     private AntenneDroitsGameTests() {}
+
+    @AfterBatch(batch = LOT_DROITS)
+    public static void apresDroits(ServerLevel level) {
+        fermerLesRestes();
+    }
+
+    @AfterBatch(batch = LOT_OUTIL)
+    public static void apresOutil(ServerLevel level) {
+        fermerLesRestes();
+    }
+
+    private static void fermerLesRestes() {
+        for (Essai e : new ArrayList<>(OUVERTS)) {
+            e.close();
+        }
+        OUVERTS.clear();
+    }
 
     // ---------------------------------------------------------------------------------------------
     // Aides
@@ -151,9 +175,11 @@ public final class AntenneDroitsGameTests {
         private boolean maireTouche;
         private UUID maireAvant;
         private FakePlayer faux;
+        private boolean ferme;
 
         Essai(GameTestHelper helper) {
             this.helper = helper;
+            OUVERTS.add(this);
             boite(helper);
         }
 
@@ -234,8 +260,14 @@ public final class AntenneDroitsGameTests {
             });
         }
 
+        /** Idempotent : appelé par l'essai, ou par l'{@code @AfterBatch} de son lot s'il a expiré avant. */
         @Override
         public void close() {
+            if (ferme) {
+                return;
+            }
+            ferme = true;
+            OUVERTS.remove(this);
             for (GameProfile profil : equipe) {
                 serveur().getPlayerList().getOps().remove(profil);
             }
@@ -517,9 +549,17 @@ public final class AntenneDroitsGameTests {
             for (JoueurDeTest qui : List.of(inge, maire)) {
                 FakePlayer faux = FakePlayerFactory.get(level, new GameProfile(qui.uuid(), "[Deployeur]"));
                 faux.setItemInHand(InteractionHand.OFF_HAND, outil());
+                // Revue de la tâche 4, m-B : la pose du tableau, sa progression et les deux bris aussi.
+                BlockEvent.BreakEvent briseTresor = new BlockEvent.BreakEvent(level, ici, tresor, faux);
+                BlockEvent.BreakEvent briseTableau = new BlockEvent.BreakEvent(level, ici, tableau, faux);
+                MinecraftForge.EVENT_BUS.post(briseTresor);
+                MinecraftForge.EVENT_BUS.post(briseTableau);
                 boolean permis = TownBlockRules.mayMove(faux) || TownBlockRules.engineerMayMove(faux)
                         || TownBlockRules.mayPlaceTreasury(faux, false) || TownBlockRules.mayOpenTreasury(faux)
-                        || tresor.getDestroyProgress(faux, level, ici) > 0.0F;
+                        || TownBlockRules.mayPlaceBoard(faux)
+                        || tresor.getDestroyProgress(faux, level, ici) > 0.0F
+                        || tableau.getDestroyProgress(faux, level, ici) > 0.0F
+                        || !briseTresor.isCanceled() || !briseTableau.isCanceled();
                 faux.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY);
                 helper.assertTrue(!permis, "un faux joueur à l'UUID de " + qui.joueur().getGameProfile().getName()
                         + " ne touche pas aux blocs de la ville");

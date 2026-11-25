@@ -16,7 +16,7 @@ import net.minecraftforge.common.util.FakePlayer;
  * <p>Côté client les rôles sont inconnus : ces règles laissent faire (progression de casse, pose prédite) et le serveur
  * tranche, comme {@code SafeBlock.mayBreak}. Seule {@link #creativeNeedsCrouch} se lit des deux côtés.
  *
- * <p>Un faux joueur n'a jamais aucun droit : celui du déployeur de Create rend l'UUID du joueur qui a posé le déployeur
+ * <p>Un faux joueur n'a aucun droit : celui du déployeur de Create rend l'UUID du joueur qui a posé le déployeur
  * ({@code DeployerFakePlayer.getUUID}, lu dans le jar de Create 6.0.8), donc le rôle de maire ou d'ingénieur de ce joueur.
  */
 public final class TownBlockRules {

@@ -246,6 +246,20 @@ public final class QuestProgressGameTests {
     private static void ranger(GameTestHelper helper) {
         Stream.of(EntityType.ITEM, EntityType.EXPERIENCE_ORB, EntityType.ZOMBIE, EntityType.COW)
                 .forEach(type -> helper.getLevel().getEntities(type, zone(helper), e -> true).forEach(Entity::discard));
+        ButinGameTests.pieces(helper).forEach(Entity::discard);
+    }
+
+    /**
+     * Fin d'un essai qui a tué un mob sauvage par un joueur : ses pièces ne naissent qu'au tic suivant (l'objet lâché
+     * est remplacé par une pièce au sol, leçon du 2026-11-12) ; rangées dans le tic de la mort, elles restaient au sol et
+     * expiraient 6 000 tics plus tard dans la fenêtre d'un autre essai (revue de la tâche 4, m-A). On les range trois
+     * tics plus tard, puis l'essai réussit.
+     */
+    private static void rangerLesPiecesPuisReussir(GameTestHelper helper) {
+        helper.startSequence()
+                .thenIdle(3)
+                .thenExecute(() -> ranger(helper))
+                .thenSucceed();
     }
 
     /** Pose un bloc de l'objet tenu, d'un clic sur le dessus du bloc d'en dessous, par le vrai chemin de Forge. */
@@ -673,7 +687,7 @@ public final class QuestProgressGameTests {
         } finally {
             sortir(helper, simule);
         }
-        helper.succeed();
+        rangerLesPiecesPuisReussir(helper);
     }
 
     /**
@@ -824,7 +838,7 @@ public final class QuestProgressGameTests {
             simule.joueur().gameMode.changeGameModeForPlayer(GameType.SURVIVAL);
             sortir(helper, simule);
         }
-        helper.succeed();
+        rangerLesPiecesPuisReussir(helper);
     }
 
     /** Une quête finie s'arrête à son but ; réclamée, plus rien ne la touche. */
