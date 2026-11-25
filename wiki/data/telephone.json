@@ -116,6 +116,7 @@
       "steps": [
         "La fabriquer à la table de fabrication : 4 pierres lisses, 1 lingot de cuivre, 1 redstone.",
         "La poser contre le côté d'un mur plein (jamais au sol ni au plafond) et l'alimenter en FE comme les autres machines du mod (câble, ou bloc qui pousse du courant).",
+        "Le plus simple avec Crafts & Additions : un connecteur sur n'importe quelle face du bloc qui la porte, relié à la source par un fil. Le courant passe à travers le mur.",
         "Clic droit avec un téléphone en main : il est branché ; main vide sur une prise occupée : il revient en main.",
         "Casser la prise, ou retirer le mur, rend le téléphone."
       ],
@@ -129,6 +130,7 @@
         "La prise n'a pas de propriétaire : n'importe quel joueur reprend le téléphone d'un autre, mais ses données restent protégées par le code. À garder en tête pour les lois en RP.",
         "Elle ne reçoit que des téléphones, un seul à la fois ; un faux joueur (déployeur de Create) ne le sort pas.",
         "Voyant éteint à l'arrêt et sans courant, vert pendant la charge.",
+        "À travers le mur : le bloc porteur ne doit pas être lui-même une machine ou un coffre (son connecteur reste alors le sien). Un connecteur laissé « aucun » passe en sortie tout seul ; un mode réglé à la clé n'est pas changé.",
         "Machine électrique du mod : elle s'use et tombe en panne comme les autres."
       ]
     },

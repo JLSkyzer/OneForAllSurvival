@@ -52,17 +52,18 @@ public abstract class OptionalModMixinPlugin implements IMixinConfigPlugin {
         ModInfo info = mods == null ? null
                 : mods.getMods().stream().filter(m -> m.getModId().equals(modId)).findFirst().orElse(null);
         if (info == null) {
-            LOGGER.info("Quêtes : {} absent, ses mixins ne sont pas appliqués", modId);
+            LOGGER.info("Compatibilité : {} absent, ses mixins ne sont pas appliqués", modId);
             enabled = false;
             return;
         }
         String version = info.getVersion().toString();
         enabled = inRange(version, verifiedRange);
         if (enabled) {
-            LOGGER.info("Quêtes : mixins de {} {} appliqués", modId, version);
+            LOGGER.info("Compatibilité : mixins de {} {} appliqués", modId, version);
         } else {
-            LOGGER.warn("Quêtes : {} {} hors de la plage vérifiée {} ; ses mixins ne sont pas appliqués, ce que ce "
-                    + "mod fait ne compte pas pour les quêtes", modId, version, verifiedRange);
+            LOGGER.warn("Compatibilité : {} {} hors de la plage vérifiée {} ; ses mixins ne sont pas appliqués, ce que "
+                    + "le mod ajoute pour lui ne marche pas (quêtes, objets posés, prise à travers le mur)",
+                    modId, version, verifiedRange);
         }
     }
 
@@ -94,6 +95,16 @@ public abstract class OptionalModMixinPlugin implements IMixinConfigPlugin {
     public static final class Create extends OptionalModMixinPlugin {
         public Create() {
             super("create", "[6.0.8]");
+        }
+    }
+
+    /**
+     * Crafts &amp; Additions : bytecode lu sur 1.20.1-1.3.3 ({@code AbstractConnectorBlockEntity},
+     * {@code ConnectorMode}). Sans lui, un connecteur posé sur le mur d'une prise ne l'alimente pas.
+     */
+    public static final class CreateAddition extends OptionalModMixinPlugin {
+        public CreateAddition() {
+            super("createaddition", "[1.20.1-1.3.3]");
         }
     }
 

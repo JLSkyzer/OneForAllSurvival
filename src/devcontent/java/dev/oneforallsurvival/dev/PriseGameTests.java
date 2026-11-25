@@ -517,4 +517,111 @@ public final class PriseGameTests {
                 })
                 .thenSucceed();
     }
+
+    // --- lot prise_fil : le courant à travers le mur (connecteurs de Crafts & Additions, pack seulement) ---
+
+    private static final String LOT_FIL = "prise_fil";
+    private static final BlockPos SOURCE = new BlockPos(6, 1, 2);
+
+    /** Une source créative, un connecteur sur elle et un sur le dessus du mur, comme posés à la main. */
+    private static void connecteurs(GameTestHelper helper, List<String> journal) {
+        for (BlockPos air : List.of(MUR.above(), SOURCE.above())) {
+            helper.setBlock(air, Blocks.AIR);
+        }
+        helper.setBlock(SOURCE, net.minecraftforge.registries.ForgeRegistries.BLOCKS.getValue(
+                new net.minecraft.resources.ResourceLocation("createaddition", "creative_energy")));
+        ReseauxDev.cliquer(helper.getLevel(), "createaddition:connector", helper.absolutePos(SOURCE), Direction.UP,
+                Direction.DOWN, 1, journal);
+        ReseauxDev.cliquer(helper.getLevel(), "createaddition:connector", helper.absolutePos(MUR), Direction.UP,
+                Direction.DOWN, 1, journal);
+    }
+
+    private static void fil(GameTestHelper helper, List<String> journal) {
+        ReseauxDev.tirerFil(helper.getLevel(), "createaddition:copper_spool", helper.absolutePos(SOURCE.above()),
+                helper.absolutePos(MUR.above()), journal);
+    }
+
+    private static String modeDuMur(GameTestHelper helper) {
+        // L'énumération de Crafts & Additions s'écrit « None », « Push » ; son nom enregistré est en minuscules.
+        return ReseauxDev.propriete(helper.getBlockState(MUR.above()), "mode").toLowerCase(java.util.Locale.ROOT);
+    }
+
+    private static void telephoneCharge(GameTestHelper helper, int minimum, List<String> journal) {
+        helper.assertTrue(helper.getBlockEntity(PRISE) instanceof WallSocketBlockEntity, "prise absente");
+        WallSocketBlockEntity be = (WallSocketBlockEntity) helper.getBlockEntity(PRISE);
+        // La réserve part vide : tout ce que le téléphone reçoit est venu par le fil.
+        helper.assertTrue(PhoneItem.stored(be.phone()) >= minimum, "téléphone à " + PhoneItem.stored(be.phone())
+                + " FE, réserve " + be.energy().getEnergyStored() + ", connecteur du mur " + modeDuMur(helper)
+                + ", journal " + journal);
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_FIL, timeoutTicks = 600, setupTicks = 20)
+    public static void unConnecteurSurLeMurAlimenteLaPrise(GameTestHelper helper) {
+        if (!ReseauxDev.Reseau.CREATE_ADDITION.disponible()) {
+            helper.succeed();
+            return;
+        }
+        List<String> journal = new java.util.ArrayList<>();
+        poser(helper, Blocks.DIRT).setPhone(telephone(0));
+        connecteurs(helper, journal);
+        helper.startSequence()
+                .thenExecuteAfter(5, () -> fil(helper, journal))
+                .thenWaitUntil(() -> telephoneCharge(helper, 6_000, journal))
+                .thenExecute(() -> {
+                    helper.assertTrue("push".equals(modeDuMur(helper)), "sortie attendue, vu " + modeDuMur(helper));
+                    // La prise retirée : le connecteur reste, rien ne casse ; reposée, elle charge de nouveau.
+                    ((WallSocketBlockEntity) helper.getBlockEntity(PRISE)).setPhone(ItemStack.EMPTY);
+                    helper.setBlock(PRISE, Blocks.AIR);
+                })
+                .thenExecuteAfter(30, () -> {
+                    helper.assertTrue(!helper.getBlockState(MUR.above()).isAir(), "le connecteur a disparu");
+                    poser(helper, Blocks.DIRT).setPhone(telephone(0));
+                })
+                .thenWaitUntil(() -> telephoneCharge(helper, 6_000, journal))
+                .thenSucceed();
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_FIL, timeoutTicks = 400, setupTicks = 20)
+    public static void unConnecteurPoseAvantLaPriseLAlimenteAussi(GameTestHelper helper) {
+        if (!ReseauxDev.Reseau.CREATE_ADDITION.disponible()) {
+            helper.succeed();
+            return;
+        }
+        List<String> journal = new java.util.ArrayList<>();
+        helper.setBlock(MUR, Blocks.DIRT);
+        helper.setBlock(PRISE, Blocks.AIR);
+        connecteurs(helper, journal);
+        helper.startSequence()
+                .thenExecuteAfter(5, () -> fil(helper, journal))
+                .thenExecuteAfter(30, () -> {
+                    helper.assertTrue("none".equals(modeDuMur(helper)), "sans prise : aucun, vu " + modeDuMur(helper));
+                    poser(helper, Blocks.DIRT).setPhone(telephone(0));
+                })
+                .thenWaitUntil(() -> telephoneCharge(helper, 6_000, journal))
+                .thenExecute(() -> helper.assertTrue("push".equals(modeDuMur(helper)),
+                        "sortie attendue, vu " + modeDuMur(helper)))
+                .thenSucceed();
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_FIL, timeoutTicks = 200, setupTicks = 20)
+    public static void unMurQuiAUnBlocEntiteGardeSonConnecteur(GameTestHelper helper) {
+        if (!ReseauxDev.Reseau.CREATE_ADDITION.disponible()) {
+            helper.succeed();
+            return;
+        }
+        List<String> journal = new java.util.ArrayList<>();
+        // Un four a un bloc-entité : son connecteur reste le sien, la prise accrochée à lui ne le prend pas.
+        poser(helper, Blocks.FURNACE).setPhone(telephone(0));
+        connecteurs(helper, journal);
+        helper.startSequence()
+                .thenExecuteAfter(5, () -> fil(helper, journal))
+                .thenExecuteAfter(80, () -> {
+                    helper.assertTrue("none".equals(modeDuMur(helper)), "aucun attendu, vu " + modeDuMur(helper));
+                    WallSocketBlockEntity be = (WallSocketBlockEntity) helper.getBlockEntity(PRISE);
+                    helper.assertTrue(PhoneItem.stored(be.phone()) == 0 && be.energy().getEnergyStored() == 0,
+                            "rien attendu : téléphone " + PhoneItem.stored(be.phone()) + ", réserve "
+                                    + be.energy().getEnergyStored());
+                })
+                .thenSucceed();
+    }
 }

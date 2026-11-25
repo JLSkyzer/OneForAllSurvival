@@ -10,9 +10,9 @@ import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * La prise murale : une machine de la ville (réserve de {@value #CAPACITY} FE, reçoit au plus
- * {@link #TOWN_MAX_RECEIVE} FE par tic, par n'importe quelle face) qui verse {@link PhoneConfig#socketChargePerTick()}
- * FE par tic de travail dans le téléphone branché, jusqu'à sa capacité. Elle s'use et tombe en panne comme les autres
- * machines.
+ * {@link #TOWN_MAX_RECEIVE} FE par tic, par n'importe quelle face, ou à travers son mur : {@link WallFeed}) qui verse
+ * {@link PhoneConfig#socketChargePerTick()} FE par tic de travail dans le téléphone branché, jusqu'à sa capacité. Elle
+ * s'use et tombe en panne comme les autres machines.
  *
  * <p>Le téléphone est gardé tel quel (pile entière, {@code phone_id} et charge compris) dans le NBT {@value #TAG_PHONE}.
  * Aucune capability d'objets : seuls la main et {@link WallSocketBlock#onRemove} l'en sortent.
@@ -64,6 +64,14 @@ public final class WallSocketBlockEntity extends ElectricMachineBlockEntity {
             return target;
         }
         return target.setValue(WallSocketBlock.PLUGGED, !phone.isEmpty());
+    }
+
+    /** Les connecteurs posés sur le mur de la prise l'alimentent ({@link WallFeed}). */
+    @Override
+    protected void afterTick(Level level, MachineState tickState) {
+        if (level.getGameTime() % WallFeed.PERIOD == 0) {
+            WallFeed.wake(level, worldPosition, getBlockState());
+        }
     }
 
     @Override

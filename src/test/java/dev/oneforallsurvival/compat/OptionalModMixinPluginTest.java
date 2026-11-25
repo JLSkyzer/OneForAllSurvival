@@ -18,6 +18,14 @@ class OptionalModMixinPluginTest {
     }
 
     @Test
+    void laVersionLueDeCraftsEtAdditionsEstDansSaPlage() {
+        String plage = new OptionalModMixinPlugin.CreateAddition().verifiedRange();
+        assertTrue(OptionalModMixinPlugin.inRange("1.20.1-1.3.3", plage), plage);
+        assertFalse(OptionalModMixinPlugin.inRange("1.20.1-1.3.4", plage), plage);
+        assertFalse(OptionalModMixinPlugin.inRange("1.20.1-1.3.2", plage), plage);
+    }
+
+    @Test
     void laVersionLueDeCreateEstDansSaPlage() {
         String plage = new OptionalModMixinPlugin.Create().verifiedRange();
         assertTrue(OptionalModMixinPlugin.inRange("6.0.8", plage), plage);

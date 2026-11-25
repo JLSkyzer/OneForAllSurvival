@@ -456,13 +456,14 @@ mixin {
     // plage de versions dont le bytecode a été lu (OptionalModMixinPlugin).
     config 'oneforallsurvival.create.mixins.json'
     config 'oneforallsurvival.farmersdelight.mixins.json'
+    config 'oneforallsurvival.createaddition.mixins.json'
 }
 
 // Le jar livré déclare sa configuration de mixins, Forge la lit dans le manifeste.
 tasks.named('jar', Jar).configure {
     manifest {
         attributes('MixinConfigs': 'oneforallsurvival.mixins.json,oneforallsurvival.create.mixins.json,'
-                + 'oneforallsurvival.farmersdelight.mixins.json')
+                + 'oneforallsurvival.farmersdelight.mixins.json,oneforallsurvival.createaddition.mixins.json')
     }
 }
 
