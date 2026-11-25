@@ -67,6 +67,21 @@ class WebResourcesTest {
         return sb.toString();
     }
 
+    /**
+     * Tâche 13 du lot T2 : la ligne d'état de l'appli « Antenne » ({@code .ant-status}, quelques secondes au bas de la
+     * liste) recouvrait les boutons de la dernière carte : un toucher juste après un geste (« Réactiver » juste après
+     * « Suspendre », vu dans un vrai client MCEF) tombait sur elle et rien ne partait. Elle laisse passer les touchers.
+     */
+    @Test
+    void laLigneDEtatDeLAppliNeRetientAucunToucher() throws IOException {
+        String css = Files.readString(dossier().resolve("phone/phone.css"), StandardCharsets.UTF_8);
+        int debut = css.indexOf(".ant-status {");
+        assertTrue(debut >= 0, "règle .ant-status absente de phone.css");
+        String regle = css.substring(debut, css.indexOf('}', debut));
+        assertTrue(regle.replace(" ", "").contains("pointer-events:none"),
+                "la ligne d'état de l'appli doit laisser passer les touchers : " + regle);
+    }
+
     @Test
     void lesPagesDuSocleExistent() {
         Path d = dossier();

@@ -1246,6 +1246,8 @@ body {
 
 /* Le dernier retour du serveur, au-dessus des onglets (deux lignes au plus). */
 .ant-status {
+  /* Elle recouvre un moment le bas de la liste : les touchers passent aux boutons dessous (tâche 13 du lot T2). */
+  pointer-events: none;
   position: absolute;
   left: 12px;
   right: 12px;
