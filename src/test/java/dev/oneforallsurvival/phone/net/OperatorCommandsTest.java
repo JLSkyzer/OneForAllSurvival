@@ -1,6 +1,7 @@
 package dev.oneforallsurvival.phone.net;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -51,5 +52,18 @@ class OperatorCommandsTest {
         assertEquals(OperatorCommands.MAX_REASON, motif.codePointCount(0, motif.length()));
         assertTrue(Character.isSurrogate(motif.charAt(motif.length() - 1)) && Character.isLowSurrogate(
                 motif.charAt(motif.length() - 1)), "la dernière paire est entière");
+    }
+
+    @Test
+    void unMotifVideApresNettoyageEstRefuse() {
+        char section = (char) 0xA7;
+        String[] vides = {null, "", "   ", "" + section + section, " " + (char) 7 + (char) 0 + " ",
+            "" + (char) 0x202E + (char) 0x200B + section + "\t", "" + (char) 0x3000};
+        for (String v : vides) {
+            assertFalse(OperatorCommands.validReason(v), "refusé : " + (v == null ? "null" : v.codePoints().boxed()
+                    .map(Integer::toHexString).toList()));
+        }
+        assertTrue(OperatorCommands.validReason("fraude"));
+        assertTrue(OperatorCommands.validReason(" " + section + "4x"), "« 4x » reste : recevable");
     }
 }

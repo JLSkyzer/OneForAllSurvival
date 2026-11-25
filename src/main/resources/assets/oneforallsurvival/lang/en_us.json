@@ -1086,6 +1086,7 @@
   "command.oneforallsurvival.operator.owner_set": "%s now belongs to %s (cards, till and antennas included).",
   "command.oneforallsurvival.operator.remove_requested": "Remove %s (%s active card(s), %s antenna(s), till %s) for \"%s\"? Its cards will be deactivated for good, its antennas stopped, its requests withdrawn, its till paid to the founder. Confirm within 60 seconds: %s",
   "command.oneforallsurvival.operator.remove_confirm_button": "[Confirm removal]",
+  "command.oneforallsurvival.operator.remove_reason_required": "A reason is required: nothing is left of the given reason (only spaces, formatting signs or control characters). Nothing was requested.",
   "command.oneforallsurvival.operator.remove_no_request": "No removal of this operator awaits your confirmation: request it first, with a reason.",
   "command.oneforallsurvival.operator.remove_expired": "Request expired (over 60 seconds): nothing was removed. Start again.",
   "command.oneforallsurvival.operator.remove_till_refused": "Removal of %s refused: its till could not be paid to the founder. Nothing changed.",

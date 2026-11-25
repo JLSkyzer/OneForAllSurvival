@@ -848,6 +848,22 @@ public final class MaireTelephoneGameTests {
                     == OperatorCommands.Result.NO_REQUEST && e.registre().byId(op.id()).isPresent(),
                     "un bloc de commande ne confirme pas la demande de la console");
 
+            // Un motif vide après nettoyage (blancs, §, contrôles) : refusé, rien d'armé, et la demande d'avant oubliée.
+            String vide = " " + (char) 0xA7 + (char) 0xA7 + (char) 7 + " ";
+            helper.assertTrue(OperatorCommands.requestRemove(console, e.registre(), op.name(), vide, now)
+                    == OperatorCommands.Result.REASON_REQUIRED, "motif vide : refusé");
+            helper.assertTrue(OperatorCommands.confirmRemove(console, e.registre(), op.name(), now)
+                    == OperatorCommands.Result.NO_REQUEST && e.registre().byId(op.id()).isPresent(),
+                    "motif vide : la demande armée de la console est oubliée, rien n'est supprimé");
+            helper.assertTrue(e.commande(maire, "operator remove " + q(op) + " fraude") == 1, "demande armée d'abord");
+            maire.clesRecues();
+            helper.assertTrue(e.commande(maire, "operator remove " + q(op) + " " + (char) 0xA7 + (char) 0xA7) == 0
+                    && maire.clesRecues().contains(KEY + "remove_reason_required"), "motif vide au chat : refusé, dit");
+            helper.assertTrue(e.commande(maire, "operator remove " + q(op) + " confirm") == 0
+                    && e.registre().byId(op.id()).isPresent()
+                    && e.registre().card(simId).map(SimCard::state).orElse(null) == SimCard.State.ACTIVE,
+                    "après un motif vide : rien à confirmer, la carte reste active");
+
             helper.assertTrue(e.commande(maire, "operator remove " + q(op) + " fraude") == 1, "nouvelle demande");
             EconomyClock.setClock(() -> t0 + 2L * OperatorCommands.CONFIRM_MILLIS);
             helper.assertTrue(e.commande(maire, "operator remove " + q(op) + " confirm") == 1, "confirmée à temps");

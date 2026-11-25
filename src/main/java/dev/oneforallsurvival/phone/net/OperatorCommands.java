@@ -90,7 +90,7 @@ public final class OperatorCommands {
 
     /** Issue d'un geste. */
     public enum Result { DONE, REQUESTED, NOT_ALLOWED, UNKNOWN_OPERATOR, OUT_OF_RANGE, ABOVE_CAP, UNKNOWN_PLAYER,
-        HAS_OPERATOR, NO_REQUEST, EXPIRED, TILL_REFUSED }
+        HAS_OPERATOR, NO_REQUEST, EXPIRED, TILL_REFUSED, REASON_REQUIRED }
 
     /** Une suppression demandée, qui attend sa confirmation (non sauvegardée : un redémarrage l'oublie). */
     private record PendingRemoval(String operatorId, String reason, long until) {}
@@ -100,6 +100,11 @@ public final class OperatorCommands {
     /**
      * Verse une somme à un joueur ; {@link #SERVER_PAYER} en production. Un essai en passe un autre pour éprouver le
      * refus d'une suppression dont le versement échoue.
+     *
+     * <p><b>Contrat</b> : {@code pay} ne lève une exception (ou ne rend {@code null}) qu'<b>avant d'avoir versé quoi
+     * que ce soit</b>. Sur un échec, {@link #remove} remet la caisse entière dans le registre : un versement à moitié
+     * fait puis un échec dupliqueraient les pièces déjà versées. Une implémentation qui verse en plusieurs fois doit donc
+     * soit tout verser, soit ne rien verser et échouer.
      */
     @FunctionalInterface
     public interface Payer {
@@ -162,6 +167,14 @@ public final class OperatorCommands {
             return stripped;
         }
         return stripped.substring(0, stripped.offsetByCodePoints(0, MAX_REASON)).strip();
+    }
+
+    /**
+     * Un motif de suppression est-il recevable ? Il faut qu'il reste quelque chose après le nettoyage de
+     * {@link #reason} : un motif fait seulement de blancs, de {@code §} ou de caractères de contrôle est refusé.
+     */
+    public static boolean validReason(String raw) {
+        return !reason(raw).isEmpty();
     }
 
     /** Le plafond qui borne un tarif demandé aujourd'hui : celui de demain s'il change, sinon celui du jour. */
@@ -430,7 +443,8 @@ public final class OperatorCommands {
     /**
      * {@code /operator remove <opérateur> <motif>} : ne fait qu'armer la confirmation, liée à cette source et à cet
      * opérateur, pour {@link #CONFIRM_MILLIS} ms ({@link #confirmRemove}). Rien d'autre ne bouge ; une nouvelle demande de
-     * la même source remplace la précédente.
+     * la même source remplace la précédente. Un motif vide après nettoyage ({@link #validReason}) est refusé
+     * ({@code REASON_REQUIRED}) : rien n'est armé, et une demande que cette source avait armée avant est oubliée.
      */
     public static Result requestRemove(CommandSourceStack source, PhoneOperators registry, String name, String reason,
             long now) {
@@ -442,6 +456,10 @@ public final class OperatorCommands {
             return Result.UNKNOWN_OPERATOR;
         }
         PhoneOperator op = found.get();
+        if (!validReason(reason)) {
+            PENDING.remove(requester(source));
+            return fail(source, Result.REASON_REQUIRED, Component.translatable(KEY + "remove_reason_required"));
+        }
         String motif = reason(reason);
         PENDING.put(requester(source), new PendingRemoval(op.id(), motif, now + CONFIRM_MILLIS));
         String confirm = "/operator remove " + StringArgumentType.escapeIfRequired(op.name()) + " confirm";

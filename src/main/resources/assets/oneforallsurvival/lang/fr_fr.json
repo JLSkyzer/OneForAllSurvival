@@ -1086,6 +1086,7 @@
   "command.oneforallsurvival.operator.owner_set": "%s appartient désormais à %s (cartes, caisse et antennes comprises).",
   "command.oneforallsurvival.operator.remove_requested": "Supprimer %s (%s carte(s) active(s), %s antenne(s), caisse %s) pour le motif « %s » ? Ses cartes seront désactivées pour toujours, ses antennes arrêtées, ses demandes retirées, sa caisse versée au fondateur. Confirmez dans les 60 secondes : %s",
   "command.oneforallsurvival.operator.remove_confirm_button": "[Confirmer la suppression]",
+  "command.oneforallsurvival.operator.remove_reason_required": "Motif obligatoire : il ne reste rien du motif donné (espaces, signes de mise en forme ou caractères de contrôle seuls). Rien n'est demandé.",
   "command.oneforallsurvival.operator.remove_no_request": "Aucune suppression de cet opérateur n'attend votre confirmation : demandez-la d'abord, avec un motif.",
   "command.oneforallsurvival.operator.remove_expired": "Demande échue (plus de 60 secondes) : rien n'est supprimé. Recommencez.",
   "command.oneforallsurvival.operator.remove_till_refused": "Suppression de %s refusée : sa caisse n'a pas pu être versée au fondateur. Rien n'a changé.",
