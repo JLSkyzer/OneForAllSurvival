@@ -422,7 +422,8 @@ public final class PhoneService {
     /**
      * L'appli « Antenne » : le panneau de l'opérateur du fondateur, ouvert depuis ce téléphone
      * ({@link OperatorPanels#openFromPhone} : propriétaire, déverrouillé, carte {@code ACTIVE} de son opérateur, une barre
-     * au moins, hors mode avion). Dans tous les autres cas, refus sans réseau ({@link Result#NO_NETWORK}).
+     * au moins, hors mode avion). Dans tous les autres cas, refus sans réseau ({@link Result#NO_NETWORK}) ; la vue grise
+     * alors l'icône par la même condition ({@link OperatorPanels#canOpenFromPhone}), et le toucher reste permis.
      */
     private static Outcome openOperatorApp(ServerPlayer player, PhoneSession session, PhoneRecord record,
             Result[] last) {
@@ -457,13 +458,15 @@ public final class PhoneService {
     }
 
     /**
-     * Ce que {@code viewer} voit du réseau sur le téléphone {@code stack}. Hors {@link Lock#UNLOCKED} : la carte,
-     * l'opérateur et les barres seulement. Déverrouillé par un autre que le propriétaire : la ligne, sans cartes de
-     * l'inventaire, sans opérateurs demandables, sans appli. Mode avion : 0 barre (par {@link PhoneNetwork#status}),
-     * ni opérateurs demandables ni appli. Le jeton d'une carte n'y entre jamais : seuls son numéro formaté, son
+     * Ce que {@code viewer} voit du réseau sur le téléphone {@code stack} de sa session. Hors {@link Lock#UNLOCKED} : la
+     * carte, l'opérateur et les barres seulement. Déverrouillé par un autre que le propriétaire : la ligne, sans cartes
+     * de l'inventaire, sans opérateurs demandables, sans appli. Mode avion : 0 barre (par {@link PhoneNetwork#status}),
+     * aucun opérateur demandable. L'appli « Antenne » se montre au propriétaire qui fonde un opérateur, ouvrable ou non
+     * ({@link OperatorPanels#canOpenFromPhone}). Le jeton d'une carte n'y entre jamais : seuls son numéro formaté, son
      * titulaire et le nom de son opérateur.
      */
-    private static PhoneNetView netView(ServerPlayer viewer, ItemStack stack, PhoneRecord record, boolean unlocked) {
+    private static PhoneNetView netView(ServerPlayer viewer, PhoneSession session, ItemStack stack,
+            PhoneRecord record) {
         if (!(stack.getItem() instanceof PhoneItem)) {
             return PhoneNetView.NONE;
         }
@@ -471,8 +474,8 @@ public final class PhoneService {
         NetworkStatus status = PhoneNetwork.status(viewer, stack, airplane);
         PhoneNetView full = new PhoneNetView(status.sim(), status.operatorName(), status.bars(),
                 status.number().isEmpty() ? "" : SimNumbers.format(status.number()), status.holderName(), false,
-                List.of(), List.of());
-        if (!unlocked) {
+                false, List.of(), List.of());
+        if (session.lock() != Lock.UNLOCKED) {
             return full.locked();
         }
         if (!viewer.getUUID().equals(record.owner())) {
@@ -482,7 +485,7 @@ public final class PhoneService {
         List<PhoneNetView.OperatorChoice> requestable = airplane || status.sim() == PhoneSims.Validity.ACTIVE
                 ? List.of() : requestable(viewer);
         return new PhoneNetView(full.sim(), full.operator(), full.bars(), full.number(), full.holder(),
-                founder && !airplane, PhoneSims.choices(viewer), requestable);
+                founder, OperatorPanels.canOpenFromPhone(viewer, session), PhoneSims.choices(viewer), requestable);
     }
 
     /**
@@ -553,7 +556,7 @@ public final class PhoneService {
         session.showPercent(battery);
         int offset = EconomyCalendar.configuredZone().getRules().getOffset(Instant.ofEpochMilli(now))
                 .getTotalSeconds();
-        PhoneNetView net = computed != null ? computed : netView(viewer, stack, record, unlocked);
+        PhoneNetView net = computed != null ? computed : netView(viewer, session, stack, record);
         session.showNet(net);
         return new PhoneStatePacket(session.id(), kind, session.lock(), battery, now, offset, record.wallpaper(),
                 unlocked && record.airplane(), unlocked && viewer.getUUID().equals(record.owner()),
@@ -678,7 +681,7 @@ public final class PhoneService {
         } else if (session.refreshDue(PhoneConfig.signalRefreshTicks())) {
             PhoneRecord record = PhoneData.get(player.server).record(session.phoneId());
             syncLock(session, record);
-            PhoneNetView net = netView(player, stack, record, session.lock() == Lock.UNLOCKED);
+            PhoneNetView net = netView(player, session, stack, record);
             if (!net.equals(session.shownNet())) {
                 // Calculée une fois : view relit le même enregistrement dans le même tic, sans le recalculer.
                 send(player, view(player, session, Kind.UPDATE, Result.NONE, CloseReason.NONE, net));

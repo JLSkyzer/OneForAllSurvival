@@ -15,6 +15,9 @@ import dev.oneforallsurvival.phone.PhoneStatePacket.Kind;
 import dev.oneforallsurvival.phone.PhoneStatePacket.Lock;
 import dev.oneforallsurvival.phone.PhoneStatePacket.Result;
 import dev.oneforallsurvival.phone.net.PhoneSims;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -33,7 +36,7 @@ class PhoneViewJsonTest {
 
     /** Une vue réseau complète : carte suspendue, numéro, titulaire, appli, deux cartes et deux opérateurs. */
     private static PhoneNetView pleine(String operateur) {
-        return new PhoneNetView(PhoneSims.Validity.SUSPENDED, operateur, 3, "06 12 34 56 78", "Alex", true,
+        return new PhoneNetView(PhoneSims.Validity.SUSPENDED, operateur, 3, "06 12 34 56 78", "Alex", true, true,
                 List.of(new PhoneSims.SimChoice(5, "07 11 22 33 44", "Lagon", PhoneSims.Validity.ACTIVE),
                         new PhoneSims.SimChoice(40, "06 98 76 54 32", "Mairie", PhoneSims.Validity.UNKNOWN)),
                 List.of(new PhoneNetView.OperatorChoice("3f2a9c1b0d4e", "Lagon", 2),
@@ -62,14 +65,15 @@ class PhoneViewJsonTest {
     void laVueReseauSuitLeContrat() {
         JsonObject net = PhoneViewJson.toJson(etat(Lock.UNLOCKED, "Alex", Result.NONE, pleine("Mairie")))
                 .getAsJsonObject("net");
-        assertEquals(Set.of("sim", "operator", "bars", "number", "holder", "founderApp", "choices", "requestable"),
-                net.keySet());
+        assertEquals(Set.of("sim", "operator", "bars", "number", "holder", "founderApp", "founderAppAvailable",
+                "choices", "requestable"), net.keySet());
         assertEquals("SUSPENDED", net.get("sim").getAsString());
         assertEquals("Mairie", net.get("operator").getAsString());
         assertEquals(3, net.get("bars").getAsInt());
         assertEquals("06 12 34 56 78", net.get("number").getAsString());
         assertEquals("Alex", net.get("holder").getAsString());
         assertTrue(net.get("founderApp").getAsBoolean());
+        assertTrue(net.get("founderAppAvailable").getAsBoolean());
         JsonArray choices = net.getAsJsonArray("choices");
         assertEquals(2, choices.size());
         JsonObject c = choices.get(0).getAsJsonObject();
@@ -95,8 +99,48 @@ class PhoneViewJsonTest {
         assertEquals("", net.get("operator").getAsString());
         assertEquals(0, net.get("bars").getAsInt());
         assertFalse(net.get("founderApp").getAsBoolean());
+        assertFalse(net.get("founderAppAvailable").getAsBoolean());
         assertEquals(0, net.getAsJsonArray("choices").size());
         assertEquals(0, net.getAsJsonArray("requestable").size());
+    }
+
+    /** L'icône « Antenne » montrée mais grisée (tâche 13b) : les deux champs partent chacun tel quel. */
+    @Test
+    void uneAppliGriseeResteMontree() {
+        PhoneNetView grisee = new PhoneNetView(PhoneSims.Validity.NONE, "", 0, "", "", true, false, List.of(),
+                List.of());
+        JsonObject net = PhoneViewJson.toJson(etat(Lock.UNLOCKED, "Alex", Result.NONE, grisee))
+                .getAsJsonObject("net");
+        assertTrue(net.get("founderApp").getAsBoolean());
+        assertFalse(net.get("founderAppAvailable").getAsBoolean());
+    }
+
+    /**
+     * La page lit chaque clé de la vue réseau envoyée ({@code cleanNet} de {@code phone.js}), grise l'icône d'après
+     * {@code founderAppAvailable} seul (ni barres, ni carte, ni mode avion relus pour elle) et la laisse touchable.
+     */
+    @Test
+    void laPageLitChaqueCleEtGriseDApresLeServeur() throws IOException {
+        Path html = Path.of("src/main/resources/assets/oneforallsurvival/html/phone");
+        String js = Files.readString(html.resolve("phone.js"));
+        int debut = js.indexOf("function cleanNet(");
+        assertTrue(debut >= 0, "cleanNet introuvable");
+        String corps = js.substring(debut, js.indexOf("function clean(v)", debut));
+        JsonObject net = PhoneViewJson.toJson(etat(Lock.UNLOCKED, "Alex", Result.NONE, pleine("Mairie")))
+                .getAsJsonObject("net");
+        for (String cle : net.keySet()) {
+            assertTrue(corps.contains("n." + cle), "la page ne lit pas net." + cle);
+        }
+        assertTrue(js.contains("$('app-antenna').classList.toggle('off', !n.founderAppAvailable);"),
+                "l'icône n'est pas grisée d'après founderAppAvailable seul");
+        String css = Files.readString(html.resolve("phone.css"));
+        assertTrue(css.contains(".app.off .app-icon"), "aucune règle pour l'icône grisée");
+        for (String regle : css.split("}")) {
+            if (regle.contains(".app.off")) {
+                assertFalse(regle.contains("pointer-events") || regle.contains("display: none"),
+                        "l'icône grisée doit rester montrée et touchable : " + regle.strip());
+            }
+        }
     }
 
     @Test
@@ -139,6 +183,7 @@ class PhoneViewJsonTest {
             assertEquals("Mairie", net.get("operator").getAsString());
             assertEquals(3, net.get("bars").getAsInt());
             assertFalse(net.get("founderApp").getAsBoolean(), lock + " : appli Antenne");
+            assertFalse(net.get("founderAppAvailable").getAsBoolean(), lock + " : appli Antenne ouvrable");
             assertEquals(0, net.getAsJsonArray("choices").size(), lock + " : cartes de l'inventaire");
             assertEquals(0, net.getAsJsonArray("requestable").size(), lock + " : opérateurs demandables");
             String texte = net.toString();

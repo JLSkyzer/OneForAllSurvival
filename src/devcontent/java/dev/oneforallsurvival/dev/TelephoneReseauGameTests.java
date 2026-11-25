@@ -84,8 +84,11 @@ public final class TelephoneReseauGameTests {
 
     private static final String LOT_RESEAU = "telephone_reseau";
     private static final String LOT_SIM = "telephone_sim";
+    private static final String LOT_ICONE = "telephone_icone";
 
     private static final BlockPos A = new BlockPos(1, 0, 1);
+    /** La seconde antenne : celle d'un autre opérateur (essais de l'icône « Antenne »). */
+    private static final BlockPos B = new BlockPos(6, 0, 6);
     private static final Vec3 JOUEUR = new Vec3(3.5, 0, 3.5);
     private static final int RESERVE = 40_000;
     private static final String CODE = "4821";
@@ -102,6 +105,11 @@ public final class TelephoneReseauGameTests {
 
     @AfterBatch(batch = LOT_SIM)
     public static void apresSim(ServerLevel level) {
+        apres();
+    }
+
+    @AfterBatch(batch = LOT_ICONE)
+    public static void apresIcone(ServerLevel level) {
         apres();
     }
 
@@ -160,21 +168,26 @@ public final class TelephoneReseauGameTests {
 
         /** Une antenne posée par {@code j} en {@link #A}, fondée sous {@code nom}, avec {@code fe} FE en réserve. */
         PhoneOperator fonder(JoueurDeTest j, String nom, int fe) {
+            return fonder(j, A, nom, fe);
+        }
+
+        /** La même, l'antenne en {@code ou}. */
+        PhoneOperator fonder(JoueurDeTest j, BlockPos ou, String nom, int fe) {
             registre().byName(nom).ifPresent(reste -> OperateurDEssai.oublier(serveur(), reste.founder()));
             ServerPlayer p = j.joueur();
             ItemStack avant = p.getItemInHand(InteractionHand.MAIN_HAND);
             ItemStack pile = new ItemStack(PhoneRegistry.ANTENNA_ITEM.get());
             p.setItemInHand(InteractionHand.MAIN_HAND, pile);
-            BlockPos sol = helper.absolutePos(A.below());
+            BlockPos sol = helper.absolutePos(ou.below());
             BlockHitResult tir = new BlockHitResult(Vec3.atCenterOf(sol).add(0, 0.5, 0), Direction.UP, sol, false);
             InteractionResult r = pile.useOn(new UseOnContext(p.serverLevel(), p, InteractionHand.MAIN_HAND, pile, tir));
             p.setItemInHand(InteractionHand.MAIN_HAND, avant);
             helper.assertTrue(r.consumesAction(), "l'antenne devait se poser : " + r);
-            Optional<PhoneOperators.Result> fonde = AntennaBlock.found(p, helper.absolutePos(A), nom);
+            Optional<PhoneOperators.Result> fonde = AntennaBlock.found(p, helper.absolutePos(ou), nom);
             helper.assertTrue(fonde.isPresent() && fonde.get().founded(), "fondation de " + nom + " : " + fonde);
             int reste = fe;
             while (reste > 0) {
-                int recu = antenne().energy().receiveEnergy(reste, false);
+                int recu = antenne(ou).energy().receiveEnergy(reste, false);
                 if (recu <= 0) {
                     break;
                 }
@@ -184,12 +197,20 @@ public final class TelephoneReseauGameTests {
         }
 
         AntennaBlockEntity antenne() {
-            helper.assertTrue(helper.getBlockEntity(A) instanceof AntennaBlockEntity, "pas d'antenne en " + A);
-            return (AntennaBlockEntity) helper.getBlockEntity(A);
+            return antenne(A);
+        }
+
+        AntennaBlockEntity antenne(BlockPos ou) {
+            helper.assertTrue(helper.getBlockEntity(ou) instanceof AntennaBlockEntity, "pas d'antenne en " + ou);
+            return (AntennaBlockEntity) helper.getBlockEntity(ou);
         }
 
         boolean enService() {
-            AntennaBlockEntity be = antenne();
+            return enService(A);
+        }
+
+        boolean enService(BlockPos ou) {
+            AntennaBlockEntity be = antenne(ou);
             Optional<AntennaRecord> r = be.antennaId() == null ? Optional.empty() : registre().antenna(be.antennaId());
             return r.isPresent() && AntennaBlockEntity.inService(r.get(), helper.getLevel().getGameTime());
         }
@@ -263,9 +284,10 @@ public final class TelephoneReseauGameTests {
             telephones.forEach(data::erase);
         }
 
-        /** Rangement de la dernière étape : l'antenne retirée du gabarit, puis le reste. */
+        /** Rangement de la dernière étape : les antennes retirées du gabarit, puis le reste. */
         void fermer() {
             helper.setBlock(A, Blocks.AIR);
+            helper.setBlock(B, Blocks.AIR);
             rendre();
         }
     }
@@ -438,7 +460,8 @@ public final class TelephoneReseauGameTests {
         PhoneStatePacket vue = deverrouiller(helper, j);
         PhoneNetView n = vue.net();
         helper.assertTrue(n.sim() == PhoneSims.Validity.NONE && n.bars() == 0 && n.operator().isEmpty()
-                && n.number().isEmpty() && n.holder().isEmpty() && !n.founderApp() && n.choices().isEmpty(),
+                && n.number().isEmpty() && n.holder().isEmpty() && !n.founderApp() && !n.founderAppAvailable()
+                && n.choices().isEmpty(),
                 "déverrouillé, sans carte : aucune carte, 0 barre, rien à choisir : " + n);
         e.fermer();
         helper.succeed();
@@ -521,8 +544,8 @@ public final class TelephoneReseauGameTests {
                     PhoneStatePacket ouverte = deverrouiller(helper, f);
                     PhoneNetView n = ouverte.net();
                     helper.assertTrue(!n.number().isEmpty() && n.holder().equals(f.joueur().getGameProfile().getName())
-                            && n.choices().size() == 1 && n.founderApp(),
-                            "témoin déverrouillé : numéro, titulaire, une carte au choix, appli : " + n);
+                            && n.choices().size() == 1 && n.founderApp() && n.founderAppAvailable(),
+                            "témoin déverrouillé : numéro, titulaire, une carte au choix, appli ouvrable : " + n);
                     PhoneStatePacket ferme = attendre(helper, geste(helper, f, Action.LOCK, ""), Lock.LOCKED,
                             Result.NONE, "LOCK");
                     PhoneStatePacket rouvert = ouvrir(helper, f);
@@ -531,7 +554,7 @@ public final class TelephoneReseauGameTests {
                         helper.assertTrue(v.operator().equals(op.name()) && v.bars() == 4,
                                 "verrouillé : l'opérateur et les barres se voient : " + v);
                         helper.assertTrue(v.number().isEmpty() && v.holder().isEmpty() && !v.founderApp()
-                                && v.choices().isEmpty() && v.requestable().isEmpty(),
+                                && !v.founderAppAvailable() && v.choices().isEmpty() && v.requestable().isEmpty(),
                                 "verrouillé : ni numéro, ni titulaire, ni cartes, ni opérateurs, ni appli : " + v);
                         helper.assertTrue(p.ownerName().isEmpty() && !p.owner(), "rien du propriétaire : " + p);
                     }
@@ -573,7 +596,8 @@ public final class TelephoneReseauGameTests {
                     for (PhoneStatePacket p : recus.subList(premier, recus.size())) {
                         PhoneNetView v = p.net();
                         helper.assertTrue(p.lock() == Lock.LOCKED && v.number().isEmpty() && v.holder().isEmpty()
-                                && v.choices().isEmpty() && !v.founderApp() && v.operator().equals(op.name()),
+                                && v.choices().isEmpty() && !v.founderApp() && !v.founderAppAvailable()
+                                && v.operator().equals(op.name()),
                                 "après le changement de sel, seulement la vue réduite : " + p);
                     }
                     e.fermer();
@@ -592,14 +616,15 @@ public final class TelephoneReseauGameTests {
                 .thenExecute(() -> {
                     e.placer(f, 0);
                     PhoneStatePacket vue = deverrouiller(helper, f);
-                    helper.assertTrue(vue.net().bars() == 4 && vue.net().founderApp() && !vue.airplane(),
-                            "témoin : 4 barres, appli, hors mode avion : " + vue);
+                    helper.assertTrue(vue.net().bars() == 4 && vue.net().founderApp() && vue.net().founderAppAvailable()
+                            && !vue.airplane(), "témoin : 4 barres, appli ouvrable, hors mode avion : " + vue);
                     PhoneStatePacket avion = attendre(helper, geste(helper, f, Action.AIRPLANE, "", true),
                             Lock.UNLOCKED, Result.NONE, "AIRPLANE vrai");
                     helper.assertTrue(avion.airplane() && avion.net().bars() == 0,
                             "mode avion : 0 barre dans le même UPDATE, vu " + avion.net().bars());
-                    helper.assertTrue(!avion.net().founderApp() && avion.net().requestable().isEmpty(),
-                            "mode avion : ni appli ni opérateur à demander : " + avion.net());
+                    helper.assertTrue(avion.net().founderApp() && !avion.net().founderAppAvailable()
+                            && avion.net().requestable().isEmpty(),
+                            "mode avion : l'appli montrée mais grisée, aucun opérateur à demander : " + avion.net());
                     helper.assertTrue(avion.net().operator().equals(op.name()) && !avion.net().number().isEmpty(),
                             "la ligne reste affichée : " + avion.net());
                     // La façade est d'accord : en mode avion, aucun trajet.
@@ -676,9 +701,11 @@ public final class TelephoneReseauGameTests {
                     e.placer(f, 0);
                     e.placer(c, 1);
                     PhoneStatePacket vueF = deverrouiller(helper, f);
-                    helper.assertTrue(vueF.net().founderApp(), "le fondateur voit l'appli « Antenne » : " + vueF.net());
+                    helper.assertTrue(vueF.net().founderApp() && vueF.net().founderAppAvailable(),
+                            "le fondateur voit l'appli « Antenne », ouvrable : " + vueF.net());
                     PhoneStatePacket vueC = deverrouiller(helper, c);
-                    helper.assertTrue(!vueC.net().founderApp() && vueC.net().sim() == PhoneSims.Validity.ACTIVE,
+                    helper.assertTrue(!vueC.net().founderApp() && !vueC.net().founderAppAvailable()
+                            && vueC.net().sim() == PhoneSims.Validity.ACTIVE,
                             "un abonné ne voit pas l'appli : " + vueC.net());
                     // L'appli ouvre le panneau de l'opérateur du fondateur (tâche 9), source « téléphone ».
                     f.panneauxOperateurRecus();
@@ -698,7 +725,8 @@ public final class TelephoneReseauGameTests {
                     PhoneStatePacket autre = attendre(helper, geste(helper, f, Action.UNLOCK, CODE), Lock.UNLOCKED,
                             Result.NONE, "UNLOCK par un autre");
                     PhoneNetView n = autre.net();
-                    helper.assertTrue(!autre.owner() && !n.founderApp(), "pas le propriétaire : pas d'appli : " + n);
+                    helper.assertTrue(!autre.owner() && !n.founderApp() && !n.founderAppAvailable(),
+                            "pas le propriétaire : pas d'appli : " + n);
                     helper.assertTrue(n.holder().equals(c.joueur().getGameProfile().getName()) && !n.number().isEmpty(),
                             "il voit la ligne du téléphone : " + n);
                     e.fermer();
@@ -1004,8 +1032,8 @@ public final class TelephoneReseauGameTests {
         PhoneNetView n = vue.net();
         helper.assertTrue(n.sim() == PhoneSims.Validity.ACTIVE && !n.number().isEmpty()
                 && n.holder().equals(h.joueur().getGameProfile().getName()), "il voit la ligne : " + n);
-        helper.assertTrue(n.choices().isEmpty() && n.requestable().isEmpty() && !n.founderApp(),
-                "ni cartes, ni opérateurs, ni appli : " + n);
+        helper.assertTrue(n.choices().isEmpty() && n.requestable().isEmpty() && !n.founderApp()
+                && !n.founderAppAvailable(), "ni cartes, ni opérateurs, ni appli : " + n);
         List<ItemStack> avant = copie(x.joueur());
         UUID avantCarte = exiger(helper, SimCardItem.simId(PhoneItem.sim(enMain)), "aucune carte logée");
         for (Action a : new Action[] {Action.INSERT_SIM, Action.REMOVE_SIM, Action.REQUEST_SIM}) {
@@ -1018,5 +1046,235 @@ public final class TelephoneReseauGameTests {
                 && e.registre().requestsOf(op.id()).isEmpty(), "rien n'a bougé");
         e.fermer();
         helper.succeed();
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Lot telephone_icone (tâche 13b) : l'icône « Antenne » grisée exactement quand le serveur refuserait de l'ouvrir
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * La vue que le fondateur a sous les yeux (relue par un geste sans effet), puis un toucher sur l'icône : elle est
+     * montrée, vive ({@code vive}) ou grisée, et le serveur refuse ({@code NO_NETWORK}, aucun panneau) exactement quand
+     * elle est grisée. Le panneau ouvert est refermé. Rend la vue relue avant le toucher.
+     */
+    private static PhoneStatePacket icone(GameTestHelper helper, JoueurDeTest f, boolean vive, String cas) {
+        PhoneStatePacket vue = attendre(helper, geste(helper, f, Action.WALLPAPER, "nuit"), Lock.UNLOCKED, Result.NONE,
+                cas + " : relire la vue");
+        helper.assertTrue(vue.net().founderApp(), cas + " : le fondateur voit toujours l'appli : " + vue.net());
+        helper.assertTrue(vue.net().founderAppAvailable() == vive,
+                cas + " : icône " + (vive ? "vive" : "grisée") + " attendue : " + vue.net());
+        f.panneauxOperateurRecus();
+        Reponse r = geste(helper, f, Action.OPEN_OPERATOR_APP, "");
+        PhoneStatePacket apres = r.etat();
+        helper.assertTrue(apres != null, cas + " : le toucher a une réponse (issue " + r.outcome() + ")");
+        boolean refuse = apres != null && apres.last() == Result.NO_NETWORK;
+        boolean ouvert = !f.panneauxOperateurRecus().isEmpty();
+        helper.assertTrue(refuse == !vue.net().founderAppAvailable() && ouvert != refuse,
+                cas + " : grisée et refus doivent coïncider : grisée " + !vue.net().founderAppAvailable() + ", refus "
+                        + refuse + ", panneau " + ouvert);
+        helper.assertTrue(r.outcome() == (vive ? Outcome.DONE : Outcome.REFUSED), cas + " : issue " + r.outcome());
+        helper.assertTrue(apres != null && apres.net().founderAppAvailable() == vive,
+                cas + " : la réponse au toucher porte le même état : " + apres);
+        dev.oneforallsurvival.phone.net.OperatorPanels.close(f.uuid());
+        return vue;
+    }
+
+    /**
+     * Un {@code UPDATE} poussé par le relevé du signal porte cette icône, au plus un relevé après {@code depuis} (aucun
+     * geste entre les deux). {@code recus} cumule les états d'un tic à l'autre.
+     */
+    private static void iconeEnDirect(GameTestHelper helper, JoueurDeTest f, List<PhoneStatePacket> recus, boolean vive,
+            long[] depuis, String cas) {
+        recus.addAll(f.etatsTelephoneRecus());
+        helper.assertTrue(recus.stream().anyMatch(p -> p.kind() == Kind.UPDATE && p.net().founderApp()
+                && p.net().founderAppAvailable() == vive),
+                cas + " : un UPDATE à l'icône " + (vive ? "vive" : "grisée") + " attendu");
+        long passe = helper.getLevel().getGameTime() - depuis[0];
+        helper.assertTrue(passe <= PhoneConfig.signalRefreshTicks() + 1,
+                cas + " : au relevé suivant (" + PhoneConfig.signalRefreshTicks() + " tics), vu " + passe);
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_ICONE, timeoutTicks = 200)
+    public static void lIconeEstViveAvecSaCarteEtGriseeEnModeAvion(GameTestHelper helper) {
+        Essai e = new Essai(helper);
+        JoueurDeTest f = e.joueur("ti_avion");
+        PhoneOperator op = e.fonder(f, "Icone Avion", RESERVE);
+        e.ligne(op, f);
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(e.enService(), "antenne en service"))
+                .thenExecute(() -> {
+                    e.placer(f, 0);
+                    deverrouiller(helper, f);
+                    icone(helper, f, true, "sa carte et du signal");
+                    attendre(helper, geste(helper, f, Action.AIRPLANE, "", true), Lock.UNLOCKED, Result.NONE,
+                            "mode avion mis");
+                    icone(helper, f, false, "mode avion");
+                    attendre(helper, geste(helper, f, Action.AIRPLANE, "", false), Lock.UNLOCKED, Result.NONE,
+                            "mode avion coupé");
+                    icone(helper, f, true, "hors mode avion");
+                    e.fermer();
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_ICONE, timeoutTicks = 200)
+    public static void lIconeEstGriseeSansCarte(GameTestHelper helper) {
+        Essai e = new Essai(helper);
+        JoueurDeTest f = e.joueur("ti_sans");
+        PhoneOperator op = e.fonder(f, "Icone Sans Carte", RESERVE);
+        e.telephone(f);
+        e.carte(op, f, f, 5);
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(e.enService(), "antenne en service"))
+                .thenExecute(() -> {
+                    e.placer(f, 0);
+                    deverrouiller(helper, f);
+                    PhoneStatePacket sans = icone(helper, f, false, "sans carte");
+                    helper.assertTrue(sans.net().sim() == PhoneSims.Validity.NONE, "sans carte : " + sans.net());
+                    PhoneStatePacket mise = attendre(helper, geste(helper, f, Action.INSERT_SIM, "5"), Lock.UNLOCKED,
+                            Result.SIM_INSERTED, "INSERT_SIM");
+                    helper.assertTrue(mise.net().founderAppAvailable(), "vive dès la carte glissée : " + mise.net());
+                    icone(helper, f, true, "carte glissée");
+                    PhoneStatePacket otee = attendre(helper, geste(helper, f, Action.REMOVE_SIM, ""), Lock.UNLOCKED,
+                            Result.SIM_REMOVED, "REMOVE_SIM");
+                    helper.assertTrue(!otee.net().founderAppAvailable(), "grisée dès la carte retirée : " + otee.net());
+                    icone(helper, f, false, "carte retirée");
+                    e.fermer();
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_ICONE, timeoutTicks = 200)
+    public static void lIconeEstGriseeAvecLaCarteDUnAutreOperateur(GameTestHelper helper) {
+        Essai e = new Essai(helper);
+        JoueurDeTest f = e.joueur("ti_autre_f");
+        JoueurDeTest g = e.joueur("ti_autre_g");
+        PhoneOperator mien = e.fonder(f, A, "Icone Mienne", RESERVE);
+        PhoneOperator voisin = e.fonder(g, B, "Icone Voisine", RESERVE);
+        e.ligne(voisin, f);
+        e.carte(mien, f, f, 5);
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(e.enService(A) && e.enService(B), "antennes en service"))
+                .thenExecute(() -> {
+                    e.placer(f, 0);
+                    deverrouiller(helper, f);
+                    PhoneStatePacket vue = icone(helper, f, false, "carte d'un autre opérateur");
+                    helper.assertTrue(vue.net().sim() == PhoneSims.Validity.ACTIVE && vue.net().bars() >= 1
+                            && vue.net().operator().equals(voisin.name()),
+                            "témoin : la carte active de l'autre, du signal : " + vue.net());
+                    attendre(helper, geste(helper, f, Action.INSERT_SIM, "5"), Lock.UNLOCKED, Result.SIM_INSERTED,
+                            "INSERT_SIM");
+                    icone(helper, f, true, "sa propre carte");
+                    e.fermer();
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_ICONE, timeoutTicks = 300)
+    public static void lIconeEstGriseeAvecUneCarteSuspendue(GameTestHelper helper) {
+        Essai e = new Essai(helper);
+        JoueurDeTest f = e.joueur("ti_susp");
+        PhoneOperator op = e.fonder(f, "Icone Suspendue", RESERVE);
+        ItemStack phone = e.ligne(op, f);
+        List<PhoneStatePacket> recus = new ArrayList<>();
+        long[] depuis = {-1L};
+        UUID[] carte = {null};
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(e.enService(), "antenne en service"))
+                .thenExecute(() -> {
+                    e.placer(f, 0);
+                    deverrouiller(helper, f);
+                    icone(helper, f, true, "carte active");
+                    carte[0] = exiger(helper, PhoneSims.line(e.serveur(), phone), "la ligne du fondateur").simId();
+                    f.etatsTelephoneRecus();
+                    helper.assertTrue(e.registre().setState(carte[0], SimCard.State.SUSPENDED), "suspension");
+                    depuis[0] = helper.getLevel().getGameTime();
+                })
+                .thenWaitUntil(() -> iconeEnDirect(helper, f, recus, false, depuis, "carte suspendue"))
+                .thenIdle(3)
+                .thenExecute(() -> {
+                    PhoneStatePacket vue = icone(helper, f, false, "carte suspendue");
+                    helper.assertTrue(vue.net().sim() == PhoneSims.Validity.SUSPENDED, "suspendue : " + vue.net());
+                    recus.clear();
+                    helper.assertTrue(e.registre().setState(carte[0], SimCard.State.ACTIVE), "réactivation");
+                    depuis[0] = helper.getLevel().getGameTime();
+                })
+                .thenWaitUntil(() -> iconeEnDirect(helper, f, recus, true, depuis, "carte réactivée"))
+                .thenIdle(3)
+                .thenExecute(() -> {
+                    icone(helper, f, true, "carte réactivée");
+                    e.fermer();
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_ICONE, timeoutTicks = 400)
+    public static void lIconeSuitLeSignalEnDirect(GameTestHelper helper) {
+        Essai e = new Essai(helper);
+        JoueurDeTest f = e.joueur("ti_signal");
+        PhoneOperator op = e.fonder(f, "Icone Signal", RESERVE);
+        e.ligne(op, f);
+        List<PhoneStatePacket> recus = new ArrayList<>();
+        long[] depuis = {-1L};
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(e.enService(), "antenne en service"))
+                .thenExecute(() -> {
+                    e.placer(f, 0);
+                    deverrouiller(helper, f);
+                    icone(helper, f, true, "sous l'antenne");
+                    f.etatsTelephoneRecus();
+                    e.placer(f, 300);
+                    depuis[0] = helper.getLevel().getGameTime();
+                })
+                .thenWaitUntil(() -> iconeEnDirect(helper, f, recus, false, depuis, "à 300 blocs"))
+                .thenIdle(3)
+                .thenExecute(() -> {
+                    PhoneStatePacket loin = icone(helper, f, false, "0 barre");
+                    helper.assertTrue(loin.net().bars() == 0 && loin.net().sim() == PhoneSims.Validity.ACTIVE,
+                            "carte active, 0 barre : " + loin.net());
+                    recus.clear();
+                    e.placer(f, 0);
+                    depuis[0] = helper.getLevel().getGameTime();
+                })
+                .thenWaitUntil(() -> iconeEnDirect(helper, f, recus, true, depuis, "revenu sous l'antenne"))
+                .thenIdle(3)
+                .thenExecute(() -> {
+                    icone(helper, f, true, "revenu");
+                    // La source retirée : la réserve vidée, l'antenne s'arrête.
+                    e.antenne().drainEnergy(Integer.MAX_VALUE);
+                })
+                .thenWaitUntil(() -> helper.assertTrue(!e.enService(), "antenne hors service"))
+                .thenIdle(3)
+                .thenExecute(() -> {
+                    icone(helper, f, false, "antenne sans courant");
+                    e.fermer();
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_ICONE, timeoutTicks = 200)
+    public static void lIconeNExistePasPourUnNonFondateur(GameTestHelper helper) {
+        Essai e = new Essai(helper);
+        JoueurDeTest f = e.joueur("ti_non_f");
+        JoueurDeTest c = e.joueur("ti_non_c");
+        PhoneOperator op = e.fonder(f, "Icone Abonne", RESERVE);
+        e.ligne(op, c);
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(e.enService(), "antenne en service"))
+                .thenExecute(() -> {
+                    e.placer(c, 0);
+                    PhoneStatePacket vue = deverrouiller(helper, c);
+                    helper.assertTrue(vue.net().sim() == PhoneSims.Validity.ACTIVE && vue.net().bars() == 4,
+                            "témoin : un abonné avec sa carte et du signal : " + vue.net());
+                    helper.assertTrue(!vue.net().founderApp() && !vue.net().founderAppAvailable(),
+                            "pas fondateur : aucune icône : " + vue.net());
+                    // Un toucher forgé : refusé sans réseau, aucun panneau.
+                    c.panneauxOperateurRecus();
+                    attendre(helper, geste(helper, c, Action.OPEN_OPERATOR_APP, ""), Lock.UNLOCKED, Result.NO_NETWORK,
+                            "toucher d'un abonné");
+                    helper.assertTrue(c.panneauxOperateurRecus().isEmpty(), "aucun panneau pour un abonné");
+                    e.fermer();
+                })
+                .thenSucceed();
     }
 }

@@ -42,7 +42,8 @@ import org.lwjgl.glfw.GLFW;
  * Réglages (carte SIM, mode avion, fond suivant, changement du code par trois champs de chiffres, verrouillage,
  * effacement). Lot T2 : barre d'état avec l'opérateur (ou l'état de la carte) et quatre barres, « Mode avion » à leur
  * place ; feuille « Carte SIM » (la carte logée, « Retirer », une ligne par carte de l'inventaire, « Demander une
- * carte » et sa liste, qui défile à la molette) ; bouton « Antenne » à l'accueil du fondateur. Mêmes gestes que la page
+ * carte » et sa liste, qui défile à la molette) ; bouton « Antenne » à l'accueil du fondateur, grisé quand le serveur
+ * ne l'ouvrirait pas (il reste touchable : le serveur répond « Pas de réseau »). Mêmes gestes que la page
  * ({@code INSERT_SIM}, {@code REMOVE_SIM}, {@code REQUEST_SIM}, {@code OPEN_OPERATOR_APP}). Le serveur juge tout ;
  * l'écran ne garde un code saisi que le temps de l'envoyer et ne l'écrit nulle part. Échap ferme et prévient le serveur.
  */
@@ -144,7 +145,7 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
 
     /**
      * Les commandes de l'écran par nom : {@code key-0} à {@code key-9}, {@code key-clear}, {@code setup-wallpaper}
-     * (choix du code d'un téléphone neuf) ; {@code settings}, {@code app-antenna} (fondateur) ;
+     * (choix du code d'un téléphone neuf) ; {@code settings}, {@code app-antenna} (fondateur, grisée ou non) ;
      * {@code sim}, {@code airplane}, {@code wallpaper}, {@code old}, {@code new}, {@code confirm}, {@code change},
      * {@code lock}, {@code erase}, {@code back} ; feuille « Carte SIM » : {@code sim-remove},
      * {@code sim-choice-<case>}, {@code sim-request}, {@code request-<id>}, {@code back} (lignes visibles seulement).
@@ -250,19 +251,20 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
     }
 
     private void buildHome() {
-        int bh = 20;
-        int y = inner.y() + inner.height() - bh - 4;
-        add("settings", new FitButton(new Rect(inner.x(), y, inner.width(), bh),
-                Component.translatable(KEY + "settings"), b -> {
-                    page = Page.SETTINGS;
-                    message = Component.empty();
-                    rebuild();
-                }, null));
-        if (net().founderApp()) {
+        PhoneFallbackLayout.Home home = PhoneFallbackLayout.home(inner, net().founderApp(),
+                net().founderAppAvailable());
+        add("settings", new FitButton(home.settings(), Component.translatable(KEY + "settings"), b -> {
+            page = Page.SETTINGS;
+            message = Component.empty();
+            rebuild();
+        }, null));
+        if (home.antenna() != null) {
             // L'appli « Antenne » : le geste part ; la vue du serveur ouvre le panneau Minecraft par-dessus (tâche 10).
-            add("app-antenna", new FitButton(new Rect(inner.x(), y - bh - 4, inner.width(), bh),
-                    Component.translatable(KEY + "antenna_app"), b -> send(Action.OPEN_OPERATOR_APP, "", "", false),
-                    null));
+            // Grisée, elle part quand même : le serveur répond par son refus (tâche 13b).
+            FitButton antenna = new FitButton(home.antenna(), Component.translatable(KEY + "antenna_app"),
+                    b -> send(Action.OPEN_OPERATOR_APP, "", "", false), null);
+            antenna.dimmed = home.antennaDimmed();
+            add("app-antenna", antenna);
         }
     }
 
@@ -867,9 +869,25 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
      */
     private static final class FitButton extends Button {
 
+        /** Dessiné comme un bouton inactif (grisé) tout en restant touchable. */
+        boolean dimmed;
+
         FitButton(Rect r, Component text, OnPress onPress, @Nullable Component spoken) {
             super(r.x(), r.y(), r.width(), r.height(), text, onPress,
                     spoken == null ? DEFAULT_NARRATION : narration -> Component.translatable("gui.narrate.button", spoken));
+        }
+
+        @Override
+        protected void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+            if (!dimmed) {
+                super.renderWidget(g, mouseX, mouseY, partialTick);
+                return;
+            }
+            // L'apparence d'un bouton inactif (fond et texte gris du jeu), le temps du dessin seulement.
+            boolean was = active;
+            active = false;
+            super.renderWidget(g, mouseX, mouseY, partialTick);
+            active = was;
         }
 
         @Override

@@ -3408,10 +3408,10 @@ public final class DemoVisuels {
                 new dev.oneforallsurvival.phone.PhoneNetView.OperatorChoice("aaaaaaaaaaaa", "Radio Île", 0));
         // Sans ligne (aucune carte logée), le téléphone propose de demander une carte : la liste des opérateurs.
         var net = ligne ? new dev.oneforallsurvival.phone.PhoneNetView(
-                dev.oneforallsurvival.phone.net.PhoneSims.Validity.ACTIVE, NOM_24, 3, "06 12 34 56 78", NOM_16, true, choix,
-                demandables)
+                dev.oneforallsurvival.phone.net.PhoneSims.Validity.ACTIVE, NOM_24, 3, "06 12 34 56 78", NOM_16, true, true,
+                choix, demandables)
                 : new dev.oneforallsurvival.phone.PhoneNetView(dev.oneforallsurvival.phone.net.PhoneSims.Validity.NONE, "",
-                        0, "", "", true, choix, demandables);
+                        0, "", "", true, false, choix, demandables);
         return new PhoneStatePacket(4242, PhoneStatePacket.Kind.OPEN, PhoneStatePacket.Lock.UNLOCKED, 64,
                 1_763_640_000_000L, 3600, "jungle", false, true, NOM_16, 5, 0, PhoneStatePacket.Result.NONE,
                 PhoneStatePacket.CloseReason.NONE, net);

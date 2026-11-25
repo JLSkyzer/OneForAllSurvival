@@ -12,9 +12,10 @@ import dev.oneforallsurvival.phone.net.PhoneSims;
  * ({@code "SETUP"}, {@code "LOCKED"} ou {@code "UNLOCKED"}), {@code battery}, {@code serverMillis},
  * {@code zoneOffsetSeconds}, {@code wallpaper}, {@code airplane}, {@code owner}, {@code ownerName},
  * {@code attemptsLeft}, {@code lockoutSeconds}, {@code last} (nom de {@link PhoneStatePacket.Result}) et, depuis le lot
- * T2, {@code net} : {@code {sim, operator, bars, number, holder, founderApp, choices: [{slot, number, operator,
- * validity}], requestable: [{id, name, bars}]}} ({@code sim} et {@code validity} : noms de
- * {@link PhoneSims.Validity}).
+ * T2, {@code net} : {@code {sim, operator, bars, number, holder, founderApp, founderAppAvailable, choices: [{slot,
+ * number, operator, validity}], requestable: [{id, name, bars}]}} ({@code sim} et {@code validity} : noms de
+ * {@link PhoneSims.Validity} ; {@code founderApp} : l'icône « Antenne » se montre ; {@code founderAppAvailable} : le
+ * serveur l'ouvrirait, sinon la page la grise).
  *
  * <p>Hors {@link Lock#UNLOCKED}, rien du propriétaire ni des réglages, même si le paquet en portait ; la vue réseau y
  * est réduite une seconde fois ({@link PhoneNetView#locked()} : la page ne croit pas le paquet sur parole) et n'a ni
@@ -54,6 +55,7 @@ public final class PhoneViewJson {
             o.addProperty("holder", n.holder());
         }
         o.addProperty("founderApp", unlocked && n.founderApp());
+        o.addProperty("founderAppAvailable", unlocked && n.founderAppAvailable());
         JsonArray choices = new JsonArray();
         JsonArray requestable = new JsonArray();
         if (unlocked) {

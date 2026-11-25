@@ -25,6 +25,8 @@ public final class PhoneFallbackLayout {
     static final int ROW_GAP = 2;
     static final int MIN_ROW = 10;
     static final int MAX_ROW = 20;
+    /** La hauteur des boutons de l'accueil. */
+    static final int HOME_BUTTON = 20;
     /** Les lignes de texte au-dessus de « Retirer » dans la feuille « Carte SIM » : numéro, titulaire, message (deux). */
     public static final int SIM_TEXT_LINES = 4;
     /** En dessous de cette échelle, le texte d'Effacer cède la place à une flèche (le libellé reste lu et en bulle). */
@@ -98,6 +100,22 @@ public final class PhoneFallbackLayout {
         int h = clamp(room);
         int y = text + KEY_GAP + Math.max(0, (room - h) / 2);
         return new Rect(inner.x(), y, inner.width(), h);
+    }
+
+    /**
+     * L'accueil : « Réglages » en bas et, au-dessus, le bouton de l'appli « Antenne » ({@code antenna}, nul s'il ne se
+     * montre pas), dessiné grisé ({@code antennaDimmed}) quand le serveur refuserait de l'ouvrir.
+     */
+    public record Home(Rect settings, @Nullable Rect antenna, boolean antennaDimmed) {}
+
+    public static Home home(Rect inner, boolean founderApp, boolean founderAppAvailable) {
+        int y = inner.y() + inner.height() - HOME_BUTTON - 4;
+        Rect settings = new Rect(inner.x(), y, inner.width(), HOME_BUTTON);
+        if (!founderApp) {
+            return new Home(settings, null, false);
+        }
+        return new Home(settings, new Rect(inner.x(), y - HOME_BUTTON - 4, inner.width(), HOME_BUTTON),
+                !founderAppAvailable);
     }
 
     /** Les Réglages : deux lignes de texte, puis dix lignes (« Carte SIM » en tête) ; un libellé d'une ligne au-dessus de chaque champ de code. */

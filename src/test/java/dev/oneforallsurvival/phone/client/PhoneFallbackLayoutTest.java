@@ -59,6 +59,32 @@ class PhoneFallbackLayoutTest {
         assertEquals(PhoneFallbackLayout.LABELLED, List.copyOf(s.labelTops().keySet()));
     }
 
+    /**
+     * L'accueil (tâche 13b) : l'appli « Antenne » du fondateur au-dessus de « Réglages », à la même place qu'elle soit
+     * vive ou grisée ; grisée exactement quand le serveur ne l'ouvrirait pas ; absente pour les autres.
+     */
+    @ParameterizedTest(name = "interface {0} x {1}")
+    @CsvSource({"320, 240", "427, 240", "480, 270", "640, 328", "640, 360", "960, 540", "1920, 1080", "320, 480"})
+    void lAccueilMontreLAppliViveOuGrisee(int w, int h) {
+        Rect zone = inner(w, h);
+        PhoneFallbackLayout.Home vive = PhoneFallbackLayout.home(zone, true, true);
+        PhoneFallbackLayout.Home grisee = PhoneFallbackLayout.home(zone, true, false);
+        PhoneFallbackLayout.Home autre = PhoneFallbackLayout.home(zone, false, false);
+        assertTrue(vive.antenna() != null && grisee.antenna() != null, "le fondateur voit l'appli, vive ou grisée");
+        assertFalse(vive.antennaDimmed(), "ouvrable : vive");
+        assertTrue(grisee.antennaDimmed(), "pas ouvrable : grisée");
+        assertEquals(vive.antenna(), grisee.antenna(), "grisée à la même place");
+        assertTrue(autre.antenna() == null && !autre.antennaDimmed(), "pas fondateur : pas d'appli");
+        for (PhoneFallbackLayout.Home home : List.of(vive, grisee, autre)) {
+            assertEquals(vive.settings(), home.settings(), "« Réglages » ne bouge pas");
+            dedans(home.settings(), zone, "réglages");
+        }
+        Rect appli = vive.antenna();
+        dedans(appli, zone, "appli Antenne");
+        assertTrue(appli.height() >= PhoneFallbackLayout.MIN_ROW, "appli trop basse : " + appli);
+        assertTrue(appli.y() + appli.height() < vive.settings().y(), "appli sur « Réglages » : " + appli);
+    }
+
     @ParameterizedTest(name = "interface {0} x {1}")
     @CsvSource({"320, 240", "427, 240", "480, 270", "640, 328", "640, 360", "960, 540", "1920, 1080"})
     void leClavierTientSousLeTitre(int w, int h) {

@@ -10,7 +10,9 @@
 //   "opReplace"|"opMain","id":"<uuid>"} ; {"a":"opAnonymous"} ; {"a":"opPage","n":N} (0 à 63) ; {"a":"opClose"}.
 //   Java -> page : view = {session, lock: "SETUP"|"LOCKED"|"UNLOCKED", battery, serverMillis, zoneOffsetSeconds,
 //   wallpaper, airplane, owner, ownerName, attemptsLeft, lockoutSeconds, last, net}, avec net = {sim, operator, bars,
-//   number, holder, founderApp, choices: [{slot, number, operator, validity}], requestable: [{id, name, bars}]}.
+//   number, holder, founderApp, founderAppAvailable, choices: [{slot, number, operator, validity}],
+//   requestable: [{id, name, bars}]}. founderApp : l'icône « Antenne » se montre ; founderAppAvailable : le serveur
+//   l'ouvrirait, sinon elle est grisée (classe off) et un toucher part quand même.
 //   Verrouillé, net n'a ni number ni holder, ses listes sont vides et sim est grossier (ACTIVE s'y lit « présente ») :
 //   la page montre ce qu'elle reçoit, sans rien deviner. Boîtes de layout du lot T2 : row-sim, sim-choice-<case>,
 //   sim-remove, sim-request, request-<id>, app-antenna, status-bars (et sim-close, la fermeture de la feuille) ;
@@ -140,6 +142,7 @@
       number: unlocked ? text(n.number, 32) : '',
       holder: unlocked ? text(n.holder, 32) : '',
       founderApp: unlocked && n.founderApp === true,
+      founderAppAvailable: unlocked && n.founderAppAvailable === true,
       choices: [],
       requestable: []
     };
@@ -342,6 +345,8 @@
     phoneEl.classList.toggle('no-line', key !== 'OPERATOR' && key !== 'NO_SERVICE' && key !== 'AIRPLANE');
     paintBars($('status-bars'), v.airplane ? 0 : n.bars);
     $('app-antenna').classList.toggle('gone', !n.founderApp);
+    // Grisée quand le serveur le dit, et seulement alors : la page ne relit ni barres, ni carte, ni mode avion pour elle.
+    $('app-antenna').classList.toggle('off', !n.founderAppAvailable);
 
     // Réglages : la carte, l'opérateur, l'abonnement (le prélèvement arrive au lot T6 ; la vue ne porte pas le tarif).
     var line = cardKey(n.sim) === 'NUMBER';
@@ -1950,7 +1955,8 @@
       ],
       requested: {},
       requestsFull: false,
-      founder: true
+      founder: true,
+      founderOp: 'a1b2c3d4e5f6' // l'opérateur fondé : la Mairie
     };
 
     function operatorOf(id) {
@@ -1960,6 +1966,16 @@
         }
       }
       return null;
+    }
+
+    /**
+     * OperatorPanels.canOpenFromPhone : le fondateur, son téléphone déverrouillé, hors mode avion, une carte active de son
+     * opérateur, une barre. La même réponse grise l'icône et refuse le toucher.
+     */
+    function appOpens() {
+      var c = mock.lodged;
+      var own = c && c.validity === 'ACTIVE' && c.op === mock.founderOp ? operatorOf(c.op) : null;
+      return mock.lock === 'UNLOCKED' && mock.owner && mock.founder && !mock.airplane && !!own && own.bars > 0;
     }
 
     /** Ce que le serveur calcule (PhoneService.netView) : le faux serveur en suit les règles, la page n'en a aucune. */
@@ -1972,7 +1988,7 @@
       if (!unlocked) {
         // PhoneNetView.locked() : l'état grossier, l'opérateur, les barres.
         return { sim: sim === 'NONE' || sim === 'UNKNOWN' ? sim : 'ACTIVE', operator: op ? op.name : '', bars: bars,
-          founderApp: false, choices: [], requestable: [] };
+          founderApp: false, founderAppAvailable: false, choices: [], requestable: [] };
       }
       var choices = [];
       for (var i = 0; i < mock.inventory.length; i++) {
@@ -1988,8 +2004,8 @@
       }
       return {
         sim: sim, operator: op ? op.name : '', bars: bars, number: line ? line.number : '',
-        holder: line ? line.holder : '', founderApp: mock.owner && mock.founder && !mock.airplane,
-        choices: mock.owner ? choices : [], requestable: requestable
+        holder: line ? line.holder : '', founderApp: mock.owner && mock.founder,
+        founderAppAvailable: appOpens(), choices: mock.owner ? choices : [], requestable: requestable
       };
     }
 
@@ -2059,10 +2075,8 @@
         mock.requested[m.op] = true;
         return 'SIM_REQUESTED';
       }
-      // antennaApp (PhoneService.openOperatorApp) : le fondateur, carte active, une barre, hors mode avion.
-      var lineOk = mock.lodged && mock.lodged.validity === 'ACTIVE' && operatorOf(mock.lodged.op)
-        && operatorOf(mock.lodged.op).bars > 0;
-      if (!mock.founder || mock.airplane || !lineOk) {
+      // antennaApp (PhoneService.openOperatorApp) : la même condition que l'icône grisée.
+      if (!appOpens()) {
         return 'NO_NETWORK';
       }
       openOperator();
@@ -2364,7 +2378,8 @@
     // phoneMock.sim('UNKNOWN' | 'SUSPENDED' | 'DEACTIVATED' | 'ACTIVE' | 'NONE'), phoneMock.full(true) (file de demandes
     // pleine), phoneMock.founder(false), phoneMock.airplane(true), phoneMock.many() (41 cartes, 16 opérateurs) ;
     // tâche 10 : phoneMock.antennaShort(), antennaLong(), antennaRights(cartes, tarif), antennaPower(false),
-    // antennaClosedByServer().
+    // antennaClosedByServer(). L'icône « Antenne » est vive au départ ; airplane(true), bars(0),
+    // sim('SUSPENDED' | 'NONE') la grisent ; founder(false) la retire.
     window.phoneMock = {
       state: mock,
       bars: function (n) {

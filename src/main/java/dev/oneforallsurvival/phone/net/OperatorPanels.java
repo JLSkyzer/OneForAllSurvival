@@ -97,16 +97,13 @@ public final class OperatorPanels {
      * L'appli « Antenne » : ouvre le panneau du fondateur depuis son téléphone ({@code session}, ouverte par lui) et
      * envoie sa vue.
      *
-     * @return faux, et rien ne s'ouvre, si le joueur ne fonde pas d'opérateur, si la session n'est pas déverrouillée,
-     *         s'il n'est pas le propriétaire du téléphone, en mode avion, sans carte {@code ACTIVE} de son opérateur ou
-     *         sans barre
+     * @return faux, et rien ne s'ouvre, exactement quand {@link #canOpenFromPhone} est faux : le joueur ne fonde pas
+     *         d'opérateur, la session n'est pas déverrouillée, il n'est pas le propriétaire du téléphone, mode avion, pas
+     *         de carte {@code ACTIVE} de son opérateur ou aucune barre
      */
     public static boolean openFromPhone(ServerPlayer player, PhoneSession session) {
-        if (player instanceof FakePlayer || session == null) {
-            return false;
-        }
-        Optional<PhoneOperator> op = PhoneOperators.get(player.server).byFounder(player.getUUID());
-        if (op.isEmpty() || !phoneValid(player, session, op.get().id())) {
+        Optional<PhoneOperator> op = appOperator(player, session);
+        if (op.isEmpty()) {
             return false;
         }
         Panel panel = new Panel(NEXT.incrementAndGet(), OperatorView.Source.PHONE, player.level().dimension(),
@@ -114,6 +111,28 @@ public final class OperatorPanels {
         OPEN.put(player.getUUID(), panel);
         send(player, panel);
         return true;
+    }
+
+    /**
+     * Le serveur ouvrirait-il l'appli « Antenne » depuis ce téléphone maintenant ? La vue du téléphone grise l'icône
+     * d'après cette réponse ({@code PhoneNetView.founderAppAvailable}) et {@link #openFromPhone} refuse d'après la même :
+     * l'icône grisée et le refus ne peuvent pas diverger.
+     */
+    public static boolean canOpenFromPhone(ServerPlayer player, PhoneSession session) {
+        return appOperator(player, session).isPresent();
+    }
+
+    /**
+     * La seule condition de l'appli « Antenne » (lot T2, tâche 13b) : l'opérateur que ce joueur fonde, si le téléphone de
+     * cette session vaut l'appli ({@link #phoneValid}) ; vide sinon. Tout changement de la règle se fait ici ou dans
+     * {@code phoneValid}.
+     */
+    private static Optional<PhoneOperator> appOperator(ServerPlayer player, PhoneSession session) {
+        if (player instanceof FakePlayer || session == null) {
+            return Optional.empty();
+        }
+        return PhoneOperators.get(player.server).byFounder(player.getUUID())
+                .filter(op -> phoneValid(player, session, op.id()));
     }
 
     /** Le panneau ouvert de ce joueur. */

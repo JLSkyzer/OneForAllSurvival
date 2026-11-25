@@ -77,9 +77,10 @@ final class TelephoneBilan {
                     "wd-reglages", "wd-pad-encore", "wd-bilan-pont");
             case "reseau" -> List.of("reseau-confirmation-au-clavier", "reseau-antennes-en-service",
                     "reseau-carte-emise", "reseau-verrouille-pas-de-sim", "reseau-deverrouillage-clavier",
-                    "reseau-appli-antenne", "reseau-feuille-sim", "reseau-demande-envoyee", "reseau-glisser",
-                    "reseau-mode-avion", "reseau-mode-avion-coupe", "reseau-150-blocs", "reseau-300-blocs",
-                    "reseau-retour", "reseau-verrouille-operateur", "reseau-retirer", "reseau-file-pleine",
+                    "reseau-icone-grisee", "reseau-appli-antenne", "reseau-feuille-sim", "reseau-demande-envoyee",
+                    "reseau-glisser", "reseau-mode-avion", "reseau-mode-avion-coupe", "reseau-150-blocs",
+                    "reseau-300-blocs", "reseau-retour", "reseau-verrouille-operateur", "reseau-icone-vive",
+                    "reseau-retirer", "reseau-file-pleine",
                     "reseau-demande-grisee", "reseau-suspendue", "reseau-reactivee", "reseau-desactivee",
                     "reseau-liste-vide", "reseau-largeurs", "bilan-du-pont");
             case "signal" -> webAttendu

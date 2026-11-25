@@ -101,7 +101,7 @@ class PhoneStatePacketTest {
             ops.add(new PhoneNetView.OperatorChoice(String.format("%012x", 0xabc000L + i), "Lagon " + i, i % 5));
         }
         return new PhoneNetView(PhoneSims.Validity.SUSPENDED, "é".repeat(PhoneNetView.MAX_TEXT), 4, "06 12 34 56 78",
-                "Joueur_Seize_16c", true, cartes, ops);
+                "Joueur_Seize_16c", true, true, cartes, ops);
     }
 
     /**
@@ -115,7 +115,8 @@ class PhoneStatePacketTest {
         buf.writeVarInt(bars);
         buf.writeUtf("06 12 34 56 78");
         buf.writeUtf("Alex");
-        buf.writeBoolean(false);
+        buf.writeBoolean(false); // founderApp
+        buf.writeBoolean(false); // founderAppAvailable
         buf.writeVarInt(cases.length);
         for (int c : cases) {
             buf.writeVarInt(c);
@@ -195,7 +196,8 @@ class PhoneStatePacketTest {
         cartes.add(new PhoneSims.SimChoice(40, "06 40 00 00 01", "Trop", PhoneSims.Validity.ACTIVE));
         List<PhoneNetView.OperatorChoice> ops = new ArrayList<>(pleine().requestable());
         ops.add(new PhoneNetView.OperatorChoice("0123456789ab", "Trop", 7));
-        PhoneNetView vue = new PhoneNetView(PhoneSims.Validity.ACTIVE, "y".repeat(500), 9, "", "", false, cartes, ops);
+        PhoneNetView vue = new PhoneNetView(PhoneSims.Validity.ACTIVE, "y".repeat(500), 9, "", "", false, false, cartes,
+                ops);
         assertEquals(PhoneNetView.MAX_CHOICES, vue.choices().size());
         assertTrue(vue.choices().stream().allMatch(c -> c.slot() >= 0 && c.slot() < PhoneNetView.MAX_CHOICES),
                 vue.choices().toString());
@@ -203,7 +205,7 @@ class PhoneStatePacketTest {
         assertEquals(PhoneNetView.MAX_BARS, vue.bars());
         assertEquals(PhoneNetView.MAX_TEXT, vue.operator().length());
         assertEquals(PhoneNetView.MAX_BARS, new PhoneNetView.OperatorChoice("0123456789ab", "x", 7).bars());
-        assertEquals(0, new PhoneNetView(PhoneSims.Validity.NONE, "", -3, "", "", false, null, null).bars());
+        assertEquals(0, new PhoneNetView(PhoneSims.Validity.NONE, "", -3, "", "", false, false, null, null).bars());
         FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
         try {
             vue.encode(buf);
@@ -220,11 +222,11 @@ class PhoneStatePacketTest {
     @Test
     void uneCarteSuspendueOuDesactiveeSeVoitCommeActiveVerrouillee() {
         PhoneNetView active = new PhoneNetView(PhoneSims.Validity.ACTIVE, "Lagon", 0, "06 12 34 56 78", "Alex", true,
-                pleine().choices(), pleine().requestable()).locked();
+                true, pleine().choices(), pleine().requestable()).locked();
         for (PhoneSims.Validity v : new PhoneSims.Validity[] {PhoneSims.Validity.SUSPENDED,
                 PhoneSims.Validity.DEACTIVATED}) {
-            PhoneNetView vue = new PhoneNetView(v, "Lagon", 0, "06 12 34 56 78", "Alex", true, pleine().choices(),
-                    pleine().requestable()).locked();
+            PhoneNetView vue = new PhoneNetView(v, "Lagon", 0, "06 12 34 56 78", "Alex", true, false,
+                    pleine().choices(), pleine().requestable()).locked();
             assertEquals(PhoneSims.Validity.ACTIVE, vue.sim(), v + " verrouillé");
             assertEquals(active, vue, v + " verrouillé : même vue qu'une carte active");
             FriendlyByteBuf a = new FriendlyByteBuf(Unpooled.buffer());
@@ -239,7 +241,8 @@ class PhoneStatePacketTest {
             }
         }
         for (PhoneSims.Validity v : new PhoneSims.Validity[] {PhoneSims.Validity.NONE, PhoneSims.Validity.UNKNOWN}) {
-            assertEquals(v, new PhoneNetView(v, "", 0, "", "", false, List.of(), List.of()).locked().sim(), v.name());
+            assertEquals(v, new PhoneNetView(v, "", 0, "", "", false, false, List.of(), List.of()).locked().sim(),
+                    v.name());
         }
     }
 
@@ -257,7 +260,9 @@ class PhoneStatePacketTest {
         assertEquals(4, vue.bars());
         assertEquals("", vue.number());
         assertEquals("", vue.holder());
+        assertTrue(pleine().founderAppAvailable(), "témoin : la vue pleine ouvre l'appli");
         assertFalse(vue.founderApp());
+        assertFalse(vue.founderAppAvailable());
         assertTrue(vue.choices().isEmpty() && vue.requestable().isEmpty(), vue.toString());
         PhoneStatePacket etat = new PhoneStatePacket(2, PhoneStatePacket.Kind.UPDATE, PhoneStatePacket.Lock.LOCKED, 50,
                 0L, 0, "nuit", false, false, "", 5, 0, PhoneStatePacket.Result.NONE,
@@ -275,6 +280,30 @@ class PhoneStatePacketTest {
         } finally {
             buf.release();
         }
+    }
+
+    /**
+     * L'icône « Antenne » (tâche 13b) : montrée et vive, montrée et grisée, absente. Les deux drapeaux font
+     * l'aller-retour chacun à sa place ; la vue vide n'a ni l'un ni l'autre.
+     */
+    @Test
+    void lIconeAntenneFaitLAllerRetour() {
+        for (boolean[] icone : new boolean[][] {{true, true}, {true, false}, {false, false}}) {
+            PhoneNetView vue = new PhoneNetView(PhoneSims.Validity.ACTIVE, "Lagon", 2, "06 12 34 56 78", "Alex",
+                    icone[0], icone[1], pleine().choices(), pleine().requestable());
+            FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+            try {
+                vue.encode(buf);
+                PhoneNetView lue = PhoneNetView.decode(buf);
+                assertEquals(0, buf.readableBytes(), "octets laissés après la lecture");
+                assertEquals(icone[0], lue.founderApp(), "montrée");
+                assertEquals(icone[1], lue.founderAppAvailable(), "ouvrable");
+                assertEquals(vue, lue);
+            } finally {
+                buf.release();
+            }
+        }
+        assertFalse(PhoneNetView.NONE.founderApp() || PhoneNetView.NONE.founderAppAvailable());
     }
 
     @Test

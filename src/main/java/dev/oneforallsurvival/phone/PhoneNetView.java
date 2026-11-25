@@ -13,7 +13,7 @@ import net.minecraft.network.FriendlyByteBuf;
  *
  * <p>Hors {@link PhoneStatePacket.Lock#UNLOCKED}, seuls {@link #sim} (grossier : aucune, non reconnue ou présente),
  * {@link #operator} et {@link #bars} restent ({@link #locked()}) : ni numéro, ni titulaire, ni cartes de
- * l'inventaire, ni opérateurs demandables, ni appli « Antenne ».
+ * l'inventaire, ni opérateurs demandables, ni appli « Antenne » (ni montrée, ni ouvrable).
  *
  * <p>Le serveur n'envoie jamais ce que {@link #decode} refuserait : le constructeur coupe les textes à
  * {@value #MAX_TEXT}, écarte les cartes d'une case hors de {@code 0..40}, coupe les listes à leurs bornes et ramène
@@ -24,12 +24,16 @@ import net.minecraft.network.FriendlyByteBuf;
  * @param bars les barres de signal, 0 à 4 (0 en mode avion)
  * @param number le numéro formaté ({@code 06 12 34 56 78}), vide sans ligne ou verrouillé
  * @param holder le titulaire de la carte, vide pour une carte sans nom, sans ligne ou verrouillé
- * @param founderApp l'icône de l'appli « Antenne » se montre-t-elle ?
+ * @param founderApp l'icône de l'appli « Antenne » se montre-t-elle ? (le propriétaire, déverrouillé, qui fonde un
+ *     opérateur, mode avion compris)
+ * @param founderAppAvailable le serveur ouvrirait-il l'appli maintenant ({@code OperatorPanels.canOpenFromPhone}) ?
+ *     Faux avec {@code founderApp} vrai : l'icône est grisée ; un toucher part quand même et reçoit {@code NO_NETWORK}
  * @param choices les cartes de l'inventaire de celui qui regarde, case par case ({@value #MAX_CHOICES} au plus)
  * @param requestable les opérateurs à qui demander une carte, avec leurs barres ({@value #MAX_REQUESTABLE} au plus)
  */
 public record PhoneNetView(PhoneSims.Validity sim, String operator, int bars, String number, String holder,
-        boolean founderApp, List<PhoneSims.SimChoice> choices, List<OperatorChoice> requestable) {
+        boolean founderApp, boolean founderAppAvailable, List<PhoneSims.SimChoice> choices,
+        List<OperatorChoice> requestable) {
 
     /** Un opérateur à qui demander une carte : son identifiant (12 caractères hexadécimaux), son nom, ses barres ici. */
     public record OperatorChoice(String id, String name, int bars) {
@@ -49,8 +53,8 @@ public record PhoneNetView(PhoneSims.Validity sim, String operator, int bars, St
     public static final int MAX_BARS = 4;
 
     /** Aucune carte, aucun signal, rien à proposer. */
-    public static final PhoneNetView NONE = new PhoneNetView(PhoneSims.Validity.NONE, "", 0, "", "", false, List.of(),
-            List.of());
+    public static final PhoneNetView NONE = new PhoneNetView(PhoneSims.Validity.NONE, "", 0, "", "", false, false,
+            List.of(), List.of());
 
     public PhoneNetView {
         sim = sim == null ? PhoneSims.Validity.NONE : sim;
@@ -93,7 +97,7 @@ public record PhoneNetView(PhoneSims.Validity sim, String operator, int bars, St
     public PhoneNetView locked() {
         PhoneSims.Validity coarse = sim == PhoneSims.Validity.NONE || sim == PhoneSims.Validity.UNKNOWN
                 ? sim : PhoneSims.Validity.ACTIVE;
-        return new PhoneNetView(coarse, operator, bars, "", "", false, List.of(), List.of());
+        return new PhoneNetView(coarse, operator, bars, "", "", false, false, List.of(), List.of());
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -107,6 +111,7 @@ public record PhoneNetView(PhoneSims.Validity sim, String operator, int bars, St
         buf.writeUtf(number, MAX_TEXT);
         buf.writeUtf(holder, MAX_TEXT);
         buf.writeBoolean(founderApp);
+        buf.writeBoolean(founderAppAvailable);
         buf.writeVarInt(choices.size());
         for (PhoneSims.SimChoice c : choices) {
             buf.writeVarInt(c.slot());
@@ -130,6 +135,7 @@ public record PhoneNetView(PhoneSims.Validity sim, String operator, int bars, St
         String number = buf.readUtf(MAX_TEXT);
         String holder = buf.readUtf(MAX_TEXT);
         boolean founderApp = buf.readBoolean();
+        boolean founderAppAvailable = buf.readBoolean();
         int n = count(buf.readVarInt(), MAX_CHOICES, "cartes");
         List<PhoneSims.SimChoice> choices = new ArrayList<>(n);
         for (int i = 0; i < n; i++) {
@@ -149,7 +155,8 @@ public record PhoneNetView(PhoneSims.Validity sim, String operator, int bars, St
             String name = buf.readUtf(MAX_TEXT);
             requestable.add(new OperatorChoice(id, name, bars(buf.readVarInt())));
         }
-        return new PhoneNetView(sim, operator, bars, number, holder, founderApp, choices, requestable);
+        return new PhoneNetView(sim, operator, bars, number, holder, founderApp, founderAppAvailable, choices,
+                requestable);
     }
 
     private static int bars(int value) {

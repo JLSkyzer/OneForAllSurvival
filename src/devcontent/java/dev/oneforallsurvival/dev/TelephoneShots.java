@@ -571,7 +571,8 @@ public final class TelephoneShots {
     private static String resumeReseau(PhoneNetView n) {
         return "sim=" + n.sim() + ", opérateur=" + n.operator() + ", barres=" + n.bars() + ", numéro "
                 + (n.number().isEmpty() ? "absent" : "présent") + ", titulaire "
-                + (n.holder().isEmpty() ? "absent" : "présent") + ", appli=" + n.founderApp() + ", cartes="
+                + (n.holder().isEmpty() ? "absent" : "présent") + ", appli=" + n.founderApp() + ", ouvrable="
+                + n.founderAppAvailable() + ", cartes="
                 + n.choices().size() + ", opérateurs=" + n.requestable().size();
     }
 
@@ -668,7 +669,8 @@ public final class TelephoneShots {
         }), () -> ligneFaite, 5, null);
         ouvrir(mc, "antenne-ouverture-1", Lock.LOCKED, null);
         pas("antenne-deverrouillage", () -> stable(mc, "key-0"), () -> taper(mc, CODE),
-                () -> etat(Lock.UNLOCKED) && cible(mc, "app-antenna") && vueReseau().founderApp() && attendu(0.6), 15,
+                () -> etat(Lock.UNLOCKED) && cible(mc, "app-antenna") && vueReseau().founderAppAvailable()
+                        && attendu(0.6), 15,
                 null); // le frein du téléphone (2 tics) : l'appli ne part pas dans le tic du déverrouillage
         clic(mc, "antenne-appli", "app-antenna", () -> appliPrete(mc), 15, null);
         pause("a01-appli-reseau");
@@ -1012,7 +1014,8 @@ public final class TelephoneShots {
         allerA(mc, "antenne-serveur-place", antenneM().offset(3, 0, 2));
         ouvrir(mc, "antenne-ouverture-1", Lock.LOCKED, null);
         pas("antenne-deverrouillage", () -> stable(mc, "key-0"), () -> taper(mc, CODE),
-                () -> etat(Lock.UNLOCKED) && cible(mc, "app-antenna") && vueReseau().founderApp() && attendu(0.6), 15, null);
+                () -> etat(Lock.UNLOCKED) && cible(mc, "app-antenna") && vueReseau().founderAppAvailable()
+                        && attendu(0.6), 15, null);
         clic(mc, "antenne-appli", "app-antenna", () -> appliPrete(mc), 15, null);
         pause("a01-appli-reseau");
         pas("antenne-vue-console", () -> {}, () -> {
@@ -1253,7 +1256,7 @@ public final class TelephoneShots {
         toutEstPret(mc, "reseau-assistant", "aube", null);
         pas("reseau-sans-carte", () -> {}, () -> {
             PhoneNetView n = vueReseau();
-            if (n.sim() != PhoneSims.Validity.NONE || n.founderApp()) {
+            if (n.sim() != PhoneSims.Validity.NONE || n.founderApp() || n.founderAppAvailable()) {
                 echec("reseau-sans-carte", "avant toute antenne : " + resumeReseau(n));
             }
             return true;
@@ -1277,14 +1280,23 @@ public final class TelephoneShots {
             PhoneNetView n = vueReseau();
             journal("verrouillé sans carte : " + resumeReseau(n));
             if (n.sim() != PhoneSims.Validity.NONE || !n.number().isEmpty() || !n.choices().isEmpty()
-                    || !n.requestable().isEmpty() || n.founderApp()) {
+                    || !n.requestable().isEmpty() || n.founderApp() || n.founderAppAvailable()) {
                 echec("reseau-verrouille-pas-de-sim", "vue verrouillée trop bavarde : " + resumeReseau(n));
             }
             return true;
         }, 2, null);
         pas("reseau-deverrouillage-clavier", () -> stable(mc, "key-0"), () -> taper(mc, CODE),
                 () -> etat(Lock.UNLOCKED) && cible(mc, id("app-antenna", "app-antenna")), 10, null);
-        pause("r03-accueil-icone-antenne");
+        // Le fondateur sans carte : l'icône montrée, grisée ; le toucher part et reçoit « Pas de réseau ».
+        pas("reseau-icone-grisee", () -> {}, () -> {
+            PhoneNetView n = vueReseau();
+            journal("icône Antenne sans carte : " + resumeReseau(n));
+            if (!n.founderApp() || n.founderAppAvailable()) {
+                echec("reseau-icone-grisee", "icône montrée et grisée attendue : " + resumeReseau(n));
+            }
+            return true;
+        }, 2, null);
+        pause("r03-accueil-icone-antenne-grisee");
         clic(mc, "reseau-appli-antenne", id("app-antenna", "app-antenna"),
                 () -> PhoneClient.last().map(p -> p.last() == Result.NO_NETWORK).orElse(false), 10, null);
         pause("r04-appli-antenne-reponse");
@@ -1375,7 +1387,8 @@ public final class TelephoneShots {
             PhoneNetView n = vueReseau();
             journal("verrouillé avec carte : " + resumeReseau(n));
             if (n.sim() != PhoneSims.Validity.ACTIVE || !MAIRIE.equals(n.operator()) || n.bars() != 4
-                    || !n.number().isEmpty() || !n.holder().isEmpty() || !n.choices().isEmpty() || n.founderApp()) {
+                    || !n.number().isEmpty() || !n.holder().isEmpty() || !n.choices().isEmpty() || n.founderApp()
+                    || n.founderAppAvailable()) {
                 echec("reseau-verrouille-operateur", "vue verrouillée : " + resumeReseau(n));
             }
             return true;
@@ -1384,6 +1397,16 @@ public final class TelephoneShots {
         // Retrait par la feuille.
         pas("reseau-deverrouillage-2", () -> stable(mc, "key-0"), () -> taper(mc, CODE),
                 () -> etat(Lock.UNLOCKED) && cible(mc, id("app-settings", "settings")), 10, null);
+        // Avec la carte de Mairie et du signal : l'icône vive.
+        pas("reseau-icone-vive", () -> {}, () -> {
+            PhoneNetView n = vueReseau();
+            journal("icône Antenne avec sa carte : " + resumeReseau(n));
+            if (!n.founderApp() || !n.founderAppAvailable()) {
+                echec("reseau-icone-vive", "icône vive attendue : " + resumeReseau(n));
+            }
+            return true;
+        }, 2, null);
+        pause("r12b-accueil-icone-antenne-vive");
         clic(mc, "reseau-reglages-2", id("app-settings", "settings"), () -> cible(mc, id("row-sim", "sim")), 10, null);
         clic(mc, "reseau-feuille-sim-2", id("row-sim", "sim"), () -> cible(mc, "sim-remove"), 10, null);
         pause("r13-feuille-sim-carte-active");
