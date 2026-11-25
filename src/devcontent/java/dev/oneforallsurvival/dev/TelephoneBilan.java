@@ -82,7 +82,18 @@ final class TelephoneBilan {
                     "reseau-retour", "reseau-verrouille-operateur", "reseau-retirer", "reseau-file-pleine",
                     "reseau-demande-grisee", "reseau-suspendue", "reseau-reactivee", "reseau-desactivee",
                     "reseau-liste-vide", "reseau-largeurs", "bilan-du-pont");
-            case "antenne" -> List.of("antenne-confirmation-au-clavier", "reseau-antennes-en-service", "antenne-ligne",
+            case "signal" -> webAttendu
+                    ? List.of("signal-antennes", "signal-a-glisser", "signal-b-glisser", "signal-mairie-0-a-barres",
+                            "signal-mairie-300-b-barres", "signal-lagon-300-b-barres", "signal-coupee-b-barres",
+                            "signal-coupee-a-barres", "signal-mode-avion", "signal-mode-avion-coupe", "signal-retirer",
+                            "signal-remettre", "bilan-du-pont")
+                    : List.of("signal-antennes", "signal-a-glisser", "signal-b-glisser", "signal-mairie-100-a-barres",
+                            "signal-coupee-b-barres", "signal-mode-avion", "signal-retirer", "signal-remettre",
+                            "signal-appli-antenne", "signal-echap-panneau", "signal-dimension", "bilan-du-pont");
+            case "antenne" -> serveur ? List.of("antenne-deverrouillage", "antenne-appli", "antenne-vue-console",
+                    "antenne-suspendre", "antenne-reactiver", "antenne-tarif-refuse-enregistrer", "antenne-tarif-enregistrer",
+                    "antenne-source-coupee", "antenne-source-retablie", "antenne-rechargement", "antenne-accueil-avant-vue",
+                    "bilan-du-pont") : List.of("antenne-confirmation-au-clavier", "reseau-antennes-en-service", "antenne-ligne",
                     "antenne-deverrouillage", "antenne-appli", "antenne-emettre", "antenne-suspendre",
                     "antenne-tarif-refuse-enregistrer", "antenne-tarif-enregistrer", "antenne-seconde-en-service",
                     "antenne-retour", "antenne-appli-2", "antenne-source-coupee", "antenne-seconde-coupee",

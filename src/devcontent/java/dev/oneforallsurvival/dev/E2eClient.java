@@ -56,6 +56,7 @@ public final class E2eClient {
     private static final boolean SEULE_VILLE = System.getenv("E2E_VILLE_SEULE") != null;
     private static final boolean SEULE_EXPLORATION = System.getenv("E2E_EXPLORATION_SEULE") != null;
     private static final boolean SEULE_MONNAIE = System.getenv("E2E_MONNAIE_SEULE") != null;
+    private static final boolean SEULE_TELEPHONE = System.getenv("E2E_TELEPHONE_SEUL") != null;
     private static final int COPIES = 2;
     /**
      * Une connexion réussie prend environ 8 s avec le pack (7,5 à 10,5 s sur 11 relevés du 2026-11-06, de la
@@ -64,7 +65,7 @@ public final class E2eClient {
     private static final double DIAGNOSTIC_CONNEXION_S = 17;
 
     private enum Phase { TITRE, CONNEXION, CATALOGUE, PROVISIONS, POSER, OUVRIR, COMMANDER, STOCK, OUVRIR_STOCK, PRENDRE,
-        REPARATION, VIVRES, RESEAU, PROTECTION, VILLE, EXPLORATION, MONNAIE, COMMERCE, BUTIN, QUETES, TRESOR, ELECTRICITE, LAMPE_ARRET,
+        REPARATION, VIVRES, RESEAU, PROTECTION, VILLE, EXPLORATION, MONNAIE, COMMERCE, BUTIN, QUETES, TRESOR, ELECTRICITE, TELEPHONE, LAMPE_ARRET,
         LAMPE_RELANCE, ARRET, FIN,
         DEPART, DEPART_SORTIE, DEPART_RETOUR }
 
@@ -139,6 +140,7 @@ public final class E2eClient {
             case QUETES -> E2eQuetes.legende();
             case TRESOR -> E2eTresor.legende();
             case ELECTRICITE -> E2eElectricite.legende();
+            case TELEPHONE -> E2eTelephone.legende();
             case DEPART -> "Somme de départ : 500 cuivres à la première connexion, rien de plus après la reconnexion";
             case DEPART_SORTIE, DEPART_RETOUR -> "Le client se déconnecte puis se reconnecte au serveur dédié";
             case LAMPE_ARRET -> "La lampe est portée au moment de l'arrêt du serveur";
@@ -173,6 +175,48 @@ public final class E2eClient {
         return (System.nanoTime() - debutPhase) / 1e9;
     }
 
+    private static long dernierSondageNs;
+    private static boolean joignable;
+
+    /**
+     * Le serveur dédié a-t-il fini de démarrer ? Le port du jeu s'ouvre avant la fin du démarrage (vu : connexion
+     * refusée 0,4 s avant « Done ») ; la console RCON, elle, n'écoute qu'après : c'est elle qu'on sonde, une fois par
+     * seconde au plus (le menu principal attend), sur le port de {@code run-server/server.properties}. Vrai pour de bon
+     * dès la première réponse.
+     */
+    private static boolean serveurJoignable() {
+        if (joignable) {
+            return true;
+        }
+        if (System.nanoTime() - dernierSondageNs < 1_000_000_000L) {
+            return false;
+        }
+        dernierSondageNs = System.nanoTime();
+        ServerAddress adresse = ServerAddress.parseString(HOTE);
+        java.util.Properties p = new java.util.Properties();
+        try (java.io.InputStream in = java.nio.file.Files.newInputStream(Minecraft.getInstance().gameDirectory.toPath()
+                .resolve("../run-server/server.properties").normalize())) {
+            p.load(in);
+        } catch (java.io.IOException e) {
+            LOG.info("[e2e] server.properties illisible : {}", e.getMessage());
+            return false;
+        }
+        int port = Integer.parseInt(p.getProperty("rcon.port", "25575"));
+        try (java.net.Socket s = new java.net.Socket()) {
+            s.connect(new java.net.InetSocketAddress(adresse.getHost(), port), 500);
+            joignable = true;
+            LOG.info("[e2e] serveur demarre (console RCON joignable sur {}:{})", adresse.getHost(), port);
+        } catch (java.io.IOException e) {
+            LOG.info("[e2e] serveur pas encore joignable : {}", e.getMessage());
+        }
+        return joignable;
+    }
+
+    /** L'étape du téléphone jouée seule ({@code E2E_TELEPHONE_SEUL}) : elle écrit elle-même l'horloge de sa relance. */
+    static boolean telephoneSeul() {
+        return SEULE_TELEPHONE;
+    }
+
     static void pass(String texte) {
         LOG.info("[e2e] PASS {}", texte);
     }
@@ -203,6 +247,7 @@ public final class E2eClient {
             E2eCommerce.recevoir(event.getMessage());
             E2eTresor.recevoir(event.getMessage());
             E2eElectricite.recevoir(event.getMessage());
+            E2eTelephone.recevoir(event.getMessage());
         }
     }
 
@@ -281,7 +326,7 @@ public final class E2eClient {
         // La réparation a ses propres délais, pas par pas.
         if (phase != Phase.TITRE && phase != Phase.FIN && phase != Phase.ARRET && phase != Phase.REPARATION && phase != Phase.VIVRES
                 && phase != Phase.RESEAU && phase != Phase.PROTECTION && phase != Phase.VILLE && phase != Phase.EXPLORATION
-                && phase != Phase.MONNAIE && phase != Phase.COMMERCE && phase != Phase.BUTIN && phase != Phase.QUETES && phase != Phase.TRESOR && phase != Phase.ELECTRICITE && phase != Phase.DEPART_RETOUR && secondes() > 180) {
+                && phase != Phase.MONNAIE && phase != Phase.COMMERCE && phase != Phase.BUTIN && phase != Phase.QUETES && phase != Phase.TRESOR && phase != Phase.ELECTRICITE && phase != Phase.TELEPHONE && phase != Phase.DEPART_RETOUR && secondes() > 180) {
             fail("delai depasse en phase " + phase);
         }
     }
@@ -299,6 +344,11 @@ public final class E2eClient {
                     return;
                 }
                 if (mc.getOverlay() == null && mc.level == null && mc.screen instanceof TitleScreen) {
+                    // Le client peut être lancé en même temps que le serveur (relance : la seconde couveuse du lot 5, dans
+                    // les chunks de l'apparition, compte dès le démarrage du serveur) : il attend que le serveur réponde.
+                    if (!serveurJoignable()) {
+                        return;
+                    }
                     mc.options.pauseOnLostFocus = false;
                     mc.options.onboardAccessibility = false;
                     mc.options.tutorialStep = net.minecraft.client.tutorial.TutorialSteps.NONE;
@@ -348,6 +398,12 @@ public final class E2eClient {
                 }
                 // Le catalogue doit arriver a la connexion, sans qu'aucun etabli n'ait ete ouvert.
                 if (!BenchClientState.catalog().isEmpty()) {
+                    if (!departFait && RELANCE && SEULE_TELEPHONE) {
+                        // L'étape du téléphone seule n'a pas joué le lot E1 : e2e-monnaie.txt est celui d'un autre monde, la
+                        // somme de départ ne se relit pas ici (elle l'est au passage complet).
+                        LOG.info("[e2e] relance de l'etape du telephone seule : somme de depart non relue (lot E1 non joue)");
+                        departFait = true;
+                    }
                     if (!departFait) {
                         pass("catalogue recu par le reseau a la connexion : " + BenchClientState.catalog().size()
                                 + " recettes, generation " + BenchClientState.generation() + ", apres " + String.format("%.1f", secondes()) + " s");
@@ -356,7 +412,15 @@ public final class E2eClient {
                         passer(Phase.DEPART);
                         return;
                     }
-                    if (SEULE_MONNAIE) {
+                    if (SEULE_TELEPHONE) {
+                        // L'étape du téléphone seule (variable d'environnement E2E_TELEPHONE_SEUL), au premier passage et à la relance.
+                        if (RELANCE) {
+                            E2eTelephone.relance();
+                        } else {
+                            E2eTelephone.premierePhase();
+                        }
+                        passer(Phase.TELEPHONE);
+                    } else if (SEULE_MONNAIE) {
                         // Les étapes de l'économie seules (variable d'environnement E2E_MONNAIE_SEULE) : E1, E2, E4, E5 puis E3 au
                         // premier passage ; à la relance, E2 d'abord (voir la phase COMMERCE), puis E1, E3, E4, et E5 en dernier.
                         if (RELANCE) {
@@ -790,9 +854,10 @@ public final class E2eClient {
                     if (RELANCE) {
                         passer(Phase.ARRET);
                     } else {
-                        // Le lot E3 après les quêtes, dont il reprend le monde (coffre-fort de Dev, registre).
-                        E2eTresor.premierePhase();
-                        passer(Phase.TRESOR);
+                        // Le téléphone (T2) après les quêtes et juste avant le trésor : il note le tarif du lendemain avant
+                        // que le trésor n'avance l'horloge de deux minuits (le tarif entre en vigueur au démarrage de la relance).
+                        E2eTelephone.premierePhase();
+                        passer(Phase.TELEPHONE);
                     }
                 }
             }
@@ -813,14 +878,29 @@ public final class E2eClient {
             case ELECTRICITE -> {
                 if (E2eElectricite.avancer(mc) && phase == Phase.ELECTRICITE) {
                     if (RELANCE) {
-                        E2eQuetes.relance();
-                        passer(Phase.QUETES);
+                        // Le téléphone après l'électricité, avant les quêtes qui restent les dernières.
+                        E2eTelephone.relance();
+                        passer(Phase.TELEPHONE);
                     } else if (SEULE_MONNAIE) {
                         passer(Phase.ARRET);
                     } else {
                         // Le lot 5 reste le dernier avant l'arrêt du serveur.
                         E2eProtection.premierePhase();
                         passer(Phase.PROTECTION);
+                    }
+                }
+            }
+            case TELEPHONE -> {
+                if (E2eTelephone.avancer(mc) && phase == Phase.TELEPHONE) {
+                    if (SEULE_TELEPHONE) {
+                        passer(Phase.ARRET);
+                    } else if (RELANCE) {
+                        E2eQuetes.relance();
+                        passer(Phase.QUETES);
+                    } else {
+                        // Le lot E3 après le téléphone, dont il reprend le monde (coffre-fort de Dev, registre).
+                        E2eTresor.premierePhase();
+                        passer(Phase.TRESOR);
                     }
                 }
             }
@@ -856,6 +936,7 @@ public final class E2eClient {
                         E2eButin.rangerAvantArret(mc);
                         E2eQuetes.rangerAvantArret(mc);
                         E2eElectricite.rangerAvantArret(mc);
+                        E2eTelephone.rangerAvantArret(mc);
                         E2eExploration.rangerAvantArret(mc);
                         E2eProtection.rangerAvantArret(mc);
                         E2eVivres.rangerAvantArret(mc);

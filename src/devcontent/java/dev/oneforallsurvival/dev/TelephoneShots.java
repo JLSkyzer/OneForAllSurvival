@@ -318,7 +318,14 @@ public final class TelephoneShots {
                         case "perf" -> composerPerf(mc);
                         case "webdisplays" -> composerWebDisplays(mc);
                         case "reseau" -> composerReseau(mc);
-                        case "antenne" -> composerAntenne(mc);
+                        case "antenne" -> {
+                            if (SERVEUR != null) {
+                                composerAntenneServeur(mc);
+                            } else {
+                                composerAntenne(mc);
+                            }
+                        }
+                        case "signal" -> composerSignal(mc);
                         default -> composer(mc);
                     }
                     passer(Phase.ETAPES);
@@ -709,6 +716,369 @@ public final class TelephoneShots {
         bilanDuPont();
     }
 
+    // --- Serveur dédié : le signal à deux téléphones et l'appli « Antenne » (lot T2, tâche 13) ------------------------
+
+    private static final java.util.regex.Pattern CLE_VALEUR =
+            java.util.regex.Pattern.compile("(\\w+)=(\\[[^\\]]*\\]|\\{[^}]*\\}|[^ ]+)");
+    @Nullable private static volatile BlockPos origine;
+    private static volatile int barresServeur = -2;
+    private static volatile String noteServeur = "";
+
+    /** Une commande par la console RCON du serveur dédié, sa réponse lue en {@code cle=valeur}. */
+    private static Map<String, String> rconLu(String commande) {
+        String r = E2eReseau.rcon(commande);
+        Map<String, String> out = new LinkedHashMap<>();
+        java.util.regex.Matcher m = CLE_VALEUR.matcher(r);
+        while (m.find()) {
+            out.put(m.group(1), m.group(2));
+        }
+        return out;
+    }
+
+    private static List<String> liste(@Nullable String s) {
+        List<String> out = new ArrayList<>();
+        if (s == null || s.length() < 2) {
+            return out;
+        }
+        for (String x : s.substring(1, s.length() - 1).split(";")) {
+            if (!x.isBlank()) {
+                out.add(x);
+            }
+        }
+        return out;
+    }
+
+    private static String nomJoueur(Minecraft mc) {
+        return mc.player.getGameProfile().getName();
+    }
+
+    private static String xyz(BlockPos p) {
+        return p.getX() + " " + p.getY() + " " + p.getZ();
+    }
+
+    private static BlockPos antenneM() {
+        return origine;
+    }
+
+    /** Lagon à 64 blocs de Mairie (quatre chunks) : chargée dès que le joueur est entre les deux. */
+    private static BlockPos antenneL() {
+        return origine.offset(0, 0, 64);
+    }
+
+    /** La seconde antenne de Mairie, sa propre source : la première coupée, le téléphone garde une barre. */
+    private static BlockPos antenneM2() {
+        return origine.offset(-3, 0, 0);
+    }
+
+    /** Les barres que le serveur calcule pour le téléphone de la case {@code slot} du joueur, à sa place. */
+    private static int barresDuServeur(Minecraft mc, int slot) {
+        for (String t : liste(rconLu("e2etel etat " + nomJoueur(mc)).get("telephones"))) {
+            String[] p = t.split(":");
+            if (Integer.parseInt(p[0]) == slot) {
+                return Integer.parseInt(p[3]);
+            }
+        }
+        return -1;
+    }
+
+    /** Le joueur (créatif, en vol) est téléporté par la console ; il ne tombe pas. */
+    private static void allerA(Minecraft mc, String nom, BlockPos ou) {
+        pas(nom, () -> {
+            if (mc.screen != null) {
+                mc.screen.keyPressed(GLFW.GLFW_KEY_ESCAPE, GLFW.glfwGetKeyScancode(GLFW.GLFW_KEY_ESCAPE), 0);
+            }
+            E2eReseau.rcon("tp " + nomJoueur(mc) + " " + (ou.getX() + 0.5) + " " + ou.getY() + " " + (ou.getZ() + 0.5));
+        }, () -> {
+            mc.player.getAbilities().flying = true;
+            mc.player.onUpdateAbilities();
+            return mc.screen == null && mc.player.blockPosition().distManhattan(ou) <= 2 && attendu(1.5);
+        }, 15, null);
+    }
+
+    /** Le téléphone de la case {@code slot} ouvert d'un vrai usage : les barres reçues égalent celles du serveur. */
+    private static void releverBarres(Minecraft mc, String nom, int slot, int attendues, @Nullable String image) {
+        pas(nom + "-case", () -> mc.player.getInventory().selected = slot,
+                () -> mc.player.getInventory().selected == slot && attendu(0.2), 3, null);
+        ouvrir(mc, nom, Lock.LOCKED, image);
+        pas(nom + "-barres", () -> barresServeur = barresDuServeur(mc, slot), () -> {
+            int vues = vueReseau().bars();
+            journal(nom + " : barres reçues " + vues + ", serveur " + barresServeur + ", attendues " + attendues + " ; "
+                    + resumeReseau(vueReseau()));
+            if (vues != barresServeur || (attendues >= 0 && vues != attendues)) {
+                echec(nom + "-barres", "reçues " + vues + ", serveur " + barresServeur + ", attendues " + attendues);
+            }
+            return true;
+        }, 3, null);
+        echap(mc, nom + "-echap");
+    }
+
+    /** Un téléphone neuf de la case {@code slot} : assistant, code, puis la carte de {@code operateur} glissée. */
+    private static void configurer(Minecraft mc, String nom, int slot, String operateur) {
+        pas(nom + "-case", () -> mc.player.getInventory().selected = slot,
+                () -> mc.player.getInventory().selected == slot && attendu(0.2), 3, null);
+        ouvrir(mc, nom + "-ouverture", Lock.SETUP, null);
+        assistantJusquAuFond(mc, nom + "-assistant", "aube", false);
+        assistantVersLeCode(mc, nom + "-assistant", false);
+        cliquerCode(mc, nom + "-choix", CODE);
+        pas(nom + "-confirmation-au-clavier", () -> stable(mc, "key-0"), () -> taper(mc, CODE), () -> etat(Lock.UNLOCKED), 10,
+                null);
+        toutEstPret(mc, nom + "-assistant", "aube", null);
+        glisserCarte(mc, nom, operateur, null);
+        echap(mc, nom + "-echap");
+    }
+
+    /** Réglages, feuille « Carte SIM », la carte de {@code operateur} glissée par un vrai clic ; retour aux Réglages. */
+    private static void glisserCarte(Minecraft mc, String nom, String operateur, @Nullable String image) {
+        clic(mc, nom + "-reglages", id("app-settings", "settings"), () -> cible(mc, id("row-sim", "sim")), 10, null);
+        clic(mc, nom + "-feuille-sim", id("row-sim", "sim"), () -> carteDe(operateur) != null, 10, null);
+        pas(nom + "-glisser", () -> carteDe(operateur) != null && stable(mc, carteDe(operateur)),
+                () -> cliquer(mc, carteDe(operateur)), () -> {
+                    PhoneNetView n = vueReseau();
+                    return n.sim() == PhoneSims.Validity.ACTIVE && operateur.equals(n.operator()) && attendu(0.6);
+                }, 10, image);
+        clic(mc, nom + "-fermer-feuille", id("sim-close", "back"), () -> cible(mc, id("row-airplane", "airplane")), 10, null);
+    }
+
+    /** La commande {@code sim-choice-<case>} de la carte de cet opérateur dans la feuille, ou nul. */
+    @Nullable
+    private static String carteDe(String operateur) {
+        for (PhoneSims.SimChoice c : vueReseau().choices()) {
+            if (operateur.equals(c.operator()) && c.validity() == PhoneSims.Validity.ACTIVE) {
+                return "sim-choice-" + c.slot();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Mode {@code signal} (serveur dédié) : la console fonde Mairie au nom du joueur et Lagon au nom de Fondatrice
+     * (simulée), chacune avec sa source d'énergie créative ; deux téléphones configurés par de vrais clics, A avec la
+     * carte de Mairie, B avec celle de Lagon (remises par la console). À 0, 100, 200 et 300 blocs de chaque antenne, A
+     * puis B ouverts d'un vrai usage : barres reçues = barres du serveur. Source de Lagon coupée : B à 0, A inchangé.
+     * Mode avion sur A par un vrai clic, carte retirée puis remise par la feuille. Sans MCEF (repli) : le relevé à 100
+     * blocs seulement, puis « Antenne » qui ouvre le panneau Minecraft, Échap qui rend le téléphone, et un changement de
+     * dimension sous le panneau qui ferme la session.
+     */
+    private static void composerSignal(Minecraft mc) {
+        if (SERVEUR == null) {
+            echec("signal", "le mode signal se joue sur un serveur dédié (-PtelephoneShotsServer)");
+            return;
+        }
+        // L'origine se fixe à la composition : les pas qui suivent en calculent leurs places.
+        BlockPos ici0 = mc.player.blockPosition();
+        int x0 = ici0.getX() + 2000;
+        x0 -= Math.floorMod(x0, 16);
+        origine = new BlockPos(x0, 150, ici0.getZ());
+        pas("signal-preparation", () -> {
+            String n = nomJoueur(mc);
+            for (String c : List.of("op " + n, "gamemode creative " + n, "clear " + n, "difficulty peaceful", "time set noon",
+                    "gamerule doDaylightCycle false", "gamerule doMobSpawning false",
+                    "give " + n + " oneforallsurvival:phone{energy:57600} 1", "give " + n + " oneforallsurvival:phone{energy:57600} 1")) {
+                E2eReseau.rcon(c);
+            }
+            // Entre Mairie et Lagon : les deux chunks se chargent.
+            E2eReseau.rcon("tp " + n + " " + (origine.getX() + 3) + " " + origine.getY() + " " + (origine.getZ() + 32));
+        }, () -> attendu(5.0) && mc.player.getInventory().getItem(1).is(PhoneRegistry.PHONE.get())
+                && "true".equals(rconLu("e2etel antenne " + xyz(antenneL())).get("charge"))
+                && "true".equals(rconLu("e2etel antenne " + xyz(antenneM2())).get("charge")), 60, null);
+        pas("signal-antennes", () -> {
+            String n = nomJoueur(mc);
+            noteServeur = String.join(" | ",
+                    E2eReseau.rcon("e2etel fonder " + n + " " + xyz(antenneM()) + " " + MAIRIE),
+                    E2eReseau.rcon("e2etel source " + xyz(antenneM().west()) + " true"),
+                    // La seconde antenne posée par le fondateur rejoint Mairie (la fondation, elle, est refusée : déjà fait).
+                    E2eReseau.rcon("e2etel fonder " + n + " " + xyz(antenneM2()) + " " + MAIRIE),
+                    E2eReseau.rcon("e2etel source " + xyz(antenneM2().west()) + " true"),
+                    E2eReseau.rcon("e2etel entrer Fondatrice " + xyz(antenneL().east(2))),
+                    E2eReseau.rcon("e2etel fonder Fondatrice " + xyz(antenneL()) + " " + LAGON),
+                    E2eReseau.rcon("e2etel source " + xyz(antenneL().west()) + " true"),
+                    E2eReseau.rcon("e2etel quitter Fondatrice"),
+                    E2eReseau.rcon("e2etel remettre " + MAIRIE + " " + n),
+                    E2eReseau.rcon("e2etel remettre " + LAGON + " " + n));
+            journal("préparation : " + noteServeur);
+        }, () -> attendu(2.0) && "2".equals(rconLu("e2etel operateur " + MAIRIE).get("enService"))
+                && "1".equals(rconLu("e2etel operateur " + LAGON).get("enService")), 30, null);
+        pas("signal-antennes-en-service", () -> journal("Mairie " + rconLu("e2etel antenne " + xyz(antenneM())) + " ; Lagon "
+                + rconLu("e2etel antenne " + xyz(antenneL()))), () -> true, 1, null);
+        configurer(mc, "signal-a", 0, MAIRIE);
+        configurer(mc, "signal-b", 1, LAGON);
+        int[] distances = web ? new int[] {0, 100, 200, 300} : new int[] {100};
+        int[] attendues = {4, 3, 2, 0};
+        for (int i = 0; i < distances.length; i++) {
+            int d = distances[i];
+            int a = web ? attendues[i] : 3;
+            allerA(mc, "signal-mairie-" + d, antenneM().offset(d, 0, 2));
+            releverBarres(mc, "signal-mairie-" + d + "-a", 0, a, "s-mairie-" + d + "-a");
+            releverBarres(mc, "signal-mairie-" + d + "-b", 1, -1, "s-mairie-" + d + "-b");
+            if (web) {
+                allerA(mc, "signal-lagon-" + d, antenneL().offset(d, 0, 2));
+                releverBarres(mc, "signal-lagon-" + d + "-a", 0, -1, "s-lagon-" + d + "-a");
+                releverBarres(mc, "signal-lagon-" + d + "-b", 1, a, "s-lagon-" + d + "-b");
+            }
+        }
+        // Source de Lagon coupée : B à 0, A inchangé (près de Mairie, Lagon à 118 blocs : B avait 3 barres).
+        allerA(mc, "signal-coupure-place", antenneM().offset(0, 0, 2));
+        pas("signal-lagon-coupee", () -> {
+            E2eReseau.rcon("e2etel source " + xyz(antenneL().west()) + " false");
+            E2eReseau.rcon("e2etel vider " + xyz(antenneL()));
+        }, () -> attendu(1.0) && "0".equals(rconLu("e2etel operateur " + LAGON).get("enService")), 20, null);
+        releverBarres(mc, "signal-coupee-b", 1, 0, "s-lagon-coupee-b");
+        releverBarres(mc, "signal-coupee-a", 0, 4, "s-lagon-coupee-a");
+        pas("signal-lagon-retablie", () -> E2eReseau.rcon("e2etel source " + xyz(antenneL().west()) + " true"),
+                () -> attendu(1.0) && "1".equals(rconLu("e2etel operateur " + LAGON).get("enService")), 20, null);
+        // Mode avion sur A par un vrai clic, puis la carte retirée et remise par la feuille.
+        pas("signal-a-case", () -> mc.player.getInventory().selected = 0, () -> attendu(0.2), 3, null);
+        ouvrir(mc, "signal-a-ouverture", Lock.LOCKED, null);
+        pas("signal-a-deverrouillage", () -> stable(mc, "key-0"), () -> taper(mc, CODE),
+                () -> etat(Lock.UNLOCKED) && cible(mc, id("app-settings", "settings")) && attendu(0.6), 15, null);
+        clic(mc, "signal-a-reglages", id("app-settings", "settings"), () -> cible(mc, id("row-airplane", "airplane")), 10, null);
+        clic(mc, "signal-mode-avion", id("row-airplane", "airplane"),
+                () -> PhoneClient.last().map(p -> p.airplane() && p.net().bars() == 0).orElse(false) && attendu(0.8), 10, null);
+        pause("s-mode-avion");
+        clic(mc, "signal-mode-avion-coupe", id("row-airplane", "airplane"),
+                () -> PhoneClient.last().map(p -> !p.airplane() && p.net().bars() == 4).orElse(false) && attendu(0.8), 25, null);
+        // Le frein du téléphone (2 tics) : chaque geste attend la réponse du précédent (tâche 10).
+        clic(mc, "signal-feuille-sim", id("row-sim", "sim"), () -> cible(mc, "sim-remove") && attendu(0.8), 10, null);
+        clic(mc, "signal-retirer", "sim-remove", () -> vueReseau().sim() == PhoneSims.Validity.NONE && attendu(0.6), 10,
+                "s-carte-retiree");
+        pas("signal-remettre", () -> carteDe(MAIRIE) != null && stable(mc, carteDe(MAIRIE)), () -> cliquer(mc, carteDe(MAIRIE)),
+                () -> vueReseau().sim() == PhoneSims.Validity.ACTIVE && MAIRIE.equals(vueReseau().operator())
+                        && vueReseau().bars() == 4 && attendu(0.6), 10, "s-carte-remise");
+        clic(mc, "signal-fermer-feuille", id("sim-close", "back"), () -> cible(mc, id("row-airplane", "airplane")), 10, null);
+        if (!web) {
+            // Repli : « Antenne » ouvre le panneau Minecraft par-dessus le repli ; Échap rend le téléphone.
+            clic(mc, "signal-retour-accueil", "back", () -> cible(mc, "app-antenna"), 10, null);
+            clic(mc, "signal-appli-antenne", "app-antenna", () -> appliPrete(mc) && attendu(1.0), 15, "s-repli-panneau-antenne");
+            pas("signal-echap-panneau", () -> panneau(mc) != null,
+                    () -> panneau(mc).keyPressed(GLFW.GLFW_KEY_ESCAPE, GLFW.glfwGetKeyScancode(GLFW.GLFW_KEY_ESCAPE), 0),
+                    () -> mc.screen instanceof PhoneFallbackScreen && attendu(1.0)
+                            && "false".equals(rconLu("e2etel etat " + nomJoueur(mc)).get("panneau"))
+                            && "true".equals(rconLu("e2etel etat " + nomJoueur(mc)).get("session")), 10, "s-repli-echap");
+            // Le panneau du repli remplacé par un autre écran (changement de dimension) : la session se ferme.
+            clic(mc, "signal-appli-antenne-2", "app-antenna", () -> appliPrete(mc) && attendu(1.0), 15, null);
+            pas("signal-dimension", () -> E2eReseau.rcon("execute in minecraft:the_nether run tp " + nomJoueur(mc) + " 0 100 0"),
+                    () -> {
+                        Map<String, String> e = rconLu("e2etel etat " + nomJoueur(mc));
+                        return attendu(3.0) && !(mc.screen instanceof OperatorPanelScreen) && "false".equals(e.get("panneau"))
+                                && "false".equals(e.get("session"));
+                    }, 30, null);
+            pas("signal-dimension-releve", () -> journal("changement de dimension sous le panneau : écran " + mc.screen
+                    + ", serveur " + rconLu("e2etel etat " + nomJoueur(mc))), () -> true, 1, null);
+            pas("signal-retour-monde", () -> E2eReseau.rcon("execute in minecraft:overworld run tp " + nomJoueur(mc) + " "
+                    + xyz(antenneM().offset(0, 0, 2))), () -> attendu(4.0) && mc.player.level().dimension()
+                    == net.minecraft.world.level.Level.OVERWORLD, 30, null);
+        } else {
+            echap(mc, "signal-echap-fin");
+        }
+        bilanDuPont();
+    }
+
+    /**
+     * Mode {@code antenne} sur un serveur dédié (après le mode {@code signal}, même monde : le joueur a fondé Mairie, le
+     * téléphone de la case 0 porte sa carte) : l'appli « Antenne » par un vrai clic, les trois onglets, une carte
+     * suspendue puis réactivée, un tarif refusé puis enregistré au clavier ; la vue de la page comparée à la console
+     * (cartes, consommation) ; la source de Mairie coupée, vue en direct ; la page rechargée appli ouverte (le serveur
+     * ferme le panneau) ; « Accueil » avant la première vue.
+     */
+    private static void composerAntenneServeur(Minecraft mc) {
+        // L'antenne de Mairie (fondée au mode signal) relue à la composition : les places des pas en découlent.
+        Map<String, String> m0 = rconLu("e2etel operateur " + MAIRIE);
+        origine = null;
+        for (String a : liste(m0.get("antennes"))) {
+            // La principale (la première posée au mode signal) : position:en service:détail:FE du jour:principale.
+            String[] champs = a.split(":");
+            if ("true".equals(champs[4])) {
+                String[] t = champs[0].split(",");
+                origine = new BlockPos(Integer.parseInt(t[0]), Integer.parseInt(t[1]), Integer.parseInt(t[2]));
+            }
+        }
+        if (origine == null || !nomJoueur(mc).equals(m0.get("fondateur"))) {
+            echec("antenne-serveur", "le mode antenne suit le mode signal : Mairie absente ou d'un autre (" + m0 + ")");
+            return;
+        }
+        pas("antenne-serveur-depart", () -> {
+            String n = nomJoueur(mc);
+            int x = mc.player.blockPosition().getX();
+            E2eReseau.rcon("op " + n);
+            E2eReseau.rcon("gamemode creative " + n);
+            E2eReseau.rcon("e2etel cartes " + MAIRIE + " 3");
+            mc.player.getInventory().selected = 0;
+            journal("départ x=" + x + " ; Mairie en " + xyz(origine));
+        }, () -> attendu(1.0) && mc.player.getMainHandItem().is(PhoneRegistry.PHONE.get()), 10, null);
+        allerA(mc, "antenne-serveur-place", antenneM().offset(3, 0, 2));
+        ouvrir(mc, "antenne-ouverture-1", Lock.LOCKED, null);
+        pas("antenne-deverrouillage", () -> stable(mc, "key-0"), () -> taper(mc, CODE),
+                () -> etat(Lock.UNLOCKED) && cible(mc, "app-antenna") && vueReseau().founderApp() && attendu(0.6), 15, null);
+        clic(mc, "antenne-appli", "app-antenna", () -> appliPrete(mc), 15, null);
+        pause("a01-appli-reseau");
+        pas("antenne-vue-console", () -> {}, () -> {
+            dev.oneforallsurvival.phone.net.OperatorView v = vueAppli(mc);
+            Map<String, String> m = rconLu("e2etel operateur " + MAIRIE);
+            int total = 0;
+            for (String e : m.get("etats").replace("{", "").replace("}", "").split(",")) {
+                if (e.contains("=")) {
+                    total += Integer.parseInt(e.split("=")[1].trim());
+                }
+            }
+            // L'antenne principale, comparée à elle-même : la page et la console ne rangent pas leurs listes pareil.
+            String console = "";
+            for (String x : liste(m.get("antennes"))) {
+                if (x.startsWith(origine.getX() + "," + origine.getY() + "," + origine.getZ() + ":")) {
+                    console = x.split(":")[2];
+                }
+            }
+            var a = v.antennas().stream().filter(x -> x.pos().equals(origine)).findFirst().orElseThrow().load();
+            String page = a.standby() + "+" + a.clients() + "+" + a.traffic();
+            journal("vue de l'appli : " + v.cardTotal() + " carte(s), consommation " + page + " ; console : " + total
+                    + " carte(s), " + console + ", actives " + m.get("actives"));
+            if (v.cardTotal() != total || !page.equals(console)) {
+                echec("antenne-vue-console", "page " + v.cardTotal() + " / " + page + ", console " + total + " / " + console);
+            }
+            for (var c : v.cards()) {
+                if (c.holderName().startsWith("Essai")) {
+                    idCible = c.simId().toString();
+                }
+            }
+            return !idCible.isEmpty();
+        }, 5, null);
+        ongletAppli(mc, "antenne-onglet-cartes", "cards", OperatorPanelLayout.Tab.CARDS, "a02-appli-cartes");
+        boutonAppli(mc, "antenne-suspendre", () -> "op-card-" + idCible, OperatorActionPacket.Action.SUSPEND,
+                () -> idCible, () -> {
+                    lireAppli(mc);
+                    return "SUSPENDED".equals(appliCarte) && attendu(0.8);
+                }, "a03-carte-suspendue");
+        boutonAppli(mc, "antenne-reactiver", () -> "op-card-" + idCible, OperatorActionPacket.Action.REACTIVATE,
+                () -> idCible, () -> {
+                    lireAppli(mc);
+                    return "ACTIVE".equals(appliCarte) && attendu(0.8);
+                }, "a04-carte-reactivee");
+        ongletAppli(mc, "antenne-onglet-tarif", "tariff", OperatorPanelLayout.Tab.TARIFF, null);
+        saisirTarif(mc, "antenne-tarif-refuse", true, "a05-tarif-refuse");
+        saisirTarif(mc, "antenne-tarif", false, "a06-tarif-au-lendemain-montants");
+        ongletAppli(mc, "antenne-onglet-reseau", "network", OperatorPanelLayout.Tab.NETWORK, null);
+        pas("antenne-source-coupee", () -> {
+            E2eReseau.rcon("e2etel source " + xyz(antenneM().west()) + " false");
+            E2eReseau.rcon("e2etel vider " + xyz(antenneM()));
+        }, () -> appliPrete(mc) && sourceVue(mc) && attendu(1.0), 30, "a07-source-coupee-en-direct");
+        pas("antenne-source-retablie", () -> E2eReseau.rcon("e2etel source " + xyz(antenneM().west()) + " true"),
+                () -> appliPrete(mc) && !sourceVue(mc) && attendu(1.0), 30, "a08-source-retablie");
+        // La page rechargée, appli ouverte : la page rouverte ne connaît plus le panneau ; le serveur doit le fermer.
+        pas("antenne-rechargement", () -> mc.screen instanceof PhoneWebScreen,
+                () -> executerDansLaPage((PhoneWebScreen) mc.screen, "location.reload();"), () -> {
+                    lireAppli(mc);
+                    return attendu(4.0) && !appliPanneau && stable(mc, "app-settings");
+                }, 20, "a09-apres-rechargement");
+        // « Accueil » avant la première vue : l'icône puis la flèche de retour dans le même instant.
+        pas("antenne-accueil-avant-vue", () -> mc.screen instanceof PhoneWebScreen && stable(mc, "app-antenna"),
+                () -> executerDansLaPage((PhoneWebScreen) mc.screen,
+                        "document.getElementById('app-antenna').click();document.getElementById('op-close').click();"), () -> {
+                    lireAppli(mc);
+                    return attendu(3.0) && !appliPanneau && ((PhoneWebScreen) mc.screen).antennaSession() < 0;
+                }, 20, "a10-accueil-avant-la-vue");
+        echap(mc, "antenne-echap-fin");
+        bilanDuPont();
+    }
+
     @Nullable
     private static OperatorPanelScreen panneau(Minecraft mc) {
         return mc.screen instanceof OperatorPanelScreen p && p.back() != null ? p : null;
@@ -733,6 +1103,16 @@ public final class TelephoneShots {
 
     /** Ce que le serveur tient : demandes de Mairie, état de la carte visée, tarif de demain, panneau ouvert. */
     private static void lireAppli(Minecraft mc) {
+        if (SERVEUR != null) {
+            // Serveur dédié : relu par la console RCON (E2eTelephoneServeur).
+            Map<String, String> op = rconLu("e2etel operateur " + MAIRIE);
+            appliDemandes = liste(op.get("demandes")).size();
+            appliDemain = op.get("tarifDemain") == null || "-".equals(op.get("tarifDemain")) ? -1L
+                    : Long.parseLong(op.get("tarifDemain"));
+            appliCarte = idCible.isEmpty() ? "" : rconLu("e2etel carte " + idCible).getOrDefault("etat", "");
+            appliPanneau = "true".equals(rconLu("e2etel etat " + mc.player.getGameProfile().getName()).get("panneau"));
+            return;
+        }
         serveur(mc, (srv, sp) -> {
             PhoneOperators r = PhoneOperators.get(srv);
             appliDemandes = r.requestsOf(idMairie).size();

@@ -112,6 +112,8 @@ final class E2eProtection {
     private static int stewsAvant;
     /** Les ragoûts que le joueur avait avant l'étape (celui des vivres, relu à la relance) : l'étape n'en retire pas un de plus. */
     private static int ragoutsAvantEtape;
+    /** Les ragoûts portés avant l'étape, par date (celui des vivres compris) : l'étape ne retire que ce qu'elle a ajouté. */
+    private static java.util.Map<Long, Integer> ragoutsParDateAvant = new java.util.HashMap<>();
     private static double vieZombieMin;
     private static Vec3 departZombie;
     private static boolean zombieVu;
@@ -421,6 +423,7 @@ final class E2eProtection {
             }
             depart = mc.player.blockPosition();
             ragoutsAvantEtape = compter(est(objet("farmersdelight:beef_stew")));
+            ragoutsParDateAvant = ragoutsParDate();
             BlockPos spawn = mc.level.getSharedSpawnPos();
             int x = depart.getX() - 70;
             if (Math.abs(x - spawn.getX()) <= 40 && Math.abs(depart.getZ() - spawn.getZ()) <= 40) {
@@ -695,11 +698,14 @@ final class E2eProtection {
                 return true;
             }
             if (System.nanoTime() - derniereLecture > 700_000_000L) {
-                for (ItemStack st : mc.player.getInventory().items) {
-                    // Seule une pile datée est visée : sans date, un /clear toucherait aussi le ragoût des vivres.
-                    if (st.is(objet("farmersdelight:beef_stew")) && st.getTag() != null) {
-                        int exces = total - ragoutsAvantEtape;
-                        commande("clear " + nom() + " farmersdelight:beef_stew" + st.getTag() + " " + Math.min(exces, st.getCount()));
+                // Date par date, seulement l'excédent sur ce qui était porté avant l'étape : le ragoût des vivres (daté
+                // plus tôt, au quart d'heure) n'est jamais pris à la place d'un ragoût de l'étape quand leurs dates
+                // diffèrent (vu à la relance complète de la tâche 13 du lot T2).
+                for (java.util.Map.Entry<Long, Integer> e : ragoutsParDate().entrySet()) {
+                    int exces = e.getValue() - ragoutsParDateAvant.getOrDefault(e.getKey(), 0);
+                    if (e.getKey() != Long.MIN_VALUE && exces > 0) {
+                        commande("clear " + nom() + " farmersdelight:beef_stew{" + dev.oneforallsurvival.food.FoodStamp.KEY + ":"
+                                + e.getKey() + "L} " + exces);
                         derniereLecture = System.nanoTime();
                         break;
                     }
@@ -707,6 +713,19 @@ final class E2eProtection {
             }
             return false;
         }, () -> "ragouts : " + compter(est(objet("farmersdelight:beef_stew"))) + " au lieu de " + ragoutsAvantEtape, null);
+    }
+
+    /** Les ragoûts de bœuf de l'inventaire par date ({@code Long.MIN_VALUE} : sans date). */
+    private static java.util.Map<Long, Integer> ragoutsParDate() {
+        java.util.Map<Long, Integer> out = new java.util.HashMap<>();
+        for (ItemStack st : mc.player.getInventory().items) {
+            if (st.is(objet("farmersdelight:beef_stew"))) {
+                long date = dev.oneforallsurvival.food.FoodStamp.isStamped(st) ? dev.oneforallsurvival.food.FoodStamp.stamp(st)
+                        : Long.MIN_VALUE;
+                out.merge(date, st.getCount(), Integer::sum);
+            }
+        }
+        return out;
     }
 
     private static String restantsCantine() {
