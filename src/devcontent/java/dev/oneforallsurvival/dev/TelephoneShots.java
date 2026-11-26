@@ -130,7 +130,12 @@ import org.lwjgl.glfw.GLFW;
  *   avion, les barres à 150 et 300 blocs, l'écran verrouillé avec l'opérateur, puis le retrait de la carte.</li>
  *   <li>{@code antenne} (lot T2, tâche 10) : l'appli « Antenne » du fondateur de Mairie, par de vrais clics (page) ou
  *   le panneau Minecraft par-dessus le repli : onglets, émission, suspension, tarif refusé puis accepté tapés au
- *   clavier, mise à jour en direct quand la source de Mairie est coupée, retour au téléphone.</li>
+ *   clavier, mise à jour en direct quand la source de Mairie est coupée, retour au téléphone. Dans la page, « Désactiver »
+ *   touché deux fois en un dixième de seconde (rien ne part) puis confirmé, les montants relus, et l'icône grisée (le
+ *   message seul) ; la page répond à ces relevés par un message {@code essai} que le témoin du pont garde (tâche 16).</li>
+ *   <li>{@code prise} (lot T2, tâche 16, avec le pack) : la prise à travers son mur, câblée par de vrais clics
+ *   (connecteurs de Crafts &amp; Additions, bobine de cuivre), puis le connecteur du mur remis sur « aucun » à la clé de
+ *   Create ; valeurs relues au serveur.</li>
  * </ul>
  *
  * <p>{@code options.txt} n'est jamais réécrit (taille de fenêtre, échelle et plafond en mémoire seulement). La touche
@@ -326,6 +331,7 @@ public final class TelephoneShots {
                             }
                         }
                         case "signal" -> composerSignal(mc);
+                        case "prise" -> composerPriseMur(mc);
                         default -> composer(mc);
                     }
                     passer(Phase.ETAPES);
@@ -686,19 +692,28 @@ public final class TelephoneShots {
                     return "SUSPENDED".equals(appliCarte) && attendu(0.8);
                 }, "a04-carte-suspendue");
         // Tâche 15 : « Désactiver » ; le premier appui n'envoie rien (« Confirmer ? »), le second dans les 5 s envoie.
-        boutonAppli(mc, "antenne-desactiver-arme", () -> "op-deactivate-" + idCible,
+        // Dans la page (tâche 16), le premier est un double appui rapide : le second, avant 400 ms, ne confirme pas.
+        if (web) {
+            doubleAppui(mc);
+        } else {
+            boutonAppli(mc, "antenne-desactiver-arme", () -> "op-deact-" + idCible,
+                    OperatorActionPacket.Action.DEACTIVATE, () -> idCible, () -> {
+                        lireAppli(mc);
+                        return "SUSPENDED".equals(appliCarte) && attendu(0.6);
+                    }, "a04b-desactiver-confirmer");
+        }
+        boutonAppli(mc, "antenne-desactiver-confirme", () -> "op-deact-" + idCible,
                 OperatorActionPacket.Action.DEACTIVATE, () -> idCible, () -> {
                     lireAppli(mc);
-                    return "SUSPENDED".equals(appliCarte) && attendu(0.6);
-                }, "a04b-desactiver-confirmer");
-        boutonAppli(mc, "antenne-desactiver-confirme", () -> "op-deactivate-" + idCible,
-                OperatorActionPacket.Action.DEACTIVATE, () -> idCible, () -> {
-                    lireAppli(mc);
-                    return "DEACTIVATED".equals(appliCarte) && attendu(0.8);
+                    boolean parti = !web || SORTES_DU_PONT.getOrDefault("opDeactivate", 0) == desactiverAvant + 1;
+                    return "DEACTIVATED".equals(appliCarte) && parti && attendu(0.8);
                 }, "a04c-carte-desactivee");
         ongletAppli(mc, "antenne-onglet-tarif", "tariff", OperatorPanelLayout.Tab.TARIFF, null);
         saisirTarif(mc, "antenne-tarif-refuse", true, "a05-tarif-refuse");
         saisirTarif(mc, "antenne-tarif", false, "a06-tarif-au-lendemain");
+        if (web) {
+            montants(mc);
+        }
         pas("antenne-retour", () -> {
             if (mc.screen instanceof PhoneWebScreen w && w.antennaSession() >= 0 && w.rects().containsKey("home-bar")) {
                 cliquer(mc, "home-bar");
@@ -726,13 +741,333 @@ public final class TelephoneShots {
         pas("antenne-seconde-releve", () -> journal("les deux sources coupées : " + resumeAppli(mc) + ", barres "
                 + vueReseau().bars()), () -> true, 1, null);
         // Tâche 15 : l'icône grisée touchée n'ouvre rien ; seul le message « Pas de réseau. » répond.
-        clic(mc, "antenne-icone-grisee", "app-antenna", () -> {
-            boolean rien = mc.screen instanceof PhoneWebScreen w ? w.antennaSession() < 0
-                    : mc.screen instanceof PhoneFallbackScreen;
-            return rien && attendu(1.0);
-        }, 10, "a10-icone-grisee-message");
+        if (web) {
+            iconeGrisee(mc);
+        } else {
+            clic(mc, "antenne-icone-grisee", "app-antenna", () -> mc.screen instanceof PhoneFallbackScreen && attendu(1.0), 10,
+                    "a10-icone-grisee-message");
+        }
         echap(mc, "antenne-echap-fin");
         bilanDuPont();
+    }
+
+    // --- Les relevés dans la page (tâche 16) ----------------------------------------------------------------------------
+
+    /** La dernière réponse de la page à un relevé de l'essai (message {@code essai}), gardée par le témoin du pont. */
+    @Nullable private static volatile JsonObject releve;
+    private static boolean releveDemande;
+    private static double[] boutonDesactiver;
+    private static long premierAppuiNs;
+    private static boolean secondAppui;
+    private static int desactiverAvant;
+
+    /**
+     * La page évalue {@code objet} (un littéral JavaScript) et le renvoie par le pont ; le témoin le garde dans
+     * {@link #releve} sans le transmettre au jeu. Demandé une fois par pas : {@code null} tant que rien n'est revenu.
+     */
+    @Nullable
+    private static JsonObject demander(Minecraft mc, String objet) {
+        if (!releveDemande && mc.screen instanceof PhoneWebScreen w) {
+            releveDemande = true;
+            releve = null;
+            executerDansLaPage(w, "(function(){var r=" + objet + ";r.a='essai';window.oneforall.send(r);})();");
+        }
+        return releve;
+    }
+
+    private static String texteDe(String id) {
+        return "((document.getElementById('" + id + "')||{}).textContent||'')";
+    }
+
+    /**
+     * « Désactiver » touché deux fois en un dixième de seconde : le premier appui arme (« Confirmer ? »), le second ne
+     * confirme pas. La page compte elle-même les clics reçus sur le bouton et leur écart : le « rien ne part » ne vaut
+     * que si les deux lui sont arrivés.
+     */
+    private static void doubleAppui(Minecraft mc) {
+        pas("antenne-desactiver-temoin", () -> executerDansLaPage((PhoneWebScreen) mc.screen,
+                "window.__appuis=[];document.addEventListener('click',function(e){if(e.target.closest&&"
+                        + "e.target.closest('[id^=\"op-deact-\"]')){window.__appuis.push(performance.now());}},true);"),
+                () -> attendu(0.3), 3, null);
+        pas("antenne-desactiver-double", () -> stable(mc, "op-deact-" + idCible), () -> {
+            desactiverAvant = SORTES_DU_PONT.getOrDefault("opDeactivate", 0);
+            boutonDesactiver = centre(mc, "op-deact-" + idCible);
+            secondAppui = false;
+            releveDemande = false;
+            premierAppuiNs = System.nanoTime();
+            cliquerEn(mc, boutonDesactiver);
+        }, () -> {
+            if (!secondAppui) {
+                if (secondes(premierAppuiNs) >= 0.1) {
+                    secondAppui = true;
+                    cliquerEn(mc, boutonDesactiver);
+                }
+                return false;
+            }
+            lireAppli(mc);
+            if (secondes(premierAppuiNs) < 1.0) {
+                return false;
+            }
+            JsonObject r = demander(mc, "{n:window.__appuis.length,ecart:window.__appuis.length>1?"
+                    + "Math.round(window.__appuis[1]-window.__appuis[0]):-1,libelle:" + texteDe("op-deact-" + idCible) + "}");
+            if (r == null) {
+                return false;
+            }
+            int n = r.get("n").getAsInt();
+            int ecart = r.get("ecart").getAsInt();
+            String libelle = r.get("libelle").getAsString();
+            int envoyes = SORTES_DU_PONT.getOrDefault("opDeactivate", 0) - desactiverAvant;
+            String bilan = "double appui : " + n + " clic(s) reçus par la page, écart " + ecart + " ms, bouton « " + libelle
+                    + " », opDeactivate envoyé(s) " + envoyes + ", carte " + appliCarte + " au serveur";
+            journal(bilan);
+            if (n != 2 || ecart < 0 || ecart >= 400 || !"Confirmer ?".equals(libelle) || envoyes != 0
+                    || !"SUSPENDED".equals(appliCarte)) {
+                echec("antenne-desactiver-double", bilan);
+            }
+            return true;
+        }, 8, "a04b-desactiver-confirmer");
+    }
+
+    /** Les montants de l'onglet Tarif tels que la page les écrit : les coupures formatées par le jeu, jamais les cuivres bruts. */
+    private static void montants(Minecraft mc) {
+        pas("antenne-montants", () -> releveDemande = false, () -> {
+            JsonObject r = demander(mc, "{jour:" + texteDe("ant-tariff-today") + ",demain:" + texteDe("ant-tariff-next")
+                    + ",plafond:" + texteDe("ant-cap") + "}");
+            dev.oneforallsurvival.phone.net.OperatorView v = vueAppli(mc);
+            if (r == null || v == null || v.nextTariff() == null) {
+                return false;
+            }
+            String jour = dev.oneforallsurvival.economy.CoinMath.format(v.tariff()).getString();
+            String demain = dev.oneforallsurvival.economy.CoinMath.format(v.nextTariff()).getString();
+            String plafond = dev.oneforallsurvival.economy.CoinMath.format(v.cap()).getString();
+            String bilan = "montants dans la page : jour « " + r.get("jour").getAsString() + " », demain « "
+                    + r.get("demain").getAsString() + " » (" + v.nextTariff() + " cuivres), plafond « "
+                    + r.get("plafond").getAsString() + " » (" + v.cap() + " cuivres)";
+            journal(bilan);
+            if (!jour.equals(r.get("jour").getAsString()) || !demain.equals(r.get("demain").getAsString())
+                    || !plafond.equals(r.get("plafond").getAsString()) || v.nextTariff() != tarifEssaye) {
+                echec("antenne-montants", bilan + " ; attendus « " + jour + " », « " + demain + " », « " + plafond + " »");
+            }
+            return true;
+        }, 6, "a06b-montants");
+    }
+
+    /**
+     * L'icône grisée touchée dans la page : le geste part, l'appli ne se montre à aucun instant (un témoin de la page
+     * surveille la classe {@code ant-open}), le panneau reste fermé au serveur, et seule l'alerte « Pas de réseau. »
+     * répond ; « OK » rend l'accueil.
+     */
+    private static void iconeGrisee(Minecraft mc) {
+        pas("antenne-grisee-temoin", () -> executerDansLaPage((PhoneWebScreen) mc.screen,
+                "window.__appliVue=false;new MutationObserver(function(){if(document.querySelector('.ant-open')){"
+                        + "window.__appliVue=true;}}).observe(document.documentElement,{attributes:true,subtree:true,"
+                        + "attributeFilter:['class']});"), () -> attendu(0.3), 3, null);
+        pas("antenne-icone-grisee", () -> stable(mc, "app-antenna"), () -> {
+            appliAvant = SORTES_DU_PONT.getOrDefault("antennaApp", 0);
+            cliquer(mc, "app-antenna");
+        }, () -> {
+            lireAppli(mc);
+            return mc.screen instanceof PhoneWebScreen w && w.antennaSession() < 0 && stable(mc, "alert-0")
+                    && attendu(1.2);
+        }, 10, "a10-icone-grisee-message");
+        pas("antenne-icone-grisee-releve", () -> releveDemande = false, () -> {
+            lireAppli(mc);
+            JsonObject r = demander(mc, "{vue:window.__appliVue,grise:document.getElementById('app-antenna').classList"
+                    + ".contains('off'),titre:" + texteDe("alert-title") + ",message:" + texteDe("alert-msg") + "}");
+            if (r == null) {
+                return false;
+            }
+            int envoyes = SORTES_DU_PONT.getOrDefault("antennaApp", 0) - appliAvant;
+            String bilan = "icône grisée : grisée " + r.get("grise").getAsBoolean() + ", appli montrée "
+                    + r.get("vue").getAsBoolean() + ", alerte « " + r.get("titre").getAsString() + " » « "
+                    + r.get("message").getAsString() + " », antennaApp envoyé(s) " + envoyes + ", panneau au serveur "
+                    + appliPanneau;
+            journal(bilan);
+            if (!r.get("grise").getAsBoolean() || r.get("vue").getAsBoolean() || envoyes != 1 || appliPanneau
+                    || !"Pas de réseau.".equals(r.get("message").getAsString())) {
+                echec("antenne-icone-grisee-releve", bilan);
+            }
+            return true;
+        }, 6, null);
+        clic(mc, "antenne-icone-grisee-ok", "alert-0", () -> mc.screen instanceof PhoneWebScreen w && w.antennaSession() < 0
+                && stable(mc, "app-antenna") && !w.rects().containsKey("op-close") && attendu(1.0), 10,
+                "a11-accueil-apres-le-message");
+    }
+
+    // --- La prise à travers son mur (lot T2, tâche 16) ------------------------------------------------------------------
+
+    @Nullable private static volatile BlockPos filMur;
+    private static volatile String filValeurs = "";
+    private static volatile int filTelephone = -1;
+    private static volatile int filReserve = -1;
+    private static volatile String filMode = "";
+    private static int filDepart;
+    private static int filAvant;
+    private static long filCleNs;
+
+    private static BlockPos prisePos() {
+        return filMur.west();
+    }
+
+    private static BlockPos connecteurMur() {
+        return filMur.above();
+    }
+
+    private static BlockPos filSource() {
+        return filMur.offset(0, -1, 3);
+    }
+
+    private static BlockPos connecteurSource() {
+        return filSource().above();
+    }
+
+    /** La charge du téléphone branché, la réserve de la prise et le mode du connecteur du mur, relus au serveur. */
+    private static void lireLeFil(Minecraft mc) {
+        serveur(mc, (srv, sp) -> {
+            ServerLevel level = sp.serverLevel();
+            filMode = dev.oneforallsurvival.dev.ReseauxDev.propriete(level.getBlockState(connecteurMur()), "mode")
+                    .toLowerCase(Locale.ROOT);
+            if (level.getBlockEntity(prisePos()) instanceof WallSocketBlockEntity s) {
+                filTelephone = s.phone().isEmpty() ? -1 : PhoneItem.stored(s.phone());
+                filReserve = s.energy().getEnergyStored();
+                filValeurs = "téléphone " + filTelephone + " FE, réserve de la prise " + filReserve
+                        + " FE, connecteur du mur « " + filMode + " », prise " + s.state() + ", tic " + level.getGameTime();
+            } else {
+                filValeurs = "aucune prise ; connecteur du mur « " + filMode + " »";
+            }
+        });
+    }
+
+    /** Un vrai clic droit du client sur la face {@code face} du bloc, l'objet de la case {@code slot} en main. */
+    private static void utiliser(Minecraft mc, int slot, BlockPos pos, Direction face) {
+        mc.player.getInventory().selected = slot;
+        Vec3 point = Vec3.atCenterOf(pos).add(face.getStepX() * 0.3, face.getStepY() * 0.3, face.getStepZ() * 0.3);
+        var r = mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, new BlockHitResult(point, face, pos, false));
+        journal("clic droit en " + pos.toShortString() + " face " + face + ", main " + mc.player.getMainHandItem() + " : " + r);
+    }
+
+    private static boolean bloc(Minecraft mc, BlockPos pos, String id) {
+        return id.equals(String.valueOf(ForgeRegistries.BLOCKS.getKey(mc.level.getBlockState(pos).getBlock())));
+    }
+
+    /** Les valeurs montrées sur l'image du pas en cours, déjà écrites en barre d'action. */
+    private static boolean releveMontre;
+    private static int filMontre = -1;
+    private static String filModeMontre = "";
+
+    /**
+     * Un pas qui relit le serveur pendant {@code duree} secondes : une demi-seconde avant la fin, les valeurs sont figées,
+     * écrites en barre d'action (l'image les porte) et au journal, puis jugées par {@code juger}.
+     */
+    private static void relever(Minecraft mc, String nom, double duree, java.util.function.Supplier<String> titre,
+            Runnable juger, String image) {
+        pas(nom, () -> {
+            releveMontre = false;
+            filAvant = filTelephone;
+        }, () -> {
+            if (!releveMontre) {
+                lireLeFil(mc);
+                if (attendu(duree - 0.5)) {
+                    releveMontre = true;
+                    filMontre = filTelephone;
+                    filModeMontre = filMode;
+                    journal(titre.get() + " : " + filValeurs);
+                    mc.gui.setOverlayMessage(Component.literal("Relevé serveur : téléphone " + filMontre
+                            + " FE, connecteur du mur « " + filModeMontre + " »"), false);
+                    juger.run();
+                }
+                return false;
+            }
+            return attendu(duree);
+        }, duree + 3, image);
+    }
+
+    private static void composerPriseMur(Minecraft mc) {
+        if (SERVEUR != null) {
+            echec("prise", "le mode prise se joue en monde solo (gestes du serveur intégré)");
+            return;
+        }
+        decor(mc, 5);
+        pas("fil-decor", () -> serveur(mc, (srv, sp) -> {
+            ServerLevel level = sp.serverLevel();
+            BlockPos pied = sp.blockPosition();
+            BlockPos mur = pied.offset(3, 1, 0);
+            for (BlockPos air : BlockPos.betweenClosed(pied.offset(1, 0, -2), pied.offset(4, 3, 4))) {
+                level.setBlockAndUpdate(air, Blocks.AIR.defaultBlockState());
+            }
+            // Un pan de mur de planches (aucun bloc-entité) ; la source, trois blocs plus loin, de l'air entre les deux.
+            for (BlockPos p : BlockPos.betweenClosed(mur.offset(0, -1, -1), mur.offset(0, 0, 1))) {
+                level.setBlockAndUpdate(p, Blocks.OAK_PLANKS.defaultBlockState());
+            }
+            Block creatif = ForgeRegistries.BLOCKS.getValue(new ResourceLocation("createaddition", "creative_energy"));
+            level.setBlockAndUpdate(mur.offset(0, -1, 3), creatif.defaultBlockState());
+            sp.getInventory().setItem(1, new ItemStack(PhoneRegistry.WALL_SOCKET_ITEM.get()));
+            sp.getInventory().setItem(2, new ItemStack(ForgeRegistries.ITEMS.getValue(
+                    new ResourceLocation("createaddition", "connector")), 2));
+            sp.getInventory().setItem(3, new ItemStack(ForgeRegistries.ITEMS.getValue(
+                    new ResourceLocation("createaddition", "copper_spool")), 4));
+            sp.getInventory().setItem(4, new ItemStack(ForgeRegistries.ITEMS.getValue(
+                    new ResourceLocation("create", "wrench"))));
+            sp.setGameMode(GameType.SURVIVAL);
+            sp.teleportTo(level, pied.getX() + 0.5, pied.getY(), pied.getZ() + 1.5, -90f, 8f);
+            filMur = mur;
+        }), () -> filMur != null && bloc(mc, filSource(), "createaddition:creative_energy")
+                && bloc(mc, filMur, "minecraft:oak_planks") && !mc.player.getInventory().getItem(4).isEmpty()
+                && !mc.player.getInventory().getItem(2).isEmpty() && attendu(2.0), 10, null);
+        pas("fil-prise-posee", () -> utiliser(mc, 1, filMur, Direction.WEST),
+                () -> mc.level.getBlockState(prisePos()).is(PhoneRegistry.WALL_SOCKET.get()) && attendu(0.5), 5, null);
+        pas("fil-telephone-branche", () -> utiliser(mc, caseDuTelephone, prisePos(), Direction.WEST),
+                () -> mc.player.getInventory().getItem(caseDuTelephone).isEmpty()
+                        && mc.level.getBlockState(prisePos()).getValue(WallSocketBlock.PLUGGED) && attendu(0.5), 5, null);
+        pas("fil-connecteur-source", () -> utiliser(mc, 2, filSource(), Direction.UP),
+                () -> bloc(mc, connecteurSource(), "createaddition:connector") && attendu(0.5), 5, null);
+        pas("fil-connecteur-mur", () -> utiliser(mc, 2, filMur, Direction.UP),
+                () -> bloc(mc, connecteurMur(), "createaddition:connector") && attendu(0.5), 5, null);
+        // Témoin : sans fil, rien n'arrive (la source est à trois blocs, rien ne la touche).
+        pas("fil-sans-fil", () -> lireLeFil(mc), () -> {
+            lireLeFil(mc);
+            return attendu(1.0) && filTelephone >= 0;
+        }, 5, null);
+        relever(mc, "fil-sans-fil-releve", 4.0, () -> "sans fil, 4 s de plus (avant : " + filAvant + " FE)", () -> {
+            if (filMontre != filAvant || filReserve != 0) {
+                echec("fil-sans-fil-releve", "sans fil, du courant est arrivé : " + filValeurs + ", avant " + filAvant);
+            }
+        }, "p01-sans-fil");
+        pas("fil-bobine-source", () -> utiliser(mc, 3, connecteurSource(), Direction.UP), () -> attendu(0.8), 5, null);
+        pas("fil-bobine-mur", () -> utiliser(mc, 3, connecteurMur(), Direction.UP), () -> attendu(0.8), 5, null);
+        pas("fil-en-charge", () -> {
+            filDepart = filTelephone; // la dernière valeur lue sans fil
+            mc.player.getInventory().selected = 8;
+        }, () -> {
+            lireLeFil(mc);
+            return filTelephone >= filDepart + 2000 && "push".equals(filMode);
+        }, 20, null);
+        relever(mc, "fil-en-charge-releve", 3.0, () -> "connecteur sur le mur, 3 s après " + filAvant + " FE", () -> {
+            if (filMontre <= filAvant || !"push".equals(filModeMontre)) {
+                echec("fil-en-charge-releve", "la charge ne monte plus : " + filValeurs + ", avant " + filAvant);
+            }
+        }, "p02-en-charge");
+        // La clé de Create sur le connecteur du mur : de « sortie » à « aucun » en un clic.
+        pas("fil-cle", () -> {
+            filCleNs = System.nanoTime();
+            utiliser(mc, 4, connecteurMur(), Direction.UP);
+        }, () -> {
+            lireLeFil(mc);
+            return "none".equals(filMode) && attendu(0.5);
+        }, 5, "p03-cle");
+        // La réserve déjà arrivée (4 000 FE au plus) finit dans le téléphone ; ensuite plus rien ne bouge.
+        pas("fil-reserve-videe", () -> mc.player.getInventory().selected = 8, () -> {
+            lireLeFil(mc);
+            return attendu(8.0);
+        }, 12, null);
+        relever(mc, "fil-reste-sur-aucun", 8.0, () -> String.format(Locale.ROOT, "%.0f s après la clé (téléphone 8 s plus tôt : "
+                + "%d FE)", secondes(filCleNs), filAvant), () -> {
+            // Le téléphone n'est pas plein : une charge qui ne bouge plus dit bien que rien n'arrive.
+            if (!"none".equals(filModeMontre) || filMontre != filAvant || filMontre >= PhoneConfig.capacity()) {
+                echec("fil-reste-sur-aucun", "le connecteur ou la charge ont changé (capacité " + PhoneConfig.capacity()
+                        + ") : " + filValeurs + ", avant " + filAvant);
+            }
+        }, "p04-reste-sur-aucun");
     }
 
     // --- Serveur dédié : le signal à deux téléphones et l'appli « Antenne » (lot T2, tâche 13) ------------------------
@@ -2294,7 +2629,8 @@ public final class TelephoneShots {
     /** Les messages que la page du téléphone peut envoyer, et leurs clés. */
     private static final Set<String> SORTES = Set.of("ready", "layout", "close", "unlock", "setup", "erase", "lock",
             "changeCode", "wallpaper", "airplane", "insertSim", "removeSim", "requestSim", "antennaApp", "opTariff",
-            "opIssue", "opRefuse", "opAnonymous", "opSuspend", "opReactivate", "opReplace", "opMain", "opPage", "opClose");
+            "opIssue", "opRefuse", "opAnonymous", "opSuspend", "opReactivate", "opReplace", "opDeactivate", "opMain",
+            "opPage", "opClose");
     private static final Set<String> CLES = Set.of("a", "rects", "code", "old", "new", "id", "on", "wallpaper", "slot",
             "op", "value", "n");
 
@@ -2321,6 +2657,10 @@ public final class TelephoneShots {
         @Override
         public void onMessage(JsonObject message) {
             String a = message.has("a") && message.get("a").isJsonPrimitive() ? message.get("a").getAsString() : "?";
+            if ("essai".equals(a)) {
+                releve = message; // la réponse à un relevé de l'automate (tâche 16) : gardée, jamais transmise au jeu
+                return;
+            }
             if (!SORTES.contains(a) || !CLES.containsAll(message.keySet())) {
                 messagesEtrangers++;
                 LOG.warn("[telephone] message étranger au pont du téléphone : a={} clés={}", a, message.keySet());

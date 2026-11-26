@@ -94,11 +94,10 @@ final class TelephoneBilan {
             case "antenne" -> serveur ? List.of("antenne-deverrouillage", "antenne-appli", "antenne-vue-console",
                     "antenne-suspendre", "antenne-reactiver", "antenne-tarif-refuse-enregistrer", "antenne-tarif-enregistrer",
                     "antenne-source-coupee", "antenne-source-retablie", "antenne-rechargement", "antenne-accueil-avant-vue",
-                    "bilan-du-pont") : List.of("antenne-confirmation-au-clavier", "reseau-antennes-en-service", "antenne-ligne",
-                    "antenne-deverrouillage", "antenne-appli", "antenne-emettre", "antenne-suspendre",
-                    "antenne-tarif-refuse-enregistrer", "antenne-tarif-enregistrer", "antenne-seconde-en-service",
-                    "antenne-retour", "antenne-appli-2", "antenne-source-coupee", "antenne-seconde-coupee",
-                    "bilan-du-pont");
+                    "bilan-du-pont") : antenneSolo(webAttendu);
+            case "prise" -> List.of("fil-decor", "fil-prise-posee", "fil-telephone-branche", "fil-connecteur-source",
+                    "fil-connecteur-mur", "fil-sans-fil-releve", "fil-bobine-source", "fil-bobine-mur", "fil-en-charge",
+                    "fil-en-charge-releve", "fil-cle", "fil-reste-sur-aucun");
             default -> {
                 List<String> l = new ArrayList<>(List.of("ouverture-1", "confirmation-au-clavier", "reglages",
                         "mode-avion", "modification-du-code", "ouverture-2", "faux-5-reponse", "blocage",
@@ -116,6 +115,20 @@ final class TelephoneBilan {
                 yield l;
             }
         };
+    }
+
+    /** Le mode {@code antenne} en monde solo ; la page ajoute les relevés qu'elle seule permet. */
+    private static List<String> antenneSolo(boolean web) {
+        List<String> l = new ArrayList<>(List.of("antenne-confirmation-au-clavier", "reseau-antennes-en-service",
+                "antenne-ligne", "antenne-deverrouillage", "antenne-appli", "antenne-emettre", "antenne-suspendre",
+                "antenne-desactiver-confirme", "antenne-tarif-refuse-enregistrer", "antenne-tarif-enregistrer",
+                "antenne-seconde-en-service", "antenne-retour", "antenne-appli-2", "antenne-source-coupee",
+                "antenne-seconde-coupee", "antenne-icone-grisee", "bilan-du-pont"));
+        if (web) {
+            l.addAll(List.of("antenne-desactiver-double", "antenne-montants", "antenne-icone-grisee-releve",
+                    "antenne-icone-grisee-ok"));
+        }
+        return l;
     }
 
     /** Les étapes attendues absentes des étapes réussies. */

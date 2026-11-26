@@ -164,7 +164,8 @@ minecraft {
             if (project.hasProperty('telephoneShots')) {
                 property 'oneforallsurvival.telephoneShots', project.telephoneShots ?: 'frames-telephone'
             }
-            // `-PtelephoneShotsMode=parcours|perf|webdisplays|reseau|antenne|signal` (parcours par defaut ; reseau : carte SIM,
+            // `-PtelephoneShotsMode=parcours|perf|webdisplays|reseau|antenne|signal|prise` (parcours par defaut ; prise : la
+            // prise a travers son mur, avec -PwithPack, lot T2 tache 16 ; reseau : carte SIM,
             // operateur et barres, lot T2 ; antenne : appli Antenne ou panneau du repli, lot T2 tache 10, aussi sur serveur
             // dedie apres signal ; signal : deux telephones sur serveur dedie, lot T2 tache 13), `-PtelephoneShotsLangue=fr_fr` (langue du client, en memoire seulement),
             // `-PtelephoneShotsServer=<hote:port>`
