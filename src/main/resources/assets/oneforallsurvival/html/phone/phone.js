@@ -18,7 +18,8 @@
 //   la page montre ce qu'elle reçoit, sans rien deviner. Boîtes de layout du lot T2 : row-sim, sim-choice-<case>,
 //   sim-remove, sim-request, request-<id>, app-antenna, status-bars (et sim-close, la fermeture de la feuille) ;
 //   appli « Antenne » : op-close, op-tab-network, op-tab-cards, op-tab-tariff, op-tariff-field, op-tariff-save,
-//   op-anonymous, op-issue-<id>, op-refuse-<id>, op-card-<id>, op-replace-<id>, op-deactivate-<id>, op-main-<id>,
+//   op-anonymous, op-issue-<id>, op-refuse-<id>, op-card-<id>, op-replace-<id>, op-deact-<id> (« Désactiver » : le
+//   jeu ne garde une boîte que jusqu'à 48 caractères, un UUID en prend 36), op-main-<id>,
 //   op-page-prev, op-page-next. Java -> page, appli : phone.antenna(vue | null), phone.antennaStatus(texte) (voir
 //   plus bas) ; la vue porte aussi tariffText, nextTariffText (ou null) et capText, les montants écrits par le jeu
 //   (revue de la tâche 10).
@@ -1345,8 +1346,8 @@
         row.appendChild(button('op-card-' + c.id, c.state === 'ACTIVE' ? 'Suspendre' : 'Réactiver',
           c.state === 'ACTIVE' ? 'red' : ''));
         row.appendChild(button('op-replace-' + c.id, 'Remplacer', ''));
-        row.appendChild(ant.confirm === c.id ? button('op-deactivate-' + c.id, 'Confirmer ?', 'confirm')
-          : button('op-deactivate-' + c.id, 'Désactiver', 'red'));
+        row.appendChild(ant.confirm === c.id ? button('op-deact-' + c.id, 'Confirmer ?', 'confirm')
+          : button('op-deact-' + c.id, 'Désactiver', 'red'));
         card.appendChild(row);
       }
       list.appendChild(card);
@@ -1615,7 +1616,7 @@
     if (!b || !b.id) {
       return;
     }
-    var m = /^op-(issue|refuse|card|replace|deactivate|main)-(.+)$/.exec(b.id);
+    var m = /^op-(issue|refuse|card|replace|deact|main)-(.+)$/.exec(b.id);
     if (!m || !UUID_RE.test(m[2])) {
       return;
     }
@@ -1626,7 +1627,7 @@
       send({ a: 'opRefuse', id: id });
     } else if (m[1] === 'replace') {
       send({ a: 'opReplace', id: id });
-    } else if (m[1] === 'deactivate') {
+    } else if (m[1] === 'deact') {
       deactivateTap(id);
     } else if (m[1] === 'main') {
       send({ a: 'opMain', id: id });

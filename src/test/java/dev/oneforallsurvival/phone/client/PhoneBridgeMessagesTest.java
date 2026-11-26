@@ -2,6 +2,7 @@ package dev.oneforallsurvival.phone.client;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonObject;
@@ -9,9 +10,16 @@ import com.google.gson.JsonParser;
 import dev.oneforallsurvival.phone.PhoneActionPacket;
 import dev.oneforallsurvival.phone.PhoneActionPacket.Action;
 import dev.oneforallsurvival.phone.PhoneWallpapers;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -266,6 +274,31 @@ class PhoneBridgeMessagesTest {
         JsonObject m = JsonParser.parseString("{\"a\":\"layout\",\"rects\":{\"op-replace-" + id + "\":[1,2,3,4],"
                 + "\"op-refuse-" + id + "\":[1,2,3,4],\"x" + "y".repeat(48) + "\":[1,2,3,4]}}").getAsJsonObject();
         assertEquals(Set.of("op-replace-" + id, "op-refuse-" + id), PhoneBridgeMessages.layout(m).keySet());
+    }
+
+    /**
+     * Tâche 16 (vu dans un vrai client MCEF : « Désactiver » sans boîte, son identifiant à 50 caractères) : chaque bouton
+     * que la page nomme d'un UUID ({@code button('op-…-' + ….id}) a une boîte que le jeu garde.
+     */
+    @Test
+    void chaqueBoutonQueLaPageNommeDUnUuidPasse() throws IOException {
+        String racine = System.getProperty("oneforallsurvival.mainResources");
+        assertNotNull(racine, "propriété oneforallsurvival.mainResources absente");
+        String page = Files.readString(Paths.get(racine).resolve("assets/oneforallsurvival/html/phone/phone.js"),
+                StandardCharsets.UTF_8);
+        Set<String> boutons = new TreeSet<>();
+        Matcher m = Pattern.compile("button\\('(op-[a-z-]+-)' \\+ [a-z]+\\.id\\b").matcher(page);
+        while (m.find()) {
+            boutons.add(m.group(1) + "0b9a1c2d-3e4f-4a5b-8c6d-7e8f9a0b1c2d");
+        }
+        // Témoin de la lecture : désigner, émettre, refuser, suspendre ou réactiver, remplacer, désactiver.
+        assertEquals(6, boutons.size(), "boutons nommés d'un UUID lus dans phone.js : " + boutons);
+        JsonObject rects = new JsonObject();
+        boutons.forEach(id -> rects.add(id, JsonParser.parseString("[1,2,3,4]")));
+        JsonObject message = new JsonObject();
+        message.addProperty("a", "layout");
+        message.add("rects", rects);
+        assertEquals(boutons, PhoneBridgeMessages.layout(message).keySet());
     }
 
     @Test
