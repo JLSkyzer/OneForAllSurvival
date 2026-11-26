@@ -364,6 +364,57 @@ public final class ConfidentialiteTelephoneGameTests {
                 .thenSucceed();
     }
 
+    /**
+     * Revue de la tâche 15, point 1 : le message de mort d'un tueur qui tient un téléphone (puis une carte) renommé part
+     * à tout le serveur avec le survol de l'objet ; sérialisé, il ne dit rien de la carte (ni texte, ni identifiant en
+     * NBT texte) ; un autre objet renommé garde son survol entier ; les piles du serveur sont intactes.
+     */
+    @GameTest(template = "test/plancher", batch = LOT)
+    public static void leMessageDeMortNeDitRienDeLaCarte(GameTestHelper helper) {
+        Essai e = new Essai(helper);
+        JoueurDeTest f = e.joueur("pv_mort_f");
+        JoueurDeTest k = e.joueur("pv_mort_k");
+        JoueurDeTest v = e.joueur("pv_mort_v");
+        PhoneOperator op = e.fonder(f, A, "Avis Funebre", RESERVE);
+        // Le titulaire est f, pas le tueur : le nom du tueur est dans le message de mort, à bon droit.
+        ItemStack telephone = e.ligne(op, f).copy();
+        f.joueur().setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        telephone.setHoverName(net.minecraft.network.chat.Component.literal("Mon tel"));
+        SimCard seule = e.carte(op, f);
+        ItemStack carte = SimCardItem.create(seule, op.name());
+        carte.setHoverName(net.minecraft.network.chat.Component.literal("Ma carte"));
+        Secrets secrets = Secrets.de(e, op, e.registre().cardsOf(op.id()).toArray(new SimCard[0]));
+        for (ItemStack tenue : List.of(telephone, carte)) {
+            k.joueur().setItemInHand(InteractionHand.MAIN_HAND, tenue);
+            ItemStack dansLaMain = k.joueur().getMainHandItem();
+            net.minecraft.network.chat.Component mort = k.joueur().damageSources().playerAttack(k.joueur())
+                    .getLocalizedDeathMessage(v.joueur());
+            String json = net.minecraft.network.chat.Component.Serializer.toJson(mort);
+            String quoi = dansLaMain.is(PhoneRegistry.PHONE.get()) ? "téléphone" : "carte";
+            helper.assertTrue(json.contains("show_item") && json.contains(quoi.equals("téléphone") ? "Mon tel" : "Ma carte"),
+                    quoi + " : témoin, le message porte le survol de l'objet renommé");
+            Optional<String> fuite = secrets.dans(json.getBytes(StandardCharsets.UTF_8));
+            for (UUID id : secrets.ids()) {
+                int[] q = net.minecraft.core.UUIDUtil.uuidToIntArray(id);
+                if (json.contains(Integer.toString(q[0])) && json.contains(Integer.toString(q[3]))) {
+                    fuite = Optional.of("identifiant en NBT texte " + id.toString().substring(0, 8) + "…");
+                }
+            }
+            helper.assertTrue(fuite.isEmpty(), quoi + " : le message de mort porte " + fuite.orElse(""));
+            intacte(helper, dansLaMain, quoi + " du tueur");
+        }
+        // Témoin : un autre objet renommé garde son survol entier.
+        ItemStack epee = new ItemStack(net.minecraft.world.item.Items.IRON_SWORD);
+        epee.setHoverName(net.minecraft.network.chat.Component.literal("Lame"));
+        epee.getOrCreateTag().putString("sim_number", "temoin-garde");
+        k.joueur().setItemInHand(InteractionHand.MAIN_HAND, epee);
+        String json = net.minecraft.network.chat.Component.Serializer.toJson(k.joueur().damageSources()
+                .playerAttack(k.joueur()).getLocalizedDeathMessage(v.joueur()));
+        helper.assertTrue(json.contains("temoin-garde"), "un autre objet renommé garde son survol : " + json);
+        e.fermer();
+        helper.succeed();
+    }
+
     private static boolean aUnTelephone(List<ClientboundSetEquipmentPacket> paquets) {
         if (paquets == null) {
             return false;

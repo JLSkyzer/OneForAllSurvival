@@ -11,6 +11,7 @@
     "ClientboundSetEquipmentPacketMixin",
     "FallingBlockEntityMixin",
     "HopperBlockEntityMixin",
+    "HoverEventItemStackInfoMixin",
     "InventoryMenuMixin",
     "RecipeBookMenuMixin",
     "SlotItemHandlerMixin",

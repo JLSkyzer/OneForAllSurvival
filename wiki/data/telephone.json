@@ -162,7 +162,7 @@
         "Une copie faite avant une insertion est « non reconnue » ; de deux copies à jour, la dernière glissée prend la ligne. Jamais deux lignes.",
         "En créatif, une carte déplacée dans l'inventaire devient morte. Carte morte, perdue ou détruite : le fondateur la rend par « Remplacer » (même numéro, l'ancienne ne vaut plus rien).",
         "Suspendue : plus de signal jusqu'à la réactivation. Désactivée (par le fondateur, ou opérateur supprimé) : pour toujours, plus de signal.",
-        "Les autres joueurs ne voient ni le numéro, ni le titulaire, ni l'opérateur d'un téléphone ou d'une carte tenus en main ou portés par un porte-armure : seul le porteur les voit. Limite : posés au sol, dans un cadre ou dans un conteneur ouvert, ils gardent ces données, lisibles par qui les regarde.",
+        "Les autres joueurs ne voient ni le numéro, ni le titulaire, ni l'opérateur d'un téléphone ou d'une carte tenus en main ou portés par un porte-armure, ni dans le survol de leur nom dans un message (message de mort d'un tueur qui les tient renommés) : seul le porteur les voit. Limite : posés au sol, dans un cadre, dans un conteneur ouvert ou dans une machine de Create (déployeur, dépôt, tapis), ils gardent ces données, lisibles par qui les regarde.",
         "Un téléphone détruit emporte sa carte, qui reste active et comptée par les antennes tant qu'elle n'est ni suspendue, ni remplacée, ni désactivée.",
         "Contacts et conversations suivront la carte au lot T3."
       ]
