@@ -1081,7 +1081,9 @@
   // chaque geste), window.phone.antenna(null) quand le serveur ferme le panneau, et window.phone.antennaStatus(texte)
   // pour le retour d'un geste (la ligne d'état). La page n'a aucune règle : elle montre la vue, ne cache un bouton que
   // selon rights, et envoie des gestes (opTariff, opIssue, opRefuse, opAnonymous, opSuspend, opReactivate, opReplace,
-  // opMain, opPage, opClose) que le serveur rejoue.
+  // opDeactivate, opMain, opPage, opClose) que le serveur rejoue. « Désactiver » (tâche 15) est irréversible : le premier
+  // toucher n'envoie rien, le bouton dit « Confirmer ? » ; seul un second toucher sur la même carte dans les
+  // CONFIRM_MS millisecondes envoie opDeactivate. Cette attente vit dans la page (le serveur juge le geste confirmé).
   var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
   var MACHINE_STATES = ['STOPPED', 'RUNNING', 'NO_POWER', 'FAULT'];
   var MACHINE_TEXT = { STOPPED: "À l'arrêt", RUNNING: 'En marche', NO_POWER: 'Sans courant', FAULT: 'En panne' };
@@ -1095,6 +1097,7 @@
   var MAX_TARIFF = 1000000;
   var MAX_PAGE = 63;
   var STATUS_MS = 6000;
+  var CONFIRM_MS = 5000;
 
   var ant = {
     open: false, // l'appli est à l'écran
@@ -1103,7 +1106,9 @@
     tab: 'network',
     field: '', // le tarif tapé
     focus: false,
-    statusTimer: null
+    statusTimer: null,
+    confirm: null, // l'identifiant de la carte dont « Désactiver » attend son second toucher
+    confirmTimer: null
   };
 
   function bool(x) { return x === true; }
@@ -1332,6 +1337,8 @@
         row.appendChild(button('op-card-' + c.id, c.state === 'ACTIVE' ? 'Suspendre' : 'Réactiver',
           c.state === 'ACTIVE' ? 'red' : ''));
         row.appendChild(button('op-replace-' + c.id, 'Remplacer', ''));
+        row.appendChild(ant.confirm === c.id ? button('op-deactivate-' + c.id, 'Confirmer ?', 'confirm')
+          : button('op-deactivate-' + c.id, 'Désactiver', 'red'));
         card.appendChild(row);
       }
       list.appendChild(card);
@@ -1409,6 +1416,7 @@
     ant.tab = 'network';
     ant.field = '';
     ant.focus = false;
+    clearConfirm();
     antennaStatus('');
     $('ant-scroll').scrollTop = 0;
     paintAntenna();
@@ -1416,6 +1424,33 @@
     paintChrome();
     scheduleLayout();
     send({ a: 'antennaApp' });
+  }
+
+  /** Oublie le premier toucher de « Désactiver ». */
+  function clearConfirm() {
+    clearTimeout(ant.confirmTimer);
+    ant.confirmTimer = null;
+    ant.confirm = null;
+  }
+
+  /** « Désactiver » : le premier toucher arme (le bouton dit « Confirmer ? »), le second dans le délai envoie. */
+  function deactivateTap(id) {
+    if (ant.confirm === id) {
+      clearConfirm();
+      send({ a: 'opDeactivate', id: id });
+    } else {
+      clearConfirm();
+      ant.confirm = id;
+      ant.confirmTimer = setTimeout(function () {
+        clearConfirm();
+        if (ant.open && ant.view) {
+          paintAntenna();
+          scheduleLayout(150);
+        }
+      }, CONFIRM_MS);
+    }
+    paintAntenna();
+    scheduleLayout(150);
   }
 
   /** Ferme l'appli ; {@code tell} : le joueur l'a fermée, le serveur en est prévenu (opClose). */
@@ -1431,6 +1466,7 @@
     ant.view = null;
     ant.focus = false;
     ant.field = '';
+    clearConfirm();
     antennaStatus('');
     phoneEl.classList.remove('ant-open', 'ant-waiting');
     paintChrome();
@@ -1443,6 +1479,7 @@
     }
     ant.tab = tab;
     ant.focus = tab === 'tariff' && ant.focus;
+    clearConfirm();
     $('ant-scroll').scrollTop = 0;
     paintAntenna();
     scheduleLayout(150);
@@ -1537,7 +1574,7 @@
     if (!b || !b.id) {
       return;
     }
-    var m = /^op-(issue|refuse|card|replace|main)-(.+)$/.exec(b.id);
+    var m = /^op-(issue|refuse|card|replace|deactivate|main)-(.+)$/.exec(b.id);
     if (!m || !UUID_RE.test(m[2])) {
       return;
     }
@@ -1548,6 +1585,8 @@
       send({ a: 'opRefuse', id: id });
     } else if (m[1] === 'replace') {
       send({ a: 'opReplace', id: id });
+    } else if (m[1] === 'deactivate') {
+      deactivateTap(id);
     } else if (m[1] === 'main') {
       send({ a: 'opMain', id: id });
     } else {
@@ -2263,6 +2302,13 @@
           c = cardById(m.id);
           if (c && c.state !== 'DEACTIVATED') {
             pushOp('Carte ' + c.number + " remplacée : la nouvelle est dans votre inventaire, l'ancienne ne vaut plus rien.");
+          }
+          return;
+        case 'opDeactivate':
+          c = cardById(m.id);
+          if (c && c.state !== 'DEACTIVATED') {
+            c.state = 'DEACTIVATED';
+            pushOp('Carte ' + c.number + ' désactivée pour toujours : sa place est libérée.');
           }
           return;
         case 'opMain':

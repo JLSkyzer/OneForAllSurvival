@@ -16,6 +16,7 @@ import dev.oneforallsurvival.phone.net.client.OperatorPanelLayout.Row;
 import dev.oneforallsurvival.phone.net.client.OperatorPanelLayout.Tab;
 import dev.oneforallsurvival.phone.net.client.OperatorPanelLayout.Text;
 import javax.annotation.Nullable;
+import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
@@ -35,6 +36,10 @@ import net.minecraft.world.phys.Vec3;
  * quel ({@link OperatorActionPacket}) ; le serveur rejoue tout ({@code OperatorActions.apply}) et renvoie la vue.
  * Échap ferme le panneau (et le dit au serveur). La ligne d'état montre le dernier retour du serveur
  * ({@link OperatorNoticePacket}) ; une fermeture par le serveur ferme l'écran sans rien renvoyer.
+ *
+ * <p>« Désactiver » (tâche 15) est irréversible : le premier appui ne part pas, le bouton dit « Confirmer ? » ; seul un
+ * second appui sur la même carte dans les {@link OperatorPanelLayout#CONFIRM_MS} millisecondes envoie le geste. Cette
+ * attente n'est pas une règle (le serveur juge le geste confirmé comme tout autre) : elle évite une fausse manœuvre.
  */
 public final class OperatorPanelScreen extends Screen {
 
@@ -51,6 +56,11 @@ public final class OperatorPanelScreen extends Screen {
     @Nullable
     private OperatorView layoutView;
     private final int[] scroll = new int[Tab.values().length];
+    /** Le premier appui sur « Désactiver » d'une carte, en attente du second ; nul sinon. */
+    @Nullable
+    private OperatorPanelLayout.Armed armed;
+    /** La carte armée de la mise en page en cache (vide : aucune). */
+    private String layoutArmed = "";
     @Nullable
     private EditBox nameBox;
     @Nullable
@@ -247,12 +257,23 @@ public final class OperatorPanelScreen extends Screen {
         }
     }
 
+    /** La carte dont « Désactiver » attend encore son second appui, ou vide (l'attente s'éteint d'elle-même). */
+    private String armedArg() {
+        if (armed != null && !armed.live(Util.getMillis())) {
+            armed = null;
+        }
+        return armed == null ? "" : armed.arg();
+    }
+
     private Layout currentLayout() {
-        if (layout == null || layoutWidth != width || layoutHeight != height || layoutView != view) {
-            layout = OperatorPanelLayout.of(width, height, font::width, view, TEXTS, status);
+        String a = armedArg();
+        if (layout == null || layoutWidth != width || layoutHeight != height || layoutView != view
+                || !a.equals(layoutArmed)) {
+            layout = OperatorPanelLayout.of(width, height, font::width, view, TEXTS, status, a);
             layoutWidth = width;
             layoutHeight = height;
             layoutView = view;
+            layoutArmed = a;
             for (int i = 0; i < scroll.length && i < layout.panes().size(); i++) {
                 scroll[i] = Math.max(0, Math.min(scroll[i], layout.panes().get(i).scrollMax()));
             }
@@ -350,9 +371,12 @@ public final class OperatorPanelScreen extends Screen {
             }
             for (Button b : row.buttons()) {
                 Rect r = b.box().shifted(dy);
-                BenchTheme.button(g, font, r.x(), r.y(), r.w(), r.h(), "", inList && r.inside(mx, my), true,
-                        b.action() == Action.ISSUE);
-                draw(g, b.label(), b.action() == Action.ISSUE ? BenchTheme.TEXT_ON_BRASS : BenchTheme.TEXT, dy);
+                boolean confirming = b.action() == Action.DEACTIVATE && b.arg().equals(layoutArmed);
+                boolean lit = b.action() == Action.ISSUE || confirming;
+                BenchTheme.button(g, font, r.x(), r.y(), r.w(), r.h(), "", inList && r.inside(mx, my), true, lit);
+                int labelColor = lit ? BenchTheme.TEXT_ON_BRASS
+                        : b.action() == Action.DEACTIVATE ? BenchTheme.TEXT_BAD : BenchTheme.TEXT;
+                draw(g, b.label(), labelColor, dy);
             }
         }
         g.disableScissor();
@@ -434,6 +458,7 @@ public final class OperatorPanelScreen extends Screen {
         for (int i = 0; i < l.tabs().size(); i++) {
             if (l.tabs().get(i).inside(mx, my)) {
                 tab = Tab.values()[i];
+                armed = null;
                 placeTariffBox();
                 return true;
             }
@@ -447,6 +472,8 @@ public final class OperatorPanelScreen extends Screen {
                         if (b.box().shifted(dy).inside(mx, my)) {
                             if (b.action() == Action.SET_TARIFF) {
                                 submitTariff();
+                            } else if (b.action() == Action.DEACTIVATE) {
+                                deactivate(b.arg());
                             } else {
                                 send(b.action(), b.arg(), b.value());
                             }
@@ -457,6 +484,19 @@ public final class OperatorPanelScreen extends Screen {
             }
         }
         return super.mouseClicked(mx, my, button);
+    }
+
+    /** « Désactiver » : le premier appui arme (le bouton dit « Confirmer ? »), le second dans le délai envoie. */
+    private void deactivate(String arg) {
+        long now = Util.getMillis();
+        if (armed != null && armed.confirms(arg, now)) {
+            armed = null;
+            send(Action.DEACTIVATE, arg, 0L);
+        } else {
+            armed = new OperatorPanelLayout.Armed(arg, now);
+            Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+        }
+        layout = null;
     }
 
     private void submitName() {

@@ -27,8 +27,12 @@ import org.slf4j.Logger;
  * session du téléphone ouverte, déverrouillée, carte {@code ACTIVE} de l'opérateur, une barre, hors mode avion, pour le
  * téléphone ; sinon il est fermé) ; puis les droits de la vue ({@link OperatorViews#build}, donc {@link AntennaRules}),
  * la carte, la demande ou l'antenne <b>de cet opérateur</b>. {@code NAME} et {@code OPEN_TILL} sur le bloc seulement,
- * {@code OPEN_TILL} sur l'antenne principale. Une carte {@code DEACTIVATED} ne se réactive pas. Tout geste, refusé ou
- * fait, est suivi de la vue (si elle a changé) ; un refus n'a pas d'autre effet qu'un message.
+ * {@code OPEN_TILL} sur l'antenne principale. {@code DEACTIVATE} (tâche 15, fondateur seul, droit {@code cards}) rend
+ * une carte active ou suspendue {@code DEACTIVATED} pour toujours : le téléphone qui la porte perd son signal, son
+ * titulaire est prévenu (à sa connexion s'il est absent) et une place se libère sous le plafond
+ * ({@link PhoneOperators#mayIssue}) ; la confirmation (second appui) vit dans l'écran ou la page, le serveur ne reçoit
+ * que le geste confirmé. Une carte {@code DEACTIVATED} ne se réactive pas. Tout geste, refusé ou fait, est suivi de la
+ * vue (si elle a changé) ; un refus n'a pas d'autre effet qu'un message.
  *
  * <p>Ni jeton, ni téléphone dans un message ou un journal.
  */
@@ -162,7 +166,7 @@ public final class OperatorActions {
                 tell(player, Component.translatable(MESSAGE + "issued_anonymous"));
                 yield Result.DONE;
             }
-            case SUSPEND, REACTIVATE, REPLACE -> card(player, registry, op, rights, packet);
+            case SUSPEND, REACTIVATE, REPLACE, DEACTIVATE -> card(player, registry, op, rights, packet);
             case SET_MAIN -> {
                 if (!rights.cards()) {
                     yield notAllowed(player);
@@ -231,7 +235,7 @@ public final class OperatorActions {
         SimRequest r = request.get();
         if (packet.action() == OperatorActionPacket.Action.ISSUE) {
             if (!registry.mayIssue(op.id())) {
-                // La demande reste en attente : le fondateur peut la refuser (au plafond, aucun geste ne libère une carte).
+                // La demande reste en attente : le fondateur peut la refuser, ou libérer une place (« Désactiver »).
                 return cardLimit(player);
             }
             Optional<ItemStack> issued = PhoneSims.issueTo(player, op, r.player(), r.playerName(), EconomyClock.now());
@@ -250,7 +254,7 @@ public final class OperatorActions {
         return Result.DONE;
     }
 
-    /** Suspendre, réactiver ou remplacer une carte de cet opérateur. */
+    /** Suspendre, réactiver, remplacer ou désactiver une carte de cet opérateur. */
     private static Result card(ServerPlayer player, PhoneOperators registry, PhoneOperator op,
             OperatorView.Rights rights, OperatorActionPacket packet) {
         if (!rights.cards()) {
@@ -277,6 +281,20 @@ public final class OperatorActions {
                     return Result.REFUSED;
                 }
                 tell(player, Component.translatable(MESSAGE + "reactivated", number));
+            }
+            case DEACTIVATE -> {
+                // Pour toujours (le registre ne revient jamais de DEACTIVATED) : une place se libère sous le plafond.
+                if (c.state() == SimCard.State.DEACTIVATED
+                        || !registry.setState(c.simId(), SimCard.State.DEACTIVATED)) {
+                    return Result.REFUSED;
+                }
+                tell(player, Component.translatable(MESSAGE + "deactivated", number));
+                if (c.holder() != null) {
+                    notify(player.server, registry, c.holder(),
+                            Component.translatable(MESSAGE + "sim_deactivated", number, op.name()));
+                }
+                LOGGER.info("Telephone : {} desactive la carte {} de {}", player.getGameProfile().getName(), number,
+                        op.name());
             }
             default -> {
                 if (c.state() == SimCard.State.DEACTIVATED) {

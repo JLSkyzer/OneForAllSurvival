@@ -49,6 +49,7 @@ class AntennaBridgeMessagesTest {
         m.put("{\"a\":\"opSuspend\",\"id\":\"" + ID + "\"}", Action.SUSPEND);
         m.put("{\"a\":\"opReactivate\",\"id\":\"" + ID + "\"}", Action.REACTIVATE);
         m.put("{\"a\":\"opReplace\",\"id\":\"" + ID + "\"}", Action.REPLACE);
+        m.put("{\"a\":\"opDeactivate\",\"id\":\"" + ID + "\"}", Action.DEACTIVATE);
         m.put("{\"a\":\"opMain\",\"id\":\"" + ID + "\"}", Action.SET_MAIN);
         m.put("{\"a\":\"opPage\",\"n\":2}", Action.PAGE);
         m.put("{\"a\":\"opClose\"}", Action.CLOSE);
@@ -66,6 +67,7 @@ class AntennaBridgeMessagesTest {
         donne("{\"a\":\"opSuspend\",\"id\":\"" + ID + "\"}", Action.SUSPEND, ID, 0L);
         donne("{\"a\":\"opReactivate\",\"id\":\"" + ID + "\"}", Action.REACTIVATE, ID, 0L);
         donne("{\"a\":\"opReplace\",\"id\":\"" + ID + "\"}", Action.REPLACE, ID, 0L);
+        donne("{\"a\":\"opDeactivate\",\"id\":\"" + ID + "\"}", Action.DEACTIVATE, ID, 0L);
         donne("{\"a\":\"opMain\",\"id\":\"" + ID + "\"}", Action.SET_MAIN, ID, 0L);
         donne("{\"a\":\"opPage\",\"n\":0}", Action.PAGE, "", 0L);
         donne("{\"a\":\"opPage\",\"n\":63}", Action.PAGE, "", 63L);
@@ -104,7 +106,8 @@ class AntennaBridgeMessagesTest {
 
     @Test
     void unIdentifiantMalFormeNeDonneRien() {
-        for (String a : List.of("opIssue", "opRefuse", "opSuspend", "opReactivate", "opReplace", "opMain")) {
+        for (String a : List.of("opIssue", "opRefuse", "opSuspend", "opReactivate", "opReplace", "opDeactivate",
+                "opMain")) {
             rien("{\"a\":\"" + a + "\",\"id\":\"" + ID.toUpperCase() + "\"}");
             rien("{\"a\":\"" + a + "\",\"id\":\"" + ID.substring(0, 35) + "\"}");
             rien("{\"a\":\"" + a + "\",\"id\":\"../x\"}");
@@ -123,6 +126,19 @@ class AntennaBridgeMessagesTest {
         rien("{\"a\":\"opPage\",\"n\":\"1\"}");
         rien("{\"a\":\"opPage\",\"n\":1.5}");
         rien("{\"a\":\"opPage\"}");
+    }
+
+    /**
+     * « Désactiver » (tâche 15) : la confirmation vit dans la page, le geste qui part est déjà confirmé ; il n'a pas
+     * d'autre champ que l'identifiant (ni drapeau de confirmation, ni état), et aucun autre nom ne le donne.
+     */
+    @Test
+    void desactiverNePorteQueLIdentifiant() {
+        rien("{\"a\":\"opDeactivate\",\"id\":\"" + ID + "\",\"confirm\":true}");
+        rien("{\"a\":\"opDeactivate\",\"id\":\"" + ID + "\",\"n\":1}");
+        rien("{\"a\":\"opDeactivate\"}");
+        rien("{\"a\":\"opDisable\",\"id\":\"" + ID + "\"}");
+        rien("{\"a\":\"opdeactivate\",\"id\":\"" + ID + "\"}");
     }
 
     /** Ni nom ni caisse : ces gestes n'existent pas dans la page ; un geste sans champ n'en accepte aucun. */

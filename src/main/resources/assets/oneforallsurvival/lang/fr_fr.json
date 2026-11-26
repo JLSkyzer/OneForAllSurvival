@@ -1269,6 +1269,8 @@
   "screen.oneforallsurvival.operator_panel.suspend": "Suspendre",
   "screen.oneforallsurvival.operator_panel.reactivate": "Réactiver",
   "screen.oneforallsurvival.operator_panel.replace": "Remplacer",
+  "screen.oneforallsurvival.operator_panel.deactivate": "Désactiver",
+  "screen.oneforallsurvival.operator_panel.confirm": "Confirmer ?",
   "screen.oneforallsurvival.operator_panel.page": "Page %s sur %s",
   "screen.oneforallsurvival.operator_panel.tariff_today": "Tarif du jour : %s",
   "screen.oneforallsurvival.operator_panel.tariff_next": "Demain : %s",
@@ -1292,12 +1294,14 @@
   "message.oneforallsurvival.operator_panel.suspended": "Carte %s suspendue.",
   "message.oneforallsurvival.operator_panel.reactivated": "Carte %s réactivée.",
   "message.oneforallsurvival.operator_panel.replaced": "Carte %s remplacée : la nouvelle est dans votre inventaire, l'ancienne ne vaut plus rien.",
+  "message.oneforallsurvival.operator_panel.deactivated": "Carte %s désactivée pour toujours : sa place est libérée.",
   "message.oneforallsurvival.operator_panel.main_set": "Antenne principale désignée.",
   "message.oneforallsurvival.operator_panel.not_allowed": "Vous n'avez pas ce droit.",
   "message.oneforallsurvival.operator_panel.till_main_only": "La caisse s'ouvre sur l'antenne principale.",
   "message.oneforallsurvival.operator_panel.till_failed": "La caisse ne s'est pas ouverte : le panneau reste ouvert.",
   "message.oneforallsurvival.operator_panel.sim_issued": "%s a émis votre carte SIM : son fondateur vous la remet.",
   "message.oneforallsurvival.operator_panel.sim_refused": "%s a refusé votre demande de carte SIM.",
+  "message.oneforallsurvival.operator_panel.sim_deactivated": "Votre carte SIM %s a été désactivée par %s : elle ne donne plus de réseau.",
   "message.oneforallsurvival.operator_panel.tariff_changed": "%s : tarif de %s à partir d'aujourd'hui.",
   "message.oneforallsurvival.operator_panel.tariff_capped": "Le tarif de %s est ramené au maximum autorisé : %s."
 }

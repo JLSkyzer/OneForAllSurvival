@@ -38,6 +38,8 @@ import dev.oneforallsurvival.phone.net.OperatorDay;
 import dev.oneforallsurvival.phone.net.OperatorPanels;
 import dev.oneforallsurvival.phone.net.OperatorTillMenu;
 import dev.oneforallsurvival.phone.net.OperatorView;
+import dev.oneforallsurvival.phone.net.NetworkStatus;
+import dev.oneforallsurvival.phone.net.PhoneNetwork;
 import dev.oneforallsurvival.phone.net.PhoneOperator;
 import dev.oneforallsurvival.phone.net.PhoneOperators;
 import dev.oneforallsurvival.phone.net.PhoneSims;
@@ -124,6 +126,8 @@ public final class PanneauOperateurGameTests {
     private static final String LOT_PLAFOND = "panneau_plafond";
     /** Revue finale, m3 : l'arrêt du serveur oublie les panneaux ouverts (seul dans son lot : il les oublie tous). */
     private static final String LOT_ARRET = "panneau_arret";
+    /** Tâche 15 : « Désactiver » une carte (fondateur seul, irréversible, signal coupé, titulaire prévenu). */
+    private static final String LOT_DESACTIVER = "panneau_desactiver";
     private static final int PLAFOND_ESSAI = 2;
 
     static final BlockPos A = new BlockPos(1, 0, 1);
@@ -188,6 +192,11 @@ public final class PanneauOperateurGameTests {
 
     @AfterBatch(batch = LOT_ARRET)
     public static void apresArret(ServerLevel level) {
+        apres();
+    }
+
+    @AfterBatch(batch = LOT_DESACTIVER)
+    public static void apresDesactiver(ServerLevel level) {
         apres();
     }
 
@@ -1491,6 +1500,168 @@ public final class PanneauOperateurGameTests {
         e.geste(f, vue.session(), OperatorActionPacket.Action.REPLACE, active.simId().toString(), 0L);
         helper.assertTrue(cartesPortees(f.joueur()) == portees + 1 && e.registre().cardsOf(op.id()).size() == total,
                 "Remplacer la carte reste possible au plafond, sans carte de plus au registre");
+        e.fermer();
+        helper.succeed();
+    }
+
+    /**
+     * Tâche 15 : au plafond ({@value #PLAFOND_ESSAI}), « Désactiver » la carte suspendue libère une place ; une carte
+     * s'émet alors, puis le plafond retient la suivante.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_PLAFOND)
+    public static void desactiverLibereUnePlace(GameTestHelper helper) {
+        Essai e = new Essai(helper);
+        JoueurDeTest f = e.joueur("pp_lib_f");
+        PhoneOperator op = e.fonder(f, A, "Plafond Liberer", RESERVE);
+        SimCard active = e.carte(op, f);
+        SimCard suspendue = e.carte(op, null);
+        helper.assertTrue(e.registre().setState(suspendue.simId(), SimCard.State.SUSPENDED), "suspension");
+        OperatorView vue = e.ouvrir(f, A);
+        e.geste(f, vue.session(), OperatorActionPacket.Action.ISSUE_ANONYMOUS, "", 0L);
+        helper.assertTrue(cartesPortees(f.joueur()) == 0 && !e.registre().mayIssue(op.id()),
+                "témoin : au plafond, rien d'émis");
+        e.geste(f, vue.session(), OperatorActionPacket.Action.DEACTIVATE, suspendue.simId().toString(), 0L);
+        helper.assertTrue(e.carte(suspendue).state() == SimCard.State.DEACTIVATED, "la suspendue est désactivée");
+        helper.assertTrue(e.registre().mayIssue(op.id()) && e.registre().liveCards(op.id()) == 1,
+                "une place s'est libérée : " + e.registre().liveCards(op.id()) + " carte(s) vivante(s)");
+        e.geste(f, vue.session(), OperatorActionPacket.Action.ISSUE_ANONYMOUS, "", 0L);
+        helper.assertTrue(cartesPortees(f.joueur()) == 1 && e.registre().liveCards(op.id()) == PLAFOND_ESSAI,
+                "une carte s'émet dans la place libérée");
+        e.geste(f, vue.session(), OperatorActionPacket.Action.ISSUE_ANONYMOUS, "", 0L);
+        helper.assertTrue(cartesPortees(f.joueur()) == 1 && e.registre().cardsOf(op.id()).size() == 3,
+                "le plafond retient la suivante");
+        helper.assertTrue(e.carte(active).state() == SimCard.State.ACTIVE, "témoin : l'active n'a pas bougé");
+        e.fermer();
+        helper.succeed();
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Lot panneau_desactiver (tâche 15)
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * Seul le fondateur désactive : ni le maire, ni l'ingénieur outillé, ni l'équipe, ni un client qui forge le numéro
+     * du panneau du fondateur ; le fondateur désactive une active puis une suspendue, et une désactivée reste refusée.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_DESACTIVER)
+    public static void seulLeFondateurDesactive(GameTestHelper helper) {
+        Essai e = new Essai(helper);
+        JoueurDeTest f = e.joueur("pd_seul_f");
+        JoueurDeTest maire = e.maire("pd_seul_m");
+        JoueurDeTest inge = e.ingenieur("pd_seul_i");
+        JoueurDeTest eq = e.equipe("pd_seul_e");
+        JoueurDeTest client = e.joueur("pd_seul_c");
+        PhoneOperator op = e.fonder(f, A, "Desactiver Seul", RESERVE);
+        SimCard active = e.carte(op, client);
+        SimCard suspendue = e.carte(op, client);
+        e.registre().setState(suspendue.simId(), SimCard.State.SUSPENDED);
+        int sessionFondateur = e.ouvrir(f, A).session();
+        OperatorPanels.close(f.uuid());
+        for (JoueurDeTest j : List.of(maire, inge, eq, client)) {
+            String qui = j == maire ? "le maire" : j == inge ? "l'ingénieur outillé" : j == eq ? "l'équipe" : "le client";
+            int session = j == client ? sessionFondateur : e.ouvrir(j, A).session();
+            e.geste(j, session, OperatorActionPacket.Action.DEACTIVATE, active.simId().toString(), 0L);
+            e.geste(j, session, OperatorActionPacket.Action.DEACTIVATE, suspendue.simId().toString(), 0L);
+            helper.assertTrue(e.carte(active).state() == SimCard.State.ACTIVE
+                    && e.carte(suspendue).state() == SimCard.State.SUSPENDED, qui + " ne désactive rien");
+            helper.assertTrue(!client.messagesRecus().contains(MSG + "sim_deactivated"), qui + " : aucun avis");
+        }
+        OperatorView vue = e.ouvrir(f, A);
+        f.messagesRecus();
+        f.avisOperateurRecus();
+        OperatorView apres = e.geste(f, vue.session(), OperatorActionPacket.Action.DEACTIVATE,
+                active.simId().toString(), 0L);
+        helper.assertTrue(e.carte(active).state() == SimCard.State.DEACTIVATED, "le fondateur désactive l'active");
+        helper.assertTrue(f.messagesRecus().contains(MSG + "deactivated") && avisRecu(f, MSG + "deactivated"),
+                "le fondateur lit le retour en barre d'action et au panneau");
+        helper.assertTrue(apres != null && apres.cards().stream().anyMatch(l -> l.simId().equals(active.simId())
+                && l.state() == SimCard.State.DEACTIVATED), "la vue suit : " + apres);
+        helper.assertTrue(client.messagesRecus().contains(MSG + "sim_deactivated"), "le titulaire en ligne est prévenu");
+        e.geste(f, vue.session(), OperatorActionPacket.Action.DEACTIVATE, suspendue.simId().toString(), 0L);
+        helper.assertTrue(e.carte(suspendue).state() == SimCard.State.DEACTIVATED, "le fondateur désactive la suspendue");
+        // Irréversible : ni réactivée, ni suspendue, ni remplacée, ni désactivée deux fois (aucun second avis).
+        client.messagesRecus();
+        UUID jeton = e.carte(active).token();
+        e.geste(f, vue.session(), OperatorActionPacket.Action.REACTIVATE, active.simId().toString(), 0L);
+        e.geste(f, vue.session(), OperatorActionPacket.Action.SUSPEND, active.simId().toString(), 0L);
+        e.geste(f, vue.session(), OperatorActionPacket.Action.REPLACE, active.simId().toString(), 0L);
+        e.geste(f, vue.session(), OperatorActionPacket.Action.DEACTIVATE, active.simId().toString(), 0L);
+        helper.assertTrue(e.carte(active).state() == SimCard.State.DEACTIVATED && e.carte(active).token().equals(jeton)
+                && cartesPortees(f.joueur()) == 0, "une carte désactivée ne revient pas");
+        helper.assertTrue(!client.messagesRecus().contains(MSG + "sim_deactivated"),
+                "une seconde désactivation ne prévient personne");
+        e.fermer();
+        helper.succeed();
+    }
+
+    /**
+     * Le téléphone qui porte la carte perd son signal ; le titulaire en ligne est prévenu tout de suite, l'absent à sa
+     * connexion ; le geste passe aussi par l'appli « Antenne » du fondateur (même {@code OperatorActions.apply}).
+     */
+    @GameTest(template = "test/plancher", batch = LOT_DESACTIVER, timeoutTicks = 400)
+    public static void desactiverCoupeLeSignalEtPrevientLeTitulaire(GameTestHelper helper) {
+        Essai e = new Essai(helper);
+        JoueurDeTest f = e.joueur("pd_signal_f");
+        JoueurDeTest t = e.joueur("pd_signal_t");
+        JoueurDeTest absent = e.joueur("pd_signal_a");
+        PhoneOperator op = e.fonder(f, A, "Desactiver Signal", RESERVE);
+        e.ligne(op, f);
+        ItemStack telT = e.ligne(op, t);
+        SimCard deT = e.registre().cardsOf(op.id()).stream().filter(c -> t.uuid().equals(c.holder())).findFirst()
+                .orElse(null);
+        SimCard deAbsent = e.carte(op, absent);
+        helper.assertTrue(deT != null, "carte de t");
+        String nomAbsent = absent.joueur().getGameProfile().getName();
+        absent.quitter();
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(e.enService(A), "antenne en service"))
+                .thenWaitUntil(() -> {
+                    NetworkStatus s = PhoneNetwork.status(t.joueur(), telT, false);
+                    helper.assertTrue(s.sim() == PhoneSims.Validity.ACTIVE && s.bars() > 0, "témoin : du signal " + s);
+                })
+                .thenExecute(() -> {
+                    List<OperatorView> vues = e.appli(f, true);
+                    helper.assertTrue(vues.size() == 1 && vues.get(0).source() == OperatorView.Source.PHONE,
+                            "l'appli ouvre le panneau : " + vues);
+                    t.messagesRecus();
+                    e.geste(f, vues.get(0).session(), OperatorActionPacket.Action.DEACTIVATE,
+                            deT == null ? "" : deT.simId().toString(), 0L);
+                    helper.assertTrue(deT != null && e.carte(deT).state() == SimCard.State.DEACTIVATED,
+                            "désactivée par l'appli");
+                    NetworkStatus s = PhoneNetwork.status(t.joueur(), telT, false);
+                    helper.assertTrue(s.sim() == PhoneSims.Validity.DEACTIVATED && s.bars() == 0
+                            && s.number().isEmpty(), "le téléphone perd son signal : " + s);
+                    helper.assertTrue(t.messagesRecus().contains(MSG + "sim_deactivated"), "le titulaire est prévenu");
+                    e.geste(f, vues.get(0).session(), OperatorActionPacket.Action.DEACTIVATE,
+                            deAbsent.simId().toString(), 0L);
+                    helper.assertTrue(e.carte(deAbsent).state() == SimCard.State.DEACTIVATED, "carte de l'absent");
+                    JoueurDeTest revenu = JoueurDeTest.rejoindre(helper.getLevel(), nomAbsent,
+                            helper.absoluteVec(JOUEUR));
+                    e.joueurs.add(revenu);
+                    helper.assertTrue(revenu.messagesALaConnexion().contains(MSG + "sim_deactivated"),
+                            "l'absent l'apprend à sa connexion : " + revenu.messagesALaConnexion());
+                    e.fermer();
+                })
+                .thenSucceed();
+    }
+
+    /** La carte d'un autre opérateur ne se désactive pas, et son titulaire n'est pas prévenu. */
+    @GameTest(template = "test/plancher", batch = LOT_DESACTIVER)
+    public static void uneCarteDUnAutreOperateurNeSeDesactivePas(GameTestHelper helper) {
+        Essai e = new Essai(helper);
+        JoueurDeTest fm = e.joueur("pd_autre_m");
+        JoueurDeTest fl = e.joueur("pd_autre_l");
+        JoueurDeTest r = e.joueur("pd_autre_r");
+        e.fonder(fm, A, "Desactiver Mairie", RESERVE);
+        PhoneOperator lagon = e.fonder(fl, B, "Desactiver Lagon", RESERVE);
+        SimCard deLagon = e.carte(lagon, r);
+        OperatorView vue = e.ouvrir(fm, A);
+        helper.assertTrue(vue.rights().cards(), "témoin : le fondateur de Mairie gère ses cartes");
+        r.messagesRecus();
+        e.geste(fm, vue.session(), OperatorActionPacket.Action.DEACTIVATE, deLagon.simId().toString(), 0L);
+        helper.assertTrue(e.carte(deLagon).state() == SimCard.State.ACTIVE, "la carte de Lagon n'a pas bougé");
+        helper.assertTrue(!r.messagesRecus().contains(MSG + "sim_deactivated"), "son titulaire n'est pas prévenu");
+        helper.assertTrue(e.registre().liveCards(lagon.id()) == 1, "Lagon garde sa carte vivante");
         e.fermer();
         helper.succeed();
     }

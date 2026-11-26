@@ -1185,7 +1185,7 @@ body {
 .ant-over { margin-top: 4px; font-size: 13px; font-weight: 600; color: #ff3b30; }
 .ant-row.over .ant-total { color: #ff3b30; font-weight: 600; }
 
-/* Boutons d'une ligne (Émettre, Refuser, Suspendre, Remplacer, Désigner). */
+/* Boutons d'une ligne (Émettre, Refuser, Suspendre, Remplacer, Désactiver, Désigner). */
 .ant-btns { display: flex; gap: 8px; margin-top: 8px; }
 .ant-btn {
   flex: none;
@@ -1200,6 +1200,8 @@ body {
 .ant-btn:active { opacity: 0.5; }
 .ant-btn.fill { background: #007aff; color: #fff; }
 .ant-btn.red { color: #ff3b30; }
+/* « Confirmer ? » : le second toucher de « Désactiver », dans les 5 secondes (tâche 15). */
+.ant-btn.confirm { background: #ff3b30; color: #fff; }
 .ant-btn.small { margin-left: 8px; padding: 2px 10px; font-size: 12px; }
 
 .ant-item { display: block; padding: 9px 16px 11px; min-height: 0; font-size: 15px; }

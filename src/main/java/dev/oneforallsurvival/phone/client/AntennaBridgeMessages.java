@@ -15,7 +15,8 @@ import javax.annotation.Nullable;
  * Relit un geste de l'appli « Antenne » (lot T2, tâche 10) avant d'en faire un {@link OperatorActionPacket}, au numéro
  * du panneau que Java tient (jamais celui de la page). Contrat : {@code {"a":"opTariff","value":N}} (entier JSON de 0 à
  * 1 000 000) ; {@code opIssue}, {@code opRefuse}, {@code opSuspend}, {@code opReactivate}, {@code opReplace},
- * {@code opMain} avec {@code "id"} (UUID canonique en minuscules) ; {@code {"a":"opAnonymous"}} ;
+ * {@code opDeactivate} (tâche 15 : déjà confirmé par la page), {@code opMain} avec {@code "id"} (UUID canonique en
+ * minuscules) ; {@code {"a":"opAnonymous"}} ;
  * {@code {"a":"opPage","n":N}} (0 à 63) ; {@code {"a":"opClose"}}. Exactement ces champs : un champ de plus, un type
  * faux, un nombre écrit autrement qu'un entier ({@code 5.0}, {@code 5e0}, {@code "5"}) ou un identifiant mal formé, et
  * rien ne part. Ni nom ni caisse : ces gestes n'ont pas de message. Le serveur rejoue tout de toute façon.
@@ -61,6 +62,7 @@ public final class AntennaBridgeMessages {
             case "opSuspend" -> withId(message, session, Action.SUSPEND);
             case "opReactivate" -> withId(message, session, Action.REACTIVATE);
             case "opReplace" -> withId(message, session, Action.REPLACE);
+            case "opDeactivate" -> withId(message, session, Action.DEACTIVATE);
             case "opMain" -> withId(message, session, Action.SET_MAIN);
             case "opAnonymous" -> exactly(message, ONLY_A)
                     ? Optional.of(new OperatorActionPacket(session, Action.ISSUE_ANONYMOUS, "", 0L))

@@ -685,6 +685,17 @@ public final class TelephoneShots {
                     lireAppli(mc);
                     return "SUSPENDED".equals(appliCarte) && attendu(0.8);
                 }, "a04-carte-suspendue");
+        // Tâche 15 : « Désactiver » ; le premier appui n'envoie rien (« Confirmer ? »), le second dans les 5 s envoie.
+        boutonAppli(mc, "antenne-desactiver-arme", () -> "op-deactivate-" + idCible,
+                OperatorActionPacket.Action.DEACTIVATE, () -> idCible, () -> {
+                    lireAppli(mc);
+                    return "SUSPENDED".equals(appliCarte) && attendu(0.6);
+                }, "a04b-desactiver-confirmer");
+        boutonAppli(mc, "antenne-desactiver-confirme", () -> "op-deactivate-" + idCible,
+                OperatorActionPacket.Action.DEACTIVATE, () -> idCible, () -> {
+                    lireAppli(mc);
+                    return "DEACTIVATED".equals(appliCarte) && attendu(0.8);
+                }, "a04c-carte-desactivee");
         ongletAppli(mc, "antenne-onglet-tarif", "tariff", OperatorPanelLayout.Tab.TARIFF, null);
         saisirTarif(mc, "antenne-tarif-refuse", true, "a05-tarif-refuse");
         saisirTarif(mc, "antenne-tarif", false, "a06-tarif-au-lendemain");
@@ -714,6 +725,12 @@ public final class TelephoneShots {
         pause("a09-plus-de-barre");
         pas("antenne-seconde-releve", () -> journal("les deux sources coupées : " + resumeAppli(mc) + ", barres "
                 + vueReseau().bars()), () -> true, 1, null);
+        // Tâche 15 : l'icône grisée touchée n'ouvre rien ; seul le message « Pas de réseau. » répond.
+        clic(mc, "antenne-icone-grisee", "app-antenna", () -> {
+            boolean rien = mc.screen instanceof PhoneWebScreen w ? w.antennaSession() < 0
+                    : mc.screen instanceof PhoneFallbackScreen;
+            return rien && attendu(1.0);
+        }, 10, "a10-icone-grisee-message");
         echap(mc, "antenne-echap-fin");
         bilanDuPont();
     }

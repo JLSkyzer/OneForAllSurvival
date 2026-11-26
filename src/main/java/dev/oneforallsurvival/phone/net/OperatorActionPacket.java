@@ -13,7 +13,8 @@ import net.minecraftforge.network.NetworkEvent;
  *
  * @param session le numéro du panneau ouvert ({@link OperatorView#session()})
  * @param arg le nom ({@link Action#NAME}), l'identifiant d'une demande ({@link Action#ISSUE}, {@link Action#REFUSE}),
- *        d'une carte ({@link Action#SUSPEND}, {@link Action#REACTIVATE}, {@link Action#REPLACE}) ou d'une antenne
+ *        d'une carte ({@link Action#SUSPEND}, {@link Action#REACTIVATE}, {@link Action#REPLACE},
+ *        {@link Action#DEACTIVATE}) ou d'une antenne
  *        ({@link Action#SET_MAIN}) ; vide sinon
  * @param value le tarif de demain en cuivres ({@link Action#SET_TARIFF}) ou la page ({@link Action#PAGE})
  */
@@ -24,10 +25,13 @@ public record OperatorActionPacket(int session, Action action, String arg, long 
 
     /**
      * Les gestes. {@code REPLACE} (« Remplacer la carte ») n'est pas dans la liste du plan : décision de Killian du
-     * 2026-11-24, il branche {@link PhoneSims#replaceCard} sur le panneau.
+     * 2026-11-24, il branche {@link PhoneSims#replaceCard} sur le panneau. {@code DEACTIVATE} (« Désactiver », tâche 15,
+     * décision du 2026-11-26) désactive une carte pour toujours ; l'écran ou la page ne l'envoie qu'après la
+     * confirmation (second appui), qui vit chez eux.
      */
     public enum Action {
-        NAME, SET_TARIFF, ISSUE, REFUSE, ISSUE_ANONYMOUS, SUSPEND, REACTIVATE, REPLACE, SET_MAIN, PAGE, OPEN_TILL, CLOSE
+        NAME, SET_TARIFF, ISSUE, REFUSE, ISSUE_ANONYMOUS, SUSPEND, REACTIVATE, REPLACE, DEACTIVATE, SET_MAIN, PAGE,
+        OPEN_TILL, CLOSE
     }
 
     public OperatorActionPacket {

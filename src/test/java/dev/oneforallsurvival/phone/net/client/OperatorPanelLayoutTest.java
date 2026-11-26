@@ -132,12 +132,18 @@ class OperatorPanelLayoutTest {
         assertTrue(cadre.contains(r), quoi + " " + r + " hors de " + cadre);
     }
 
+    /** Tout tient, sans « Désactiver » armé puis avec celui de la première carte armé (« Confirmer ? »). */
     @Test
     void toutTientEn320Par240() {
+        toutTient("");
+        toutTient(new UUID(2, 0).toString());
+    }
+
+    private static void toutTient(String arme) {
         OperatorPanelLayout.Texts fr = francais();
         for (int[] taille : TAILLES) {
-            String ou = taille[0] + "x" + taille[1] + " : ";
-            Layout l = OperatorPanelLayout.of(taille[0], taille[1], SIX, leContenuLePlusLong(FONDATEUR), fr);
+            String ou = taille[0] + "x" + taille[1] + (arme.isEmpty() ? "" : " (armé)") + " : ";
+            Layout l = OperatorPanelLayout.of(taille[0], taille[1], SIX, leContenuLePlusLong(FONDATEUR), fr, "", arme);
             Rect ecran = new Rect(0, 0, taille[0], taille[1]);
             dedans(ecran, l.frame(), ou + "cadre");
             assertNull(l.name(), ou + "un opérateur fondé n'a pas de champ du nom");
@@ -202,7 +208,7 @@ class OperatorPanelLayoutTest {
     @Test
     void unRegardeurSansDroitAuxCartesNeVoitPasLesBoutons() {
         List<Action> deCarte = List.of(Action.ISSUE, Action.REFUSE, Action.ISSUE_ANONYMOUS, Action.SUSPEND,
-                Action.REACTIVATE, Action.REPLACE, Action.SET_MAIN);
+                Action.REACTIVATE, Action.REPLACE, Action.DEACTIVATE, Action.SET_MAIN);
         // Le maire : le tarif, pas les cartes ni la caisse.
         Layout maire = OperatorPanelLayout.of(320, 240, SIX,
                 leContenuLePlusLong(new OperatorView.Rights(false, true, false, false)), francais());
@@ -242,6 +248,56 @@ class OperatorPanelLayoutTest {
                 }
             }
         }
+    }
+
+    /**
+     * Tâche 15 : « Désactiver » à côté de chaque carte active ou suspendue (jamais d'une désactivée), sur son identifiant ;
+     * seule la carte armée dit « Confirmer ? », les autres « Désactiver » ; une carte inconnue armée ne change rien.
+     */
+    @Test
+    void desactiverACoteDeChaqueCarteActiveOuSuspendue() {
+        OperatorView vue = leContenuLePlusLong(FONDATEUR);
+        String premiere = vue.cards().get(0).simId().toString();
+        for (String arme : List.of("", premiere, new UUID(9, 9).toString())) {
+            Layout l = OperatorPanelLayout.of(320, 240, SIX, vue, francais(), "", arme);
+            Pane cartes = l.panes().get(OperatorPanelLayout.Tab.CARDS.ordinal());
+            int vues = 0;
+            for (OperatorView.CardLine c : vue.cards()) {
+                List<Button> boutons = new ArrayList<>();
+                for (Row r : cartes.rows()) {
+                    for (Button b : r.buttons()) {
+                        if (b.action() == Action.DEACTIVATE && b.arg().equals(c.simId().toString())) {
+                            boutons.add(b);
+                        }
+                    }
+                }
+                if (c.state() == SimCard.State.DEACTIVATED) {
+                    assertTrue(boutons.isEmpty(), "une carte désactivée n'a pas de « Désactiver »");
+                    continue;
+                }
+                assertEquals(1, boutons.size(), "un « Désactiver » par carte " + c.state());
+                String attendu = c.simId().toString().equals(arme) ? "Confirmer ?" : "Désactiver";
+                assertEquals(attendu, boutons.get(0).label().full(), "libellé de la carte " + c.simId());
+                vues++;
+            }
+            assertTrue(vues > 0, "aucune carte active ou suspendue dans l'essai");
+        }
+    }
+
+    /** Tâche 15 : le premier appui arme ; seul un second sur la même carte, dans les 5 secondes, confirme. */
+    @Test
+    void leSecondAppuiConfirmeDansLesCinqSecondes() {
+        String a = new UUID(2, 1).toString();
+        String b = new UUID(2, 2).toString();
+        OperatorPanelLayout.Armed arme = new OperatorPanelLayout.Armed(a, 10_000L);
+        assertTrue(arme.live(10_000L) && arme.live(15_000L), "vivant de 0 à 5 s");
+        assertFalse(arme.live(15_001L), "éteint après 5 s");
+        assertFalse(arme.live(9_999L), "une horloge qui recule n'arme rien");
+        assertTrue(arme.confirms(a, 12_000L), "second appui sur la même carte à 2 s");
+        assertTrue(arme.confirms(a, 15_000L), "second appui à 5 s pile");
+        assertFalse(arme.confirms(a, 15_001L), "trop tard");
+        assertFalse(arme.confirms(b, 12_000L), "une autre carte ne confirme pas");
+        assertEquals(5_000L, OperatorPanelLayout.CONFIRM_MS);
     }
 
     /**

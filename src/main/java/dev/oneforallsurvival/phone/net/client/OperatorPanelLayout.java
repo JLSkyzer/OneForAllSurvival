@@ -21,7 +21,8 @@ import javax.annotation.Nullable;
  *   <li><b>Réseau</b> : une ligne par antenne (où, état et consommation par tic, FE d'aujourd'hui et d'hier, en rouge
  *       au-delà de ce qu'elle peut recevoir ; « Principale » ou le bouton qui la rend principale), puis le relais.
  *   <li><b>Cartes</b> : les demandes (« Émettre », « Refuser »), « SIM sans nom », les cartes de la page (« Suspendre »
- *       ou « Réactiver », « Remplacer ») et les pages.
+ *       ou « Réactiver », « Remplacer » et, dessous, « Désactiver », qui dit « Confirmer ? » quand l'écran attend le
+ *       second appui) et les pages.
  *   <li><b>Tarif et caisse</b> : tarif du jour et de demain, plafond, champ du tarif de demain, caisse.
  * </ul>
  *
@@ -183,6 +184,35 @@ public final class OperatorPanelLayout {
     /** La même mise en page, avec {@code status}, le dernier retour du serveur, sur la ligne d'état. */
     public static Layout of(int guiWidth, int guiHeight, ToIntFunction<String> textWidth, OperatorView view,
             Texts texts, String status) {
+        return of(guiWidth, guiHeight, textWidth, view, texts, status, "");
+    }
+
+    /** Le délai de la confirmation de « Désactiver » (tâche 15) : le second appui sur la même carte doit venir avant. */
+    public static final long CONFIRM_MS = 5_000L;
+
+    /**
+     * Le premier appui sur « Désactiver » d'une carte ({@code arg} : son identifiant, à l'instant {@code at}) : l'écran
+     * attend le second. Ce n'est pas une règle, seulement l'écran qui évite un geste irréversible par mégarde ; le
+     * serveur reçoit le geste confirmé et le juge comme tout autre.
+     */
+    public record Armed(String arg, long at) {
+        /** Le premier appui vaut-il encore à {@code now} ? */
+        public boolean live(long now) {
+            return now - at >= 0L && now - at <= CONFIRM_MS;
+        }
+
+        /** Un appui sur la carte {@code other} à {@code now} confirme-t-il ce premier appui ? */
+        public boolean confirms(String other, long now) {
+            return arg.equals(other) && live(now);
+        }
+    }
+
+    /**
+     * La même mise en page ; {@code armed} est l'identifiant de la carte dont « Désactiver » attend sa confirmation
+     * (son bouton dit « Confirmer ? »), vide sinon.
+     */
+    public static Layout of(int guiWidth, int guiHeight, ToIntFunction<String> textWidth, OperatorView view,
+            Texts texts, String status, String armed) {
         int w = Math.max(0, Math.min(FRAME_MAX_W, guiWidth - 8));
         int h = Math.max(0, Math.min(FRAME_MAX_H, guiHeight - 8));
         Rect frame = new Rect(Math.max(0, (guiWidth - w) / 2), Math.max(0, (guiHeight - h) / 2), w, h);
@@ -214,8 +244,8 @@ public final class OperatorPanelLayout {
             tabLabels.add(centered(r, texts.t(KEY + "tab." + tab.name().toLowerCase(Locale.ROOT)), textWidth));
         }
         Rect list = new Rect(x0, frame.y() + LIST_Y, inner, Math.max(0, h - LIST_Y - BOTTOM - STATUS_H - GAP));
-        List<Pane> panes = List.of(network(list, view, texts, textWidth), cards(list, view, texts, textWidth),
-                tariff(list, view, texts, textWidth));
+        List<Pane> panes = List.of(network(list, view, texts, textWidth),
+                cards(list, view, texts, textWidth, armed == null ? "" : armed), tariff(list, view, texts, textWidth));
         return new Layout(frame, title, List.copyOf(tabs), List.copyOf(tabLabels), null, panes, statusLines);
     }
 
@@ -320,7 +350,8 @@ public final class OperatorPanelLayout {
     // Cartes
     // ---------------------------------------------------------------------------------------------
 
-    private static Pane cards(Rect list, OperatorView view, Texts texts, ToIntFunction<String> textWidth) {
+    private static Pane cards(Rect list, OperatorView view, Texts texts, ToIntFunction<String> textWidth,
+            String armed) {
         Rows rows = new Rows(list);
         boolean may = view.rights().cards();
         single(rows, "requests-header", texts.t(KEY + "requests_header", view.requests().size()), textWidth);
@@ -355,15 +386,20 @@ public final class OperatorPanelLayout {
         }
         for (int i = 0; i < view.cards().size(); i++) {
             OperatorView.CardLine c = view.cards().get(i);
-            Rect box = rows.next(2 * LINE + 2);
+            boolean live = may && c.state() != SimCard.State.DEACTIVATED;
+            // Une carte qu'on peut encore toucher a deux rangées de boutons : « Désactiver » sous « Remplacer » (tâche 15).
+            Rect box = rows.next(live ? 2 * BUTTON_H + GAP + 2 : 2 * LINE + 2);
             List<Button> buttons = new ArrayList<>();
             int textRight = box.x() + box.w() - 2;
-            if (may && c.state() != SimCard.State.DEACTIVATED) {
+            if (live) {
                 boolean active = c.state() == SimCard.State.ACTIVE;
-                buttons.add(rowButton(box, 1, active ? Action.SUSPEND : Action.REACTIVATE, c.simId().toString(),
+                String id = c.simId().toString();
+                int top = box.y() + 1;
+                buttons.add(rowButton(box, 1, top, active ? Action.SUSPEND : Action.REACTIVATE, id,
                         texts.t(KEY + (active ? "suspend" : "reactivate")), textWidth));
-                buttons.add(rowButton(box, 0, Action.REPLACE, c.simId().toString(), texts.t(KEY + "replace"),
-                        textWidth));
+                buttons.add(rowButton(box, 0, top, Action.REPLACE, id, texts.t(KEY + "replace"), textWidth));
+                buttons.add(rowButton(box, 0, top + BUTTON_H + GAP, Action.DEACTIVATE, id,
+                        texts.t(KEY + (id.equals(armed) ? "confirm" : "deactivate")), textWidth));
                 textRight = buttons.get(0).box().x() - 4;
             }
             int room = textRight - box.x() - 2;
@@ -393,11 +429,16 @@ public final class OperatorPanelLayout {
         return rows.pane(Tab.CARDS);
     }
 
-    /** Un bouton d'une ligne, rangé de droite à gauche ({@code slot} 0 : le plus à droite). */
+    /** Un bouton d'une ligne, rangé de droite à gauche ({@code slot} 0 : le plus à droite), centré en hauteur. */
     private static Button rowButton(Rect box, int slot, Action action, String arg, String label,
             ToIntFunction<String> textWidth) {
-        Rect b = new Rect(box.x() + box.w() - 1 - (slot + 1) * BUTTON_W - slot * GAP, box.y() + (box.h() - BUTTON_H) / 2,
-                BUTTON_W, BUTTON_H);
+        return rowButton(box, slot, box.y() + (box.h() - BUTTON_H) / 2, action, arg, label, textWidth);
+    }
+
+    /** Un bouton d'une ligne, rangé de droite à gauche, en haut à {@code y}. */
+    private static Button rowButton(Rect box, int slot, int y, Action action, String arg, String label,
+            ToIntFunction<String> textWidth) {
+        Rect b = new Rect(box.x() + box.w() - 1 - (slot + 1) * BUTTON_W - slot * GAP, y, BUTTON_W, BUTTON_H);
         return new Button(action, arg, 0L, b, centered(b, label, textWidth));
     }
 

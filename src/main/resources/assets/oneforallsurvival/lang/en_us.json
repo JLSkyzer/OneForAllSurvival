@@ -1269,6 +1269,8 @@
   "screen.oneforallsurvival.operator_panel.suspend": "Suspend",
   "screen.oneforallsurvival.operator_panel.reactivate": "Reactivate",
   "screen.oneforallsurvival.operator_panel.replace": "Replace",
+  "screen.oneforallsurvival.operator_panel.deactivate": "Deactivate",
+  "screen.oneforallsurvival.operator_panel.confirm": "Confirm?",
   "screen.oneforallsurvival.operator_panel.page": "Page %s of %s",
   "screen.oneforallsurvival.operator_panel.tariff_today": "Today's tariff: %s",
   "screen.oneforallsurvival.operator_panel.tariff_next": "Tomorrow: %s",
@@ -1292,12 +1294,14 @@
   "message.oneforallsurvival.operator_panel.suspended": "Card %s suspended.",
   "message.oneforallsurvival.operator_panel.reactivated": "Card %s reactivated.",
   "message.oneforallsurvival.operator_panel.replaced": "Card %s replaced: the new one is in your inventory, the old one is worthless.",
+  "message.oneforallsurvival.operator_panel.deactivated": "Card %s deactivated for good: its slot is freed.",
   "message.oneforallsurvival.operator_panel.main_set": "Main antenna set.",
   "message.oneforallsurvival.operator_panel.not_allowed": "You do not have this right.",
   "message.oneforallsurvival.operator_panel.till_main_only": "The till opens on the main antenna.",
   "message.oneforallsurvival.operator_panel.till_failed": "The till did not open: the panel stays open.",
   "message.oneforallsurvival.operator_panel.sim_issued": "%s issued your SIM card: its founder hands it to you.",
   "message.oneforallsurvival.operator_panel.sim_refused": "%s refused your SIM card request.",
+  "message.oneforallsurvival.operator_panel.sim_deactivated": "Your SIM card %s was deactivated by %s: it no longer gets a network.",
   "message.oneforallsurvival.operator_panel.tariff_changed": "%s: tariff of %s from today.",
   "message.oneforallsurvival.operator_panel.tariff_capped": "The tariff of %s is brought down to the allowed maximum: %s."
 }
