@@ -2,6 +2,9 @@ package dev.oneforallsurvival.compat.mixin.createaddition;
 
 import dev.oneforallsurvival.phone.WallFeed;
 import dev.oneforallsurvival.phone.WallSocketBlockEntity;
+import java.util.Collections;
+import java.util.Set;
+import java.util.WeakHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.Level;
@@ -15,6 +18,7 @@ import net.minecraftforge.energy.IEnergyStorage;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -33,6 +37,10 @@ public abstract class ConnectorWallSocketMixin {
 
     @Shadow(remap = false)
     boolean externalStorageInvalid;
+
+    /** Les réserves de prise déjà écoutées : une seule fois chacune, même quand le choix bascule entre deux prises. */
+    @Unique
+    private Set<LazyOptional<IEnergyStorage>> oneforallsurvival$listened;
 
     @Inject(method = "updateExternalEnergyStorage", at = @At("HEAD"), cancellable = true, remap = false)
     private void oneforallsurvival$wallSocket(CallbackInfo callback) {
@@ -53,8 +61,11 @@ public abstract class ConnectorWallSocketMixin {
         }
         externalStorageInvalid = false;
         LazyOptional<IEnergyStorage> energy = socket.getCapability(ForgeCapabilities.ENERGY, null);
-        if (!energy.equals(external)) {
-            external = energy;
+        external = energy;
+        if (oneforallsurvival$listened == null) {
+            oneforallsurvival$listened = Collections.newSetFromMap(new WeakHashMap<>());
+        }
+        if (oneforallsurvival$listened.add(energy)) {
             energy.addListener(gone -> externalStorageInvalid = true);
         }
         callback.cancel();

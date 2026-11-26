@@ -1299,5 +1299,5 @@
   "message.oneforallsurvival.operator_panel.sim_issued": "%s issued your SIM card: its founder hands it to you.",
   "message.oneforallsurvival.operator_panel.sim_refused": "%s refused your SIM card request.",
   "message.oneforallsurvival.operator_panel.tariff_changed": "%s: tariff of %s from today.",
-  "message.oneforallsurvival.operator_panel.tariff_capped": "The tariff of %s is brought down to the mayor's cap: %s."
+  "message.oneforallsurvival.operator_panel.tariff_capped": "The tariff of %s is brought down to the allowed maximum: %s."
 }

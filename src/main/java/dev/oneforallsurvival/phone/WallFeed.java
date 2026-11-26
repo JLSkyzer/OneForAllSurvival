@@ -115,7 +115,7 @@ public final class WallFeed {
             }
             level.neighborChanged(pos, level.getBlockState(wall).getBlock(), wall);
         }
-        // Un connecteur retiré est oublié : reposé, il sera de nouveau mis en sortie.
+        // Un connecteur retiré est oublié au passage suivant : reposé après, il sera de nouveau mis en sortie.
         boolean removed = handled.removeAll(gone);
         return added || removed;
     }

@@ -231,7 +231,7 @@ public final class OperatorActions {
         SimRequest r = request.get();
         if (packet.action() == OperatorActionPacket.Action.ISSUE) {
             if (!registry.mayIssue(op.id())) {
-                // La demande reste en attente : le fondateur la refuse, ou attend qu'une carte se libère.
+                // La demande reste en attente : le fondateur peut la refuser (au plafond, aucun geste ne libère une carte).
                 return cardLimit(player);
             }
             Optional<ItemStack> issued = PhoneSims.issueTo(player, op, r.player(), r.playerName(), EconomyClock.now());
