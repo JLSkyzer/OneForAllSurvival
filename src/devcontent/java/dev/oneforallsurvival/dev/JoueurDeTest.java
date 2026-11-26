@@ -23,6 +23,7 @@ import net.minecraft.network.protocol.game.ClientboundContainerSetContentPacket;
 import net.minecraft.network.protocol.game.ClientboundContainerSetDataPacket;
 import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
 import net.minecraft.network.protocol.game.ClientboundCustomPayloadPacket;
+import net.minecraft.network.protocol.game.ClientboundSetEquipmentPacket;
 import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
 import net.minecraft.server.level.ServerLevel;
@@ -76,6 +77,8 @@ public final class JoueurDeTest {
     private final List<Float> sons = new ArrayList<>();
     /** Les paquets de synchronisation de menu (contenu, case, donnée), dans l'ordre d'envoi. */
     private final List<Packet<?>> menus = new ArrayList<>();
+    /** Les paquets d'équipement d'autres entités (main, armure) reçus, dans l'ordre (tâche 15 du lot T2). */
+    private final List<ClientboundSetEquipmentPacket> equipements = new ArrayList<>();
     /** Les fragments du catalogue que l'entrée en jeu elle-même a envoyés, avant qu'on ne les oublie. */
     private final List<RecipeListPacket> listesALaConnexion = new ArrayList<>();
     /** Les clés des messages que l'entrée en jeu elle-même a envoyés (livraison en attente, avis), avant qu'on ne les oublie. */
@@ -248,6 +251,8 @@ public final class JoueurDeTest {
             cles(chat.content(), cles);
             textes.add(chat.content().getString());
             composants.add(chat.content());
+        } else if (message instanceof ClientboundSetEquipmentPacket equipement) {
+            equipements.add(equipement);
         } else if (message instanceof ClientboundSoundPacket son) {
             sons.add(son.getPitch());
         } else if (message instanceof ClientboundContainerSetContentPacket
@@ -298,6 +303,14 @@ public final class JoueurDeTest {
         lire();
         List<dev.oneforallsurvival.phone.net.OperatorNoticePacket> out = new ArrayList<>(avisOperateur);
         avisOperateur.clear();
+        return out;
+    }
+
+    /** Les paquets d'équipement reçus depuis le dernier appel (objets tenus et portés par d'autres entités), retirés. */
+    public List<ClientboundSetEquipmentPacket> equipementsRecus() {
+        lire();
+        List<ClientboundSetEquipmentPacket> out = new ArrayList<>(equipements);
+        equipements.clear();
         return out;
     }
 

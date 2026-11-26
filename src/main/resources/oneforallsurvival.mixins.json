@@ -8,6 +8,7 @@
     "AbstractContainerMenuMixin",
     "AbstractFurnaceBlockEntityMixin",
     "AbstractFurnaceMenuMixin",
+    "ClientboundSetEquipmentPacketMixin",
     "FallingBlockEntityMixin",
     "HopperBlockEntityMixin",
     "InventoryMenuMixin",
