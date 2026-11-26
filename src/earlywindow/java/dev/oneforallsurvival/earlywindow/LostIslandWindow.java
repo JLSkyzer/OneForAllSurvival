@@ -32,7 +32,10 @@ import net.minecraftforge.fml.loading.progress.ProgressMeter;
 import net.minecraftforge.fml.loading.progress.StartupNotificationManager;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.glfw.Callbacks;
+import org.lwjgl.glfw.GLFWNativeWin32;
 import org.lwjgl.glfw.GLFWVidMode;
+import org.lwjgl.system.Platform;
+import org.lwjgl.system.windows.User32;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL32C;
 import org.lwjgl.opengl.GLCapabilities;
@@ -206,6 +209,12 @@ public final class LostIslandWindow implements ImmediateWindowProvider {
         glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_NATIVE_CONTEXT_API);
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
         glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+        // Essais automatiques seulement (même propriété de développement que le second écran) : la fenêtre s'ouvre sans
+        // prendre le premier plan, pour ne jamais retirer souris et clavier à qui utilise la machine.
+        if (WindowPlacement.secondScreenRequested()) {
+            glfwWindowHint(GLFW_FOCUSED, GLFW_FALSE);
+            glfwWindowHint(GLFW_FOCUS_ON_SHOW, GLFW_FALSE);
+        }
         String title = "Minecraft* " + (mcVersion == null ? "" : mcVersion);
         glfwWindowHintString(GLFW_X11_CLASS_NAME, title);
         glfwWindowHintString(GLFW_X11_INSTANCE_NAME, title);
@@ -288,7 +297,19 @@ public final class LostIslandWindow implements ImmediateWindowProvider {
                 winHeight = h;
             }
         });
+        // Essais automatiques seulement : un clic sur la fenêtre ne l'active pas, et elle s'ouvre derrière les autres
+        // (même règle que dev/FenetreSecondEcran).
+        long hwnd = WindowPlacement.secondScreenRequested() && Platform.get() == Platform.WINDOWS
+                ? GLFWNativeWin32.glfwGetWin32Window(window) : 0L;
+        if (hwnd != 0L) {
+            User32.SetWindowLongPtr(hwnd, User32.GWL_EXSTYLE,
+                    User32.GetWindowLongPtr(hwnd, User32.GWL_EXSTYLE) | User32.WS_EX_NOACTIVATE);
+        }
         glfwShowWindow(window);
+        if (hwnd != 0L) {
+            User32.SetWindowPos(hwnd, User32.HWND_BOTTOM, 0, 0, 0, 0,
+                    User32.SWP_NOMOVE | User32.SWP_NOSIZE | User32.SWP_NOACTIVATE);
+        }
         refreshGeometry();
         glfwPollEvents();
     }

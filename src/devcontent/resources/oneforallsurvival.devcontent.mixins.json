@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.oneforallsurvival.dev.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "client": [
+    "CurseurIntactMixin",
+    "FenetreSansFocusMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

@@ -52,7 +52,8 @@ import org.lwjgl.glfw.GLFWCursorPosCallback;
  *
  * <ol>
  *   <li>images à 0,5 / 2 / 6 / 30 s du titre, relevé de tous ses widgets (classe, position, origine) ;</li>
- *   <li>curseur sur « Rejoindre l'île » ({@code glfwSetCursorPos}, thread du jeu) et image de l'infobulle ;</li>
+ *   <li>curseur du jeu sur « Rejoindre l'île » (rappel de GLFW, le vrai curseur ne bouge pas) et image de
+ *       l'infobulle ;</li>
  *   <li>Options puis retour (seulement dans {@code run-titre} : fermer Options réécrit {@code options.txt}), liste des
  *       mods de Forge puis retour, une image de chaque écran ;</li>
  *   <li>aller-retour dans un monde plat d'essai au nom fixe {@value #MONDE} (jamais un autre monde de
@@ -375,19 +376,12 @@ public final class TitleShots {
         if (!fait) {
             fait = true;
             cible = versFenetre(mc, rejoindre.getX() + rejoindre.getWidth() / 2.0, rejoindre.getY() + rejoindre.getHeight() / 2.0);
-            GLFW.glfwSetCursorPos(fenetre, cible[0], cible[1]);
-            journal(String.format(Locale.ROOT, "curseur placé par glfwSetCursorPos en (%.0f, %.0f) px de la fenêtre,"
+            // Le vrai curseur n'est jamais déplacé (il peut servir ailleurs) : la position est donnée au jeu par le
+            // rappel que Minecraft a installé, celui que GLFW appellerait.
+            rappelCurseur(fenetre, cible[0], cible[1]);
+            journal(String.format(Locale.ROOT, "position du curseur donnée au jeu en (%.0f, %.0f) px de la fenêtre,"
                     + " centre du bouton (%d, %d, %d x %d), actif=%s", cible[0], cible[1], rejoindre.getX(),
                     rejoindre.getY(), rejoindre.getWidth(), rejoindre.getHeight(), rejoindre.active));
-            return;
-        }
-        boolean place = Math.abs(mc.mouseHandler.xpos() - cible[0]) < 1.5 && Math.abs(mc.mouseHandler.ypos() - cible[1]) < 1.5;
-        if (!place && sousPas == 0 && s > 0.5) {
-            // Sans mouvement de la souris réelle, Windows peut ne pas renvoyer le déplacement au jeu : on appelle
-            // directement le rappel de position du curseur installé par Minecraft (le même que GLFW appellerait).
-            sousPas = 1;
-            journal("position du curseur non reçue par le jeu après glfwSetCursorPos : rappel GLFW appelé directement");
-            rappelCurseur(fenetre, cible[0], cible[1]);
             return;
         }
         if (rejoindre.isHovered() && s >= 1.0 || s > 5) {
@@ -395,15 +389,10 @@ public final class TitleShots {
             String texte = infobulle == null ? "(aucune infobulle)" : texte(infobulle.toCharSequence(mc));
             boolean ok = rejoindre.isHovered() && infobulle != null;
             capturer(mc, "05-survol-rejoindre", "survol de « Rejoindre l'île », infobulle « " + texte + " »");
-            pas("survol-rejoindre", ok, String.format(Locale.ROOT, "survolé=%s, infobulle « %s », souris du jeu (%.0f, %.0f), %s",
-                    rejoindre.isHovered(), texte, mc.mouseHandler.xpos(), mc.mouseHandler.ypos(),
-                    sousPas == 0 ? "glfwSetCursorPos suffit" : "par le rappel GLFW"));
-            // Curseur sur le décor, à droite : ni bouton ni infobulle dans les images suivantes.
-            double[] decor = {mc.getWindow().getScreenWidth() * 0.8, mc.getWindow().getScreenHeight() * 0.45};
-            GLFW.glfwSetCursorPos(fenetre, decor[0], decor[1]);
-            if (sousPas != 0) {
-                rappelCurseur(fenetre, decor[0], decor[1]);
-            }
+            pas("survol-rejoindre", ok, String.format(Locale.ROOT, "survolé=%s, infobulle « %s », souris du jeu (%.0f, %.0f)",
+                    rejoindre.isHovered(), texte, mc.mouseHandler.xpos(), mc.mouseHandler.ypos()));
+            // Curseur du jeu sur le décor, à droite : ni bouton ni infobulle dans les images suivantes.
+            rappelCurseur(fenetre, mc.getWindow().getScreenWidth() * 0.8, mc.getWindow().getScreenHeight() * 0.45);
             passer(Etape.OPTIONS);
         }
     }

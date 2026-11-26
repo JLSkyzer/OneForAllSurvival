@@ -101,6 +101,10 @@ minecraft {
             property 'mixin.env.remapRefMap', 'true'
             property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
 
+            // Un client qui se pilote seul ne touche jamais au curseur (CurseurIntactMixin) : contenu d'essai, en
+            // développement seulement, absent du jar livré.
+            args '--mixin.config', 'oneforallsurvival.devcontent.mixins.json'
+
             mods {
                 "${mod_id}" {
                     source sourceSets.main
@@ -443,6 +447,42 @@ minecraft {
 
             // Specify the modid for data generation, where to output the resulting resource, and where to look for existing resources.
             args '--mod', mod_id, '--all', '--output', file('src/generated/resources/'), '--existing', file('src/main/resources/')
+        }
+    }
+}
+
+// Un lancement d'automate ne prend jamais le premier plan. La fenêtre anticipée de Forge (« fmlearlywindow ») se montre
+// avec le focus et naît avant tout mixin : elle est coupée dans le fml.toml de son dossier de jeu, et la fenêtre créée
+// par le jeu s'ouvre sans focus (FenetreSansFocusMixin). La nôtre (« lostisland ») reçoit la propriété du second écran,
+// qui l'ouvre sans focus. Reste le repli forcé par -PearlyWindowFail, qui rend la main à la fenêtre de Forge.
+def couperFenetreForge(File fml) {
+    if (!fml.exists()) {
+        fml.parentFile.mkdirs()
+        fml.write('earlyWindowControl = false\n', 'UTF-8')
+        return
+    }
+    def texte = fml.getText('UTF-8')
+    if (texte =~ /(?m)^earlyWindowProvider\s*=\s*"lostisland"/) {
+        return
+    }
+    def coupe = texte.replaceAll(/(?m)^earlyWindowControl\s*=[^\r\n]*/, 'earlyWindowControl = false')
+    if (!(coupe =~ /(?m)^earlyWindowControl\s*=/)) {
+        coupe += '\nearlyWindowControl = false\n'
+    }
+    if (coupe != texte) {
+        fml.write(coupe, 'UTF-8')
+    }
+}
+
+afterEvaluate {
+    minecraft.runs.each { lancement ->
+        if (!lancement.properties.keySet().any { it.startsWith('oneforallsurvival.') || it.startsWith('lostisland.') }) {
+            return
+        }
+        lancement.property 'oneforallsurvival.fenetre.secondEcran', 'true'
+        def fml = new File(lancement.workingDirectory, 'config/fml.toml')
+        tasks.matching { it.name == "run${lancement.name.capitalize()}" }.configureEach {
+            doFirst { couperFenetreForge(fml) }
         }
     }
 }

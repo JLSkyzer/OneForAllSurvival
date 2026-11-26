@@ -11,6 +11,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.glfw.GLFW;
+import org.lwjgl.glfw.GLFWNativeWin32;
+import org.lwjgl.system.Platform;
+import org.lwjgl.system.windows.User32;
 
 /**
  * Un client qui se pilote seul (essais de bout en bout, captures, démonstrations) ouvre sa fenêtre sur un écran autre
@@ -32,6 +35,28 @@ public final class FenetreSecondEcran {
 
     private FenetreSecondEcran() {}
 
+    /**
+     * Fin de la création de la fenêtre : sur le second écran, montrée sans prendre le premier plan, derrière les autres
+     * fenêtres, et un clic dessus ne l'active pas.
+     */
+    public static void montrer(long handle) {
+        fait = true;
+        deplacer(handle);
+        GLFW.glfwSetWindowAttrib(handle, GLFW.GLFW_FOCUS_ON_SHOW, GLFW.GLFW_FALSE);
+        long hwnd = Platform.get() == Platform.WINDOWS ? GLFWNativeWin32.glfwGetWin32Window(handle) : 0L;
+        if (hwnd != 0L) {
+            long style = User32.GetWindowLongPtr(hwnd, User32.GWL_EXSTYLE);
+            User32.SetWindowLongPtr(hwnd, User32.GWL_EXSTYLE, style | User32.WS_EX_NOACTIVATE);
+        }
+        GLFW.glfwShowWindow(handle);
+        if (hwnd != 0L) {
+            User32.SetWindowPos(hwnd, User32.HWND_BOTTOM, 0, 0, 0, 0,
+                    User32.SWP_NOMOVE | User32.SWP_NOSIZE | User32.SWP_NOACTIVATE);
+        }
+        LOG.info("[fenetre] montrée sans le focus, derrière les autres (focus : {})",
+                GLFW.glfwGetWindowAttrib(handle, GLFW.GLFW_FOCUSED) == GLFW.GLFW_TRUE);
+    }
+
     /** Appelé sur le fil principal (GLFW l'exige). */
     static void placer() {
         if (!ACTIF || fait) {
@@ -39,8 +64,16 @@ public final class FenetreSecondEcran {
         }
         fait = true;
         Window fenetre = Minecraft.getInstance().getWindow();
-        if (fenetre == null || fenetre.isFullscreen()) {
-            LOG.info("[fenetre] non déplacée (plein écran ou fenêtre absente)");
+        if (fenetre == null) {
+            LOG.info("[fenetre] non déplacée (fenêtre absente)");
+            return;
+        }
+        deplacer(fenetre.getWindow());
+    }
+
+    private static void deplacer(long handle) {
+        if (GLFW.glfwGetWindowMonitor(handle) != 0L) {
+            LOG.info("[fenetre] non déplacée (plein écran)");
             return;
         }
         PointerBuffer ecrans = GLFW.glfwGetMonitors();
@@ -63,7 +96,6 @@ public final class FenetreSecondEcran {
         int[] l = new int[1];
         int[] h = new int[1];
         GLFW.glfwGetMonitorWorkarea(autre, x, y, l, h);
-        long handle = fenetre.getWindow();
         if (GLFW.glfwGetWindowAttrib(handle, GLFW.GLFW_MAXIMIZED) == GLFW.GLFW_TRUE) {
             GLFW.glfwRestoreWindow(handle);
         }
