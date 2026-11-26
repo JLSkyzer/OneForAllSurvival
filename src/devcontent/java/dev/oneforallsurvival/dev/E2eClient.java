@@ -400,10 +400,10 @@ public final class E2eClient {
                 }
                 // Le catalogue doit arriver a la connexion, sans qu'aucun etabli n'ait ete ouvert.
                 if (!BenchClientState.catalog().isEmpty()) {
-                    if (!departFait && RELANCE && SEULE_TELEPHONE) {
-                        // L'étape du téléphone seule n'a pas joué le lot E1 : e2e-monnaie.txt est celui d'un autre monde, la
-                        // somme de départ ne se relit pas ici (elle l'est au passage complet).
-                        LOG.info("[e2e] relance de l'etape du telephone seule : somme de depart non relue (lot E1 non joue)");
+                    if (!departFait && RELANCE && (SEULE_TELEPHONE || SEULE_PROTECTION)) {
+                        // L'étape jouée seule (téléphone ou lot 5) n'a pas joué le lot E1 : e2e-monnaie.txt est celui d'un
+                        // autre monde, la somme de départ ne se relit pas ici (elle l'est au passage complet).
+                        LOG.info("[e2e] relance d'une etape seule : somme de depart non relue (lot E1 non joue)");
                         departFait = true;
                     }
                     if (!departFait) {

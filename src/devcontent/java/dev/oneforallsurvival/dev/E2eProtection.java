@@ -61,8 +61,11 @@ import vectorwing.farmersdelight.common.block.entity.container.CookingPotMenu;
  * {@value #RESTE_ECLOSION} ticks de l'éclosion par {@code /data merge} (vingt minutes réelles sinon). La coupure longue,
  * elle, est attendue en temps réel (60 s). Le temps du monde n'est jamais accéléré.
  *
- * <p>L'aire est une dalle à 70 blocs à l'ouest du joueur, en hauteur, hors du point d'apparition. Chaque pas qui échoue est
- * consigné (ligne {@code FAIL}) puis la séquence continue, sauf pour les pas dont la suite dépend.
+ * <p>L'aire est une dalle à 70 blocs à l'ouest du joueur, en hauteur, hors du point d'apparition. La seconde couveuse, elle,
+ * a sa propre dalle à {@value #ECART_SECONDE} blocs au nord, que rien ne charge : son compteur de coupure ne court que
+ * devant le joueur, quel que soit le temps de démarrage du serveur et de connexion du client (à la relance, la console le
+ * confirme avant que le joueur n'y vienne). Chaque pas qui échoue est consigné (ligne {@code FAIL}) puis la séquence
+ * continue, sauf pour les pas dont la suite dépend.
  */
 final class E2eProtection {
 
@@ -78,6 +81,12 @@ final class E2eProtection {
     private static final String CLE_FA = "firstaid:cap_adv_dmg_mdl";
     /** Le plancher de vie de la clôture pour un joueur (config {@code safeHealth}, 4 points par défaut). */
     private static final double PLANCHER = 4.0;
+    /**
+     * La seconde couveuse (compteur de coupure relu après un arrêt) est à autant de blocs au nord du joueur, hors des
+     * chunks de l'apparition et des aires des autres étapes : rien ne charge son chunk avant que le joueur n'y vienne,
+     * donc son compteur ne court pas pendant que le serveur démarre et que le client se connecte.
+     */
+    private static final int ECART_SECONDE = 1600;
     private static final Pattern PARTIE = Pattern.compile("([A-Za-z]+): [{]health: (-?[0-9.]+)f?");
 
     private record Pas(String legende, Runnable action, BooleanSupplier pret, Supplier<String> echec, Supplier<String> succes,
@@ -138,6 +147,12 @@ final class E2eProtection {
     private static double corpsAvant;
     private static long dernierDegat;
     private static int outageAvantArret;
+    private static String etatChunk = "";
+    private static long arriveeNs;
+    private static Lecture aLOuverture;
+
+    /** La seconde couveuse telle que le menu l'a donnée à son ouverture, à la relance. */
+    private record Lecture(ItemStack oeuf, int compteur, int seuil, MachineState etat, double secondes) {}
 
     private E2eProtection() {}
 
@@ -395,12 +410,19 @@ final class E2eProtection {
         couveusePersistance();
     }
 
-    private static void placer(BlockPos origine) {
+    /** La place de la seconde couveuse : à {@value #ECART_SECONDE} blocs au nord, au milieu de son chunk. */
+    private static BlockPos placeDeLaSeconde(BlockPos autour) {
+        int x = autour.getX() - Math.floorMod(autour.getX(), 16) + 8;
+        int z = autour.getZ() - ECART_SECONDE;
+        return new BlockPos(x, Y_DALLE, z - Math.floorMod(z, 16) + 8);
+    }
+
+    private static void placer(BlockPos origine, BlockPos seconde) {
         o = origine;
         incA = o;
         srcA = o.offset(-1, 0, 0);
-        incB = o.offset(4, 0, 0);
-        srcB = o.offset(3, 0, 0);
+        incB = seconde;
+        srcB = seconde.offset(-1, 0, 0);
         srcPlaque = o.offset(7, 0, 0);
         plaque = o.offset(8, 0, 0);
         marmite = o.offset(8, 1, 0);
@@ -429,7 +451,7 @@ final class E2eProtection {
             if (Math.abs(x - spawn.getX()) <= 40 && Math.abs(depart.getZ() - spawn.getZ()) <= 40) {
                 x = depart.getX() + 160;
             }
-            placer(new BlockPos(x, Y_DALLE, depart.getZ()));
+            placer(new BlockPos(x, Y_DALLE, depart.getZ()), placeDeLaSeconde(depart));
             commande("difficulty easy");
             commande("gamerule doMobSpawning false");
             commande("gamerule naturalRegeneration false");
@@ -444,8 +466,6 @@ final class E2eProtection {
         pasC("Machines et sources de courant posées par /setblock", () -> {
             commande("setblock " + xyz(incA) + " oneforallsurvival:incubator");
             commande("setblock " + xyz(srcA) + " " + CREATIVE);
-            commande("setblock " + xyz(incB) + " oneforallsurvival:incubator");
-            commande("setblock " + xyz(srcB) + " " + CREATIVE);
             commande("setblock " + xyz(plaque) + " oneforallsurvival:hot_plate");
             commande("setblock " + xyz(marmite) + " " + POT);
             commande("setblock " + xyz(srcPlaque) + " " + CREATIVE);
@@ -462,7 +482,7 @@ final class E2eProtection {
             commande("setblock " + xyz(src1) + " " + CREATIVE);
             commande("setblock " + xyz(elec2) + " oneforallsurvival:electrifier");
             commande("setblock " + xyz(src2) + " " + CREATIVE);
-        }, () -> mc.level.getBlockState(incA).is(FoodRegistry.INCUBATOR.get()) && mc.level.getBlockState(incB).is(FoodRegistry.INCUBATOR.get())
+        }, () -> mc.level.getBlockState(incA).is(FoodRegistry.INCUBATOR.get())
                 && mc.level.getBlockState(plaque).is(FoodRegistry.HOT_PLATE.get()) && mc.level.getBlockState(marmite).is(bloc(POT))
                 && mc.level.getBlockState(cantine).is(FoodRegistry.CANTEEN_POT.get())
                 && mc.level.getBlockState(elec1).is(FenceRegistry.ELECTRIFIER.get()) && mc.level.getBlockState(elec2).is(FenceRegistry.ELECTRIFIER.get())
@@ -470,7 +490,7 @@ final class E2eProtection {
                 && mc.level.getBlockState(src2).is(bloc(CREATIVE)),
                 () -> "blocs absents : " + mc.level.getBlockState(incA) + " " + mc.level.getBlockState(plaque) + " " + mc.level.getBlockState(cantine)
                         + " " + mc.level.getBlockState(elec1),
-                () -> "deux couveuses, une plaque sous un Cooking Pot, une marmite de cantine, deux electrificateurs avec leurs clotures "
+                () -> "une couveuse, une plaque sous un Cooking Pot, une marmite de cantine, deux electrificateurs avec leurs clotures "
                         + "(l'une en coude), chacun contre une source Create Crafts & Additions");
     }
 
@@ -993,19 +1013,40 @@ final class E2eProtection {
     // ================================================================================================
 
     private static void couveusePersistance() {
-        allerA("Le joueur devant la seconde couveuse", () -> incB);
+        pasC("Le joueur va en spectateur au-dessus de la place de la seconde couveuse, loin de tout", () -> {
+            mc.player.closeContainer();
+            commande("gamemode spectator " + nom());
+            commande("tp " + nom() + " " + (incB.getX() + 0.5) + " " + (incB.getY() + 4) + " " + (incB.getZ() - 2.5) + " 0 20");
+        }, () -> ecoule() >= 2 && mc.player.isSpectator() && pres(incB)
+                && mc.level.getChunkSource().hasChunk(incB.getX() >> 4, incB.getZ() >> 4),
+                () -> "joueur en " + mc.player.blockPosition() + ", chunk de la couveuse recu "
+                        + mc.level.getChunkSource().hasChunk(incB.getX() >> 4, incB.getZ() >> 4), null);
+        // La dalle, la couveuse et sa source tiennent dans un seul chunk (la couveuse est en 8, 8 du sien).
+        pasC("La seconde couveuse et sa source posées sur leur dalle, puis le joueur devant elle en survie", () -> {
+            commande("fill " + xyz(incB.offset(-4, 0, -4)) + " " + xyz(incB.offset(3, 3, 3)) + " air");
+            commande("fill " + xyz(incB.offset(-4, -1, -4)) + " " + xyz(incB.offset(3, -1, 3)) + " stone");
+            commande("setblock " + xyz(incB) + " oneforallsurvival:incubator");
+            commande("setblock " + xyz(srcB) + " " + CREATIVE);
+            commande("gamemode survival " + nom());
+            poste(incB);
+        }, () -> ecoule() >= 1.5 && !mc.player.isSpectator() && pres(incB) && mc.player.blockPosition().getY() >= Y_DALLE - 1
+                && mc.level.getBlockState(incB).is(FoodRegistry.INCUBATOR.get()) && mc.level.getBlockState(srcB).is(bloc(CREATIVE))
+                && mc.level.getBlockState(incB.below()).is(Blocks.STONE),
+                () -> "joueur en " + mc.player.blockPosition() + ", couveuse " + mc.level.getBlockState(incB) + ", source "
+                        + mc.level.getBlockState(srcB),
+                () -> "seconde couveuse posee en " + incB.toShortString() + " avec sa source, a " + ECART_SECONDE
+                        + " blocs environ de l'aire (" + o.toShortString() + ")");
         ouvrir("Ouverture de la seconde couveuse", () -> incB, IncubatorMenu.class);
         donner("Un œuf en main pour la seconde couveuse", Items.EGG, 1);
         pas("Un œuf dans la seconde couveuse", () -> deplacer(fenteMenu(est(Items.EGG), true)),
                 () -> couveuse().getSlot(0).getItem().is(Items.EGG) && etat(incB) == MachineState.RUNNING,
                 () -> "case 0 " + couveuse().getSlot(0).getItem() + ", etat " + etat(incB), null);
-        // 100 tics et non 300 : la couveuse est dans les chunks de l'apparition, son compteur repart dès le démarrage de
-        // la relance, avant que le client ne la relise. Avec 300, il restait 900 tics (45 s) ; une relance a ouvert le
-        // menu 46 s après « Done » (client lent à se connecter) et l'œuf était perdu (passage de nettoyage du lot T2).
+        // 300 tics (15 s) : un compteur perdu à la relance repartirait de zéro et ne l'aurait pas rattrapé dans les quelques
+        // secondes qui séparent l'arrivée du joueur de la lecture.
         pasD(60, "Coupure en cours : source retirée, réserve vidée, le compteur monte", () -> {
             commande("setblock " + xyz(srcB) + " minecraft:air");
             commande("data merge block " + xyz(incB) + " {energy:0}");
-        }, () -> etat(incB) == MachineState.NO_POWER && couveuse().outage() >= 100,
+        }, () -> etat(incB) == MachineState.NO_POWER && couveuse().outage() >= 300,
                 () -> "etat " + etat(incB) + ", compteur " + couveuse().outage() + "/" + couveuse().outageTotal(), null);
         pasC("Compteur de coupure retenu, positions écrites ; le serveur s'arrête en pleine coupure", () -> {
             outageAvantArret = couveuse().outage();
@@ -1013,6 +1054,7 @@ final class E2eProtection {
                 List<String> lignes = new ArrayList<>();
                 lignes.add("origine=" + xyz(o));
                 lignes.add("depart=" + xyz(depart));
+                lignes.add("seconde=" + xyz(incB));
                 lignes.add("coupure=" + outageAvantArret);
                 Files.write(fichier(), lignes, StandardCharsets.UTF_8);
             } catch (IOException e) {
@@ -1022,6 +1064,26 @@ final class E2eProtection {
                 () -> "a retrouver apres relance : seconde couveuse " + incB.toShortString() + " sans courant, compteur de coupure "
                         + outageAvantArret + "/" + couveuse().outageTotal() + " ticks, un oeuf dedans (le serveur est arrete tout de suite)");
         retour();
+        attendreDecharge("Le joueur parti, rien ne retient le chunk de la seconde couveuse");
+    }
+
+    /** La console du serveur dit le chunk de la seconde couveuse déchargé (relu une fois par seconde au plus). */
+    private static void attendreDecharge(String legende) {
+        pas(legende, () -> {
+            etatChunk = "";
+            derniereLecture = 0;
+        }, () -> {
+            if (System.nanoTime() - derniereLecture >= 1_000_000_000L) {
+                derniereLecture = System.nanoTime();
+                etatChunk = chunkDeLaSeconde();
+            }
+            return etatChunk.contains("charge=false");
+        }, () -> "console : " + etatChunk, () -> "chunk de la seconde couveuse decharge (console : " + etatChunk.trim() + ")");
+    }
+
+    /** « CHUNK charge=… joueurs=… » : la console du serveur sur le chunk de la seconde couveuse, sans le charger. */
+    private static String chunkDeLaSeconde() {
+        return rcon("e2eelec chunk " + xyz(incB));
     }
 
     /** Le joueur rentre là où il était avant l'étape : à la relance, les étapes des lots précédents le retrouvent chez lui. */
@@ -1067,41 +1129,87 @@ final class E2eProtection {
             } catch (IOException e) {
                 throw new IllegalStateException("premiere phase absente : " + fichier(), e);
             }
-            String[] t = lu.get("origine").split(" ");
-            placer(new BlockPos(Integer.parseInt(t[0]), Integer.parseInt(t[1]), Integer.parseInt(t[2])));
-            String[] d = lu.get("depart").split(" ");
-            depart = new BlockPos(Integer.parseInt(d[0]), Integer.parseInt(d[1]), Integer.parseInt(d[2]));
+            placer(position(lu, "origine"), position(lu, "seconde"));
+            depart = position(lu, "depart");
             outageAvantArret = Integer.parseInt(lu.get("coupure"));
             if (mc.player.containerMenu != mc.player.inventoryMenu) {
                 mc.player.closeContainer();
             }
             mc.setScreen(null);
+        }, () -> true, () -> "", null);
+        // La preuve que le compteur n'a pas couru depuis le démarrage : personne n'est venu, le chunk n'est pas chargé.
+        pasC("Relance : rien n'a chargé la seconde couveuse depuis le démarrage du serveur", () -> etatChunk = chunkDeLaSeconde(),
+                () -> etatChunk.contains("charge=false"),
+                () -> "le chunk de la seconde couveuse est charge avant l'arrivee du joueur : " + etatChunk,
+                () -> "relance : avant l'arrivee du joueur, la console dit le chunk de la seconde couveuse non charge ("
+                        + etatChunk.trim() + ")");
+        pasC("Relance : le joueur va devant la seconde couveuse", () -> {
+            arriveeNs = System.nanoTime();
             poste(incB);
-        // Le joueur se reconnecte tout près de là où il s'est arrêté : seule la fin de la téléportation (2 s) rend le clic sûr.
-        }, () -> pres(incB) && ecoule() >= 2.5 && mc.level.getBlockState(incB).is(FoodRegistry.INCUBATOR.get()),
+        },
+                // La fin de la téléportation et le chunk reçu (2,5 s) rendent le clic sûr.
+                () -> pres(incB) && ecoule() >= 2.5 && mc.player.blockPosition().getY() >= Y_DALLE - 1
+                        && mc.level.getBlockState(incB).is(FoodRegistry.INCUBATOR.get()),
                 () -> "joueur en " + mc.player.blockPosition() + ", bloc " + mc.level.getBlockState(incB),
                 () -> "relance : seconde couveuse relue du disque en " + incB.toShortString() + ", compteur d'avant l'arret " + outageAvantArret);
         ouvrir("Relance : ouverture de la seconde couveuse", () -> incB, IncubatorMenu.class);
+        // Les valeurs relevées UNE fois, dès que le menu les a reçues : un compteur perdu repartirait de zéro et rattraperait
+        // la valeur d'avant l'arrêt en quelques secondes ; attendre qu'elle soit atteinte ne prouverait rien (mutation « le
+        // compteur n'est pas relu » passée au vert tant que le contrôle attendait la valeur).
+        pasC("Relance : les valeurs de la couveuse relevées à l'ouverture", () -> aLOuverture = null, () -> {
+            if (couveuse().outageTotal() <= 0) {
+                return false;
+            }
+            // Les valeurs d'un menu arrivent dans l'ordre : le seuil, le dernier, dit que le compteur est là.
+            aLOuverture = new Lecture(couveuse().getSlot(0).getItem().copy(), couveuse().outage(), couveuse().outageTotal(),
+                    etat(incB), (System.nanoTime() - arriveeNs) / 1e9);
+            return true;
+        }, () -> "le menu n'a pas recu ses valeurs", null);
+        // La dernière condition : lu assez tôt pour qu'un compteur reparti de zéro à l'arrivée soit encore loin de la
+        // valeur d'avant (40 tics de marge).
         pasC("Relance : le compteur de coupure a été relu, l'œuf est toujours là", () -> {},
-                () -> couveuse().getSlot(0).getItem().is(Items.EGG) && couveuse().outage() >= outageAvantArret
-                        && couveuse().outage() < couveuse().outageTotal() && etat(incB) == MachineState.NO_POWER,
-                () -> "case 0 " + couveuse().getSlot(0).getItem() + ", compteur " + couveuse().outage() + " (avant l'arret " + outageAvantArret
-                        + "), seuil " + couveuse().outageTotal() + ", etat " + etat(incB),
-                () -> "relance : compteur de coupure " + couveuse().outage() + " ticks, a l'arret " + outageAvantArret
-                        + " (il repart de la valeur sauvegardee, sans perte) ; l'oeuf est la, etat " + etat(incB));
+                () -> aLOuverture.oeuf().is(Items.EGG) && aLOuverture.compteur() >= outageAvantArret
+                        && aLOuverture.compteur() < aLOuverture.seuil() && aLOuverture.etat() == MachineState.NO_POWER
+                        && aLOuverture.secondes() * 20 + 40 < outageAvantArret,
+                () -> "case 0 " + aLOuverture.oeuf() + ", compteur " + aLOuverture.compteur() + " (avant l'arret " + outageAvantArret
+                        + "), seuil " + aLOuverture.seuil() + ", etat " + aLOuverture.etat() + ", lu "
+                        + String.format(java.util.Locale.ROOT, "%.1f", aLOuverture.secondes()) + " s apres l'arrivee",
+                () -> "relance : compteur de coupure " + aLOuverture.compteur() + " ticks a l'ouverture ("
+                        + String.format(java.util.Locale.ROOT, "%.1f", aLOuverture.secondes()) + " s apres l'arrivee), a l'arret "
+                        + outageAvantArret + " (il repart de la valeur sauvegardee, sans perte) ; l'oeuf est la, etat "
+                        + aLOuverture.etat());
         pas("Relance : le courant revient, le compteur retombe à zéro, l'œuf est gardé", () -> commande("setblock " + xyz(srcB) + " " + CREATIVE),
                 () -> etat(incB) == MachineState.RUNNING && couveuse().outage() == 0 && couveuse().getSlot(0).getItem().is(Items.EGG),
                 () -> "etat " + etat(incB) + ", compteur " + couveuse().outage() + ", case 0 " + couveuse().getSlot(0).getItem(),
                 () -> "relance : source remise, etat RUNNING, compteur " + couveuse().outage() + ", oeuf garde");
         fermer("Relance : fermeture de la couveuse");
+        // La seconde couveuse d'abord, tant que son chunk est chargé ; la dalle reste (le joueur est dessus).
+        pas("Rangement de la seconde couveuse", () -> commande("fill " + xyz(incB.offset(-4, 0, -4)) + " "
+                + xyz(incB.offset(3, 3, 3)) + " air"), () -> mc.level.getBlockState(incB).isAir()
+                && mc.level.getBlockState(srcB).isAir(), () -> "couveuse " + mc.level.getBlockState(incB) + ", source "
+                + mc.level.getBlockState(srcB), null);
+        pas("Retour au point de départ, l'aire du lot 5 chargée", () -> commande("tp " + nom() + " " + (depart.getX() + 0.5) + " "
+                + depart.getY() + " " + (depart.getZ() + 0.5)),
+                () -> ecoule() >= 3 && mc.player.blockPosition().distSqr(depart) < 9
+                        && mc.level.getChunkSource().hasChunk((o.getX() - 4) >> 4, (o.getZ() - 6) >> 4)
+                        && mc.level.getChunkSource().hasChunk((o.getX() + 26) >> 4, (o.getZ() + 14) >> 4),
+                () -> "joueur en " + mc.player.blockPosition(), null);
         pas("Rangement de l'aire du lot 5", () -> {
             commande("kill @e[type=minecraft:chicken,distance=..200]");
             commande("fill " + xyz(o.offset(-4, 0, -6)) + " " + xyz(o.offset(26, 6, 14)) + " air");
-            commande("tp " + nom() + " " + (depart.getX() + 0.5) + " " + depart.getY() + " " + (depart.getZ() + 0.5));
             commande("difficulty peaceful");
             commande("gamerule doMobSpawning true");
             commande("gamerule naturalRegeneration true");
-        }, () -> mc.level.getBlockState(incB).isAir() && mc.level.getBlockState(cantine).isAir(), () -> "blocs encore la",
+        }, () -> mc.level.getBlockState(incA).isAir() && mc.level.getBlockState(cantine).isAir(), () -> "blocs encore la",
                 () -> "aire videe, regles du monde rendues");
+    }
+
+    private static BlockPos position(Map<String, String> lu, String cle) {
+        String valeur = lu.get(cle);
+        if (valeur == null) {
+            throw new IllegalStateException("cle « " + cle + " » absente de " + fichier() + " (premiere phase d'une version anterieure)");
+        }
+        String[] t = valeur.split(" ");
+        return new BlockPos(Integer.parseInt(t[0]), Integer.parseInt(t[1]), Integer.parseInt(t[2]));
     }
 }
