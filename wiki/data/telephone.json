@@ -161,8 +161,9 @@
         "Se donne, se vend, se vole ; la fouille par le policier viendra avec son lot.",
         "Une copie faite avant une insertion est « non reconnue » ; de deux copies à jour, la dernière glissée prend la ligne. Jamais deux lignes.",
         "En créatif, une carte déplacée dans l'inventaire devient morte. Carte morte, perdue ou détruite : le fondateur la rend par « Remplacer » (même numéro, l'ancienne ne vaut plus rien).",
-        "Suspendue : plus de signal jusqu'à la réactivation. Désactivée (opérateur supprimé) : pour toujours.",
-        "Un téléphone détruit emporte sa carte, qui reste active et comptée par les antennes tant qu'elle n'est ni suspendue ni remplacée.",
+        "Suspendue : plus de signal jusqu'à la réactivation. Désactivée (par le fondateur, ou opérateur supprimé) : pour toujours, plus de signal.",
+        "Les autres joueurs ne voient ni le numéro, ni le titulaire, ni l'opérateur d'un téléphone ou d'une carte tenus en main ou portés par un porte-armure : seul le porteur les voit. Limite : posés au sol, dans un cadre ou dans un conteneur ouvert, ils gardent ces données, lisibles par qui les regarde.",
+        "Un téléphone détruit emporte sa carte, qui reste active et comptée par les antennes tant qu'elle n'est ni suspendue, ni remplacée, ni désactivée.",
         "Contacts et conversations suivront la carte au lot T3."
       ]
     },
@@ -247,12 +248,13 @@
       "steps": [
         "Clic droit sur une antenne : onglets « Réseau », « Cartes », « Tarif et caisse ».",
         "Réseau : consommation en direct de chaque antenne (veille, cartes, trafic, jour et veille), antenne principale à désigner, état du relais.",
-        "Cartes (fondateur seul) : émettre ou refuser une demande, émettre une SIM sans nom, suspendre, réactiver, « Remplacer » (même numéro).",
-        "Au plafond de cartes (actives et suspendues), plus aucune n'est émise et le panneau le dit ; « Remplacer » reste possible. Aucun geste ne désactive une carte : seule la suppression de l'opérateur libère ses cartes.",
+        "Cartes (fondateur seul) : émettre ou refuser une demande, émettre une SIM sans nom, suspendre, réactiver, « Remplacer » (même numéro), « Désactiver ».",
+        "Au plafond de cartes (actives et suspendues), plus aucune n'est émise et le panneau le dit ; « Remplacer » reste possible.",
+        "« Désactiver » (fondateur seul) met fin pour toujours à une carte perdue ou volée : un second toucher sur « Confirmer ? » dans les 5 secondes, sinon rien ne part. Le téléphone qui la porte perd son signal, son titulaire est prévenu (à sa connexion s'il est absent) et une place se libère sous le plafond.",
         "Tarif par jour (fondateur, maire, staff) : il vaut au lendemain, sous le plafond du maire ; les abonnés sont prévenus. Aucune pièce n'est prélevée avant le lot T6.",
         "Caisse (fondateur et staff) : en personne, sur l'antenne principale. Elle reste vide jusqu'au lot T6.",
         "Appli « Antenne » : une icône sur le téléphone du fondateur. Elle demande une carte active de son opérateur dans ce téléphone, au moins une barre et le mode avion coupé.",
-        "Sinon l'icône est grisée, mode avion compris, et un toucher répond « Pas de réseau. ».",
+        "Sinon l'icône est grisée, mode avion compris : la toucher n'ouvre rien, seul le message « Pas de réseau. » répond.",
         "Dans l'appli, ni caisse ni nom : ces gestes se font sur l'antenne. Sans MCEF, « Antenne » ouvre le panneau depuis le téléphone."
       ],
       "numbers": [
