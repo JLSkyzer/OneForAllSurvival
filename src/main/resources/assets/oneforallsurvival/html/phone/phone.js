@@ -7,7 +7,8 @@
 //   {"a":"erase","code":"…"} ; lot T2 : {"a":"insertSim","slot":N} (entier de 0 à 40) ; {"a":"removeSim"} ;
 //   {"a":"requestSim","op":"<identifiant d'opérateur, 12 hexadécimaux>"} ; {"a":"antennaApp"} ; appli « Antenne »
 //   (tâche 10) : {"a":"opTariff","value":N} (0 à 1 000 000) ; {"a":"opIssue"|"opRefuse"|"opSuspend"|"opReactivate"|
-//   "opReplace"|"opMain","id":"<uuid>"} ; {"a":"opAnonymous"} ; {"a":"opPage","n":N} (0 à 63) ; {"a":"opClose"}.
+//   "opReplace"|"opDeactivate"|"opMain","id":"<uuid>"} (opDeactivate, tâche 15 : déjà confirmé par un second toucher
+//   dans la page) ; {"a":"opAnonymous"} ; {"a":"opPage","n":N} (0 à 63) ; {"a":"opClose"}.
 //   Java -> page : view = {session, lock: "SETUP"|"LOCKED"|"UNLOCKED", battery, serverMillis, zoneOffsetSeconds,
 //   wallpaper, airplane, owner, ownerName, attemptsLeft, lockoutSeconds, last, net}, avec net = {sim, operator, bars,
 //   number, holder, founderApp, founderAppAvailable, choices: [{slot, number, operator, validity}],
@@ -17,9 +18,10 @@
 //   la page montre ce qu'elle reçoit, sans rien deviner. Boîtes de layout du lot T2 : row-sim, sim-choice-<case>,
 //   sim-remove, sim-request, request-<id>, app-antenna, status-bars (et sim-close, la fermeture de la feuille) ;
 //   appli « Antenne » : op-close, op-tab-network, op-tab-cards, op-tab-tariff, op-tariff-field, op-tariff-save,
-//   op-anonymous, op-issue-<id>, op-refuse-<id>, op-card-<id>, op-replace-<id>, op-main-<id>, op-page-prev,
-//   op-page-next. Java -> page, appli : phone.antenna(vue | null), phone.antennaStatus(texte) (voir plus bas) ; la vue
-//   porte aussi tariffText, nextTariffText (ou null) et capText, les montants écrits par le jeu (revue de la tâche 10).
+//   op-anonymous, op-issue-<id>, op-refuse-<id>, op-card-<id>, op-replace-<id>, op-deactivate-<id>, op-main-<id>,
+//   op-page-prev, op-page-next. Java -> page, appli : phone.antenna(vue | null), phone.antennaStatus(texte) (voir
+//   plus bas) ; la vue porte aussi tariffText, nextTariffText (ou null) et capText, les montants écrits par le jeu
+//   (revue de la tâche 10).
 // Le serveur fait foi : la page ne juge aucun code, elle les transmet. Tout texte venu de la vue passe par textContent.
 // Un téléphone neuf (lock SETUP) montre l'assistant de première configuration : Bonjour, Configuration rapide, Fond
 // d'écran, le code (écran #lock), puis Tout est prêt. Rien n'est configuré avant l'envoi du code : fermer avant laisse
@@ -511,7 +513,9 @@
     }
     state.screen = screen;
     if (screen !== 'home' && ant.open) {
-      closeAntenna(false); // verrouillé, effacé : le serveur ferme le panneau de lui-même
+      // Verrouillé, effacé : le serveur ferme le panneau de lui-même. Parti ailleurs (Réglages) pendant l'attente
+      // cachée de l'icône grisée : l'appli ne s'ouvrira pas par-dessus, et si le serveur l'a ouverte, opClose la ferme.
+      closeAntenna(ant.quiet);
     }
     if (screen !== 'settings' && state.simOpen) {
       state.simOpen = false;
@@ -1098,6 +1102,7 @@
   var MAX_PAGE = 63;
   var STATUS_MS = 6000;
   var CONFIRM_MS = 5000;
+  var CONFIRM_MIN_MS = 400; // un second toucher plus tôt (double-toucher machinal) ne confirme pas
 
   var ant = {
     open: false, // l'appli est à l'écran
@@ -1109,6 +1114,7 @@
     statusTimer: null,
     confirm: null, // l'identifiant de la carte dont « Désactiver » attend son second toucher
     confirmTimer: null,
+    confirmAt: 0,
     quiet: false, // icône grisée touchée : le geste est parti, rien n'est montré tant que le serveur n'ouvre pas
     quietTimer: null
   };
@@ -1459,14 +1465,21 @@
     ant.confirm = null;
   }
 
-  /** « Désactiver » : le premier toucher arme (le bouton dit « Confirmer ? »), le second dans le délai envoie. */
+  /**
+   * « Désactiver » : le premier toucher arme (le bouton dit « Confirmer ? »), le second sur la même carte, entre
+   * CONFIRM_MIN_MS et CONFIRM_MS plus tard, envoie ; plus tôt, il ne compte pas.
+   */
   function deactivateTap(id) {
     if (ant.confirm === id) {
+      if (Date.now() - ant.confirmAt < CONFIRM_MIN_MS) {
+        return;
+      }
       clearConfirm();
       send({ a: 'opDeactivate', id: id });
     } else {
       clearConfirm();
       ant.confirm = id;
+      ant.confirmAt = Date.now();
       ant.confirmTimer = setTimeout(function () {
         clearConfirm();
         if (ant.open && ant.view) {

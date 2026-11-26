@@ -189,6 +189,26 @@ public final class OperatorPanelLayout {
 
     /** Le délai de la confirmation de « Désactiver » (tâche 15) : le second appui sur la même carte doit venir avant. */
     public static final long CONFIRM_MS = 5_000L;
+    /** Revue de la tâche 15 : un second appui plus tôt (double-clic machinal) ne confirme pas. */
+    public static final long CONFIRM_MIN_MS = 400L;
+
+    /** Ce que fait un appui sur « Désactiver ». */
+    public enum Press {
+        /** Premier appui (ou une autre carte, ou le premier expiré) : le bouton dit « Confirmer ? ». */
+        ARM,
+        /** Second appui sur la même carte, entre {@link #CONFIRM_MIN_MS} et {@link #CONFIRM_MS} : le geste part. */
+        CONFIRM,
+        /** Second appui trop tôt : rien, l'attente reste armée. */
+        IGNORE
+    }
+
+    /** L'appui sur « Désactiver » de la carte {@code arg} à {@code now}, avec le premier appui {@code armed} (ou nul). */
+    public static Press press(@Nullable Armed armed, String arg, long now) {
+        if (armed == null || !armed.arg().equals(arg) || !armed.live(now)) {
+            return Press.ARM;
+        }
+        return armed.confirms(arg, now) ? Press.CONFIRM : Press.IGNORE;
+    }
 
     /**
      * Le premier appui sur « Désactiver » d'une carte ({@code arg} : son identifiant, à l'instant {@code at}) : l'écran
@@ -203,7 +223,7 @@ public final class OperatorPanelLayout {
 
         /** Un appui sur la carte {@code other} à {@code now} confirme-t-il ce premier appui ? */
         public boolean confirms(String other, long now) {
-            return arg.equals(other) && live(now);
+            return arg.equals(other) && live(now) && now - at >= CONFIRM_MIN_MS;
         }
     }
 

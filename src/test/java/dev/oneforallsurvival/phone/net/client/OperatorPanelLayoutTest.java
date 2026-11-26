@@ -298,6 +298,27 @@ class OperatorPanelLayoutTest {
         assertFalse(arme.confirms(a, 15_001L), "trop tard");
         assertFalse(arme.confirms(b, 12_000L), "une autre carte ne confirme pas");
         assertEquals(5_000L, OperatorPanelLayout.CONFIRM_MS);
+        // Revue de la tâche 15 : un double-clic machinal (second appui à moins de 0,4 s) ne confirme pas.
+        assertFalse(arme.confirms(a, 10_000L), "à 0 ms");
+        assertFalse(arme.confirms(a, 10_399L), "à 399 ms");
+        assertTrue(arme.confirms(a, 10_400L), "à 400 ms");
+        assertEquals(400L, OperatorPanelLayout.CONFIRM_MIN_MS);
+        assertEquals(OperatorPanelLayout.Press.ARM, OperatorPanelLayout.press(null, a, 10_100L), "premier appui");
+        assertEquals(OperatorPanelLayout.Press.IGNORE, OperatorPanelLayout.press(arme, a, 10_100L),
+                "trop tôt : rien, l'attente reste");
+        assertEquals(OperatorPanelLayout.Press.CONFIRM, OperatorPanelLayout.press(arme, a, 11_000L), "à 1 s");
+        assertEquals(OperatorPanelLayout.Press.ARM, OperatorPanelLayout.press(arme, b, 11_000L), "une autre carte");
+        assertEquals(OperatorPanelLayout.Press.ARM, OperatorPanelLayout.press(arme, a, 15_001L), "expiré : réarmé");
+    }
+
+    /** La page attend les mêmes délais que le panneau (règle écrite deux fois : leçon du 2026-11-24). */
+    @Test
+    void laPageAttendLesMemesDelais() throws java.io.IOException {
+        String js = Files.readString(Paths.get(System.getProperty("oneforallsurvival.mainResources"))
+                .resolve("assets/oneforallsurvival/html/phone/phone.js"), StandardCharsets.UTF_8);
+        assertTrue(js.contains("var CONFIRM_MS = " + OperatorPanelLayout.CONFIRM_MS + ";"), "CONFIRM_MS de la page");
+        assertTrue(js.contains("var CONFIRM_MIN_MS = " + OperatorPanelLayout.CONFIRM_MIN_MS + ";"),
+                "CONFIRM_MIN_MS de la page");
     }
 
     /**

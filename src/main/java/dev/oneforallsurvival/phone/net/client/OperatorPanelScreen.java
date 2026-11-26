@@ -486,15 +486,25 @@ public final class OperatorPanelScreen extends Screen {
         return super.mouseClicked(mx, my, button);
     }
 
-    /** « Désactiver » : le premier appui arme (le bouton dit « Confirmer ? »), le second dans le délai envoie. */
+    /**
+     * « Désactiver » : le premier appui arme (le bouton dit « Confirmer ? »), le second sur la même carte, entre 0,4 et
+     * 5 s plus tard, envoie ; plus tôt, il ne compte pas.
+     */
     private void deactivate(String arg) {
         long now = Util.getMillis();
-        if (armed != null && armed.confirms(arg, now)) {
-            armed = null;
-            send(Action.DEACTIVATE, arg, 0L);
-        } else {
-            armed = new OperatorPanelLayout.Armed(arg, now);
-            Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+        switch (OperatorPanelLayout.press(armed, arg, now)) {
+            case CONFIRM -> {
+                armed = null;
+                send(Action.DEACTIVATE, arg, 0L);
+            }
+            case ARM -> {
+                armed = new OperatorPanelLayout.Armed(arg, now);
+                Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK,
+                        1.0F));
+            }
+            case IGNORE -> {
+                // Double-clic machinal : le second appui ne compte pas, « Confirmer ? » reste.
+            }
         }
         layout = null;
     }
