@@ -1108,7 +1108,9 @@
     focus: false,
     statusTimer: null,
     confirm: null, // l'identifiant de la carte dont « Désactiver » attend son second toucher
-    confirmTimer: null
+    confirmTimer: null,
+    quiet: false, // icône grisée touchée : le geste est parti, rien n'est montré tant que le serveur n'ouvre pas
+    quietTimer: null
   };
 
   function bool(x) { return x === true; }
@@ -1398,18 +1400,25 @@
     }
     ant.view = cleanAntenna(raw);
     ant.waiting = false;
+    if (ant.quiet) {
+      // Le serveur l'a ouverte malgré l'icône grisée (l'état a changé entre-temps) : on la montre.
+      ant.quiet = false;
+      clearTimeout(ant.quietTimer);
+      showAntenna();
+    }
     paintAntenna();
     scheduleLayout(150);
   }
 
-  function openAntennaApp() {
+  /**
+   * Ouvre l'appli et envoie le geste. {@code quiet} (icône grisée, tâche 15 « message seul ») : le geste part, rien
+   * n'est animé ; seul le message du serveur (« Pas de réseau. ») répond. La page ne décide rien : l'icône est grisée
+   * d'après la vue du serveur, et si le serveur ouvre quand même le panneau, sa vue montre l'appli.
+   */
+  function openAntennaApp(quiet) {
     if (state.screen !== 'home' || ant.open || $('app-antenna').classList.contains('gone')) {
       return;
     }
-    var icon = $('app-antenna').querySelector('.app-icon').getBoundingClientRect();
-    var box = phoneEl.getBoundingClientRect();
-    $('antenna').style.transformOrigin =
-      Math.round(icon.left - box.left + icon.width / 2) + 'px ' + Math.round(icon.top - box.top + icon.height / 2) + 'px';
     ant.open = true;
     ant.waiting = true;
     ant.view = null;
@@ -1417,13 +1426,30 @@
     ant.field = '';
     ant.focus = false;
     clearConfirm();
+    clearTimeout(ant.quietTimer);
+    ant.quiet = quiet === true;
+    if (quiet) {
+      // Sans réponse (geste freiné par le serveur), l'attente cachée s'éteint d'elle-même.
+      ant.quietTimer = setTimeout(function () { if (ant.quiet && ant.waiting) { closeAntenna(true); } }, PENDING_MS);
+      send({ a: 'antennaApp' });
+      return;
+    }
+    showAntenna();
+    send({ a: 'antennaApp' });
+  }
+
+  /** L'appli s'ouvre à l'écran, depuis l'icône. */
+  function showAntenna() {
+    var icon = $('app-antenna').querySelector('.app-icon').getBoundingClientRect();
+    var box = phoneEl.getBoundingClientRect();
+    $('antenna').style.transformOrigin =
+      Math.round(icon.left - box.left + icon.width / 2) + 'px ' + Math.round(icon.top - box.top + icon.height / 2) + 'px';
     antennaStatus('');
     $('ant-scroll').scrollTop = 0;
     paintAntenna();
     phoneEl.classList.add('ant-open');
     paintChrome();
     scheduleLayout();
-    send({ a: 'antennaApp' });
   }
 
   /** Oublie le premier toucher de « Désactiver ». */
@@ -1466,6 +1492,8 @@
     ant.view = null;
     ant.focus = false;
     ant.field = '';
+    ant.quiet = false;
+    clearTimeout(ant.quietTimer);
     clearConfirm();
     antennaStatus('');
     phoneEl.classList.remove('ant-open', 'ant-waiting');
@@ -1668,7 +1696,7 @@
       return rects;
     }
     add('status-bars');
-    if (ant.open) {
+    if (ant.open && !ant.quiet) {
       antennaRects(add);
       add('home-bar');
       return rects;
@@ -1767,7 +1795,7 @@
     if (wizardTap(t)) {
       return;
     }
-    if (ant.open) {
+    if (ant.open && !ant.quiet) {
       if (t.closest('#home-bar')) {
         closeAntenna(true);
       } else {
@@ -1794,8 +1822,9 @@
       return;
     }
     if (t.closest('#app-antenna')) {
-      // L'appli s'ouvre et attend la vue du serveur ; un refus (NO_NETWORK) la referme.
-      openAntennaApp();
+      // L'appli s'ouvre et attend la vue du serveur ; un refus (NO_NETWORK) la referme. Grisée (d'après la vue du
+      // serveur) : le geste part sans animation, seul le message « Pas de réseau. » répond (tâche 15).
+      openAntennaApp($('app-antenna').classList.contains('off'));
       return;
     }
     if (state.screen !== 'settings' || phoneEl.classList.contains('sheet-open') || !state.view) {

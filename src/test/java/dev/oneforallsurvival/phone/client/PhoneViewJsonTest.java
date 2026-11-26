@@ -146,6 +146,29 @@ class PhoneViewJsonTest {
         }
     }
 
+    /**
+     * Tâche 15 (« message seul ») : toucher l'icône « Antenne » grisée n'anime rien ; le geste part quand même (le
+     * serveur répond « Pas de réseau. »), et la page ne relit rien d'autre que la classe que la vue du serveur a posée.
+     */
+    @Test
+    void toucherLIconeGriseeNAnimeRien() throws IOException {
+        String js = Files.readString(Path.of("src/main/resources/assets/oneforallsurvival/html/phone/phone.js"));
+        int toucher = js.indexOf("if (t.closest('#app-antenna')) {");
+        assertTrue(toucher >= 0, "toucher de l'icône introuvable");
+        String bloc = js.substring(toucher, js.indexOf("return;", toucher));
+        assertTrue(bloc.contains("openAntennaApp($('app-antenna').classList.contains('off'));"),
+                "le toucher doit dire à l'appli si l'icône est grisée : " + bloc);
+        int debut = js.indexOf("function openAntennaApp(quiet) {");
+        assertTrue(debut >= 0, "openAntennaApp(quiet) introuvable");
+        String corps = js.substring(debut, js.indexOf("function closeAntenna(", debut));
+        int calme = corps.indexOf("if (quiet) {");
+        assertTrue(calme >= 0, "aucune branche pour l'icône grisée");
+        String branche = corps.substring(calme, corps.indexOf("return;", calme));
+        assertTrue(branche.contains("send({ a: 'antennaApp' });"), "le geste doit partir quand même : " + branche);
+        assertFalse(branche.contains("ant-open") || branche.contains("transformOrigin") || branche.contains("paintChrome"),
+                "l'icône grisée ne doit rien animer : " + branche);
+    }
+
     @Test
     void lesEnumerationsSontEnNoms() {
         JsonObject v = PhoneViewJson.toJson(etat(Lock.LOCKED, "", Result.WRONG_CODE));
