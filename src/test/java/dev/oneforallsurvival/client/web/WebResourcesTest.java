@@ -12,6 +12,8 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
@@ -74,12 +76,46 @@ class WebResourcesTest {
      */
     @Test
     void laLigneDEtatDeLAppliNeRetientAucunToucher() throws IOException {
-        String css = Files.readString(dossier().resolve("phone/phone.css"), StandardCharsets.UTF_8);
-        int debut = css.indexOf(".ant-status {");
-        assertTrue(debut >= 0, "règle .ant-status absente de phone.css");
-        String regle = css.substring(debut, css.indexOf('}', debut));
+        String regle = regleDuTelephone(".ant-status {");
         assertTrue(regle.replace(" ", "").contains("pointer-events:none"),
                 "la ligne d'état de l'appli doit laisser passer les touchers : " + regle);
+    }
+
+    /**
+     * Revue de la tâche 4b du lot T3 (I1) : le bandeau bref ({@code #toast}), invisible une fois passé, reste posé
+     * au-dessus de l'île dynamique et en garde la largeur du dernier message : il avalait les touchers qui ramènent à
+     * l'appel. Il les laisse passer.
+     */
+    @Test
+    void leBandeauBrefNeRetientAucunToucher() throws IOException {
+        String regle = regleDuTelephone("#toast {");
+        assertTrue(regle.replace(" ", "").contains("pointer-events:none"),
+                "le bandeau bref doit laisser passer les touchers (l'île est dessous) : " + regle);
+    }
+
+    /**
+     * Revue de la tâche 4b du lot T3 (mineur 1) : le clavier de l'application Téléphone couvrait l'en-tête, dont la
+     * boîte « Accueil » ({@code tel-close}) partait quand même. Sur cet onglet l'en-tête passe devant le clavier.
+     */
+    @Test
+    void leClavierNeCouvrePasLeRetourALAccueil() throws IOException {
+        int clavier = profondeur(regleDuTelephone(".tel-pad {"));
+        int enTete = profondeur(regleDuTelephone("#phone.tel-keypad .tel-head {"));
+        assertTrue(enTete > clavier, "sur le clavier, l'en-tête (" + enTete + ") passe devant lui (" + clavier + ")");
+    }
+
+    /** Le texte de la première règle de {@code phone.css} qui commence par {@code selecteur}, accolade comprise. */
+    private static String regleDuTelephone(String selecteur) throws IOException {
+        String css = Files.readString(dossier().resolve("phone/phone.css"), StandardCharsets.UTF_8);
+        int debut = css.indexOf("\n" + selecteur);
+        assertTrue(debut >= 0, "règle « " + selecteur + " » absente de phone.css");
+        return css.substring(debut + 1, css.indexOf('}', debut));
+    }
+
+    private static int profondeur(String regle) {
+        Matcher m = Pattern.compile("z-index:\\s*([0-9]+)").matcher(regle);
+        assertTrue(m.find(), "z-index absent : " + regle);
+        return Integer.parseInt(m.group(1));
     }
 
     @Test

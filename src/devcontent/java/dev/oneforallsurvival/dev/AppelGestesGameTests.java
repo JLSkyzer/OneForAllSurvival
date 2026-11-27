@@ -248,9 +248,11 @@ public final class AppelGestesGameTests {
     }
 
     /**
-     * L'appelé tient un autre téléphone, écran ouvert dessus, le sien en poche : l'appel lui arrive marqué « ailleurs »
-     * (à l'ouverture aussi), « Appel entrant » et la fin passent en barre d'action, et ni décrocher ni refuser depuis
-     * cet écran n'agit, même au bon numéro d'appel.
+     * L'appelé tient un autre téléphone, configuré et déverrouillé, écran ouvert dessus, le sien en poche : l'appel lui
+     * arrive marqué « ailleurs » (à l'ouverture aussi), « Appel entrant » et la fin passent en barre d'action, et ni
+     * décrocher ni refuser depuis cet écran n'agit, même au bon numéro d'appel. Ouvrir l'application Téléphone sur cet
+     * autre téléphone joint le carnet de sa carte (aucune ici : vide), marqué ailleurs (revue de la tâche 4b, I2), et
+     * rien du carnet de la carte en appel ; la fin, elle, n'en joint aucun, écran déverrouillé compris.
      */
     @GameTest(template = "test/plancher", batch = LOT, timeoutTicks = 200)
     public static void unAutreTelephoneOuvertNePrendPasLAppel(GameTestHelper helper) {
@@ -260,8 +262,13 @@ public final class AppelGestesGameTests {
         helper.startSequence()
                 .thenWaitUntil(() -> attendreAntennes(helper, essai))
                 .thenExecute(() -> {
+                    helper.assertTrue(PhoneDirectory.get(essai.serveur()).saveContact(p.carteL().simId(),
+                            p.carteM().number(), "Maman") == PhoneDirectory.SaveResult.SAVED,
+                            "un contact au carnet de la carte qui va sonner");
                     autreTelephoneEnMain(p.l(), p.phoneL());
                     ouvrir(helper, p.l());
+                    ecran(helper, p.l(), PhoneActionPacket.Action.SETUP, CODE);
+                    helper.assertTrue(deverrouille(p.l()), "l'autre téléphone, configuré, déverrouillé");
                     vider(p.l());
                     id[0] = sonner(helper, p);
                     PhoneCallStatePacket entrant = dernier(helper, p.l().etatsAppelRecus(), "sonnerie");
@@ -272,6 +279,16 @@ public final class AppelGestesGameTests {
                     PhoneCallStatePacket rouvert = dernier(helper, p.l().etatsAppelRecus(), "à l'ouverture");
                     helper.assertTrue(rouvert.phase() == Phase.INCOMING && !rouvert.here(),
                             "à l'ouverture, ailleurs : " + rouvert);
+                    ecran(helper, p.l(), PhoneActionPacket.Action.UNLOCK, CODE);
+                    helper.assertTrue(deverrouille(p.l()), "rouvert puis déverrouillé");
+                    vider(p.l());
+                    geste(helper, p.l(), Action.OPEN_PHONE_APP, "", "");
+                    PhoneCallStatePacket appli = dernier(helper, p.l().etatsAppelRecus(), "ouvrir l'application");
+                    helper.assertTrue(appli.phase() == Phase.INCOMING && !appli.here() && appli.book() != null,
+                            "l'application sur l'autre téléphone : un carnet, marqué ailleurs : " + appli);
+                    helper.assertTrue(appli.book() != null && appli.book().contacts().isEmpty()
+                            && appli.book().recents().isEmpty(),
+                            "le carnet du téléphone tenu (sans carte), rien de la carte en appel : " + appli);
                 })
                 .thenIdle(1)
                 .thenExecute(() -> {
@@ -282,6 +299,7 @@ public final class AppelGestesGameTests {
                     helper.assertTrue(sonne(p.l()), "décrocher depuis l'autre téléphone : toujours en sonnerie");
                     geste(helper, p.l(), Action.DECLINE, texte, "");
                     helper.assertTrue(sonne(p.l()), "refuser depuis l'autre téléphone : toujours en sonnerie");
+                    helper.assertTrue(deverrouille(p.l()), "à la fin, l'écran ouvert ailleurs est déverrouillé");
                     vider(p.l());
                     helper.assertTrue(CallService.hangUp(p.m().joueur(), id[0]), "raccroché par l'appelant");
                     PhoneCallStatePacket fin = dernier(helper, p.l().etatsAppelRecus(), "fin");

@@ -122,9 +122,7 @@ public final class PhoneWebScreen extends WebScreen implements PhoneClient.Shown
 
     private void pushCall(PhoneCallStatePacket c) {
         run(WebScript.call("phone.call", PhoneCallJson.call(c, serverNow(), c.message().getString())));
-        if (c.book() != null && c.here()) {
-            run(WebScript.call("phone.directory", PhoneCallJson.directory(c.book())));
-        }
+        PhoneCallJson.directoryOf(c).ifPresent(d -> run(WebScript.call("phone.directory", d)));
     }
 
     /** L'heure du serveur estimée : celle du dernier état, plus le temps écoulé ici depuis (aucune horloge à croire). */

@@ -963,12 +963,17 @@
       return;
     }
     var run = state.alertActions[i];
-    state.alertActions = [null, null];
-    phoneEl.classList.remove('alert-open');
+    closeAlert();
     if (run) {
       run();
     }
     scheduleLayout();
+  }
+
+  /** Ferme l'alerte sans jouer aucun de ses boutons. */
+  function closeAlert() {
+    state.alertActions = [null, null];
+    phoneEl.classList.remove('alert-open');
   }
 
   var toastTimer = null;
@@ -1580,10 +1585,10 @@
     paintField();
   }
 
-  /** Une touche quand le champ du tarif a la main : chiffres, retour arrière, Entrée (enregistre). */
+  /** Une touche quand le champ du tarif a la main (et se voit) : chiffres, retour arrière, Entrée (enregistre). */
   function antennaKey(e) {
-    if (!ant.open || !ant.focus || ant.tab !== 'tariff') {
-      return false;
+    if (!ant.open || !ant.focus || ant.tab !== 'tariff' || call.shown) {
+      return false; // sous l'écran d'appel, rien ne part dans un champ caché
     }
     var k = keyOf(e);
     var c = e.keyCode || e.which || 0;
@@ -1725,6 +1730,7 @@
   var CALL_TEXTS = {
     INCOMING: 'Appel entrant',
     OUTGOING: 'Appel…',
+    IN_CALL: 'Déjà en appel',
     BAD_NUMBER: 'Numéro invalide',
     BAD_NAME: 'Nom invalide'
   };
@@ -1822,10 +1828,13 @@
     return call.base + Math.max(0, Math.floor((performance.now() - call.at) / 1000));
   }
 
-  /** La première lettre d'un nom, ou rien (un numéro seul a la silhouette). */
+  /**
+   * La première lettre d'un nom, ou rien (un numéro seul a la silhouette). Par point de code : un nom qui commence par
+   * un emoji garde sa paire entière.
+   */
   function initial(name) {
     var t = name.trim();
-    return t ? t.charAt(0).toUpperCase() : '';
+    return t ? Array.from(t)[0].toUpperCase() : '';
   }
 
   /** Une copie d'un dessin modèle de la page (#tpl) : aucune page du mod ne fabrique de balise depuis une chaîne. */
@@ -1927,8 +1936,14 @@
         call.shown = true;
         closeForm();
       }
+      if (fresh) {
+        closeAlert(); // une alerte resterait au-dessus de l'appel et prendrait ses touchers
+      }
       call.dialAt = 0;
       paintCall();
+      if (v.message) {
+        toast(v.message); // la réponse à un geste fait pendant l'appel (« Numéro invalide »…)
+      }
       scheduleLayout(fresh ? undefined : 150);
       return;
     }
@@ -1970,7 +1985,13 @@
 
   function dial(number) {
     number = digitsOnly(number);
-    if (!number || call.view !== null || (call.dialAt > 0 && performance.now() - call.dialAt < 1000)) {
+    if (number && call.view !== null) {
+      // Déjà en appel : le toucher ramène à son écran et le dit, rien n'est composé.
+      backToCall();
+      toast(CALL_TEXTS.IN_CALL);
+      return;
+    }
+    if (!number || (call.dialAt > 0 && performance.now() - call.dialAt < 1000)) {
       return;
     }
     call.dialed = number;
@@ -2334,10 +2355,24 @@
     }
   }
 
-  /** Les touches quand l'application a la main (pas un champ de saisie) : le clavier, Retour arrière, Entrée. */
+  /**
+   * Les touches quand l'application a la main. Feuille d'un contact ouverte : Entrée la valide, depuis un champ de saisie
+   * aussi. Sinon, hors d'un champ de saisie, sur le clavier : les chiffres, Retour arrière, Entrée (appeler). Une touche
+   * maintenue (repeat) ne valide ni n'appelle une seconde fois.
+   */
   function telKey(e) {
-    if (!tel.open || tel.form || call.shown || phoneEl.classList.contains('alert-open')) {
+    if (!tel.open || call.shown || phoneEl.classList.contains('alert-open')) {
       return false;
+    }
+    var c = e.keyCode || e.which || 0;
+    var enter = e.key === 'Enter' || c === 13;
+    if (tel.form) {
+      if (!enter || e.repeat) {
+        return false;
+      }
+      e.preventDefault();
+      saveForm();
+      return true;
     }
     var focused = document.activeElement;
     if (focused && focused.tagName === 'INPUT') {
@@ -2347,10 +2382,11 @@
       return false;
     }
     var k = keyOf(e);
-    var c = e.keyCode || e.which || 0;
-    if (k === null && (e.key === 'Enter' || c === 13)) {
+    if (k === null && enter) {
       e.preventDefault();
-      dialCall();
+      if (!e.repeat) {
+        dialCall();
+      }
       return true;
     }
     if (k === null) {

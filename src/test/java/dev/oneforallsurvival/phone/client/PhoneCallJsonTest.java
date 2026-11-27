@@ -12,6 +12,7 @@ import dev.oneforallsurvival.phone.call.PhoneCallStatePacket.Book;
 import dev.oneforallsurvival.phone.call.PhoneCallStatePacket.Phase;
 import dev.oneforallsurvival.phone.call.Recent;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
@@ -97,6 +98,27 @@ class PhoneCallJsonTest {
         assertEquals("NONE", fin.get("phase").getAsString());
         assertEquals("", fin.get("number").getAsString());
         assertEquals("", fin.get("message").getAsString());
+    }
+
+    /**
+     * Revue de la tâche 4b (I2) : pendant un appel porté par un autre téléphone, la réponse à « ouvrir l'application »
+     * arrive marquée ailleurs, avec le carnet de la carte de ce téléphone-ci : il va à la page (sinon l'appli reste sur
+     * « Chargement… »). Le serveur seul juge s'il joint un carnet ; sans carnet joint, rien ne part.
+     */
+    @Test
+    void leCarnetJointParLeServeurVaALaPageMemeAppelAilleurs() {
+        Book book = new Book(List.of(new Contact("0612345678", "Maman")), List.of());
+        for (boolean here : new boolean[] {true, false}) {
+            for (Phase phase : Phase.values()) {
+                PhoneCallStatePacket avec = new PhoneCallStatePacket(phase, 42, "0612345678", "Maman", -1L, false,
+                        false, here, null, book);
+                assertEquals(Optional.of(PhoneCallJson.directory(book)), PhoneCallJson.directoryOf(avec),
+                        "carnet joint, " + phase + ", here=" + here);
+                PhoneCallStatePacket sans = new PhoneCallStatePacket(phase, 42, "0612345678", "Maman", -1L, false,
+                        false, here, null, null);
+                assertEquals(Optional.empty(), PhoneCallJson.directoryOf(sans), "aucun carnet joint, " + phase);
+            }
+        }
     }
 
     @Test

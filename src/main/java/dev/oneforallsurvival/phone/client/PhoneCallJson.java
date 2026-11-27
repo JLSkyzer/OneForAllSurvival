@@ -9,6 +9,7 @@ import dev.oneforallsurvival.phone.call.PhoneCallStatePacket.Phase;
 import dev.oneforallsurvival.phone.call.Recent;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -65,6 +66,16 @@ public final class PhoneCallJson {
         }
         long elapsed = (serverNow - call.answeredMillis()) / 1000L;
         return elapsed >= Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) elapsed;
+    }
+
+    /**
+     * Le carnet à passer à la page avec cet état : celui que le serveur a joint, s'il en a joint un. La règle est au
+     * serveur, qui ne joint un carnet qu'à bon droit (écran déverrouillé, carte du téléphone de la session) : il ne se
+     * juge pas ici, et surtout pas sur {@link PhoneCallStatePacket#here()} (revue de la tâche 4b, I2 : pendant un appel
+     * porté par un autre téléphone, la réponse arrive marquée ailleurs et l'application restait sur « Chargement… »).
+     */
+    static Optional<JsonObject> directoryOf(PhoneCallStatePacket call) {
+        return Optional.ofNullable(call.book()).map(PhoneCallJson::directory);
     }
 
     public static JsonObject directory(Book book) {

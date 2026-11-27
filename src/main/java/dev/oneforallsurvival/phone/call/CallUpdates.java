@@ -63,12 +63,8 @@ public final class CallUpdates {
 
     /** L'instant du décroché de chaque appel en ligne ({@code EconomyClock.now()}). */
     private static final Map<Integer, Long> ANSWERED_AT = new HashMap<>();
-    /**
-     * Le tic de la prochaine sonnerie de chaque appel qui sonne. La première sonne au premier tic vu (revue de la tâche
-     * 4a, mineur) : un vrai paquet {@code DIAL} est joué entre deux tics, après la fin du tic de {@code startedTick},
-     * qu'un calcul depuis {@code startedTick} ne faisait sonner que 40 tics plus tard.
-     */
-    private static final Map<Integer, Integer> NEXT_RING = new HashMap<>();
+    /** Quand chaque appel sonne : au premier tic vu, puis toutes les {@value #RING_PERIOD} tics. */
+    private static final RingSchedule RINGS = new RingSchedule(RING_PERIOD);
     /** Les tics de batterie déjà payés par le téléphone de chaque bout en appel. */
     private static final Map<UUID, ItemBattery.Prepaid> DRAIN = new HashMap<>();
 
@@ -184,7 +180,7 @@ public final class CallUpdates {
      */
     private static void onEnded(Call call, End reason) {
         Long answered = ANSWERED_AT.remove(call.id());
-        NEXT_RING.remove(call.id());
+        RINGS.forget(call.id());
         MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
         for (Party party : new Party[] {call.caller(), call.callee()}) {
             DRAIN.remove(party.player());
@@ -228,14 +224,8 @@ public final class CallUpdates {
         MinecraftServer server = event.getServer();
         int tick = server.getTickCount();
         for (Call call : CallService.calls()) {
-            if (call.state() == CallBook.State.RINGING) {
-                int next = NEXT_RING.getOrDefault(call.id(), tick);
-                if (tick >= next) {
-                    NEXT_RING.put(call.id(), tick + RING_PERIOD);
-                    ring(server, call);
-                }
-            } else {
-                NEXT_RING.remove(call.id());
+            if (RINGS.due(call, tick)) {
+                ring(server, call);
             }
             drain(server, call.caller());
             drain(server, call.callee());
