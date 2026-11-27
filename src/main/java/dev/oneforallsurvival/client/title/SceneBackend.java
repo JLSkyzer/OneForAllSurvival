@@ -11,8 +11,8 @@ import org.lwjgl.opengl.GL32C;
 
 /**
  * Tout ce qui touche la scène du jar de service ({@link EarlyScene}) côté écran titre : la seule classe du titre
- * qui la référence en dehors des signatures de {@link TitleScene}. Elle n'est chargée qu'une fois la scène
- * confirmée (overlay du mod paru, donc jar de service présent) : sans le jar, rien n'y mène.
+ * qui la référence en dehors des signatures de {@link TitleScene}. Elle n'est chargée qu'une fois le jar de service
+ * vu (overlay du mod paru, ou classe de la scène trouvée par {@link TitleScene}) : sans le jar, rien n'y mène.
  *
  * <p>Thread du jeu seulement, contexte du jeu courant. Chaque appel GL est entouré d'une photographie de l'état
  * ({@link GlStateGuard}), comme l'overlay du chargement : {@code GlStateManager} retrouve ce qu'il croit lié.

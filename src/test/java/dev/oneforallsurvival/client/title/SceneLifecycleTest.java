@@ -84,10 +84,41 @@ class SceneLifecycleTest {
     }
 
     @Test
+    void sansOverlayDuModLEcranTitreCreeSaScene() {
+        // Fenêtre anticipée de Forge choisie dans fml.toml : aucun overlay du mod. Le premier titre crée la scène,
+        // une seule fois, puis la reprend tant qu'elle se charge, comme au retour d'un monde.
+        SceneLifecycle forge = new SceneLifecycle();
+        assertEquals(Request.CREATE, forge.acquire());
+        assertEquals(State.RECREATING, forge.state());
+        assertTrue(forge.holdsScene());
+        for (int i = 0; i < 100; i++) {
+            assertEquals(Request.USE, forge.acquire());
+        }
+        forge.sceneReady();
+        assertEquals(State.TITLE, forge.state());
+        // Un monde, puis le titre : recréée comme d'habitude.
+        assertTrue(forge.worldJoined());
+        assertEquals(Request.CREATE, forge.acquire());
+
+        // Un monde rejoint avant tout écran titre (aucune scène tenue) : le premier titre la crée.
+        SceneLifecycle mondeDAbord = new SceneLifecycle();
+        assertFalse(mondeDAbord.worldJoined());
+        assertEquals(Request.CREATE, mondeDAbord.acquire());
+
+        // Une image du titre échoue sur la scène créée : libérée, puis repli pour la session.
+        SceneLifecycle rendu = new SceneLifecycle();
+        rendu.acquire();
+        assertTrue(rendu.renderFailed());
+        assertEquals(Request.NONE, rendu.acquire());
+    }
+
+    @Test
     void sansSceneLEcranResteUtilisable() {
-        // Jar de service absent, ou fenêtre anticipée de Forge : aucun overlay du mod. Une seule décision, puis
-        // repli à chaque image, sans jamais tenter de création.
+        // Jar de service absent : la création demandée par le premier titre échoue. Une seule tentative, puis
+        // repli à chaque image, même après un monde.
         SceneLifecycle sansJar = new SceneLifecycle();
+        assertEquals(Request.CREATE, sansJar.acquire());
+        sansJar.creationFailed();
         for (int i = 0; i < 1000; i++) {
             assertEquals(Request.NONE, sansJar.acquire());
         }

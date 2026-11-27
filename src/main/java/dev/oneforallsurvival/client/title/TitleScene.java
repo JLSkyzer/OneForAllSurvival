@@ -46,6 +46,8 @@ public final class TitleScene {
     private static SceneBackend backend; // non nul si et seulement si LIFECYCLE.holdsScene()
     private static long shownAt = -1L; // première image dessinée d'une scène recréée (Util.getMillis), -1 avant
     private static boolean unavailableLogged;
+    /** Jar de service de la fenêtre anticipée, qui porte la scène (nom pour le journal). */
+    private static final String SERVICE_JAR = "oneforallsurvival-earlywindow";
 
     private TitleScene() {}
 
@@ -107,9 +109,10 @@ public final class TitleScene {
             return Optional.empty();
         }
         try {
+            boolean withoutOverlay = LIFECYCLE.state() == SceneLifecycle.State.LOADING_OVERLAY;
             SceneLifecycle.Request request = LIFECYCLE.acquire();
             if (request == SceneLifecycle.Request.CREATE) {
-                create();
+                create(withoutOverlay);
             }
             if (LIFECYCLE.state() == SceneLifecycle.State.UNAVAILABLE && !unavailableLogged) {
                 unavailableLogged = true;
@@ -186,18 +189,38 @@ public final class TitleScene {
 
     // --- Interne ---------------------------------------------------------------------------------------
 
-    private static void create() {
+    private static void create(boolean withoutOverlay) {
+        if (!serviceJarPresent()) {
+            // Fenêtre de Forge et jar de service retiré : rien à créer, une ligne et le repli, sans exception.
+            LIFECYCLE.creationFailed();
+            unavailableLogged = true;
+            LOGGER.info("Écran titre : jar de service {} absent, pas de scène animée pour cette session, fond de repli",
+                    SERVICE_JAR);
+            return;
+        }
         long begin = System.nanoTime();
         try {
             backend = SceneBackend.create(line -> LOGGER.info("[scène du titre] {}", line));
             shownAt = -1L;
             LOGGER.info(String.format(Locale.ROOT,
-                    "Écran titre : scène recréée sur l'aube en %.1f ms (textures en chargement, fond de repli)",
+                    "Écran titre : scène %s sur l'aube en %.1f ms (textures en chargement, fond de repli)",
+                    withoutOverlay ? "créée par l'écran titre (pas d'overlay du mod)" : "recréée",
                     (System.nanoTime() - begin) / 1e6));
         } catch (Throwable t) {
             backend = null;
             LIFECYCLE.creationFailed();
-            LOGGER.warn("Écran titre : recréation de la scène impossible, fond de repli pour la session", t);
+            unavailableLogged = true;
+            LOGGER.warn("Écran titre : création de la scène impossible, fond de repli pour la session", t);
+        }
+    }
+
+    /** La scène vient du jar de service (couche des services) : sans lui, sa classe est introuvable. */
+    private static boolean serviceJarPresent() {
+        try {
+            Class.forName("dev.oneforallsurvival.earlywindow.EarlyScene", false, TitleScene.class.getClassLoader());
+            return true;
+        } catch (ClassNotFoundException | LinkageError e) {
+            return false;
         }
     }
 

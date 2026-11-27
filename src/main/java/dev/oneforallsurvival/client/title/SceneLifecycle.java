@@ -9,9 +9,11 @@ package dev.oneforallsurvival.client.title;
  *   <li>{@link State#TITLE} : la scène est au détenteur, prête, dessinée par l'écran titre ;</li>
  *   <li>{@link State#IN_WORLD} : pas de scène (libérée en entrant dans un monde, ou par l'overlay sans écran titre
  *       derrière lui) ; le prochain écran titre la recrée ;</li>
- *   <li>{@link State#RECREATING} : scène recréée dans le contexte du jeu, textures en cours de chargement ;</li>
- *   <li>{@link State#UNAVAILABLE} : pas de scène pour cette session (jar de service absent, repli du chantier 1,
- *       échec GL) ; l'écran titre dessine son fond de repli. Décidé une fois, jamais retenté.</li>
+ *   <li>{@link State#RECREATING} : scène créée dans le contexte du jeu (retour d'un monde, ou premier titre sans
+ *       overlay du mod), textures en cours de chargement ;</li>
+ *   <li>{@link State#UNAVAILABLE} : pas de scène pour cette session (jar de service absent, création en échec,
+ *       repli du chantier 1, échec GL) ; l'écran titre dessine son fond de repli. Décidé une fois, jamais
+ *       retenté.</li>
  * </ul>
  */
 public final class SceneLifecycle {
@@ -68,16 +70,18 @@ public final class SceneLifecycle {
     }
 
     /**
-     * L'écran titre demande la scène (à chaque image). Sans overlay du mod, la première demande conclut une fois
-     * pour toutes : pas de scène.
+     * L'écran titre demande la scène (à chaque image). Sans overlay du mod, la première demande la fait créer par
+     * le détenteur, comme au retour d'un monde (une seule tentative ; sans jar de service, elle échoue et
+     * {@link #creationFailed} conclut au repli).
      */
     public Request acquire() {
         switch (state) {
             case LOADING_OVERLAY:
                 if (!overlayStarted) {
-                    // Aucun overlay du mod n'a paru avant l'écran titre : jar de service absent, ou fenêtre
-                    // anticipée de Forge. Rien ne viendra.
-                    state = State.UNAVAILABLE;
+                    // Aucun overlay du mod n'a paru avant l'écran titre (fenêtre anticipée de Forge choisie dans
+                    // fml.toml, ou jar de service absent) : rien ne viendra de lui, l'écran titre crée sa scène.
+                    state = State.RECREATING;
+                    return Request.CREATE;
                 }
                 return Request.NONE;
             case TITLE:

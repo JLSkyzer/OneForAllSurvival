@@ -241,6 +241,14 @@ minecraft {
             workingDirectory project.file('run-titre')
         }
 
+        // Écran titre sans la fenêtre anticipée du mod (lot C) : fml.toml choisit celle de Forge, comme chez un joueur
+        // dont le fichier n'a pas notre ligne. Préparé par prepareTitleForgeRun ; `-PsansJarDeService` retire aussi le
+        // jar de service de son dossier mods.
+        titleForge {
+            parent minecraft.runs.client
+            workingDirectory project.file('run-titre-forge')
+        }
+
         // Démonstration filmée (dev seulement) : un client qui se pilote seul, monte les scènes des
         // réseaux et enregistre ses images dans run-demo/frames. Voir DemoReseaux (devcontent).
         demo {
@@ -1033,6 +1041,39 @@ earlyWindowShowCPU = false
 }
 tasks.matching { it.name == 'runTitleFr' }.configureEach {
     dependsOn prepareTitleRun
+}
+
+// Dossier de `titleForge` : fml.toml écrit s'il manque, avec la fenêtre de Forge (`fmlearlywindow`) ; la coupure des
+// lancements d'automate (couperFenetreForge) y met earlyWindowControl à faux, la fenêtre de Forge ne s'ouvre donc pas
+// (elle prendrait le premier plan) : dans les deux cas, aucun overlay du mod ne paraît. Jar de service recopié, ou
+// retiré avec `-PsansJarDeService` ; options.txt (français) écrit s'il manque.
+def titleForgeDir = project.file('run-titre-forge')
+def prepareTitleForgeRun = tasks.register('prepareTitleForgeRun') {
+    group = 'build'
+    description = 'Prépare run-titre-forge/ : fml.toml (fenêtre de Forge), jar de service (ou aucun), options.txt.'
+    dependsOn earlyWindowJar
+    doLast {
+        def mods = new File(titleForgeDir, 'mods')
+        mods.mkdirs()
+        mods.listFiles({ f -> f.name ==~ /${mod_id}-earlywindow-.*\.jar/ } as FileFilter).each { it.delete() }
+        if (!project.hasProperty('sansJarDeService')) {
+            def frais = tasks.named('earlyWindowJar', Jar).get().archiveFile.get().asFile
+            java.nio.file.Files.copy(frais.toPath(), new File(mods, frais.name).toPath())
+        }
+        logger.lifecycle("run-titre-forge/mods : jar de service " + (project.hasProperty('sansJarDeService') ? 'absent' : 'présent'))
+        def fml = new File(titleForgeDir, 'config/fml.toml')
+        if (!fml.exists()) {
+            fml.parentFile.mkdirs()
+            fml.write('earlyWindowProvider = "fmlearlywindow"\nearlyWindowControl = true\nversionCheck = false\n', 'UTF-8')
+        }
+        def options = new File(titleForgeDir, 'options.txt')
+        if (!options.exists()) {
+            options.write('lang:fr_fr' + '\n', 'UTF-8')
+        }
+    }
+}
+tasks.matching { it.name == 'runTitleForge' }.configureEach {
+    dependsOn prepareTitleForgeRun
 }
 
 // Dossier de la bande-annonce (run-demo/bande-annonce) : le jar de service recopié à chaque fois ; fml.toml (fenêtre
