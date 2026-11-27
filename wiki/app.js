@@ -89,7 +89,7 @@
         <div class="panel"><h2>Les trois règles à retenir</h2>
           <div class="row">Ton métier décide de ce que tu fabriques.</div>
           <div class="row">Tes pièces vont sur toi ou dans ton coffre-fort, nulle part ailleurs.</div>
-          <div class="row">Électricité et téléphone se paient seuls à minuit.</div>
+          <div class="row">L'électricité se paie seule à minuit.</div>
         </div>
       </div>`;
   }

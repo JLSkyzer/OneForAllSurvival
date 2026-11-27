@@ -35,3 +35,6 @@ run-titre
 
 # compagnons de brainstorming (superpowers)
 .superpowers/brainstorm/
+
+# Jars exportés pour le serveur et les joueurs (non versionnés)
+export/

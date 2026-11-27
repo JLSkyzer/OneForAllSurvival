@@ -2,8 +2,8 @@
 
 Plan : [2026-11-27-lot-t3-appels-messages](../superpowers/plans/2026-11-27-lot-t3-appels-messages.md).
 Lot **en cours** : les appels (feature 93, haut-parleur compris), les urgences (95) et leur repli Minecraft sont
-écrits et vus en jeu ; les **messages (96)**, le bout en bout sur serveur dédié avec le pack, l'essai de la voix à
-deux clients et le wiki restent à faire.
+écrits et vus en jeu ; les **messages (96)**, le bout en bout sur serveur dédié avec le pack et l'essai de la voix à
+deux clients restent à faire. Wiki mis à jour et jars exportés pour un essai sur serveur le 27/11 (voir plus bas).
 
 ## Ce qui est livré
 
@@ -64,6 +64,18 @@ Les étapes d'essai de bout en bout existantes (aucune étape neuve pour les app
 | Relance de cette étape | **TOUT PASSE, 12 PASS** |
 
 Le serveur dédié et le client démarrent donc avec Simple Voice Chat obligatoire et le protocole `12`.
+
+## Wiki et export (27/11, à la demande de Killian)
+
+- Wiki : fiches « Appel vocal » et « Urgences » passées « En jeu », deux fiches tuto (antenne ; ligne et appels),
+  blocage croissant, batterie en appel, relais. Les messages restent « Prévu ».
+- Export dans `export/2026-11-27/` (non versionné) : `./gradlew build earlyWindowJar`, 1260 essais JUnit et 95 de la
+  fenêtre de chargement, 0 échec ; code inchangé depuis `c9b162f` (celui des 1240 GameTests).
+- `oneforallsurvival-0.1.0.jar` (SHA-256 `cb99583f…`) : manifeste des quatre configurations de mixins, refmap,
+  noms remappés, aucune classe d'essai, page du téléphone identique aux sources. **Jamais lancé hors développement.**
+- Les affirmations du tuto sur les connecteurs et l'alternateur de Crafts & Additions viennent de la lecture du
+  jar 1.3.3 et de sa configuration ; seul le fil depuis un générateur créatif a été joué (lot T2).
+- Pack des joueurs relevé en lecture sur le mini PC : mods requis présents, `oneforallsurvival` absent.
 
 ## Non prouvé et limites
 
