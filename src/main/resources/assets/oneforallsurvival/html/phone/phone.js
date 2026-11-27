@@ -2218,6 +2218,12 @@
 
   /** Le bouton vert du clavier ; sans chiffre, il rappelle le dernier numéro composé (comme un vrai téléphone). */
   function dialCall() {
+    if (call.view !== null) {
+      // Déjà en appel, champ vide compris : ramène à l'écran d'appel au lieu de remettre le dernier numéro.
+      backToCall();
+      toast(CALL_TEXTS.IN_CALL);
+      return;
+    }
     if (tel.digits) {
       dial(tel.digits);
       return;
