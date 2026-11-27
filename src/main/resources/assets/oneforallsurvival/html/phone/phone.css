@@ -1316,3 +1316,382 @@ body {
   line-height: 17px;
   text-align: center;
 }
+
+/* ---------------------------------------------------------------- Application Téléphone (lot T3, tâche 4b) */
+
+.icon-phone { background: linear-gradient(180deg, #5bf675 0%, #0fbe32 100%); }
+.icon-phone svg { width: 100%; height: 100%; display: block; }
+
+#tel {
+  z-index: 25;
+  background: #fff;
+  color: #000;
+  transform: scale(0.18);
+  opacity: 0;
+  border-radius: 48px;
+  visibility: hidden;
+  pointer-events: none;
+  transition: transform 0.42s cubic-bezier(0.2, 0.9, 0.25, 1), opacity 0.3s, border-radius 0.42s, visibility 0s linear 0.42s;
+}
+#phone.tel-open #tel {
+  transform: scale(1);
+  opacity: 1;
+  border-radius: 0;
+  visibility: visible;
+  pointer-events: auto;
+  transition: transform 0.48s cubic-bezier(0.2, 0.9, 0.25, 1), opacity 0.2s, border-radius 0.48s, visibility 0s;
+}
+#phone.tel-open #home { transform: scale(0.92); filter: blur(2px) brightness(0.8); }
+
+.tel-head {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 132px;
+  padding: 0 20px;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.94);
+  z-index: 2;
+}
+.tel-title {
+  position: absolute;
+  left: 20px;
+  bottom: 10px;
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+.tel-add {
+  position: absolute;
+  right: 14px;
+  top: 48px;
+  width: 34px;
+  height: 34px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  color: #007aff;
+}
+.tel-add svg { width: 22px; height: 22px; }
+.tel-add:active { opacity: 0.4; }
+#phone.tel-contacts .tel-add { display: flex; }
+
+.tel-scroll {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 132px;
+  bottom: 83px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px 0 30px;
+  box-sizing: border-box;
+  scrollbar-width: none;
+}
+.tel-scroll::-webkit-scrollbar { display: none; }
+.tel-pane { display: none; }
+#phone.tel-recents #tel-recents, #phone.tel-contacts #tel-contacts { display: block; }
+.tel-wait { display: none; padding-top: 150px; text-align: center; font-size: 15px; color: #8a8a8e; }
+#phone.tel-waiting .tel-pane { display: none; }
+#phone.tel-waiting .tel-wait { display: block; }
+
+/* Les listes : pleine largeur, filets à partir du texte, comme l'application d'un vrai téléphone. */
+#tel .group { border-radius: 0; margin: 0; background: none; }
+.tel-row { min-height: 60px; padding: 0 12px 0 20px; }
+.tel-row + .tel-row::before { left: 20px; }
+.tel-row:active { background: #e5e5ea; }
+.tel-kind { flex: none; width: 18px; margin-left: -6px; margin-right: 4px; color: #8a8a8e; }
+.tel-kind svg { width: 14px; height: 14px; display: block; }
+.tel-row .stack { min-width: 0; }
+.tel-name { font-size: 17px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.tel-row.missed .tel-name { color: #ff3b30; }
+.tel-sub { margin-top: 1px; font-size: 14px; color: #8a8a8e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.tel-when { flex: none; margin-left: 10px; font-size: 15px; color: #8a8a8e; font-variant-numeric: tabular-nums; }
+.tel-info {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  margin: 0 -6px 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #007aff;
+}
+.tel-info svg { width: 23px; height: 23px; }
+.tel-info:active { opacity: 0.4; }
+#tel .row.empty { min-height: 60px; padding-top: 120px; }
+
+/* Le clavier : numéro au format « 06 12 34 56 78 », touches grises, appel vert. */
+.tel-pad {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 83px;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  background: #fff;
+  z-index: 3;
+}
+#phone.tel-keypad .tel-pad { display: flex; }
+.dial-number {
+  margin-top: 128px;
+  height: 46px;
+  width: 340px;
+  text-align: center;
+  font-size: 38px;
+  font-weight: 400;
+  letter-spacing: 0.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.dial-add-slot { height: 30px; display: flex; align-items: center; }
+.dial-add { color: #007aff; font-size: 15px; visibility: hidden; padding: 4px 8px; }
+#phone.dial-some .dial-add { visibility: visible; }
+.dial-add:active { opacity: 0.4; }
+.dial-pad {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(3, 78px);
+  grid-auto-rows: 78px;
+  column-gap: 26px;
+  row-gap: 14px;
+}
+.dkey {
+  width: 78px;
+  height: 78px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #e5e5ea;
+  color: #000;
+  transition: background 0.35s;
+}
+.dkey b { font-size: 36px; font-weight: 400; line-height: 1; }
+.dkey small { margin-top: 2px; font-size: 10px; font-weight: 700; letter-spacing: 2px; line-height: 1; }
+.dkey.down, .dkey:active { background: #b8b8bf; transition: background 0s; }
+.dkey.blank { background: none; }
+.dial-call {
+  width: 78px;
+  height: 78px;
+  border-radius: 50%;
+  background: #34c759;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dial-call svg { width: 36px; height: 36px; }
+.dial-call:active { filter: brightness(0.85); }
+.dial-back {
+  width: 78px;
+  height: 78px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #c7c7cc;
+  visibility: hidden;
+}
+.dial-back svg { width: 30px; height: 24px; }
+#phone.dial-some .dial-back { visibility: visible; }
+.dial-back:active { opacity: 0.5; }
+
+.tel-tabs { z-index: 4; }
+#phone.tel-recents #tel-tab-recents, #phone.tel-contacts #tel-tab-contacts, #phone.tel-keypad #tel-tab-keypad { color: #007aff; }
+
+/* Feuille d'un contact. */
+#cform {
+  z-index: 40;
+  background: #f2f2f7;
+  color: #000;
+  transform: translateY(100%);
+  visibility: hidden;
+  pointer-events: none;
+  transition: transform 0.42s cubic-bezier(0.32, 0.72, 0, 1), visibility 0s linear 0.42s;
+}
+#phone.cform-open #cform {
+  transform: translateY(0);
+  visibility: visible;
+  pointer-events: auto;
+  transition: transform 0.42s cubic-bezier(0.32, 0.72, 0, 1), visibility 0s;
+}
+.sheet-done {
+  position: absolute;
+  right: 16px;
+  bottom: 12px;
+  font-size: 17px;
+  font-weight: 600;
+  color: #007aff;
+}
+.sheet-done:active { opacity: 0.4; }
+.cform-avatar {
+  width: 96px;
+  height: 96px;
+  margin: 10px auto 24px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #a5abb7 0%, #858b97 100%);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 42px;
+  font-weight: 500;
+}
+.cform-avatar svg { width: 52px; height: 52px; }
+.cform-input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  border: 0;
+  outline: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
+  font-size: 17px;
+  color: #000;
+  -webkit-user-select: text;
+  user-select: text;
+}
+.cform-input::placeholder { color: #c4c4c7; }
+.cform-input[readonly] { color: #8a8a8e; }
+#cform .row + .row::before { left: 16px; }
+#cform-delete-group.gone { display: none; }
+
+/* ---------------------------------------------------------------- Écran d'appel (lot T3, tâche 4b) */
+
+#call {
+  z-index: 45;
+  color: #fff;
+  background: linear-gradient(180deg, rgba(38, 44, 58, 0.8) 0%, rgba(16, 18, 26, 0.92) 100%);
+  -webkit-backdrop-filter: blur(34px) saturate(1.3);
+  backdrop-filter: blur(34px) saturate(1.3);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: scale(1.06);
+  transition: opacity 0.3s, transform 0.4s cubic-bezier(0.2, 0.9, 0.25, 1), visibility 0s linear 0.4s;
+}
+#phone.call-open #call {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: scale(1);
+  transition: opacity 0.25s, transform 0.4s cubic-bezier(0.2, 0.9, 0.25, 1), visibility 0s;
+}
+.call-top {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  top: 104px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.call-avatar {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #a5abb7 0%, #6e7480 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 38px;
+  font-weight: 500;
+}
+.call-avatar svg { width: 46px; height: 46px; }
+.call-name {
+  margin-top: 18px;
+  max-width: 100%;
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+.call-sub {
+  margin-top: 6px;
+  min-height: 22px;
+  font-size: 18px;
+  color: rgba(235, 235, 245, 0.72);
+  font-variant-numeric: tabular-nums;
+}
+/* Un nom long (jusqu'à 32 caractères) : plus petit, sur deux lignes au plus. */
+.call-name.long {
+  font-size: 26px;
+  line-height: 1.2;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+#phone.call-ended .call-sub { color: #fff; font-weight: 600; }
+
+.call-controls {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 470px;
+  display: none;
+  justify-content: center;
+  gap: 64px;
+}
+#phone.call-live .call-controls { display: flex; }
+.call-opt, .call-btn { display: flex; flex-direction: column; align-items: center; }
+.call-opt b, .call-btn b { margin-top: 8px; font-size: 13px; font-weight: 500; }
+.call-round {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  transition: background 0.2s, color 0.2s, filter 0.15s;
+}
+.call-round svg { width: 34px; height: 34px; }
+.call-opt.on .call-round { background: #fff; color: #1c1c1e; }
+.call-opt.off { opacity: 0.4; }
+.call-opt:active .call-round, .call-btn:active .call-round { filter: brightness(0.8); }
+.call-round.red { background: #ff3b30; }
+.call-round.green { background: #34c759; }
+.call-round .hang { transform: rotate(135deg); }
+
+.call-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 86px;
+  display: flex;
+  justify-content: center;
+  gap: 150px;
+}
+.call-btn { display: none; }
+#phone.call-incoming #call-decline, #phone.call-incoming #call-answer { display: flex; }
+#phone.call-live #call-hangup { display: flex; }
+#phone.call-ended .call-bottom, #phone.call-ended .call-controls { visibility: hidden; }
+
+/* L'île pendant un appel quitté : le combiné et le minuteur, en vert. */
+.isl-ico, .isl-time { display: none; }
+#island.call { color: #34c759; }
+#island.call .isl-ico { display: block; position: absolute; left: 13px; top: 10px; width: 17px; height: 17px; }
+#island.call .isl-time {
+  display: block;
+  position: absolute;
+  left: 34px;
+  right: 30px;
+  top: 0;
+  line-height: 37px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}

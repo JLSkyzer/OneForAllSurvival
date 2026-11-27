@@ -23,6 +23,18 @@
 //   op-page-prev, op-page-next. Java -> page, appli : phone.antenna(vue | null), phone.antennaStatus(texte) (voir
 //   plus bas) ; la vue porte aussi tariffText, nextTariffText (ou null) et capText, les montants écrits par le jeu
 //   (revue de la tâche 10).
+//   Lot T3, tâche 4b (appels) : page -> Java : {"a":"callDial","number":"<chiffres>"} ; {"a":"callAnswer"} ;
+//   {"a":"callDecline"} ; {"a":"callHangup"} (sans numéro d'appel : Java prend celui du dernier état reçu) ;
+//   {"a":"callMute"|"callSpeaker","on":true|false} ; {"a":"contactSave","number":"<chiffres>","name":"…"} ;
+//   {"a":"contactRemove","number":"<chiffres>"} ; {"a":"phoneApp"} (demande le carnet). Champs exacts, rien d'autre
+//   accepté ; numéro de 1 à 32 chiffres ASCII sans espace, nom de 1 à 32 caractères. Java -> page :
+//   phone.call(état | null), état = {phase: "OUTGOING"|"INCOMING"|"ACTIVE"|"NONE", id, number, name, seconds (écoulées
+//   depuis le décroché), muted, speaker, message (texte déjà traduit ou "")} ; un appel porté par un autre téléphone que
+//   celui de l'écran arrive en NONE vide. phone.directory({contacts: [{number, name}], recents: [{number, name,
+//   kind: "OUTGOING"|"INCOMING"|"MISSED", at (ms), seconds}]}), dans l'ordre du serveur. Boîtes de layout : app-phone,
+//   tel-close, tel-tab-recents, tel-tab-contacts, tel-tab-keypad, contact-add, recent-<n>, contact-<n>,
+//   contact-info-<n>, dial-0 à dial-9, dial-back, dial-call, dial-add, cform-cancel, cform-save, cform-name,
+//   cform-number, cform-delete, call-answer, call-decline, call-hangup, call-mute, call-speaker, island.
 // Le serveur fait foi : la page ne juge aucun code, elle les transmet. Tout texte venu de la vue passe par textContent.
 // Un téléphone neuf (lock SETUP) montre l'assistant de première configuration : Bonjour, Configuration rapide, Fond
 // d'écran, le code (écran #lock), puis Tout est prêt. Rien n'est configuré avant l'envoi du code : fermer avant laisse
@@ -504,8 +516,9 @@
   }
 
   function paintChrome() {
-    var light = state.screen === 'settings' || phoneEl.classList.contains('sheet-open')
-      || phoneEl.classList.contains('sim-open') || phoneEl.classList.contains('ant-open');
+    var light = (state.screen === 'settings' || phoneEl.classList.contains('sheet-open')
+      || phoneEl.classList.contains('sim-open') || phoneEl.classList.contains('ant-open')
+      || phoneEl.classList.contains('tel-open')) && !phoneEl.classList.contains('call-open');
     $('status').classList.toggle('ink-dark', light && state.screen !== 'lock' && state.screen !== 'setup');
     phoneEl.classList.toggle('ink-dark', light && state.screen !== 'lock' && state.screen !== 'setup');
   }
@@ -525,6 +538,9 @@
       // Verrouillé, effacé : le serveur ferme le panneau de lui-même. Parti ailleurs (Réglages) pendant l'attente
       // cachée de l'icône grisée : l'appli ne s'ouvrira pas par-dessus, et si le serveur l'a ouverte, opClose la ferme.
       closeAntenna(ant.quiet);
+    }
+    if (screen !== 'home' && tel.open) {
+      closeTel();
     }
     if (screen !== 'settings' && state.simOpen) {
       state.simOpen = false;
@@ -653,7 +669,8 @@
   };
 
   function activeEntry() {
-    if (phoneEl.classList.contains('alert-open') || phoneEl.classList.contains('sim-open')) {
+    if (phoneEl.classList.contains('alert-open') || phoneEl.classList.contains('sim-open')
+      || phoneEl.classList.contains('call-open')) {
       return null;
     }
     if (phoneEl.classList.contains('sheet-open')) {
@@ -984,6 +1001,11 @@
       phoneEl.classList.add('no-anim');
       phoneEl.classList.remove('sheet-open', 'alert-open', 'sim-open');
       closeAntenna(false);
+      closeTel();
+      stopEnding();
+      call.view = null;
+      call.shown = false;
+      call.dialAt = 0;
       state.sheet = null;
       state.simOpen = false;
       state.requestsOpen = false;
@@ -1018,6 +1040,7 @@
     }
 
     handleLast(v);
+    paintCall(); // le verrou change ce que l'écran d'appel permet (silence, haut-parleur)
 
     if (state.screen === 'lock' || state.screen === 'setup') {
       paintLockTexts();
@@ -1683,14 +1706,730 @@
     }
   }
 
+  // ------------------------------------------------------------------------------------------- Appels (T3, tâche 4b)
+
+  // Java appelle window.phone.call(état | null) à chaque état d'appel de ce téléphone, et window.phone.directory(carnet)
+  // quand le serveur envoie le carnet de la carte. La page n'a aucune règle : elle montre la phase reçue (entrant,
+  // sortant, en cours, fin) et envoie des gestes que Java relit (le numéro de l'appel visé vient de Java, jamais d'ici).
+  // Aucun numéro ni nom n'est écrit dans un journal.
+  var PHASES = ['NONE', 'OUTGOING', 'INCOMING', 'ACTIVE'];
+  var KINDS = ['OUTGOING', 'INCOMING', 'MISSED'];
+  var MAX_CONTACTS = 100;
+  var MAX_RECENTS = 50;
+  var MAX_TEXT = 32;
+  var DIAL_MAX = 15; // chiffres au clavier
+  var ENDING_MS = 2000; // le message de fin reste environ deux secondes
+  var DIAL_WAIT_MS = 4000; // une réponse à un appel composé arrive dans ce délai, ou n'arrive pas
+  var DIGITS_RE = /^[0-9]{1,32}$/;
+  // Les textes que la page écrit elle-même (les messages d'appel et de carnet viennent traduits de Java).
+  var CALL_TEXTS = {
+    INCOMING: 'Appel entrant',
+    OUTGOING: 'Appel…',
+    BAD_NUMBER: 'Numéro invalide',
+    BAD_NAME: 'Nom invalide'
+  };
+  var KIND_TEXT = { OUTGOING: 'Appel sortant', INCOMING: 'Appel entrant', MISSED: 'Appel manqué' };
+  var TEL_TABS = ['recents', 'contacts', 'keypad'];
+  var TEL_TITLES = { recents: 'Récents', contacts: 'Contacts', keypad: 'Clavier' };
+
+  var call = {
+    view: null, // l'appel en cours (phase OUTGOING, INCOMING ou ACTIVE), ou null
+    shown: false, // l'écran d'appel est à l'écran (sinon l'île porte l'appel)
+    ending: null, // { name, number, message } pendant le message de fin
+    endTimer: null,
+    base: 0, // secondes reçues
+    at: 0, // performance.now() à la réception
+    dialed: '', // le dernier numéro composé ici, et quand
+    dialAt: 0,
+    toggleTimer: null
+  };
+
+  var tel = {
+    open: false,
+    tab: 'recents',
+    loaded: false, // un carnet est arrivé depuis l'ouverture
+    contacts: [],
+    recents: [],
+    digits: '', // le clavier
+    form: null // { edit: bool, number } : la feuille d'un contact
+  };
+
+  /** Un numéro lisible : « 0612345678 » devient « 06 12 34 56 78 » (paires depuis la gauche, comme SimNumbers). */
+  function formatNumber(n) {
+    if (!n) {
+      return '';
+    }
+    if (n.length <= 2) {
+      return n;
+    }
+    var out = '';
+    for (var i = 0; i < n.length; i += 2) {
+      out += (i > 0 ? ' ' : '') + n.slice(i, i + 2);
+    }
+    return out;
+  }
+
+  function digitsOnly(x) {
+    return typeof x === 'string' && DIGITS_RE.test(x) ? x : '';
+  }
+
+  /** L'état d'appel, borné comme le serveur le borne ; null ou incomplet se lit « aucun appel ». */
+  function cleanCall(v) {
+    v = v && typeof v === 'object' ? v : {};
+    return {
+      phase: PHASES.indexOf(v.phase) >= 0 ? v.phase : 'NONE',
+      id: integer(v.id, 0, 2147483647) ? v.id : 0,
+      number: digitsOnly(v.number),
+      name: text(v.name, MAX_TEXT),
+      seconds: num(v.seconds, 0, 2147483647, 0),
+      muted: v.muted === true,
+      speaker: v.speaker === true,
+      message: text(v.message, 200)
+    };
+  }
+
+  function cleanDirectory(d) {
+    d = d && typeof d === 'object' ? d : {};
+    var out = { contacts: [], recents: [] };
+    var i;
+    var list = Array.isArray(d.contacts) ? d.contacts : [];
+    for (i = 0; i < list.length && out.contacts.length < MAX_CONTACTS; i++) {
+      var c = list[i];
+      if (c && typeof c === 'object' && digitsOnly(c.number)) {
+        out.contacts.push({ number: c.number, name: text(c.name, MAX_TEXT) });
+      }
+    }
+    list = Array.isArray(d.recents) ? d.recents : [];
+    for (i = 0; i < list.length && out.recents.length < MAX_RECENTS; i++) {
+      var r = list[i];
+      if (r && typeof r === 'object' && digitsOnly(r.number) && KINDS.indexOf(r.kind) >= 0) {
+        out.recents.push({ number: r.number, name: text(r.name, MAX_TEXT), kind: r.kind,
+          at: finite(r.at) ? Math.max(0, r.at) : 0, seconds: num(r.seconds, 0, 2147483647, 0) });
+      }
+    }
+    return out;
+  }
+
+  /** « 1:05 », « 12:40 », « 1:02:09 ». */
+  function duration(s) {
+    var h = Math.floor(s / 3600);
+    var m = Math.floor(s / 60) % 60;
+    var r = s % 60;
+    return (h > 0 ? h + ':' + two(m) : String(m)) + ':' + two(r);
+  }
+
+  function callSeconds() {
+    return call.base + Math.max(0, Math.floor((performance.now() - call.at) / 1000));
+  }
+
+  /** La première lettre d'un nom, ou rien (un numéro seul a la silhouette). */
+  function initial(name) {
+    var t = name.trim();
+    return t ? t.charAt(0).toUpperCase() : '';
+  }
+
+  /** Une copie d'un dessin modèle de la page (#tpl) : aucune page du mod ne fabrique de balise depuis une chaîne. */
+  function icon(id) {
+    var c = $(id).cloneNode(true);
+    c.removeAttribute('id');
+    return c;
+  }
+
+  function paintAvatar(box, name) {
+    clearBox(box);
+    var letter = initial(name);
+    if (letter) {
+      box.textContent = letter;
+      return;
+    }
+    box.appendChild(icon('tpl-person'));
+  }
+
+  function paintCall() {
+    var v = call.view;
+    var e = call.ending;
+    var open = call.shown && (v !== null || e !== null);
+    phoneEl.classList.toggle('call-open', open);
+    phoneEl.classList.toggle('call-incoming', !e && v !== null && v.phase === 'INCOMING');
+    phoneEl.classList.toggle('call-live', !e && v !== null && v.phase !== 'INCOMING');
+    phoneEl.classList.toggle('call-ended', e !== null);
+    if (open) {
+      var name = e ? e.name : v.name;
+      var number = e ? e.number : v.number;
+      var shown = name || formatNumber(number) || '—';
+      $('call-name').textContent = shown;
+      $('call-name').classList.toggle('long', shown.length > 16);
+      paintAvatar($('call-avatar'), name);
+      paintCallSub();
+      var locked = !state.view || state.view.lock !== 'UNLOCKED';
+      $('call-mute').classList.toggle('on', !!v && v.muted);
+      $('call-speaker').classList.toggle('on', !!v && v.speaker);
+      // Verrouillé, le serveur refuse le silence et le haut-parleur : la page les montre éteints, sans geste.
+      $('call-mute').classList.toggle('off', locked);
+      $('call-speaker').classList.toggle('off', locked);
+    }
+    paintIsland();
+    paintChrome();
+  }
+
+  function paintCallSub() {
+    var v = call.view;
+    var sub = call.ending ? call.ending.message
+      : !v ? '' : v.phase === 'INCOMING' ? CALL_TEXTS.INCOMING : v.phase === 'OUTGOING' ? CALL_TEXTS.OUTGOING
+        : duration(callSeconds());
+    if ($('call-sub').textContent !== sub) {
+      $('call-sub').textContent = sub;
+    }
+  }
+
+  /** L'île porte un appel sortant ou en cours quand son écran est quitté ; toucher l'île y ramène. */
+  function islandCall() {
+    return call.view !== null && !call.shown && call.view.phase !== 'INCOMING';
+  }
+
+  function paintIsland() {
+    var on = islandCall();
+    $('island').classList.toggle('call', on);
+    var t = !on ? '' : call.view.phase === 'ACTIVE' ? duration(callSeconds()) : '…';
+    if ($('isl-time').textContent !== t) {
+      $('isl-time').textContent = t;
+    }
+  }
+
+  function tickCall() {
+    if (call.view && call.view.phase === 'ACTIVE') {
+      if (call.shown && !call.ending) {
+        paintCallSub();
+      }
+      paintIsland();
+    }
+  }
+
+  function stopEnding() {
+    clearTimeout(call.endTimer);
+    call.endTimer = null;
+    call.ending = null;
+  }
+
+  /** Un état d'appel du serveur (ou null). */
+  function onCall(raw) {
+    var v = cleanCall(raw);
+    var before = call.view;
+    clearTimeout(call.toggleTimer);
+    if (v.phase !== 'NONE') {
+      var fresh = before === null || before.id !== v.id;
+      stopEnding();
+      call.view = v;
+      call.base = v.seconds;
+      call.at = performance.now();
+      // Un nouvel appel, ou un appel qui sonne chez nous, prend l'écran ; un appel quitté reste dans l'île.
+      if (fresh || v.phase === 'INCOMING') {
+        call.shown = true;
+        closeForm();
+      }
+      call.dialAt = 0;
+      paintCall();
+      scheduleLayout(fresh ? undefined : 150);
+      return;
+    }
+    call.view = null;
+    var dialing = call.dialAt > 0 && performance.now() - call.dialAt < DIAL_WAIT_MS;
+    if (v.message && (before !== null || dialing)) {
+      // La fin d'un appel (ou l'échec d'un appel composé ici) : le message reste environ deux secondes.
+      stopEnding();
+      call.ending = before !== null ? { name: before.name, number: before.number, message: v.message }
+        : { name: nameOf(call.dialed), number: call.dialed, message: v.message };
+      call.shown = true;
+      call.dialAt = 0;
+      call.endTimer = setTimeout(function () {
+        call.ending = null;
+        call.shown = false;
+        paintCall();
+        scheduleLayout();
+      }, ENDING_MS);
+    } else {
+      if (!call.ending) {
+        call.shown = false;
+      }
+      if (v.message) {
+        toast(v.message); // un refus du carnet (« Carnet plein », « Nom invalide »…)
+      }
+    }
+    paintCall();
+    scheduleLayout();
+  }
+
+  function nameOf(number) {
+    for (var i = 0; i < tel.contacts.length; i++) {
+      if (tel.contacts[i].number === number) {
+        return tel.contacts[i].name;
+      }
+    }
+    return '';
+  }
+
+  function dial(number) {
+    number = digitsOnly(number);
+    if (!number || call.view !== null || (call.dialAt > 0 && performance.now() - call.dialAt < 1000)) {
+      return;
+    }
+    call.dialed = number;
+    call.dialAt = performance.now();
+    send({ a: 'callDial', number: number });
+  }
+
+  /** Quitte l'écran d'un appel sortant ou en cours : l'île le garde. Un appel qui sonne chez nous ne se quitte pas. */
+  function leaveCall() {
+    if (!call.shown || !call.view || call.view.phase === 'INCOMING' || call.ending) {
+      return;
+    }
+    call.shown = false;
+    paintCall();
+    scheduleLayout();
+  }
+
+  function backToCall() {
+    if (!islandCall()) {
+      return;
+    }
+    call.shown = true;
+    paintCall();
+    scheduleLayout();
+  }
+
+  /** Silence ou haut-parleur : la réponse se voit tout de suite, l'état suivant du serveur fait foi. */
+  function toggleCall(which) {
+    var v = call.view;
+    if (!v || !state.view || state.view.lock !== 'UNLOCKED') {
+      return;
+    }
+    var on = which === 'mute' ? !v.muted : !v.speaker;
+    $(which === 'mute' ? 'call-mute' : 'call-speaker').classList.toggle('on', on);
+    send({ a: which === 'mute' ? 'callMute' : 'callSpeaker', on: on });
+    clearTimeout(call.toggleTimer);
+    call.toggleTimer = setTimeout(function () { paintCall(); }, PENDING_MS);
+  }
+
+  function callTap(t) {
+    var v = call.view;
+    if (call.ending || !v) {
+      return;
+    }
+    if (t.closest('#call-answer') && v.phase === 'INCOMING') {
+      send({ a: 'callAnswer' });
+    } else if (t.closest('#call-decline') && v.phase === 'INCOMING') {
+      send({ a: 'callDecline' });
+    } else if (t.closest('#call-hangup') && v.phase !== 'INCOMING') {
+      send({ a: 'callHangup' });
+    } else if (t.closest('#call-mute')) {
+      toggleCall('mute');
+    } else if (t.closest('#call-speaker')) {
+      toggleCall('speaker');
+    } else if (t.closest('#home-bar')) {
+      leaveCall();
+    }
+  }
+
+  function callRects(add) {
+    if (call.ending || !call.view) {
+      return;
+    }
+    if (call.view.phase === 'INCOMING') {
+      add('call-decline');
+      add('call-answer');
+      return;
+    }
+    if (state.view && state.view.lock === 'UNLOCKED') {
+      add('call-mute');
+      add('call-speaker');
+    }
+    add('call-hangup');
+    add('home-bar');
+  }
+
+  // ------------------------------------------------------------------------------------------- Application Téléphone
+
+  function directory(raw) {
+    var d = cleanDirectory(raw);
+    tel.contacts = d.contacts;
+    tel.recents = d.recents;
+    tel.loaded = true;
+    if (tel.open) {
+      paintTel();
+      scheduleLayout(150);
+    }
+  }
+
+  function openTel() {
+    if (state.screen !== 'home' || tel.open || ant.open || !state.view || state.view.lock !== 'UNLOCKED') {
+      return;
+    }
+    var icon = $('app-phone').querySelector('.app-icon').getBoundingClientRect();
+    var box = phoneEl.getBoundingClientRect();
+    $('tel').style.transformOrigin =
+      Math.round(icon.left - box.left + icon.width / 2) + 'px ' + Math.round(icon.top - box.top + icon.height / 2) + 'px';
+    tel.open = true;
+    tel.loaded = false;
+    tel.digits = '';
+    $('tel-scroll').scrollTop = 0;
+    paintTel();
+    phoneEl.classList.add('tel-open');
+    paintChrome();
+    send({ a: 'phoneApp' }); // le carnet, à chaque ouverture
+    scheduleLayout();
+  }
+
+  function closeTel() {
+    if (!tel.open) {
+      return;
+    }
+    closeForm();
+    tel.open = false;
+    phoneEl.classList.remove('tel-open');
+    paintChrome();
+    scheduleLayout();
+  }
+
+  function telTab(tab) {
+    if (TEL_TABS.indexOf(tab) < 0 || tab === tel.tab) {
+      return;
+    }
+    tel.tab = tab;
+    $('tel-scroll').scrollTop = 0;
+    paintTel();
+    scheduleLayout(150);
+  }
+
+  /** L'instant d'un récent, à l'heure locale du serveur : l'heure aujourd'hui, « Hier », le jour, puis la date. */
+  function recentWhen(at) {
+    if (!at || !state.view) {
+      return '';
+    }
+    var off = state.view.zoneOffsetSeconds * 1000;
+    var d = new Date(at + off);
+    var dayMs = 86400000;
+    var today = Math.floor(nowLocal() / dayMs);
+    var day = Math.floor((at + off) / dayMs);
+    if (day === today) {
+      return two(d.getUTCHours()) + ':' + two(d.getUTCMinutes());
+    }
+    if (day === today - 1) {
+      return 'Hier';
+    }
+    if (day > today - 7 && day < today) {
+      var name = DAYS[d.getUTCDay()];
+      return name.charAt(0).toUpperCase() + name.slice(1);
+    }
+    return two(d.getUTCDate()) + '/' + two(d.getUTCMonth() + 1);
+  }
+
+  function telRow(id, name, sub) {
+    var r = el('div', 'row tel-row');
+    r.id = id;
+    var stack = el('div', 'stack');
+    stack.appendChild(el('span', 'tel-name', name));
+    if (sub) {
+      stack.appendChild(el('span', 'tel-sub', sub));
+    }
+    r.appendChild(stack);
+    return r;
+  }
+
+  function paintTel() {
+    for (var t = 0; t < TEL_TABS.length; t++) {
+      phoneEl.classList.toggle('tel-' + TEL_TABS[t], tel.tab === TEL_TABS[t]);
+    }
+    phoneEl.classList.toggle('tel-waiting', !tel.loaded && tel.tab !== 'keypad');
+    $('tel-title').textContent = TEL_TITLES[tel.tab];
+    var i;
+    var box = $('tel-recent-list');
+    clearBox(box);
+    if (tel.recents.length === 0) {
+      box.appendChild(emptyRow('Aucun appel récent'));
+    }
+    for (i = 0; i < tel.recents.length; i++) {
+      var r = tel.recents[i];
+      var sub = KIND_TEXT[r.kind] + (r.kind !== 'MISSED' && r.seconds > 0 ? ' · ' + duration(r.seconds) : '');
+      var row = telRow('recent-' + i, r.name || formatNumber(r.number), sub);
+      row.classList.toggle('missed', r.kind === 'MISSED');
+      var kind = el('span', 'tel-kind');
+      if (r.kind === 'OUTGOING') {
+        kind.appendChild(icon('tpl-out'));
+      }
+      row.insertBefore(kind, row.firstChild);
+      row.appendChild(el('span', 'tel-when', recentWhen(r.at)));
+      row.setAttribute('data-call', r.number);
+      box.appendChild(row);
+    }
+    box = $('tel-contact-list');
+    clearBox(box);
+    if (tel.contacts.length === 0) {
+      box.appendChild(emptyRow('Aucun contact'));
+    }
+    for (i = 0; i < tel.contacts.length; i++) {
+      var c = tel.contacts[i];
+      var crow = telRow('contact-' + i, c.name || formatNumber(c.number), formatNumber(c.number));
+      crow.setAttribute('data-call', c.number);
+      var info = el('span', 'tel-info');
+      info.id = 'contact-info-' + i;
+      info.setAttribute('data-edit', String(i));
+      info.appendChild(icon('tpl-info'));
+      crow.appendChild(info);
+      box.appendChild(crow);
+    }
+    paintDial();
+  }
+
+  function paintDial() {
+    $('dial-number').textContent = formatNumber(tel.digits);
+    phoneEl.classList.toggle('dial-some', tel.digits.length > 0);
+  }
+
+  function dialKey(k) {
+    if (k === 'back') {
+      tel.digits = tel.digits.slice(0, -1);
+    } else if (/^[0-9]$/.test(k) && tel.digits.length < DIAL_MAX) {
+      tel.digits += k;
+    }
+    paintDial();
+    scheduleLayout(150);
+  }
+
+  /** Le bouton vert du clavier ; sans chiffre, il rappelle le dernier numéro composé (comme un vrai téléphone). */
+  function dialCall() {
+    if (tel.digits) {
+      dial(tel.digits);
+      return;
+    }
+    for (var i = 0; i < tel.recents.length; i++) {
+      if (tel.recents[i].kind === 'OUTGOING') {
+        tel.digits = tel.recents[i].number;
+        paintDial();
+        scheduleLayout(150);
+        return;
+      }
+    }
+  }
+
+  // La feuille d'un contact.
+
+  function openForm(edit, number, name) {
+    tel.form = { edit: edit, number: number };
+    $('cform-title').textContent = edit ? 'Modifier le contact' : 'Nouveau contact';
+    $('cform-name').value = name || '';
+    $('cform-number').value = formatNumber(number || '');
+    $('cform-number').readOnly = edit;
+    $('cform-delete-group').classList.toggle('gone', !edit);
+    paintAvatar($('cform-avatar'), name || '');
+    phoneEl.classList.add('cform-open');
+    scheduleLayout();
+  }
+
+  function closeForm() {
+    if (!tel.form) {
+      return;
+    }
+    tel.form = null;
+    var focused = document.activeElement;
+    if (focused && focused.blur) {
+      focused.blur();
+    }
+    phoneEl.classList.remove('cform-open');
+    scheduleLayout();
+  }
+
+  /** « OK » : le nom (rogné) et le numéro (sans espaces) partent ; le serveur nettoie, juge et renvoie le carnet. */
+  function saveForm() {
+    var f = tel.form;
+    if (!f) {
+      return;
+    }
+    var name = $('cform-name').value.trim().slice(0, MAX_TEXT);
+    var number = f.edit ? f.number : $('cform-number').value.replace(/\s+/g, '');
+    if (!DIGITS_RE.test(number)) {
+      toast(CALL_TEXTS.BAD_NUMBER);
+      return;
+    }
+    if (!name) {
+      toast(CALL_TEXTS.BAD_NAME);
+      return;
+    }
+    send({ a: 'contactSave', number: number, name: name });
+    closeForm();
+  }
+
+  function removeFromForm() {
+    var f = tel.form;
+    if (!f || !f.edit) {
+      return;
+    }
+    var number = f.number;
+    var name = $('cform-name').value.trim() || formatNumber(number);
+    showAlert('Supprimer le contact ?', name + ' sera retiré du carnet de cette carte SIM.',
+      [{ label: 'Annuler', strong: false, run: null },
+        { label: 'Supprimer', danger: true, run: function () {
+          send({ a: 'contactRemove', number: number });
+          closeForm();
+        } }]);
+  }
+
+  function telTap(t) {
+    if (tel.form) {
+      if (t.closest('#cform-cancel')) {
+        closeForm();
+      } else if (t.closest('#cform-save')) {
+        saveForm();
+      } else if (t.closest('#cform-delete')) {
+        removeFromForm();
+      } else if (!t.closest('input')) {
+        var focused = document.activeElement;
+        if (focused && focused.tagName === 'INPUT' && focused.blur) {
+          focused.blur();
+        }
+      }
+      return;
+    }
+    if (t.closest('#tel-close') || t.closest('#home-bar')) {
+      closeTel();
+      return;
+    }
+    var tab = t.closest('[data-tel]');
+    if (tab) {
+      telTab(tab.getAttribute('data-tel'));
+      return;
+    }
+    if (t.closest('#contact-add')) {
+      openForm(false, '', '');
+      return;
+    }
+    var edit = t.closest('[data-edit]');
+    if (edit) {
+      var c = tel.contacts[Number(edit.getAttribute('data-edit'))];
+      if (c) {
+        openForm(true, c.number, c.name);
+      }
+      return;
+    }
+    var row = t.closest('[data-call]');
+    if (row) {
+      dial(row.getAttribute('data-call'));
+      return;
+    }
+    var key = t.closest('.dkey');
+    if (key && key.hasAttribute('data-d')) {
+      flash(key);
+      dialKey(key.getAttribute('data-d'));
+      return;
+    }
+    if (t.closest('#dial-back')) {
+      dialKey('back');
+      return;
+    }
+    if (t.closest('#dial-call')) {
+      dialCall();
+      return;
+    }
+    if (t.closest('#dial-add') && tel.digits) {
+      openForm(false, tel.digits, '');
+    }
+  }
+
+  /** Les touches quand l'application a la main (pas un champ de saisie) : le clavier, Retour arrière, Entrée. */
+  function telKey(e) {
+    if (!tel.open || tel.form || call.shown || phoneEl.classList.contains('alert-open')) {
+      return false;
+    }
+    var focused = document.activeElement;
+    if (focused && focused.tagName === 'INPUT') {
+      return false;
+    }
+    if (tel.tab !== 'keypad') {
+      return false;
+    }
+    var k = keyOf(e);
+    var c = e.keyCode || e.which || 0;
+    if (k === null && (e.key === 'Enter' || c === 13)) {
+      e.preventDefault();
+      dialCall();
+      return true;
+    }
+    if (k === null) {
+      return false;
+    }
+    e.preventDefault();
+    var key = $(k === 'back' ? 'dial-back' : 'dial-' + k);
+    if (key && k !== 'back') {
+      flash(key);
+    }
+    dialKey(k);
+    return true;
+  }
+
+  function telRects(add) {
+    if (tel.form) {
+      add('cform-cancel');
+      add('cform-save');
+      add('cform-name');
+      if (!tel.form.edit) {
+        add('cform-number');
+      } else {
+        add('cform-delete');
+      }
+      return;
+    }
+    add('tel-close');
+    for (var i = 0; i < TEL_TABS.length; i++) {
+      add('tel-tab-' + TEL_TABS[i]);
+    }
+    if (tel.tab === 'keypad') {
+      for (var d = 0; d <= 9; d++) {
+        add('dial-' + d);
+      }
+      add('dial-call');
+      if (tel.digits) {
+        add('dial-back');
+        add('dial-add');
+      }
+      return;
+    }
+    if (tel.tab === 'contacts') {
+      add('contact-add');
+    }
+    if (!tel.loaded) {
+      return;
+    }
+    var sc = $('tel-scroll').getBoundingClientRect();
+    var clip = { left: sc.left, top: sc.top, right: sc.right, bottom: sc.bottom };
+    var rows = $('tel-' + tel.tab).querySelectorAll('[id^="recent-"], [id^="contact-"]');
+    for (var k = 0; k < rows.length; k++) {
+      add(rows[k].id, clip);
+    }
+  }
+
   // ------------------------------------------------------------------------------------------- Mise en page envoyée
 
   var layoutTimer = null;
   var lastLayout = '';
 
+  var layoutDue = 0;
+
+  /**
+   * Envoie la mise en page après {@code delay} ms. Une mise en page déjà prévue plus tard (la fin d'une animation
+   * d'écran) n'est jamais avancée : sinon un carnet ou un état reçu pendant l'ouverture d'une appli ferait mesurer des
+   * boîtes à mi-animation (lot T3, tâche 4b).
+   */
   function scheduleLayout(delay) {
+    var d = delay === undefined ? LAYOUT_DELAY_MS : delay;
+    var due = performance.now() + d;
+    if (layoutTimer !== null && due < layoutDue) {
+      return;
+    }
     clearTimeout(layoutTimer);
-    layoutTimer = setTimeout(sendLayout, delay === undefined ? LAYOUT_DELAY_MS : delay);
+    layoutDue = due;
+    layoutTimer = setTimeout(function () {
+      layoutTimer = null;
+      sendLayout();
+    }, d);
   }
 
   function visibleIn(el, clip) {
@@ -1724,7 +2463,21 @@
       }
       return rects;
     }
+    if (phoneEl.classList.contains('call-open')) {
+      callRects(add);
+      return rects;
+    }
     add('status-bars');
+    if (islandCall()) {
+      add('island');
+    }
+    if (tel.open) {
+      telRects(add);
+      if (!tel.form) {
+        add('home-bar');
+      }
+      return rects;
+    }
     if (ant.open && !ant.quiet) {
       antennaRects(add);
       add('home-bar');
@@ -1769,6 +2522,7 @@
         add(ids[i]);
       }
     } else if (state.screen === 'home') {
+      add('app-phone');
       add('app-settings');
       if (!$('app-antenna').classList.contains('gone')) {
         add('app-antenna');
@@ -1821,7 +2575,19 @@
     if (phoneEl.classList.contains('alert-open')) {
       return;
     }
+    if (phoneEl.classList.contains('call-open')) {
+      callTap(t);
+      return;
+    }
+    if (t.closest('#island')) {
+      backToCall();
+      return;
+    }
     if (wizardTap(t)) {
+      return;
+    }
+    if (tel.open) {
+      telTap(t);
       return;
     }
     if (ant.open && !ant.quiet) {
@@ -1848,6 +2614,10 @@
     }
     if (t.closest('#app-settings')) {
       openSettings();
+      return;
+    }
+    if (t.closest('#app-phone')) {
+      openTel();
       return;
     }
     if (t.closest('#app-antenna')) {
@@ -2003,7 +2773,7 @@
   }
 
   function onKey(e) {
-    if (antennaKey(e)) {
+    if (antennaKey(e) || telKey(e)) {
       return;
     }
     var k = keyOf(e);
@@ -2468,6 +3238,17 @@
             reply(r);
           }
           break;
+        case 'callDial':
+        case 'callAnswer':
+        case 'callDecline':
+        case 'callHangup':
+        case 'callMute':
+        case 'callSpeaker':
+        case 'contactSave':
+        case 'contactRemove':
+        case 'phoneApp':
+          telGesture(m);
+          break;
         default:
           if (typeof m.a === 'string' && m.a.indexOf('op') === 0) {
             opGesture(m);
@@ -2475,6 +3256,157 @@
           break;
       }
     }
+
+    // Lot T3, tâche 4b : un faux carnet (dont un nom de 32 caractères et un appel manqué), un faux réseau d'appels. Le
+    // faux serveur suit CallActions (verrouillé : décrocher, refuser, raccrocher seulement) et CallUpdates (fin : NONE
+    // avec le message et le carnet) ; la page n'en sait rien. 0600000000 est un numéro inconnu, 0699999999 ne répond
+    // pas ; tout autre numéro décroche au bout de 2,5 s.
+    var tel = {
+      id: 40,
+      call: null, // { id, phase, number, answeredAt, muted, speaker, timer }
+      contacts: [
+        { number: '0611223344', name: 'Maman' },
+        { number: '0798765432', name: 'Capitaine Barbe-Grise du Lagon' },
+        { number: '0655443322', name: 'Léa (forge)' },
+        { number: '0712345678', name: 'Mairie de Port-Épave' },
+        { number: '0687654321', name: 'Noé' }
+      ],
+      recents: []
+    };
+    (function () {
+      var now = Date.now();
+      var h = 3600000;
+      tel.recents = [
+        { number: '0611223344', kind: 'MISSED', at: now - 0.3 * h, seconds: 0 },
+        { number: '0798765432', kind: 'OUTGOING', at: now - 1.2 * h, seconds: 274 },
+        { number: '0645454545', kind: 'INCOMING', at: now - 3 * h, seconds: 38 },
+        { number: '0655443322', kind: 'MISSED', at: now - 26 * h, seconds: 0 },
+        { number: '0712345678', kind: 'OUTGOING', at: now - 50 * h, seconds: 61 },
+        { number: '17', kind: 'OUTGOING', at: now - 98 * h, seconds: 12 },
+        { number: '0687654321', kind: 'INCOMING', at: now - 300 * h, seconds: 3720 }
+      ];
+    })();
+
+    function telName(number) {
+      for (var i = 0; i < tel.contacts.length; i++) {
+        if (tel.contacts[i].number === number) { return tel.contacts[i].name; }
+      }
+      return '';
+    }
+
+    function telBook() {
+      var recents = [];
+      for (var i = 0; i < tel.recents.length; i++) {
+        var r = tel.recents[i];
+        recents.push({ number: r.number, name: telName(r.number), kind: r.kind, at: r.at, seconds: r.seconds });
+      }
+      return { contacts: tel.contacts.slice(), recents: recents };
+    }
+
+    function telState(message) {
+      var c = tel.call;
+      if (!c) {
+        return { phase: 'NONE', id: 0, number: '', name: '', seconds: 0, muted: false, speaker: false,
+          message: message || '' };
+      }
+      return { phase: c.phase, id: c.id, number: c.number, name: telName(c.number),
+        seconds: c.answeredAt > 0 ? Math.floor((Date.now() - c.answeredAt) / 1000) : 0, muted: c.muted,
+        speaker: c.speaker, message: message || '' };
+    }
+
+    function telPush(message, book) {
+      var st = telState(message);
+      setTimeout(function () {
+        window.phone.call(st);
+        if (book) { window.phone.directory(telBook()); }
+      }, 160);
+    }
+
+    function telEnd(message, kind) {
+      var c = tel.call;
+      if (!c) { return; }
+      clearTimeout(c.timer);
+      tel.recents.unshift({ number: c.number, kind: kind, at: Date.now(),
+        seconds: c.answeredAt > 0 ? Math.floor((Date.now() - c.answeredAt) / 1000) : 0 });
+      var st = { phase: 'NONE', id: c.id, number: c.number, name: telName(c.number), seconds: 0, muted: false,
+        speaker: false, message: message };
+      tel.call = null;
+      setTimeout(function () {
+        window.phone.call(st);
+        if (mock.lock === 'UNLOCKED') { window.phone.directory(telBook()); }
+      }, 160);
+    }
+
+    function telIncoming(number) {
+      if (tel.call) { return; }
+      tel.id++;
+      tel.call = { id: tel.id, phase: 'INCOMING', number: number || '0611223344', answeredAt: 0, muted: false,
+        speaker: false, timer: null };
+      telPush('', false);
+    }
+
+    function telGesture(m) {
+      var unlocked = mock.lock === 'UNLOCKED';
+      var c = tel.call;
+      switch (m.a) {
+        case 'callDial':
+          if (!unlocked) { return; }
+          if (c) { telPush('Un appel est déjà en cours', false); return; }
+          if (mock.airplane) { telPush('Mode avion', false); return; }
+          if (m.number === '0600000000') { telPush('Numéro inconnu', false); return; }
+          tel.id++;
+          tel.call = { id: tel.id, phase: 'OUTGOING', number: m.number, answeredAt: 0, muted: false, speaker: false,
+            timer: null };
+          tel.call.timer = setTimeout(function () {
+            if (!tel.call || tel.call.phase !== 'OUTGOING') { return; }
+            if (tel.call.number === '0699999999') { telEnd('Pas de réponse', 'OUTGOING'); return; }
+            tel.call.phase = 'ACTIVE';
+            tel.call.answeredAt = Date.now();
+            telPush('', false);
+          }, tel.call.number === '0699999999' ? 4000 : 2500);
+          telPush('', false);
+          return;
+        case 'callAnswer':
+          if (c && c.phase === 'INCOMING') { c.phase = 'ACTIVE'; c.answeredAt = Date.now(); telPush('', false); }
+          return;
+        case 'callDecline':
+          if (c && c.phase === 'INCOMING') { telEnd('Appel refusé', 'MISSED'); }
+          return;
+        case 'callHangup':
+          if (c && c.phase !== 'INCOMING') { telEnd('Appel terminé', 'OUTGOING'); }
+          return;
+        case 'callMute':
+        case 'callSpeaker':
+          if (!unlocked || !c) { return; }
+          if (m.a === 'callMute') { c.muted = m.on === true; } else { c.speaker = m.on === true; }
+          telPush('', false);
+          return;
+        case 'contactSave':
+          if (!unlocked) { return; }
+          if (!/^0[67][0-9]{8}$/.test(m.number)) { telPush('Numéro invalide', true); return; }
+          var name = String(m.name).replace(/\s+/g, ' ').trim();
+          if (!name || name.length > 32) { telPush('Nom invalide', true); return; }
+          for (var i = 0; i < tel.contacts.length; i++) {
+            if (tel.contacts[i].number === m.number) { tel.contacts[i].name = name; telPush('', true); return; }
+          }
+          if (tel.contacts.length >= 100) { telPush('Carnet plein', true); return; }
+          tel.contacts.push({ number: m.number, name: name });
+          tel.contacts.sort(function (a, b) { return a.name.localeCompare(b.name, 'fr'); });
+          telPush('', true);
+          return;
+        case 'contactRemove':
+          if (!unlocked) { return; }
+          tel.contacts = tel.contacts.filter(function (k) { return k.number !== m.number; });
+          telPush('', true);
+          return;
+        case 'phoneApp':
+          if (unlocked) { telPush('', true); }
+          return;
+        default:
+          return;
+      }
+    }
+    tel.contacts.sort(function (a, b) { return a.name.localeCompare(b.name, 'fr'); });
 
     window.oneforall.mock = handle;
     // Commandes de la console, pour l'essai : phoneMock.setup(), phoneMock.locked(), phoneMock.notOwner(),
@@ -2534,13 +3466,21 @@
         pushOp(null);
       },
       antennaClosedByServer: function () { op.open = false; clearInterval(op.timer); window.phone.antenna(null); },
-      battery: function (pct) { mock.battery = pct; render(view('NONE')); }
+      battery: function (pct) { mock.battery = pct; render(view('NONE')); },
+      // Lot T3 : phoneMock.unlocked() (déverrouillé, sur l'accueil), incoming(numéro) (un appel qui sonne chez nous),
+      // callerHangsUp() (le correspondant raccroche), noContacts() (carnet vide).
+      unlocked: function () {
+        mock.session++; mock.code = '1234'; mock.lock = 'UNLOCKED'; render(view('NONE'));
+      },
+      incoming: function (number) { telIncoming(number); },
+      callerHangsUp: function () { telEnd('Appel terminé', tel.call && tel.call.phase === 'INCOMING' ? 'MISSED' : 'INCOMING'); },
+      noContacts: function () { tel.contacts = []; tel.recents = []; }
     };
   }
 
   // ------------------------------------------------------------------------------------------- Démarrage
 
-  window.phone = { render: render, antenna: antenna, antennaStatus: antennaStatus };
+  window.phone = { render: render, antenna: antenna, antennaStatus: antennaStatus, call: onCall, directory: directory };
 
   function start() {
     $('pad').classList.add('pad-park');
@@ -2553,6 +3493,8 @@
     window.addEventListener('resize', function () { lastLayout = ''; scheduleLayout(100); });
     setInterval(tickClock, 1000);
     setInterval(tickLockout, 250);
+    setInterval(tickCall, 250);
+    $('tel-scroll').addEventListener('scroll', function () { scheduleLayout(150); }, { passive: true });
     if (mockMode && window.oneforall) {
       startMock();
     }

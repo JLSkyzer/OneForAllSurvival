@@ -12,6 +12,7 @@ import dev.oneforallsurvival.client.web.WebPages;
 import dev.oneforallsurvival.client.web.WebScreen;
 import dev.oneforallsurvival.client.web.WebScript;
 import dev.oneforallsurvival.phone.PhoneStatePacket;
+import dev.oneforallsurvival.phone.call.PhoneCallStatePacket;
 import dev.oneforallsurvival.phone.net.OperatorActionPacket;
 import dev.oneforallsurvival.phone.net.OperatorNoticePacket;
 import dev.oneforallsurvival.phone.net.OperatorView;
@@ -35,6 +36,10 @@ import org.apache.logging.log4j.Logger;
  * ({@link OperatorViewJson}), {@code null} à la fermeture par le serveur ; le retour d'un geste à
  * {@code window.phone.antennaStatus} ; les gestes {@code op*} de la page sont relus par {@link AntennaBridgeMessages} au
  * numéro du panneau que cet écran tient, jamais à celui de la page.
+ *
+ * <p>Lot T3, tâche 4b : chaque état d'appel part à {@code window.phone.call} et son carnet à {@code window.phone.directory}
+ * ({@link PhoneCallJson}) ; les gestes d'appel et de carnet de la page sont relus par {@link CallBridgeMessages}, le
+ * numéro de l'appel visé pris au dernier état reçu.
  */
 public final class PhoneWebScreen extends WebScreen implements PhoneClient.Shown {
 
@@ -48,6 +53,10 @@ public final class PhoneWebScreen extends WebScreen implements PhoneClient.Shown
     private static final String DEFAULT_PAGE = "phone/index.html";
 
     private PhoneStatePacket state;
+    /** L'heure locale ({@code System.currentTimeMillis()}) à la réception de {@link #state}, pour l'heure du serveur. */
+    private long stateAt = System.currentTimeMillis();
+    /** Lot T3 : le dernier état d'appel reçu (nul avant le premier). */
+    @Nullable private PhoneCallStatePacket call = PhoneClient.lastCall().orElse(null);
     private Map<String, int[]> rects = Map.of();
     private boolean byServer;
     private boolean toFallback;
@@ -88,6 +97,7 @@ public final class PhoneWebScreen extends WebScreen implements PhoneClient.Shown
     @Override
     public void show(PhoneStatePacket next) {
         state = next;
+        stateAt = System.currentTimeMillis();
         if (isReady()) {
             render();
         }
@@ -98,10 +108,34 @@ public final class PhoneWebScreen extends WebScreen implements PhoneClient.Shown
         byServer = true;
     }
 
-    /** Lot T3 : l'état d'appel. La page ne le montre qu'à la tâche 4b ; il est lisible par {@code PhoneClient.lastCall}. */
+    /**
+     * Lot T3, tâche 4b : l'état d'appel part à {@code window.phone.call} ({@link PhoneCallJson}, un appel porté par un
+     * autre téléphone y arrive vide), le carnet qu'il porte à {@code window.phone.directory}.
+     */
     @Override
-    public void showCall(dev.oneforallsurvival.phone.call.PhoneCallStatePacket call) {
-        // Ignoré pour l'instant (tâche 4b).
+    public void showCall(PhoneCallStatePacket next) {
+        call = next;
+        if (isReady()) {
+            pushCall(next);
+        }
+    }
+
+    private void pushCall(PhoneCallStatePacket c) {
+        run(WebScript.call("phone.call", PhoneCallJson.call(c, serverNow(), c.message().getString())));
+        if (c.book() != null && c.here()) {
+            run(WebScript.call("phone.directory", PhoneCallJson.directory(c.book())));
+        }
+    }
+
+    /** L'heure du serveur estimée : celle du dernier état, plus le temps écoulé ici depuis (aucune horloge à croire). */
+    private long serverNow() {
+        return state.serverMillis() + Math.max(0L, System.currentTimeMillis() - stateAt);
+    }
+
+    /** Le dernier état d'appel reçu par cet écran, ou nul (lu par un automate). */
+    @Nullable
+    public PhoneCallStatePacket call() {
+        return call;
     }
 
     // --- Appli « Antenne » -----------------------------------------------------------------------------------------
@@ -231,6 +265,10 @@ public final class PhoneWebScreen extends WebScreen implements PhoneClient.Shown
         switch (a) {
             case "ready" -> {
                 render();
+                if (call != null && call.here() && call.phase() != PhoneCallStatePacket.Phase.NONE) {
+                    // Un appel en cours au chargement de la page : montré tout de suite (sans carnet, l'appli le demande).
+                    run(WebScript.call("phone.call", PhoneCallJson.call(call, serverNow(), "")));
+                }
                 // Page (re)chargée : elle ne montre plus l'appli, le panneau encore ouvert se ferme (revue, mineur 4).
                 antennaView = null;
                 antenna.ready().ifPresent(this::closeAntennaPanel);
@@ -240,6 +278,9 @@ public final class PhoneWebScreen extends WebScreen implements PhoneClient.Shown
             default -> {
                 if (AntennaBridgeMessages.isAntenna(a)) {
                     onAntennaMessage(message);
+                } else if (CallBridgeMessages.isCall(a)) {
+                    // Le numéro de l'appel visé vient du dernier état reçu ici, jamais de la page.
+                    CallBridgeMessages.toAction(message, state.session(), call).ifPresent(this::sendToServer);
                 } else {
                     PhoneBridgeMessages.toAction(message, state.session()).ifPresent(p -> {
                         if (p.action() == dev.oneforallsurvival.phone.PhoneActionPacket.Action.OPEN_OPERATOR_APP) {
@@ -273,6 +314,10 @@ public final class PhoneWebScreen extends WebScreen implements PhoneClient.Shown
     }
 
     private void sendAntenna(OperatorActionPacket packet) {
+        sendToServer(packet);
+    }
+
+    private void sendToServer(Object packet) {
         if (minecraft != null && minecraft.getConnection() != null) {
             BenchNetwork.CHANNEL.sendToServer(packet);
         }

@@ -31,6 +31,13 @@
         </div>
       </div>
       <div class="apps">
+        <!-- L'application Téléphone (lot T3) : récents, contacts, clavier. -->
+        <div class="app" id="app-phone">
+          <div class="app-icon icon-phone">
+            <svg viewBox="0 0 60 60" aria-hidden="true"><g transform="translate(10.5 10) scale(1.65)"><path d="M7.4 3.2l2.3-.5c.6-.1 1.2.2 1.4.8l1 2.9c.2.6 0 1.2-.5 1.5L10.2 9c.9 2.1 2.7 3.9 4.8 4.8l1.1-1.4c.4-.5 1-.7 1.5-.5l2.9 1c.6.2.9.8.8 1.4l-.5 2.3c-.1.7-.8 1.2-1.5 1.2C10.5 17.8 6.2 13.5 6.2 4.7c0-.7.5-1.4 1.2-1.5z" fill="#fff"/></g></svg>
+          </div>
+          <div class="app-name">Téléphone</div>
+        </div>
         <div class="app" id="app-settings">
           <div class="app-icon icon-settings">
             <svg viewBox="0 0 60 60" aria-hidden="true">
@@ -344,6 +351,75 @@
     </div>
   </section>
 
+  <!-- Application Téléphone (lot T3, tâche 4b) : Récents, Contacts, Clavier. Le carnet vient du serveur
+       (phone.directory) ; chaque toucher envoie un geste (callDial, contactSave, contactRemove), rien n'est décidé ici. -->
+  <section id="tel" class="layer">
+    <div class="tel-head">
+      <span class="ant-close" id="tel-close">Accueil</span>
+      <span class="tel-add" id="contact-add" aria-label="Nouveau contact"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+      <div class="tel-title" id="tel-title">Récents</div>
+    </div>
+    <div class="tel-scroll" id="tel-scroll">
+      <div class="tel-pane" id="tel-recents"><div class="group" id="tel-recent-list"></div></div>
+      <div class="tel-pane" id="tel-contacts"><div class="group" id="tel-contact-list"></div></div>
+      <div class="tel-wait" id="tel-wait">Chargement…</div>
+    </div>
+    <div class="tel-pad" id="tel-keypad">
+      <div class="dial-number" id="dial-number"></div>
+      <div class="dial-add-slot"><span class="dial-add" id="dial-add">Ajouter aux contacts</span></div>
+      <div class="dial-pad">
+        <div class="dkey" id="dial-1" data-d="1"><b>1</b><small>&nbsp;</small></div>
+        <div class="dkey" id="dial-2" data-d="2"><b>2</b><small>ABC</small></div>
+        <div class="dkey" id="dial-3" data-d="3"><b>3</b><small>DEF</small></div>
+        <div class="dkey" id="dial-4" data-d="4"><b>4</b><small>GHI</small></div>
+        <div class="dkey" id="dial-5" data-d="5"><b>5</b><small>JKL</small></div>
+        <div class="dkey" id="dial-6" data-d="6"><b>6</b><small>MNO</small></div>
+        <div class="dkey" id="dial-7" data-d="7"><b>7</b><small>PQRS</small></div>
+        <div class="dkey" id="dial-8" data-d="8"><b>8</b><small>TUV</small></div>
+        <div class="dkey" id="dial-9" data-d="9"><b>9</b><small>WXYZ</small></div>
+        <div class="dkey blank"></div>
+        <div class="dkey" id="dial-0" data-d="0"><b>0</b><small>&nbsp;</small></div>
+        <div class="dkey blank"></div>
+        <div class="dkey blank"></div>
+        <div class="dial-call" id="dial-call" aria-label="Appeler"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.4 3.2l2.3-.5c.6-.1 1.2.2 1.4.8l1 2.9c.2.6 0 1.2-.5 1.5L10.2 9c.9 2.1 2.7 3.9 4.8 4.8l1.1-1.4c.4-.5 1-.7 1.5-.5l2.9 1c.6.2.9.8.8 1.4l-.5 2.3c-.1.7-.8 1.2-1.5 1.2C10.5 17.8 6.2 13.5 6.2 4.7c0-.7.5-1.4 1.2-1.5z" fill="#fff"/></svg></div>
+        <div class="dial-back" id="dial-back" aria-label="Effacer"><svg viewBox="0 0 32 24" aria-hidden="true"><path d="M11 3h16a2.5 2.5 0 0 1 2.5 2.5v13A2.5 2.5 0 0 1 27 21H11l-8.5-9z" fill="currentColor"/><path d="M14.5 8l7.5 8M22 8l-7.5 8" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></div>
+      </div>
+    </div>
+    <div class="ant-tabs tel-tabs">
+      <span class="ant-tab" id="tel-tab-recents" data-tel="recents">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 7v5.2l3.4 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <b>Récents</b>
+      </span>
+      <span class="ant-tab" id="tel-tab-contacts" data-tel="contacts">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="3.6" fill="currentColor"/><path d="M4.8 20c.6-3.8 3.6-6 7.2-6s6.6 2.2 7.2 6z" fill="currentColor"/></svg>
+        <b>Contacts</b>
+      </span>
+      <span class="ant-tab" id="tel-tab-keypad" data-tel="keypad">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor"><circle cx="6.5" cy="4.5" r="2"/><circle cx="12" cy="4.5" r="2"/><circle cx="17.5" cy="4.5" r="2"/><circle cx="6.5" cy="10" r="2"/><circle cx="12" cy="10" r="2"/><circle cx="17.5" cy="10" r="2"/><circle cx="6.5" cy="15.5" r="2"/><circle cx="12" cy="15.5" r="2"/><circle cx="17.5" cy="15.5" r="2"/><circle cx="12" cy="21" r="2"/></g></svg>
+        <b>Clavier</b>
+      </span>
+    </div>
+  </section>
+
+  <!-- Feuille d'un contact : ajouter (nom et numéro) ou modifier (le nom ; le numéro est la clé du carnet). -->
+  <section id="cform" class="layer">
+    <div class="sheet-nav">
+      <span class="sheet-cancel" id="cform-cancel">Annuler</span>
+      <span class="sheet-title" id="cform-title">Nouveau contact</span>
+      <span class="sheet-done" id="cform-save">OK</span>
+    </div>
+    <div class="sim-scroll">
+      <div class="cform-avatar" id="cform-avatar"></div>
+      <div class="group">
+        <div class="row"><input class="cform-input" id="cform-name" type="text" maxlength="32" placeholder="Nom" autocomplete="off" spellcheck="false"></div>
+        <div class="row"><input class="cform-input" id="cform-number" type="text" inputmode="numeric" maxlength="14" placeholder="Numéro" autocomplete="off" spellcheck="false"></div>
+      </div>
+      <div class="group" id="cform-delete-group">
+        <div class="row tap center red" id="cform-delete">Supprimer le contact</div>
+      </div>
+    </div>
+  </section>
+
   <!-- Le clavier, unique, déplacé dans l'écran qui le montre -->
   <div class="pad" id="pad">
     <div class="key" id="key-1" data-k="1"><b>1</b><small>&nbsp;</small></div>
@@ -362,6 +438,26 @@
     </div>
   </div>
 
+  <!-- Écran d'appel (lot T3, tâche 4b), par-dessus l'écran verrouillé comme déverrouillé : entrant (Refuser,
+       Répondre), sortant et en cours (Silence, Haut-parleur, raccrocher), puis le message de fin. La page montre l'état
+       reçu (phone.call) ; chaque bouton envoie un geste. -->
+  <section id="call" class="layer">
+    <div class="call-top">
+      <div class="call-avatar" id="call-avatar"></div>
+      <div class="call-name" id="call-name"></div>
+      <div class="call-sub" id="call-sub"></div>
+    </div>
+    <div class="call-controls">
+      <div class="call-opt" id="call-mute"><span class="call-round"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M6 11a6 6 0 0 0 12 0M12 17v3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M4.5 3.5l15 16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span><b>Silence</b></div>
+      <div class="call-opt" id="call-speaker"><span class="call-round"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor"/><path d="M15 9a4 4 0 0 1 0 6M17.5 6.5a7.5 7.5 0 0 1 0 11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span><b>Haut-parleur</b></div>
+    </div>
+    <div class="call-bottom">
+      <div class="call-btn" id="call-decline"><span class="call-round red"><svg class="hang" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.4 3.2l2.3-.5c.6-.1 1.2.2 1.4.8l1 2.9c.2.6 0 1.2-.5 1.5L10.2 9c.9 2.1 2.7 3.9 4.8 4.8l1.1-1.4c.4-.5 1-.7 1.5-.5l2.9 1c.6.2.9.8.8 1.4l-.5 2.3c-.1.7-.8 1.2-1.5 1.2C10.5 17.8 6.2 13.5 6.2 4.7c0-.7.5-1.4 1.2-1.5z" fill="#fff"/></svg></span><b>Refuser</b></div>
+      <div class="call-btn" id="call-answer"><span class="call-round green"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.4 3.2l2.3-.5c.6-.1 1.2.2 1.4.8l1 2.9c.2.6 0 1.2-.5 1.5L10.2 9c.9 2.1 2.7 3.9 4.8 4.8l1.1-1.4c.4-.5 1-.7 1.5-.5l2.9 1c.6.2.9.8.8 1.4l-.5 2.3c-.1.7-.8 1.2-1.5 1.2C10.5 17.8 6.2 13.5 6.2 4.7c0-.7.5-1.4 1.2-1.5z" fill="#fff"/></svg></span><b>Répondre</b></div>
+      <div class="call-btn" id="call-hangup"><span class="call-round red"><svg class="hang" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.4 3.2l2.3-.5c.6-.1 1.2.2 1.4.8l1 2.9c.2.6 0 1.2-.5 1.5L10.2 9c.9 2.1 2.7 3.9 4.8 4.8l1.1-1.4c.4-.5 1-.7 1.5-.5l2.9 1c.6.2.9.8.8 1.4l-.5 2.3c-.1.7-.8 1.2-1.5 1.2C10.5 17.8 6.2 13.5 6.2 4.7c0-.7.5-1.4 1.2-1.5z" fill="#fff"/></svg></span></div>
+    </div>
+  </section>
+
   <!-- Alerte -->
   <div id="alert" class="layer">
     <div class="alert-box">
@@ -376,6 +472,12 @@
     </div>
   </div>
 
+  <!-- Dessins modèles, copiés par phone.js (silhouette d'un numéro sans nom, appel sortant, fiche d'un contact). -->
+  <div id="tpl" hidden>
+    <svg id="tpl-person" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12.2a4.1 4.1 0 1 0 0-8.2 4.1 4.1 0 0 0 0 8.2zM4.2 20.5c.7-4 3.9-6.4 7.8-6.4s7.1 2.4 7.8 6.4z" fill="#fff"/></svg>
+    <svg id="tpl-out" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 13L13 3M6 3h7v7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <svg id="tpl-info" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 10.8v6M12 7.2v.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+  </div>
   <div id="toast"><span id="toast-text"></span></div>
 
   <!-- Barre d'état et île dynamique -->
@@ -391,7 +493,8 @@
       <span class="batt" id="st-batt"><span class="batt-fill" id="st-batt-fill"></span><span class="batt-num" id="st-batt-num">--</span></span>
     </div>
   </div>
-  <div id="island"></div>
+  <!-- L'île dynamique ; pendant un appel quitté, elle montre le combiné et le minuteur, et ramène à l'appel. -->
+  <div id="island"><svg class="isl-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.4 3.2l2.3-.5c.6-.1 1.2.2 1.4.8l1 2.9c.2.6 0 1.2-.5 1.5L10.2 9c.9 2.1 2.7 3.9 4.8 4.8l1.1-1.4c.4-.5 1-.7 1.5-.5l2.9 1c.6.2.9.8.8 1.4l-.5 2.3c-.1.7-.8 1.2-1.5 1.2C10.5 17.8 6.2 13.5 6.2 4.7c0-.7.5-1.4 1.2-1.5z" fill="currentColor"/></svg><span class="isl-time" id="isl-time"></span></div>
   <div id="home-bar"><span class="pill"></span></div>
 </div>
 <script src="../web/bridge.js"></script>
