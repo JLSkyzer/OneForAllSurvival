@@ -33,6 +33,8 @@ public final class PhoneConfig {
     private static final int DEFAULT_SIGNAL_REFRESH_TICKS = 20;
     private static final int DEFAULT_CALL_RING_SECONDS = 30;
     private static final int DEFAULT_CALL_DIALS_PER_MINUTE = 10;
+    private static final int DEFAULT_SPEAKER_HEAR_BLOCKS = 8;
+    private static final int DEFAULT_SPEAKER_CAPTURE_BLOCKS = 16;
 
     public static final ForgeConfigSpec SPEC;
 
@@ -59,6 +61,8 @@ public final class PhoneConfig {
     private static final ForgeConfigSpec.IntValue SIGNAL_REFRESH_TICKS;
     private static final ForgeConfigSpec.IntValue CALL_RING_SECONDS;
     private static final ForgeConfigSpec.IntValue CALL_DIALS_PER_MINUTE;
+    private static final ForgeConfigSpec.IntValue SPEAKER_HEAR_BLOCKS;
+    private static final ForgeConfigSpec.IntValue SPEAKER_CAPTURE_BLOCKS;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -134,6 +138,12 @@ public final class PhoneConfig {
         CALL_DIALS_PER_MINUTE = builder
                 .comment("Appels qu'un joueur peut composer par minute, réussis ou non ; au-delà, il doit attendre.")
                 .defineInRange("callDialsPerMinute", DEFAULT_CALL_DIALS_PER_MINUTE, 1, 1_000);
+        SPEAKER_HEAR_BLOCKS = builder
+                .comment("Haut-parleur : distance (blocs) à laquelle on entend la voix qui sort du téléphone.")
+                .defineInRange("speakerHearBlocks", DEFAULT_SPEAKER_HEAR_BLOCKS, 1, 64);
+        SPEAKER_CAPTURE_BLOCKS = builder
+                .comment("Haut-parleur : distance (blocs) jusqu'à laquelle le téléphone capte les voix autour de lui.")
+                .defineInRange("speakerCaptureBlocks", DEFAULT_SPEAKER_CAPTURE_BLOCKS, 1, 64);
         SPEC = builder.build();
     }
 
@@ -360,6 +370,22 @@ public final class PhoneConfig {
             return CALL_DIALS_PER_MINUTE.get();
         } catch (IllegalStateException e) {
             return DEFAULT_CALL_DIALS_PER_MINUTE;
+        }
+    }
+
+    public static int speakerHearBlocks() {
+        try {
+            return SPEAKER_HEAR_BLOCKS.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_SPEAKER_HEAR_BLOCKS;
+        }
+    }
+
+    public static int speakerCaptureBlocks() {
+        try {
+            return SPEAKER_CAPTURE_BLOCKS.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_SPEAKER_CAPTURE_BLOCKS;
         }
     }
 }
