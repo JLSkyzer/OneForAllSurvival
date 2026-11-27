@@ -92,6 +92,28 @@ class PhoneWaitTextTest {
         assertTrue(js.contains("'Réessayez dans ' + waitText(s)"), "le décompte de la page passe par waitText");
     }
 
+    /**
+     * La règle elle-même, côté page : aucun moteur JavaScript ici, le corps de {@code waitText} est donc comparé ligne à
+     * ligne à celui qui rend les textes de {@link #enSecondesPuisEnMinutes}. Le retoucher oblige à revoir cet essai et
+     * la page dans un navigateur.
+     */
+    @Test
+    void leCorpsDeWaitTextEstCeluiDeLaRegle() throws IOException {
+        String js = page();
+        assertEquals(1, Pattern.compile("function waitText\\b").matcher(js).results().count(),
+                "une seule définition de waitText (la dernière l'emporterait)");
+        Matcher corps = Pattern.compile("function waitText\\(seconds\\) \\{\\R(.*?)\\R  \\}", Pattern.DOTALL)
+                .matcher(js);
+        assertTrue(corps.find(), "waitText(seconds) absente de phone.js");
+        assertEquals(java.util.List.of(
+                "var m = Math.floor(seconds / 60);",
+                "var s = seconds % 60;",
+                "var form = seconds < WAIT_MINUTES_FROM ? 'SECONDS' : s === 0 ? 'MINUTES' : 'MINUTES_SECONDS';",
+                "return WAIT_TEXTS[form].replace('{m}', String(m))"
+                        + ".replace('{s}', String(form === 'SECONDS' ? seconds : s));"),
+                corps.group(1).lines().map(String::strip).toList());
+    }
+
     /** La page ne rabote pas un blocage long : sa borne est le plus haut réglage possible du serveur (sept jours). */
     @Test
     void laPageAccepteLePlusLongBlocage() throws IOException {

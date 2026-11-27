@@ -30,12 +30,12 @@ public final class PhoneLock {
         if (correct) {
             return new Outcome(true, 0, lockedUntil, 0);
         }
-        int next = failures + 1;
-        if (next >= maxAttempts) {
+        // Comparé avant l'addition : un compte corrompu (Integer.MAX_VALUE) bloque au lieu de repasser négatif.
+        if (failures >= maxAttempts - 1) {
             return new Outcome(false, 0, after(now, duration(level, baseMillis, maxMillis)),
                     level == Integer.MAX_VALUE ? level : level + 1);
         }
-        return new Outcome(false, next, lockedUntil, level);
+        return new Outcome(false, failures + 1, lockedUntil, level);
     }
 
     /**

@@ -232,4 +232,29 @@ class PhoneLockTest {
     void blocageNegatifNeBloquePas() {
         assertTrue(PhoneLock.attempt(true, 0, -5L, 0, 1_000L, MAX, BASE, CAP).accepted());
     }
+
+    /**
+     * Un compte d'échecs au dernier essai ou au-delà (réglage abaissé, sauvegarde corrompue jusqu'au plus grand entier)
+     * bloque au premier faux code : il ne repasse jamais négatif en laissant des essais libres.
+     */
+    @Test
+    void unCompteDEchecsCorrompuBloqueAussitot() {
+        for (int echecs : new int[] {4, 5, 7, Integer.MAX_VALUE - 1, Integer.MAX_VALUE}) {
+            PhoneLock.Outcome out = PhoneLock.attempt(false, echecs, 0L, 0, 5_000L, MAX, BASE, CAP);
+            assertFalse(out.accepted(), "échecs " + echecs);
+            assertEquals(65_000L, out.lockedUntil(), "échecs " + echecs);
+            assertEquals(0, out.failures(), "échecs " + echecs);
+            assertEquals(1, out.level(), "échecs " + echecs);
+        }
+        assertTrue(PhoneLock.attempt(true, Integer.MAX_VALUE, 0L, 0, 5_000L, MAX, BASE, CAP).accepted(),
+                "le bon code passe encore");
+    }
+
+    /** Les réglages livrés, lus sans fichier chargé. */
+    @Test
+    void lesReglagesDuBlocageOntLeursValeursParDefaut() {
+        assertEquals(5, PhoneConfig.maxAttempts());
+        assertEquals(60, PhoneConfig.lockoutSeconds());
+        assertEquals(3_600, PhoneConfig.lockoutMaxSeconds());
+    }
 }

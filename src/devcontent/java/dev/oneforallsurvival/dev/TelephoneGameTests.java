@@ -660,7 +660,7 @@ public final class TelephoneGameTests {
     }
 
     /**
-     * Les durées de série en série sur un vrai téléphone : 60, 120 puis 240 s. Ni le temps (une semaine), ni la
+     * Les durées de série en série sur un vrai téléphone : 60, 120 puis 240 s. Ni le temps (une semaine), ni le
      * départ du porteur, ni un autre porteur ne baissent le niveau ; le bon code, lui, ramène à 60 s, y compris
      * quand il ne change rien d'autre que le niveau (blocage déjà expiré, aucun échec en cours).
      */
@@ -753,6 +753,21 @@ public final class TelephoneGameTests {
             ouvrir(helper, a);
             choisirPuisVerrouiller(helper, a);
             serieBloque(helper, e, a, id, 60, 1);
+        });
+    }
+
+    /** Au niveau 20, la série suivante bloque le plafond livré, une heure, et pas la base doublée vingt fois. */
+    @GameTest(template = "test/plancher", batch = LOT_BLOCAGE)
+    public static void unNiveauEleveBloqueLePlafond(GameTestHelper helper) {
+        essai(helper, e -> {
+            JoueurDeTest a = e.joueur("tel_6", POS_A);
+            UUID id = e.telephone(a);
+            ouvrir(helper, a);
+            choisirPuisVerrouiller(helper, a);
+            PhoneData.PhoneRecord r = e.donnees(id);
+            PhoneData.get(e.serveur).put(id, new PhoneData.PhoneRecord(r.owner(), r.ownerName(), r.salt(),
+                    r.codeHash(), r.failures(), r.lockedUntil(), 20, r.wallpaper(), r.airplane()));
+            serieBloque(helper, e, a, id, 3_600, 21);
         });
     }
 
