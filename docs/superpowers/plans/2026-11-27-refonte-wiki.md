@@ -78,7 +78,7 @@ Un fichier encore en version 1 (`cards`) reste affiché, dans le nouveau style.
 | `power` | calculateur du courant d'une antenne : `standby`, `perCard`, `perCall`, `speeds[]`, `feAt256` |
 | `range` | curseur de portée : `item`, `bars[]` (seuils), `max` |
 | `chunk` | schéma « même chunk » : `item`, `text` |
-| `text` | `text` (court) |
+| `text` | `text` (court), `link?` (`#chapitre/article`, affiché « Voir : <titre> ») |
 
 `at` désigne un repère nommé de `data/reperes.json`, écrit par la conversion à partir de la capture ; il survit à une
 reprise de la capture. Le texte accepte `` `code` `` et `**gras**`.
@@ -108,17 +108,25 @@ icône), `data/reperes.json`, `shots/**`, `img/objets/**`.
 
 ## Tâches
 
-- [ ] **1. Moteur du wiki** : `index.html`, `style.css`, `app.js` (et `blocks.js`), accueil « Qu'est-ce que tu veux
+- [x] **1. Moteur du wiki** : `index.html`, `style.css`, `app.js` (et `blocks.js`), accueil « Qu'est-ce que tu veux
   faire ? », pages de chapitre et d'article, recherche, vue Joueurs / Staff, « En jeu seulement », anciens liens,
   affichage des chapitres en version 1, `check_wiki.py`, `shoot_wiki.py`.
-- [ ] **2. Atelier de captures** : socle, `runWikiStudio`, exports des icônes, recettes et noms, `build_visuals.py`,
+- [x] **2. Atelier de captures** : socle, `runWikiStudio`, exports des icônes, recettes et noms, `build_visuals.py`,
   une première scène de contrôle.
-- [ ] **3. Téléphone** : scènes, conversion, articles ; relecture ; publication du moteur et du chapitre.
-- [ ] **4. Électricité et ingénieur** : idem.
-- [ ] **5. Économie** : idem.
-- [ ] **6. Interface, Maire, chapitres à venir, accueil définitif.**
-- [ ] **7. Clôture** : relecture d'ensemble, anciennes images retirées, `wiki/README.md`,
+- [x] **3. Téléphone** : scènes, conversion, articles ; relecture ; publication du moteur et du chapitre.
+- [x] **4. Électricité et ingénieur** : idem.
+- [x] **5. Économie** : idem.
+- [x] **6. Interface, Maire, chapitres à venir, accueil définitif.**
+- [x] **7. Clôture** : relecture d'ensemble, anciennes images retirées, `wiki/README.md`,
   `docs/verifications/refonte-wiki.md`, `tasks/todo.md`.
+- [x] **8. Fiche d'instructions des agents du wiki** (demande de Killian du 27/11) : tout ce qu'un agent doit faire
+  pour mettre le wiki à jour (quand le faire, format, captures à l'atelier, lancements, exactitude contre le code,
+  regard sur chaque image, contrôles, relecture, publication, pièges des relectures de cette refonte). Dans `docs/`
+  (hors de `wiki/`, qui est publié), avec un renvoi depuis les instructions du projet pour qu'elle soit trouvée.
+- [ ] **9. Base de connaissances** (demande de Killian du 27/11, autorise ces écritures dans `D:\BDC`) : une maquette
+  du wiki (pages qui s'ouvrent seules, avec leurs images), une fiche sur le style (couleurs, polices, composants,
+  principes) et la même fiche d'instructions, rangées ensemble comme idée de conception pour de futurs projets.
+  Lire d'abord `D:\BDC\Accueil.md` et `Conventions.md`, chercher les notes existantes, commit et push du coffre.
 
 ## Choix faits par l'auteur du plan (à confirmer au retour)
 

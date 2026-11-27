@@ -180,3 +180,14 @@ Relecture finale de la tâche 6, vérifié dans le code :
   suppression confirmée (`confirmRemove`, `/power` et `/operator`) prennent effet tout de suite. Le bouton
   « [Confirmer la suppression] » préremplit `… confirm` dans le chat (`SUGGEST_COMMAND`) : il faut valider par Entrée.
 - **Panneau Mods du F3** : à gauche (`DebugLayout.Slot.MODS`, `right = false`) ; à droite, Performances et Cible.
+
+## Bilan de la refonte (27/11)
+
+- En ligne : <https://jlskyzer.github.io/OneForAllSurvival/>. Cinq chapitres en images (Téléphone 7 articles,
+  Électricité 22, Économie 17, Interface 4, Maire 3), les chapitres à venir en texte. Contrôle du 27/11 sur le site
+  publié : 65 pages ouvertes, aucune image cassée, aucun débordement, aucune erreur de script.
+- Chaque chapitre a été relu par un agent distinct (deux pour les gros) contre le code et image par image, puis
+  corrigé avant publication.
+- Non prouvé : rendu sur un vrai téléphone et d'autres navigateurs qu'Edge ; lecteurs d'écran ; plusieurs gestes
+  prouvés par la seule lecture du code (dits dans les rapports) ; configuration réelle du serveur de jeu.
+- Reste connu : quelques couvertures de cartes qui coupent du texte ; chats et grands écrans petits à 390 px.

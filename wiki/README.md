@@ -1,14 +1,16 @@
 # Wiki Lost Island
 
-Le wiki des joueurs et du staff, publié par GitHub Pages (workflow `.github/workflows/wiki.yml`).
+Le wiki des joueurs et de l'équipe, publié par GitHub Pages (workflow `.github/workflows/wiki.yml`) à chaque
+poussée sur `main` qui touche ce dossier.
 
-- `data/*.json` : une fiche par bloc ou système, un fichier par chapitre. C'est le seul endroit à modifier
-  pour changer le contenu.
-- `img/` : textures copiées depuis le mod par `python wiki/tools/sync_images.py`. À relancer quand une fiche
-  passe à `"status": "dispo"` avec une image.
-- `index.html`, `style.css`, `app.js` : l'affichage, sans étape de construction.
+Il est visuel : captures du jeu, animations, schémas manipulables ; le texte est court.
 
-Les fiches résument les cahiers de `docs/superpowers/specs/`. Quand un cahier change ou qu'un lot est livré,
-mettre la fiche à jour dans le même commit : `"status": "dispo"`, l'image du bloc, les vraies commandes.
+**Pour le mettre à jour, suis la fiche [docs/wiki-instructions.md](../docs/wiki-instructions.md)** (quand, comment
+écrire un article, prendre les captures, vérifier, relire, publier).
+
+- `data/*.json` : le contenu, un fichier par chapitre ; `objets.json`, `recettes.json`, `reperes.json` et `shots/`
+  sont produits par `tools/build_visuals.py`.
+- `index.html`, `style.css`, `app.js`, `blocks.js` : l'affichage, sans étape de construction.
+- `tools/` : conversion des captures, contrôles, captures des pages.
 
 Aperçu local : `python -m http.server -d wiki 8000`, puis http://localhost:8000.
