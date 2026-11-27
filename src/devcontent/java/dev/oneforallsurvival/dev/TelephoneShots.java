@@ -331,6 +331,7 @@ public final class TelephoneShots {
                             }
                         }
                         case "signal" -> composerSignal(mc);
+                        case "appel" -> composerAppel(mc);
                         case "prise" -> composerPriseMur(mc);
                         default -> composer(mc);
                     }
@@ -748,6 +749,377 @@ public final class TelephoneShots {
                     "a10-icone-grisee-message");
         }
         echap(mc, "antenne-echap-fin");
+        bilanDuPont();
+    }
+
+    // --- Les appels (lot T3, tâche 11a) -------------------------------------------------------------------------------
+
+    /** Le nom du contact, saisi caractère par caractère dans le champ natif de la page (accents compris). */
+    private static final String CONTACT = "Zoé Hélène";
+    /** Un numéro qu'aucune carte ne porte (les numéros émis sont tirés au hasard). */
+    private static final String INCONNU = "0600000000";
+    @Nullable private static volatile JoueurDeTest correspondant;
+    @Nullable private static volatile java.util.UUID fondateurLagon;
+    @Nullable private static volatile java.util.UUID simJoueur;
+    private static volatile String numeroJoueur = "";
+    private static volatile String numeroCorr = "";
+    private static volatile int appelCorr;
+    private static final Map<String, String> LU = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final List<String> FINS_APPEL = java.util.Collections.synchronizedList(new ArrayList<>());
+    @Nullable private static dev.oneforallsurvival.phone.call.CallListener ecouteAppels;
+    private static volatile String veille = "";
+    private static int chiffres;
+    private static long dernierAppuiNs;
+    private static int composesAvant;
+
+    private interface Lecture {
+        String lire(MinecraftServer srv, ServerPlayer sp);
+    }
+
+    /** Une lecture au serveur intégré, rangée sous {@code cle} : la valeur de la lecture précédente de cette clé. */
+    private static String lu(Minecraft mc, String cle, Lecture l) {
+        serveur(mc, (srv, sp) -> LU.put(cle, l.lire(srv, sp)));
+        return LU.getOrDefault(cle, "");
+    }
+
+    private static java.util.Optional<dev.oneforallsurvival.phone.call.PhoneCallStatePacket> appel() {
+        return PhoneClient.lastCall();
+    }
+
+    private static boolean phase(dev.oneforallsurvival.phone.call.PhoneCallStatePacket.Phase ph) {
+        return appel().map(c -> c.phase() == ph).orElse(false);
+    }
+
+    private static String cleDuMessage(@Nullable Component c) {
+        if (c == null) {
+            return "";
+        }
+        return c.getContents() instanceof TranslatableContents t ? t.getKey() : c.getString();
+    }
+
+    /** La consommation des deux antennes (Mairie, Lagon), dernier tic. */
+    private static String consommation(ServerLevel level) {
+        StringBuilder b = new StringBuilder();
+        for (BlockPos pos : new BlockPos[] {antenneMairie, antenneLagon}) {
+            if (level.getBlockEntity(pos) instanceof AntennaBlockEntity be && be.antennaId() != null) {
+                b.append(PhoneOperators.get(level.getServer()).antenna(be.antennaId())
+                        .map(r -> r.last().toString()).orElse("?"));
+            } else {
+                b.append('?');
+            }
+            b.append(' ');
+        }
+        return b.toString().trim();
+    }
+
+    @Nullable
+    private static ServerPlayer corr() {
+        JoueurDeTest j = correspondant;
+        return j == null ? null : j.joueur();
+    }
+
+    /** Le correspondant compose le numéro du joueur ; l'identifiant de l'appel est gardé. */
+    private static void corrAppelle(Minecraft mc) {
+        serveur(mc, (srv, sp) -> {
+            ServerPlayer c = corr();
+            dev.oneforallsurvival.phone.call.CallService.Dial d = dev.oneforallsurvival.phone.call.CallService.dial(c,
+                    c.getMainHandItem(), false, numeroJoueur);
+            appelCorr = d.callId();
+            journal("le correspondant compose : " + d.outcome() + " " + cleDuMessage(d.message()));
+        });
+    }
+
+    /** Frappe d'un texte : touche, caractère, relâche pour les lettres ASCII et l'espace ; le caractère seul sinon. */
+    private static void ecrire(Minecraft mc, String texte) {
+        Screen s = mc.screen;
+        for (char c : texte.toCharArray()) {
+            int key = c == ' ' ? GLFW.GLFW_KEY_SPACE
+                    : (c < 128 && Character.isLetter(c)) ? Character.toUpperCase(c) : -1;
+            int scan = key < 0 ? 0 : GLFW.glfwGetKeyScancode(key);
+            if (key >= 0) {
+                s.keyPressed(key, scan, Character.isUpperCase(c) ? GLFW.GLFW_MOD_SHIFT : 0);
+            }
+            s.charTyped(c, Character.isUpperCase(c) ? GLFW.GLFW_MOD_SHIFT : 0);
+            if (key >= 0) {
+                s.keyReleased(key, scan, 0);
+            }
+        }
+    }
+
+    /** Le numéro tapé touche par touche sur le clavier de la page (vrais clics sur {@code dial-<chiffre>}). */
+    private static void auClavier(Minecraft mc, String nom, java.util.function.Supplier<String> numero,
+            @Nullable String image) {
+        pas(nom, () -> stable(mc, "dial-0"), () -> {
+            chiffres = 0;
+            dernierAppuiNs = 0;
+        }, () -> {
+            String n = numero.get();
+            if (chiffres < n.length()) {
+                String touche = "dial-" + n.charAt(chiffres);
+                if ((dernierAppuiNs == 0 || secondes(dernierAppuiNs) >= 0.2) && stable(mc, touche)) {
+                    cliquer(mc, touche);
+                    chiffres++;
+                    dernierAppuiNs = System.nanoTime();
+                }
+                return false;
+            }
+            return secondes(dernierAppuiNs) >= 0.8;
+        }, 20, image);
+    }
+
+    /**
+     * Mode {@code appel} (lot T3, tâche 11a) : un téléphone configuré avec une carte de Mairie, un correspondant simulé
+     * ({@link JoueurDeTest}) qui a fondé Lagon et porte un téléphone avec sa carte, à 4 blocs ; l'application Téléphone
+     * par de vrais clics sur les boîtes de la page : onglets, contact ajouté (nom accentué tapé dans le champ natif),
+     * appel composé au clavier, décroché du correspondant, Silence et Haut-parleur, île, raccroché, appels entrants
+     * (déverrouillé, verrouillé refusé, verrouillé répondu), numéro inconnu. Chaque étape relue au serveur intégré.
+     */
+    private static void composerAppel(Minecraft mc) {
+        if (SERVEUR != null || !web) {
+            echec("appel", "le mode appel se joue en monde solo, dans la page (MCEF)");
+            return;
+        }
+        decor(mc, 80);
+        pas("appel-correspondant", () -> serveur(mc, (srv, sp) -> {
+            JoueurDeTest j = JoueurDeTest.rejoindre(sp.serverLevel(), "Correspondant",
+                    Vec3.atBottomCenterOf(sp.blockPosition().west(4)));
+            fondateurLagon = j.uuid();
+            correspondant = j;
+            ecouteAppels = new dev.oneforallsurvival.phone.call.CallListener() {
+                @Override
+                public void changed(dev.oneforallsurvival.phone.call.CallBook.Call call) {}
+
+                @Override
+                public void ended(dev.oneforallsurvival.phone.call.CallBook.Call call,
+                        dev.oneforallsurvival.phone.call.CallBook.End reason) {
+                    FINS_APPEL.add(call.id() + ":" + reason);
+                }
+            };
+            dev.oneforallsurvival.phone.call.CallService.addListener(ecouteAppels);
+        }), () -> correspondant != null, 5, null);
+        ouvrir(mc, "appel-ouverture-0", Lock.SETUP, null);
+        assistantJusquAuFond(mc, "appel-assistant", "aube", false);
+        assistantVersLeCode(mc, "appel-assistant", false);
+        cliquerCode(mc, "appel-choix", CODE);
+        pas("appel-confirmation-au-clavier", () -> stable(mc, "key-0"), () -> taper(mc, CODE),
+                () -> etat(Lock.UNLOCKED), 10, null);
+        toutEstPret(mc, "appel-assistant", "aube", null);
+        echap(mc, "appel-echap-0");
+        antennes(mc);
+        pas("appel-lignes", () -> serveur(mc, (srv, sp) -> {
+            PhoneOperators registre = PhoneOperators.get(srv);
+            Optional<PhoneOperator> mairie = registre.byId(idMairie);
+            Optional<PhoneOperator> lagon = registre.byId(idLagon);
+            ServerPlayer c = corr();
+            if (mairie.isEmpty() || lagon.isEmpty() || c == null) {
+                return;
+            }
+            PhoneSims.issueTo(sp, mairie.get(), sp.getUUID(), sp.getGameProfile().getName(), EconomyClock.now());
+            PhoneSims.issueTo(c, lagon.get(), c.getUUID(), "Correspondant", EconomyClock.now());
+            ItemStack phoneC = new ItemStack(PhoneRegistry.PHONE.get());
+            PhoneItem.store(phoneC, PhoneConfig.capacity());
+            c.setItemInHand(InteractionHand.MAIN_HAND, phoneC);
+            for (ServerPlayer p : List.of(sp, c)) {
+                for (int s = 0; s < p.getInventory().getContainerSize(); s++) {
+                    if (p.getInventory().getItem(s).getItem() instanceof dev.oneforallsurvival.phone.net.SimCardItem) {
+                        PhoneSims.Insert r = PhoneSims.insert(p, p.getMainHandItem(), s);
+                        journal("carte de " + p.getGameProfile().getName() + " : " + r);
+                        break;
+                    }
+                }
+            }
+            PhoneSims.line(srv, sp.getMainHandItem()).ifPresent(l -> {
+                numeroJoueur = l.number();
+                simJoueur = l.simId();
+            });
+            PhoneSims.line(srv, c.getMainHandItem()).ifPresent(l -> numeroCorr = l.number());
+        }), () -> !numeroJoueur.isEmpty() && !numeroCorr.isEmpty(), 5, null);
+
+        // 1. Déverrouiller, l'application Téléphone, ses trois onglets.
+        ouvrir(mc, "appel-ouverture-1", Lock.LOCKED, null);
+        pas("appel-deverrouillage", () -> stable(mc, "key-0"), () -> taper(mc, CODE),
+                () -> etat(Lock.UNLOCKED) && cible(mc, "app-phone") && attendu(0.6), 15, null);
+        clic(mc, "appel-appli", "app-phone", () -> stable(mc, "tel-tab-recents") && attendu(1.0), 10, null);
+        clic(mc, "appel-onglet-recents", "tel-tab-recents", () -> stable(mc, "tel-tab-keypad") && attendu(0.8), 10,
+                "t01-recents");
+        clic(mc, "appel-onglet-contacts", "tel-tab-contacts", () -> stable(mc, "contact-add") && attendu(0.8), 10,
+                "t02-contacts");
+        clic(mc, "appel-onglet-clavier", "tel-tab-keypad", () -> stable(mc, "dial-call") && attendu(0.8), 10,
+                "t03-clavier");
+
+        // 2. Un contact : nom accentué dans le champ natif, numéro du correspondant.
+        clic(mc, "appel-onglet-contacts-2", "tel-tab-contacts", () -> stable(mc, "contact-add") && attendu(0.4), 10,
+                null);
+        clic(mc, "appel-contact-nouveau", "contact-add", () -> stable(mc, "cform-name") && attendu(0.6), 10, null);
+        clic(mc, "appel-contact-champ-nom", "cform-name", () -> attendu(0.3), 5, null);
+        pas("appel-contact-nom", () -> ecrire(mc, CONTACT), () -> attendu(0.4), 3, null);
+        clic(mc, "appel-contact-champ-numero", "cform-number", () -> attendu(0.3), 5, null);
+        pas("appel-contact-numero", () -> taper(mc, numeroCorr), () -> attendu(0.6), 3, "t04-contact-saisi");
+        pas("appel-contact-saisie-relue", () -> releveDemande = false, () -> {
+            JsonObject r = demander(mc, "{nom:(document.getElementById('cform-name')||{}).value||'',chiffres:"
+                    + "((document.getElementById('cform-number')||{}).value||'').replace(/\\s+/g,'').length}");
+            if (r == null) {
+                return false;
+            }
+            String nom = r.get("nom").getAsString();
+            int n = r.get("chiffres").getAsInt();
+            journal("feuille du contact : nom « " + nom + " », " + n + " chiffre(s) (" + numeroCorr.length()
+                    + " attendus)");
+            if (!CONTACT.equals(nom) || n != numeroCorr.length()) {
+                echec("appel-contact-saisie-relue", "nom « " + nom + " », " + n + " chiffre(s)");
+            }
+            return true;
+        }, 5, null);
+        clic(mc, "appel-contact-enregistrer", "cform-save", () -> {
+            String s = lu(mc, "contact", (srv, sp) -> simJoueur == null ? "?" : String.valueOf(
+                    dev.oneforallsurvival.phone.call.PhoneDirectory.get(srv).contacts(simJoueur).stream()
+                            .anyMatch(c -> c.number().equals(numeroCorr) && c.name().equals(CONTACT))));
+            return "true".equals(s) && !cible(mc, "cform-save") && stable(mc, "contact-0") && attendu(0.8);
+        }, 10, "t05-contact-dans-la-liste");
+
+        // 3. Composer au clavier, bouton vert : « Appel… », la sonnerie au serveur.
+        clic(mc, "appel-onglet-clavier-2", "tel-tab-keypad", () -> stable(mc, "dial-call") && attendu(0.4), 10, null);
+        auClavier(mc, "appel-clavier-numero", () -> numeroCorr, "t06-numero-au-clavier");
+        pas("appel-veille", () -> LU.remove("veille"), () -> {
+            veille = lu(mc, "veille", (srv, sp) -> consommation(sp.serverLevel()));
+            return !veille.isEmpty() && attendu(0.2);
+        }, 3, null);
+        pas("appel-veille-releve", () -> journal("consommation des antennes avant l'appel : " + veille), () -> true, 1,
+                null);
+        clic(mc, "appel-bouton-vert", "dial-call", () -> {
+            String s = lu(mc, "sonne", (srv, sp) -> dev.oneforallsurvival.phone.call.CallService.callOf(corr())
+                    .map(x -> x.state().name()).orElse("aucun"));
+            return phase(dev.oneforallsurvival.phone.call.PhoneCallStatePacket.Phase.OUTGOING) && "RINGING".equals(s)
+                    && stable(mc, "call-hangup") && attendu(0.8);
+        }, 10, "t07-appel-sortant");
+
+        // 4. Le correspondant décroche ; Silence et Haut-parleur relus au serveur.
+        pas("appel-decroche", () -> serveur(mc, (srv, sp) -> dev.oneforallsurvival.phone.call.CallService.callOf(corr())
+                .ifPresent(x -> dev.oneforallsurvival.phone.call.CallService.answer(corr(), x.id()))),
+                () -> phase(dev.oneforallsurvival.phone.call.PhoneCallStatePacket.Phase.ACTIVE) && attendu(3.3), 10,
+                "t08-en-cours-minuteur");
+        clic(mc, "appel-silence", "call-mute", () -> "true".equals(lu(mc, "muet", (srv, sp) ->
+                dev.oneforallsurvival.phone.call.CallService.callOf(sp).map(x -> String.valueOf(x.callerMuted()))
+                        .orElse("?"))) && attendu(0.5), 10, null);
+        clic(mc, "appel-haut-parleur", "call-speaker", () -> "true true".equals(lu(mc, "hp", (srv, sp) ->
+                dev.oneforallsurvival.phone.call.CallService.callOf(sp).map(x -> x.callerMuted() + " "
+                        + x.callerSpeaker()).orElse("?"))) && attendu(0.8), 10, "t09-silence-haut-parleur");
+
+        // 5. Quitter l'écran d'appel ; bouton vert champ vide pendant l'appel ; île ; raccrocher.
+        clic(mc, "appel-quitter-ecran", "home-bar", () -> !cible(mc, "call-hangup") && stable(mc, "dial-call")
+                && attendu(0.8), 10, "t10-clavier-pendant-l-appel");
+        pas("appel-champ-vide", () -> stable(mc, "dial-back"), () -> dernierAppuiNs = 0, () -> {
+            if (cible(mc, "dial-back")) {
+                if ((dernierAppuiNs == 0 || secondes(dernierAppuiNs) >= 0.2) && stable(mc, "dial-back")) {
+                    cliquer(mc, "dial-back");
+                    dernierAppuiNs = System.nanoTime();
+                }
+                return false;
+            }
+            return secondes(dernierAppuiNs) >= 0.8;
+        }, 15, null);
+        pas("appel-vert-pendant-l-appel", () -> stable(mc, "dial-call"), () -> {
+            composesAvant = SORTES_DU_PONT.getOrDefault("callDial", 0);
+            cliquer(mc, "dial-call");
+        }, () -> stable(mc, "call-hangup") && attendu(0.8), 10, "t11-vert-champ-vide-ramene-a-l-appel");
+        pas("appel-vert-releve", () -> releveDemande = false, () -> {
+            JsonObject r = demander(mc, "{champ:" + texteDe("dial-number") + "}");
+            if (r == null) {
+                return false;
+            }
+            int envoyes = SORTES_DU_PONT.getOrDefault("callDial", 0) - composesAvant;
+            String champ = r.get("champ").getAsString();
+            journal("bouton vert champ vide pendant l'appel : callDial envoyé(s) " + envoyes + ", champ "
+                    + (champ.isEmpty() ? "vide" : "rempli (" + champ.replaceAll("\\D", "").length() + " chiffres)"));
+            if (envoyes != 0 || !champ.isEmpty()) {
+                echec("appel-vert-releve", "champ « rempli » ou appel composé : " + envoyes + " envoi(s)");
+            }
+            return true;
+        }, 5, null);
+        clic(mc, "appel-quitter-ecran-2", "home-bar", () -> !cible(mc, "call-hangup") && stable(mc, "tel-close")
+                && attendu(0.6), 10, null);
+        clic(mc, "appel-fermer-appli", "tel-close", () -> stable(mc, "island") && stable(mc, "app-phone")
+                && attendu(1.0), 10, "t12-ile-sur-l-accueil");
+        clic(mc, "appel-ile", "island", () -> stable(mc, "call-hangup") && attendu(0.8), 10, "t13-retour-par-l-ile");
+        clic(mc, "appel-raccrocher", "call-hangup",
+                () -> phase(dev.oneforallsurvival.phone.call.PhoneCallStatePacket.Phase.NONE) && attendu(0.7), 10,
+                "t14-fin-de-l-appel");
+        pas("appel-fin-serveur", () -> {}, () -> {
+            String s = lu(mc, "fin", (srv, sp) -> dev.oneforallsurvival.phone.call.CallService.callOf(sp).isPresent()
+                    + "|" + consommation(sp.serverLevel()));
+            if (!s.startsWith("false|")) {
+                return false;
+            }
+            boolean revenue = s.substring(6).equals(veille);
+            if (revenue || attendu(6)) {
+                String fin = appel().map(c -> cleDuMessage(c.message())).orElse("");
+                journal("fin de l'appel : message « " + fin + " », fins au serveur " + FINS_APPEL
+                        + ", consommation " + s.substring(6) + " (veille " + veille + ")");
+                if (!revenue) {
+                    echec("appel-fin-serveur", "consommation " + s.substring(6) + " au lieu de " + veille);
+                }
+                if (!fin.endsWith("call.ended.hung_up")) {
+                    echec("appel-fin-serveur", "message de fin « " + fin + " »");
+                }
+                return true;
+            }
+            return false;
+        }, 10, null);
+
+        // 6. Appels entrants : déverrouillé ; puis verrouillé, refusé ; puis verrouillé, répondu.
+        pas("appel-entrant", () -> corrAppelle(mc), () -> phase(
+                dev.oneforallsurvival.phone.call.PhoneCallStatePacket.Phase.INCOMING) && stable(mc, "call-answer")
+                && attendu(0.8), 10, "t15-entrant-deverrouille");
+        pas("appel-entrant-abandon", () -> serveur(mc, (srv, sp) ->
+                dev.oneforallsurvival.phone.call.CallService.hangUp(corr(), appelCorr)),
+                () -> phase(dev.oneforallsurvival.phone.call.PhoneCallStatePacket.Phase.NONE) && attendu(3.0), 10, null);
+        echap(mc, "appel-echap-1");
+        ouvrir(mc, "appel-ouverture-2", Lock.LOCKED, null);
+        pas("appel-entrant-verrouille", () -> corrAppelle(mc), () -> phase(
+                dev.oneforallsurvival.phone.call.PhoneCallStatePacket.Phase.INCOMING) && stable(mc, "call-decline")
+                && attendu(0.8), 10, "t16-entrant-verrouille");
+        clic(mc, "appel-refuser", "call-decline", () -> FINS_APPEL.contains(appelCorr + ":DECLINED")
+                && phase(dev.oneforallsurvival.phone.call.PhoneCallStatePacket.Phase.NONE) && attendu(0.7), 10,
+                "t17-refuse");
+        pas("appel-refus-releve", () -> {}, () -> attendu(2.5), 4, null);
+        pas("appel-entrant-3", () -> corrAppelle(mc), () -> phase(
+                dev.oneforallsurvival.phone.call.PhoneCallStatePacket.Phase.INCOMING) && stable(mc, "call-answer")
+                && attendu(0.5), 10, null);
+        clic(mc, "appel-repondre", "call-answer", () -> "ACTIVE".equals(lu(mc, "repondu", (srv, sp) ->
+                dev.oneforallsurvival.phone.call.CallService.callOf(sp).map(x -> x.state().name()).orElse("aucun")))
+                && phase(dev.oneforallsurvival.phone.call.PhoneCallStatePacket.Phase.ACTIVE) && stable(mc, "call-hangup")
+                && attendu(2.3), 10, "t18-repondu-ecran-verrouille");
+        clic(mc, "appel-raccrocher-2", "call-hangup", () -> FINS_APPEL.contains(appelCorr + ":HUNG_UP")
+                && phase(dev.oneforallsurvival.phone.call.PhoneCallStatePacket.Phase.NONE) && attendu(3.0), 10, null);
+
+        // 7. Un numéro inconnu.
+        pas("appel-deverrouillage-2", () -> stable(mc, "key-0"), () -> taper(mc, CODE),
+                () -> etat(Lock.UNLOCKED) && cible(mc, "app-phone") && attendu(0.6), 15, null);
+        clic(mc, "appel-appli-2", "app-phone", () -> stable(mc, "tel-tab-keypad") && attendu(1.0), 10, null);
+        clic(mc, "appel-onglet-clavier-3", "tel-tab-keypad", () -> stable(mc, "dial-call") && attendu(0.4), 10, null);
+        auClavier(mc, "appel-clavier-inconnu", () -> INCONNU, null);
+        pas("appel-inconnu", () -> stable(mc, "dial-call"), () -> {
+            composesAvant = SORTES_DU_PONT.getOrDefault("callDial", 0);
+            cliquer(mc, "dial-call");
+        }, () -> {
+            String k = appel().map(c -> cleDuMessage(c.message())).orElse("");
+            return SORTES_DU_PONT.getOrDefault("callDial", 0) > composesAvant && !k.isEmpty()
+                    && !k.contains("call.ended") && attendu(0.9);
+        }, 10, "t19-numero-inconnu");
+        pas("appel-inconnu-releve", () -> journal("numéro inconnu : message « "
+                + appel().map(c -> cleDuMessage(c.message())).orElse("") + " », appels au serveur "
+                + dev.oneforallsurvival.phone.call.CallService.calls().size()), () -> attendu(2.5), 4, null);
+        echap(mc, "appel-echap-fin");
+        pas("appel-correspondant-sort", () -> serveur(mc, (srv, sp) -> {
+            if (ecouteAppels != null) {
+                dev.oneforallsurvival.phone.call.CallService.removeListener(ecouteAppels);
+            }
+            JoueurDeTest j = correspondant;
+            if (j != null && j.connecte()) {
+                j.quitter();
+            }
+            correspondant = null;
+        }), () -> correspondant == null, 5, null);
         bilanDuPont();
     }
 
@@ -1894,8 +2266,10 @@ public final class TelephoneShots {
             sp.serverLevel().setBlockAndUpdate(pied.west(3), pack ? creatif.defaultBlockState()
                     : Blocks.STONE.defaultBlockState());
             PhoneOperators registre = PhoneOperators.get(srv);
-            PhoneOperators.Result lagon = registre.found(java.util.UUID.randomUUID(), "Fondatrice", LAGON,
-                    EconomyClock.now());
+            // Mode appel : Lagon est fondé par le correspondant simulé, qui peut ainsi s'émettre sa carte.
+            java.util.UUID fondatrice = fondateurLagon != null ? fondateurLagon : java.util.UUID.randomUUID();
+            PhoneOperators.Result lagon = registre.found(fondatrice, fondateurLagon != null ? "Correspondant"
+                    : "Fondatrice", LAGON, EconomyClock.now());
             if (lagon.founded()) {
                 idLagon = lagon.operator().id();
             }
@@ -2630,9 +3004,10 @@ public final class TelephoneShots {
     private static final Set<String> SORTES = Set.of("ready", "layout", "close", "unlock", "setup", "erase", "lock",
             "changeCode", "wallpaper", "airplane", "insertSim", "removeSim", "requestSim", "antennaApp", "opTariff",
             "opIssue", "opRefuse", "opAnonymous", "opSuspend", "opReactivate", "opReplace", "opDeactivate", "opMain",
-            "opPage", "opClose");
+            "opPage", "opClose", "callDial", "callAnswer", "callDecline", "callHangup", "callMute", "callSpeaker",
+            "contactSave", "contactRemove", "phoneApp");
     private static final Set<String> CLES = Set.of("a", "rects", "code", "old", "new", "id", "on", "wallpaper", "slot",
-            "op", "value", "n");
+            "op", "value", "n", "number", "name");
 
     /**
      * Le pont de l'écran est entouré d'un témoin qui compte chaque message par sorte (jamais son contenu : il peut

@@ -95,6 +95,13 @@ final class TelephoneBilan {
                     "antenne-suspendre", "antenne-reactiver", "antenne-tarif-refuse-enregistrer", "antenne-tarif-enregistrer",
                     "antenne-source-coupee", "antenne-source-retablie", "antenne-rechargement", "antenne-accueil-avant-vue",
                     "bilan-du-pont") : antenneSolo(webAttendu);
+            case "appel" -> List.of("appel-correspondant", "appel-lignes", "appel-deverrouillage", "appel-appli",
+                    "appel-onglet-recents", "appel-onglet-contacts", "appel-onglet-clavier", "appel-contact-saisie-relue",
+                    "appel-contact-enregistrer", "appel-clavier-numero", "appel-bouton-vert", "appel-decroche",
+                    "appel-silence", "appel-haut-parleur", "appel-quitter-ecran", "appel-vert-pendant-l-appel",
+                    "appel-vert-releve", "appel-fermer-appli", "appel-ile", "appel-raccrocher", "appel-fin-serveur",
+                    "appel-entrant", "appel-entrant-verrouille", "appel-refuser", "appel-repondre", "appel-raccrocher-2",
+                    "appel-inconnu", "appel-correspondant-sort", "bilan-du-pont");
             case "prise" -> List.of("fil-decor", "fil-prise-posee", "fil-telephone-branche", "fil-connecteur-source",
                     "fil-connecteur-mur", "fil-sans-fil-releve", "fil-bobine-source", "fil-bobine-mur", "fil-en-charge",
                     "fil-en-charge-releve", "fil-cle", "fil-reste-sur-aucun");
