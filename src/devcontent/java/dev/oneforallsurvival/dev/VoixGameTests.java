@@ -256,6 +256,10 @@ public final class VoixGameTests {
                     helper.assertTrue(!r.hears(f, f8.uuid()), "au-delà de " + entend + " : n'entend pas");
                     VoiceRoutes ferme = VoiceService.compute(essai.serveur(), c16.uuid()::equals);
                     helper.assertTrue(flux(ferme, c16.uuid(), id[0]).isEmpty(), "groupe fermé : non capté");
+                    JoueurDeTest spectateur = voisin(essai, p, "vx_bornes_spec", -(capte - 2));
+                    spectateur.joueur().setGameMode(net.minecraft.world.level.GameType.SPECTATOR);
+                    helper.assertTrue(flux(routes(p), spectateur.uuid(), id[0]).isEmpty(),
+                            "un spectateur à portée n'est pas capté");
                     CallService.hangUp(p.m().joueur(), id[0]);
                     essai.fermer();
                 })

@@ -130,6 +130,10 @@ public final class VoiceService {
         }
         List<Bystander> around = new ArrayList<>();
         for (ServerPlayer p : server.getPlayerList().getPlayers()) {
+            if (p.isSpectator()) {
+                // Un spectateur n'est pas dans le monde : le haut-parleur ne le capte pas (relecture de la tâche 5).
+                continue;
+            }
             around.add(new Bystander(p.getUUID(), spot(p), closedGroup.test(p.getUUID())));
         }
         return VoiceRoutes.compute(calls, around, PhoneConfig.speakerHearBlocks(), PhoneConfig.speakerCaptureBlocks());

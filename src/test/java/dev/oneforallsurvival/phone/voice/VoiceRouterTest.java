@@ -165,4 +165,20 @@ class VoiceRouterTest {
         assertDoesNotThrow(() -> router.microphone(A, voix()));
         assertFalse(router.current().keys().isEmpty());
     }
+
+    @Test
+    void unPuitsCasseNAvertitQuUneFoisParFlux() {
+        Recorder sink = new Recorder();
+        sink.explode = true;
+        VoiceRouter router = new VoiceRouter(sink, 1L);
+        router.publish(appel(4, false));
+        for (int i = 0; i < 50; i++) {
+            router.microphone(A, voix());
+        }
+        assertEquals(1, router.warnings(), "cinquante trames ratées sur un flux : un seul avertissement");
+        router.publish(VoiceRoutes.EMPTY);
+        router.publish(appel(4, false));
+        router.microphone(A, voix());
+        assertEquals(2, router.warnings(), "un flux fermé puis rouvert peut avertir à nouveau");
+    }
 }

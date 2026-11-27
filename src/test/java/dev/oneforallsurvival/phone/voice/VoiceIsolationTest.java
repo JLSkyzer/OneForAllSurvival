@@ -61,6 +61,34 @@ class VoiceIsolationTest {
                 "le greffon ne nomme pas Simple Voice Chat : la lecture du pool est cassée");
     }
 
+    /**
+     * Le vrai puits garde ce qui fait la voix d'un appel (relecture de la tâche 5) : le greffon n'annule jamais une
+     * trame du micro (la proximité reste), le canal privé vise son auditeur et passe l'isolement d'un groupe, le
+     * haut-parleur est filtré par l'instantané.
+     */
+    @Test
+    void leVraiPuitsGardeSesAppels() throws IOException {
+        List<Classe> greffon = lire().stream().filter(c -> c.chemin().startsWith(PAQUET)).toList();
+        List<String> plugin = textesDe(greffon, "CallVoicePlugin");
+        List<String> puits = textesDe(greffon, "SvcSink");
+        assertTrue(plugin.stream().noneMatch(t -> t.contains("cancel")), "le greffon nomme cancel");
+        for (String m : new String[] {"setFilter", "addTarget", "setBypassGroupIsolation"}) {
+            assertTrue(puits.contains(m), "SvcSink ne nomme plus " + m);
+        }
+    }
+
+    /** Les textes du pool de la classe {@code nom} et de ses classes internes. */
+    private static List<String> textesDe(List<Classe> classes, String nom) {
+        List<String> textes = new ArrayList<>();
+        for (Classe c : classes) {
+            String simple = c.chemin().substring(PAQUET.length());
+            if (simple.equals(nom + ".class") || simple.startsWith(nom + "$")) {
+                textes.addAll(c.textes());
+            }
+        }
+        assertTrue(!textes.isEmpty(), "classe " + nom + " non lue");
+        return textes;
+    }
     private static boolean nomme(String texte, String... motifs) {
         for (String m : motifs) {
             if (texte.contains(m)) {

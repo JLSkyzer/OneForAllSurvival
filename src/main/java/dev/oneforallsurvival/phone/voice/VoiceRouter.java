@@ -32,6 +32,9 @@ public final class VoiceRouter {
     private final Set<FlowKey> open = new LinkedHashSet<>();
     private final Map<FlowKey, Crackle> crackles = new HashMap<>();
     private boolean stopped;
+    /** Flux dont un échec d'envoi est déjà journalisé ; oubliés à leur fermeture. Sous {@link #lock}. */
+    private final Set<FlowKey> warned = new LinkedHashSet<>();
+    private int warnings;
 
     public VoiceRouter(VoiceSink sink, long seed) {
         this.sink = Objects.requireNonNull(sink, "sink");
@@ -57,6 +60,7 @@ public final class VoiceRouter {
             current = routes;
             Set<FlowKey> known = new LinkedHashSet<>(open);
             known.addAll(crackles.keySet());
+            warned.removeIf(key -> !routes.keys().contains(key));
             List<FlowKey> gone = new ArrayList<>();
             for (FlowKey key : known) {
                 if (!routes.keys().contains(key)) {
@@ -90,9 +94,20 @@ public final class VoiceRouter {
                         open.add(flow.key());
                     }
                 } catch (RuntimeException e) {
-                    LOGGER.warn("Voix d'un appel non relayée", e);
+                    // Une fois par flux : un puits cassé ne remplit pas le journal à 50 trames par seconde.
+                    if (warned.add(flow.key())) {
+                        warnings++;
+                        LOGGER.warn("Voix d'un appel non relayée (avertissement unique pour ce flux)", e);
+                    }
                 }
             }
+        }
+    }
+
+    /** Combien d'avertissements d'envoi ont été journalisés (essais). */
+    int warnings() {
+        synchronized (lock) {
+            return warnings;
         }
     }
 
@@ -128,6 +143,7 @@ public final class VoiceRouter {
     /** Sous le verrou : ferme le canal et le codec d'un flux, même si l'un des deux échoue. */
     private void closeFlow(FlowKey key) {
         open.remove(key);
+        warned.remove(key);
         Crackle c = crackles.remove(key);
         try {
             sink.close(key);
