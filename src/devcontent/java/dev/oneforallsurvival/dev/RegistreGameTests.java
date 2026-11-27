@@ -293,6 +293,7 @@ public final class RegistreGameTests {
         EconomyLedger.Entry ligne = registre.entries(0).get(0);
         helper.assertTrue(ligne.kind().equals("created.starting") && ligne.amount() == somme
                 && j.uuid().equals(ligne.author()), "ligne : " + ligne);
+        helper.assertTrue(ligne.reason().equals("somme de départ"), "motif accentué attendu : " + ligne.reason());
         j.quitter();
 
         // Reconnexion : rien de plus, et l'inventaire sauvé est intact.

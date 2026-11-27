@@ -110,11 +110,11 @@ public final class StallTrade {
         toCash.forEach(stall::addCash);
 
         String who = buyer.getGameProfile().getName();
-        String where = "etal de " + ownerLabel(stall) + " en " + stall.getBlockPos().toShortString();
+        String where = "étal de " + ownerLabel(stall) + " en " + stall.getBlockPos().toShortString();
         EconomyLedger ledger = EconomyLedger.get(buyer.server);
         ledger.transferred(MoneyTransfer.STALL_SALE, price - tax, buyer.getUUID(), who + " -> " + where);
         if (tax > 0L) {
-            ledger.transferred(MoneyTransfer.SALES_TAX, tax, buyer.getUUID(), "taxe sur l'achat de " + who + " a l'" + where);
+            ledger.transferred(MoneyTransfer.SALES_TAX, tax, buyer.getUUID(), "taxe sur l'achat de " + who + " à l'" + where);
         }
         stall.ledger().add(new Line(System.currentTimeMillis(), buyer.getUUID(), who, Kind.SALE, itemId(offer.template()),
                 offer.lot(), price));
@@ -204,7 +204,7 @@ public final class StallTrade {
         String who = seller.getGameProfile().getName();
         UUID owner = stall.owner();
         EconomyLedger.get(seller.server).transferred(MoneyTransfer.STALL_BUYBACK, price, owner,
-                "etal de " + ownerLabel(stall) + " en " + stall.getBlockPos().toShortString() + " -> " + who);
+                "étal de " + ownerLabel(stall) + " en " + stall.getBlockPos().toShortString() + " -> " + who);
         stall.ledger().add(new Line(System.currentTimeMillis(), seller.getUUID(), who, Kind.BUYBACK, itemId(buyback.template()),
                 buyback.lot(), price));
         stall.setChanged();
@@ -290,6 +290,6 @@ public final class StallTrade {
         if (!stall.ownerName().isEmpty()) {
             return stall.ownerName();
         }
-        return stall.owner() != null ? stall.owner().toString() : "sans proprietaire";
+        return stall.owner() != null ? stall.owner().toString() : "sans propriétaire";
     }
 }

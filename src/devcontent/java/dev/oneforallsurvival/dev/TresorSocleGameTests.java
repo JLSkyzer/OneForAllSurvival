@@ -152,6 +152,12 @@ public final class TresorSocleGameTests {
             TreasuryLedger.Line ligne = derniere(tresor);
             helper.assertTrue(ligne.kind() == Kind.INJECTION && ligne.amount() == 500L
                     && "relance".equals(ligne.reason()), "ligne INJECTION : " + ligne);
+            // Au registre de l'économie (partagé par les essais du lot) : la ligne de ce don, motif accentué.
+            List<EconomyLedger.Entry> dons = global.entries(0).stream()
+                    .filter(l -> l.amount() == 500L && l.kind().equals("created.staff") && l.reason().endsWith("relance"))
+                    .toList();
+            helper.assertTrue(!dons.isEmpty() && dons.get(0).reason().equals("trésor : relance"),
+                    "motif au registre de l'économie : " + dons);
             helper.assertTrue(tresor.takeFundsArrived() && !tresor.takeFundsArrived(),
                     "le drapeau des fonds arrivés se lève puis se baisse");
             // Un motif trop long, ou une somme nulle, ne bougent rien.

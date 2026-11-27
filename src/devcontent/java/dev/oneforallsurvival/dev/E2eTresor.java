@@ -791,11 +791,11 @@ final class E2eTresor {
                 }
             }
             String ledger = rcon("eco ledger");
-            if (!ledger.contains("Dev : " + MOTIF) || !ledger.contains("Dev : depot au tresor")) {
+            if (!ledger.contains("Dev : " + MOTIF) || !ledger.contains("Dev : dépôt au trésor")) {
                 throw new IllegalStateException("/eco ledger : " + ledger);
             }
             return "/treasury log (maire) : " + chat.replace('\n', '|') + " ; registre du serveur : " + lignes + " ; /eco ledger note les transferts "
-                    + "(« Dev : depot au tresor », « Dev : " + MOTIF + " »)";
+                    + "(« Dev : dépôt au trésor », « Dev : " + MOTIF + " »)";
         });
     }
 

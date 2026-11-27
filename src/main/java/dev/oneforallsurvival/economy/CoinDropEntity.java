@@ -381,7 +381,7 @@ public class CoinDropEntity extends Entity {
                 this.hasImpulse = true;
             }
             if (age >= LIFETIME) {
-                destroy(MoneySink.DESPAWN, "restee " + LIFETIME + " ticks au sol");
+                destroy(MoneySink.DESPAWN, "restée " + LIFETIME + " ticks au sol");
             }
         }
     }
@@ -456,7 +456,7 @@ public class CoinDropEntity extends Entity {
     public void remove(RemovalReason reason) {
         if (!level().isClientSide && !accounted && reason.shouldDestroy()) {
             accounted = true;
-            record(MoneySink.STAFF, "pieces retirees du monde (" + reason + ")");
+            record(MoneySink.STAFF, "pièces retirées du monde (" + reason + ")");
         }
         super.remove(reason);
     }

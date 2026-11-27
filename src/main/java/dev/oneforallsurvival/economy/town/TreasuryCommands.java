@@ -57,7 +57,7 @@ public final class TreasuryCommands {
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault());
 
     /** Début du motif noté au registre global pour une opération de l'équipe sur le trésor. */
-    private static final String GLOBAL_REASON = "tresor : ";
+    private static final String GLOBAL_REASON = "trésor : ";
 
     @SubscribeEvent
     public void onRegisterCommands(RegisterCommandsEvent event) {

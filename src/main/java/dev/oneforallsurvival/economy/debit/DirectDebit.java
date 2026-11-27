@@ -61,6 +61,34 @@ public final class DirectDebit {
 
     private DirectDebit() {}
 
+    /*
+     * Les motifs écrits au registre de l'économie ({@code /eco ledger}) : le numéro court de la facture (celui de
+     * {@code /invoice}, de quoi la retrouver), son motif lisible, le débiteur, puis l'issue en français. Jusqu'au
+     * 27/11 la ligne portait la référence interne du créancier (« electricity:2/… ») et la source en anglais
+     * (« (held) ») : les anciennes lignes restent telles quelles, rien ne relit ces motifs.
+     */
+
+    static String refusedReason(Invoice due) {
+        return ledgerReason(due, "prélèvement refusé");
+    }
+
+    static String paidReason(Invoice due, Source source) {
+        return ledgerReason(due, switch (source) {
+            case HELD -> "prélevée sur les pièces portées";
+            case PENDING -> "prélevée sur les pièces en attente";
+            case SAFE -> "prélevée au coffre-fort";
+            case MIXED -> "prélevée sur plusieurs réserves";
+        });
+    }
+
+    static String paidByItemReason(Invoice due) {
+        return ledgerReason(due, "payée avec l'objet facture");
+    }
+
+    private static String ledgerReason(Invoice due, String outcome) {
+        return "facture publique " + due.shortId() + " (" + due.reason() + ") de " + due.debtorName() + " : " + outcome;
+    }
+
     /** Genres non inscrits déjà signalés au journal (un avertissement par genre). */
     private static final java.util.Set<String> WARNED = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
@@ -126,8 +154,7 @@ public final class DirectDebit {
             int refusals = registry.noteRefusal(due.id());
             if (refusals <= 1) {
                 payee.get().refused(server, due, now);
-                EconomyLedger.get(server).debitRefused(debtorId, due.amount(), "facture publique " + due.payee() + " "
-                        + due.shortId() + " " + due.debtorName() + " : refus", now);
+                EconomyLedger.get(server).debitRefused(debtorId, due.amount(), refusedReason(due), now);
                 if (online != null) {
                     online.sendSystemMessage(refusedNotice(due, payee.get()));
                 } else {
@@ -157,8 +184,7 @@ public final class DirectDebit {
             return Outcome.FAILED;
         }
         EconomyLedger.get(server).transferred(MoneyTransfer.PUBLIC_BILL, due.amount(), debtorId,
-                "facture publique " + due.payee() + " " + due.shortId() + " " + due.debtorName() + " ("
-                        + plan.single().name().toLowerCase(Locale.ROOT) + ")");
+                paidReason(due, plan.single()));
         if (online != null) {
             online.sendSystemMessage(paidNotice(paid, payee.get(), plan.single().name()));
         } else {
@@ -293,7 +319,7 @@ public final class DirectDebit {
             return PayResult.CANNOT_PAY;
         }
         EconomyLedger.get(server).transferred(MoneyTransfer.PUBLIC_BILL, due.amount(), payer.getUUID(),
-                "facture publique " + due.payee() + " " + due.shortId() + " " + due.debtorName() + " (objet)");
+                paidByItemReason(due));
         LOGGER.debug("Prelevement : facture {} payee par l'objet ({} cuivres, {})", due.shortId(), due.amount(),
                 due.debtorName());
         return PayResult.PAID_TO_INVENTORY;

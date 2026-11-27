@@ -424,7 +424,7 @@ public final class PowerBilling implements DebitPayee, DailyDebit.DayIssuer {
             treasury.credit(toTreasury, TreasuryLedger.Kind.POWER_TAX, invoice.debtor(), invoice.debtorName(),
                     "taxe sur l'electricite, facture " + invoice.shortId() + " (" + supplier.name() + ")");
             EconomyLedger.get(server).transferred(MoneyTransfer.POWER_TAX, tax, invoice.debtor(),
-                    "taxe sur l'electricite " + invoice.shortId() + " " + invoice.debtorName() + " -> tresor");
+                    "taxe sur l'électricité " + invoice.shortId() + " " + invoice.debtorName() + " -> trésor");
         }
         toTill.forEach((coin, count) -> registry.deposit(supplier.id(), coin, count));
         EconomyLedger.get(server).electricityPaid(amount);

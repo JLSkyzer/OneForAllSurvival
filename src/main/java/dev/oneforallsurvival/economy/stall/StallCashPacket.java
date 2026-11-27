@@ -139,14 +139,14 @@ public record StallCashPacket(BlockPos pos, CoinRequest request) {
         LOGGER.info("Economie : {} a agi sur la caisse de l'etal de {} en {} ({} cuivres)", name, owner, stall.getBlockPos(),
                 delta);
         // L'argent passe d'une personne à une autre : un transfert dans les deux sens.
-        String whose = (!stall.ownerName().isEmpty() ? stall.ownerName() : owner != null ? owner.toString() : "sans proprietaire")
+        String whose = (!stall.ownerName().isEmpty() ? stall.ownerName() : owner != null ? owner.toString() : "sans propriétaire")
                 + " en " + stall.getBlockPos().toShortString();
         if (delta < 0L) {
             EconomyLedger.get(player.server).transferred(MoneyTransfer.STAFF_WITHDRAW, -delta, player.getUUID(),
-                    "retrait de l'equipe dans la caisse de l'etal de " + whose);
+                    "retrait de l'équipe dans la caisse de l'étal de " + whose);
         } else {
             EconomyLedger.get(player.server).transferred(MoneyTransfer.STAFF_DEPOSIT, delta, player.getUUID(),
-                    "depot de l'equipe dans la caisse de l'etal de " + whose);
+                    "dépôt de l'équipe dans la caisse de l'étal de " + whose);
         }
         stall.setChanged();
     }

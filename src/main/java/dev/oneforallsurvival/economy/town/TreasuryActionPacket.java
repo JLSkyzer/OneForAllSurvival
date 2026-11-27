@@ -142,7 +142,7 @@ public record TreasuryActionPacket(BlockPos pos, CoinRequest request, String rea
             global.transferred(MoneyTransfer.TREASURY_SPEND, -delta, player.getUUID(), name + " : " + reason);
         } else {
             account.note(new TreasuryLedger.Line(now, player.getUUID(), name, TreasuryLedger.Kind.DEPOSIT, delta, ""));
-            global.transferred(MoneyTransfer.TREASURY_DEPOSIT, delta, player.getUUID(), name + " : depot au tresor");
+            global.transferred(MoneyTransfer.TREASURY_DEPOSIT, delta, player.getUUID(), name + " : dépôt au trésor");
             account.markFundsArrived();
         }
     }

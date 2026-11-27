@@ -34,7 +34,7 @@ public final class StartingMoney {
         long amount = EconomyConfig.startingMoney();
         if (amount > 0L) {
             PlayerCoins.giveOrDrop(player, CoinMath.decompose(amount));
-            ledger.created(MoneySource.STARTING, amount, player.getUUID(), "somme de depart");
+            ledger.created(MoneySource.STARTING, amount, player.getUUID(), "somme de départ");
         }
         return true;
     }

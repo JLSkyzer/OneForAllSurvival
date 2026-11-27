@@ -309,7 +309,7 @@ public final class PowerCommands {
         long unit = EconomyConfig.powerPriceUnitFe();
         registry.setNextPriceCap(cap);
         note(source, EconomyLedger.KIND_POWER_CAP, cap,
-                "plafond de l'electricite : " + cap + " cuivres par " + unit + " FE, des demain");
+                "plafond de l'électricité : " + cap + " cuivres par " + unit + " FE, dès demain");
         source.sendSuccess(() -> Component.translatable(KEY + "cap_set", CoinMath.format(cap), unit), true);
         MinecraftServer server = source.getServer();
         for (PowerSupplier supplier : registry.all()) {
@@ -332,7 +332,7 @@ public final class PowerCommands {
             return fail(source, Result.OUT_OF_RANGE, Component.translatable(KEY + "tax_above_max", max));
         }
         registry.setNextTaxPercent(percent);
-        note(source, EconomyLedger.KIND_POWER_TAX, 0L, "taxe sur l'electricite : " + percent + " % des demain");
+        note(source, EconomyLedger.KIND_POWER_TAX, 0L, "taxe sur l'électricité : " + percent + " % dès demain");
         source.sendSuccess(() -> Component.translatable(KEY + "tax_set", percent), true);
         return Result.DONE;
     }
@@ -404,7 +404,7 @@ public final class PowerCommands {
             before = supplier.nextPrice() != null ? supplier.nextPrice() : supplier.price();
             registry.setNextPrice(supplier.id(), value);
             note(source, EconomyLedger.KIND_POWER_PRICE, value,
-                    supplier.name() + " : prix " + value + " cuivres par " + unit + " FE des demain");
+                    supplier.name() + " : prix " + value + " cuivres par " + unit + " FE dès demain");
             source.sendSuccess(() -> Component.translatable(KEY + "price_set", supplier.name(), CoinMath.format(value),
                     unit), true);
         } else {
@@ -416,7 +416,7 @@ public final class PowerCommands {
             before = supplier.nextSubscription() != null ? supplier.nextSubscription() : supplier.subscription();
             registry.setNextSubscription(supplier.id(), value);
             note(source, EconomyLedger.KIND_POWER_SUBSCRIPTION, value,
-                    supplier.name() + " : abonnement " + value + " cuivres par jour des demain");
+                    supplier.name() + " : abonnement " + value + " cuivres par jour dès demain");
             source.sendSuccess(() -> Component.translatable(KEY + "subscription_set", supplier.name(),
                     CoinMath.format(value)), true);
         }
@@ -616,7 +616,7 @@ public final class PowerCommands {
                 Component.translatable(MESSAGE + "dest." + destination.name().toLowerCase(Locale.ROOT))));
         EconomyLedger.get(server).noted(EconomyLedger.KIND_POWER_REMOVE, author, value,
                 (author == null && sourceName != null ? "[" + sourceName + "] " : "") + supplier.name() + " : "
-                + reason + " (" + clients.size() + " client(s), " + cancelled + " facture(s) annulee(s), caisse a "
+                + reason + " (" + clients.size() + " client(s), " + cancelled + " facture(s) annulée(s), caisse à "
                 + current.founderName() + ")");
         LOGGER.warn("Electricite : fournisseur {} supprime ({}) : {} client(s) detache(s), {} facture(s) annulee(s), "
                 + "caisse de {} cuivres a {} ({})", supplier.name(), reason, clients.size(), cancelled, value,

@@ -343,8 +343,8 @@ public final class OperatorCommands {
                     CoinMath.format(max)));
         }
         registry.setNextTariffCap(cap);
-        note(source, EconomyLedger.KIND_PHONE_CAP, cap, "plafond des tarifs du telephone : " + cap
-                + " cuivres par jour, des demain");
+        note(source, EconomyLedger.KIND_PHONE_CAP, cap, "plafond des tarifs du téléphone : " + cap
+                + " cuivres par jour, dès demain");
         source.sendSuccess(() -> Component.translatable(KEY + "cap_set", CoinMath.format(cap)), true);
         MinecraftServer server = source.getServer();
         for (PhoneOperator op : registry.all()) {
@@ -375,7 +375,7 @@ public final class OperatorCommands {
             return fail(source, Result.ABOVE_CAP, Component.translatable(KEY + "set_above_cap", CoinMath.format(max)));
         }
         note(source, EconomyLedger.KIND_PHONE_TARIFF, value, op.name() + " : tarif " + value
-                + " cuivres par jour des demain");
+                + " cuivres par jour dès demain");
         source.sendSuccess(() -> Component.translatable(KEY + "tariff_set", op.name(), CoinMath.format(value)), true);
         OperatorActions.notify(source.getServer(), registry, op.founder(), Component.translatable(
                 MESSAGE + "tariff_by_mayor", op.name(), CoinMath.format(value)));
@@ -619,7 +619,7 @@ public final class OperatorCommands {
         EconomyLedger.get(server).noted(EconomyLedger.KIND_PHONE_REMOVE, author, value,
                 (author == null && sourceName != null ? "[" + sourceName + "] " : "") + current.name() + " : "
                 + reason + " (" + cards.size() + " carte(s), " + antennas.size() + " antenne(s), " + requests.size()
-                + " demande(s), caisse a " + current.founderName() + ")");
+                + " demande(s), caisse à " + current.founderName() + ")");
         LOGGER.warn("Telephone : operateur {} supprime ({}) : {} carte(s) desactivee(s), {} antenne(s), {} demande(s), "
                 + "caisse de {} cuivres a {} ({})", current.name(), reason, cards.size(), antennas.size(),
                 requests.size(), value, current.founderName(), destination);
