@@ -32,9 +32,9 @@ import net.minecraft.world.level.Level;
  * (créatif ou commande, l'équipe seule) ; et la première insertion d'une des deux piles fait tourner le jeton : jamais
  * deux lignes.
  *
- * <p>Limite connue du mode créatif : le client créatif renvoie au serveur la pile qu'il a reçue, sans jeton. Une carte
- * (seule ou logée dans un téléphone) déplacée dans l'inventaire créatif perd son jeton et devient morte ; sa ligne n'est
- * plus prouvée par aucune pile. Aucune ligne n'est gagnée, mais celle-ci est perdue : le fondateur la rend par
+ * <p>Mode créatif : le client créatif renvoie au serveur la pile qu'il a reçue, sans jeton. Le serveur rend à la carte
+ * (seule ou logée dans un téléphone) le jeton qu'il a vu chez ce joueur ({@link CreativeSims}, retours d'essai du
+ * 27/11), jamais celui d'un autre. Une carte abîmée avant cette correction se remplace : le fondateur la rend par
  * « Remplacer la carte » ({@link PhoneSims#replaceCard}), même numéro, nouveau jeton.
  */
 public class SimCardItem extends Item {

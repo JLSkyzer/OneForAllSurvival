@@ -156,6 +156,9 @@ public final class OneForAllSurvival {
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.phone.net.OperatorCommands::onServerStopped);
         // Revue finale du lot T2 (m3) : les panneaux de l'opérateur ouverts sont oubliés à l'arrêt du serveur.
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.phone.net.OperatorPanels::onServerStopped);
+        // Retours d'essai du 27/11 : les jetons de carte SIM vus chez un joueur créatif, oubliés à son départ et à l'arrêt.
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.phone.net.CreativeSims::onLoggedOut);
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.phone.net.CreativeSims::onServerStopped);
         // Lot T3, tâche 3 : les appels (relevé toutes les 20 tics, départ, mort avant les lâchers, dimension, arrêt du
         // serveur, où tout appel finit et sa poignée de trafic se ferme). Un seul point d'inscription, rejoué par les
         // essais sur un bus à part (revue de la tâche 3, I3).

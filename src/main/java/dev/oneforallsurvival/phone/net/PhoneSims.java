@@ -24,8 +24,8 @@ import net.minecraftforge.common.util.FakePlayer;
  * l'emporte, l'autre devient morte ({@link Validity#UNKNOWN} si elle est logée, refusée à l'insertion). Une seule ligne
  * à la fois.
  *
- * <p>Le jeton est une preuve de présence, pas un secret fort (voir {@link SimCardItem}, avec la limite du mode
- * créatif que {@link #replaceCard} compense).
+ * <p>Le jeton est une preuve de présence, pas un secret fort (voir {@link SimCardItem}, et {@link CreativeSims} pour
+ * l'inventaire créatif ; {@link #replaceCard} rend une carte abîmée).
  *
  * <p>Un faux joueur (déployeur, automate) n'émet, n'insère ni ne retire rien. Le jeton n'est écrit ni dans un journal ni
  * dans une exception.

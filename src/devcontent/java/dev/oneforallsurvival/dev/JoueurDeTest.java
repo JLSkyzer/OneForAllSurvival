@@ -494,6 +494,20 @@ public final class JoueurDeTest {
         canal.writeInbound(BenchNetwork.CHANNEL.toVanillaPacket(message, NetworkDirection.PLAY_TO_SERVER));
     }
 
+    /**
+     * Envoie au serveur un paquet de Minecraft tel que le client l'envoie : le paquet est écrit dans un tampon puis relu
+     * (ce que le serveur décode d'une vraie connexion), et traité par la connexion du joueur.
+     */
+    public void envoyerVanille(Packet<?> paquet, java.util.function.Function<FriendlyByteBuf, Packet<?>> lecture) {
+        FriendlyByteBuf buf = new FriendlyByteBuf(io.netty.buffer.Unpooled.buffer());
+        try {
+            paquet.write(buf);
+            canal.writeInbound(lecture.apply(buf));
+        } finally {
+            buf.release();
+        }
+    }
+
     public boolean connecte() {
         return canal.isOpen();
     }
