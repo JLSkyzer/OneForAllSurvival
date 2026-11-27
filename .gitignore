@@ -39,4 +39,7 @@ run-wiki
 
 # Jars exportés pour le serveur et les joueurs (non versionnés)
 export/
+
+# Jar de Reggadium recopié du pack pour -PwithReggadium (tiers, non versionné)
+libs/reggadium-*.jar
 run-titre-forge

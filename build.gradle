@@ -196,6 +196,15 @@ minecraft {
             if (project.hasProperty('phonePage')) {
                 property 'oneforallsurvival.phonePage', project.phonePage
             }
+            // `-PreggadiumShots` (avec -PwithReggadium) : mesure de la saccade du panneau de Reggadium dans un monde
+            // plat d'essai, puis fermeture ; `-PsansCompatReggadium` coupe le mixin du mod (mesure « avant »). Voir
+            // ReggadiumShots (devcontent).
+            if (project.hasProperty('reggadiumShots')) {
+                property 'oneforallsurvival.reggadiumShots', 'true'
+            }
+            if (project.hasProperty('sansCompatReggadium')) {
+                property 'oneforallsurvival.compat.reggadium', 'false'
+            }
             if (project.hasProperty('gameArgs')) {
                 args project.gameArgs.trim().split(/\s+/).toList()
             }
@@ -553,13 +562,16 @@ mixin {
     config 'oneforallsurvival.create.mixins.json'
     config 'oneforallsurvival.farmersdelight.mixins.json'
     config 'oneforallsurvival.createaddition.mixins.json'
+    // Reggadium (lot C) : mesure de la charge processeur de son panneau hors du fil de rendu, client seulement.
+    config 'oneforallsurvival.reggadium.mixins.json'
 }
 
 // Le jar livré déclare sa configuration de mixins, Forge la lit dans le manifeste.
 tasks.named('jar', Jar).configure {
     manifest {
         attributes('MixinConfigs': 'oneforallsurvival.mixins.json,oneforallsurvival.create.mixins.json,'
-                + 'oneforallsurvival.farmersdelight.mixins.json,oneforallsurvival.createaddition.mixins.json')
+                + 'oneforallsurvival.farmersdelight.mixins.json,oneforallsurvival.createaddition.mixins.json,'
+                + 'oneforallsurvival.reggadium.mixins.json')
     }
 }
 
@@ -690,7 +702,8 @@ if (project.hasProperty('withPack') || !gradle.startParameter.taskNames.any { it
 }
 
 // Essais de compatibilité du lot C, client seulement, à la demande : `-PwithQuickSkin` (Quick-Skin et Architectury,
-// fichiers du pack) pour l'écran titre. Voir gradle.properties.
+// fichiers du pack) pour l'écran titre, `-PwithReggadium` (jar du pack recopié à la main dans libs/, non versionné,
+// vérifié par son sha1) pour le panneau de performances. Voir gradle.properties.
 // Les mixins de Quick-Skin visent les noms SRG, sans refmap (annotations, champs @Shadow) : en développement (noms
 // officiels), ils ne trouvent pas leurs cibles et font planter le lancement. L'essai charge une copie dont ces noms
 // sont traduits par la table SRG -> officiels de ForgeGradle (build/createSrgToMcp/output.srg) : noms des membres
@@ -795,7 +808,7 @@ def traduireNomsSrg = { File source, File cible ->
     }
 }
 // Copies d'essai de ces mods (build/essai-compat), déclarées avant toute résolution.
-if (project.hasProperty('withQuickSkin')) {
+if (project.hasProperty('withQuickSkin') || project.hasProperty('withReggadium')) {
     repositories {
         flatDir {
             dir 'build/essai-compat'
@@ -825,6 +838,45 @@ if (project.hasProperty('withQuickSkin')) {
 if (project.hasProperty('withQuickSkinOriginal')) {
     dependencies {
         runtimeOnly "maven.modrinth:quick-skin:${quickskin_version}"
+    }
+}
+if (project.hasProperty('withReggadium')) {
+    def jarReggadium = project.file("libs/reggadium-forge-1.20.1-${reggadium_version}.jar")
+    if (!jarReggadium.isFile()) {
+        throw new GradleException("-PwithReggadium : ${jarReggadium} absent ; le recopier depuis le pack (jamais le télécharger)")
+    }
+    def empreinte = java.security.MessageDigest.getInstance('SHA-1').digest(jarReggadium.bytes).encodeHex().toString()
+    if (empreinte != reggadium_sha1) {
+        throw new GradleException("-PwithReggadium : ${jarReggadium.name} a le sha1 ${empreinte}, attendu ${reggadium_sha1} (jar du pack)")
+    }
+    // Ses mixins visent les noms SRG sans refmap : ils ne trouvent pas leurs cibles en développement (noms officiels)
+    // et font planter le lancement. L'essai charge donc une copie dont le manifeste ne déclare plus de mixins ; le
+    // panneau (RenderGuiOverlayEvent) et SystemPerformanceTracker, seuls en cause ici, n'en dépendent pas.
+    def copieSansMixins = project.file("build/essai-compat/reggadium-forge-1.20.1-${reggadium_version}-sansmixins.jar")
+    if (!copieSansMixins.isFile() || copieSansMixins.lastModified() < jarReggadium.lastModified()) {
+        copieSansMixins.parentFile.mkdirs()
+        new java.util.zip.ZipInputStream(new FileInputStream(jarReggadium)).withCloseable { entree ->
+            new java.util.zip.ZipOutputStream(new FileOutputStream(copieSansMixins)).withCloseable { sortie ->
+                def element
+                while ((element = entree.nextEntry) != null) {
+                    sortie.putNextEntry(new java.util.zip.ZipEntry(element.name))
+                    def octets = entree.readAllBytes()
+                    if (element.name == 'META-INF/MANIFEST.MF') {
+                        octets = new String(octets, 'UTF-8').readLines().findAll { !it.startsWith('MixinConfigs:') }
+                                .join('\r\n').concat('\r\n').getBytes('UTF-8')
+                    } else if (element.name == 'META-INF/mods.toml') {
+                        // Les blocs [[mixins]] (une ligne de titre, une ligne config = "...").
+                        octets = new String(octets, 'UTF-8').replaceAll(/(?m)^\[\[mixins\]\]\s*\r?\n\s*config\s*=.*\r?\n?/, '')
+                                .getBytes('UTF-8')
+                    }
+                    sortie.write(octets)
+                    sortie.closeEntry()
+                }
+            }
+        }
+    }
+    dependencies {
+        runtimeOnly fg.deobf("local.essai:reggadium-forge-1.20.1:${reggadium_version}-sansmixins")
     }
 }
 

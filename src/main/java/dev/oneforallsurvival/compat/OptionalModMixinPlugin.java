@@ -67,6 +67,14 @@ public abstract class OptionalModMixinPlugin implements IMixinConfigPlugin {
         }
     }
 
+    /** Ne rien appliquer, raison au journal. */
+    protected void disable(String why) {
+        if (enabled) {
+            LOGGER.warn("Compatibilité : mixins de {} non appliqués ({})", modId, why);
+        }
+        enabled = false;
+    }
+
     @Override
     public String getRefMapperConfig() {
         return null;
@@ -105,6 +113,25 @@ public abstract class OptionalModMixinPlugin implements IMixinConfigPlugin {
     public static final class CreateAddition extends OptionalModMixinPlugin {
         public CreateAddition() {
             super("createaddition", "[1.20.1-1.3.3]");
+        }
+    }
+
+    /**
+     * Reggadium : bytecode lu sur 1.3-beta ({@code SystemPerformanceTracker.update}). Toute version : les
+     * redirections ne sont pas requises, une méthode changée garde sa mesure d'origine. La propriété
+     * {@code -Doneforallsurvival.compat.reggadium=false} les coupe (mesure « avant » des essais).
+     */
+    public static final class Reggadium extends OptionalModMixinPlugin {
+        public Reggadium() {
+            super("reggadium", "[0,)");
+        }
+
+        @Override
+        public void onLoad(String mixinPackage) {
+            super.onLoad(mixinPackage);
+            if ("false".equals(System.getProperty("oneforallsurvival.compat.reggadium"))) {
+                disable("coupés par oneforallsurvival.compat.reggadium=false");
+            }
         }
     }
 
