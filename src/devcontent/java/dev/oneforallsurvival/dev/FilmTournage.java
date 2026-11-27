@@ -43,7 +43,7 @@ import org.lwjgl.glfw.GLFWCursorPosCallback;
  * objet en main, cases des menus) et les commandes jouées par le serveur. Un seul film tourne par JVM : l'état est
  * statique, chaque film le règle (origine {@link #o}, {@link #prise}, {@link #fin}).
  */
-final class FilmTournage {
+public final class FilmTournage {
 
     static final Logger LOG = LogManager.getLogger("oneforallsurvival-film");
 
@@ -138,14 +138,14 @@ final class FilmTournage {
         return pres(mc, bloc.getX() + 0.5, bloc.getZ() + 2.5);
     }
 
-    static void clicDroit(Minecraft mc, BlockPos pos, Direction face) {
+    public static void clicDroit(Minecraft mc, BlockPos pos, Direction face) {
         Vec3 point = Vec3.atCenterOf(pos).add(face.getStepX() * 0.5, face.getStepY() * 0.5, face.getStepZ() * 0.5);
         var res = mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, new BlockHitResult(point, face, pos, false));
         mc.player.swing(InteractionHand.MAIN_HAND);
         LOG.info("[film] clic droit en {} : {}", pos, res);
     }
 
-    static void tenirVide(Minecraft mc) {
+    public static void tenirVide(Minecraft mc) {
         for (int i = 8; i >= 0; i--) {
             if (mc.player.getInventory().getItem(i).isEmpty()) {
                 mc.player.getInventory().selected = i;
@@ -275,7 +275,7 @@ final class FilmTournage {
         }
     }
 
-    static Optional<AbstractWidget> widget(Screen ecran, String cle) {
+    public static Optional<AbstractWidget> widget(Screen ecran, String cle) {
         for (GuiEventListener l : ecran.children()) {
             if (l instanceof AbstractWidget w && w.visible && w.getMessage().getContents() instanceof TranslatableContents t
                     && cle.equals(t.getKey())) {
@@ -382,7 +382,7 @@ final class FilmTournage {
 
     // --- caméra (spectateur) ------------------------------------------------------------------------
 
-    static float[] regard(Vec3 de, Vec3 vers) {
+    public static float[] regard(Vec3 de, Vec3 vers) {
         double dx = vers.x - de.x;
         double dy = vers.y - de.y;
         double dz = vers.z - de.z;

@@ -1,0 +1,9 @@
+{
+  "_note": "Objets d'autres mods dont l'atelier (runWikiStudio, chapitre _export) exporte aussi la recette de table, en plus des objets du mod et de ceux cités par wiki/data/*.json. Motifs espace:chemin, * pour n'importe quelle suite. Le catalogue de l'établi est toujours exporté en entier.",
+  "objets": [
+    "createaddition:*connector*",
+    "createaddition:*spool*",
+    "createaddition:*wire*",
+    "farmersdelight:cooking_pot"
+  ]
+}

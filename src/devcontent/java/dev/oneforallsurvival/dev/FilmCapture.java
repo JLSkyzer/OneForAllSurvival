@@ -23,7 +23,7 @@ import org.apache.logging.log4j.Logger;
  * Capture des films de développement (jamais empaquetée) : le jeu en haut (1280 x 656), un bandeau de
  * 64 pixels dessous avec la légende et les valeurs lues en direct, à 10 images par seconde dans un dossier.
  */
-final class FilmCapture {
+public final class FilmCapture {
 
     private static final Logger LOG = LogManager.getLogger("oneforallsurvival-film");
     private static final int BANDEAU = 64;
@@ -39,7 +39,7 @@ final class FilmCapture {
     /** Gros plan : centre (pixels du jeu) et facteur, ou {@code null} pour l'image entière. Réglé par le film. */
     private volatile double[] gros;
 
-    FilmCapture(Path dossier, String titre) throws IOException {
+    public FilmCapture(Path dossier, String titre) throws IOException {
         this.dossier = dossier;
         this.titre = titre;
         Files.createDirectories(dossier);
@@ -137,7 +137,7 @@ final class FilmCapture {
      * Une image nommée {@code nom.png}, à la taille de la fenêtre, sans bandeau ni cadence : l'image que le jeu vient
      * de dessiner (à appeler à la fin d'une image, thread de rendu). Écrite en tâche de fond.
      */
-    void instantane(Minecraft mc, String nom) {
+    public void instantane(Minecraft mc, String nom) {
         numero++;
         try (NativeImage image = Screenshot.takeScreenshot(mc.getMainRenderTarget())) {
             int l = image.getWidth();
@@ -163,7 +163,7 @@ final class FilmCapture {
     }
 
     /** Attend la fin des écritures en cours ; plus aucune image n'est acceptée ensuite. */
-    void attendre() {
+    public void attendre() {
         ecrivains.shutdown();
         try {
             ecrivains.awaitTermination(2, TimeUnit.MINUTES);

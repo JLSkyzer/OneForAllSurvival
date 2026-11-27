@@ -32,6 +32,7 @@ run-e2e
 logs
 run-demo
 run-titre
+run-wiki
 
 # compagnons de brainstorming (superpowers)
 .superpowers/brainstorm/

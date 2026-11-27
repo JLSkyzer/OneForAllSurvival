@@ -287,6 +287,21 @@ minecraft {
             args '--width', '1280', '--height', '720'
         }
 
+        // Atelier de captures du wiki (dev seulement) : un client qui se pilote seul dans un monde plat neuf, joue les
+        // scènes des chapitres et écrit run-wiki/captures/<chapitre>/<prise>.png (+ repères .json, séquences, exports
+        // dans _export/). `-PwikiSeul=<chapitre>[:<scène>][,…]` (ex. controle,_export) ; `-PwithMcef` pour le téléphone ;
+        // sans JEI sauf `-PwikiJei`. Voir dev/wiki/WikiStudio (devcontent).
+        wikiStudio {
+            parent minecraft.runs.client
+            workingDirectory project.file('run-wiki')
+            property 'oneforallsurvival.wiki', 'captures'
+            if (project.hasProperty('wikiSeul')) {
+                property 'oneforallsurvival.wiki.seul', project.property('wikiSeul').toString()
+            }
+            jvmArgs '-Xmx4G'
+            args '--width', '1280', '--height', '720'
+        }
+
         // Preuve de bout en bout (dev seulement) : un client qui se connecte seul à `runServer` sur localhost,
         // joue un craft complet et arrête le serveur par /stop. Voir E2eClient (devcontent).
         e2eClient {
@@ -652,8 +667,10 @@ if (project.hasProperty('withPack') || !gradle.startParameter.taskNames.any { it
         runtimeOnly fg.deobf("curse.maven:medical-remedies-1185929:${medicalremedies_file}")
         runtimeOnly fg.deobf("curse.maven:first-aid-276837:${firstaid_file}")
         runtimeOnly fg.deobf("com.blamejared.crafttweaker:CraftTweaker-forge-1.20.1:${crafttweaker_version}")
-        // `-PsansJei` : sans JEI (films où sa liste d'objets ne doit pas paraître à côté des écrans).
-        if (!project.hasProperty('sansJei')) {
+        // `-PsansJei` : sans JEI (films où sa liste d'objets ne doit pas paraître à côté des écrans). L'atelier du wiki
+        // s'en passe aussi, sauf `-PwikiJei`.
+        def atelierWiki = gradle.startParameter.taskNames.any { it.contains('WikiStudio') } && !project.hasProperty('wikiJei')
+        if (!project.hasProperty('sansJei') && !atelierWiki) {
             runtimeOnly fg.deobf("mezz.jei:jei-${minecraft_version}-forge:${jei_version}")
         }
     }
@@ -681,9 +698,9 @@ if (project.hasProperty('withMcef')) {
     // `skip-download=true` est posee, remplacee ou ajoutee, puis le fichier est relu : sans elle, la tache echoue.
     def ensureMcefSkipDownload = tasks.register('ensureMcefSkipDownload') {
         group = 'build'
-        description = 'Pose skip-download=true dans config/mcef/mcef.properties de run et run-client2, et le verifie.'
+        description = 'Pose skip-download=true dans config/mcef/mcef.properties de run, run-client2 et run-wiki, et le verifie.'
         doLast {
-            ['run', 'run-client2'].each { dossier ->
+            ['run', 'run-client2', 'run-wiki'].each { dossier ->
                 def reglages = project.file("${dossier}/config/mcef/mcef.properties")
                 def lignes = reglages.isFile() ? reglages.readLines('UTF-8')
                         : ['use-cache=true', 'download-mirror=https://mcef-download.cinemamod.com', 'user-agent=null']
@@ -717,7 +734,7 @@ if (project.hasProperty('withMcef')) {
             }
         }
     }
-    tasks.matching { it.name in ['runClient', 'runClient2'] }.configureEach { dependsOn prepareMcefLibraries }
+    tasks.matching { it.name in ['runClient', 'runClient2', 'runWikiStudio'] }.configureEach { dependsOn prepareMcefLibraries }
 }
 
 tasks.named('test', Test).configure {
@@ -827,6 +844,20 @@ tasks.matching { it.name == 'runDemoVisuels' }.configureEach {
     doFirst {
         delete project.file('run-demo/saves/demo_visuels')
         delete project.file('run-demo/visuels-captures')
+    }
+}
+
+// L'atelier du wiki : réglages de run-wiki/options.txt (ce dossier seulement, jamais run/options.txt) posés à chaque
+// lancement, les autres clés gardées. Jeu en français, accueils sautés, son coupé. Le monde est recréé par l'atelier.
+tasks.matching { it.name == 'runWikiStudio' }.configureEach {
+    doFirst {
+        def options = project.file('run-wiki/options.txt')
+        def voulues = [lang: 'fr_fr', onboardAccessibility: 'false', tutorialStep: 'none', skipMultiplayerWarning: 'true',
+                       joinedFirstServer: 'true', narrator: '0', pauseOnLostFocus: 'false', bobView: 'false',
+                       guiScale: '2', soundCategory_master: '0.0', fullscreen: 'false']
+        def lignes = options.isFile() ? options.readLines('UTF-8').findAll { l -> !voulues.keySet().any { l.startsWith(it + ':') } } : []
+        options.parentFile.mkdirs()
+        options.setText((lignes + voulues.collect { k, v -> "${k}:${v}" } + ['']).join('\n'), 'UTF-8')
     }
 }
 
