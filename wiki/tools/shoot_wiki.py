@@ -237,6 +237,9 @@ f.onload = async () => {
   if (MODE === 'robustesse') await robustesse();
   if (MODE === 'staff') { doc().querySelector('.vue [data-view="staff"]').click(); await dort(100); }
   if (P.get('q')) { const q = doc().getElementById('q'); q.value = P.get('q'); q.dispatchEvent(new (win().Event)('input', { bubbles: true })); await dort(500); }
+  // Les images en chargement différé ne partent qu'à l'approche : on les charge toutes avant la capture pleine page.
+  for (const im of doc().querySelectorAll('img[loading="lazy"]')) im.loading = 'eager';
+  await attendre(() => [...doc().images].every((i) => i.complete), 8000).catch(() => {});
   const h = await mesure();
   const rap = releve();
   rap.hauteur = h; rap.essais = R;

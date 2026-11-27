@@ -50,3 +50,20 @@ Constats en jeu (atelier, journal `[wiki] constat`) :
 - Débris de câblage démonté en survie à la pioche de fer : le bloc part, des fils d'aviation tombent.
 - Alternateur à 32 tr/min derrière un tableau de délestage, trois séchoirs en sortie : 20, 20 et 5 FE/t (45 FE/t), la
   troisième sortie « Partielle ».
+
+### Relecture du chapitre (27/11, après-midi)
+
+- **Compteur : le nom inscrit doit être le pseudo exact du payeur.** `PowerPairing.pairMeter` cherche le débiteur
+  par ce nom (`knownPlayer`) ; un nom RP fait refuser le jumelage (« Aucun joueur connu du serveur ne s'appelle … »).
+  L'indication de l'écran (« lettres, chiffres, espace, tiret ») ne cite pas le « _ », pourtant accepté
+  (`MeterLedger.isNameChar`) : à corriger dans la langue. La première version de l'article montrait un nom RP.
+- **Jumelé, le disjoncteur n'est plus à tous** (`BreakerBlock.toggle` → `PowerPairing.mayTouch` / `mayActOn` :
+  fondateur, ingénieur, maire, équipe ; jamais l'abonné) ; et le courant ne passe qu'après l'accord de l'abonné, le
+  « Accepter » du fournisseur, sans coupure (`PowerSuppliers.passes`).
+- **Chaîne de la douche** : le premier montage (pompe verticale vers une pomme en hauteur) perdait l'eau ; relevé
+  toutes les 20 s, le chauffe-eau restait à 0 mB d'eau potable et l'eau chaude cessait de monter dès que les 2 000 mB
+  préremplis étaient passés. Cause exacte non établie (un bout de tuyau qui crachait au-dessus de la pomme, vu sur
+  l'image). Remonté sans tuyau vertical (terrasse, chaîne horizontale), à partir de cuves vides : en 2 min, la pomme
+  pleine (1 000 mB) puis l'eau chaude du chauffe-eau de 0 à 3 400 mB, au rythme de la production du dessalinisateur
+  (2 mB/t). Le chauffe-eau relevé « à l'arrêt » à certains relevés n'est pas un arrêt : il chauffe plus vite (5 mB/t)
+  qu'il ne reçoit, et attend l'eau suivante. Rien à signaler côté mod.

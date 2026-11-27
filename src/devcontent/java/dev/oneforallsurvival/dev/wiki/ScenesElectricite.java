@@ -121,8 +121,8 @@ public final class ScenesElectricite implements Chapitre {
 
     private static final BlockPos A = new BlockPos(0, 0, 0);
     /** La machine « sans courant » et la machine « en panne » des trios d'états, de part et d'autre de la principale. */
-    private static final BlockPos E = new BlockPos(-12, 0, 1);
-    private static final BlockPos P = new BlockPos(12, 0, 1);
+    private static final BlockPos E = new BlockPos(-30, 0, 1);
+    private static final BlockPos P = new BlockPos(30, 0, 1);
     private static final Vec3 VUE_ETAT = new Vec3(0.55, 0.3, 1.55);
     private static final String CREATIF = "createaddition:creative_energy";
     private static final List<JoueurDeTest> FIGURANTS = new ArrayList<>();
@@ -527,7 +527,7 @@ public final class ScenesElectricite implements Chapitre {
 
     private static final BlockPos BAIN = new BlockPos(0, 1, 0);
     private static final BlockPos BAIN_ECRAN = new BlockPos(6, 0, 0);
-    private static final BlockPos BAIN_MARCHE = new BlockPos(-6, 0, 6);
+    private static final BlockPos BAIN_MARCHE = new BlockPos(-45, 0, 1);
 
     private void bain(Atelier atelier) {
         boolean[] fait = new boolean[2];
@@ -625,13 +625,13 @@ public final class ScenesElectricite implements Chapitre {
                     lieu.poser(1, 0, -4, SalvageRegistry.DEBRIS_WIRING.get().defaultBlockState());
                     lieu.poser(-4, 0, -2, SalvageRegistry.DEBRIS_CABIN.get().defaultBlockState());
                     lieu.poser(-4, 0, -3, SalvageRegistry.DEBRIS_CABIN.get().defaultBlockState());
-                    lieu.poser(3, 0, -5, SalvageRegistry.DEBRIS_BATTERY.get().defaultBlockState());
+                    lieu.poser(-1, 0, -2, SalvageRegistry.DEBRIS_BATTERY.get().defaultBlockState());
                 })
                 .camera(new Vec3(-0.2, 2.2, 1.4), new Vec3(-0.5, 0.4, -3.6))
                 .repereBloc("fuselage", new BlockPos(-2, 1, -4), 0.5, 0.95, 0.6)
                 .repereBloc("instruments", new BlockPos(0, 1, -4), 0.5, 0.95, 0.6)
                 .repereBloc("cablage", CABLAGE, 0.5, 0.95, 0.6)
-                .repereBloc("batterie", new BlockPos(3, 0, -5), 0.5, 0.95, 0.6)
+                .repereBloc("batterie", new BlockPos(-1, 0, -2), 0.5, 0.95, 0.6)
                 .repereBloc("cabine", new BlockPos(-4, 0, -2), 0.5, 0.95, 0.6)
                 .prise("epave-hero")
                 .serveur("survie, pioche en main", lieu -> {
@@ -693,7 +693,7 @@ public final class ScenesElectricite implements Chapitre {
                 .pause(3000)
                 .camera(new Vec3(2.1, 1.9, 2.5), new Vec3(0.2, 0.6, 0.0))
                 .repereBloc("tableau", A, 0.55, 0.45, 1.0)
-                .repereBloc("entree", new BlockPos(0, 0, -1), 0.5, 0.95, 0.4)
+                .repereBloc("entree", new BlockPos(0, 0, -1), 1.0, 0.98, 0.0)
                 .repereBloc("dessus", new BlockPos(0, 1, 0), 0.9, 0.7, 0.95)
                 .repereBloc("droite", new BlockPos(1, 0, 0), 0.9, 0.5, 0.95)
                 .prise("delestage-hero")
@@ -776,7 +776,7 @@ public final class ScenesElectricite implements Chapitre {
                 .clicDroit(COMPTEUR, Direction.SOUTH)
                 .attendre("écran du nom", () -> Minecraft.getInstance().screen instanceof SubscriberNameScreen)
                 .client("nom tapé", mc -> {
-                    for (char c : "Ines Lebrun".toCharArray()) {
+                    for (char c : "InesLebrun".toCharArray()) {
                         mc.screen.charTyped(c, 0);
                     }
                 })
@@ -793,8 +793,8 @@ public final class ScenesElectricite implements Chapitre {
                     MeterBlockEntity m = be(lieu, COMPTEUR, MeterBlockEntity.class);
                     constat("abonné inscrit par l'écran : « " + m.subscriber() + " »");
                     dev.oneforallsurvival.dev.FournisseurDEssai.raccorder(lieu.serveur(), m,
-                            java.util.UUID.nameUUIDFromBytes("Ines".getBytes(java.nio.charset.StandardCharsets.UTF_8)),
-                            "Ines");
+                            java.util.UUID.nameUUIDFromBytes("OfflinePlayer:InesLebrun".getBytes(java.nio.charset.StandardCharsets.UTF_8)),
+                            "InesLebrun");
                 })
                 .attendre("maison en marche", () -> etat(MAISON) == MachineState.RUNNING, 20_000)
                 .camera(new Vec3(1.2, 1.9, 3.2), new Vec3(-1.4, 0.45, 0.2))
@@ -824,15 +824,15 @@ public final class ScenesElectricite implements Chapitre {
                 .prise("abonne-releve")
                 .fermer()
                 .echelle(2)
-                .regarder(DISJONCTEUR, new Vec3(0.2, 0.55, 2.0))
-                .client("barre d'action visible", mc -> {
+                // Face au levier : le disjoncteur seul, posé courant vers le nord (sa face regarde le sud).
+                .regarder(new BlockPos(4, 0, 4), new Vec3(0.35, 0.45, 1.7))
+                .client("barre d'action et main visibles", mc -> {
                     WikiStudio.ath(mc, true);
-                    WikiStudio.elements(VanillaGuiOverlay.RECORD_OVERLAY);
-                    mc.gameRenderer.setRenderHand(false);
+                    WikiStudio.elements(VanillaGuiOverlay.RECORD_OVERLAY, VanillaGuiOverlay.CROSSHAIR);
                 })
                 .pause(600)
                 .sequence("disjoncteur-bascule", 6_000, 150, null, (mc, ms) -> {
-                    BlockPos d = WikiStudio.origineEnCours().offset(DISJONCTEUR);
+                    BlockPos d = WikiStudio.origineEnCours().offset(4, 0, 4);
                     if (ms >= 1000 && !clic[0]) {
                         clic[0] = true;
                         FilmTournage.tenirVide(mc);
@@ -993,7 +993,7 @@ public final class ScenesElectricite implements Chapitre {
                 .attendre("il dessale", () -> etat(RIVE) == MachineState.RUNNING, 20_000)
                 .camera(new Vec3(1.7, 1.6, -7.6), new Vec3(0.3, 0.5, -10.4))
                 .repereBloc("machine", RIVE, 0.9, 0.95, 0.95)
-                .repereMonde("mer", new Vec3(-1.5, -0.2, -14.0))
+                .repereMonde("mer", new Vec3(3.0, -0.1, -15.5))
                 .prise("dessal-hero")
                 .regarder(RIVE, VUE_ETAT)
                 .prise("dessal-marche")
@@ -1116,8 +1116,11 @@ public final class ScenesElectricite implements Chapitre {
                 .regarder(P, VUE_ETAT)
                 .pause(1500)
                 .prise("sechoir-panne")
-                .serveur("sortie vidée", lieu -> be(lieu, A, DryerBlockEntity.class).inventory()
-                        .setStackInSlot(DryerBlockEntity.SLOT_OUTPUT, ItemStack.EMPTY))
+                .serveur("sortie vidée, séchage aux trois quarts", lieu -> {
+                    DryerBlockEntity d = be(lieu, A, DryerBlockEntity.class);
+                    d.inventory().setStackInSlot(DryerBlockEntity.SLOT_OUTPUT, ItemStack.EMPTY);
+                    nbt(d, tag -> tag.putInt("progress", 900));
+                })
                 .regarder(A, new Vec3(0.0, 0.8, 2.3))
                 .ouvrirBloc(A, Direction.SOUTH, AbstractContainerScreen.class)
                 .pause(300)
@@ -1296,47 +1299,46 @@ public final class ScenesElectricite implements Chapitre {
 
     // --- chauffe-eau et douche ------------------------------------------------------------------------------------------
 
-    private static final BlockPos DESAL = new BlockPos(-1, 0, 0);
-    private static final BlockPos CHAUFFE = new BlockPos(3, 0, 0);
-    private static final BlockPos POMME = new BlockPos(5, 2, 0);
+    private static final BlockPos DESAL = new BlockPos(-3, 2, 0);
+    private static final BlockPos CHAUFFE = new BlockPos(1, 2, 0);
+    private static final BlockPos CHAUFFE_MARCHE = new BlockPos(-45, 0, 1);
+    private static final BlockPos POMME = new BlockPos(6, 2, 0);
     private static final int[] POMME_MB = new int[1];
 
     private void douche(Atelier atelier) {
         atelier.scene("douche")
-                .serveur("puits, pompes, dessalinisateur, chauffe-eau, pomme", lieu -> {
+                .serveur("terrasse : puits, pompes, dessalinisateur, chauffe-eau, pomme", lieu -> {
                     ile(lieu);
-                    ServerLevel monde = lieu.monde();
+                    // Tout sur une terrasse de pierre (y 0 et 1), chaîne horizontale à y = 2 : aucun tuyau vertical, aucun
+                    // bout de tuyau ouvert. La pomme dépasse au bout de la terrasse, à 2 blocs au-dessus de l'herbe.
+                    for (int x = -9; x <= 4; x++) {
+                        for (int z = -2; z <= 2; z++) {
+                            for (int y = 0; y <= 1; y++) {
+                                lieu.poser(x, y, z, Blocks.STONE_BRICKS.defaultBlockState());
+                            }
+                        }
+                    }
                     Block tuyau = bloc("create:fluid_pipe");
-                    int ox = -6;
+                    int ox = -8;
                     for (int[] mur : new int[][] {{-1, 0}, {0, -1}, {0, 1}, {1, -2}, {1, 2}, {2, -1}, {2, 1}}) {
-                        lieu.poser(ox + mur[0], 0, mur[1], Blocks.STONE.defaultBlockState());
+                        lieu.poser(ox + mur[0], 2, mur[1], Blocks.STONE.defaultBlockState());
                     }
                     for (int[] source : new int[][] {{0, 0}, {1, -1}, {1, 1}, {1, 0}}) {
-                        lieu.poser(ox + source[0], 0, source[1], Blocks.WATER.defaultBlockState());
+                        lieu.poser(ox + source[0], 2, source[1], Blocks.WATER.defaultBlockState());
                     }
-                    lieu.poser(ox + 2, 0, 0, tuyau.defaultBlockState());
-                    pompe(lieu, ox + 3, 0, 0, Direction.EAST);
-                    lieu.poser(ox + 4, 0, 0, tuyau.defaultBlockState());
-                    lieu.poser(DESAL.getX() + 1, 0, 0, tuyau.defaultBlockState());
-                    pompe(lieu, DESAL.getX() + 2, 0, 0, Direction.EAST);
-                    lieu.poser(DESAL.getX() + 3, 0, 0, tuyau.defaultBlockState());
-                    lieu.poser(CHAUFFE.getX(), 1, 0, tuyau.defaultBlockState());
-                    pompe(lieu, CHAUFFE.getX(), 2, 0, Direction.UP);
-                    lieu.poser(CHAUFFE.getX(), 3, 0, tuyau.defaultBlockState());
-                    lieu.poser(CHAUFFE.getX() + 1, 3, 0, tuyau.defaultBlockState());
-                    lieu.poser(POMME.getX(), 3, 0, tuyau.defaultBlockState());
-                    lieu.poser(DESAL.getX(), 0, 0, face(FoodRegistry.DESALINATOR.get()));
-                    lieu.poser(DESAL.getX(), 0, -1, bloc(CREATIF).defaultBlockState());
-                    lieu.poser(CHAUFFE.getX(), 0, 0, face(TownRegistry.WATER_HEATER.get()));
-                    lieu.poser(CHAUFFE.getX(), 0, -1, bloc(CREATIF).defaultBlockState());
+                    for (int x : new int[] {-6, -4, -2, 0, 2, 4, 5}) {
+                        lieu.poser(x, 2, 0, tuyau.defaultBlockState());
+                    }
+                    for (int x : new int[] {-5, -1, 3}) {
+                        pompe(lieu, x, 2, 0, Direction.EAST);
+                        moteur(lieu, new BlockPos(x, 3, 0), Direction.Axis.X, new BlockPos(x - 1, 3, 0), Direction.EAST);
+                    }
+                    lieu.poser(DESAL.getX(), DESAL.getY(), 0, face(FoodRegistry.DESALINATOR.get()));
+                    lieu.poser(DESAL.getX(), DESAL.getY(), -1, bloc(CREATIF).defaultBlockState());
+                    lieu.poser(CHAUFFE.getX(), CHAUFFE.getY(), 0, face(TownRegistry.WATER_HEATER.get()));
+                    lieu.poser(CHAUFFE.getX(), CHAUFFE.getY(), -1, bloc(CREATIF).defaultBlockState());
                     lieu.poser(POMME.getX(), POMME.getY(), POMME.getZ(), TownRegistry.SHOWER_HEAD.get().defaultBlockState());
-                    moteur(lieu, new BlockPos(ox + 3, 1, 0), Direction.Axis.X, new BlockPos(ox + 2, 1, 0), Direction.EAST);
-                    moteur(lieu, new BlockPos(DESAL.getX() + 2, 1, 0), Direction.Axis.X,
-                            new BlockPos(DESAL.getX() + 1, 1, 0), Direction.EAST);
-                    moteur(lieu, new BlockPos(CHAUFFE.getX() - 1, 2, 0), Direction.Axis.Y,
-                            new BlockPos(CHAUFFE.getX() - 1, 3, 0), Direction.DOWN);
-                    be(lieu, DESAL, DesalinatorBlockEntity.class).potableTank()
-                            .setFluid(new FluidStack(FoodRegistry.POTABLE_WATER.get(), 2000));
+                    machine(lieu, CHAUFFE_MARCHE, TownRegistry.WATER_HEATER.get(), true);
                     for (BlockPos p : new BlockPos[] {E, P}) {
                         machine(lieu, p, TownRegistry.WATER_HEATER.get(), p.equals(P));
                     }
@@ -1349,7 +1351,7 @@ public final class ScenesElectricite implements Chapitre {
                             WaterHeaterBlockEntity w = be(lieu, CHAUFFE, WaterHeaterBlockEntity.class);
                             ShowerHeadBlockEntity sh = be(lieu, POMME, ShowerHeadBlockEntity.class);
                             POMME_MB[0] = sh.tank().getFluidAmount();
-                            if (t[0] % 200 != 1) {
+                            if (t[0] % 400 != 1) {
                                 return;
                             }
                             constat("douche, tic " + t[0] + " : dessalinisateur eau " + d.waterTank().getFluidAmount()
@@ -1361,14 +1363,34 @@ public final class ScenesElectricite implements Chapitre {
                     });
                 })
                 // Lu par le relevé du serveur : un ServerLevel ne rend pas ses entités de bloc au fil du rendu.
-                .attendre("eau chaude dans la pomme", () -> POMME_MB[0] >= 200, 90_000)
-                .camera(new Vec3(1.0, 3.4, 7.8), new Vec3(-0.5, 1.0, 0.0))
-                .repereBloc("puits", new BlockPos(-5, 0, 0), 0.5, 1.0, 0.5)
+                // Vérification : trois minutes de transfert à partir de cuves vides (relevés au journal).
+                .attendre("eau chaude dans la pomme", () -> POMME_MB[0] >= 200, 120_000)
+                .pause(20_000)
+                .pause(20_000)
+                .pause(20_000)
+                .pause(20_000)
+                .pause(20_000)
+                .pause(20_000)
+                .pause(20_000)
+                .pause(20_000)
+                .pause(20_000)
+                .camera(new Vec3(-1.0, 4.3, 7.4), new Vec3(-1.5, 2.3, 0.0))
+                .repereBloc("puits", new BlockPos(-7, 2, 0), 0.5, 1.0, 0.5)
                 .repereBloc("dessalinisateur", DESAL, 0.5, 1.0, 0.95)
                 .repereBloc("chauffe-eau", CHAUFFE, 0.5, 0.95, 0.95)
                 .repereBloc("pomme", POMME, 0.5, 0.1, 0.9)
                 .prise("douche-chaine")
-                .regarder(CHAUFFE, VUE_ETAT)
+                .serveur("chauffe-eau du trio regarnis (la minute d'attente les a vidés)", lieu -> {
+                    for (BlockPos p : new BlockPos[] {CHAUFFE_MARCHE, P}) {
+                        WaterHeaterBlockEntity w = be(lieu, p, WaterHeaterBlockEntity.class);
+                        w.hot().drain(4000, IFluidHandler.FluidAction.EXECUTE);
+                        w.potable().fill(new FluidStack(FoodRegistry.POTABLE_WATER.get(), 4000),
+                                IFluidHandler.FluidAction.EXECUTE);
+                    }
+                })
+                .attendre("chauffe-eau du trio en marche", () -> etat(CHAUFFE_MARCHE) == MachineState.RUNNING
+                        && etat(P) == MachineState.RUNNING)
+                .regarder(CHAUFFE_MARCHE, VUE_ETAT)
                 .prise("chauffe-eau-marche")
                 .attendre("trio prêt", () -> etat(E) == MachineState.NO_POWER && etat(P) == MachineState.RUNNING)
                 .serveur("trio : panne", lieu -> be(lieu, P, ElectricMachineBlockEntity.class).breakDown(FaultType.FUSE))
@@ -1378,7 +1400,7 @@ public final class ScenesElectricite implements Chapitre {
                 .regarder(P, VUE_ETAT)
                 .pause(1500)
                 .prise("chauffe-eau-panne")
-                .regarder(CHAUFFE, new Vec3(0.0, 0.8, 2.3))
+                .regarder(CHAUFFE, new Vec3(0.0, 1.4, 2.3))
                 .ouvrirBloc(CHAUFFE, Direction.SOUTH, AbstractContainerScreen.class)
                 .pause(1000)
                 .repereInterface("potable", mc -> gui(mc, -9, 50))
@@ -1386,7 +1408,7 @@ public final class ScenesElectricite implements Chapitre {
                 .repereInterface("etat", mc -> gui(mc, -9, 26))
                 .prise("chauffe-eau-ecran")
                 .fermer()
-                .camera(new Vec3(5.5, 1.62, 0.5), new Vec3(5.5, 1.62, 6.0))
+                .camera(new Vec3(6.5, 1.62, 0.5), new Vec3(6.5, 1.62, 6.0))
                 .client("vue de face, icônes d'effet", mc -> {
                     mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
                     WikiStudio.ath(mc, true);
@@ -1442,6 +1464,14 @@ public final class ScenesElectricite implements Chapitre {
                     }
                     lieu.poser(0, sommet, 0, LightRegistry.LIGHTHOUSE.get().defaultBlockState());
                     alimenter(lieu, new BlockPos(0, sommet, 0));
+                    // Deux phares de plus sur des colonnes à la même hauteur : l'un sans courant, l'autre en panne.
+                    for (int x : new int[] {-40, 40}) {
+                        for (int y = 0; y < sommet; y++) {
+                            lieu.poser(x, y, 0, Blocks.STONE_BRICKS.defaultBlockState());
+                        }
+                        lieu.poser(x, sommet, 0, LightRegistry.LIGHTHOUSE.get().defaultBlockState());
+                    }
+                    alimenter(lieu, new BlockPos(40, sommet, 0));
                     lieu.poser(6, 0, 3, LightRegistry.LIGHTHOUSE.get().defaultBlockState());
                     alimenter(lieu, new BlockPos(6, 0, 3));
                     lieu.monde().setDayTime(18000);
@@ -1449,17 +1479,31 @@ public final class ScenesElectricite implements Chapitre {
                             + ")");
                 })
                 .attendre("phare allumé", () -> allume(new BlockPos(0, SOMMET_REL, 0)), 20_000)
-                .camera(new Vec3(12.5, SOMMET_REL - 4.0, 16.5), new Vec3(0.5, SOMMET_REL + 0.5, 0.5))
+                .camera(new Vec3(-16.5, SOMMET_REL - 7.0, 20.5), new Vec3(0.5, SOMMET_REL - 2.0, 0.5))
                 .pause(1500)
                 .prise("phare-nuit")
+                .camera(new Vec3(12.5, SOMMET_REL - 4.0, 16.5), new Vec3(0.5, SOMMET_REL + 0.5, 0.5))
                 .sequence("phare-tour", 8_200, 200)
                 .camera(new Vec3(3.1, SOMMET_REL + 1.3, 3.7), new Vec3(0.5, SOMMET_REL + 0.5, 0.5))
                 .pause(1200)
                 .prise("phare-pres-nuit")
+                .serveur("le phare de droite en panne ; le grand phare retiré le temps des deux vues", lieu -> {
+                    be(lieu, new BlockPos(40, SOMMET_REL, 0), ElectricMachineBlockEntity.class).breakDown(FaultType.FUSE);
+                    lieu.poser(0, SOMMET_REL, 0, Blocks.AIR.defaultBlockState());
+                })
+                .regarder(new BlockPos(-40, SOMMET_REL, 0), new Vec3(0.8, 0.6, 2.0))
+                .pause(800)
+                .prise("phare-sans-courant")
+                .regarder(new BlockPos(40, SOMMET_REL, 0), new Vec3(0.8, 0.6, 2.0))
+                .pause(1500)
+                .prise("phare-panne")
                 .regarder(new BlockPos(6, 0, 3), new Vec3(0.8, 0.6, 2.0))
                 .pause(800)
                 .prise("phare-trop-bas")
-                .serveur("jour", lieu -> lieu.monde().setDayTime(6000))
+                .serveur("jour, grand phare reposé", lieu -> {
+                    lieu.monde().setDayTime(6000);
+                    lieu.poser(0, SOMMET_REL, 0, LightRegistry.LIGHTHOUSE.get().defaultBlockState());
+                })
                 .attendre("phare éteint", () -> !allume(new BlockPos(0, SOMMET_REL, 0)), 10_000)
                 .camera(new Vec3(3.1, SOMMET_REL + 1.3, 3.7), new Vec3(0.5, SOMMET_REL + 0.5, 0.5))
                 .pause(1200)
@@ -1503,7 +1547,7 @@ public final class ScenesElectricite implements Chapitre {
                     WikiStudio.ath(mc, true);
                     WikiStudio.elements(VanillaGuiOverlay.HOTBAR);
                 })
-                .repereBloc("cache", CACHE, 0.5, 1.0, 0.5)
+                .repereBloc("cache", CACHE, 0.5, 1.55, 0.5)
                 .pause(1200)
                 .prise("detecteur-main")
                 .client("interface masquée", mc -> WikiStudio.ath(mc, false))
