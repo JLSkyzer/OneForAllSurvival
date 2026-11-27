@@ -191,3 +191,31 @@ Relecture finale de la tâche 6, vérifié dans le code :
 - Non prouvé : rendu sur un vrai téléphone et d'autres navigateurs qu'Edge ; lecteurs d'écran ; plusieurs gestes
   prouvés par la seule lecture du code (dits dans les rapports) ; configuration réelle du serveur de jeu.
 - Reste connu : quelques couvertures de cartes qui coupent du texte ; chats et grands écrans petits à 390 px.
+
+## Corrections (27/11 soir, après les captures)
+
+Les quatre défauts du mod relevés pendant les captures sont corrigés (un commit chacun). Preuves : JUnit 1266/1266 ;
+GameTests 1242/1242 sans le pack puis avec (`-PwithPack`), sur le code final ; essais vus rouges avant chaque
+correction ; passe de mutations avec le pack, chaque mutation d'une règle de droit rougit un essai différent.
+
+- **Connecteur sur l'antenne** : un objet de l'étiquette `oneforallsurvival:power_connectors` (Crafts & Additions :
+  petit connecteur, grand connecteur, petit connecteur à lampe ; entrées facultatives) passe à sa pose, debout comme
+  accroupi (`AntennaBlock.use`). Le panneau reste à la main vide et à tout autre objet. Droits inchangés : la pose d'un
+  bloc contre l'antenne n'en demande aucun, un passant posait déjà un connecteur accroupi. Le connecteur se pose sur le
+  dessus de l'antenne (`AntenneDroitsGameTests.unConnecteurSePoseDeboutCommeAccroupi`, avec le pack). Même défaut,
+  laissé tel quel : établi de l'ingénieur, marmite, dessalinisateur, séchoir, frigo, couveuse, tableau de délestage, bain
+  galvanique, chauffe-eau (tout objet ouvre l'écran) ; prise murale libre (« occupée » pour tout objet autre qu'un
+  téléphone).
+- **`/eco loot` et `/eco quests`** : paliers et modèles livrés nommés en clair (« Monstres courants », « Éliminer des
+  zombies »), en français et en anglais ; un palier ou un modèle de datapack sans libellé, ou un événement, garde son
+  identifiant (`EconomyCommands.tierLabel`, `templateLabel`).
+- **Registre de l'économie** : motifs accentués (« somme de départ », « trésor : … », « dépôt au trésor », étals, taxe
+  sur l'électricité, « dès demain », « caisse à », pièces « restée » ou « retirées »). Une facture publique se lit
+  « facture publique 1a2b3c4d (Lagon 27/11) de Pierre : prélevée au coffre-fort » : le numéro court (celui de
+  `/invoice`) et le motif remplacent la référence interne, la source est dite en français. Les anciennes lignes restent
+  telles quelles ; rien ne relit ces motifs. Non traité : les motifs du registre du trésor (« taxe sur la vente a un
+  etal »).
+- **Tableau de la mairie** : l'ingénieur qui tient l'outil de maintenance le repose (`TownBlockRules.mayPlaceBoard`),
+  comme le dit le cahier du maire (102) ; `/treasury board` (tableau neuf) reste au maire et à l'équipe
+  (`mayGiveBoard`). Refus de pose : « Seuls le maire, l'équipe et un ingénieur muni de l'outil de maintenance posent un
+  tableau de la mairie ».
