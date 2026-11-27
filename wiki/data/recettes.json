@@ -1,0 +1,16 @@
+[
+  {"sortie": "oneforallsurvival:antenna", "nombre": 1, "poste": "etabli",
+   "grille": [[null, "minecraft:lightning_rod", null],
+              ["minecraft:copper_ingot", "minecraft:redstone_block", "minecraft:copper_ingot"],
+              ["minecraft:iron_ingot", "minecraft:iron_bars", "minecraft:iron_ingot"]],
+   "ingredients": [{"item": "minecraft:lightning_rod", "nombre": 1}, {"item": "minecraft:copper_ingot", "nombre": 2},
+                   {"item": "minecraft:redstone_block", "nombre": 1}, {"item": "minecraft:iron_ingot", "nombre": 2},
+                   {"item": "minecraft:iron_bars", "nombre": 1}]},
+  {"sortie": "oneforallsurvival:phone", "nombre": 1, "poste": "table",
+   "grille": [["minecraft:iron_nugget", "minecraft:glass", "minecraft:iron_nugget"],
+              ["minecraft:redstone", "minecraft:copper_ingot", "minecraft:redstone"],
+              ["minecraft:iron_nugget", "minecraft:iron_ingot", "minecraft:iron_nugget"]],
+   "ingredients": [{"item": "minecraft:iron_nugget", "nombre": 4}, {"item": "minecraft:glass", "nombre": 1},
+                   {"item": "minecraft:redstone", "nombre": 2}, {"item": "minecraft:copper_ingot", "nombre": 1},
+                   {"item": "minecraft:iron_ingot", "nombre": 1}]}
+]

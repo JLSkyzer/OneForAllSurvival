@@ -1,0 +1,94 @@
+{"v": 2, "id": "essai", "title": "Essai du moteur", "tagline": "Chapitre caché qui montre chaque type de bloc. Images provisoires de la maquette ; supprimé à la clôture de la refonte.",
+ "icon": "oneforallsurvival:antenna",
+ "cover": "shots/essai/hero.webp",
+ "articles": [
+  {"id": "antenne", "title": "Poser une antenne", "group": "Le réseau", "lead": "Pas d'antenne alimentée, pas de réseau.",
+   "cover": "shots/essai/etat-en-service.webp", "covers": ["essai-ancien-lien"],
+   "chips": [{"k": "Fabrique", "v": "Ingénieur"}, {"k": "Pose", "v": "Tout le monde"}, {"k": "Portée", "v": "270 blocs"}],
+   "blocks": [
+    {"type": "hero", "img": "shots/essai/hero.webp", "alt": "Une antenne posée dans l'herbe, voyant vert allumé",
+     "points": [{"at": "voyant", "title": "Le voyant", "text": "Vert : l'antenne émet. Éteint : elle ne donne aucun réseau."},
+                {"at": "mat", "title": "Clic droit", "text": "Ouvre le panneau de l'opérateur : réseau, cartes SIM, tarif."},
+                {"x": 39.5, "y": 68, "title": "Le socle", "text": "Posée, elle garde son chunk chargé. La source doit y être aussi."}]},
+    {"type": "step", "title": "Fabriquer", "blocks": [
+      {"type": "row", "blocks": [
+        {"type": "recipe", "item": "oneforallsurvival:antenna", "title": "La recette, à l'établi d'ingénieur"},
+        {"type": "clip", "img": "shots/essai/etabli.webp", "alt": "Animation : recherche d'un objet à l'établi, puis fabrication", "title": "L'établi en action",
+         "note": "Chercher l'objet, « Crafter », le reprendre dans « Stock »."}]}]},
+    {"type": "step", "title": "Poser et nommer", "blocks": [
+      {"type": "row", "blocks": [
+        {"type": "text", "text": "Clic droit sur l'antenne neuve : « Antenne à fonder », le nom tapé, le bouton « Fonder »."},
+        {"type": "shot", "img": "shots/essai/panneau-reseau.webp", "alt": "Panneau de l'opérateur, onglet Réseau : antenne en marche, 40 FE par tic",
+         "marks": [{"at": "onglets", "text": "Les trois onglets du panneau."},
+                   {"at": "etat", "text": "« En marche » : l'état et la consommation de l'antenne."},
+                   {"at": "principale", "text": "« Principale » : la première antenne de l'opérateur."}]}]}]},
+    {"type": "step", "title": "Alimenter", "blocks": [
+      {"type": "row", "blocks": [
+        {"type": "shot", "title": "Tirer le fil", "img": "shots/essai/fil.webp", "alt": "Deux connecteurs reliés par un fil de cuivre, entre une source et un bloc",
+         "marks": [{"x": 89, "y": 51, "text": "Un Petit Connecteur sur la source."},
+                   {"x": 40, "y": 13, "text": "Un second sur le bloc à alimenter."},
+                   {"x": 65, "y": 61, "text": "Bobine de Cuivre en main : clic droit sur l'un, puis sur l'autre (16 blocs au plus)."}],
+         "note": "Ici le montage alimente une prise murale."},
+        {"type": "power", "standby": 40, "perCard": 6, "perCall": 9, "speeds": [32, 64, 128, 256], "feAt256": 360}]},
+      {"type": "chunk", "item": "oneforallsurvival:antenna", "title": "Même chunk, sinon ça s'arrête quand tu pars",
+       "text": "Seul le chunk de l'antenne reste chargé. **F3 + G** montre ses limites."}]},
+    {"type": "step", "title": "Vérifier d'un coup d'œil", "blocks": [
+      {"type": "states", "list": [
+        {"img": "shots/essai/etat-en-service.webp", "alt": "Antenne au voyant vert", "tone": "ok", "title": "En marche", "text": "Voyant vert. Rien à faire."},
+        {"img": "shots/essai/etat-sans-courant.webp", "alt": "Antenne au voyant éteint", "tone": "off", "title": "Sans courant", "text": "Voyant éteint. Revoir la source, le fil, le chunk."},
+        {"img": "shots/essai/etat-en-panne.webp", "alt": "Antenne en panne, qui fume", "tone": "bad", "title": "En panne", "text": "Elle fume. Appeler un ingénieur : testeur, puis réparation."}]}]},
+    {"type": "range", "item": "oneforallsurvival:antenna", "bars": [67.5, 135, 202.5, 270], "max": 320},
+    {"type": "numbers", "title": "Ce que consomme l'antenne", "list": [
+      {"k": "Veille", "v": "40 FE/t", "item": "oneforallsurvival:antenna"}, {"k": "Par carte active", "v": "+6 FE/t", "item": "oneforallsurvival:sim_card"},
+      {"k": "Par appel", "v": "+9 FE/t", "item": "oneforallsurvival:phone"}]}
+   ],
+   "staff": ["Essai rapide en créatif : `/give @s oneforallsurvival:antenna`, puis un Générateur Créatif posé contre l'antenne.",
+             "Les débits de l'antenne se règlent dans `oneforallsurvival-phone.toml`."]},
+  {"id": "ligne", "title": "Avoir une ligne et appeler", "group": "La ligne", "lead": "Un téléphone, une carte SIM de l'opérateur, et ça sonne.",
+   "cover": "shots/essai/tel-accueil.webp",
+   "blocks": [
+    {"type": "step", "title": "Fabriquer", "actor": "toi", "blocks": [
+      {"type": "text", "text": "À la table, sans métier."},
+      {"type": "recipe", "item": "oneforallsurvival:phone"},
+      {"type": "shot", "img": "shots/essai/fil.webp", "alt": "Un téléphone branché sur une prise murale alimentée par un fil", "note": "**Un téléphone neuf est vide : branche-le (90 secondes).**"}]},
+    {"type": "step", "title": "Allumer", "actor": "toi", "blocks": [
+      {"type": "text", "text": "Clic droit : « Commencer », un fond d'écran, un code à 4 chiffres."},
+      {"type": "phones", "list": [
+        {"img": "shots/essai/tel-bonjour.webp", "alt": "Écran Bonjour"}, {"img": "shots/essai/tel-config.webp", "alt": "Configuration rapide"},
+        {"img": "shots/essai/tel-code.webp", "alt": "Confirmer le code"}, {"img": "shots/essai/tel-pret.webp", "alt": "Tout est prêt"}]}]},
+    {"type": "step", "title": "Demander une carte", "actor": "toi", "blocks": [
+      {"type": "text", "text": "Près de l'antenne : Réglages › Carte SIM › **Demander une carte**, puis l'opérateur."},
+      {"type": "phones", "list": [
+        {"img": "shots/essai/tel-sim-vide.webp", "alt": "Feuille Carte SIM sans carte", "points": [{"x": 29, "y": 44.7}], "caption": "Demander une carte"},
+        {"img": "shots/essai/tel-sim-demande.webp", "alt": "Liste des opérateurs", "points": [{"x": 18, "y": 55}], "caption": "Choisir l'opérateur"}]}]},
+    {"type": "step", "title": "Émettre la carte", "actor": "autre", "actorLabel": "Le fondateur de l'antenne", "blocks": [
+      {"type": "text", "text": "Au panneau de l'antenne ou dans l'appli « Antenne » : onglet **Cartes › Émettre**."},
+      {"type": "shot", "img": "shots/essai/panneau-cartes.webp", "alt": "Panneau de l'antenne, onglet Cartes"},
+      {"type": "phones", "list": [
+        {"img": "shots/essai/tel-app-cartes.webp", "alt": "Appli Antenne avec une demande", "points": [{"x": 20.6, "y": 31.7}]},
+        {"img": "shots/essai/tel-app-emise.webp", "alt": "La carte émise arrive dans l'inventaire"}]}]},
+    {"type": "pass", "item": "oneforallsurvival:sim_card", "text": "La carte se remet en main propre."},
+    {"type": "step", "title": "Glisser la carte", "actor": "toi", "blocks": [
+      {"type": "text", "text": "Réglages › Carte SIM, choisis-la. Le numéro et les barres apparaissent."},
+      {"type": "phones", "list": [{"img": "shots/essai/tel-sim-ok.webp", "alt": "Carte SIM insérée, numéro affiché"}]}]},
+    {"type": "player", "title": "Passer un appel", "hint": "Touche une étape : le cercle montre où appuyer.", "steps": [
+      {"img": "shots/essai/tel-accueil.webp", "alt": "Accueil du téléphone", "label": "Ouvre « Téléphone »", "points": [{"x": 18, "y": 34.7}]},
+      {"img": "shots/essai/tel-clavier.webp", "alt": "Clavier avec un numéro composé", "label": "Compose, bouton vert", "points": [{"x": 49.4, "y": 72.9}]},
+      {"img": "shots/essai/tel-sortant.webp", "alt": "Appel en train de sonner", "label": "Ça sonne"},
+      {"img": "shots/essai/tel-entrant.webp", "alt": "Appel entrant chez l'autre", "label": "L'autre touche « Répondre »", "points": [{"x": 75.6, "y": 80}]},
+      {"img": "shots/essai/tel-silence.webp", "alt": "Appel en cours, silence et haut-parleur activés", "label": "Silence · Haut-parleur", "points": [{"x": 33, "y": 59}, {"x": 65.6, "y": 59}]},
+      {"img": "shots/essai/tel-ile.webp", "alt": "L'île dynamique montre le minuteur", "label": "Toucher l'île pour revenir à l'appel", "points": [{"x": 49, "y": 6}]}]},
+    {"type": "flow", "title": "Le chemin d'un appel", "nodes": [
+      {"item": "oneforallsurvival:phone", "label": "Ton téléphone"}, {"item": "oneforallsurvival:antenna", "label": "Ton antenne"},
+      {"item": "oneforallsurvival:antenna", "label": "L'antenne de l'autre"}, {"img": "shots/essai/tel-entrant.webp", "label": "Son téléphone sonne"}]},
+    {"type": "items", "title": "Ce qu'il te faut", "list": [
+      {"item": "oneforallsurvival:phone", "text": "Chargé, allumé."}, {"item": "oneforallsurvival:sim_card", "label": "Une carte SIM", "text": "Émise par le fondateur."},
+      {"item": "oneforallsurvival:maintenance_tool", "text": "Pas utile ici : pour réparer une antenne."}]},
+    {"type": "problems", "title": "Si ça bloque", "list": [
+      {"msg": "Pas de service", "text": "Antenne sans courant, trop loin, ou mode avion.", "link": "#essai/antenne"},
+      {"msg": "Injoignable · Antenne de Mairie hors tension", "text": "L'antenne de l'autre n'a plus de courant."},
+      {"msg": "Aucun service disponible", "text": "Aucun policier (17) ou médecin (15) connecté.", "link": {"href": "#urgences", "label": "Les urgences"}}]}
+   ],
+   "staff": ["Note d'équipe d'essai : elle s'ouvre en vue Staff et se replie en vue Joueurs."]}
+ ],
+ "planned": [{"id": "facetime", "num": 94, "name": "FaceTime", "what": "Appel vidéo entre deux téléphones.", "lot": "Lot T4"}]}

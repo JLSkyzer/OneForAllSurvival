@@ -4,24 +4,29 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Wiki Lost Island</title>
-<meta name="description" content="Les blocs, métiers et systèmes du serveur Lost Island RP, en fiches courtes.">
+<meta name="description" content="Le wiki du serveur Lost Island RP : les blocs, les objets et les métiers, montrés en images.">
+<meta name="color-scheme" content="dark">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header class="top">
-  <a class="brand" href="#accueil"><span class="dot"></span>Wiki Lost Island</a>
-  <input id="q" type="search" placeholder="Chercher un bloc, un métier…" autocomplete="off" aria-label="Chercher">
-  <div class="seg" role="group" aria-label="Lecture">
-    <button data-view="joueurs" aria-pressed="true">Joueurs</button>
-    <button data-view="staff" aria-pressed="false">Staff</button>
+<a class="evite" href="#main">Aller au contenu</a>
+<header class="bar">
+  <a href="#accueil" class="logo">Lost Island · Wiki</a>
+  <nav class="nav" id="nav" aria-label="Chapitres"></nav>
+  <div class="reglages">
+    <div class="seg vue" role="group" aria-label="Lecture">
+      <button type="button" data-view="joueurs" aria-pressed="true">Joueurs</button>
+      <button type="button" data-view="staff" aria-pressed="false">Staff</button>
+    </div>
+    <label class="seul"><input type="checkbox" id="enJeu"> En jeu seulement</label>
   </div>
-  <label class="only"><input type="checkbox" id="onlyLive"> En jeu seulement</label>
 </header>
-<nav class="tabs" id="tabs" aria-label="Chapitres"></nav>
-<main id="main"><p class="muted">Chargement…</p></main>
-<footer class="foot">Fiches tirées des cahiers des charges du dépôt. Les chiffres sont des valeurs de départ. <b>Prévu</b> = pas encore en jeu.</footer>
+<main id="main" tabindex="-1"><p class="mu charge">Chargement…</p></main>
+<footer class="pied">Wiki du serveur Lost Island RP. Les images sont des captures du jeu. <b>Prévu</b> : décidé, pas encore en jeu.</footer>
+<script src="blocks.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
