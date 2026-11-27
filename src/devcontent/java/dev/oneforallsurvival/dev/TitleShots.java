@@ -89,9 +89,59 @@ public final class TitleShots {
     /** Délai de garde de tout l'essai (chargement du pack compris) ; un fil à part arrête la JVM 40 s plus tard. */
     private static final double GARDE_S = 1800;
     private static final double ATTENTE_TITRE_S = 900;
+    /**
+     * {@code -Dlostisland.titleShots.mode=panneau} ({@code -PtitleShotsMode=panneau}) : après les premières images,
+     * le panneau d'un autre mod (Quick-Skin) à chaque taille de {@link #CAS_PANNEAU}, liste d'animations ouverte puis
+     * fermée, contrôle des chevauchements ; puis fin du client (ni survol, ni monde).
+     */
+    private static final boolean MODE_PANNEAU = "panneau".equals(System.getProperty("lostisland.titleShots.mode"));
+    /** Fenêtre (px) et échelle d'interface demandée ; Minecraft ramène l'échelle à la plus grande qui tienne. */
+    private static final int[][] CAS_PANNEAU = {
+        {854, 480, 1}, {854, 480, 2}, {854, 480, 3}, {854, 480, 4},
+        {1920, 1040, 1}, {1920, 1040, 2}, {1920, 1040, 3}, {1920, 1040, 4}};
+    private static int[] fenetreAvant;
+    private static String bilanPanneau = "";
+    private static String cliqueListe;
+
+    /**
+     * Place d'un widget : son rectangle, ou pour l'aperçu 3D de Quick-Skin celle de son modèle (hauteur 2 x échelle
+     * posée sur les pieds, largeur 0,6 x hauteur : règle de {@code PlayerWidget.isMouseOutsideModelArea}), lue par ses
+     * méthodes publiques, indépendamment du calcul de l'écran du mod.
+     */
+    private static int[] empreinte(AbstractWidget w) {
+        try {
+            int cx = (Integer) w.getClass().getMethod("getLayoutCenterX").invoke(w);
+            int pieds = (Integer) w.getClass().getMethod("getLayoutFeetY").invoke(w);
+            float echelle = (Float) w.getClass().getMethod("getEffectiveScale").invoke(w);
+            int haut = (int) (echelle * 2f);
+            int large = (int) (haut * 0.6f);
+            return new int[] {cx - large / 2, pieds - haut, large, haut};
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return new int[] {w.getX(), w.getY(), w.getWidth(), w.getHeight()};
+        }
+    }
+
+    /**
+     * Classe qui a créé le widget (pour un bouton de Minecraft : celle de son action), lue ici sans passer par l'écran
+     * du mod, pour que l'essai serve aussi à l'écran d'avant le lot C.
+     */
+    private static String proprietaire(AbstractWidget w) {
+        if (w instanceof Button b && w.getClass().getName().startsWith("net.minecraft.")) {
+            try {
+                Object action = net.minecraftforge.fml.util.ObfuscationReflectionHelper
+                        .findField(Button.class, "f_93717_").get(b);
+                if (action != null) {
+                    return action.getClass().getName();
+                }
+            } catch (ReflectiveOperationException | RuntimeException e) {
+                journal("action du bouton illisible : " + e);
+            }
+        }
+        return w.getClass().getName();
+    }
 
     private enum Etape {
-        ATTENTE_TITRE, DEBUT, SURVOL, OPTIONS, OPTIONS_RETOUR, MODS, MODS_RETOUR, MONDE_ENTREE, MONDE_DEDANS,
+        ATTENTE_TITRE, DEBUT, PANNEAU, SURVOL, OPTIONS, OPTIONS_RETOUR, MODS, MODS_RETOUR, MONDE_ENTREE, MONDE_DEDANS,
         MONDE_RETOUR, MONDE_SCENE, SERVEUR_CONNEXION, SERVEUR_DEDANS, SERVEUR_RETOUR, RECUPERATION, FIN
     }
 
@@ -219,9 +269,10 @@ public final class TitleShots {
                     widgets(mc.screen, "titre au démarrage");
                 }
                 if (sousPas >= INSTANTS_S.length) {
-                    passer(Etape.SURVOL);
+                    passer(MODE_PANNEAU ? Etape.PANNEAU : Etape.SURVOL);
                 }
             }
+            case PANNEAU -> panneau(mc, s);
             case SURVOL -> survoler(mc, s);
             case OPTIONS -> {
                 // Fermer Options fait réécrire options.txt par Minecraft (OptionsScreen.removed -> Options.save, lu au
@@ -362,6 +413,206 @@ public final class TitleShots {
             default -> {
             }
         }
+    }
+
+    /**
+     * Un cas de {@link #CAS_PANNEAU} par groupe de trois sous-pas : taille et échelle, 1,5 s, contrôle et image ; liste
+     * d'animations ouverte, contrôle et image ; liste refermée. Fenêtre et échelle d'avant remises à la fin (en
+     * mémoire seulement).
+     */
+    private static void panneau(Minecraft mc, double s) {
+        if (!actionFinie) {
+            return;
+        }
+        if (!(mc.screen instanceof LostIslandTitleScreen ecran)) {
+            echec("panneau", "le titre a cédé la place à " + nomEcran(mc.screen));
+            passer(Etape.FIN);
+            finir(mc);
+            return;
+        }
+        int cas = sousPas / 3;
+        int temps = sousPas % 3;
+        if (cas >= CAS_PANNEAU.length) {
+            GLFW.glfwSetWindowSize(mc.getWindow().getWindow(), fenetreAvant[0], fenetreAvant[1]);
+            mc.options.guiScale().set(fenetreAvant[2]);
+            mc.resizeDisplay();
+            journal("fenêtre et échelle d'avant remises : " + fenetreAvant[0] + " x " + fenetreAvant[1] + ", échelle "
+                    + fenetreAvant[2]);
+            passer(Etape.FIN);
+            finir(mc);
+            return;
+        }
+        int[] c = CAS_PANNEAU[cas];
+        String nom = String.format(Locale.ROOT, "panneau-%dx%d-e%d", c[0], c[1], c[2]);
+        if (temps == 0 && !fait) {
+            if (fenetreAvant == null) {
+                fenetreAvant = new int[] {mc.getWindow().getWidth(), mc.getWindow().getHeight(),
+                        mc.options.guiScale().get()};
+            }
+            fait = true;
+            GLFW.glfwSetWindowSize(mc.getWindow().getWindow(), c[0], c[1]);
+            mc.options.guiScale().set(c[2]); // en mémoire seulement
+            mc.resizeDisplay();
+            debutEtapeNs = System.nanoTime();
+            return;
+        }
+        if (s < 1.5) {
+            return;
+        }
+        List<AbstractWidget> bloc = new ArrayList<>();
+        for (GuiEventListener l : ecran.children()) {
+            if (l instanceof AbstractWidget w && TitleWidgets.inPanel(proprietaire(w))) {
+                bloc.add(w);
+            }
+        }
+        Button bascule = null;
+        for (AbstractWidget w : bloc) {
+            String t = w.getMessage().getString();
+            if (w instanceof Button b && (">".equals(t) || "×".equals(t))) {
+                bascule = b;
+            }
+        }
+        String quoi = String.format(Locale.ROOT, "fenêtre %d x %d, échelle demandée %d, réelle %d, interface %d x %d",
+                mc.getWindow().getWidth(), mc.getWindow().getHeight(), c[2], (int) mc.getWindow().getGuiScale(),
+                ecran.width, ecran.height);
+        if (temps == 0) {
+            widgets(ecran, "titre, " + quoi);
+            boolean ok = controlePanneau(ecran, bloc, false);
+            pas(nom, ok, quoi + " : " + bilanPanneau);
+            capturer(mc, nom, quoi);
+            if (bascule == null) {
+                journal("pas de bouton de liste d'animations dans le panneau : liste sautée");
+                sousPas += 3;
+                fait = false;
+            } else {
+                Button b = bascule;
+                agir(mc, "ouverture de la liste d'animations", b::onPress);
+                sousPas++;
+            }
+            debutEtapeNs = System.nanoTime();
+        } else if (temps == 1) {
+            if (s < 2.0) {
+                return;
+            }
+            boolean ok = controlePanneau(ecran, bloc, true);
+            pas(nom + "-liste", ok, quoi + ", liste ouverte : " + bilanPanneau);
+            capturer(mc, nom + "-liste", quoi + ", liste d'animations ouverte");
+            // Vrai clic de l'écran (Screen.mouseClicked, ce que fait un clic de souris) au centre de la plus haute
+            // entrée de la liste : Quick-Skin choisit l'animation et referme la liste.
+            AbstractWidget haut = null;
+            for (AbstractWidget w : bloc) {
+                if (w.visible && w instanceof Button && w != bascule && w.getMessage().getString().matches("\\d+")
+                        && (haut == null || w.getY() < haut.getY())) {
+                    haut = w;
+                }
+            }
+            if (haut == null) {
+                echec(nom + "-clic", "aucune entrée visible dans la liste ouverte");
+                if (bascule != null) {
+                    agir(mc, "fermeture de la liste d'animations", bascule::onPress);
+                }
+            } else {
+                double cx = haut.getX() + haut.getWidth() / 2.0;
+                double cy = haut.getY() + haut.getHeight() / 2.0;
+                cliqueListe = haut.getMessage().getString();
+                agir(mc, String.format(Locale.ROOT, "clic de l'écran en (%.1f, %.1f) sur l'entrée « %s »", cx, cy,
+                        cliqueListe), () -> ecran.mouseClicked(cx, cy, 0));
+            }
+            sousPas++;
+            debutEtapeNs = System.nanoTime();
+        } else {
+            if (s < 0.5) {
+                return;
+            }
+            if (cliqueListe != null) {
+                int ouverts = 0;
+                for (AbstractWidget w : bloc) {
+                    if (w.visible && w instanceof Button && w != bascule && w.getMessage().getString().matches("\\d+")) {
+                        ouverts++;
+                    }
+                }
+                boolean ferme = ouverts == 0 && bascule != null && ">".equals(bascule.getMessage().getString());
+                pas(nom + "-clic", ferme, "clic sur l'entrée « " + cliqueListe + " » : " + (ferme
+                        ? "pris par Quick-Skin (liste refermée, bascule « > »)"
+                        : ouverts + " entrée(s) encore visible(s) : le clic n'a pas atteint la liste"));
+                capturer(mc, nom + "-apres-clic", quoi + ", après le clic sur l'entrée « " + cliqueListe + " »");
+                if (!ferme && bascule != null) {
+                    agir(mc, "fermeture de la liste d'animations", bascule::onPress);
+                }
+                cliqueListe = null;
+            }
+            sousPas++;
+            fait = false;
+            debutEtapeNs = System.nanoTime();
+        }
+    }
+
+    /**
+     * Le bloc du panneau (cachés compris) tient dans l'écran et ne touche ni un autre widget visible (nos boutons, la
+     * rangée du bas, la mention de Mojang), ni la ligne de version ; liste ouverte, chaque bouton visible du bloc est
+     * actif et le premier widget sous son centre (celui que le clic atteint).
+     */
+    private static boolean controlePanneau(Screen ecran, List<AbstractWidget> bloc, boolean liste) {
+        if (bloc.isEmpty()) {
+            bilanPanneau = "aucun widget de panneau (Quick-Skin absent ?)";
+            return false;
+        }
+        int g = Integer.MAX_VALUE;
+        int h = Integer.MAX_VALUE;
+        int d = Integer.MIN_VALUE;
+        int b = Integer.MIN_VALUE;
+        StringBuilder membres = new StringBuilder();
+        for (AbstractWidget w : bloc) {
+            int[] r = empreinte(w);
+            g = Math.min(g, r[0]);
+            h = Math.min(h, r[1]);
+            d = Math.max(d, r[0] + r[2]);
+            b = Math.max(b, r[1] + r[3]);
+            membres.append(String.format(Locale.ROOT, " [%s « %s » %d,%d %dx%d%s]", w.getClass().getSimpleName(),
+                    w.getMessage().getString(), r[0], r[1], r[2], r[3], w.visible ? "" : " caché"));
+        }
+        StringBuilder sb = new StringBuilder(String.format(Locale.ROOT, "bloc de %d widget(s) en (%d, %d) %d x %d :%s",
+                bloc.size(), g, h, d - g, b - h, membres));
+        boolean ok = g >= 0 && h >= 0 && d <= ecran.width && b <= ecran.height;
+        if (!ok) {
+            sb.append(" ; DÉBORDE de l'écran");
+        }
+        Minecraft mc = Minecraft.getInstance();
+        String version = "Minecraft " + net.minecraft.SharedConstants.getCurrentVersion().getName();
+        int vl = mc.font.width(version);
+        List<int[]> rects = new ArrayList<>();
+        List<String> noms = new ArrayList<>();
+        rects.add(new int[] {ecran.width - vl - 2, ecran.height - 20, vl, 9});
+        noms.add("ligne de version");
+        for (GuiEventListener l : ecran.children()) {
+            if (l instanceof AbstractWidget w && w.visible && !bloc.contains(w)) {
+                rects.add(new int[] {w.getX(), w.getY(), w.getWidth(), w.getHeight()});
+                noms.add(w.getClass().getSimpleName() + " « " + w.getMessage().getString() + " »");
+            }
+        }
+        for (int i = 0; i < rects.size(); i++) {
+            int[] r = rects.get(i);
+            if (g < r[0] + r[2] && r[0] < d && h < r[1] + r[3] && r[1] < b) {
+                ok = false;
+                sb.append(" ; CHEVAUCHE ").append(noms.get(i));
+            }
+        }
+        if (liste) {
+            int vus = 0;
+            for (AbstractWidget w : bloc) {
+                if (!w.visible || !(w instanceof Button)) {
+                    continue;
+                }
+                vus++;
+                if (!w.active) {
+                    ok = false;
+                    sb.append(" ; « ").append(w.getMessage().getString()).append(" » inactif");
+                }
+            }
+            sb.append(" ; ").append(vus).append(" bouton(s) visible(s) et actif(s) dans le bloc");
+        }
+        bilanPanneau = sb.toString();
+        return ok;
     }
 
     /** Le curseur sur « Rejoindre l'île », l'infobulle visible, une image ; puis le curseur sur le décor. */
@@ -632,7 +883,8 @@ public final class TitleShots {
             if (sorte == TitleWidgets.Kind.OURS) {
                 nos++;
                 basDesNotres = Math.max(basDesNotres, w.getY() + w.getHeight());
-            } else if (sorte == TitleWidgets.Kind.FOREIGN && w.visible) {
+            } else if (sorte == TitleWidgets.Kind.FOREIGN && w.visible && !TitleWidgets.inPanel(proprietaire(w))) {
+                // Les widgets d'un panneau (Quick-Skin) ne vont pas dans la rangée : contrôlés par controlePanneau.
                 etrangers.add(w);
             }
         }

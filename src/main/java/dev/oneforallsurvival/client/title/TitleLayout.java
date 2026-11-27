@@ -106,6 +106,61 @@ public final class TitleLayout {
     }
 
     /**
+     * Place qu'occupe à l'écran un aperçu 3D du joueur de Quick-Skin 4.1.0 ({@code PlayerWidget}), dont le rectangle
+     * de widget ne dit rien : modèle de hauteur {@code 2 x échelle} posé sur ses pieds, centré en x, large de 0,6 fois
+     * sa hauteur (règle de {@code PlayerWidget.isMouseOutsideModelArea} et de {@code TitleSplashClearance.fits}, lues
+     * au javap).
+     */
+    public static Rect modelFootprint(int centerX, int feetY, float scale) {
+        int h = (int) (scale * 2f);
+        int w = (int) (h * 0.6f);
+        return new Rect(centerX - w / 2, feetY - h, w, h);
+    }
+
+    /** Écart minimal entre un panneau d'un autre mod et ce qui l'entoure, et marge au bord de l'écran. */
+    public static final int PANEL_GAP = 4;
+
+    /**
+     * Place d'un panneau d'un autre mod (l'aperçu de Quick-Skin et ses boutons), déplacé d'un bloc : même taille que
+     * {@code panel}, du côté droit (centre dans la moitié droite), le plus à droite possible puis le plus près du
+     * milieu en hauteur, à {@link #PANEL_GAP} px au moins des {@code obstacles} (logo, nos boutons, rangée du bas,
+     * version, mention de Mojang) et des bords. Vide s'il n'y a pas de place sans chevauchement : l'appelant le laisse
+     * alors où son mod l'a mis.
+     */
+    public static java.util.Optional<Rect> panel(int screenW, int screenH, Rect panel, List<Rect> obstacles) {
+        int w = panel.w();
+        int h = panel.h();
+        int minX = Math.max(PANEL_GAP, screenW / 2 - w / 2);
+        int maxX = screenW - PANEL_GAP - w;
+        int maxY = screenH - PANEL_GAP - h;
+        if (maxX < minX || maxY < PANEL_GAP) {
+            return java.util.Optional.empty();
+        }
+        int centerY = Math.max(PANEL_GAP, Math.min(maxY, (screenH - h) / 2));
+        for (int x = maxX; x >= minX; x--) {
+            for (int d = 0; centerY - d >= PANEL_GAP || centerY + d <= maxY; d++) {
+                int[] ys = d == 0 ? new int[] {centerY} : new int[] {centerY - d, centerY + d};
+                for (int y : ys) {
+                    if (y >= PANEL_GAP && y <= maxY && clear(new Rect(x, y, w, h), obstacles)) {
+                        return java.util.Optional.of(new Rect(x, y, w, h));
+                    }
+                }
+            }
+        }
+        return java.util.Optional.empty();
+    }
+
+    private static boolean clear(Rect r, List<Rect> obstacles) {
+        Rect grown = new Rect(r.x() - PANEL_GAP, r.y() - PANEL_GAP, r.w() + 2 * PANEL_GAP, r.h() + 2 * PANEL_GAP);
+        for (Rect o : obstacles) {
+            if (o.w() > 0 && o.h() > 0 && grown.intersects(o)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
      * Rangée du bas : widgets de tailles données ({@code {largeur, hauteur}}), de gauche à droite à partir de
      * x = {@link #ROW_MARGIN}, à {@link #ROW_MARGIN} px du bas, écart {@link #MAIN_GAP}. Un widget qui ferait
      * dépasser {@link #ROW_MAX_SHARE} de la largeur de l'écran passe sur une ligne au-dessus ; les lignes se

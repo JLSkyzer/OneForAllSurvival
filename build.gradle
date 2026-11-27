@@ -141,6 +141,11 @@ minecraft {
             if (project.hasProperty('titleShotsServer')) {
                 property 'lostisland.titleShots.server', project.titleShotsServer
             }
+            // `-PtitleShotsMode=panneau` : panneau d'un autre mod (Quick-Skin, -PwithQuickSkin) à plusieurs tailles et
+            // échelles, liste d'animations ouverte, au lieu du survol, d'Options et du monde.
+            if (project.hasProperty('titleShotsMode')) {
+                property 'lostisland.titleShots.mode', project.titleShotsMode
+            }
             // `-PdebugShots=<dossier>` : preuve en jeu du F3 (relatif au dossier du jeu), puis fermeture du client ;
             // `-PdebugShotsFilm` : version filmée, sans images PNG. `-PgameArgs="--fullscreen --width 2560 --height 1440"` :
             // arguments de lancement de Minecraft, sans toucher à options.txt. Voir F3Shots (devcontent).
@@ -681,6 +686,145 @@ if (project.hasProperty('withPack') || !gradle.startParameter.taskNames.any { it
         if (!project.hasProperty('sansJei') && !atelierWiki) {
             runtimeOnly fg.deobf("mezz.jei:jei-${minecraft_version}-forge:${jei_version}")
         }
+    }
+}
+
+// Essais de compatibilité du lot C, client seulement, à la demande : `-PwithQuickSkin` (Quick-Skin et Architectury,
+// fichiers du pack) pour l'écran titre. Voir gradle.properties.
+// Les mixins de Quick-Skin visent les noms SRG, sans refmap (annotations, champs @Shadow) : en développement (noms
+// officiels), ils ne trouvent pas leurs cibles et font planter le lancement. L'essai charge une copie dont ces noms
+// sont traduits par la table SRG -> officiels de ForgeGradle (build/createSrgToMcp/output.srg) : noms des membres
+// déclarés ou appelés, et chaînes des annotations et des constantes. Les noms SRG (f_NNN_, m_NNN_) sont uniques.
+def traduireNomsSrg = { File source, File cible ->
+    def table = project.file('build/createSrgToMcp/output.srg')
+    if (!table.isFile()) {
+        throw new GradleException("${table} absent : lancer d'abord `gradlew createSrgToMcp`")
+    }
+    def noms = [:]
+    def descripteurs = [:]
+    table.eachLine('UTF-8') { ligne ->
+        def p = ligne.split(' ')
+        if (p[0] == 'FD:') {
+            noms[p[1].substring(p[1].lastIndexOf('/') + 1)] = p[2].substring(p[2].lastIndexOf('/') + 1)
+        } else if (p[0] == 'MD:') {
+            def srg = p[1].substring(p[1].lastIndexOf('/') + 1)
+            noms[srg] = p[3].substring(p[3].lastIndexOf('/') + 1)
+            descripteurs[srg] = p[4]
+        }
+    }
+    def motif = ~/[fm]_\d+_/
+    def nom = { String n -> noms.getOrDefault(n, n) }
+    // Dans une chaîne, une méthode nommée seule (« method = "m_NNN_" ») reçoit son descripteur : son nom officiel peut
+    // désigner plusieurs surcharges, son nom SRG n'en désignait qu'une.
+    def valeur = { Object v ->
+        if (!(v instanceof String)) {
+            return v
+        }
+        def m = (v =~ /[fm]_\d+_/)
+        def sb = new StringBuffer()
+        while (m.find()) {
+            def srg = m.group()
+            def suite = m.end() < v.length() ? v.charAt(m.end()) : (char) 0
+            def officiel = noms.getOrDefault(srg, srg)
+            if (srg.startsWith('m_') && descripteurs[srg] != null && suite != '(' as char && officiel != srg) {
+                officiel += descripteurs[srg]
+            }
+            m.appendReplacement(sb, java.util.regex.Matcher.quoteReplacement(officiel))
+        }
+        m.appendTail(sb)
+        sb.toString()
+    }
+    def api = org.objectweb.asm.Opcodes.ASM9
+    // Annotations (et leurs tableaux, annotations imbriquées) : chaînes traduites.
+    def annotations
+    annotations = { org.objectweb.asm.AnnotationVisitor suivant ->
+        suivant == null ? null : new org.objectweb.asm.AnnotationVisitor(api, suivant) {
+            void visit(String n, Object v) { super.visit(n, valeur(v)) }
+            org.objectweb.asm.AnnotationVisitor visitArray(String n) { annotations(super.visitArray(n)) }
+            org.objectweb.asm.AnnotationVisitor visitAnnotation(String n, String d) { annotations(super.visitAnnotation(n, d)) }
+        }
+    }
+    def traduire = { org.objectweb.asm.ClassVisitor suivant ->
+        new org.objectweb.asm.ClassVisitor(api, suivant) {
+            org.objectweb.asm.AnnotationVisitor visitAnnotation(String d, boolean v) { annotations(super.visitAnnotation(d, v)) }
+            org.objectweb.asm.FieldVisitor visitField(int acces, String n, String d, String sig, Object v) {
+                def fv = super.visitField(acces, nom(n), d, sig, v)
+                fv == null ? null : new org.objectweb.asm.FieldVisitor(api, fv) {
+                    org.objectweb.asm.AnnotationVisitor visitAnnotation(String ad, boolean av) { annotations(super.visitAnnotation(ad, av)) }
+                }
+            }
+            org.objectweb.asm.MethodVisitor visitMethod(int acces, String n, String d, String sig, String[] ex) {
+                def mv = super.visitMethod(acces, nom(n), d, sig, ex)
+                mv == null ? null : new org.objectweb.asm.MethodVisitor(api, mv) {
+                    org.objectweb.asm.AnnotationVisitor visitAnnotation(String ad, boolean av) { annotations(super.visitAnnotation(ad, av)) }
+                    org.objectweb.asm.AnnotationVisitor visitParameterAnnotation(int i, String ad, boolean av) {
+                        annotations(super.visitParameterAnnotation(i, ad, av))
+                    }
+                    org.objectweb.asm.AnnotationVisitor visitAnnotationDefault() { annotations(super.visitAnnotationDefault()) }
+                    void visitFieldInsn(int op, String o, String n2, String d2) { super.visitFieldInsn(op, o, nom(n2), d2) }
+                    void visitMethodInsn(int op, String o, String n2, String d2, boolean itf) {
+                        super.visitMethodInsn(op, o, nom(n2), d2, itf)
+                    }
+                    void visitLdcInsn(Object v) { super.visitLdcInsn(valeur(v)) }
+                }
+            }
+        }
+    }
+    cible.parentFile.mkdirs()
+    new java.util.zip.ZipInputStream(new FileInputStream(source)).withCloseable { entree ->
+        new java.util.zip.ZipOutputStream(new FileOutputStream(cible)).withCloseable { sortie ->
+            def element
+            while ((element = entree.nextEntry) != null) {
+                def octets = entree.readAllBytes()
+                if (element.name ==~ /[^\/]*mixins\.json/) {
+                    // Configuration non requise : un mixin qui ne trouve pas sa cible en développement (méthode ajoutée
+                    // par un autre mod, absente ici) est sauté avec une ligne au journal au lieu d'arrêter le jeu.
+                    octets = new String(octets, 'UTF-8').replaceFirst(/"required"\s*:\s*true/, '"required": false')
+                            .getBytes('UTF-8')
+                } else if (element.name.endsWith('.class')) {
+                    def lecteur = new org.objectweb.asm.ClassReader(octets)
+                    def ecrivain = new org.objectweb.asm.ClassWriter(0)
+                    lecteur.accept(traduire(ecrivain), 0)
+                    octets = ecrivain.toByteArray()
+                }
+                sortie.putNextEntry(new java.util.zip.ZipEntry(element.name))
+                sortie.write(octets)
+                sortie.closeEntry()
+            }
+        }
+    }
+}
+// Copies d'essai de ces mods (build/essai-compat), déclarées avant toute résolution.
+if (project.hasProperty('withQuickSkin')) {
+    repositories {
+        flatDir {
+            dir 'build/essai-compat'
+            content { includeGroup 'local.essai' }
+        }
+    }
+}
+if (project.hasProperty('withQuickSkin')) {
+    // Le jar d'origine, pris dans le cache de Gradle par son sha1 (celui du pack) : le résoudre ici, pendant la
+    // configuration, empêcherait ForgeGradle d'ajouter ses dépendances remappées.
+    def originalQs = new File(gradle.gradleUserHomeDir,
+            "caches/modules-2/files-2.1/maven.modrinth/quick-skin/${quickskin_version}/${quickskin_sha1}/quick-skin-${quickskin_version}.jar")
+    if (!originalQs.isFile()) {
+        throw new GradleException("-PwithQuickSkin : ${originalQs} absent du cache de Gradle ; le faire télécharger une fois par "
+                + "`gradlew dependencies --configuration runtimeClasspath -PwithQuickSkinOriginal` (en ligne)")
+    }
+    def copieQs = project.file("build/essai-compat/quick-skin-${quickskin_version}-noms.jar")
+    if (!copieQs.isFile() || copieQs.lastModified() < originalQs.lastModified()) {
+        traduireNomsSrg(originalQs, copieQs)
+    }
+    dependencies {
+        runtimeOnly fg.deobf("maven.modrinth:architectury-api:${architectury_version}")
+        runtimeOnly fg.deobf("local.essai:quick-skin:${quickskin_version}-noms")
+    }
+}
+// Téléchargement du jar d'origine de Quick-Skin seul (il ne se lance pas en développement, voir plus haut).
+if (project.hasProperty('withQuickSkinOriginal')) {
+    dependencies {
+        runtimeOnly "maven.modrinth:quick-skin:${quickskin_version}"
     }
 }
 

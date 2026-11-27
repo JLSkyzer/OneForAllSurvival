@@ -1,6 +1,7 @@
 package dev.oneforallsurvival.client.title;
 
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.logging.LogUtils;
 import dev.oneforallsurvival.client.title.TitleLayout.Rect;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -26,6 +27,7 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import org.joml.Matrix4f;
+import org.slf4j.Logger;
 
 /**
  * Écran titre de Lost Island : sous-classe de {@link TitleScreen} substituée à l'ouverture
@@ -53,6 +55,8 @@ public class LostIslandTitleScreen extends TitleScreen {
     // Fondu d'entrée : une fois par session, pas à chaque retour d'Options ou d'un monde (thread du jeu seul).
     private static long introStart = -1L;
     private static boolean introDone;
+    private static boolean panelUnplacedLogged;
+    private static final Logger LOGGER = LogUtils.getLogger();
 
     private final Set<GuiEventListener> ours = Collections.newSetFromMap(new IdentityHashMap<>());
     private Button solo;
@@ -122,9 +126,17 @@ public class LostIslandTitleScreen extends TitleScreen {
         }
         List<AbstractWidget> row = new ArrayList<>();
         List<String> keys = new ArrayList<>();
+        List<AbstractWidget> panel = new ArrayList<>();
         AbstractWidget copyright = null;
         for (GuiEventListener listener : children()) {
-            if (ours.contains(listener) || !(listener instanceof AbstractWidget widget) || !widget.visible) {
+            if (ours.contains(listener) || !(listener instanceof AbstractWidget widget)) {
+                continue;
+            }
+            if (TitleWidgets.inPanel(ownerClass(widget))) {
+                panel.add(widget); // caché compris : la liste d'animations s'ouvre plus tard, à sa place dans le bloc
+                continue;
+            }
+            if (!widget.visible) {
                 continue;
             }
             String key = keyOf(widget.getMessage());
@@ -155,14 +167,88 @@ public class LostIslandTitleScreen extends TitleScreen {
             copyright.setPosition(width - copyright.getWidth() - 2, height - 10);
         }
 
-        List<Rect> main = TitleLayout.mainButtons(width, height, logoRect(), bottom);
+        Rect logo = logoRect();
+        List<Rect> main = TitleLayout.mainButtons(width, height, logo, bottom);
         Button[] buttons = {solo, join, options, quit};
         for (int i = 0; i < buttons.length; i++) {
             Rect r = main.get(i);
             buttons[i].setPosition(r.x(), r.y());
             buttons[i].setWidth(r.w());
         }
+        if (!panel.isEmpty()) {
+            List<Rect> obstacles = new ArrayList<>(main);
+            obstacles.addAll(bottom);
+            obstacles.add(logo);
+            if (copyright != null) {
+                obstacles.add(new Rect(copyright.getX(), copyright.getY(), copyright.getWidth(), copyright.getHeight()));
+            }
+            obstacles.add(versionRect());
+            placePanel(panel, obstacles);
+        }
         arrangedChildren = children().size();
+    }
+
+    /**
+     * Déplace d'un bloc les widgets d'un panneau d'un autre mod (Quick-Skin) : leur disposition interne est gardée,
+     * le bloc va du côté droit sans rien chevaucher ({@link TitleLayout#panel}). Sans place libre, il reste où son mod
+     * l'a mis (une ligne au journal).
+     */
+    private void placePanel(List<AbstractWidget> panel, List<Rect> obstacles) {
+        int left = Integer.MAX_VALUE;
+        int top = Integer.MAX_VALUE;
+        int right = Integer.MIN_VALUE;
+        int bottom = Integer.MIN_VALUE;
+        for (AbstractWidget w : panel) {
+            // Un aperçu 3D du joueur occupe la place de son modèle, pas celle de son rectangle de widget.
+            Rect r = ModelPreview.footprint(w).orElseGet(() -> new Rect(w.getX(), w.getY(), w.getWidth(), w.getHeight()));
+            left = Math.min(left, r.x());
+            top = Math.min(top, r.y());
+            right = Math.max(right, r.right());
+            bottom = Math.max(bottom, r.bottom());
+        }
+        Rect box = new Rect(left, top, right - left, bottom - top);
+        Optional<Rect> place = TitleLayout.panel(width, height, box, obstacles);
+        if (place.isEmpty()) {
+            if (!panelUnplacedLogged) {
+                panelUnplacedLogged = true;
+                LOGGER.info("Écran titre : pas de place libre pour le panneau d'un autre mod ({} x {} px sur {} x {}), "
+                        + "laissé à sa place", box.w(), box.h(), width, height);
+            }
+            return;
+        }
+        int dx = place.get().x() - box.x();
+        int dy = place.get().y() - box.y();
+        if (dx == 0 && dy == 0) {
+            return;
+        }
+        for (AbstractWidget w : panel) {
+            w.setPosition(w.getX() + dx, w.getY() + dy);
+        }
+    }
+
+    /** Ligne « Minecraft 1.20.1 » dessinée par {@link #render}, au-dessus de la mention de Mojang. */
+    private Rect versionRect() {
+        String version = versionText();
+        int w = font.width(version);
+        return new Rect(width - w - 2, height - 20, w, font.lineHeight);
+    }
+
+    private static String versionText() {
+        return "Minecraft " + SharedConstants.getCurrentVersion().getName();
+    }
+
+    /**
+     * Classe qui a créé le widget : la sienne, ou pour un bouton de Minecraft celle de son action (un lambda du mod
+     * qui l'a ajouté). {@code null} si illisible.
+     */
+    public static String ownerClass(AbstractWidget widget) {
+        if (widget instanceof Button button && widget.getClass().getName().startsWith("net.minecraft.")) {
+            Object press = ButtonPress.of(button);
+            if (press != null) {
+                return press.getClass().getName();
+            }
+        }
+        return widget.getClass().getName();
     }
 
     /** Logo de la scène si elle est là (manifeste lu le temps de l'appel), sinon ancre de repli. */
@@ -237,7 +323,7 @@ public class LostIslandTitleScreen extends TitleScreen {
         for (Renderable renderable : renderables) {
             renderable.render(graphics, mouseX, mouseY, partialTick);
         }
-        String version = "Minecraft " + SharedConstants.getCurrentVersion().getName();
+        String version = versionText();
         int alpha = Math.round(ui * 255f) << 24;
         graphics.drawString(font, version, width - font.width(version) - 2, height - 20, alpha | 0xD8D8D8);
     }

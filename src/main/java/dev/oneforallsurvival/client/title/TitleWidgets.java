@@ -26,7 +26,30 @@ public final class TitleWidgets {
     /** Petits boutons de Minecraft et de Forge gardés (rangée du bas), et la mention de Mojang (en bas à droite). */
     private static final Set<String> KEPT = Set.of(MODS_KEY, LANGUAGE_KEY, ACCESSIBILITY_KEY, COPYRIGHT_KEY);
 
+    /**
+     * Mods dont les widgets du titre forment un panneau à disposition interne (positions liées entre elles), déplacé
+     * d'un bloc plutôt que rangé dans la rangée du bas : Quick-Skin 4.1.0 (bouton « Change Skin », aperçu 3D du
+     * joueur, rotation, liste d'animations ; {@code MenuIntegration}, lu au javap).
+     */
+    private static final List<String> PANEL_PACKAGES = List.of("com.quickskin.");
+
     private TitleWidgets() {}
+
+    /**
+     * Vrai si le widget appartient à un panneau ({@link #PANEL_PACKAGES}). {@code ownerClass} : classe du widget, ou,
+     * pour un bouton de Minecraft, celle de son action (le lambda vit dans la classe du mod qui l'a créé).
+     */
+    public static boolean inPanel(String ownerClass) {
+        if (ownerClass == null) {
+            return false;
+        }
+        for (String p : PANEL_PACKAGES) {
+            if (ownerClass.startsWith(p)) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     /** Origine d'un widget de l'écran titre. */
     public enum Kind {
