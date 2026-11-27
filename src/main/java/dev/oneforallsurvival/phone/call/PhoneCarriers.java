@@ -4,6 +4,8 @@ import dev.oneforallsurvival.phone.PhoneItem;
 import dev.oneforallsurvival.phone.net.PhoneSims;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.BiPredicate;
+import java.util.function.Predicate;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
@@ -15,8 +17,9 @@ import net.minecraft.world.item.ItemStack;
  * barre, armure, seconde main) et sous le curseur d'un écran ouvert ; jamais dans un coffre, au sol ou chez un joueur
  * parti. Un téléphone ne compte que si sa carte est {@link PhoneSims.Validity#ACTIVE} (une copie morte ne sonne pas).
  *
- * <p>Deux copies d'un même téléphone chez deux joueurs : un seul porteur, le premier trouvé dans l'ordre de la liste
- * des joueurs. Fil du serveur seulement.
+ * <p>Deux copies d'un même téléphone : un seul porteur, le premier qui convient dans l'ordre de la liste des joueurs ;
+ * le filtre s'applique pendant la recherche, pile par pile, pour qu'une copie inutilisable (à plat) n'en cache pas une
+ * autre. Fil du serveur seulement.
  */
 public final class PhoneCarriers {
 
@@ -25,13 +28,14 @@ public final class PhoneCarriers {
 
     private PhoneCarriers() {}
 
-    /** Le premier joueur connecté qui porte ce téléphone, carte active logée. */
-    public static Optional<Carrier> find(MinecraftServer server, UUID phoneId) {
+    /** Le premier joueur connecté qui porte ce téléphone, carte active logée, dans une pile qui passe {@code ok}. */
+    public static Optional<Carrier> find(MinecraftServer server, UUID phoneId,
+            BiPredicate<ServerPlayer, ItemStack> ok) {
         if (phoneId == null) {
             return Optional.empty();
         }
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-            Optional<ItemStack> phone = heldBy(player, phoneId);
+            Optional<ItemStack> phone = heldBy(player, phoneId, stack -> ok.test(player, stack));
             if (phone.isPresent()) {
                 return Optional.of(new Carrier(player, phone.get()));
             }
@@ -44,18 +48,15 @@ public final class PhoneCarriers {
      * vérifier qu'un bout d'appel porte toujours <b>son</b> téléphone, même si une copie est ailleurs.
      */
     public static Optional<ItemStack> heldBy(ServerPlayer player, UUID phoneId) {
-        if (player == null || phoneId == null || player.isRemoved()) {
+        return heldBy(player, phoneId, stack -> true);
+    }
+
+    /** Comme {@link #heldBy(ServerPlayer, UUID)}, la première de ces piles qui passe {@code ok}. */
+    public static Optional<ItemStack> heldBy(ServerPlayer player, UUID phoneId, Predicate<ItemStack> ok) {
+        if (phoneId == null) {
             return Optional.empty();
         }
-        Inventory inventory = player.getInventory();
-        for (int i = 0; i < inventory.getContainerSize(); i++) {
-            ItemStack stack = inventory.getItem(i);
-            if (matches(player.server, stack, phoneId)) {
-                return Optional.of(stack);
-            }
-        }
-        ItemStack carried = player.containerMenu == null ? ItemStack.EMPTY : player.containerMenu.getCarried();
-        return matches(player.server, carried, phoneId) ? Optional.of(carried) : Optional.empty();
+        return first(player, stack -> matches(player.server, stack, phoneId) && ok.test(stack));
     }
 
     /**
@@ -66,7 +67,7 @@ public final class PhoneCarriers {
     }
 
     /** Le premier téléphone de ce joueur (inventaire, puis curseur) qui passe {@code ok}, carte ou non. */
-    public static Optional<ItemStack> first(ServerPlayer player, java.util.function.Predicate<ItemStack> ok) {
+    public static Optional<ItemStack> first(ServerPlayer player, Predicate<ItemStack> ok) {
         if (player == null || player.isRemoved()) {
             return Optional.empty();
         }

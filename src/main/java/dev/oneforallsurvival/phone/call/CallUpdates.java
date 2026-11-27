@@ -13,9 +13,12 @@ import dev.oneforallsurvival.phone.call.CallBook.Party;
 import dev.oneforallsurvival.phone.call.PhoneCallStatePacket.Book;
 import dev.oneforallsurvival.phone.call.PhoneCallStatePacket.Phase;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 import net.minecraft.core.Holder;
 import net.minecraft.network.chat.Component;
@@ -44,8 +47,9 @@ import net.minecraftforge.server.ServerLifecycleHooks;
  *
  * <p>Batterie : pendant un appel (sonnerie comprise), le téléphone de chaque bout paie
  * {@link PhoneConfig#drainPerTick()} par tic, par blocs de vingt tics, comme l'écran ouvert ; un bout dont l'écran est
- * ouvert sur ce même téléphone ne paie que par l'écran (aucun double compte). À plat, la batterie passe à 0 et le
- * relevé finit l'appel ({@link End#PHONE_GONE}). Fil du serveur seulement ; ni numéro ni carte dans un journal.
+ * ouvert sur ce même téléphone ne paie que par l'écran (aucun double compte). Une urgence qui sonne se paie de même :
+ * l'appelant et chaque secours dont le téléphone sonne. À plat, la batterie passe à 0 et le relevé finit l'appel
+ * ({@link End#PHONE_GONE}) ou retire ce secours. Fil du serveur seulement ; ni numéro ni carte dans un journal.
  */
 public final class CallUpdates {
 
@@ -243,13 +247,29 @@ public final class CallUpdates {
         }
         MinecraftServer server = event.getServer();
         int tick = server.getTickCount();
+        Set<UUID> paying = new HashSet<>();
         for (Call call : CallService.calls()) {
             if (RINGS.due(call, tick)) {
                 ring(server, call);
             }
-            drain(server, call.caller());
-            drain(server, call.callee());
+            boolean emergency = CallService.emergency(call.id()).isPresent();
+            for (Party party : new Party[] {call.caller(), call.callee()}) {
+                paying.add(party.player());
+                // Une urgence n'exige aucune carte ; un appel ordinaire se paie sur la pile que le relevé suit.
+                drain(server, party.player(), party.phoneId(), player -> emergency
+                        ? charged(player, party.phoneId()) : CallService.present(server, player, party));
+            }
         }
+        for (EmergencyService.RingingPhone ringing : EmergencyService.ringingPhones()) {
+            paying.add(ringing.player());
+            drain(server, ringing.player(), ringing.phoneId(), player -> charged(player, ringing.phoneId()));
+        }
+        // Hors appel et hors urgence, aucun tic payé d'avance n'est gardé.
+        DRAIN.keySet().retainAll(paying);
+    }
+
+    private static Optional<ItemStack> charged(ServerPlayer player, UUID phoneId) {
+        return PhoneCarriers.holding(player, phoneId).filter(stack -> PhoneItem.stored(stack) > 0);
     }
 
     private static void ring(MinecraftServer server, Call call) {
@@ -274,18 +294,18 @@ public final class CallUpdates {
     }
 
     /** Le téléphone de ce bout paie un tic d'appel, sauf si l'écran ouvert sur lui le paie déjà. */
-    private static void drain(MinecraftServer server, Party party) {
-        ServerPlayer player = server.getPlayerList().getPlayer(party.player());
+    private static void drain(MinecraftServer server, UUID playerId, UUID phoneId,
+            Function<ServerPlayer, Optional<ItemStack>> source) {
+        ServerPlayer player = server.getPlayerList().getPlayer(playerId);
         if (player == null) {
             return;
         }
         Optional<PhoneSession> session = PhoneService.session(player.getUUID());
-        if (session.isPresent() && session.get().phoneId().equals(party.phoneId())) {
+        if (session.isPresent() && session.get().phoneId().equals(phoneId)) {
             return;
         }
-        // Sans exiger de carte : une urgence se paie aussi (le relevé coupe un appel ordinaire sans carte active).
-        Optional<ItemStack> phone = PhoneCarriers.holding(player, party.phoneId());
-        if (phone.isEmpty() || PhoneItem.stored(phone.get()) <= 0) {
+        Optional<ItemStack> phone = source.apply(player);
+        if (phone.isEmpty()) {
             return;
         }
         ItemBattery.Prepaid prepaid = DRAIN.computeIfAbsent(player.getUUID(), id -> new ItemBattery.Prepaid());

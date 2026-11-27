@@ -1,6 +1,7 @@
 package dev.oneforallsurvival.dev;
 
 import dev.oneforallsurvival.dev.AppelGameTests.Essai;
+import dev.oneforallsurvival.phone.PhoneActionPacket;
 import dev.oneforallsurvival.phone.PhoneConfig;
 import dev.oneforallsurvival.phone.PhoneItem;
 import dev.oneforallsurvival.phone.PhoneRegistry;
@@ -53,6 +54,8 @@ public final class UrgenceGameTests {
      * sonne que chez son rôle, les deux essais ne se gênent pas.
      */
     private static final String LOT_D = "telephone_urgences_d";
+    /** La batterie pendant la sonnerie : un policier, seul dans son lot. */
+    private static final String LOT_E = "telephone_urgences_e";
 
     private static final String ALERT = "message.oneforallsurvival.call.emergency.alert";
     private static final List<UUID> ROLES = new ArrayList<>();
@@ -76,6 +79,11 @@ public final class UrgenceGameTests {
 
     @AfterBatch(batch = LOT_D)
     public static void apresD(ServerLevel level) {
+        rendre(level.getServer());
+    }
+
+    @AfterBatch(batch = LOT_E)
+    public static void apresE(ServerLevel level) {
         rendre(level.getServer());
     }
 
@@ -475,6 +483,86 @@ public final class UrgenceGameTests {
                     helper.assertTrue(EmergencyService.latest(srv).size() >= journal && e.answeredBy().isEmpty(),
                             "le journal ne dit pas l'appel pris : " + e);
                     helper.assertTrue(CallService.hangUp(x.joueur(), appel[0]), "X raccroche");
+                    essai.fermer();
+                })
+                .thenSucceed();
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Lot telephone_urgences_e : la batterie pendant la sonnerie
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * Pendant la sonnerie d'une urgence, comme pour un appel ordinaire : l'appelant écran fermé et le secours qui sonne
+     * paient au rythme de l'écran ouvert ; un appelant écran ouvert ne paie qu'une fois. Un secours qui refuse et un
+     * appelant qui raccroche ne paient plus ; à plat, l'urgence finit.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_E, timeoutTicks = 400)
+    public static void laSonnerieDUneUrgenceDepenseLaBatterie(GameTestHelper helper) {
+        Essai essai = new Essai(helper);
+        MinecraftServer srv = essai.serveur();
+        JoueurDeTest f = essai.joueur("ur_bt_f");
+        JoueurDeTest ferme = essai.joueur("ur_bt_c");
+        JoueurDeTest ouvert = essai.joueur("ur_bt_o");
+        JoueurDeTest s = essai.joueur("ur_bt_s");
+        essai.fonder(f, AppelGameTests.A, "Ur bt Mairie");
+        ItemStack phoneS = sansCarte(s);
+        ItemStack phoneF = sansCarte(ferme);
+        ItemStack phoneO = sansCarte(ouvert);
+        role(srv, s, "policier");
+        int[] urgence = new int[2];
+        int[] avant = new int[3];
+        int fenetre = 60;
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(essai.enService(AppelGameTests.A), "antenne en service"))
+                .thenIdle(2)
+                .thenExecute(() -> {
+                    CallService.Dial d = CallService.dial(ferme.joueur(), phoneF, false, "17");
+                    helper.assertTrue(d.outcome() == CallService.Outcome.RINGING, "sonne : " + d.outcome());
+                    urgence[0] = d.callId();
+                    AppelPaquetsGameTests.ouvrir(helper, ouvert);
+                    // Le policier sonne déjà : la seconde urgence attend sans sonner chez personne.
+                    CallService.Dial e = CallService.dial(ouvert.joueur(), phoneO, false, "17");
+                    helper.assertTrue(e.outcome() == CallService.Outcome.RINGING, "attend : " + e.outcome());
+                    urgence[1] = e.callId();
+                })
+                // Un bloc de vingt tics payé d'avance : on mesure sur un nombre entier de blocs.
+                .thenIdle(20)
+                .thenExecute(() -> {
+                    avant[0] = PhoneItem.stored(phoneF);
+                    avant[1] = PhoneItem.stored(phoneO);
+                    avant[2] = PhoneItem.stored(phoneS);
+                })
+                .thenIdle(fenetre)
+                .thenExecute(() -> {
+                    int attendu = PhoneConfig.drainPerTick() * fenetre;
+                    int coutF = avant[0] - PhoneItem.stored(phoneF);
+                    int coutO = avant[1] - PhoneItem.stored(phoneO);
+                    int coutS = avant[2] - PhoneItem.stored(phoneS);
+                    helper.assertTrue(coutF == attendu && coutO == attendu && coutS == attendu,
+                            "sonnerie d'urgence, " + attendu + " attendus de chacun : appelant écran fermé " + coutF
+                                    + ", appelant écran ouvert " + coutO + ", secours " + coutS);
+                    helper.assertTrue(EmergencyService.decline(s.joueur(), id(phoneS), urgence[0]), "refuse");
+                    helper.assertTrue(EmergencyService.hangUp(ouvert.joueur(), id(phoneO), urgence[1]), "raccroche");
+                    AppelPaquetsGameTests.ecran(helper, ouvert, PhoneActionPacket.Action.CLOSE, "");
+                    avant[1] = PhoneItem.stored(phoneO);
+                    avant[2] = PhoneItem.stored(phoneS);
+                })
+                .thenIdle(45)
+                .thenExecute(() -> {
+                    helper.assertTrue(PhoneItem.stored(phoneS) == avant[2], "après le refus, le secours ne paie plus : "
+                            + (avant[2] - PhoneItem.stored(phoneS)));
+                    helper.assertTrue(PhoneItem.stored(phoneO) == avant[1], "après avoir raccroché, plus rien : "
+                            + (avant[1] - PhoneItem.stored(phoneO)));
+                    AppelPaquetsGameTests.vider(ferme);
+                    PhoneItem.store(phoneF, 1);
+                })
+                .thenIdle(45)
+                .thenExecute(() -> {
+                    helper.assertTrue(PhoneItem.stored(phoneF) == 0 && !EmergencyService.involved(ferme.uuid()),
+                            "à plat, l'urgence finit : reste " + PhoneItem.stored(phoneF));
+                    helper.assertTrue(ferme.clesRecues().contains(CallUpdates.ENDED + "interrupted"),
+                            "fin en barre d'action, écran fermé");
                     essai.fermer();
                 })
                 .thenSucceed();

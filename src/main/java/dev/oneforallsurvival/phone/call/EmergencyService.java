@@ -263,6 +263,24 @@ public final class EmergencyService {
         return false;
     }
 
+    /** Un téléphone en jeu dans une urgence qui sonne : celui de l'appelant ou d'un secours chez qui elle sonne. */
+    record RingingPhone(UUID player, UUID phoneId) {}
+
+    /** Les téléphones des urgences qui sonnent : ils paient leur batterie comme ceux d'un appel ({@link CallUpdates}). */
+    static List<RingingPhone> ringingPhones() {
+        List<RingingPhone> out = new ArrayList<>();
+        for (Pending p : PENDING.values()) {
+            out.add(new RingingPhone(p.dispatch.caller(), p.callerPhone));
+            for (UUID other : p.dispatch.ringing()) {
+                Responder r = p.responders.get(other);
+                if (r != null) {
+                    out.add(new RingingPhone(r.player(), r.phoneId()));
+                }
+            }
+        }
+        return out;
+    }
+
     // ---------------------------------------------------------------------------------------------
     // Gestes
     // ---------------------------------------------------------------------------------------------

@@ -152,9 +152,10 @@ public final class CallService {
             return refused(Outcome.SELF, "self");
         }
         Optional<SimCard> target = PhoneNetwork.lineOf(server, number.get());
-        Optional<PhoneCarriers.Carrier> carrier = target.map(SimCard::phoneId)
-                .flatMap(id -> PhoneCarriers.find(server, id))
-                .filter(c -> c.player().isAlive() && reachable(server, c.phone()));
+        // Un seul porteur : le premier vivant dont une pile peut recevoir (ni mode avion, ni à plat, la carte appelée).
+        Optional<PhoneCarriers.Carrier> carrier = target.flatMap(card -> PhoneCarriers.find(server, card.phoneId(),
+                (player, stack) -> player.isAlive() && !PhoneData.get(server).record(card.phoneId()).airplane()
+                        && carries(server, stack, card.simId())));
         if (carrier.isPresent() && carrier.get().player() == caller) {
             return refused(Outcome.SELF, "self");
         }
@@ -352,21 +353,19 @@ public final class CallService {
         return GlobalPos.of(player.level().dimension(), player.blockPosition());
     }
 
-    /** Un téléphone qui reçoit : ni en mode avion, ni à plat. */
-    private static boolean reachable(MinecraftServer server, ItemStack phone) {
-        Optional<UUID> id = PhoneItem.phoneId(phone);
-        return id.isPresent() && !PhoneData.get(server).record(id.get()).airplane() && PhoneItem.stored(phone) > 0;
+    /** Cette pile peut-elle porter un appel de cette carte : batterie non vide, et c'est elle qui y est logée ? */
+    private static boolean carries(MinecraftServer server, ItemStack phone, UUID simId) {
+        return PhoneItem.stored(phone) > 0
+                && PhoneSims.line(server, phone).map(SimCard::simId).filter(simId::equals).isPresent();
     }
 
     /**
      * Le téléphone de ce bout, s'il le porte encore : même téléphone, carte active, la même carte qu'au début de l'appel,
-     * batterie non vide.
+     * batterie non vide. Cherché pile par pile : une copie à plat n'en cache pas une chargée. C'est aussi la pile qui
+     * paie l'appel ({@link CallUpdates}).
      */
-    private static Optional<ItemStack> present(MinecraftServer server, ServerPlayer player, Party party) {
-        return PhoneCarriers.heldBy(player, party.phoneId())
-                .filter(stack -> PhoneItem.stored(stack) > 0)
-                .filter(stack -> PhoneSims.line(server, stack).map(SimCard::simId).filter(party.simId()::equals)
-                        .isPresent());
+    static Optional<ItemStack> present(MinecraftServer server, ServerPlayer player, Party party) {
+        return PhoneCarriers.heldBy(player, party.phoneId(), stack -> carries(server, stack, party.simId()));
     }
 
     /**

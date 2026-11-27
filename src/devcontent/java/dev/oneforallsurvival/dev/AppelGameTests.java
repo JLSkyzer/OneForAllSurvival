@@ -766,6 +766,56 @@ public final class AppelGameTests {
                 .thenSucceed();
     }
 
+    /**
+     * Deux copies, la première à plat : l'appel va à la copie chargée, chez un autre joueur puis dans le même
+     * inventaire ; le relevé suit ce porteur et c'est la copie chargée qui paie.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_B, timeoutTicks = 300)
+    public static void laCopieAPlatNeCachePasLaCopieChargee(GameTestHelper helper) {
+        Paire p = paire(helper, "plat");
+        Essai essai = p.essai();
+        JoueurDeTest y = essai.joueur("ap_plat_y");
+        essai.placer(y, B, 0);
+        // L, premier de la liste des joueurs, porte l'original à plat ; Y porte la copie chargée.
+        y.joueur().getInventory().setItem(5, p.phoneL().copy());
+        PhoneItem.store(p.phoneL(), 0);
+        int[] id = new int[2];
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(essai.enService(A) && essai.enService(B), "antennes en service"))
+                .thenExecute(() -> {
+                    id[0] = sonner(helper, p.m(), p.phoneM(), p.carteL().number());
+                    helper.assertTrue(CallService.callOf(y.joueur()).isPresent()
+                            && CallService.callOf(p.l().joueur()).isEmpty(), "ça sonne chez Y seulement");
+                    helper.assertTrue(CallService.answer(y.joueur(), id[0]), "Y décroche");
+                })
+                // Deux relevés : ils suivent la copie chargée.
+                .thenIdle(45)
+                .thenExecute(() -> {
+                    helper.assertTrue(fin(id[0]).isEmpty() && CallService.callOf(y.joueur()).isPresent(),
+                            "l'appel tient chez Y : " + fin(id[0]).map(Fin::reason));
+                    helper.assertTrue(CallService.hangUp(p.m().joueur(), id[0]), "raccroché");
+                    // Les deux copies chez L : l'originale à plat d'abord, la chargée plus loin dans le sac.
+                    ItemStack copie = y.joueur().getInventory().getItem(5).copy();
+                    PhoneItem.store(copie, PhoneConfig.capacity());
+                    y.joueur().getInventory().setItem(5, ItemStack.EMPTY);
+                    p.l().joueur().getInventory().setItem(5, copie);
+                    id[1] = sonner(helper, p.m(), p.phoneM(), p.carteL().number());
+                    helper.assertTrue(CallService.callOf(p.l().joueur()).isPresent(), "ça sonne chez L");
+                    helper.assertTrue(CallService.answer(p.l().joueur(), id[1]), "L décroche");
+                })
+                .thenIdle(45)
+                .thenExecute(() -> {
+                    helper.assertTrue(fin(id[1]).isEmpty() && CallService.callOf(p.l().joueur()).isPresent(),
+                            "l'appel tient chez L : " + fin(id[1]).map(Fin::reason));
+                    int reste = PhoneItem.stored(p.l().joueur().getInventory().getItem(5));
+                    helper.assertTrue(reste < PhoneConfig.capacity() && PhoneItem.stored(p.phoneL()) == 0,
+                            "la copie chargée paie l'appel : reste " + reste);
+                    helper.assertTrue(CallService.hangUp(p.m().joueur(), id[1]), "raccroché");
+                    essai.fermer();
+                })
+                .thenSucceed();
+    }
+
     @GameTest(template = "test/plancher", batch = LOT_B, timeoutTicks = 300)
     public static void leTrajetSuitLAppele(GameTestHelper helper) {
         Paire p = paire(helper, "trajet");
