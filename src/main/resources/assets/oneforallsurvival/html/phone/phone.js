@@ -547,7 +547,7 @@
       state.requestsOpen = false;
       phoneEl.classList.remove('sim-open');
     }
-    phoneEl.classList.remove('scr-setup', 'scr-ready', 'scr-lock', 'scr-home', 'scr-settings');
+    phoneEl.classList.remove('scr-setup', 'scr-ready', 'scr-lock', 'scr-home', 'scr-settings', 'sos-open');
     phoneEl.classList.add('scr-' + screen);
     phoneEl.classList.toggle('app-open', screen === 'settings');
     paintWizard();
@@ -1790,8 +1790,46 @@
       seconds: num(v.seconds, 0, 2147483647, 0),
       muted: v.muted === true,
       speaker: v.speaker === true,
-      message: text(v.message, 200)
+      message: text(v.message, 200),
+      detail: text(v.detail, 96)
     };
+  }
+
+  /** Les urgences (feature 95) : leur titre côté appelant, et côté secours (le détail dit l'appelant et sa position). */
+  var EMERGENCY = {
+    '17': { title: 'Police 17', incoming: 'Urgence police' },
+    '15': { title: 'Secours 15', incoming: 'Urgence secours' }
+  };
+
+  function emergencyTitle(number, detail) {
+    var e = Object.prototype.hasOwnProperty.call(EMERGENCY, number) ? EMERGENCY[number] : null;
+    return !e ? '' : detail ? e.incoming : e.title;
+  }
+
+  function sosOpen(on) {
+    phoneEl.classList.toggle('sos-open', on);
+    scheduleLayout(150);
+  }
+
+  /** Le bouton « Urgence » de l'écran verrouillé et ses deux numéros ; vrai si le toucher était pour eux. */
+  function sosTap(t) {
+    if (state.screen !== 'lock') {
+      return false;
+    }
+    if (t.closest('#lock-sos')) {
+      sosOpen(true);
+      return true;
+    }
+    if (!phoneEl.classList.contains('sos-open')) {
+      return false;
+    }
+    if (t.closest('#sos-17') || t.closest('#sos-15')) {
+      sosOpen(false);
+      dial(t.closest('#sos-17') ? '17' : '15');
+    } else if (t.closest('#sos-cancel')) {
+      sosOpen(false);
+    }
+    return true;
   }
 
   function cleanDirectory(d) {
@@ -1865,10 +1903,11 @@
     if (open) {
       var name = e ? e.name : v.name;
       var number = e ? e.number : v.number;
-      var shown = name || formatNumber(number) || '—';
+      var sos = emergencyTitle(number, e ? e.detail : v.detail);
+      var shown = sos || name || formatNumber(number) || '—';
       $('call-name').textContent = shown;
       $('call-name').classList.toggle('long', shown.length > 16);
-      paintAvatar($('call-avatar'), name);
+      paintAvatar($('call-avatar'), sos ? '' : name);
       paintCallSub();
       var locked = !state.view || state.view.lock !== 'UNLOCKED';
       $('call-mute').classList.toggle('on', !!v && v.muted);
@@ -1884,8 +1923,9 @@
   function paintCallSub() {
     var v = call.view;
     var sub = call.ending ? call.ending.message
-      : !v ? '' : v.phase === 'INCOMING' ? CALL_TEXTS.INCOMING : v.phase === 'OUTGOING' ? CALL_TEXTS.OUTGOING
-        : duration(callSeconds());
+      : !v ? '' : v.detail ? v.detail + (v.phase === 'ACTIVE' ? ' · ' + duration(callSeconds()) : '')
+        : v.phase === 'INCOMING' ? CALL_TEXTS.INCOMING : v.phase === 'OUTGOING' ? CALL_TEXTS.OUTGOING
+          : duration(callSeconds());
     if ($('call-sub').textContent !== sub) {
       $('call-sub').textContent = sub;
     }
@@ -1952,8 +1992,9 @@
     if (v.message && (before !== null || dialing)) {
       // La fin d'un appel (ou l'échec d'un appel composé ici) : le message reste environ deux secondes.
       stopEnding();
-      call.ending = before !== null ? { name: before.name, number: before.number, message: v.message }
-        : { name: nameOf(call.dialed), number: call.dialed, message: v.message };
+      call.ending = before !== null
+        ? { name: before.name, number: before.number, detail: before.detail, message: v.message }
+        : { name: nameOf(call.dialed), number: call.dialed, detail: '', message: v.message };
       call.shown = true;
       call.dialAt = 0;
       call.endTimer = setTimeout(function () {
@@ -2553,6 +2594,14 @@
         add('sheet-cancel');
       } else if (state.screen === 'setup') {
         add('setup-back');
+      } else if (state.screen === 'lock') {
+        if (phoneEl.classList.contains('sos-open')) {
+          add('sos-17');
+          add('sos-15');
+          add('sos-cancel');
+        } else {
+          add('lock-sos');
+        }
       }
     } else if (state.screen === 'setup' || state.screen === 'ready') {
       var step = wizardStep();
@@ -2619,6 +2668,9 @@
     }
     if (phoneEl.classList.contains('call-open')) {
       callTap(t);
+      return;
+    }
+    if (sosTap(t)) {
       return;
     }
     if (t.closest('#island')) {
@@ -3349,12 +3401,21 @@
       var c = tel.call;
       if (!c) {
         return { phase: 'NONE', id: 0, number: '', name: '', seconds: 0, muted: false, speaker: false,
-          message: message || '' };
+          message: message || '', detail: '' };
       }
-      return { phase: c.phase, id: c.id, number: c.number, name: telName(c.number),
+      return { phase: c.phase, id: c.id, number: c.number, name: c.caller || telName(c.number),
         seconds: c.answeredAt > 0 ? Math.floor((Date.now() - c.answeredAt) / 1000) : 0, muted: c.muted,
-        speaker: c.speaker, message: message || '' };
+        speaker: c.speaker, message: message || '', detail: c.detail || '' };
     }
+
+    /** Une urgence qui sonne chez un secours : {@code window.mockSos('17')} dans la console de l'aperçu. */
+    window.mockSos = function (number) {
+      if (tel.call) { return; }
+      tel.id++;
+      tel.call = { id: 1000000000 + tel.id, phase: 'INCOMING', number: number === '15' ? '15' : '17', answeredAt: 0,
+        muted: false, speaker: false, timer: null, caller: 'Bob', detail: 'Bob · 120 64 -340 · overworld' };
+      telPush('', false);
+    };
 
     function telPush(message, book) {
       var st = telState(message);
@@ -3392,8 +3453,10 @@
       var c = tel.call;
       switch (m.a) {
         case 'callDial':
-          if (!unlocked) { return; }
-          if (c) { telPush('Un appel est déjà en cours', false); return; }
+          // Le 17 et le 15 passent écran verrouillé (bouton « Urgence »), comme chez CallActions.
+          var sos = m.number === '17' || m.number === '15';
+          if (!unlocked && !sos) { return; }
+          if (c) { telPush(sos ? "Raccrochez d'abord" : 'Un appel est déjà en cours', false); return; }
           if (mock.airplane) { telPush('Mode avion', false); return; }
           if (m.number === '0600000000') { telPush('Numéro inconnu', false); return; }
           tel.id++;

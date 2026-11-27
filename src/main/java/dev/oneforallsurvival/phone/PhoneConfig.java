@@ -33,6 +33,7 @@ public final class PhoneConfig {
     private static final int DEFAULT_SIGNAL_REFRESH_TICKS = 20;
     private static final int DEFAULT_CALL_RING_SECONDS = 30;
     private static final int DEFAULT_CALL_DIALS_PER_MINUTE = 10;
+    private static final int DEFAULT_EMERGENCY_COOLDOWN_SECONDS = 60;
     private static final int DEFAULT_SPEAKER_HEAR_BLOCKS = 8;
     private static final int DEFAULT_SPEAKER_CAPTURE_BLOCKS = 16;
 
@@ -61,6 +62,7 @@ public final class PhoneConfig {
     private static final ForgeConfigSpec.IntValue SIGNAL_REFRESH_TICKS;
     private static final ForgeConfigSpec.IntValue CALL_RING_SECONDS;
     private static final ForgeConfigSpec.IntValue CALL_DIALS_PER_MINUTE;
+    private static final ForgeConfigSpec.IntValue EMERGENCY_COOLDOWN_SECONDS;
     private static final ForgeConfigSpec.IntValue SPEAKER_HEAR_BLOCKS;
     private static final ForgeConfigSpec.IntValue SPEAKER_CAPTURE_BLOCKS;
 
@@ -138,6 +140,9 @@ public final class PhoneConfig {
         CALL_DIALS_PER_MINUTE = builder
                 .comment("Appels qu'un joueur peut composer par minute, réussis ou non ; au-delà, il doit attendre.")
                 .defineInRange("callDialsPerMinute", DEFAULT_CALL_DIALS_PER_MINUTE, 1, 1_000);
+        EMERGENCY_COOLDOWN_SECONDS = builder
+                .comment("Délai entre deux appels d'urgence (17, 15) d'un même joueur (secondes).")
+                .defineInRange("emergencyCooldownSeconds", DEFAULT_EMERGENCY_COOLDOWN_SECONDS, 1, 3_600);
         SPEAKER_HEAR_BLOCKS = builder
                 .comment("Haut-parleur : distance (blocs) à laquelle on entend la voix qui sort du téléphone.")
                 .defineInRange("speakerHearBlocks", DEFAULT_SPEAKER_HEAR_BLOCKS, 1, 64);
@@ -354,6 +359,14 @@ public final class PhoneConfig {
             return SIGNAL_REFRESH_TICKS.get();
         } catch (IllegalStateException e) {
             return DEFAULT_SIGNAL_REFRESH_TICKS;
+        }
+    }
+
+    public static int emergencyCooldownSeconds() {
+        try {
+            return EMERGENCY_COOLDOWN_SECONDS.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_EMERGENCY_COOLDOWN_SECONDS;
         }
     }
 

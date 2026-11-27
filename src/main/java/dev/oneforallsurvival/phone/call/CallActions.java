@@ -51,10 +51,13 @@ public final class CallActions {
         if (!neverThrottled && PhoneService.throttle(player)) {
             return;
         }
-        boolean whileLocked = neverThrottled || action == Action.ANSWER;
+        // Écran verrouillé : décrocher, refuser, raccrocher, et composer le 17 ou le 15 (bouton « Urgence »).
+        boolean emergency = action == Action.DIAL && Emergency.Service.of(packet.first()).isPresent();
+        boolean whileLocked = neverThrottled || action == Action.ANSWER || emergency;
         if (!whileLocked && !held.unlocked()) {
             return;
         }
+        UUID phoneId = held.session().phoneId();
         switch (action) {
             case DIAL -> {
                 CallService.Dial d = CallService.dial(player, held.phone(), held.record().airplane(), packet.first());
@@ -62,12 +65,15 @@ public final class CallActions {
                     CallUpdates.send(player, CallUpdates.current(player, d.message(), null));
                 }
             }
-            case ANSWER -> callOnThisPhone(player, held, packet.first())
-                    .ifPresent(call -> CallService.answer(player, call.id()));
-            case DECLINE -> callOnThisPhone(player, held, packet.first())
-                    .ifPresent(call -> CallService.decline(player, call.id()));
-            case HANGUP -> callOnThisPhone(player, held, packet.first())
-                    .ifPresent(call -> CallService.hangUp(player, call.id()));
+            case ANSWER -> callOnThisPhone(player, held, packet.first()).ifPresentOrElse(
+                    call -> CallService.answer(player, call.id()),
+                    () -> pendingId(packet.first()).ifPresent(id -> EmergencyService.answer(player, phoneId, id)));
+            case DECLINE -> callOnThisPhone(player, held, packet.first()).ifPresentOrElse(
+                    call -> CallService.decline(player, call.id()),
+                    () -> pendingId(packet.first()).ifPresent(id -> EmergencyService.decline(player, phoneId, id)));
+            case HANGUP -> callOnThisPhone(player, held, packet.first()).ifPresentOrElse(
+                    call -> CallService.hangUp(player, call.id()),
+                    () -> pendingId(packet.first()).ifPresent(id -> EmergencyService.hangUp(player, phoneId, id)));
             case MUTE -> onOff(packet.first()).ifPresent(on -> {
                 if (callOnThisPhone(player, held).isPresent()) {
                     CallService.setMuted(player, on);
@@ -98,6 +104,15 @@ public final class CallActions {
         }
         long id = Long.parseLong(idText);
         return callOnThisPhone(player, held).filter(call -> call.id() == id);
+    }
+
+    /** Le numéro d'une urgence qui sonne, écrit dans le geste. */
+    private static Optional<Integer> pendingId(String idText) {
+        if (!CALL_ID.matcher(idText).matches()) {
+            return Optional.empty();
+        }
+        long id = Long.parseLong(idText);
+        return id >= EmergencyService.ID_BASE && id <= Integer.MAX_VALUE ? Optional.of((int) id) : Optional.empty();
     }
 
     private static Optional<Boolean> onOff(String text) {

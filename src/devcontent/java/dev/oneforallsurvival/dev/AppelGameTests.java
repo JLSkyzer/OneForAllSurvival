@@ -555,7 +555,8 @@ public final class AppelGameTests {
                 .thenWaitUntil(() -> helper.assertTrue(essai.enService(A) && essai.enService(B), "antennes en service"))
                 .thenExecute(() -> {
                     ServerPlayer m = p.m().joueur();
-                    for (String faux : new String[] {"abc", "", "17", "15", "0711111111"}) {
+                    // 17 et 15 sont les urgences depuis la tâche 8 (UrgenceGameTests) ; 18 et 112 restent faux.
+                    for (String faux : new String[] {"abc", "", "18", "112", "0711111111"}) {
                         issue(helper, CallService.dial(m, p.phoneM(), false, faux), CallService.Outcome.BAD_NUMBER,
                                 "message.oneforallsurvival.call.bad_number", "« " + faux + " »");
                     }

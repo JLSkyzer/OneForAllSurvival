@@ -210,6 +210,20 @@ public final class PhoneNetwork {
         return RelayPlanner.anyInService(pos.dimension(), pos.pos(), snapshot(server, now(server)));
     }
 
+    /**
+     * Les barres d'un téléphone en appel d'urgence : celles de l'antenne d'urgence la plus proche ({@link
+     * #emergencyAntenna}), 0 en mode avion ou sans antenne à portée.
+     */
+    public static int emergencyBars(MinecraftServer server, GlobalPos pos, boolean airplane) {
+        if (airplane) {
+            return 0;
+        }
+        RelayPlanner.Snapshot net = snapshot(server, now(server));
+        return RelayPlanner.anyInService(pos.dimension(), pos.pos(), net)
+                .map(a -> SignalMath.bars(SignalMath.distance(a.pos(), pos.pos()), net.range()))
+                .orElse(0);
+    }
+
     // ---------------------------------------------------------------------------------------------
     // Trafic
     // ---------------------------------------------------------------------------------------------

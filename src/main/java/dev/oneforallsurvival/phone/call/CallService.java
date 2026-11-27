@@ -66,9 +66,6 @@ public final class CallService {
     /** Fenêtre du frein des appels composés : une minute de tics serveur. */
     private static final int DIAL_WINDOW_TICKS = 1_200;
 
-    /** Les numéros d'urgence, refusés jusqu'à la tâche 8. */
-    private static final Set<String> EMERGENCY = Set.of("17", "15");
-
     private static final Logger LOGGER = LogUtils.getLogger();
 
     public enum Outcome { RINGING, BAD_NUMBER, SELF, BUSY, UNREACHABLE, FAILED, TOO_FAST }
@@ -89,8 +86,17 @@ public final class CallService {
         }
     }
 
+    /**
+     * Un appel d'urgence décroché (feature 95) : le service, si chaque bout a une vraie carte (sinon son
+     * {@link Party#simId()} est un identifiant tiré au sort, qui n'est celui d'aucune carte), le nom de l'appelant et
+     * le détail montré au secours (nom et position).
+     */
+    public record EmergencyCall(Emergency.Service service, boolean callerHasSim, boolean responderHasSim,
+            String callerName, String detail) {}
+
     private static final CallBook BOOK = new CallBook();
     private static final Map<Integer, Line> LINES = new HashMap<>();
+    private static final Map<Integer, EmergencyCall> EMERGENCY_CALLS = new HashMap<>();
     /** Les appels composés de la dernière minute, par joueur ; gardés à la déconnexion (revue de la tâche 3, I1). */
     private static final DialThrottle DIALS = new DialThrottle(DIAL_WINDOW_TICKS);
     private static final List<CallListener> LISTENERS = new CopyOnWriteArrayList<>();
@@ -123,15 +129,19 @@ public final class CallService {
             return new Dial(Outcome.FAILED, null, 0);
         }
         MinecraftServer server = caller.server;
+        Optional<Emergency.Service> emergency = Emergency.Service.of(rawNumber);
+        if (emergency.isPresent()) {
+            // Avant le frein des appels composés : un joueur freiné appelle encore le 17 ou le 15 (délai propre).
+            return EmergencyService.dial(caller, phone, airplane, emergency.get());
+        }
         if (!DIALS.allow(caller.getUUID(), now(server), PhoneConfig.callDialsPerMinute())) {
             return refused(Outcome.TOO_FAST, "too_fast");
         }
-        if (BOOK.of(caller.getUUID()).isPresent()) {
+        if (BOOK.of(caller.getUUID()).isPresent() || EmergencyService.involved(caller.getUUID())) {
             return refused(Outcome.FAILED, "in_call");
         }
-        String digits = rawNumber == null ? "" : rawNumber.replace(" ", "");
         Optional<String> number = SimNumbers.parse(rawNumber);
-        if (EMERGENCY.contains(digits) || number.isEmpty()) {
+        if (number.isEmpty()) {
             return refused(Outcome.BAD_NUMBER, "bad_number");
         }
         if (phone != null && phone.getItem() instanceof PhoneItem && PhoneItem.stored(phone) <= 0) {
@@ -167,7 +177,8 @@ public final class CallService {
         Party from = new Party(caller.getUUID(), phoneId.get(), mine.get().simId(), mine.get().number());
         Party to = new Party(carrier.get().player().getUUID(), target.get().phoneId(), target.get().simId(),
                 target.get().number());
-        Optional<Call> call = BOOK.start(from, to, now(server));
+        Optional<Call> call = EmergencyService.involved(to.player()) ? Optional.empty()
+                : BOOK.start(from, to, now(server));
         if (call.isEmpty()) {
             return refused(Outcome.BUSY, "busy");
         }
@@ -250,6 +261,81 @@ public final class CallService {
         return call;
     }
 
+    // ---------------------------------------------------------------------------------------------
+    // Urgences (feature 95)
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * Un secours a pris une urgence ({@link EmergencyService#answer}) : l'appel naît décroché entre l'appelant et lui,
+     * sur le trajet de leurs deux antennes d'urgence. Vide si l'un des deux est déjà dans un appel.
+     */
+    static Optional<Call> startEmergency(MinecraftServer server, Party caller, Party responder, EmergencyCall info,
+            RelayPlanner.Route route) {
+        if (stopping) {
+            return Optional.empty();
+        }
+        int tick = now(server);
+        Optional<Call> started = BOOK.start(caller, responder, tick)
+                .flatMap(c -> BOOK.answer(c.id(), responder.player(), tick));
+        if (started.isEmpty()) {
+            return Optional.empty();
+        }
+        Call call = started.get();
+        EMERGENCY_CALLS.put(call.id(), info);
+        setLine(call.id(), new Line(PhoneNetwork.openTraffic(server, route, TrafficKind.CALL), route.caller().id(),
+                route.callee().id()));
+        changed(call);
+        return Optional.of(call);
+    }
+
+    /** L'urgence de cet appel décroché, s'il en est une. */
+    public static Optional<EmergencyCall> emergency(int callId) {
+        return Optional.ofNullable(EMERGENCY_CALLS.get(callId));
+    }
+
+    /** Ouvre (ou rouvre) le trafic d'une urgence qui sonne ; fermé par {@link #closeLine}, par {@link #setLine}. */
+    static void openLine(MinecraftServer server, int id, RelayPlanner.Route route) {
+        setLine(id, new Line(PhoneNetwork.openTraffic(server, route, TrafficKind.CALL), route.caller().id(),
+                route.callee().id()));
+    }
+
+    static void closeLine(int id) {
+        setLine(id, null);
+    }
+
+    /**
+     * Le relevé d'une urgence en ligne : aucune carte demandée ; chaque bout porte son téléphone chargé, hors mode
+     * avion, une antenne d'urgence à portée ; la poignée rouverte si l'une des deux antennes change.
+     */
+    private static Optional<End> emergencyVerdict(MinecraftServer server, Call call, ServerPlayer caller,
+            ServerPlayer callee) {
+        PhoneData data = PhoneData.get(server);
+        Optional<RelayPlanner.AntennaPoint>[] antennas = new Optional[2];
+        Party[] parties = {call.caller(), call.callee()};
+        ServerPlayer[] players = {caller, callee};
+        for (int i = 0; i < 2; i++) {
+            Optional<ItemStack> phone = PhoneCarriers.holding(players[i], parties[i].phoneId())
+                    .filter(stack -> PhoneItem.stored(stack) > 0);
+            if (phone.isEmpty()) {
+                return Optional.of(End.PHONE_GONE);
+            }
+            if (data.record(parties[i].phoneId()).airplane()) {
+                return Optional.of(End.NO_SIGNAL);
+            }
+            antennas[i] = PhoneNetwork.emergencyAntenna(server, where(players[i]));
+            if (antennas[i].isEmpty()) {
+                return Optional.of(End.NO_SIGNAL);
+            }
+        }
+        RelayPlanner.Route route = new RelayPlanner.Route(antennas[0].get(), antennas[1].get());
+        Line line = LINES.get(call.id());
+        if (line == null || !line.sameAntennas(route)) {
+            setLine(call.id(), new Line(PhoneNetwork.openTraffic(server, route, TrafficKind.CALL),
+                    route.caller().id(), route.callee().id()));
+        }
+        return Optional.empty();
+    }
+
     public static void addListener(CallListener listener) {
         LISTENERS.add(listener);
     }
@@ -295,6 +381,9 @@ public final class CallService {
         }
         if (!caller.isAlive() || !callee.isAlive()) {
             return Optional.of(End.DIED);
+        }
+        if (EMERGENCY_CALLS.containsKey(call.id())) {
+            return emergencyVerdict(server, call, caller, callee);
         }
         Optional<ItemStack> callerPhone = present(server, caller, call.caller());
         Optional<ItemStack> calleePhone = present(server, callee, call.callee());
@@ -372,12 +461,16 @@ public final class CallService {
             } catch (RuntimeException e) {
                 LOGGER.error("Récents de l'appel {} non écrits", last.id(), e);
             }
-            for (CallListener listener : LISTENERS) {
-                try {
-                    listener.ended(last, reason);
-                } catch (RuntimeException e) {
-                    LOGGER.error("Un écouteur des appels a échoué à la fin de l'appel {}", last.id(), e);
+            try {
+                for (CallListener listener : LISTENERS) {
+                    try {
+                        listener.ended(last, reason);
+                    } catch (RuntimeException e) {
+                        LOGGER.error("Un écouteur des appels a échoué à la fin de l'appel {}", last.id(), e);
+                    }
                 }
+            } finally {
+                EMERGENCY_CALLS.remove(last.id());
             }
         }
     }
@@ -387,6 +480,18 @@ public final class CallService {
         int seconds = answered ? (int) Math.max(0L, (now(server) - call.answeredTick()) / 20L) : 0;
         long at = EconomyClock.now();
         PhoneDirectory directory = PhoneDirectory.get(server);
+        EmergencyCall emergency = EMERGENCY_CALLS.get(call.id());
+        if (emergency != null) {
+            // Une urgence : le numéro du service dans le carnet de chaque bout qui a une vraie carte.
+            String number = emergency.service().number();
+            if (emergency.callerHasSim()) {
+                directory.log(call.caller().simId(), new Recent(number, Recent.Kind.OUTGOING, at, seconds));
+            }
+            if (emergency.responderHasSim()) {
+                directory.log(call.callee().simId(), new Recent(number, Recent.Kind.INCOMING, at, seconds));
+            }
+            return;
+        }
         directory.log(call.caller().simId(), new Recent(call.callee().number(), Recent.Kind.OUTGOING, at, seconds));
         directory.log(call.callee().simId(), new Recent(call.caller().number(),
                 answered ? Recent.Kind.INCOMING : Recent.Kind.MISSED, at, seconds));
@@ -411,6 +516,7 @@ public final class CallService {
 
     private static void endFor(MinecraftServer server, UUID player, End reason) {
         BOOK.of(player).ifPresent(call -> finish(server, call, reason));
+        EmergencyService.endFor(server, player, reason);
     }
 
     /** Arrêt du serveur : tous les appels finissent, puis tout est oublié (aucune poignée, aucun frein). */
@@ -420,7 +526,9 @@ public final class CallService {
             for (Call call : BOOK.all()) {
                 finish(server, call, End.SERVER_STOPPING);
             }
+            EmergencyService.stopAll(server);
             BOOK.clear();
+            EMERGENCY_CALLS.clear();
             for (Integer id : new ArrayList<>(LINES.keySet())) {
                 setLine(id, null);
             }
@@ -442,6 +550,7 @@ public final class CallService {
      */
     public static void register(IEventBus bus) {
         bus.addListener(CallService::onServerTick);
+        bus.addListener(EmergencyService::onServerTick);
         bus.addListener(CallService::onLoggedOut);
         bus.addListener(EventPriority.HIGHEST, CallService::onDeath);
         bus.addListener(CallService::onChangedDimension);

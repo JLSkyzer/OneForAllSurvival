@@ -1700,3 +1700,51 @@ body {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
+
+/* Urgences (feature 95) : le bouton de l'écran verrouillé et ses deux numéros */
+.lock-sos {
+  display: none;
+  position: absolute;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  padding: 6px 18px;
+  border-radius: 14px;
+  color: #ff6b5e;
+  font-weight: 600;
+  font-size: 15px;
+}
+.scr-lock .lock-sos { display: block; }
+.lock-sos:active { opacity: 0.4; }
+.sos-panel {
+  display: none;
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 18px;
+  padding: 12px;
+  border-radius: 18px;
+  background: rgba(20, 20, 24, 0.92);
+  flex-direction: column;
+  gap: 8px;
+}
+.scr-lock.sos-open .sos-panel { display: flex; }
+.scr-lock.sos-open .lock-sos { display: none; }
+.sos-btn {
+  display: block;
+  padding: 11px 0;
+  border-radius: 12px;
+  background: #e5483b;
+  color: #fff;
+  text-align: center;
+  font-weight: 600;
+  font-size: 16px;
+}
+.sos-cancel {
+  display: block;
+  padding: 8px 0;
+  text-align: center;
+  color: #ddd;
+  font-size: 14px;
+}
+.sos-btn:active, .sos-cancel:active { opacity: 0.5; }

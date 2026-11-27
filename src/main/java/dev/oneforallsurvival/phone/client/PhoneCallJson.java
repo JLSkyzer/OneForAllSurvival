@@ -15,7 +15,8 @@ import javax.annotation.Nullable;
 /**
  * Lot T3, tâche 4b : ce que Java passe à la page du téléphone (contrat de {@code html/phone/phone.js}).
  * {@code phone.call} : {@code {phase: "NONE"|"OUTGOING"|"INCOMING"|"ACTIVE", id, number, name, seconds (écoulées depuis
- * le décroché, 0 avant), muted, speaker, message (déjà traduit, "" sans message)}} ; {@code phone.directory} :
+ * le décroché, 0 avant), muted, speaker, message (déjà traduit, "" sans message), detail (urgence vue du secours :
+ * l'appelant et sa position ; "" sinon)}} ; le numéro {@code 17} ou {@code 15} est une urgence ; {@code phone.directory} :
  * {@code {contacts: [{number, name}], recents: [{number, name, kind: "OUTGOING"|"INCOMING"|"MISSED", at (ms), seconds}]}}
  * dans l'ordre du serveur, le nom d'un récent pris au carnet (vide s'il n'y est pas). Aucune règle ici : l'état est
  * recopié.
@@ -43,6 +44,7 @@ public final class PhoneCallJson {
         v.addProperty("muted", call.muted());
         v.addProperty("speaker", call.speaker());
         v.addProperty("message", message == null ? "" : message);
+        v.addProperty("detail", call.detail());
         return v;
     }
 
@@ -56,6 +58,7 @@ public final class PhoneCallJson {
         v.addProperty("muted", false);
         v.addProperty("speaker", false);
         v.addProperty("message", message == null ? "" : message);
+        v.addProperty("detail", "");
         return v;
     }
 

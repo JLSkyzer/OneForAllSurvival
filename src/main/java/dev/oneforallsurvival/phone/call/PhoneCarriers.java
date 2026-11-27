@@ -58,6 +58,30 @@ public final class PhoneCarriers {
         return matches(player.server, carried, phoneId) ? Optional.of(carried) : Optional.empty();
     }
 
+    /**
+     * Comme {@link #heldBy}, sans exiger de carte : un appel d'urgence (feature 95) ne demande ni carte ni opérateur.
+     */
+    public static Optional<ItemStack> holding(ServerPlayer player, UUID phoneId) {
+        return first(player, stack -> PhoneItem.phoneId(stack).filter(id -> id.equals(phoneId)).isPresent());
+    }
+
+    /** Le premier téléphone de ce joueur (inventaire, puis curseur) qui passe {@code ok}, carte ou non. */
+    public static Optional<ItemStack> first(ServerPlayer player, java.util.function.Predicate<ItemStack> ok) {
+        if (player == null || player.isRemoved()) {
+            return Optional.empty();
+        }
+        Inventory inventory = player.getInventory();
+        for (int i = 0; i < inventory.getContainerSize(); i++) {
+            ItemStack stack = inventory.getItem(i);
+            if (!stack.isEmpty() && stack.getItem() instanceof PhoneItem && ok.test(stack)) {
+                return Optional.of(stack);
+            }
+        }
+        ItemStack carried = player.containerMenu == null ? ItemStack.EMPTY : player.containerMenu.getCarried();
+        return !carried.isEmpty() && carried.getItem() instanceof PhoneItem && ok.test(carried)
+                ? Optional.of(carried) : Optional.empty();
+    }
+
     private static boolean matches(MinecraftServer server, ItemStack stack, UUID phoneId) {
         return !stack.isEmpty() && stack.getItem() instanceof PhoneItem
                 && PhoneItem.phoneId(stack).filter(phoneId::equals).isPresent()

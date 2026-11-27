@@ -190,8 +190,41 @@ class PhoneCallPacketsTest {
         buf.writeBoolean(false);
         buf.writeBoolean(false);
         buf.writeBoolean(true); // sur ce téléphone
+        buf.writeUtf(""); // aucun détail d'urgence
         buf.writeBoolean(false); // aucun message
         return buf;
+    }
+
+    /** Le détail d'une urgence (appelant et position) fait l'aller-retour, borné, et reste masqué. */
+    @Test
+    void leDetailDUneUrgenceEstBorneEtMasque() {
+        PhoneCallStatePacket urgence = new PhoneCallStatePacket(Phase.INCOMING, 1_000_000_000, "17", "Bob", -1L, false,
+                false, true, null, null, "Bob · 12 64 -30 · overworld");
+        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        try {
+            urgence.encode(buf);
+            PhoneCallStatePacket lu = PhoneCallStatePacket.decode(buf);
+            assertEquals(urgence, lu);
+            assertEquals(0, buf.readableBytes());
+        } finally {
+            buf.release();
+        }
+        assertFalse(urgence.toString().contains("-30"), urgence.toString());
+        PhoneCallStatePacket long_ = new PhoneCallStatePacket(Phase.INCOMING, 3, "15", "", -1L, false, false, true,
+                null, null, "x".repeat(500));
+        assertEquals(PhoneCallStatePacket.MAX_DETAIL, long_.detail().length());
+        FriendlyByteBuf trop = entete(NUMERO, "Maman");
+        trop.clear();
+        trop.writeByte(Phase.ACTIVE.ordinal());
+        trop.writeVarInt(5);
+        trop.writeUtf(NUMERO);
+        trop.writeUtf("Maman");
+        trop.writeLong(-1L);
+        trop.writeBoolean(false);
+        trop.writeBoolean(false);
+        trop.writeBoolean(true);
+        trop.writeUtf("d".repeat(PhoneCallStatePacket.MAX_DETAIL + 1));
+        refuse(trop, "détail trop long");
     }
 
     private static FriendlyByteBuf trafique(int contacts, String nomContact, int recents, int genre) {

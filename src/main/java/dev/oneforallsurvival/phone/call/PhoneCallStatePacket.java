@@ -30,9 +30,14 @@ import net.minecraftforge.network.NetworkEvent;
  * @param message la fin ou l'échec à montrer (composant traduit chez le client) ; {@link Component#empty()} sinon
  * @param book le carnet de la carte (contacts et récents), seulement quand l'application Téléphone le demande ou qu'il
  *     change ; nul sinon
+ * @param detail sous le titre d'un appel d'urgence, chez le secours seulement : l'appelant et sa position (feature
+ *     95) ; vide sinon
  */
 public record PhoneCallStatePacket(Phase phase, int callId, String number, String name, long answeredMillis,
-        boolean muted, boolean speaker, boolean here, Component message, @Nullable Book book) {
+        boolean muted, boolean speaker, boolean here, Component message, @Nullable Book book, String detail) {
+
+    /** Borne du détail d'un appel d'urgence (nom et position). */
+    public static final int MAX_DETAIL = 96;
 
     /** Borne d'un numéro sur le réseau. */
     public static final int MAX_TEXT = 32;
@@ -49,6 +54,13 @@ public record PhoneCallStatePacket(Phase phase, int callId, String number, Strin
         number = PhoneCallActionPacket.bound(number, MAX_TEXT);
         name = PhoneCallActionPacket.bound(name, MAX_NAME);
         message = message == null ? Component.empty() : message;
+        detail = PhoneCallActionPacket.bound(detail, MAX_DETAIL);
+    }
+
+    /** Sans détail : tout appel qui n'est pas une urgence vue du secours. */
+    public PhoneCallStatePacket(Phase phase, int callId, String number, String name, long answeredMillis,
+            boolean muted, boolean speaker, boolean here, Component message, @Nullable Book book) {
+        this(phase, callId, number, name, answeredMillis, muted, speaker, here, message, book, "");
     }
 
     /**
@@ -96,7 +108,7 @@ public record PhoneCallStatePacket(Phase phase, int callId, String number, Strin
                 + answeredMillis + ", muted=" + muted + ", speaker=" + speaker + ", here=" + here + ", message="
                 + (message.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents t
                         ? t.getKey() : "…")
-                + ", book=" + book + "]";
+                + ", book=" + book + ", detail=" + (detail.isEmpty() ? "" : "***") + "]";
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -112,6 +124,7 @@ public record PhoneCallStatePacket(Phase phase, int callId, String number, Strin
         buf.writeBoolean(muted);
         buf.writeBoolean(speaker);
         buf.writeBoolean(here);
+        buf.writeUtf(detail, MAX_DETAIL);
         boolean hasMessage = !message.equals(Component.empty());
         buf.writeBoolean(hasMessage);
         if (hasMessage) {
@@ -143,6 +156,7 @@ public record PhoneCallStatePacket(Phase phase, int callId, String number, Strin
         boolean muted = buf.readBoolean();
         boolean speaker = buf.readBoolean();
         boolean here = buf.readBoolean();
+        String detail = buf.readUtf(MAX_DETAIL);
         Component message = buf.readBoolean() ? buf.readComponent() : Component.empty();
         Book book = null;
         if (buf.readBoolean()) {
@@ -161,7 +175,7 @@ public record PhoneCallStatePacket(Phase phase, int callId, String number, Strin
             book = new Book(c, r);
         }
         return new PhoneCallStatePacket(phase, callId, number, name, answeredMillis, muted, speaker, here, message,
-                book);
+                book, detail);
     }
 
     private static int size(int n, int max, String what) {

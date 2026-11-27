@@ -66,7 +66,7 @@ public final class AppelPaquetsGameTests {
     // ---------------------------------------------------------------------------------------------
 
     /** Oublie le frein des gestes de l'écran ({@code PhoneService.clearThrottle}, de visibilité paquet). */
-    private static void oublierFrein(GameTestHelper helper, UUID joueur) {
+    static void oublierFrein(GameTestHelper helper, UUID joueur) {
         try {
             Method m = PhoneService.class.getDeclaredMethod("clearThrottle", UUID.class);
             m.setAccessible(true);
@@ -76,24 +76,24 @@ public final class AppelPaquetsGameTests {
         }
     }
 
-    private static int session(GameTestHelper helper, JoueurDeTest j) {
+    static int session(GameTestHelper helper, JoueurDeTest j) {
         Optional<PhoneSession> s = PhoneService.session(j.uuid());
         helper.assertTrue(s.isPresent(), "session ouverte attendue pour " + j.joueur().getGameProfile().getName());
         return s.isPresent() ? s.get().id() : -1;
     }
 
-    private static void ouvrir(GameTestHelper helper, JoueurDeTest j) {
+    static void ouvrir(GameTestHelper helper, JoueurDeTest j) {
         PhoneService.Outcome r = PhoneService.open(j.joueur(), InteractionHand.MAIN_HAND);
         helper.assertTrue(r == PhoneService.Outcome.OPENED, "ouverture : " + r);
     }
 
-    private static void ecran(GameTestHelper helper, JoueurDeTest j, PhoneActionPacket.Action action, String first) {
+    static void ecran(GameTestHelper helper, JoueurDeTest j, PhoneActionPacket.Action action, String first) {
         oublierFrein(helper, j.uuid());
         PhoneService.act(j.joueur(), new PhoneActionPacket(session(helper, j), action, first, "", false));
     }
 
     /** Ouvre le téléphone neuf de {@code j}, choisit {@link #CODE} : écran ouvert, déverrouillé. */
-    private static void deverrouille(GameTestHelper helper, JoueurDeTest j) {
+    static void deverrouille(GameTestHelper helper, JoueurDeTest j) {
         ouvrir(helper, j);
         ecran(helper, j, PhoneActionPacket.Action.SETUP, CODE);
         helper.assertTrue(PhoneService.session(j.uuid()).map(PhoneSession::lock)
@@ -101,17 +101,17 @@ public final class AppelPaquetsGameTests {
     }
 
     /** Pose un code puis ferme l'écran : un téléphone verrouillé, écran fermé. */
-    private static void codeEtFerme(GameTestHelper helper, JoueurDeTest j) {
+    static void codeEtFerme(GameTestHelper helper, JoueurDeTest j) {
         deverrouille(helper, j);
         ecran(helper, j, PhoneActionPacket.Action.CLOSE, "");
         helper.assertTrue(PhoneService.session(j.uuid()).isEmpty(), "écran fermé");
     }
 
-    private static void geste(GameTestHelper helper, JoueurDeTest j, Action action, String first, String second) {
+    static void geste(GameTestHelper helper, JoueurDeTest j, Action action, String first, String second) {
         j.envoyer(new PhoneCallActionPacket(session(helper, j), action, first, second));
     }
 
-    private static PhoneCallStatePacket dernier(GameTestHelper helper, List<PhoneCallStatePacket> recus, String quoi) {
+    static PhoneCallStatePacket dernier(GameTestHelper helper, List<PhoneCallStatePacket> recus, String quoi) {
         helper.assertTrue(!recus.isEmpty(), quoi + " : aucun état d'appel reçu");
         return recus.get(recus.size() - 1);
     }
@@ -121,11 +121,11 @@ public final class AppelPaquetsGameTests {
         return sons.stream().filter(s -> s.equals(BELL) || s.equals(BIT)).toList();
     }
 
-    private static String cle(PhoneCallStatePacket p) {
+    static String cle(PhoneCallStatePacket p) {
         return p.message().getContents() instanceof TranslatableContents t ? t.getKey() : "";
     }
 
-    private static void vider(JoueurDeTest... joueurs) {
+    static void vider(JoueurDeTest... joueurs) {
         for (JoueurDeTest j : joueurs) {
             j.etatsAppelRecus();
             j.clesRecues();

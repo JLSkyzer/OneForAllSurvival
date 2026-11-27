@@ -109,14 +109,32 @@ public final class CallUpdates {
         Phase phase = call.state() == CallBook.State.ACTIVE ? Phase.ACTIVE : caller ? Phase.OUTGOING : Phase.INCOMING;
         long answered = call.state() == CallBook.State.ACTIVE
                 ? ANSWERED_AT.getOrDefault(call.id(), EconomyClock.now()) : -1L;
+        Optional<CallService.EmergencyCall> emergency = CallService.emergency(call.id());
+        if (emergency.isPresent()) {
+            // Une urgence : l'appelant voit le service ; le secours voit le service, l'appelant et sa position.
+            CallService.EmergencyCall e = emergency.get();
+            return new PhoneCallStatePacket(phase, call.id(), e.service().number(), caller ? "" : e.callerName(),
+                    answered, caller ? call.callerMuted() : call.calleeMuted(),
+                    caller ? call.callerSpeaker() : call.calleeSpeaker(), openOn(player, me.phoneId()), message, book,
+                    caller ? "" : e.detail());
+        }
         return new PhoneCallStatePacket(phase, call.id(), other.number(), nameOf(player.server, me, other), answered,
                 caller ? call.callerMuted() : call.calleeMuted(), caller ? call.callerSpeaker() : call.calleeSpeaker(),
                 openOn(player, me.phoneId()), message, book);
     }
 
-    /** L'état d'appel actuel de ce joueur (son appel en cours, ou aucun). */
+    /** L'état d'appel actuel de ce joueur (son appel en cours, son urgence qui sonne, ou aucun). */
     static PhoneCallStatePacket current(ServerPlayer player, @Nullable Component message, @Nullable Book book) {
-        return view(player, CallService.callOf(player).orElse(null), message, book);
+        Optional<Call> call = CallService.callOf(player);
+        if (call.isEmpty()) {
+            Optional<PhoneCallStatePacket> pending = EmergencyService.view(player);
+            if (pending.isPresent()) {
+                PhoneCallStatePacket p = pending.get();
+                return new PhoneCallStatePacket(p.phase(), p.callId(), p.number(), p.name(), p.answeredMillis(),
+                        p.muted(), p.speaker(), p.here(), message, book, p.detail());
+            }
+        }
+        return view(player, call.orElse(null), message, book);
     }
 
     /** Le carnet de cette carte, tel que la page le montre. */
@@ -192,9 +210,11 @@ public final class CallUpdates {
             Party other = caller ? call.callee() : call.caller();
             Component message = Component.translatable(ENDED + endKey(reason, caller));
             Book book = PhoneService.unlockedOn(player, party.phoneId()) ? book(server, party.simId()) : null;
-            send(player, new PhoneCallStatePacket(Phase.NONE, call.id(), other.number(),
-                    nameOf(server, party, other), answered == null ? -1L : answered, false, false,
-                    openOn(player, party.phoneId()), message, book));
+            Optional<CallService.EmergencyCall> emergency = CallService.emergency(call.id());
+            String number = emergency.map(e -> e.service().number()).orElse(other.number());
+            String name = emergency.isPresent() ? "" : nameOf(server, party, other);
+            send(player, new PhoneCallStatePacket(Phase.NONE, call.id(), number, name,
+                    answered == null ? -1L : answered, false, false, openOn(player, party.phoneId()), message, book));
             if (!openOn(player, party.phoneId())) {
                 player.displayClientMessage(message, true);
             }
@@ -263,7 +283,8 @@ public final class CallUpdates {
         if (session.isPresent() && session.get().phoneId().equals(party.phoneId())) {
             return;
         }
-        Optional<ItemStack> phone = PhoneCarriers.heldBy(player, party.phoneId());
+        // Sans exiger de carte : une urgence se paie aussi (le relevé coupe un appel ordinaire sans carte active).
+        Optional<ItemStack> phone = PhoneCarriers.holding(player, party.phoneId());
         if (phone.isEmpty() || PhoneItem.stored(phone.get()) <= 0) {
             return;
         }

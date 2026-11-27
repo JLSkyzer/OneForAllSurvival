@@ -17,6 +17,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
@@ -123,7 +124,8 @@ public final class VoiceService {
     public static VoiceRoutes compute(MinecraftServer server, Predicate<UUID> closedGroup) {
         List<CallSides> calls = new ArrayList<>();
         for (CallBook.Call call : CallService.calls()) {
-            CallSides.of(call, party -> presence(server, party)).ifPresent(calls::add);
+            boolean emergency = CallService.emergency(call.id()).isPresent();
+            CallSides.of(call, party -> presence(server, party, emergency)).ifPresent(calls::add);
         }
         if (calls.isEmpty()) {
             return VoiceRoutes.EMPTY;
@@ -139,17 +141,23 @@ public final class VoiceService {
         return VoiceRoutes.compute(calls, around, PhoneConfig.speakerHearBlocks(), PhoneConfig.speakerCaptureBlocks());
     }
 
-    private static Optional<Presence> presence(MinecraftServer server, CallBook.Party party) {
+    /**
+     * Un bout présent : il porte son téléphone (une urgence n'exige aucune carte, feature 95). Les barres sont celles de
+     * sa ligne, ou pour une urgence celles de l'antenne d'urgence la plus proche.
+     */
+    private static Optional<Presence> presence(MinecraftServer server, CallBook.Party party, boolean emergency) {
         ServerPlayer player = server.getPlayerList().getPlayer(party.player());
         if (player == null) {
             return Optional.empty();
         }
-        Optional<ItemStack> phone = PhoneCarriers.heldBy(player, party.phoneId());
+        Optional<ItemStack> phone = emergency ? PhoneCarriers.holding(player, party.phoneId())
+                : PhoneCarriers.heldBy(player, party.phoneId());
         if (phone.isEmpty()) {
             return Optional.empty();
         }
         boolean airplane = PhoneData.get(server).record(party.phoneId()).airplane();
-        int bars = PhoneNetwork.status(player, phone.get(), airplane).bars();
+        int bars = emergency ? PhoneNetwork.emergencyBars(server, GlobalPos.of(player.level().dimension(),
+                player.blockPosition()), airplane) : PhoneNetwork.status(player, phone.get(), airplane).bars();
         return Optional.of(new Presence(spot(player), bars));
     }
 

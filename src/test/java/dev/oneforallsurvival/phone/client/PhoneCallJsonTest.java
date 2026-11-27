@@ -32,7 +32,8 @@ class PhoneCallJsonTest {
     @Test
     void lesClesSontCellesDuContrat() {
         JsonObject v = PhoneCallJson.call(etat(Phase.ACTIVE, DECROCHE), DECROCHE + 83_400L, "");
-        assertEquals(Set.of("phase", "id", "number", "name", "seconds", "muted", "speaker", "message"), v.keySet());
+        assertEquals(Set.of("phase", "id", "number", "name", "seconds", "muted", "speaker", "message", "detail"),
+                v.keySet());
         assertEquals("ACTIVE", v.get("phase").getAsString());
         assertEquals(42, v.get("id").getAsInt());
         assertEquals("0612345678", v.get("number").getAsString());
