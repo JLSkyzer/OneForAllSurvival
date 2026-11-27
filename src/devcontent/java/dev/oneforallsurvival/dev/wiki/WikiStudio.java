@@ -90,7 +90,8 @@ public final class WikiStudio {
 
     /** Les chapitres connus de l'atelier ; chaque tâche de contenu ajoute le sien. */
     private static List<Chapitre> chapitres() {
-        return List.of(new ScenesControle(), new ScenesTelephone(), new ScenesElectricite(), new WikiExports());
+        return List.of(new ScenesControle(), new ScenesTelephone(), new ScenesElectricite(), new ScenesEconomie(),
+                new WikiExports());
     }
 
     private enum Phase { TITRE, MONDE, SCENES, FIN }
@@ -155,7 +156,9 @@ public final class WikiStudio {
             return;
         }
         derniereImageNs = System.nanoTime();
-        mc.getToasts().clear();
+        if (!garderToasts) {
+            mc.getToasts().clear();
+        }
         // La création du monde rend elle-même des images (écran de chargement) : pas de pas joué dans un pas.
         if (dansUnPas) {
             return;
@@ -174,6 +177,13 @@ public final class WikiStudio {
 
     /** Le réticule du centre de l'écran, montré avec l'interface ; une prise peut le cacher ({@link #reticule}). */
     private static volatile boolean reticule = true;
+
+    /** Les notifications du coin de l'écran (toasts) gardées pour les prises suivantes ; vidées sinon. */
+    private static volatile boolean garderToasts;
+
+    static void toasts(boolean garder) {
+        garderToasts = garder;
+    }
 
     static void reticule(boolean visible) {
         reticule = visible;
@@ -526,6 +536,7 @@ public final class WikiStudio {
         mc.options.setCameraType(CameraType.FIRST_PERSON);
         TENIR.clear();
         terrainPose = false;
+        garderToasts = false;
         int n = terrains++;
         MinecraftServer srv = mc.getSingleplayerServer();
         srv.execute(() -> {

@@ -185,10 +185,10 @@ async function interactif() {
     note('ancien lien couvert (v2)', win().location.hash === '#telephone/antenne' && /Poser une antenne/i.test(txt('h1')), win().location.hash);
   });
   await essai('ancien lien de fiche (v1)', async () => {
-    doc().body.dataset.pret = '0'; win().location.hash = '#coffre-fort';
+    doc().body.dataset.pret = '0'; win().location.hash = '#nommer-le-maire';
     await attendre(() => doc().body.dataset.pret === '1', 4000); await dort(100);
-    const f = doc().getElementById('coffre-fort');
-    note('ancien lien de fiche (v1)', f && f.classList.contains('vise') && /conomie/i.test(txt('h1')), txt('h1'));
+    const f = doc().getElementById('nommer-le-maire');
+    note('ancien lien de fiche (v1)', f && f.classList.contains('vise') && /maire/i.test(txt('h1')), txt('h1'));
   });
   await essai('page inconnue', async () => {
     doc().body.dataset.pret = '0'; win().location.hash = '#nexiste-pas';

@@ -716,7 +716,7 @@ public final class ScenesElectricite implements Chapitre {
     }
 
     /** Un alternateur de Crafts & Additions en {@code rel}, tourné vers {@code versMoteur}, un moteur créatif derrière. */
-    private static void alternateur(Lieu lieu, BlockPos rel, Direction versMoteur, int tours) {
+    static void alternateur(Lieu lieu, BlockPos rel, Direction versMoteur, int tours) {
         ServerLevel monde = lieu.monde();
         BlockPos alt = lieu.p(rel.getX(), rel.getY(), rel.getZ());
         BlockPos mot = alt.relative(versMoteur);
@@ -854,7 +854,7 @@ public final class ScenesElectricite implements Chapitre {
 
     /** Le champ ({@code champ}) ou le bouton « Inscrire » de l'écran du nom, en pixels d'interface, à côté du texte. */
     @Nullable
-    private static double[] nomEcran(Minecraft mc, boolean champ) {
+    static double[] nomEcran(Minecraft mc, boolean champ) {
         if (!(mc.screen instanceof SubscriberNameScreen s)) {
             return null;
         }
@@ -870,7 +870,7 @@ public final class ScenesElectricite implements Chapitre {
         }
     }
 
-    private static int champPrive(Object o, String nom) throws ReflectiveOperationException {
+    static int champPrive(Object o, String nom) throws ReflectiveOperationException {
         Field f = o.getClass().getDeclaredField(nom);
         f.setAccessible(true);
         return f.getInt(o);
@@ -1711,7 +1711,7 @@ public final class ScenesElectricite implements Chapitre {
 
     // --- outils ------------------------------------------------------------------------------------------------------
 
-    private static ItemStack objet(String id) {
+    static ItemStack objet(String id) {
         var i = ForgeRegistries.ITEMS.getValue(new ResourceLocation(id));
         if (i == null || i == Items.AIR) {
             throw new IllegalStateException(id + " absent (pack non chargé ?)");
@@ -1719,21 +1719,21 @@ public final class ScenesElectricite implements Chapitre {
         return new ItemStack(i);
     }
 
-    private static ItemStack objet(String id, int n) {
+    static ItemStack objet(String id, int n) {
         ItemStack s = objet(id);
         s.setCount(n);
         return s;
     }
 
     /** L'état par défaut du bloc, tourné vers le sud (vers la caméra) s'il a une face. */
-    private static BlockState face(Block b) {
+    static BlockState face(Block b) {
         BlockState s = b.defaultBlockState();
         return s.hasProperty(BlockStateProperties.HORIZONTAL_FACING)
                 ? s.setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.SOUTH) : s;
     }
 
     @SuppressWarnings("unchecked")
-    private static <T> T be(Lieu lieu, BlockPos rel, Class<T> type) {
+    static <T> T be(Lieu lieu, BlockPos rel, Class<T> type) {
         BlockEntity b = lieu.monde().getBlockEntity(lieu.p(rel.getX(), rel.getY(), rel.getZ()));
         if (!type.isInstance(b)) {
             throw new IllegalStateException("pas de " + type.getSimpleName() + " en " + rel.toShortString() + " : " + b);
@@ -1742,7 +1742,7 @@ public final class ScenesElectricite implements Chapitre {
     }
 
     /** Relit la sauvegarde de l'entité de bloc après l'avoir changée (progression posée près de la fin, réserve…). */
-    private static void nbt(BlockEntity b, Consumer<CompoundTag> change) {
+    static void nbt(BlockEntity b, Consumer<CompoundTag> change) {
         CompoundTag tag = b.saveWithoutMetadata();
         change.accept(tag);
         b.load(tag);
@@ -1794,7 +1794,7 @@ public final class ScenesElectricite implements Chapitre {
 
     /** Un point de l'écran de conteneur ouvert, en pixels d'interface depuis son coin haut gauche. */
     @Nullable
-    private static double[] gui(Minecraft mc, double gx, double gy) {
+    static double[] gui(Minecraft mc, double gx, double gy) {
         if (!(mc.screen instanceof AbstractContainerScreen<?> s)) {
             return null;
         }
