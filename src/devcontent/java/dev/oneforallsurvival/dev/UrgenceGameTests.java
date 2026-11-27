@@ -48,6 +48,11 @@ public final class UrgenceGameTests {
     private static final String LOT_B = "telephone_urgences_b";
     /** Aucun secours connecté : seul dans son lot. */
     private static final String LOT_C = "telephone_urgences_c";
+    /**
+     * Relecture des urgences : un secours médecin (15) dans un essai, un policier (17) dans l'autre ; chaque urgence ne
+     * sonne que chez son rôle, les deux essais ne se gênent pas.
+     */
+    private static final String LOT_D = "telephone_urgences_d";
 
     private static final String ALERT = "message.oneforallsurvival.call.emergency.alert";
     private static final List<UUID> ROLES = new ArrayList<>();
@@ -66,6 +71,11 @@ public final class UrgenceGameTests {
 
     @AfterBatch(batch = LOT_C)
     public static void apresC(ServerLevel level) {
+        rendre(level.getServer());
+    }
+
+    @AfterBatch(batch = LOT_D)
+    public static void apresD(ServerLevel level) {
         rendre(level.getServer());
     }
 
@@ -286,8 +296,13 @@ public final class UrgenceGameTests {
                     PhoneCallStatePacket fin = AppelPaquetsGameTests.dernier(helper, c.etatsAppelRecus(), "fin");
                     helper.assertTrue(fin.phase() == Phase.NONE && AppelPaquetsGameTests.cle(fin)
                             .equals(CallUpdates.ENDED + "hung_up"), "fin : " + fin);
-                    refus(helper, CallService.dial(c.joueur(), phone, false, "15"), CallService.Outcome.TOO_FAST,
+                    CallService.Dial lent = CallService.dial(c.joueur(), phone, false, "15");
+                    refus(helper, lent, CallService.Outcome.TOO_FAST,
                             "message.oneforallsurvival.call.emergency.cooldown", "dans la minute");
+                    Object[] args = ((TranslatableContents) lent.message().getContents()).getArgs();
+                    helper.assertTrue(args.length == 1 && String.valueOf(args[0])
+                            .equals(String.valueOf(PhoneConfig.emergencyCooldownSeconds())),
+                            "le délai dit ses secondes : " + java.util.Arrays.toString(args));
                 })
                 .thenIdle(2)
                 .thenExecute(() -> {
@@ -350,6 +365,116 @@ public final class UrgenceGameTests {
                             .orElse(0L);
                     helper.assertTrue(apres == avant && EmergencyService.latest(srv).size() == journal,
                             "rien au journal");
+                    essai.fermer();
+                })
+                .thenSucceed();
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Lot telephone_urgences_d (relecture)
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * Un médecin perd son rôle pendant la sonnerie : il ne peut plus prendre ; personne ne prend, la sonnerie s'écoule
+     * et l'appelant lit « Aucune réponse » (clé propre aux urgences).
+     */
+    @GameTest(template = "test/plancher", batch = LOT_D, timeoutTicks = 1000)
+    public static void rolePerduPuisAucuneReponse(GameTestHelper helper) {
+        Essai essai = new Essai(helper);
+        MinecraftServer srv = essai.serveur();
+        JoueurDeTest f = essai.joueur("ur_rp_f");
+        JoueurDeTest c = essai.joueur("ur_rp_c");
+        JoueurDeTest s = essai.joueur("ur_rp_s");
+        essai.fonder(f, AppelGameTests.A, "Ur rp Mairie");
+        ItemStack phoneS = sansCarte(s);
+        ItemStack phoneC = sansCarte(c);
+        role(srv, s, "medecin");
+        int[] urgence = new int[1];
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(essai.enService(AppelGameTests.A), "antenne en service"))
+                .thenIdle(2)
+                .thenExecute(() -> {
+                    AppelPaquetsGameTests.vider(c, s);
+                    CallService.Dial d = CallService.dial(c.joueur(), phoneC, false, "15");
+                    helper.assertTrue(d.outcome() == CallService.Outcome.RINGING, "l'urgence sonne : " + d.outcome());
+                    urgence[0] = d.callId();
+                    PhoneCallStatePacket entrant = AppelPaquetsGameTests.dernier(helper, s.etatsAppelRecus(),
+                            "médecin");
+                    helper.assertTrue(entrant.phase() == Phase.INCOMING && entrant.callId() == urgence[0],
+                            "sonne chez le médecin : " + entrant);
+                    RoleSavedData.get(srv).book().assign(s.uuid(), RoleBook.DEFAULT_ROLE_ID);
+                    helper.assertTrue(!EmergencyService.answer(s.joueur(), id(phoneS), urgence[0]),
+                            "sans le rôle, il ne prend plus l'appel");
+                    helper.assertTrue(CallService.callOf(c.joueur()).isEmpty(), "personne en ligne");
+                })
+                .thenIdle(PhoneConfig.callRingSeconds() * 20 + 25)
+                .thenExecute(() -> {
+                    helper.assertTrue(!EmergencyService.involved(c.uuid()), "la sonnerie est finie");
+                    PhoneCallStatePacket fin = AppelPaquetsGameTests.dernier(helper, c.etatsAppelRecus(), "fin");
+                    helper.assertTrue(fin.phase() == Phase.NONE && AppelPaquetsGameTests.cle(fin)
+                            .equals(EmergencyService.MESSAGE + "no_answer"), "« Aucune réponse » : " + fin + " "
+                                    + AppelPaquetsGameTests.cle(fin));
+                    essai.fermer();
+                })
+                .thenSucceed();
+    }
+
+    /**
+     * Le carnet refuse la prise (une copie du téléphone du policier est déjà en ligne chez un autre) : l'appelant lit
+     * la fin au lieu de rester sur la sonnerie, et le journal ne dit pas que l'appel a été pris.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_D, timeoutTicks = 300)
+    public static void unePriseRefuseeFinitChezLAppelant(GameTestHelper helper) {
+        Essai essai = new Essai(helper);
+        MinecraftServer srv = essai.serveur();
+        JoueurDeTest f = essai.joueur("ur_pf_f");
+        JoueurDeTest c = essai.joueur("ur_pf_c");
+        JoueurDeTest s = essai.joueur("ur_pf_s");
+        JoueurDeTest x = essai.joueur("ur_pf_x");
+        JoueurDeTest y = essai.joueur("ur_pf_y");
+        PhoneOperator op = essai.fonder(f, AppelGameTests.A, "Ur pf Mairie");
+        ItemStack phoneS = essai.ligne(op, s);
+        ItemStack phoneX = essai.ligne(op, x);
+        ItemStack phoneC = sansCarte(c);
+        String numeroS = AppelGameTests.exiger(helper, dev.oneforallsurvival.phone.net.PhoneSims.line(srv, phoneS),
+                "ligne du policier").number();
+        // Une copie exacte du téléphone du policier chez Y, l'original rangé hors de l'inventaire le temps de l'appel.
+        y.joueur().setItemInHand(InteractionHand.MAIN_HAND, phoneS.copy());
+        s.joueur().setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        role(srv, s, "policier");
+        int[] appel = new int[1];
+        int[] urgence = new int[1];
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(essai.enService(AppelGameTests.A), "antenne en service"))
+                .thenIdle(2)
+                .thenExecute(() -> {
+                    CallService.Dial d = CallService.dial(x.joueur(), phoneX, false, numeroS);
+                    helper.assertTrue(d.outcome() == CallService.Outcome.RINGING, "l'appel de X sonne chez Y : "
+                            + d.outcome());
+                    appel[0] = d.callId();
+                    helper.assertTrue(CallService.callOf(y.joueur()).isPresent(), "la copie de Y sonne");
+                    s.joueur().setItemInHand(InteractionHand.MAIN_HAND, phoneS);
+                    AppelPaquetsGameTests.vider(c, s);
+                    int journal = EmergencyService.latest(srv).size();
+                    CallService.Dial u = CallService.dial(c.joueur(), phoneC, false, "17");
+                    helper.assertTrue(u.outcome() == CallService.Outcome.RINGING, "l'urgence sonne : " + u.outcome());
+                    urgence[0] = u.callId();
+                    PhoneCallStatePacket entrant = AppelPaquetsGameTests.dernier(helper, s.etatsAppelRecus(),
+                            "policier");
+                    helper.assertTrue(entrant.phase() == Phase.INCOMING && entrant.callId() == urgence[0],
+                            "sonne chez le policier : " + entrant);
+                    helper.assertTrue(!EmergencyService.answer(s.joueur(), id(phoneS), urgence[0]),
+                            "le carnet refuse la prise");
+                    PhoneCallStatePacket fin = AppelPaquetsGameTests.dernier(helper, c.etatsAppelRecus(), "appelant");
+                    helper.assertTrue(fin.phase() == Phase.NONE && fin.callId() == urgence[0]
+                            && AppelPaquetsGameTests.cle(fin).equals(CallUpdates.ENDED + "interrupted"),
+                            "l'appelant lit la fin : " + fin + " " + AppelPaquetsGameTests.cle(fin));
+                    helper.assertTrue(!EmergencyService.involved(c.uuid()) && CallService.callOf(c.joueur()).isEmpty(),
+                            "plus rien ne sonne chez l'appelant");
+                    EmergencyLog.Entry e = EmergencyService.latest(srv).get(0);
+                    helper.assertTrue(EmergencyService.latest(srv).size() >= journal && e.answeredBy().isEmpty(),
+                            "le journal ne dit pas l'appel pris : " + e);
+                    helper.assertTrue(CallService.hangUp(x.joueur(), appel[0]), "X raccroche");
                     essai.fermer();
                 })
                 .thenSucceed();

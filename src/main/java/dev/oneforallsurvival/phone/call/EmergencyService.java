@@ -141,8 +141,8 @@ public final class EmergencyService {
         }
         long tick = server.getTickCount();
         if (!COOLDOWN.allow(caller.getUUID(), tick, cooldownTicks())) {
-            return new CallService.Dial(CallService.Outcome.TOO_FAST, Component.translatable(MESSAGE + "cooldown"),
-                    0);
+            return new CallService.Dial(CallService.Outcome.TOO_FAST, Component.translatable(MESSAGE + "cooldown",
+                    PhoneConfig.emergencyCooldownSeconds()), 0);
         }
         String name = caller.getGameProfile().getName();
         String dimension = here.dimension().location().toString();
@@ -192,15 +192,18 @@ public final class EmergencyService {
 
     /** Les secours de ce service : connectés, vivants, du bon rôle, autres que l'appelant. */
     private static List<ServerPlayer> responders(MinecraftServer server, ServerPlayer caller, Service service) {
-        var book = RoleSavedData.get(server).book();
         List<ServerPlayer> out = new ArrayList<>();
         for (ServerPlayer p : server.getPlayerList().getPlayers()) {
-            if (p != caller && !(p instanceof FakePlayer) && p.isAlive()
-                    && service.role().equals(book.roleOf(p.getUUID()).id())) {
+            if (p != caller && !(p instanceof FakePlayer) && p.isAlive() && hasRole(server, p, service)) {
                 out.add(p);
             }
         }
         return out;
+    }
+
+    /** Ce joueur a-t-il le rôle de ce service (lu à chaque fois : un rôle perdu pendant la sonnerie compte) ? */
+    private static boolean hasRole(MinecraftServer server, ServerPlayer p, Service service) {
+        return service.role().equals(RoleSavedData.get(server).book().roleOf(p.getUUID()).id());
     }
 
     /** Le téléphone qui sonnera chez ce secours : libre, téléphone chargé hors mode avion, antenne à portée. */
@@ -283,7 +286,7 @@ public final class EmergencyService {
         if (r == null || !r.phoneId().equals(phoneId) || !p.dispatch.ringsFor(responder.getUUID())) {
             return false;
         }
-        Optional<RelayPlanner.AntennaPoint> theirs = stillRinging(server, responder, r);
+        Optional<RelayPlanner.AntennaPoint> theirs = stillRinging(server, responder, r, p.dispatch.service());
         if (theirs.isEmpty() || !p.dispatch.take(responder.getUUID())) {
             return false;
         }
@@ -301,7 +304,7 @@ public final class EmergencyService {
                 : CallService.startEmergency(server, from, to, info,
                         new RelayPlanner.Route(p.antenna, theirs.get()));
         EmergencyLogData data = EmergencyLogData.get(server);
-        if (data.log().answered(p.logSeq, r.name())) {
+        if (call.isPresent() && data.log().answered(p.logSeq, r.name())) {
             data.setDirty();
         }
         Component taken = Component.translatable(MESSAGE + "taken", r.name());
@@ -313,9 +316,13 @@ public final class EmergencyService {
             }
         }
         if (call.isEmpty()) {
-            // L'appelant est parti entre-temps : rien à prendre.
+            // L'appelant est parti entre-temps, ou le carnet refuse l'appel (un bout déjà en ligne) : rien à prendre,
+            // et l'appelant, s'il est là, lit la fin au lieu de rester sur une sonnerie morte.
             CallUpdates.send(responder, CallUpdates.current(responder,
                     Component.translatable(CallUpdates.ENDED + "party_left"), null));
+            if (caller != null) {
+                sendEnd(caller, p, Component.translatable(CallUpdates.ENDED + "interrupted"));
+            }
             return false;
         }
         return true;
@@ -359,8 +366,8 @@ public final class EmergencyService {
      * cette antenne.
      */
     private static Optional<RelayPlanner.AntennaPoint> stillRinging(MinecraftServer server, ServerPlayer player,
-            Responder r) {
-        if (!player.isAlive() || airplane(server, r.phoneId())) {
+            Responder r, Service service) {
+        if (!player.isAlive() || airplane(server, r.phoneId()) || !hasRole(server, player, service)) {
             return Optional.empty();
         }
         Optional<ItemStack> phone = PhoneCarriers.holding(player, r.phoneId());
@@ -407,13 +414,24 @@ public final class EmergencyService {
             }
             ServerPlayer caller = server.getPlayerList().getPlayer(p.dispatch.caller());
             if (caller != null) {
-                Component message = Component.translatable(CallUpdates.ENDED + CallUpdates.endKey(reason, true));
-                CallUpdates.send(caller, new PhoneCallStatePacket(Phase.NONE, p.dispatch.id(), number, "", -1L, false,
-                        false, CallUpdates.openOn(caller, p.callerPhone), message, null));
-                if (!CallUpdates.openOn(caller, p.callerPhone)) {
-                    caller.displayClientMessage(message, true);
-                }
+                sendEnd(caller, p, Component.translatable(endKey(reason)));
             }
+        }
+    }
+
+    /** La clé du message de fin chez l'appelant : « Aucune réponse » est propre aux urgences. */
+    static String endKey(End reason) {
+        return reason == End.NO_ANSWER ? MESSAGE + "no_answer"
+                : CallUpdates.ENDED + CallUpdates.endKey(reason, true);
+    }
+
+    /** La fin d'une urgence qui sonnait, chez l'appelant (et en barre d'action sans écran ouvert sur ce téléphone). */
+    private static void sendEnd(ServerPlayer caller, Pending p, Component message) {
+        boolean open = CallUpdates.openOn(caller, p.callerPhone);
+        CallUpdates.send(caller, new PhoneCallStatePacket(Phase.NONE, p.dispatch.id(), p.dispatch.service().number(),
+                "", -1L, false, false, open, message, null));
+        if (!open) {
+            caller.displayClientMessage(message, true);
         }
     }
 
@@ -475,7 +493,7 @@ public final class EmergencyService {
                 for (UUID other : p.dispatch.ringing()) {
                     ServerPlayer op = server.getPlayerList().getPlayer(other);
                     Responder r = p.responders.get(other);
-                    if (op == null || r == null || stillRinging(server, op, r).isEmpty()) {
+                    if (op == null || r == null || stillRinging(server, op, r, p.dispatch.service()).isEmpty()) {
                         p.dispatch.drop(other);
                         if (op != null && r != null) {
                             stopRinging(op, p, r, null);
