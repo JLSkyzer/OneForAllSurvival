@@ -351,4 +351,18 @@ class PhoneStatePacketTest {
         assertTrue(new PhoneActionPacket(7, PhoneActionPacket.Action.WALLPAPER, "nuit", "", false).toString()
                 .contains("nuit"));
     }
+
+    /** Face ID (retours d'essai du 27/11) : le drapeau fait l'aller-retour, et un geste Face ID masque son code. */
+    @Test
+    void faceIdFaitLAllerRetourEtSonCodeNeSAffichePas() {
+        for (boolean face : new boolean[] {true, false}) {
+            PhoneStatePacket p = new PhoneStatePacket(3, PhoneStatePacket.Kind.OPEN, PhoneStatePacket.Lock.UNLOCKED, 50,
+                    0L, 0, "aube", false, true, "Alex", 5, 0, PhoneStatePacket.Result.FACE_UNLOCKED,
+                    PhoneStatePacket.CloseReason.NONE, PhoneNetView.NONE, face);
+            assertEquals(p, allerRetour(p));
+        }
+        PhoneActionPacket geste = new PhoneActionPacket(7, PhoneActionPacket.Action.FACE_ID, "4821", "", true);
+        assertEquals(geste, allerRetour(geste));
+        assertFalse(geste.toString().contains("4821"), geste.toString());
+    }
 }

@@ -10,7 +10,8 @@ import dev.oneforallsurvival.phone.net.PhoneSims;
 /**
  * La vue passée à {@code window.phone.render} (contrat de {@code html/phone/phone.js}) : {@code session}, {@code lock}
  * ({@code "SETUP"}, {@code "LOCKED"} ou {@code "UNLOCKED"}), {@code battery}, {@code serverMillis},
- * {@code zoneOffsetSeconds}, {@code wallpaper}, {@code airplane}, {@code owner}, {@code ownerName},
+ * {@code zoneOffsetSeconds}, {@code wallpaper}, {@code airplane}, {@code faceId} (retours d'essai du 27/11 : Face ID
+ * actif, vue déverrouillée du propriétaire seulement), {@code owner}, {@code ownerName},
  * {@code attemptsLeft}, {@code lockoutSeconds}, {@code last} (nom de {@link PhoneStatePacket.Result}) et, depuis le lot
  * T2, {@code net} : {@code {sim, operator, bars, number, holder, founderApp, founderAppAvailable, choices: [{slot,
  * number, operator, validity}], requestable: [{id, name, bars}]}} ({@code sim} et {@code validity} : noms de
@@ -36,6 +37,7 @@ public final class PhoneViewJson {
         v.addProperty("zoneOffsetSeconds", state.zoneOffsetSeconds());
         v.addProperty("wallpaper", state.wallpaper());
         v.addProperty("airplane", unlocked && state.airplane());
+        v.addProperty("faceId", unlocked && state.owner() && state.faceId());
         v.addProperty("owner", unlocked && state.owner());
         v.addProperty("ownerName", unlocked ? state.ownerName() : "");
         v.addProperty("attemptsLeft", state.attemptsLeft());

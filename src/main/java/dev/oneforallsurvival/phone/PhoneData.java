@@ -12,8 +12,9 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Ce que le serveur sait de chaque téléphone, par identifiant de téléphone ({@code phone_id} de la pile) : le
- * propriétaire, l'empreinte salée du code, les essais ratés, le blocage et son niveau, le fond d'écran, le mode avion.
- * Le code lui-même n'est écrit nulle part. Sauvegardé avec le monde principal ; ne se touche que depuis le fil du serveur.
+ * propriétaire, l'empreinte salée du code, les essais ratés, le blocage et son niveau, le fond d'écran, le mode avion,
+ * Face ID (retours d'essai du 27/11 ; absent d'une sauvegarde plus ancienne, il se lit coupé). Le code lui-même n'est
+ * écrit nulle part. Sauvegardé avec le monde principal ; ne se touche que depuis le fil du serveur.
  */
 public final class PhoneData extends SavedData {
 
@@ -24,13 +25,27 @@ public final class PhoneData extends SavedData {
      *
      * @param lockoutLevel les séries d'essais ratés depuis le dernier bon code ({@link PhoneLock}) ; 0 pour une
      *     sauvegarde qui ne le porte pas
+     * @param faceId Face ID actif ({@link FaceId}) ; coupé pour un téléphone neuf, effacé, ou d'une sauvegarde qui ne
+     *     le porte pas
      */
     public record PhoneRecord(@Nullable UUID owner, String ownerName, @Nullable String salt,
             @Nullable String codeHash, int failures, long lockedUntil, int lockoutLevel, String wallpaper,
-            boolean airplane) {
+            boolean airplane, boolean faceId) {
+
+        /** Sans Face ID (coupé) : la forme d'avant les retours d'essai du 27/11, gardée pour les essais. */
+        public PhoneRecord(@Nullable UUID owner, String ownerName, @Nullable String salt, @Nullable String codeHash,
+                int failures, long lockedUntil, int lockoutLevel, String wallpaper, boolean airplane) {
+            this(owner, ownerName, salt, codeHash, failures, lockedUntil, lockoutLevel, wallpaper, airplane, false);
+        }
 
         static PhoneRecord fresh() {
-            return new PhoneRecord(null, "", null, null, 0, 0L, 0, PhoneWallpapers.DEFAULT, false);
+            return new PhoneRecord(null, "", null, null, 0, 0L, 0, PhoneWallpapers.DEFAULT, false, false);
+        }
+
+        /** Le même téléphone, Face ID mis à {@code on}. */
+        PhoneRecord withFaceId(boolean on) {
+            return new PhoneRecord(owner, ownerName, salt, codeHash, failures, lockedUntil, lockoutLevel, wallpaper,
+                    airplane, on);
         }
     }
 
@@ -44,7 +59,8 @@ public final class PhoneData extends SavedData {
 
     /**
      * Le téléphone connu, ou un téléphone neuf (qui n'est pas pour autant enregistré). Un propriétaire sans sel ou sans
-     * empreinte est rendu comme « pas de code » : sel et empreinte à {@code null}, jamais un code vide accepté.
+     * empreinte est rendu comme « pas de code » : sel et empreinte à {@code null}, jamais un code vide accepté, et Face
+     * ID coupé (il ne sert qu'à un téléphone qui a un code).
      */
     public PhoneRecord record(UUID phoneId) {
         PhoneRecord known = phones.get(phoneId);
@@ -53,7 +69,7 @@ public final class PhoneData extends SavedData {
         }
         if (known.salt() == null || known.codeHash() == null) {
             return new PhoneRecord(known.owner(), known.ownerName(), null, null, known.failures(), known.lockedUntil(),
-                    known.lockoutLevel(), known.wallpaper(), known.airplane());
+                    known.lockoutLevel(), known.wallpaper(), known.airplane(), false);
         }
         return known;
     }
@@ -91,6 +107,7 @@ public final class PhoneData extends SavedData {
             line.putInt("lockoutLevel", r.lockoutLevel());
             line.putString("wallpaper", r.wallpaper());
             line.putBoolean("airplane", r.airplane());
+            line.putBoolean("faceId", r.faceId());
             list.add(line);
         }
         tag.put("phones", list);
@@ -114,7 +131,9 @@ public final class PhoneData extends SavedData {
                     Math.max(0L, line.getLong("lockedUntil")),
                     Math.max(0, line.getInt("lockoutLevel")),
                     PhoneWallpapers.isValid(wallpaper) ? wallpaper : PhoneWallpapers.DEFAULT,
-                    line.getBoolean("airplane")));
+                    line.getBoolean("airplane"),
+                    // Absent d'une sauvegarde d'avant Face ID : getBoolean rend faux, Face ID coupé.
+                    line.getBoolean("faceId")));
         }
         return out;
     }

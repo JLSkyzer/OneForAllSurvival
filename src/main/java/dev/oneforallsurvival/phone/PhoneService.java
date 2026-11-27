@@ -83,7 +83,9 @@ public final class PhoneService {
     /**
      * Ouvre le téléphone tenu dans {@code hand} : lui pose un identifiant s'il n'en a pas, refuse une batterie vide
      * (message), remplace la session déjà ouverte de ce joueur par une nouvelle (numéro croissant) et envoie
-     * {@link Kind#OPEN}.
+     * {@link Kind#OPEN}. Face ID ({@link FaceId}, retours d'essai du 27/11) se joue ici et nulle part ailleurs : le
+     * propriétaire, visage découvert, ouvre déverrouillé ({@link Result#FACE_UNLOCKED}) ; visage couvert, l'écran
+     * verrouillé dit « Visage non reconnu » ({@link Result#FACE_NOT_RECOGNIZED}).
      */
     public static Outcome open(ServerPlayer player, InteractionHand hand) {
         if (gone(player)) {
@@ -104,7 +106,15 @@ public final class PhoneService {
         PhoneSession session = new PhoneSession(NEXT_SESSION.incrementAndGet(), phoneId, hand,
                 hasCode(record) ? Lock.LOCKED : Lock.SETUP);
         SESSIONS.put(player.getUUID(), session);
-        send(player, view(player, session, Kind.OPEN, Result.NONE, CloseReason.NONE));
+        Result face = switch (faceAtOpen(player, record)) {
+            case UNLOCK -> {
+                session.unlock(record.salt());
+                yield Result.FACE_UNLOCKED;
+            }
+            case NOT_RECOGNIZED -> Result.FACE_NOT_RECOGNIZED;
+            case NONE -> Result.NONE;
+        };
+        send(player, view(player, session, Kind.OPEN, face, CloseReason.NONE));
         // Lot T3 : un appel en cours (qui sonne, ou décroché écran fermé) est montré dès l'ouverture.
         dev.oneforallsurvival.phone.call.CallUpdates.sessionOpened(player);
         return Outcome.OPENED;
@@ -259,6 +269,7 @@ public final class PhoneService {
             case REMOVE_SIM -> removeSim(player, session, record, last);
             case REQUEST_SIM -> requestSim(player, session, record, packet.first(), last);
             case OPEN_OPERATOR_APP -> openOperatorApp(player, session, record, last);
+            case FACE_ID -> faceId(player, session, data, record, packet.flag(), packet.first(), last);
         };
         if (SESSIONS.get(player.getUUID()) == session) {
             send(player, view(player, session, Kind.UPDATE, last[0], CloseReason.NONE));
@@ -283,7 +294,7 @@ public final class PhoneService {
         String salt = PhoneCode.newSalt(SALT_SOURCE);
         String chosen = PhoneWallpapers.isValid(wallpaper) ? wallpaper : record.wallpaper();
         data.put(session.phoneId(), new PhoneRecord(player.getUUID(), player.getGameProfile().getName(), salt,
-                PhoneCode.hash(salt, code), 0, record.lockedUntil(), 0, chosen, record.airplane()));
+                PhoneCode.hash(salt, code), 0, record.lockedUntil(), 0, chosen, record.airplane(), false));
         session.unlock(salt);
         relockOthers(player, session.phoneId());
         return Outcome.DONE;
@@ -304,6 +315,46 @@ public final class PhoneService {
                         CloseReason.NONE));
             }
         }
+    }
+
+    /**
+     * Face ID à l'ouverture : actif sur ce téléphone, un code posé, aucune attente après des codes faux (fin plafonnée
+     * comme ailleurs), ouvert par le propriétaire, emplacement de tête vide.
+     */
+    static FaceId.Verdict faceAtOpen(ServerPlayer player, PhoneRecord record) {
+        long now = EconomyClock.now();
+        boolean lockedOut = now < PhoneLock.capped(record.lockedUntil(), now, record.lockoutLevel(),
+                lockoutBaseMillis(), lockoutMaxMillis());
+        return FaceId.atOpen(record.faceId(), hasCode(record), player.getUUID().equals(record.owner()),
+                player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).isEmpty(), lockedOut);
+    }
+
+    /**
+     * L'interrupteur Face ID des Réglages : déverrouillé, propriétaire seul ({@link Result#NOT_OWNER} sinon). L'activer
+     * demande le code, jugé comme ailleurs ({@link #check} : un faux code compte, et peut bloquer) ; le couper, non.
+     */
+    private static Outcome faceId(ServerPlayer player, PhoneSession session, PhoneData data, PhoneRecord record,
+            boolean on, String code, Result[] last) {
+        if (session.lock() != Lock.UNLOCKED) {
+            return Outcome.REFUSED;
+        }
+        if (!player.getUUID().equals(record.owner())) {
+            last[0] = Result.NOT_OWNER;
+            return Outcome.REFUSED;
+        }
+        if (on) {
+            Result verdict = check(data, session.phoneId(), record, code);
+            if (verdict != Result.NONE) {
+                last[0] = verdict;
+                if (verdict == Result.LOCKED_OUT) {
+                    session.setLock(Lock.LOCKED);
+                }
+                return Outcome.REFUSED;
+            }
+        }
+        data.put(session.phoneId(), data.record(session.phoneId()).withFaceId(on));
+        last[0] = on ? Result.FACE_ID_ON : Result.FACE_ID_OFF;
+        return Outcome.DONE;
     }
 
     private static Outcome unlock(PhoneSession session, PhoneData data, PhoneRecord record, String code,
@@ -344,7 +395,7 @@ public final class PhoneService {
         PhoneRecord now = data.record(session.phoneId());
         String salt = PhoneCode.newSalt(SALT_SOURCE);
         data.put(session.phoneId(), new PhoneRecord(now.owner(), now.ownerName(), salt, PhoneCode.hash(salt, newCode),
-                now.failures(), now.lockedUntil(), now.lockoutLevel(), now.wallpaper(), now.airplane()));
+                now.failures(), now.lockedUntil(), now.lockoutLevel(), now.wallpaper(), now.airplane(), now.faceId()));
         session.unlock(salt);
         last[0] = Result.CODE_CHANGED;
         // Les autres sessions déverrouillées par l'ancien code : leur sel ne vaut plus, reverrouillées tout de suite.
@@ -565,7 +616,7 @@ public final class PhoneService {
         if (o.failures() != record.failures() || o.lockedUntil() != record.lockedUntil()
                 || o.level() != record.lockoutLevel()) {
             data.put(phoneId, new PhoneRecord(record.owner(), record.ownerName(), record.salt(), record.codeHash(),
-                    o.failures(), o.lockedUntil(), o.level(), record.wallpaper(), record.airplane()));
+                    o.failures(), o.lockedUntil(), o.level(), record.wallpaper(), record.airplane(), record.faceId()));
         }
         if (o.accepted()) {
             return Result.NONE;
@@ -633,7 +684,8 @@ public final class PhoneService {
         session.showNet(net);
         return new PhoneStatePacket(session.id(), kind, session.lock(), battery, now, offset, record.wallpaper(),
                 unlocked && record.airplane(), unlocked && viewer.getUUID().equals(record.owner()),
-                unlocked ? record.ownerName() : "", attemptsLeft, lockoutSeconds, last, reason, net);
+                unlocked ? record.ownerName() : "", attemptsLeft, lockoutSeconds, last, reason, net,
+                unlocked && viewer.getUUID().equals(record.owner()) && record.faceId());
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -653,7 +705,7 @@ public final class PhoneService {
 
     private static PhoneRecord withSettings(PhoneRecord r, String wallpaper, boolean airplane) {
         return new PhoneRecord(r.owner(), r.ownerName(), r.salt(), r.codeHash(), r.failures(), r.lockedUntil(),
-                r.lockoutLevel(), wallpaper, airplane);
+                r.lockoutLevel(), wallpaper, airplane, r.faceId());
     }
 
     private static long lockoutBaseMillis() {

@@ -40,6 +40,11 @@
 //   "9", "back" ou "enter", traduite par le jeu (PhoneKeys) et passée aux mêmes règles qu'une touche du navigateur :
 //   dans MCEF, Chromium reçoit le code de touche de GLFW tel quel et ne reconnaît pas le pavé numérique ; le jeu ne lui
 //   donne plus ces touches hors d'un champ.
+//   Retours d'essai du 27/11 (Face ID) : page -> Java : {"a":"faceId","on":true,"code":"…"} (activer, code demandé) ;
+//   {"a":"faceId","on":false} (couper). Java -> page : view.faceId (Face ID actif : vue déverrouillée du propriétaire) ;
+//   view.last : FACE_UNLOCKED (à l'ouverture : déverrouillé par le visage, la page joue l'animation sur l'écran
+//   verrouillé puis passe à l'accueil), FACE_NOT_RECOGNIZED (à l'ouverture : visage couvert, le pavé avec « Visage non
+//   reconnu »), FACE_ID_ON, FACE_ID_OFF. Boîte de layout : row-faceid.
 // Le serveur fait foi : la page ne juge aucun code, elle les transmet. Tout texte venu de la vue passe par textContent.
 // Un téléphone neuf (lock SETUP) montre l'assistant de première configuration : Bonjour, Configuration rapide, Fond
 // d'écran, le code (écran #lock), puis Tout est prêt. Rien n'est configuré avant l'envoi du code : fermer avant laisse
@@ -132,6 +137,7 @@
     sheet: null, // { mode: 'change'|'erase', step, old, fresh }
     simOpen: false, // feuille « Carte SIM » ouverte (Réglages)
     requestsOpen: false, // liste « Demander une carte » dépliée
+    faceMsg: false, // « Visage non reconnu » sous le pavé, jusqu'au premier chiffre
     alertActions: [null, null]
   };
 
@@ -205,6 +211,7 @@
       zoneOffsetSeconds: num(v.zoneOffsetSeconds, -64800, 64800, 0),
       wallpaper: WALLPAPERS.indexOf(v.wallpaper) >= 0 ? v.wallpaper : 'aube',
       airplane: v.airplane === true,
+      faceId: unlocked && v.faceId === true,
       owner: v.owner === true,
       ownerName: typeof v.ownerName === 'string' ? v.ownerName.slice(0, 32) : '',
       attemptsLeft: num(v.attemptsLeft, 0, 99, 0),
@@ -279,6 +286,9 @@
     var sw = $('sw-airplane');
     sw.classList.toggle('on', v.airplane);
     sw.setAttribute('aria-checked', v.airplane ? 'true' : 'false');
+    var face = $('sw-faceid');
+    face.classList.toggle('on', v.faceId);
+    face.setAttribute('aria-checked', v.faceId ? 'true' : 'false');
 
     var thumbs = document.querySelectorAll('.thumb');
     for (var i = 0; i < thumbs.length; i++) {
@@ -674,6 +684,9 @@
   };
 
   function activeEntry() {
+    if (face.step === 'scan') {
+      return null; // déverrouillé par le visage : aucun code à saisir pendant l'animation
+    }
     if (phoneEl.classList.contains('alert-open') || phoneEl.classList.contains('sim-open')
       || phoneEl.classList.contains('call-open')) {
       return null;
@@ -756,6 +769,10 @@
       return;
     }
     var e = entries[name];
+    if (name === 'lock' && state.faceMsg) {
+      state.faceMsg = false;
+      paintLockTexts();
+    }
     if (k === 'back') {
       e.value = e.value.slice(0, -1);
       paintDots(name);
@@ -857,7 +874,8 @@
       return;
     }
     setText('lock-prompt', 'Saisissez le code');
-    setText('lock-msg', state.showAttempts && state.view ? 'Essais restants : ' + state.view.attemptsLeft : '');
+    setText('lock-msg', state.faceMsg ? 'Visage non reconnu'
+      : state.showAttempts && state.view ? 'Essais restants : ' + state.view.attemptsLeft : '');
   }
 
   function tickLockout() {
@@ -877,13 +895,17 @@
 
   var SHEET_STEPS = {
     change: ['Saisissez l\'ancien code', 'Saisissez le nouveau code', 'Confirmez le nouveau code'],
-    erase: ['Saisissez le code']
+    erase: ['Saisissez le code'],
+    faceid: ['Saisissez le code']
   };
+  var SHEET_TITLES = { change: 'Modifier le code', erase: 'Effacer le téléphone', faceid: 'Face ID' };
+  var SHEET_HINTS = { change: '', erase: 'Le code est demandé avant d\'effacer',
+    faceid: 'Le code est demandé pour activer Face ID' };
 
   function openSheet(mode) {
     state.sheet = { mode: mode, step: 0, old: null, fresh: null };
-    setText('sheet-title', mode === 'change' ? 'Modifier le code' : 'Effacer le téléphone');
-    sheetStep(0, mode === 'change' ? '' : 'Le code est demandé avant d\'effacer', false);
+    setText('sheet-title', SHEET_TITLES[mode]);
+    sheetStep(0, SHEET_HINTS[mode], false);
     clearEntry('sheet');
     phoneEl.classList.add('sheet-open');
     placePad();
@@ -910,6 +932,12 @@
   function sheetComplete(code) {
     var s = state.sheet;
     if (!s) {
+      return;
+    }
+    if (s.mode === 'faceid') {
+      startPending('faceId');
+      send({ a: 'faceId', on: true, code: code });
+      forget('sheet');
       return;
     }
     if (s.mode === 'erase') {
@@ -1021,6 +1049,7 @@
       state.requestsOpen = false;
       state.setupFirst = null;
       state.showAttempts = false;
+      state.faceMsg = false;
       clearEntry('lock');
       clearEntry('sheet');
     }
@@ -1045,8 +1074,16 @@
       } else {
         stopHello();
       }
-      // SETUP puis UNLOCKED dans la même session : notre code vient d'être posé, « Tout est prêt ».
-      setScreen(v.lock === 'SETUP' ? 'setup' : v.lock === 'LOCKED' ? 'lock' : before === 'SETUP' ? 'ready' : 'home');
+      stopFace();
+      state.faceMsg = false;
+      if (fresh && v.lock === 'UNLOCKED' && v.last === 'FACE_UNLOCKED') {
+        // Ouvert par le visage : l'écran verrouillé, le temps de l'animation, puis l'accueil.
+        setScreen('lock');
+        faceUnlock();
+      } else {
+        // SETUP puis UNLOCKED dans la même session : notre code vient d'être posé, « Tout est prêt ».
+        setScreen(v.lock === 'SETUP' ? 'setup' : v.lock === 'LOCKED' ? 'lock' : before === 'SETUP' ? 'ready' : 'home');
+      }
     }
 
     handleLast(v);
@@ -1124,8 +1161,60 @@
         closeSheet();
       }
       notOwner(mode === 'erase' ? 'Seul le propriétaire peut effacer le téléphone'
-        : 'Seul le propriétaire peut modifier le code');
+        : mode === 'faceid' ? 'Seul le propriétaire peut régler Face ID'
+          : 'Seul le propriétaire peut modifier le code');
+    } else if (last === 'FACE_ID_ON' || last === 'FACE_ID_OFF') {
+      if (inSheet && state.sheet.mode === 'faceid') {
+        closeSheet();
+      }
+      toast(last === 'FACE_ID_ON' ? 'Face ID activé' : 'Face ID désactivé');
+    } else if (last === 'FACE_NOT_RECOGNIZED' && state.screen === 'lock') {
+      faceFail();
     }
+  }
+
+  // ------------------------------------------------------------------------------------------- Face ID
+
+  // L'issue vient du serveur, à l'ouverture : la page ne fait que la montrer. Déverrouillé par le visage : balayage, coche,
+  // puis l'écran verrouillé glisse vers l'accueil. Visage couvert : les points tremblent, le pavé reste, « Visage non
+  // reconnu » jusqu'au premier chiffre.
+  var FACE_SCAN_MS = 900;
+  var FACE_OK_MS = 520;
+  var FACE_FAIL_MS = 120;
+  var FACE_SLIDE_MS = 650; // le glissement de l'écran verrouillé (0,55 s, phone.css)
+  var face = { timer: null, step: null };
+
+  function stopFace() {
+    clearTimeout(face.timer);
+    face.timer = null;
+    face.step = null;
+    phoneEl.classList.remove('face-scan', 'face-ok', 'face-fail');
+  }
+
+  function faceUnlock() {
+    stopFace();
+    face.step = 'scan';
+    setText('lock-face-label', 'Face ID');
+    phoneEl.classList.add('face-scan');
+    face.timer = setTimeout(function () {
+      phoneEl.classList.add('face-ok');
+      face.timer = setTimeout(function () {
+        // L'écran verrouillé glisse vers le haut avec le glyphe : le pavé ne reparaît pas pendant le glissement.
+        face.step = 'done';
+        if (state.view && state.view.lock === 'UNLOCKED' && state.screen === 'lock') {
+          setScreen('home');
+        }
+        face.timer = setTimeout(stopFace, FACE_SLIDE_MS);
+      }, FACE_OK_MS);
+    }, FACE_SCAN_MS);
+  }
+
+  function faceFail() {
+    stopFace();
+    state.faceMsg = true;
+    paintLockTexts();
+    // Après le premier tic de la page : les points tremblent une fois, le pavé reste en place.
+    face.timer = setTimeout(function () { face.timer = null; shake('lock'); }, FACE_FAIL_MS);
   }
 
   // ------------------------------------------------------------------------------------------- Appli « Antenne » (T2)
@@ -2749,6 +2838,18 @@
       setTimeout(function () { if (state.view) { paintStatic(state.view); } }, PENDING_MS);
       return;
     }
+    if (t.closest('#row-faceid')) {
+      if (!state.view.owner) {
+        notOwner('Seul le propriétaire peut régler Face ID');
+      } else if (state.view.faceId) {
+        $('sw-faceid').classList.remove('on'); // réponse visible tout de suite, la vue suivante fait foi
+        send({ a: 'faceId', on: false });
+        setTimeout(function () { if (state.view) { paintStatic(state.view); } }, PENDING_MS);
+      } else {
+        openSheet('faceid'); // le code, puis {"a":"faceId","on":true,"code":…}
+      }
+      return;
+    }
     if (t.closest('#row-code')) {
       if (state.view.owner) {
         openSheet('change');
@@ -2953,7 +3054,8 @@
       requested: {},
       requestsFull: false,
       founder: true,
-      founderOp: 'a1b2c3d4e5f6' // l'opérateur fondé : la Mairie
+      founderOp: 'a1b2c3d4e5f6', // l'opérateur fondé : la Mairie
+      faceId: false // Face ID (retours d'essai du 27/11)
     };
 
     function operatorOf(id) {
@@ -3014,6 +3116,7 @@
       return {
         session: mock.session, lock: mock.lock, battery: mock.battery, serverMillis: now, zoneOffsetSeconds: 3600,
         wallpaper: mock.wallpaper, airplane: unlocked && mock.airplane, owner: unlocked && mock.owner,
+        faceId: unlocked && mock.owner && mock.faceId,
         ownerName: unlocked ? mock.ownerName : '', attemptsLeft: lockout > 0 ? 0 : mock.maxAttempts - mock.failures,
         lockoutSeconds: lockout, last: last || 'NONE', net: netView(unlocked)
       };
@@ -3359,6 +3462,18 @@
           mock.airplane = false;
           reply('NONE');
           break;
+        case 'faceId':
+          // PhoneService.faceId : déverrouillé, propriétaire ; le code pour l'activer, comme ailleurs.
+          if (mock.lock !== 'UNLOCKED') { return; }
+          if (!mock.owner) { reply('NOT_OWNER'); return; }
+          if (m.on === true) {
+            r = check(m.code);
+            if (r === 'LOCKED_OUT') { mock.lock = 'LOCKED'; }
+            if (r !== 'NONE') { reply(r); return; }
+          }
+          mock.faceId = m.on === true;
+          reply(mock.faceId ? 'FACE_ID_ON' : 'FACE_ID_OFF');
+          break;
         case 'insertSim':
         case 'removeSim':
         case 'requestSim':
@@ -3615,7 +3730,17 @@
       },
       incoming: function (number) { telIncoming(number); },
       callerHangsUp: function () { telEnd('Appel terminé', tel.call && tel.call.phase === 'INCOMING' ? 'MISSED' : 'INCOMING'); },
-      noContacts: function () { tel.contacts = []; tel.recents = []; }
+      noContacts: function () { tel.contacts = []; tel.recents = []; },
+      // Retours d'essai du 27/11 : faceOpen() (ouverture par le propriétaire, visage découvert, Face ID actif),
+      // faceCovered() (même ouverture, tête couverte).
+      faceOpen: function () {
+        mock.session++; mock.code = mock.code || '1234'; mock.faceId = true; mock.lock = 'UNLOCKED';
+        render(view('FACE_UNLOCKED'));
+      },
+      faceCovered: function () {
+        mock.session++; mock.code = mock.code || '1234'; mock.faceId = true; mock.lock = 'LOCKED';
+        render(view('FACE_NOT_RECOGNIZED'));
+      }
     };
   }
 

@@ -47,7 +47,7 @@ class PhoneViewJsonTest {
     void lesClesSontCellesDuContrat() {
         JsonObject v = PhoneViewJson.toJson(etat(Lock.UNLOCKED, "Alex", Result.NONE));
         assertEquals(Set.of("session", "lock", "battery", "serverMillis", "zoneOffsetSeconds", "wallpaper", "airplane",
-                "owner", "ownerName", "attemptsLeft", "lockoutSeconds", "last", "net"), v.keySet());
+                "faceId", "owner", "ownerName", "attemptsLeft", "lockoutSeconds", "last", "net"), v.keySet());
         assertEquals(9, v.get("session").getAsInt());
         assertEquals(76, v.get("battery").getAsInt());
         assertEquals(1_763_600_000_000L, v.get("serverMillis").getAsLong());
@@ -239,5 +239,18 @@ class PhoneViewJsonTest {
         String argument = script.substring("phone.render(".length(), script.length() - 1);
         JsonObject net = JsonParser.parseString(argument).getAsJsonObject().getAsJsonObject("net");
         assertEquals(piege, net.get("operator").getAsString());
+    }
+
+    /** Face ID (retours d'essai du 27/11) : montré déverrouillé au propriétaire seulement, même si le paquet le porte. */
+    @Test
+    void faceIdNeSeMontreQueDeverrouilleAuProprietaire() {
+        for (Lock lock : Lock.values()) {
+            for (boolean owner : new boolean[] {true, false}) {
+                PhoneStatePacket p = new PhoneStatePacket(9, Kind.UPDATE, lock, 76, 0L, 0, "nuit", false, owner, "Alex",
+                        4, 0, Result.NONE, CloseReason.NONE, PhoneNetView.NONE, true);
+                assertEquals(lock == Lock.UNLOCKED && owner, PhoneViewJson.toJson(p).get("faceId").getAsBoolean(),
+                        lock + " propriétaire=" + owner);
+            }
+        }
     }
 }

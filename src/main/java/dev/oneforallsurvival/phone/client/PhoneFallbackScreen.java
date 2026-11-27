@@ -102,6 +102,8 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
         this.page = state.lock() == Lock.UNLOCKED ? Page.HOME : Page.CODE;
         this.setupWallpaper = shownWallpaper(state.wallpaper());
         noteLockout();
+        // Face ID se joue à l'ouverture : l'issue arrive avec l'OPEN (déverrouillé par le visage, ou visage couvert).
+        result(state);
     }
 
     // --- PhoneClient.Shown -----------------------------------------------------------------------------------------
@@ -690,6 +692,13 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
             }
             case SIM_UNKNOWN, INVENTORY_FULL, ALREADY_REQUESTED, NO_NETWORK, REQUESTS_FULL ->
                     alert(Component.translatable(KEY + r.name().toLowerCase(Locale.ROOT)));
+            // Retours d'essai du 27/11, Face ID : le repli montre le déverrouillage par le visage et le visage couvert ;
+            // l'interrupteur est dans les Réglages de la page seulement (même clé que le nom de l'issue).
+            case FACE_UNLOCKED, FACE_ID_ON, FACE_ID_OFF -> {
+                message = Component.translatable(KEY + r.name().toLowerCase(Locale.ROOT));
+                messageAlert = false;
+            }
+            case FACE_NOT_RECOGNIZED -> alert(Component.translatable(KEY + "face_not_recognized"));
         }
     }
 

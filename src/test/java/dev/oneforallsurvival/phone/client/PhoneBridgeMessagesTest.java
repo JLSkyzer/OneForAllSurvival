@@ -336,4 +336,27 @@ class PhoneBridgeMessagesTest {
         assertEquals(Optional.empty(), action("{\"a\":7}"));
         assertEquals(Optional.empty(), PhoneBridgeMessages.toAction(null, SESSION));
     }
+
+    /** Face ID (retours d'essai du 27/11) : activer avec le code, couper sans ; tout autre forme ne part pas. */
+    @Test
+    void faceIdActiveAvecLeCodeEtCoupeSans() {
+        PhoneActionPacket on = action("{\"a\":\"faceId\",\"on\":true,\"code\":\"4821\"}").orElseThrow();
+        assertEquals(Action.FACE_ID, on.action());
+        assertEquals("4821", on.first());
+        assertTrue(on.flag());
+        PhoneActionPacket off = action("{\"a\":\"faceId\",\"on\":false}").orElseThrow();
+        assertEquals(Action.FACE_ID, off.action());
+        assertEquals("", off.first());
+        assertTrue(!off.flag());
+        for (String faux : new String[] {
+                "{\"a\":\"faceId\",\"on\":true}",
+                "{\"a\":\"faceId\",\"on\":false,\"code\":\"4821\"}",
+                "{\"a\":\"faceId\",\"on\":true,\"code\":\"482\"}",
+                "{\"a\":\"faceId\",\"on\":true,\"code\":4821}",
+                "{\"a\":\"faceId\",\"on\":\"true\",\"code\":\"4821\"}",
+                "{\"a\":\"faceId\"}",
+                "{\"a\":\"faceId\",\"on\":true,\"code\":\"4821\",\"x\":1}"}) {
+            assertTrue(action(faux).isEmpty(), faux);
+        }
+    }
 }

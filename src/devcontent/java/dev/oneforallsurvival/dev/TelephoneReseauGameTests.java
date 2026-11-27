@@ -742,11 +742,12 @@ public final class TelephoneReseauGameTests {
     }
 
     /**
-     * Le canal du mod est au protocole « 12 » (une seule montée pour le lot T3) : un client ou un serveur du protocole
-     * « 10 » (lot T1) ou « 11 » (lot T2) est refusé par Forge à la connexion, celui du « 12 » accepté.
+     * Le canal du mod est au protocole « 13 » (Face ID et « Partager mon numéro », retours d'essai du 27/11 ; « 12 » :
+     * lot T3) : un client ou un serveur du protocole « 10 » (lot T1), « 11 » (lot T2) ou « 12 » (lot T3) est refusé
+     * par Forge à la connexion, celui du « 13 » accepté.
      */
     @GameTest(template = "test/plancher", batch = LOT_RESEAU)
-    public static void unClientDuProtocole10Ou11EstRefuse(GameTestHelper helper) {
+    public static void unClientDUnAncienProtocoleEstRefuse(GameTestHelper helper) {
         try {
             Field champ = SimpleChannel.class.getDeclaredField("instance");
             champ.setAccessible(true);
@@ -757,15 +758,15 @@ public final class TelephoneReseauGameTests {
             version.setAccessible(true);
             client.setAccessible(true);
             serveur.setAccessible(true);
-            helper.assertTrue("12".equals(version.invoke(instance)), "protocole « 12 » attendu, vu "
+            helper.assertTrue("13".equals(version.invoke(instance)), "protocole « 13 » attendu, vu "
                     + version.invoke(instance));
-            for (String ancien : new String[] {"10", "11"}) {
+            for (String ancien : new String[] {"10", "11", "12"}) {
                 helper.assertTrue(!(Boolean) client.invoke(instance, ancien)
                         && !(Boolean) serveur.invoke(instance, ancien),
                         "un client ou un serveur du protocole « " + ancien + " » doit être refusé");
             }
-            helper.assertTrue((Boolean) client.invoke(instance, "12") && (Boolean) serveur.invoke(instance, "12"),
-                    "le protocole « 12 » est accepté");
+            helper.assertTrue((Boolean) client.invoke(instance, "13") && (Boolean) serveur.invoke(instance, "13"),
+                    "le protocole « 13 » est accepté");
         } catch (ReflectiveOperationException ex) {
             helper.fail("canal du mod illisible : " + ex);
         }

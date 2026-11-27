@@ -165,4 +165,29 @@ class PhoneDataTest {
         line.putString("lockoutLevel", "beaucoup");
         assertEquals(0, PhoneData.load(tag).record(A).lockoutLevel());
     }
+
+    /**
+     * Face ID (retours d'essai du 27/11) : gardé à la sauvegarde ; une sauvegarde d'avant Face ID se lit sans
+     * conversion, Face ID coupé ; un téléphone sans code n'a jamais Face ID.
+     */
+    @Test
+    void faceIdSeGardeEtSeLitCoupeQuandIlManque() {
+        PhoneData data = new PhoneData();
+        PhoneData.PhoneRecord actif = new PhoneData.PhoneRecord(OWNER, "Killian", "ab12", "cd34", 0, 0L, 0, "lagon",
+                false, true);
+        data.put(A, actif);
+        CompoundTag sauve = data.save(new CompoundTag());
+        assertEquals(actif, PhoneData.load(sauve).record(A));
+
+        // La forme d'un monde d'aujourd'hui : aucune clé « faceId ».
+        CompoundTag ancien = sauve.copy();
+        ((CompoundTag) ancien.getList("phones", 10).get(0)).remove("faceId");
+        PhoneData.PhoneRecord relu = PhoneData.load(ancien).record(A);
+        assertEquals(false, relu.faceId());
+        assertEquals(new PhoneData.PhoneRecord(OWNER, "Killian", "ab12", "cd34", 0, 0L, 0, "lagon", false), relu);
+
+        PhoneData sansCode = new PhoneData();
+        sansCode.put(B, new PhoneData.PhoneRecord(OWNER, "Killian", null, "cd34", 0, 0L, 0, "lagon", false, true));
+        assertEquals(false, sansCode.record(B).faceId(), "sans code, Face ID ne vaut rien");
+    }
 }

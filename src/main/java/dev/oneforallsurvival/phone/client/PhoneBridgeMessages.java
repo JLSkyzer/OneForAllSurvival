@@ -25,6 +25,8 @@ import javax.annotation.Nullable;
  * Lot T2 : {@code insertSim} ({@code slot}, entier JSON de 0 à 40 écrit sans signe, sans zéro de tête, sans partie
  * décimale ni exposant), {@code removeSim} et {@code antennaApp} (sans champ), {@code requestSim} ({@code op},
  * identifiant d'opérateur de 12 caractères hexadécimaux en minuscules, la forme du registre).
+ * Retours d'essai du 27/11 : {@code faceId} ({@code on} booléen JSON ; avec {@code on} vrai, {@code code} aussi, quatre
+ * chiffres ; avec {@code on} faux, aucun code).
  * {@code ready}, {@code layout}, {@code close} et {@code textFocus} ({@link #textFocus}) restent dans le client. Le
  * serveur revérifie tout de toute façon.
  */
@@ -39,6 +41,7 @@ public final class PhoneBridgeMessages {
     private static final Set<String> TEXT_FOCUS = Set.of("a", "on");
     private static final Set<String> SLOT = Set.of("a", "slot");
     private static final Set<String> OPERATOR = Set.of("a", "op");
+    private static final Set<String> FACE_ON = Set.of("a", "on", "code");
     /** Une case de l'inventaire telle que JSON l'écrit : 0 à 40, sans signe, zéro de tête, décimale ni exposant. */
     private static final Pattern SLOT_TEXT = Pattern.compile("0|[1-9]|[1-3][0-9]|40");
     /** Un identifiant d'opérateur ({@code PhoneOperators.found}) : 12 caractères hexadécimaux en minuscules. */
@@ -99,6 +102,7 @@ public final class PhoneBridgeMessages {
                         ? Optional.of(new PhoneActionPacket(session, Action.REQUEST_SIM, op, "", false))
                         : Optional.empty();
             }
+            case "faceId" -> faceId(message, session);
             case "antennaApp" -> exactly(message, ONLY_A)
                     ? Optional.of(new PhoneActionPacket(session, Action.OPEN_OPERATOR_APP, "", "", false))
                     : Optional.empty();
@@ -177,6 +181,23 @@ public final class PhoneBridgeMessages {
         String wallpaper = string(message.get("wallpaper"));
         return exactly(message, SETUP_WITH_WALLPAPER) && PhoneCode.isValid(code) && PhoneWallpapers.isValid(wallpaper)
                 ? Optional.of(new PhoneActionPacket(session, Action.SETUP, code, wallpaper, false))
+                : Optional.empty();
+    }
+
+    /** {@code faceId} : couper sans code ({@code {"a","on":false}}), activer avec le code ({@code on}, {@code code}). */
+    private static Optional<PhoneActionPacket> faceId(JsonObject message, int session) {
+        JsonElement on = message.get("on");
+        if (on == null || !on.isJsonPrimitive() || !on.getAsJsonPrimitive().isBoolean()) {
+            return Optional.empty();
+        }
+        if (!on.getAsBoolean()) {
+            return exactly(message, AIRPLANE)
+                    ? Optional.of(new PhoneActionPacket(session, Action.FACE_ID, "", "", false))
+                    : Optional.empty();
+        }
+        String code = string(message.get("code"));
+        return exactly(message, FACE_ON) && PhoneCode.isValid(code)
+                ? Optional.of(new PhoneActionPacket(session, Action.FACE_ID, code, "", true))
                 : Optional.empty();
     }
 

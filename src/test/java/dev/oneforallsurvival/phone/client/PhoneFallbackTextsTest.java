@@ -69,7 +69,8 @@ class PhoneFallbackTextsTest {
     static List<String> messages(JsonObject fr) {
         List<String> l = new ArrayList<>();
         for (String nom : List.of("sim_inserted", "sim_removed", "sim_unknown", "inventory_full", "sim_requested",
-                "already_requested", "no_network", "requests_full", "not_owner", "plan")) {
+                "already_requested", "no_network", "requests_full", "not_owner", "plan", "face_unlocked",
+                "face_not_recognized", "face_id_on", "face_id_off")) {
             l.add(t(fr, k(nom)));
         }
         return l;

@@ -11,13 +11,14 @@ import net.minecraftforge.network.NetworkEvent;
  * propriétaire, le format du code et le blocage.
  *
  * @param first le code ({@link Action#UNLOCK}, {@link Action#SETUP}, {@link Action#ERASE}), l'ancien code
- *     ({@link Action#CHANGE_CODE}), le fond ({@link Action#WALLPAPER}), la case de l'inventaire de {@code "0"} à
+ *     ({@link Action#CHANGE_CODE}), le code qui pose Face ID ({@link Action#FACE_ID} avec {@code flag} vrai ; vide pour
+ *     le couper), le fond ({@link Action#WALLPAPER}), la case de l'inventaire de {@code "0"} à
  *     {@code "40"} ({@link Action#INSERT_SIM}) ou l'identifiant d'opérateur, 12 caractères hexadécimaux en minuscules
  *     ({@link Action#REQUEST_SIM}) ; sinon vide
  * @param second le nouveau code ({@link Action#CHANGE_CODE}), le fond choisi par l'assistant de première
  *     configuration ({@link Action#SETUP}, vide sans assistant ; un fond hors de {@link PhoneWallpapers#IDS} est
  *     ignoré par le serveur) ; sinon vide
- * @param flag le mode avion voulu ({@link Action#AIRPLANE})
+ * @param flag le mode avion voulu ({@link Action#AIRPLANE}), Face ID voulu ({@link Action#FACE_ID})
  */
 public record PhoneActionPacket(int session, Action action, String first, String second, boolean flag) {
 
@@ -27,7 +28,9 @@ public record PhoneActionPacket(int session, Action action, String first, String
     public enum Action {
         UNLOCK, SETUP, LOCK, CHANGE_CODE, WALLPAPER, AIRPLANE, ERASE, CLOSE,
         // Lot T2 : la carte SIM, la demande de carte et l'appli « Antenne » (déverrouillé seulement).
-        INSERT_SIM, REMOVE_SIM, REQUEST_SIM, OPEN_OPERATOR_APP
+        INSERT_SIM, REMOVE_SIM, REQUEST_SIM, OPEN_OPERATOR_APP,
+        // Retours d'essai du 27/11 : l'interrupteur Face ID des Réglages (code demandé pour l'activer).
+        FACE_ID
     }
 
     public PhoneActionPacket {
@@ -39,7 +42,7 @@ public record PhoneActionPacket(int session, Action action, String first, String
     @Override
     public String toString() {
         boolean secret = action == Action.UNLOCK || action == Action.SETUP || action == Action.ERASE
-                || action == Action.CHANGE_CODE;
+                || action == Action.CHANGE_CODE || action == Action.FACE_ID;
         return "PhoneActionPacket[session=" + session + ", action=" + action + ", first="
                 + (secret ? "****" : first) + ", second=" + (secret ? "****" : second) + ", flag=" + flag + "]";
     }

@@ -1748,3 +1748,31 @@ body {
   font-size: 14px;
 }
 .sos-btn:active, .sos-cancel:active { opacity: 0.5; }
+/* ---------------------------------------------------------------- Face ID (retours d'essai du 27/11) */
+
+/* Le glyphe de Face ID, au-dessus du pavé : caché d'ordinaire ; balayage puis coche à un déverrouillage par le visage. Un
+   visage couvert fait trembler les points, sans glyphe (le pavé ne bouge pas sous le doigt). La page ne juge rien :
+   l'issue vient du serveur (FACE_UNLOCKED, FACE_NOT_RECOGNIZED). */
+.face {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 26px;
+  pointer-events: none;
+}
+.face-glyph { width: 64px; height: 64px; color: #fff; }
+.face-glyph .fg-check { opacity: 0; }
+.face-label { margin-top: 10px; font-size: 15px; font-weight: 500; opacity: 0.9; }
+#phone.face-scan .face { display: flex; }
+/* Pendant le déverrouillage, ni code ni pavé : seul le visage est lu. */
+#phone.face-scan #lock .prompt, #phone.face-scan #lock .dots, #phone.face-scan #lock .msg,
+#phone.face-scan #lock .pad-slot, #phone.face-scan .lock-sos { visibility: hidden; }
+#phone.face-scan .face-glyph { animation: face-scan 0.62s ease-in-out 2; }
+#phone.face-ok .face-glyph .fg-face { opacity: 0; transition: opacity 0.18s; }
+#phone.face-ok .face-glyph .fg-check { opacity: 1; transition: opacity 0.18s 0.12s; }
+#phone.face-ok .face-glyph .fg-frame { stroke-dasharray: 22 30; transition: stroke-dasharray 0.3s; }
+@keyframes face-scan {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(0.9); opacity: 0.72; }
+}
+
