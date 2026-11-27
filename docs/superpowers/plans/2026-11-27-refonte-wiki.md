@@ -29,7 +29,7 @@ session. C'est la référence visuelle : couleurs, polices (Barlow et Barlow Con
   `docs/verifications/refonte-wiki.md`, il ne se corrige pas ici.
 - Images en WebP : image fixe ≤ 250 Ko, animation ≤ 1,5 Mo, wiki entier ≤ 80 Mo. Icônes rendues par le jeu.
 - Captures en français (`fr_fr`), interface lisible, aucune bulle de débogage ni message parasite à l'écran.
-- Lancements : verrou `C:\Users\killi\.claude\lancement-minecraft.txt` et sa file, fenêtre sur le second écran,
+- Lancements : verrou `%USERPROFILE%\.claude\lancement-minecraft.txt` et sa file, fenêtre sur le second écran,
   jamais la souris ni le premier plan (garde et coupe-circuit), `run/options.txt` intouché, pas de Prism, aucun
   téléchargement hors ce que Gradle fait seul, jamais arrêter la JVM d'un autre projet.
 - Git : commit par chemin avec le trailer du dépôt, poussée après vérification ; jamais `art/`, `docs/assets/`,
