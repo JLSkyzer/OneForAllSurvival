@@ -31,6 +31,8 @@ public final class PhoneConfig {
     private static final int DEFAULT_TARIFF_MAX = 1_000;
     private static final int DEFAULT_TARIFF_CAP = 20;
     private static final int DEFAULT_SIGNAL_REFRESH_TICKS = 20;
+    private static final int DEFAULT_CALL_RING_SECONDS = 30;
+    private static final int DEFAULT_CALL_DIALS_PER_MINUTE = 10;
 
     public static final ForgeConfigSpec SPEC;
 
@@ -55,6 +57,8 @@ public final class PhoneConfig {
     private static final ForgeConfigSpec.IntValue TARIFF_MAX;
     private static final ForgeConfigSpec.IntValue TARIFF_CAP;
     private static final ForgeConfigSpec.IntValue SIGNAL_REFRESH_TICKS;
+    private static final ForgeConfigSpec.IntValue CALL_RING_SECONDS;
+    private static final ForgeConfigSpec.IntValue CALL_DIALS_PER_MINUTE;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -124,6 +128,12 @@ public final class PhoneConfig {
         SIGNAL_REFRESH_TICKS = builder
                 .comment("Ticks entre deux relevés du signal d'un téléphone.")
                 .defineInRange("signalRefreshTicks", DEFAULT_SIGNAL_REFRESH_TICKS, 1, 1_200);
+        CALL_RING_SECONDS = builder
+                .comment("Durée de la sonnerie d'un appel avant qu'il ne soit manqué (secondes).")
+                .defineInRange("callRingSeconds", DEFAULT_CALL_RING_SECONDS, 5, 300);
+        CALL_DIALS_PER_MINUTE = builder
+                .comment("Appels qu'un joueur peut composer par minute, réussis ou non ; au-delà, il doit attendre.")
+                .defineInRange("callDialsPerMinute", DEFAULT_CALL_DIALS_PER_MINUTE, 1, 1_000);
         SPEC = builder.build();
     }
 
@@ -334,6 +344,22 @@ public final class PhoneConfig {
             return SIGNAL_REFRESH_TICKS.get();
         } catch (IllegalStateException e) {
             return DEFAULT_SIGNAL_REFRESH_TICKS;
+        }
+    }
+
+    public static int callRingSeconds() {
+        try {
+            return CALL_RING_SECONDS.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_CALL_RING_SECONDS;
+        }
+    }
+
+    public static int callDialsPerMinute() {
+        try {
+            return CALL_DIALS_PER_MINUTE.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_CALL_DIALS_PER_MINUTE;
         }
     }
 }
