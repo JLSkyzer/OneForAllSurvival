@@ -16,8 +16,9 @@ import net.minecraft.world.item.ItemStack;
  * changement, joueur ou porte-armure).
  *
  * <p>Une pile de téléphone y perd {@value PhoneItem#TAG_ID} et sa carte logée ({@value PhoneItem#TAG_SIM}) ; une pile
- * de carte y perd son identifiant, son jeton, son numéro, son opérateur et son titulaire. Le reste (l'objet, sa
- * batterie, tout NBT étranger) reste : c'est ce qui sert au rendu. Rien n'est modifié en place : une copie part.
+ * de carte y perd son identifiant, son jeton et l'empreinte de celui-ci, son numéro, son opérateur et son titulaire.
+ * Le reste (l'objet, sa batterie, tout NBT étranger) reste : c'est ce qui sert au rendu. Rien n'est modifié en place :
+ * une copie part.
  *
  * <p>Le porteur garde tout : ses paquets d'inventaire ne passent pas par ici. Hors de cette règle (limite écrite) :
  * une pile posée au sol, dans un cadre ou dans un conteneur ouvert garde ses données, l'objet étant physiquement
@@ -26,7 +27,7 @@ import net.minecraft.world.item.ItemStack;
 public final class PhonePrivacy {
 
     private static final List<String> SIM_KEYS = List.of(SimCardItem.TAG_ID, SimCardItem.TAG_TOKEN,
-            SimCardItem.TAG_NUMBER, SimCardItem.TAG_OPERATOR, SimCardItem.TAG_HOLDER);
+            SimCardItem.TAG_MARK, SimCardItem.TAG_NUMBER, SimCardItem.TAG_OPERATOR, SimCardItem.TAG_HOLDER);
 
     private PhonePrivacy() {}
 

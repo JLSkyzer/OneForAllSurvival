@@ -32,7 +32,9 @@ Attendu : après n'importe quelle manipulation de l'inventaire créatif (déplac
 jeter puis ramasser, rouvrir l'inventaire pendant que le serveur met le téléphone à jour), la carte reste reconnue.
 Le serveur rend à la pile le jeton **qu'il a vu chez ce joueur** : il ne le prend pas au registre sur la foi du
 client, et ne l'envoie toujours pas au client. Une copie créative d'une carte reste une copie : après insertion, une
-seule vaut, comme aujourd'hui. Les cartes déjà abîmées se remplacent à l'antenne.
+seule vaut, comme aujourd'hui. Les cartes déjà abîmées se remplacent à l'antenne. Le client reçoit à la place du jeton
+son empreinte publique (`sim_mark`, 128 bits de SHA-256), qui désigne le jeton exact à rendre : deux piles de la même
+carte gardent chacune le leur, et une empreinte inconnue de ce joueur ne rend rien.
 
 ## 4. Face ID
 

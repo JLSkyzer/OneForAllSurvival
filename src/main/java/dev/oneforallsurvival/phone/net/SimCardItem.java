@@ -23,24 +23,26 @@ import net.minecraft.world.level.Level;
  *
  * <p>Le jeton est une <b>preuve de présence</b>, pas un secret fort : il dit que cette pile est passée par le registre
  * depuis la dernière insertion. Il n'est écrit dans aucun journal, et il n'est retiré de ce que reçoit le client que par
- * {@link #getShareTag} (cartes en inventaire, au sol, en main, logées dans un téléphone). Le survol du nom d'une pile
- * dans un message (message de mort d'un tueur qui la tient renommée, par exemple) passe par
- * {@code HoverEventItemStackInfoMixin} et {@code PhonePrivacy} : rien de la carte (tâche 15). Il peut encore voyager
- * vers un client par des chemins qui n'appellent pas {@code getShareTag} : une carte rangée dans un conteneur porté
- * comme un objet (boîte de Shulker, sac d'un mod), dont le NBT part entier, ou posée dans une machine de Create
- * (déployeur, dépôt, tapis : le bloc envoie sa pile entière). Exploiter un jeton connu demande une pile à NBT libre
- * (créatif ou commande, l'équipe seule) ; et la première insertion d'une des deux piles fait tourner le jeton : jamais
- * deux lignes.
+ * {@link #getShareTag} (cartes en inventaire, au sol, en main, logées dans un téléphone), qui met à sa place son
+ * empreinte publique ({@value #TAG_MARK}, {@link CreativeSimTokens#mark}). Le survol du nom d'une pile dans un message
+ * (message de mort d'un tueur qui la tient renommée, par exemple) passe par {@code HoverEventItemStackInfoMixin} et
+ * {@code PhonePrivacy} : rien de la carte, empreinte comprise (tâche 15). Le jeton peut encore voyager vers un client
+ * par des chemins qui n'appellent pas {@code getShareTag} : une carte rangée dans un conteneur porté comme un objet
+ * (boîte de Shulker, sac d'un mod), dont le NBT part entier, ou posée dans une machine de Create (déployeur, dépôt,
+ * tapis : le bloc envoie sa pile entière). Exploiter un jeton connu demande une pile à NBT libre (créatif ou commande,
+ * l'équipe seule) ; et la première insertion d'une des deux piles fait tourner le jeton : jamais deux lignes.
  *
- * <p>Mode créatif : le client créatif renvoie au serveur la pile qu'il a reçue, sans jeton. Le serveur rend à la carte
- * (seule ou logée dans un téléphone) le jeton qu'il a vu chez ce joueur ({@link CreativeSims}, retours d'essai du
- * 27/11), jamais celui d'un autre. Une carte abîmée avant cette correction se remplace : le fondateur la rend par
- * « Remplacer la carte » ({@link PhoneSims#replaceCard}), même numéro, nouveau jeton.
+ * <p>Mode créatif : le client créatif renvoie au serveur la pile qu'il a reçue, avec l'empreinte et sans le jeton. Le
+ * serveur rend à la carte (seule ou logée dans un téléphone) le jeton de cette empreinte qu'il a vu chez ce joueur
+ * ({@link CreativeSims}, retours d'essai du 27/11), jamais celui d'un autre. Une carte abîmée avant cette correction se
+ * remplace : le fondateur la rend par « Remplacer la carte » ({@link PhoneSims#replaceCard}), même numéro, nouveau jeton.
  */
 public class SimCardItem extends Item {
 
     public static final String TAG_ID = "sim_id";
     public static final String TAG_TOKEN = "sim_token";
+    /** L'empreinte publique du jeton : ce que le client reçoit à sa place. */
+    public static final String TAG_MARK = "sim_mark";
     public static final String TAG_NUMBER = "sim_number";
     public static final String TAG_OPERATOR = "sim_operator";
     public static final String TAG_HOLDER = "sim_holder";
@@ -79,13 +81,14 @@ public class SimCardItem extends Item {
     /** Réécrit le jeton et les copies d'affichage d'une pile de cette carte. */
     static void write(ItemStack stack, SimCard card, String operatorName) {
         CompoundTag tag = stack.getOrCreateTag();
+        tag.remove(TAG_MARK);
         tag.putUUID(TAG_TOKEN, card.token());
         tag.putString(TAG_NUMBER, card.number());
         tag.putString(TAG_OPERATOR, operatorName == null ? "" : operatorName);
         tag.putString(TAG_HOLDER, card.holderName());
     }
 
-    /** Ce que le client reçoit : tout sauf le jeton. */
+    /** Ce que le client reçoit : tout, l'empreinte du jeton à la place du jeton. */
     @Override
     @Nullable
     public CompoundTag getShareTag(ItemStack stack) {
@@ -94,8 +97,19 @@ public class SimCardItem extends Item {
             return tag;
         }
         CompoundTag copy = tag.copy();
-        copy.remove(TAG_TOKEN);
+        hideToken(copy);
         return copy;
+    }
+
+    /**
+     * Dans le NBT d'une carte destiné au client (une copie), remplace le jeton par son empreinte publique ; sans jeton,
+     * ne change rien. Un jeton illisible est seulement ôté.
+     */
+    public static void hideToken(CompoundTag card) {
+        if (card.hasUUID(TAG_TOKEN)) {
+            card.putUUID(TAG_MARK, CreativeSimTokens.mark(card.getUUID(TAG_TOKEN)));
+        }
+        card.remove(TAG_TOKEN);
     }
 
     @Override

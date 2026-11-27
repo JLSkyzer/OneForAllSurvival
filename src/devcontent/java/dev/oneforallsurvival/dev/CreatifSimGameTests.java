@@ -2,6 +2,7 @@ package dev.oneforallsurvival.dev;
 
 import dev.oneforallsurvival.phone.PhoneItem;
 import dev.oneforallsurvival.phone.PhoneRegistry;
+import dev.oneforallsurvival.phone.net.CreativeSimTokens;
 import dev.oneforallsurvival.phone.net.PhoneOperator;
 import dev.oneforallsurvival.phone.net.PhoneOperators;
 import dev.oneforallsurvival.phone.net.PhoneSims;
@@ -15,6 +16,7 @@ import java.util.UUID;
 import javax.annotation.Nullable;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.protocol.game.ServerboundSetCreativeModeSlotPacket;
 import net.minecraft.server.MinecraftServer;
@@ -30,8 +32,10 @@ import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
 /**
  * Retours d'essai du 27/11, section 3 : la carte SIM, seule ou logée dans un téléphone, reste reconnue après les gestes
- * de l'inventaire créatif. Le client ne reçoit jamais le jeton de la carte ({@code getShareTag}) et l'inventaire créatif
- * renvoie au serveur la pile qu'il connaît : le serveur rend le jeton qu'il a vu chez ce joueur, jamais celui d'un autre.
+ * de l'inventaire créatif. Le client ne reçoit jamais le jeton de la carte, seulement son empreinte ({@code getShareTag})
+ * et l'inventaire créatif renvoie au serveur la pile qu'il connaît : le serveur rend le jeton de cette empreinte qu'il a
+ * vu chez ce joueur, jamais celui d'un autre. Le jeton suit la pile : deux piles de la même carte aux jetons différents
+ * gardent chacune le sien.
  *
  * <p>Chaque geste passe par le vrai paquet de l'inventaire créatif ({@link ServerboundSetCreativeModeSlotPacket}), écrit
  * puis relu comme sur le réseau, depuis la pile telle que le client l'a reçue. Les essais sont synchrones et rangent
@@ -119,6 +123,21 @@ public final class CreatifSimGameTests {
                 ? carte.getTag().getUUID(SimCardItem.TAG_TOKEN) : null;
     }
 
+    /** Ce que le client doit avoir d'une carte : l'empreinte de son jeton, et pas le jeton. */
+    private static void empreinteSeule(GameTestHelper helper, ItemStack carte, UUID jeton, String quoi) {
+        CompoundTag tag = carte.getTag();
+        helper.assertTrue(tag != null && !tag.contains(SimCardItem.TAG_TOKEN), quoi + " : aucun jeton chez le client");
+        helper.assertTrue(tag.hasUUID(SimCardItem.TAG_MARK)
+                && tag.getUUID(SimCardItem.TAG_MARK).equals(CreativeSimTokens.mark(jeton)),
+                quoi + " : l'empreinte du jeton, clés " + tag.getAllKeys());
+    }
+
+    /** Une pile du serveur qui a retrouvé son jeton ne garde aucune empreinte (nulle part dans ce qui est sauvegardé). */
+    private static void sansEmpreinte(GameTestHelper helper, ItemStack pile, String quoi) {
+        helper.assertTrue(!pile.save(new CompoundTag()).toString().contains(SimCardItem.TAG_MARK),
+                quoi + " : la pile sauvegardée garde une empreinte");
+    }
+
     private static SimCard auRegistre(GameTestHelper helper, Essai essai, UUID simId) {
         Optional<SimCard> c = PhoneOperators.get(essai.serveur()).card(simId);
         helper.assertTrue(c.isPresent(), "carte absente du registre");
@@ -146,14 +165,22 @@ public final class CreatifSimGameTests {
     /** Un téléphone dans la case {@code ou} de la barre, la carte {@code simId} logée par une vraie insertion. */
     private static ItemStack telephoneAvecCarte(GameTestHelper helper, Essai essai, JoueurDeTest j, UUID simId, int ou) {
         ServerPlayer p = j.joueur();
-        p.getInventory().setItem(ou, new ItemStack(PhoneRegistry.PHONE.get()));
-        ItemStack phone = p.getInventory().getItem(ou);
         int carte = -1;
         for (int i = 0; i < p.getInventory().getContainerSize(); i++) {
             if (SimCardItem.simId(p.getInventory().getItem(i)).filter(simId::equals).isPresent()) {
                 carte = i;
             }
         }
+        return telephoneAvecCarte(helper, essai, p, simId, carte, ou);
+    }
+
+    /** Un téléphone dans la case {@code ou}, la carte {@code simId} de la case {@code carte} logée dedans. */
+    private static ItemStack telephoneAvecCarte(GameTestHelper helper, Essai essai, ServerPlayer p, UUID simId,
+            int carte, int ou) {
+        p.getInventory().setItem(ou, new ItemStack(PhoneRegistry.PHONE.get()));
+        ItemStack phone = p.getInventory().getItem(ou);
+        helper.assertTrue(SimCardItem.simId(p.getInventory().getItem(carte)).filter(simId::equals).isPresent(),
+                "la carte doit être dans la case " + carte);
         helper.assertTrue(PhoneSims.insert(p, phone, carte) == PhoneSims.Insert.DONE, "insertion de la carte");
         helper.assertTrue(PhoneSims.check(essai.serveur(), phone) == PhoneSims.Validity.ACTIVE, "téléphone ACTIVE");
         return phone;
@@ -168,6 +195,7 @@ public final class CreatifSimGameTests {
             UUID simId = carteEnBarre(helper, essai, f, op, 2);
             ItemStack client = vueDuClient(p.getInventory().getItem(2));
             helper.assertTrue(jetonDe(client) == null, "témoin : le client n'a pas le jeton");
+            empreinteSeule(helper, client, auRegistre(helper, essai, simId).token(), "carte reçue par le client");
 
             // L'inventaire créatif vide la première case, puis pose la pile qu'il tient dans une autre.
             creatif(f, barre(2), ItemStack.EMPTY);
@@ -177,6 +205,7 @@ public final class CreatifSimGameTests {
             helper.assertTrue(SimCardItem.simId(posee).filter(simId::equals).isPresent(), "la carte est en case 6");
             helper.assertTrue(auRegistre(helper, essai, simId).token().equals(jetonDe(posee)),
                     "la carte posée ailleurs porte de nouveau le jeton du registre");
+            sansEmpreinte(helper, posee, "carte posée ailleurs");
 
             // Reconnue : elle se glisse dans un téléphone et donne la ligne.
             p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(PhoneRegistry.PHONE.get()));
@@ -233,6 +262,8 @@ public final class CreatifSimGameTests {
             ItemStack phone = telephoneAvecCarte(helper, essai, f, simId, 0);
             ItemStack client = vueDuClient(phone);
             helper.assertTrue(jetonDe(PhoneItem.sim(client)) == null, "témoin : la carte logée arrive sans jeton");
+            empreinteSeule(helper, PhoneItem.sim(client), auRegistre(helper, essai, simId).token(),
+                    "carte logée reçue par le client");
 
             creatif(f, barre(0), ItemStack.EMPTY);
             creatif(f, barre(5), client);
@@ -240,6 +271,7 @@ public final class CreatifSimGameTests {
             helper.assertTrue(pose.is(PhoneRegistry.PHONE.get()), "le téléphone est en case 5");
             helper.assertTrue(PhoneSims.check(essai.serveur(), pose) == PhoneSims.Validity.ACTIVE,
                     "le téléphone déplacé garde sa ligne, vu " + PhoneSims.check(essai.serveur(), pose));
+            sansEmpreinte(helper, pose, "téléphone déplacé");
             helper.succeed();
         }
     }
@@ -278,6 +310,8 @@ public final class CreatifSimGameTests {
             ItemStack carte = vueDuClient(p.getInventory().getItem(2));
             UUID simTel = carteEnBarre(helper, essai, f, op, 4);
             ItemStack phone = vueDuClient(telephoneAvecCarte(helper, essai, f, simTel, 0));
+            UUID jetonCarte = auRegistre(helper, essai, simId).token();
+            UUID jetonLoge = auRegistre(helper, essai, simTel).token();
             // Le propriétaire a vidé ses cases : le serveur a vu les jetons chez lui, pas chez l'autre.
             creatif(f, barre(2), ItemStack.EMPTY);
             creatif(f, barre(0), ItemStack.EMPTY);
@@ -290,6 +324,9 @@ public final class CreatifSimGameTests {
             helper.assertTrue(jetonDe(q.getInventory().getItem(1)) == null, "aucun jeton pour la carte de l'autre");
             helper.assertTrue(jetonDe(PhoneItem.sim(q.getInventory().getItem(3))) == null,
                     "aucun jeton pour la carte logée de l'autre");
+            empreinteSeule(helper, q.getInventory().getItem(1), jetonCarte, "carte de l'autre, laissée telle quelle");
+            empreinteSeule(helper, PhoneItem.sim(q.getInventory().getItem(3)), jetonLoge,
+                    "carte logée de l'autre, laissée telle quelle");
             helper.assertTrue(PhoneSims.check(essai.serveur(), q.getInventory().getItem(3)) == PhoneSims.Validity.UNKNOWN,
                     "son téléphone est « non reconnu »");
             helper.succeed();
@@ -311,6 +348,137 @@ public final class CreatifSimGameTests {
             ItemStack posee = revenu.joueur().getInventory().getItem(5);
             helper.assertTrue(SimCardItem.simId(posee).filter(simId::equals).isPresent(), "la pile est posée");
             helper.assertTrue(jetonDe(posee) == null, "après la déconnexion, le jeton vu n'est plus rendu");
+            helper.succeed();
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Deux piles de la même carte, aux jetons différents : le jeton suit la pile
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * Deux piles de la même carte : la carte émise, posée en case {@code origine}, est copiée par le créatif en case
+     * {@code copie}, puis glissée dans un téléphone en case {@code telephone}. L'insertion fait tourner le jeton : la
+     * copie garde l'ancien, elle est morte. Rend l'identifiant de la carte.
+     */
+    private static UUID telephoneEtCopiePerimee(GameTestHelper helper, Essai essai, JoueurDeTest j, PhoneOperator op,
+            int origine, int copie, int telephone) {
+        ServerPlayer p = j.joueur();
+        UUID simId = carteEnBarre(helper, essai, j, op, origine);
+        creatif(j, barre(copie), vueDuClient(p.getInventory().getItem(origine)));
+        helper.assertTrue(SimCardItem.simId(p.getInventory().getItem(copie)).filter(simId::equals).isPresent(),
+                "la copie est posée");
+        telephoneAvecCarte(helper, essai, p, simId, origine, telephone);
+        UUID perime = jetonDe(p.getInventory().getItem(copie));
+        helper.assertTrue(perime != null && !perime.equals(auRegistre(helper, essai, simId).token()),
+                "témoin : la copie porte un jeton, périmé");
+        return simId;
+    }
+
+    private static PhoneSims.Validity validite(Essai essai, JoueurDeTest j, int caseJoueur) {
+        return PhoneSims.check(essai.serveur(), j.joueur().getInventory().getItem(caseJoueur));
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT)
+    public static void leTelephoneDeplaceGardeSonJetonMalgreUneCopiePerimee(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest f = essai.createur("crea_a_depl");
+            PhoneOperator op = essai.fonder(f, "Crea A Deplace");
+            ServerPlayer p = f.joueur();
+            UUID simId = telephoneEtCopiePerimee(helper, essai, f, op, 2, 6, 0);
+            UUID perime = jetonDe(p.getInventory().getItem(6));
+            ItemStack client = vueDuClient(p.getInventory().getItem(0));
+
+            creatif(f, barre(0), ItemStack.EMPTY);
+            creatif(f, barre(4), client);
+            helper.assertTrue(validite(essai, f, 4) == PhoneSims.Validity.ACTIVE,
+                    "le téléphone à la bonne carte, déplacé, garde sa ligne ; vu " + validite(essai, f, 4));
+            helper.assertTrue(auRegistre(helper, essai, simId).token()
+                    .equals(jetonDe(PhoneItem.sim(p.getInventory().getItem(4)))), "il porte le jeton du registre");
+            helper.assertTrue(perime.equals(jetonDe(p.getInventory().getItem(6))), "la copie n'a pas changé");
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT)
+    public static void laCaseRenvoyeeGardeSonJetonMalgreUneCopiePerimee(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest f = essai.createur("crea_a_renvoi");
+            PhoneOperator op = essai.fonder(f, "Crea A Renvoi");
+            ServerPlayer p = f.joueur();
+            UUID simId = telephoneEtCopiePerimee(helper, essai, f, op, 2, 6, 0);
+            PhoneItem.store(p.getInventory().getItem(0), 1234);
+
+            creatif(f, barre(0), vueDuClient(p.getInventory().getItem(0)));
+            helper.assertTrue(validite(essai, f, 0) == PhoneSims.Validity.ACTIVE,
+                    "la case renvoyée par l'inventaire ouvert garde sa ligne ; vu " + validite(essai, f, 0));
+            helper.assertTrue(auRegistre(helper, essai, simId).token()
+                    .equals(jetonDe(PhoneItem.sim(p.getInventory().getItem(0)))), "elle porte le jeton du registre");
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT)
+    public static void uneCopiePerimeeDeplaceeNeRessusciteAucunJeton(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest f = essai.createur("crea_b_morte");
+            PhoneOperator op = essai.fonder(f, "Crea B Morte");
+            ServerPlayer p = f.joueur();
+            // La copie périmée en case 2, avant le téléphone dans l'ordre des cases.
+            UUID simId = telephoneEtCopiePerimee(helper, essai, f, op, 4, 2, 7);
+            UUID perime = jetonDe(p.getInventory().getItem(2));
+            ItemStack client = vueDuClient(p.getInventory().getItem(2));
+
+            creatif(f, barre(2), ItemStack.EMPTY);
+            creatif(f, barre(5), client);
+            ItemStack posee = p.getInventory().getItem(5);
+            helper.assertTrue(SimCardItem.simId(posee).filter(simId::equals).isPresent(), "la copie est en case 5");
+            helper.assertTrue(!auRegistre(helper, essai, simId).token().equals(jetonDe(posee)),
+                    "la copie périmée déplacée ne reçoit pas le jeton courant");
+            helper.assertTrue(perime.equals(jetonDe(posee)), "elle retrouve exactement le sien");
+            p.getInventory().setItem(10, new ItemStack(PhoneRegistry.PHONE.get()));
+            helper.assertTrue(PhoneSims.insert(p, p.getInventory().getItem(10), 5) == PhoneSims.Insert.UNKNOWN_CARD,
+                    "la copie morte est toujours refusée");
+            helper.assertTrue(validite(essai, f, 7) == PhoneSims.Validity.ACTIVE,
+                    "le téléphone garde sa ligne, vu " + validite(essai, f, 7));
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT)
+    public static void majClicDestinationAvantLaSourceLeJetonSuitLaPile(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest f = essai.createur("crea_majclic");
+            PhoneOperator op = essai.fonder(f, "Crea MajClic");
+            ServerPlayer p = f.joueur();
+            // « Remplacer la carte » avec l'ancienne pile gardée : l'ancienne en case 8, après la neuve en case 1.
+            UUID simId = carteEnBarre(helper, essai, f, op, 8);
+            UUID ancien = jetonDe(p.getInventory().getItem(8));
+            helper.assertTrue(PhoneSims.replaceCard(p, simId).isPresent(), "carte remplacée");
+            int neuve = -1;
+            for (int i = 0; i < p.getInventory().getContainerSize(); i++) {
+                if (i != 8 && SimCardItem.simId(p.getInventory().getItem(i)).filter(simId::equals).isPresent()) {
+                    neuve = i;
+                }
+            }
+            helper.assertTrue(neuve >= 0, "la carte neuve est dans l'inventaire");
+            ItemStack pile = p.getInventory().removeItemNoUpdate(neuve);
+            p.getInventory().setItem(1, pile);
+            UUID courant = auRegistre(helper, essai, simId).token();
+            helper.assertTrue(courant.equals(jetonDe(p.getInventory().getItem(1))) && !courant.equals(ancien),
+                    "témoin : la neuve en case 1 porte le jeton courant, l'ancienne non");
+            ItemStack client = vueDuClient(p.getInventory().getItem(1));
+
+            // Maj+clic vers le sac : la destination arrive pendant que la source est encore pleine.
+            creatif(f, 20, client);
+            creatif(f, barre(1), ItemStack.EMPTY);
+            helper.assertTrue(courant.equals(jetonDe(p.getInventory().getItem(20))),
+                    "la carte neuve garde son jeton");
+            helper.assertTrue(ancien.equals(jetonDe(p.getInventory().getItem(8))), "l'ancienne n'a pas changé");
+            p.getInventory().setItem(10, new ItemStack(PhoneRegistry.PHONE.get()));
+            helper.assertTrue(PhoneSims.insert(p, p.getInventory().getItem(10), 20) == PhoneSims.Insert.DONE,
+                    "elle se glisse");
+            helper.assertTrue(validite(essai, f, 10) == PhoneSims.Validity.ACTIVE, "ligne ACTIVE");
             helper.succeed();
         }
     }

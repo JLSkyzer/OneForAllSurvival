@@ -30,7 +30,8 @@ import org.jetbrains.annotations.Nullable;
  * cette vérification ne doit jamais être relâchée.
  *
  * <p>Lot T2 : la carte SIM logée vit dans le NBT {@value #TAG_SIM} du téléphone ; son jeton n'est jamais envoyé au
- * client ({@link #getShareTag}). Deux copies d'un téléphone avec sa carte partagent sa ligne, comme le reste.
+ * client, qui reçoit son empreinte à la place ({@link #getShareTag}). Deux copies d'un téléphone avec sa carte
+ * partagent sa ligne, comme le reste.
  */
 public class PhoneItem extends Item {
 
@@ -75,7 +76,7 @@ public class PhoneItem extends Item {
         phone.getOrCreateTag().put(TAG_SIM, sim.copyWithCount(1).save(new CompoundTag()));
     }
 
-    /** Ce que le client reçoit : tout, sauf le jeton de la carte logée. */
+    /** Ce que le client reçoit : tout, l'empreinte du jeton à la place du jeton de la carte logée. */
     @Override
     @Nullable
     public CompoundTag getShareTag(ItemStack stack) {
@@ -84,8 +85,7 @@ public class PhoneItem extends Item {
             return tag;
         }
         CompoundTag copy = tag.copy();
-        CompoundTag simTag = copy.getCompound(TAG_SIM).getCompound("tag");
-        simTag.remove(SimCardItem.TAG_TOKEN);
+        SimCardItem.hideToken(copy.getCompound(TAG_SIM).getCompound("tag"));
         return copy;
     }
 

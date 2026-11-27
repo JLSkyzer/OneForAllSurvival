@@ -16,7 +16,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * Lot T2, tâche 15 (revue, point 1) : le survol d'un objet dans un message ({@code ItemStack.getDisplayName}, par
  * exemple le message de mort d'un tueur qui tient un téléphone ou une carte renommés, envoyé à tout le serveur) copie
  * {@code getTag()} entier, pas {@code getShareTag()}. Ici, le NBT copié passe par {@link PhonePrivacy} : plus de
- * {@code phone_id}, de carte logée, de jeton, de numéro, de titulaire ni d'opérateur ; tout autre objet est inchangé.
+ * {@code phone_id}, de carte logée, de jeton ni d'empreinte, de numéro, de titulaire ni d'opérateur ; tout autre objet
+ * est inchangé.
  * La pile d'origine n'est jamais modifiée. Seul le constructeur {@code (ItemStack)} est visé.
  */
 @Mixin(HoverEvent.ItemStackInfo.class)

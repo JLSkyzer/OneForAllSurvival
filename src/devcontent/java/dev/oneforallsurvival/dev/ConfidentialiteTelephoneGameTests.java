@@ -4,6 +4,7 @@ import com.mojang.datafixers.util.Pair;
 import dev.oneforallsurvival.dev.PanneauOperateurGameTests.Essai;
 import dev.oneforallsurvival.phone.PhoneItem;
 import dev.oneforallsurvival.phone.PhoneRegistry;
+import dev.oneforallsurvival.phone.net.CreativeSimTokens;
 import dev.oneforallsurvival.phone.net.PhoneOperator;
 import dev.oneforallsurvival.phone.net.SimCard;
 import dev.oneforallsurvival.phone.net.SimCardItem;
@@ -40,9 +41,9 @@ import net.minecraftforge.gametest.PrefixGameTestTemplate;
 /**
  * Tâche 15 du lot T2 (décision de Killian du 2026-11-26) : un téléphone ou une carte SIM tenus ne disent rien de la
  * carte aux autres joueurs. Dans tout paquet d'équipement ({@link ClientboundSetEquipmentPacket}, envoi au suivi comme
- * changement en cours), la pile n'a plus ni numéro, ni titulaire, ni nom d'opérateur, ni {@code sim_id}, ni jeton, ni
- * sous-NBT {@code sim}, ni {@code phone_id} ; ce qui sert au rendu (l'objet, sa batterie) reste ; la pile du serveur
- * n'est jamais modifiée ; le porteur garde tout dans ses paquets d'inventaire.
+ * changement en cours), la pile n'a plus ni numéro, ni titulaire, ni nom d'opérateur, ni {@code sim_id}, ni jeton ni
+ * son empreinte ({@code sim_mark}), ni sous-NBT {@code sim}, ni {@code phone_id} ; ce qui sert au rendu (l'objet, sa
+ * batterie) reste ; la pile du serveur n'est jamais modifiée ; le porteur garde tout dans ses paquets d'inventaire.
  *
  * <p>Limite écrite, hors de ces essais : une pile posée au sol, en cadre ou dans un conteneur ouvert garde ses données.
  */
@@ -74,7 +75,7 @@ public final class ConfidentialiteTelephoneGameTests {
     private record Secrets(List<String> textes, List<UUID> ids) {
         static Secrets de(Essai e, PhoneOperator op, SimCard... cartes) {
             List<String> textes = new ArrayList<>(List.of(op.name(), "sim_number", "sim_holder", "sim_operator",
-                    "sim_id", "sim_token", "phone_id"));
+                    "sim_id", "sim_token", "sim_mark", "phone_id"));
             List<UUID> ids = new ArrayList<>();
             for (SimCard c : cartes) {
                 SimCard now = e.carte(c);
@@ -85,6 +86,7 @@ public final class ConfidentialiteTelephoneGameTests {
                 }
                 ids.add(now.simId());
                 ids.add(now.token());
+                ids.add(CreativeSimTokens.mark(now.token()));
                 if (now.phoneId() != null) {
                     ids.add(now.phoneId());
                 }
@@ -161,7 +163,7 @@ public final class ConfidentialiteTelephoneGameTests {
             return Optional.empty();
         }
         for (String cle : List.of(PhoneItem.TAG_ID, PhoneItem.TAG_SIM, SimCardItem.TAG_ID, SimCardItem.TAG_TOKEN,
-                SimCardItem.TAG_NUMBER, SimCardItem.TAG_OPERATOR, SimCardItem.TAG_HOLDER)) {
+                SimCardItem.TAG_MARK, SimCardItem.TAG_NUMBER, SimCardItem.TAG_OPERATOR, SimCardItem.TAG_HOLDER)) {
             if (tag.contains(cle)) {
                 return Optional.of(cle);
             }
@@ -179,11 +181,14 @@ public final class ConfidentialiteTelephoneGameTests {
             CompoundTag carte = tag.getCompound(PhoneItem.TAG_SIM).getCompound("tag");
             helper.assertTrue(carte.hasUUID(SimCardItem.TAG_TOKEN) && carte.contains(SimCardItem.TAG_NUMBER), quoi
                     + " : la carte logée du serveur a perdu son jeton ou son numéro, clés " + carte.getAllKeys());
+            helper.assertTrue(!carte.contains(SimCardItem.TAG_MARK),
+                    quoi + " : la carte logée du serveur porte une empreinte");
         } else {
             for (String cle : List.of(SimCardItem.TAG_ID, SimCardItem.TAG_TOKEN, SimCardItem.TAG_NUMBER,
                     SimCardItem.TAG_OPERATOR, SimCardItem.TAG_HOLDER)) {
                 helper.assertTrue(tag.contains(cle), quoi + " : la pile du serveur a perdu " + cle);
             }
+            helper.assertTrue(!tag.contains(SimCardItem.TAG_MARK), quoi + " : la carte du serveur porte une empreinte");
         }
     }
 
@@ -244,6 +249,13 @@ public final class ConfidentialiteTelephoneGameTests {
         intacte(helper, copieCarte, "copie passée au paquet (carte)");
         intacte(helper, t.joueur().getItemInHand(InteractionHand.MAIN_HAND), "téléphone du serveur");
         intacte(helper, t.joueur().getItemInHand(InteractionHand.OFF_HAND), "carte du serveur");
+        // Une pile telle que le client la renvoie, restée sans jeton (copie créative d'un autre) : son empreinte non plus.
+        ItemStack inconnue = new ItemStack(PhoneRegistry.SIM_CARD.get());
+        inconnue.setTag(carte.getShareTag().copy());
+        helper.assertTrue(inconnue.getTag().hasUUID(SimCardItem.TAG_MARK)
+                && !inconnue.getTag().contains(SimCardItem.TAG_TOKEN), "témoin : empreinte sans jeton");
+        sansSecret(helper, new ClientboundSetEquipmentPacket(t.joueur().getId(),
+                List.of(Pair.of(EquipmentSlot.MAINHAND, inconnue))), secrets, "carte à empreinte sans jeton");
         // Témoin : sans carte ni téléphone, une pile ordinaire passe telle quelle.
         ItemStack nommee = new ItemStack(net.minecraft.world.item.Items.PAPER);
         nommee.getOrCreateTag().putString("sim_number", "temoin");

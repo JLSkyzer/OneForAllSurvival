@@ -4,6 +4,7 @@ import dev.oneforallsurvival.phone.PhoneItem;
 import dev.oneforallsurvival.phone.PhoneRegistry;
 import java.util.Optional;
 import java.util.UUID;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
@@ -11,24 +12,28 @@ import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.server.ServerStoppedEvent;
 
 /**
- * La carte SIM dans l'inventaire créatif (retours d'essai du 27/11). Le client ne reçoit jamais le jeton d'une carte
- * ({@link SimCardItem#getShareTag}, {@link PhoneItem#getShareTag}) ; or l'inventaire créatif renvoie au serveur la pile
- * qu'il connaît ({@code ServerboundSetCreativeModeSlotPacket}), qui remplace celle du serveur : la carte, seule ou logée
- * dans un téléphone, perdait son jeton et devenait « non reconnue ».
+ * La carte SIM dans l'inventaire créatif (retours d'essai du 27/11). Le client ne reçoit jamais le jeton d'une carte,
+ * seulement son empreinte publique ({@link SimCardItem#getShareTag}, {@link PhoneItem#getShareTag},
+ * {@link SimCardItem#TAG_MARK}) ; or l'inventaire créatif renvoie au serveur la pile qu'il connaît
+ * ({@code ServerboundSetCreativeModeSlotPacket}), qui remplace celle du serveur : sans retour du jeton, la carte, seule
+ * ou logée dans un téléphone, deviendrait « non reconnue ».
  *
  * <p>À chaque paquet de l'inventaire créatif (fil du serveur, {@code ServerGamePacketListenerImplMixin}), avant que
  * Minecraft ne l'applique, le serveur note les jetons des cartes qu'il voit chez ce joueur (cases du menu de son
- * inventaire, dont celle qui va être remplacée, et la pile tenue), puis rend à la pile reçue, si elle arrive sans jeton,
- * celui qu'il a vu chez ce joueur pour cette carte. Il ne le prend jamais au registre sur la foi du client, et ne
- * l'envoie toujours pas au client. Une pile reçue avec un jeton est laissée telle quelle. La pile posée ou jetée est
- * notée à son tour. Mémoire bornée ({@value #PER_PLAYER} cartes par joueur), oubliée à la déconnexion et à l'arrêt.
+ * inventaire, dont celle qui va être remplacée, et la pile tenue), puis, si la pile reçue porte une empreinte dont il a
+ * vu le jeton chez ce joueur, il lui rend exactement ce jeton et ôte l'empreinte. Le jeton suit donc la pile : deux piles
+ * de la même carte aux jetons différents gardent chacune le sien, quel que soit l'ordre des paquets (Maj+clic dont la
+ * destination arrive avant la source compris). Une empreinte inconnue de ce joueur ne rend rien : la pile reste telle
+ * quelle. Le serveur ne prend jamais un jeton au registre sur la foi du client, et ne l'envoie pas au client. La pile
+ * posée ou jetée est notée à son tour. Mémoire bornée ({@value #PER_PLAYER} jetons par joueur), oubliée à la déconnexion
+ * et à l'arrêt.
  *
  * <p>Une copie créative d'une carte (clic du milieu) reçoit le même jeton : après une insertion, une seule vaut, comme
  * pour toute copie ({@link PhoneSims}).
  */
 public final class CreativeSims {
 
-    /** Les cartes retenues au plus par joueur. */
+    /** Les jetons retenus au plus par joueur. */
     static final int PER_PLAYER = 64;
 
     private static final CreativeSimTokens SEEN = new CreativeSimTokens(PER_PLAYER);
@@ -37,7 +42,7 @@ public final class CreativeSims {
 
     /**
      * La pile que l'inventaire créatif de {@code player} pose dans une case (ou jette) : {@code sent}, avec le jeton de
-     * sa carte rendu s'il a été vu chez ce joueur. Fil du serveur seulement.
+     * son empreinte rendu s'il a été vu chez ce joueur. Fil du serveur seulement.
      */
     public static ItemStack onCreativeSlot(ServerPlayer player, ItemStack sent) {
         UUID who = player.getUUID();
@@ -53,33 +58,22 @@ public final class CreativeSims {
 
     private static void note(UUID player, ItemStack stack) {
         if (stack.getItem() instanceof SimCardItem) {
-            noteCard(player, stack);
+            SimCardItem.token(stack).ifPresent(token -> SEEN.note(player, token));
         } else if (stack.is(PhoneRegistry.PHONE.get())) {
-            noteCard(player, PhoneItem.sim(stack));
+            SimCardItem.token(PhoneItem.sim(stack)).ifPresent(token -> SEEN.note(player, token));
         }
     }
 
-    private static void noteCard(UUID player, ItemStack card) {
-        Optional<UUID> id = SimCardItem.simId(card);
-        Optional<UUID> token = SimCardItem.token(card);
-        if (id.isPresent() && token.isPresent()) {
-            SEEN.note(player, id.get(), token.get());
-        }
-    }
-
+    /** {@code sent} telle quelle, ou sa copie dont la carte (seule ou logée) a retrouvé son jeton. */
     private static ItemStack restore(UUID player, ItemStack sent) {
         if (sent.getItem() instanceof SimCardItem) {
-            Optional<UUID> token = missing(player, sent);
-            if (token.isPresent()) {
-                ItemStack copy = sent.copy();
-                copy.getOrCreateTag().putUUID(SimCardItem.TAG_TOKEN, token.get());
+            ItemStack copy = sent.copy();
+            if (copy.hasTag() && giveBack(player, copy.getTag())) {
                 return copy;
             }
         } else if (sent.is(PhoneRegistry.PHONE.get())) {
             ItemStack card = PhoneItem.sim(sent);
-            Optional<UUID> token = card.isEmpty() ? Optional.empty() : missing(player, card);
-            if (token.isPresent()) {
-                card.getOrCreateTag().putUUID(SimCardItem.TAG_TOKEN, token.get());
+            if (!card.isEmpty() && card.hasTag() && giveBack(player, card.getTag())) {
                 ItemStack copy = sent.copy();
                 PhoneItem.setSim(copy, card);
                 return copy;
@@ -88,12 +82,25 @@ public final class CreativeSims {
         return sent;
     }
 
-    /** Le jeton à rendre à cette carte : aucun si elle en porte déjà un, sinon celui vu chez ce joueur, s'il y en a un. */
-    private static Optional<UUID> missing(UUID player, ItemStack card) {
-        if (SimCardItem.token(card).isPresent()) {
-            return Optional.empty();
+    /**
+     * Rend au NBT d'une carte le jeton de son empreinte, vu chez ce joueur, et ôte l'empreinte (une carte qui a déjà un
+     * jeton la perd seulement : une pile du serveur ne garde pas les deux).
+     *
+     * @return vrai si le NBT a changé ; faux sans empreinte, ou si elle est inconnue de ce joueur
+     */
+    private static boolean giveBack(UUID player, CompoundTag card) {
+        if (!card.hasUUID(SimCardItem.TAG_MARK)) {
+            return false;
         }
-        return SimCardItem.simId(card).flatMap(id -> SEEN.token(player, id));
+        if (!card.hasUUID(SimCardItem.TAG_TOKEN)) {
+            Optional<UUID> token = SEEN.token(player, card.getUUID(SimCardItem.TAG_MARK));
+            if (token.isEmpty()) {
+                return false;
+            }
+            card.putUUID(SimCardItem.TAG_TOKEN, token.get());
+        }
+        card.remove(SimCardItem.TAG_MARK);
+        return true;
     }
 
     public static void onLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
