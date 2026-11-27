@@ -227,7 +227,7 @@ Fréquences relevées sur les journaux de bout en bout du jour (`run-e2e/logs`, 
 | 16:05:59 (tâche 13) | « Origines du monde neuf : un animal apparu à la génération des chunks est marqué sauvage : ORIGINES animaux=0 […] » | 1 sur 10 | la graine du monde : aucun animal né à la génération (déjà vu au lot E6) |
 | 15:49:57 et 20:09:41 | « Relance : le compteur de coupure a été relu, l'œuf est toujours là : case 0 0 air, compteur 0 (avant l'arret 300 puis 301) […] » | 2 sur 4 avant ce réglage (la première avant le correctif de la tâche 13) ; puis passé à 20:50 et 21:44, et échec à 00:13 (ligne suivante) | **établie** : le compteur de la couveuse, dans les chunks de l'apparition, repart au démarrage ; menu ouvert 46 s après « Done » à 20:09 pour 45 s de marge. La coupure du premier passage s'arrête à 100 tics au lieu de 300 (55 s de marge) ; l'assertion de la relance est inchangée |
 | 00:13:33 (26/11) | « Relance : le compteur de coupure a été relu, l'œuf est toujours là : case 0 0 air, compteur 0 (avant l'arret 101), seuil 1200, etat STOPPED » | 2 sur 4 depuis le début du nettoyage, 1 sur 3 depuis le réglage | **établie**, même cause : menu ouvert environ 56 s après « Done » (compilation et démarrage du client) pour 55 s de marge ; le contrôle tombe à 80 s, après 25 s d'attente. **Non corrigée** : il faudrait relire la couveuse par la console au démarrage, pas par le menu du client |
-| 20:53:37 | « Relance : à minuit (au démarrage), deux jours clos ; l'aire n'a jamais été chargée depuis : […] {charge=true, joueurs=1} » | 1 sur 4 | **établie** par `data/chunks.dat` : un fil de l'aire traversait une frontière de chunk en z, l'addon du pack forçait ses deux chunks et le compteur, dans le chunk voisin, était chargé. Origine alignée aussi en z ; **correction pas encore éprouvée par une relance** |
+| 20:53:37 | « Relance : à minuit (au démarrage), deux jours clos ; l'aire n'a jamais été chargée depuis : […] {charge=true, joueurs=1} » | 1 sur 4 | **établie** par `data/chunks.dat` : un fil de l'aire traversait une frontière de chunk en z, l'addon du pack forçait ses deux chunks et le compteur, dans le chunk voisin, était chargé. Origine alignée aussi en z ; correction éprouvée par la relance du 27/11 (« Reprise des restes ») |
 
 ## Appli « Antenne » en HTML et panneau dans le repli : le contrat tel que livré
 
@@ -411,11 +411,11 @@ Les défauts de la revue finale, la recette, la fuite de pièces et les mineurs 
 10. Repli : relevé à 100 blocs de Mairie seulement ; les assertions de tarif durcies n'ont pas été rejouées en repli ni en solo.
 11. Panneau à 320 × 240 : un bouton ou un cadre hors limites fait échouer ; les textes coupés sont comptés, non assertés. La bulle du repli posée au rendu n'a ni essai ni capture au survol.
 12. La ligne d'état de l'appli laisse passer les touchers : les boutons cachés dessous restent atteignables (« Remplacer » n'a pas de confirmation).
-13. Relance complète : la couveuse du lot 5 court contre le démarrage du serveur ; marge portée à 55 s, dépassée à 00:13 le 26/11 (menu environ 56 s après « Done » ; 31 à 46 s sur les cinq relances mesurées avant).
-14. **Aucune relance complète n'aboutit avec les derniers réglages de l'automate** (celle de 21:43 interrompue, celle de 00:10 arrêtée à la couveuse) : la correction du minuit de l'électricité et la partie téléphone au sein d'une relance complète restent à jouer. La partie téléphone de la relance n'est prouvée que par l'étape seule (21:22). Trois étapes d'anciens lots sont instables (tableau des « Essais réels »).
+13. Couveuse du lot 5 à la relance : **corrigée** (`07d9874`), voir « Reprise des restes ».
+14. **Aucune relance complète n'a encore abouti** : le 27/11 elle s'arrête à l'étape des quêtes, la dernière (essai qui dépend du jour réel, « Reprise des restes ») ; la fin de la relance des quêtes n'est pas jouée. La cache enterrée, le détecteur et le zombie restent instables (tableau des « Essais réels »).
 15. Après un échec de l'étape : inventaire et position non rendus ; rien n'est rangé si le client est déconnecté (`Dev` peut rester non opérateur) ; la difficulté rendue est ensuite remise à « peaceful » par le rangement commun.
 16. Non joués : écran de mort réel, autre dimension que le Nether.
-17. L'absence du code d'essai dans le jar livré n'est vue que sur le jar du 2026-11-14 (aucune classe `dev/`) et dans `build.gradle` ; **le jar n'a pas été reconstruit**.
+17. L'absence du code d'essai dans le jar livré n'est vue que sur le jar du 2026-11-14 (aucune classe `dev/`) et dans `build.gradle` ; jar reconstruit et contrôlé sans être lancé le 26/11 (« Reprise des restes »).
 
 Et aussi : le passage « vive ↔ grisée » écran d'accueil ouvert n'a pas été filmé en jeu (GameTests) ; la fermeture par batterie vide et les chemins d'échec du lot T1 restent comme au lot T1.
 
@@ -441,7 +441,7 @@ Un connecteur de Crafts & Additions posé sur n'importe quelle face du bloc qui 
 
 - Tests : JUnit 985, 0 échec ; GameTests « All 1178 required tests passed » sans puis avec le pack (00:25 et 00:28 le 26/11), lot `prise_fil` (5).
 - Mutations vues rouges : mixin retiré (téléphone à 0 FE) ; garde du mur à bloc-entité retirée (« la prise a pris le courant de la machine ») ; mise en sortie répétée (« le réglage à la clé a été écrasé »).
-- Non prouvé : pas de vrai client ni de jeu à la main depuis la correction ; jar livré jamais construit ni lancé avec ce mixin ; grands connecteurs, connecteurs lumineux, deux prises sur un bloc, mur devenu machine sans mise à jour, rechargement du monde non essayés. `05d80e3` a été relu (corrigé). Du nettoyage restent sans preuve d'essai : l'oubli des panneaux à l'arrêt (l'essai passe même sans l'inscription au bus), le rangement d'un essai expiré (m-C) et le rangement après un échec précoce de l'automate (N3).
+- Non prouvé (le vrai client et le jar construit sont dans « Reprise des restes ») : jar livré jamais lancé avec ce mixin ; grands connecteurs, connecteurs lumineux, deux prises sur un bloc, mur devenu machine sans mise à jour, rechargement du monde non essayés. `05d80e3` a été relu (corrigé). Du nettoyage restent sans preuve d'essai : l'oubli des panneaux à l'arrêt (l'essai passe même sans l'inscription au bus), le rangement d'un essai expiré (m-C) et le rangement après un échec précoce de l'automate (N3).
 
 ## Tâche 15 : numéro caché, « Désactiver », icône grisée (décisions de Killian, 2026-11-26)
 
@@ -451,5 +451,37 @@ Un connecteur de Crafts & Additions posé sur n'importe quelle face du bloc qui 
 - Tests : JUnit 989, 0 échec ; GameTests « All 1184 required tests passed » sans le pack (02:09 et 02:27) et avec (02:16) le 26/11 ; lots `telephone_confidentialite` (2), `panneau_desactiver` (3), `panneau_plafond` (+1).
 - Mutations vues rouges : mixin retiré du `mixins.json` (les deux essais de confidentialité : « Ecoute Discrete », « sim_number ») ; « Désactiver » sans le droit des cartes (« le maire ne désactive rien ») ; titulaire non prévenu ; confirmation sans délai, icône grisée animée, `opDeactivate` lu comme « Remplacer » (JUnit).
 - Vu : `#mock` (390 × 844, sans CSP) des deux états du bouton, de l'expiration à 5 s, de l'icône grisée ; un vrai client sans MCEF (automate `antenne`, 56 pas, « TOUT PASSE ») : « Confirmer ? » puis « Désactivée » au panneau Minecraft, et « Pas de réseau. » sans panneau au toucher de l'icône grisée.
-- Non prouvé : la page dans un vrai client MCEF (seulement `#mock`) ; un second client réel regardant le porteur (le paquet est prouvé par GameTest, pas à l'œil) ; un porteur en partie solo ouverte en réseau local.
+- Non prouvé (la page dans un vrai client MCEF est dans « Reprise des restes ») : un second client réel regardant le porteur (le paquet est prouvé par GameTest, pas à l'œil) ; un porteur en partie solo ouverte en réseau local.
 - **Corrections de la revue** : le survol d'un objet dans un message (`HoverEvent.ItemStackInfo(ItemStack)`, par exemple le message de mort d'un tueur qui tient un téléphone ou une carte renommés, envoyé à tout le serveur) passe par `PhonePrivacy` (`HoverEventItemStackInfoMixin`, champ `f_130890_` dans le jar livré) ; GameTest `leMessageDeMortNeDitRienDeLaCarte` (JSON du message : aucun secret, ni texte ni identifiant en NBT texte ; une épée renommée garde son survol), mixin retiré vu rouge. « Désactiver » : un second appui à moins de 400 ms du premier ne confirme pas (panneau et page, fenêtre toujours de 5 s ; JUnit, mutation vue rouge ; `#mock` : double-toucher à 100 ms, rien envoyé). Attente cachée de l'icône grisée : quitter l'accueil (Réglages) ferme l'attente et envoie `opClose` (`#mock`). Limite Create ajoutée.
+
+## Reprise des restes (tâche 16, 2026-11-26 et 27)
+
+**État : l'appli et la prise sont vues dans un vrai client, le premier passage complet passe, la relance complète s'arrête encore à sa dernière étape.**
+
+### Passage complet et relance sur serveur dédié avec le pack (27/11, code de `8756a7c`)
+
+| Passage | Heure | Résultat |
+|---|---|---|
+| Passage complet, monde neuf | 00:49 à 01:08 | **TOUT PASSE, 476 PASS** |
+| Relance complète | 01:09 à 01:12 | 122 PASS, 1 échec : quêtes (E5) |
+
+- **Joués pour la première fois dans une relance complète depuis le nettoyage** : la couveuse (chunk dit non chargé par la console avant l'arrivée du joueur ; compteur 352 ticks 2,8 s après l'arrivée pour 301 à l'arrêt, œuf présent), le minuit de l'électricité (compteur d'Abonne dans un chunk `charge=false`, factures et caisse justes) et la partie téléphone (antenne de Mairie, tarif du lendemain, opérateur supprimé, cartes relues).
+- **Échec des quêtes, défaut de l'essai** : le relevé d'avant l'arrêt a l'hebdomadaire `cook_meals` à 1/2 ; le seul repas retrouvé ensuite au journal est le ragoût du lot 5, et elle vaut 2/2 à la relance. L'horloge de la relance tombe un lundi (30/11, le passage étant joué un vendredi) : la semaine change, l'hebdomadaire finie passe dans les récompenses en attente, ce que le jeu doit faire. L'assertion de `E2eQuetes` interdit `cook_meals` dans l'attente quand la semaine change. **Non corrigé** : le corriger demande un nouveau passage complet.
+- Le zombie du butin, instable, a été tué en 3 coups ; son nouveau journal de combat (`E2eButin`) n'a donc pas servi.
+- Avant ce passage : un passage le 26/11 (23:32 à 23:44) a échoué sur ce zombie (266 PASS, 1 échec), et un autre (23:51) a été interrompu quand le client d'essai a pris la souris de Killian (corrigé par `8756a7c`). Pendant le passage et la relance du 27/11, un relevé extérieur toutes les 30 ms (20 111 relevés) n'a vu aucune prise du premier plan ni du curseur.
+
+### Vrai client (26/11)
+
+- **Appli « Antenne » dans MCEF** (mode `antenne`, monde solo, « TOUT PASSE », 66 pas) : double appui à 102 ms sur « Désactiver » : deux clics reçus par la page, aucun `opDeactivate`, carte restée suspendue ; montants relus dans la page ; icône grisée : appli jamais montrée, panneau fermé au serveur, seul « Pas de réseau. » ; captures « Confirmer ? » et icône grisée regardées.
+- **Défaut trouvé là et corrigé** (`70f1c57`) : l'identifiant du bouton « Désactiver » dépassait les 48 caractères que le jeu garde d'une boîte de la page.
+- **Prise à travers le mur** (mode `prise`, monde solo, « TOUT PASSE », 17 pas) : sans fil, téléphone inchangé (3 600 FE), réserve de la prise 0 ; fil tiré : la charge monte (7 600 FE à la capture) ; connecteur du mur remis sur « aucun » à la clé : il le reste 16 s et la prise n'a plus de courant (réserve 0). Captures en charge et « aucun » regardées.
+- Mutations vues rouges (messages des commits) : délai de 400 ms retiré de la page, icône grisée qui ouvre l'appli ; compteur de la couveuse non relu, œufs non relus.
+
+### Jar livré : contrôle statique seulement (code de `9635021`)
+
+Manifeste (les quatre configurations de mixins), mixins et refmap présents, champs `f_133199_` et `f_130890_` renommés, cible et appels du mixin du connecteur en noms SRG, aucune classe d'essai. **Aucun serveur ni client de production lancé** : il faudrait une installation Forge 1.20.1-47.4.28 hors développement, dont le téléchargement demande l'accord de Killian. `8756a7c` modifie ensuite le jar de service de la fenêtre (sous la seule propriété d'essai).
+
+### Tests
+
+« All 1185 required tests passed » sans puis avec le pack le 26/11 (23:26 et 23:30) ; après `8756a7c`, JUnit vert et 1 185 GameTests sans le pack (00:35 le 27/11).
+
