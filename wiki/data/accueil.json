@@ -2,7 +2,6 @@
   "chapters": ["electricite", "economie", "telephone", "interface", "maire", "medecin", "policier", "agriculteur", "casino", "loisirs", "substances"],
   "hidden": [],
   "chapterCovers": {
-    "electricite": "shots/accueil/electricite.webp",
     "economie": "shots/accueil/economie.webp"
   },
   "actions": [
@@ -16,7 +15,10 @@
     {"title": "Appeler les secours", "href": "#telephone/urgences", "tone": "bad",
      "imgs": [{"img": "shots/telephone/tel-urgence-panneau.webp", "alt": "Écran verrouillé, panneau Urgence ouvert"},
               {"img": "shots/telephone/tel-urgence-appel.webp", "alt": "Appel Police 17 qui sonne"}],
-     "path": [{"text": "Urgence"}, {"text": "17 police"}, {"or": true}, {"text": "15 secours"}]}
+     "path": [{"text": "Urgence"}, {"text": "17 police"}, {"or": true}, {"text": "15 secours"}]},
+    {"title": "Réparer une machine", "href": "#electricite/reparer",
+     "imgs": [{"img": "shots/electricite/usure-etats.webp", "alt": "Trois séchoirs : en bon état, qui fume, en panne"}],
+     "path": [{"item": "oneforallsurvival:tester"}, {"item": "oneforallsurvival:welder"}, {"text": "Réparée", "tone": "ok"}]}
   ],
   "rules": [
     {"icon": "metier", "text": "Ton métier décide de ce que tu fabriques."},
@@ -24,8 +26,8 @@
     {"icon": "courant", "text": "L'électricité se paie seule à minuit."}
   ],
   "seen": [
-    {"title": "Armoire frigorifique", "img": "shots/accueil/armoire.webp", "alt": "Une armoire frigorifique posée dans l'herbe", "href": "#armoire-frigorifique"},
-    {"title": "Clôture électrique", "img": "shots/accueil/cloture.webp", "alt": "Une clôture électrique, la nuit", "href": "#cloture-electrique"},
+    {"title": "Armoire frigorifique", "img": "shots/electricite/armoire-hero.webp", "alt": "Une armoire frigorifique dans une cuisine, contre un mur de bouleau", "href": "#electricite/armoire"},
+    {"title": "Clôture électrique", "img": "shots/electricite/cloture-hero.webp", "alt": "Un électrificateur au bout d'une ligne de clôtures électriques, une vache dans le pré", "href": "#electricite/cloture"},
     {"title": "Antenne en panne", "img": "shots/telephone/etat-en-panne.webp", "alt": "Une antenne en panne, qui fume", "href": "#telephone/antenne", "position": "50% 30%"}
   ]
 }

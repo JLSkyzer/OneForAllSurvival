@@ -29,6 +29,494 @@
   "secondes": 11
  },
  {
+  "recette": "oneforallsurvival:bearing",
+  "sortie": "oneforallsurvival:bearing",
+  "nombre": 1,
+  "poste": "etabli",
+  "ingredients": [
+   {
+    "item": "create:andesite_alloy",
+    "nombre": 1
+   },
+   {
+    "item": "minecraft:iron_nugget",
+    "nombre": 4
+   },
+   {
+    "item": "create:iron_sheet",
+    "nombre": 1,
+    "etiquette": "forge:plates/iron"
+   }
+  ],
+  "secondes": 14
+ },
+ {
+  "recette": "oneforallsurvival:breaker",
+  "sortie": "oneforallsurvival:breaker",
+  "nombre": 1,
+  "poste": "etabli",
+  "ingredients": [
+   {
+    "item": "create:iron_sheet",
+    "nombre": 1,
+    "etiquette": "forge:plates/iron"
+   },
+   {
+    "item": "minecraft:lever",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:fuse",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:coil",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:aviation_wire",
+    "nombre": 1,
+    "etiquette": "oneforallsurvival:wire"
+   }
+  ],
+  "secondes": 17
+ },
+ {
+  "recette": "oneforallsurvival:canteen_pot",
+  "sortie": "oneforallsurvival:canteen_pot",
+  "nombre": 1,
+  "poste": "etabli",
+  "ingredients": [
+   {
+    "item": "farmersdelight:cooking_pot",
+    "nombre": 1
+   },
+   {
+    "item": "create:iron_sheet",
+    "nombre": 2,
+    "etiquette": "forge:plates/iron"
+   },
+   {
+    "item": "oneforallsurvival:coil",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:fuse",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:aviation_wire",
+    "nombre": 1,
+    "etiquette": "oneforallsurvival:wire"
+   }
+  ],
+  "secondes": 18
+ },
+ {
+  "recette": "oneforallsurvival:cleaning_kit",
+  "sortie": "oneforallsurvival:cleaning_kit",
+  "nombre": 1,
+  "poste": "etabli",
+  "ingredients": [
+   {
+    "item": "create:sand_paper",
+    "nombre": 1
+   },
+   {
+    "item": "minecraft:white_wool",
+    "nombre": 1,
+    "etiquette": "minecraft:wool"
+   },
+   {
+    "item": "minecraft:string",
+    "nombre": 1
+   }
+  ],
+  "secondes": 10
+ },
+ {
+  "recette": "oneforallsurvival:coil",
+  "sortie": "oneforallsurvival:coil",
+  "nombre": 1,
+  "poste": "etabli",
+  "ingredients": [
+   {
+    "item": "oneforallsurvival:aviation_wire",
+    "nombre": 4,
+    "etiquette": "oneforallsurvival:wire"
+   },
+   {
+    "item": "minecraft:iron_ingot",
+    "nombre": 1
+   }
+  ],
+  "secondes": 9
+ },
+ {
+  "recette": "oneforallsurvival:desalinator",
+  "sortie": "oneforallsurvival:desalinator",
+  "nombre": 1,
+  "poste": "etabli",
+  "ingredients": [
+   {
+    "item": "minecraft:cauldron",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:coil",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:fuse",
+    "nombre": 1
+   },
+   {
+    "item": "create:copper_sheet",
+    "nombre": 2,
+    "etiquette": "forge:plates/copper"
+   },
+   {
+    "item": "create:fluid_pipe",
+    "nombre": 1
+   }
+  ],
+  "secondes": 21
+ },
+ {
+  "recette": "oneforallsurvival:dryer",
+  "sortie": "oneforallsurvival:dryer",
+  "nombre": 1,
+  "poste": "etabli",
+  "ingredients": [
+   {
+    "item": "minecraft:iron_bars",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:coil",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:fuse",
+    "nombre": 1
+   },
+   {
+    "item": "create:iron_sheet",
+    "nombre": 1,
+    "etiquette": "forge:plates/iron"
+   },
+   {
+    "item": "create:brass_sheet",
+    "nombre": 1,
+    "etiquette": "forge:plates/brass"
+   },
+   {
+    "item": "oneforallsurvival:aviation_wire",
+    "nombre": 1,
+    "etiquette": "oneforallsurvival:wire"
+   }
+  ],
+  "secondes": 18
+ },
+ {
+  "recette": "oneforallsurvival:electric_fence",
+  "sortie": "oneforallsurvival:electric_fence",
+  "nombre": 8,
+  "poste": "etabli",
+  "ingredients": [
+   {
+    "item": "createaddition:barbed_wire",
+    "nombre": 1
+   },
+   {
+    "item": "create:iron_sheet",
+    "nombre": 2,
+    "etiquette": "forge:plates/iron"
+   },
+   {
+    "item": "minecraft:iron_bars",
+    "nombre": 2
+   }
+  ],
+  "secondes": 13
+ },
+ {
+  "recette": "oneforallsurvival:electrifier",
+  "sortie": "oneforallsurvival:electrifier",
+  "nombre": 1,
+  "poste": "etabli",
+  "ingredients": [
+   {
+    "item": "create:iron_sheet",
+    "nombre": 1,
+    "etiquette": "forge:plates/iron"
+   },
+   {
+    "item": "minecraft:terracotta",
+    "nombre": 2
+   },
+   {
+    "item": "oneforallsurvival:coil",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:fuse",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:aviation_wire",
+    "nombre": 1,
+    "etiquette": "oneforallsurvival:wire"
+   }
+  ],
+  "secondes": 18
+ },
+ {
+  "recette": "oneforallsurvival:fridge",
+  "sortie": "oneforallsurvival:fridge",
+  "nombre": 1,
+  "poste": "etabli",
+  "ingredients": [
+   {
+    "item": "minecraft:blue_ice",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:coil",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:fuse",
+    "nombre": 1
+   },
+   {
+    "item": "create:iron_sheet",
+    "nombre": 2,
+    "etiquette": "forge:plates/iron"
+   },
+   {
+    "item": "create:fluid_pipe",
+    "nombre": 1
+   }
+  ],
+  "secondes": 21
+ },
+ {
+  "recette": "oneforallsurvival:fuse",
+  "sortie": "oneforallsurvival:fuse",
+  "nombre": 2,
+  "poste": "etabli",
+  "ingredients": [
+   {
+    "item": "minecraft:glass_pane",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:aviation_wire",
+    "nombre": 1,
+    "etiquette": "oneforallsurvival:wire"
+   },
+   {
+    "item": "minecraft:iron_nugget",
+    "nombre": 2
+   }
+  ],
+  "secondes": 8
+ },
+ {
+  "recette": "oneforallsurvival:galvanic_bath",
+  "sortie": "oneforallsurvival:galvanic_bath",
+  "nombre": 1,
+  "poste": "etabli",
+  "ingredients": [
+   {
+    "item": "minecraft:cauldron",
+    "nombre": 1
+   },
+   {
+    "item": "create:brass_casing",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:aviation_wire",
+    "nombre": 2,
+    "etiquette": "oneforallsurvival:wire"
+   },
+   {
+    "item": "createaddition:zinc_sheet",
+    "nombre": 2,
+    "etiquette": "forge:plates/zinc"
+   }
+  ],
+  "secondes": 10
+ },
+ {
+  "recette": "oneforallsurvival:headlamp",
+  "sortie": "oneforallsurvival:headlamp",
+  "nombre": 1,
+  "poste": "etabli",
+  "ingredients": [
+   {
+    "item": "minecraft:leather",
+    "nombre": 1
+   },
+   {
+    "item": "minecraft:glass",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:coil",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:fuse",
+    "nombre": 1
+   },
+   {
+    "item": "create:iron_sheet",
+    "nombre": 1,
+    "etiquette": "forge:plates/iron"
+   },
+   {
+    "item": "oneforallsurvival:aviation_wire",
+    "nombre": 1,
+    "etiquette": "oneforallsurvival:wire"
+   }
+  ],
+  "secondes": 18
+ },
+ {
+  "recette": "oneforallsurvival:hot_plate",
+  "sortie": "oneforallsurvival:hot_plate",
+  "nombre": 1,
+  "poste": "etabli",
+  "ingredients": [
+   {
+    "item": "create:iron_sheet",
+    "nombre": 2,
+    "etiquette": "forge:plates/iron"
+   },
+   {
+    "item": "oneforallsurvival:coil",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:fuse",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:aviation_wire",
+    "nombre": 1,
+    "etiquette": "oneforallsurvival:wire"
+   }
+  ],
+  "secondes": 17
+ },
+ {
+  "recette": "oneforallsurvival:incubator",
+  "sortie": "oneforallsurvival:incubator",
+  "nombre": 1,
+  "poste": "etabli",
+  "ingredients": [
+   {
+    "item": "minecraft:glass_pane",
+    "nombre": 1
+   },
+   {
+    "item": "minecraft:white_wool",
+    "nombre": 1
+   },
+   {
+    "item": "create:iron_sheet",
+    "nombre": 1,
+    "etiquette": "forge:plates/iron"
+   },
+   {
+    "item": "create:electron_tube",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:coil",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:fuse",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:aviation_wire",
+    "nombre": 1,
+    "etiquette": "oneforallsurvival:wire"
+   }
+  ],
+  "secondes": 22
+ },
+ {
+  "recette": "oneforallsurvival:lighthouse",
+  "sortie": "oneforallsurvival:lighthouse",
+  "nombre": 1,
+  "poste": "etabli",
+  "ingredients": [
+   {
+    "item": "minecraft:redstone_lamp",
+    "nombre": 1
+   },
+   {
+    "item": "minecraft:glass",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:coil",
+    "nombre": 2
+   },
+   {
+    "item": "oneforallsurvival:fuse",
+    "nombre": 1
+   },
+   {
+    "item": "create:iron_sheet",
+    "nombre": 1,
+    "etiquette": "forge:plates/iron"
+   },
+   {
+    "item": "create:andesite_casing",
+    "nombre": 1
+   }
+  ],
+  "secondes": 23
+ },
+ {
+  "recette": "oneforallsurvival:load_shedder",
+  "sortie": "oneforallsurvival:load_shedder",
+  "nombre": 1,
+  "poste": "etabli",
+  "ingredients": [
+   {
+    "item": "create:iron_sheet",
+    "nombre": 2,
+    "etiquette": "forge:plates/iron"
+   },
+   {
+    "item": "oneforallsurvival:fuse",
+    "nombre": 2
+   },
+   {
+    "item": "oneforallsurvival:coil",
+    "nombre": 1
+   },
+   {
+    "item": "create:electron_tube",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:aviation_wire",
+    "nombre": 1,
+    "etiquette": "oneforallsurvival:wire"
+   }
+  ],
+  "secondes": 26
+ },
+ {
   "recette": "oneforallsurvival:maintenance_tool",
   "sortie": "oneforallsurvival:maintenance_tool",
   "nombre": 1,
@@ -52,6 +540,346 @@
    }
   ],
   "secondes": 9
+ },
+ {
+  "recette": "oneforallsurvival:metal_detector",
+  "sortie": "oneforallsurvival:metal_detector",
+  "nombre": 1,
+  "poste": "etabli",
+  "ingredients": [
+   {
+    "item": "create:fluid_pipe",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:coil",
+    "nombre": 2
+   },
+   {
+    "item": "oneforallsurvival:fuse",
+    "nombre": 1
+   },
+   {
+    "item": "create:iron_sheet",
+    "nombre": 1,
+    "etiquette": "forge:plates/iron"
+   },
+   {
+    "item": "oneforallsurvival:aviation_wire",
+    "nombre": 1,
+    "etiquette": "oneforallsurvival:wire"
+   }
+  ],
+  "secondes": 25
+ },
+ {
+  "recette": "oneforallsurvival:meter",
+  "sortie": "oneforallsurvival:meter",
+  "nombre": 1,
+  "poste": "etabli",
+  "ingredients": [
+   {
+    "item": "create:iron_sheet",
+    "nombre": 1,
+    "etiquette": "forge:plates/iron"
+   },
+   {
+    "item": "create:brass_sheet",
+    "nombre": 1,
+    "etiquette": "forge:plates/brass"
+   },
+   {
+    "item": "create:cogwheel",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:coil",
+    "nombre": 1
+   },
+   {
+    "item": "minecraft:glass_pane",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:aviation_wire",
+    "nombre": 1,
+    "etiquette": "oneforallsurvival:wire"
+   }
+  ],
+  "secondes": 20
+ },
+ {
+  "recette": "oneforallsurvival:seal",
+  "sortie": "oneforallsurvival:seal",
+  "nombre": 4,
+  "poste": "etabli",
+  "ingredients": [
+   {
+    "item": "minecraft:iron_nugget",
+    "nombre": 2
+   },
+   {
+    "item": "oneforallsurvival:aviation_wire",
+    "nombre": 1,
+    "etiquette": "oneforallsurvival:wire"
+   }
+  ],
+  "secondes": 7
+ },
+ {
+  "recette": "oneforallsurvival:shower_head",
+  "sortie": "oneforallsurvival:shower_head",
+  "nombre": 1,
+  "poste": "etabli",
+  "ingredients": [
+   {
+    "item": "minecraft:iron_bars",
+    "nombre": 1
+   },
+   {
+    "item": "create:copper_sheet",
+    "nombre": 1,
+    "etiquette": "forge:plates/copper"
+   },
+   {
+    "item": "create:fluid_pipe",
+    "nombre": 1
+   }
+  ],
+  "secondes": 10
+ },
+ {
+  "recette": "oneforallsurvival:signal_receiver",
+  "sortie": "oneforallsurvival:signal_receiver",
+  "nombre": 1,
+  "poste": "etabli",
+  "ingredients": [
+   {
+    "item": "minecraft:iron_bars",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:coil",
+    "nombre": 2
+   },
+   {
+    "item": "oneforallsurvival:fuse",
+    "nombre": 1
+   },
+   {
+    "item": "create:iron_sheet",
+    "nombre": 1,
+    "etiquette": "forge:plates/iron"
+   },
+   {
+    "item": "create:brass_sheet",
+    "nombre": 1,
+    "etiquette": "forge:plates/brass"
+   },
+   {
+    "item": "oneforallsurvival:aviation_wire",
+    "nombre": 1,
+    "etiquette": "oneforallsurvival:wire"
+   }
+  ],
+  "secondes": 23
+ },
+ {
+  "recette": "oneforallsurvival:surge_arrester",
+  "sortie": "oneforallsurvival:surge_arrester",
+  "nombre": 1,
+  "poste": "etabli",
+  "ingredients": [
+   {
+    "item": "minecraft:lightning_rod",
+    "nombre": 1
+   },
+   {
+    "item": "minecraft:terracotta",
+    "nombre": 2
+   },
+   {
+    "item": "create:copper_sheet",
+    "nombre": 1,
+    "etiquette": "forge:plates/copper"
+   },
+   {
+    "item": "oneforallsurvival:fuse",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:aviation_wire",
+    "nombre": 1,
+    "etiquette": "oneforallsurvival:wire"
+   }
+  ],
+  "secondes": 14
+ },
+ {
+  "recette": "oneforallsurvival:tester",
+  "sortie": "oneforallsurvival:tester",
+  "nombre": 1,
+  "poste": "etabli",
+  "ingredients": [
+   {
+    "item": "oneforallsurvival:instrument_core",
+    "nombre": 1
+   },
+   {
+    "item": "create:electron_tube",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:aviation_wire",
+    "nombre": 1,
+    "etiquette": "oneforallsurvival:wire"
+   },
+   {
+    "item": "create:brass_sheet",
+    "nombre": 1,
+    "etiquette": "forge:plates/brass"
+   }
+  ],
+  "secondes": 11
+ },
+ {
+  "recette": "oneforallsurvival:water_heater",
+  "sortie": "oneforallsurvival:water_heater",
+  "nombre": 1,
+  "poste": "etabli",
+  "ingredients": [
+   {
+    "item": "create:fluid_tank",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:coil",
+    "nombre": 2
+   },
+   {
+    "item": "oneforallsurvival:fuse",
+    "nombre": 1
+   },
+   {
+    "item": "create:copper_sheet",
+    "nombre": 1,
+    "etiquette": "forge:plates/copper"
+   },
+   {
+    "item": "create:fluid_pipe",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:aviation_wire",
+    "nombre": 1,
+    "etiquette": "oneforallsurvival:wire"
+   }
+  ],
+  "secondes": 29
+ },
+ {
+  "recette": "oneforallsurvival:weather_station",
+  "sortie": "oneforallsurvival:weather_station",
+  "nombre": 1,
+  "poste": "etabli",
+  "ingredients": [
+   {
+    "item": "create:propeller",
+    "nombre": 1
+   },
+   {
+    "item": "minecraft:compass",
+    "nombre": 1
+   },
+   {
+    "item": "create:electron_tube",
+    "nombre": 1
+   },
+   {
+    "item": "create:brass_sheet",
+    "nombre": 1,
+    "etiquette": "forge:plates/brass"
+   },
+   {
+    "item": "oneforallsurvival:coil",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:aviation_wire",
+    "nombre": 1,
+    "etiquette": "oneforallsurvival:wire"
+   }
+  ],
+  "secondes": 23
+ },
+ {
+  "recette": "oneforallsurvival:welder",
+  "sortie": "oneforallsurvival:welder",
+  "nombre": 1,
+  "poste": "etabli",
+  "ingredients": [
+   {
+    "item": "oneforallsurvival:battery_cell",
+    "nombre": 1
+   },
+   {
+    "item": "create:brass_sheet",
+    "nombre": 2,
+    "etiquette": "forge:plates/brass"
+   },
+   {
+    "item": "oneforallsurvival:aviation_wire",
+    "nombre": 1,
+    "etiquette": "oneforallsurvival:wire"
+   },
+   {
+    "item": "minecraft:blaze_powder",
+    "nombre": 1
+   }
+  ],
+  "secondes": 9
+ },
+ {
+  "recette": "oneforallsurvival:engineer_bench",
+  "sortie": "oneforallsurvival:engineer_bench",
+  "nombre": 1,
+  "poste": "table",
+  "grille": [
+   [
+    "minecraft:oak_planks",
+    "minecraft:oak_planks",
+    "minecraft:oak_planks"
+   ],
+   [
+    "minecraft:iron_ingot",
+    "minecraft:crafting_table",
+    "minecraft:iron_ingot"
+   ],
+   [
+    "minecraft:copper_ingot",
+    null,
+    "minecraft:copper_ingot"
+   ]
+  ],
+  "ingredients": [
+   {
+    "item": "minecraft:oak_planks",
+    "nombre": 3,
+    "etiquette": "minecraft:planks"
+   },
+   {
+    "item": "minecraft:iron_ingot",
+    "nombre": 2
+   },
+   {
+    "item": "minecraft:crafting_table",
+    "nombre": 1
+   },
+   {
+    "item": "minecraft:copper_ingot",
+    "nombre": 2
+   }
+  ]
  },
  {
   "recette": "oneforallsurvival:phone",

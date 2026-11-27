@@ -1,11 +1,99 @@
 {
+ "create:andesite_alloy": {
+  "icone": "img/objets/create__andesite_alloy.png",
+  "nom": "Alliage d'andésite"
+ },
+ "create:andesite_casing": {
+  "icone": "img/objets/create__andesite_casing.png",
+  "nom": "Boitier d'andésite"
+ },
+ "create:brass_casing": {
+  "icone": "img/objets/create__brass_casing.png",
+  "nom": "Boitier de laiton"
+ },
+ "create:brass_sheet": {
+  "icone": "img/objets/create__brass_sheet.png",
+  "nom": "Plaque de laiton"
+ },
+ "create:cogwheel": {
+  "icone": "img/objets/create__cogwheel.png",
+  "nom": "Roue dentée"
+ },
+ "create:copper_sheet": {
+  "icone": "img/objets/create__copper_sheet.png",
+  "nom": "Plaque de cuivre"
+ },
+ "create:electron_tube": {
+  "icone": "img/objets/create__electron_tube.png",
+  "nom": "Tube électronique"
+ },
+ "create:fluid_pipe": {
+  "icone": "img/objets/create__fluid_pipe.png",
+  "nom": "Tuyau à fluide"
+ },
+ "create:fluid_tank": {
+  "icone": "img/objets/create__fluid_tank.png",
+  "nom": "Réservoir à fluide"
+ },
+ "create:iron_sheet": {
+  "icone": "img/objets/create__iron_sheet.png",
+  "nom": "Plaque de fer"
+ },
+ "create:propeller": {
+  "icone": "img/objets/create__propeller.png",
+  "nom": "Hélice"
+ },
+ "create:sand_paper": {
+  "icone": "img/objets/create__sand_paper.png",
+  "nom": "Papier de verre"
+ },
+ "create:zinc_ingot": {
+  "icone": "img/objets/create__zinc_ingot.png",
+  "nom": "Lingot de zinc"
+ },
+ "createaddition:barbed_wire": {
+  "icone": "img/objets/createaddition__barbed_wire.png",
+  "nom": "Fils de fer barbelés"
+ },
+ "createaddition:zinc_sheet": {
+  "icone": "img/objets/createaddition__zinc_sheet.png",
+  "nom": "Plaque de Zinc"
+ },
+ "farmersdelight:cooking_pot": {
+  "icone": "img/objets/farmersdelight__cooking_pot.png",
+  "nom": "Marmite"
+ },
+ "minecraft:blaze_powder": {
+  "icone": "img/objets/minecraft__blaze_powder.png",
+  "nom": "Poudre de Blaze"
+ },
+ "minecraft:blue_ice": {
+  "icone": "img/objets/minecraft__blue_ice.png",
+  "nom": "Glace bleue"
+ },
+ "minecraft:cauldron": {
+  "icone": "img/objets/minecraft__cauldron.png",
+  "nom": "Chaudron"
+ },
+ "minecraft:compass": {
+  "icone": "img/objets/minecraft__compass.png",
+  "nom": "Boussole"
+ },
  "minecraft:copper_ingot": {
   "icone": "img/objets/minecraft__copper_ingot.png",
   "nom": "Lingot de cuivre"
  },
+ "minecraft:crafting_table": {
+  "icone": "img/objets/minecraft__crafting_table.png",
+  "nom": "Établi"
+ },
  "minecraft:glass": {
   "icone": "img/objets/minecraft__glass.png",
   "nom": "Verre"
+ },
+ "minecraft:glass_pane": {
+  "icone": "img/objets/minecraft__glass_pane.png",
+  "nom": "Vitre"
  },
  "minecraft:iron_bars": {
   "icone": "img/objets/minecraft__iron_bars.png",
@@ -19,9 +107,21 @@
   "icone": "img/objets/minecraft__iron_nugget.png",
   "nom": "Pépite de fer"
  },
+ "minecraft:leather": {
+  "icone": "img/objets/minecraft__leather.png",
+  "nom": "Cuir"
+ },
+ "minecraft:lever": {
+  "icone": "img/objets/minecraft__lever.png",
+  "nom": "Levier"
+ },
  "minecraft:lightning_rod": {
   "icone": "img/objets/minecraft__lightning_rod.png",
   "nom": "Paratonnerre"
+ },
+ "minecraft:oak_planks": {
+  "icone": "img/objets/minecraft__oak_planks.png",
+  "nom": "Planches de chêne"
  },
  "minecraft:redstone": {
   "icone": "img/objets/minecraft__redstone.png",
@@ -31,6 +131,10 @@
   "icone": "img/objets/minecraft__redstone_block.png",
   "nom": "Bloc de redstone"
  },
+ "minecraft:redstone_lamp": {
+  "icone": "img/objets/minecraft__redstone_lamp.png",
+  "nom": "Lampe à redstone"
+ },
  "minecraft:smooth_stone": {
   "icone": "img/objets/minecraft__smooth_stone.png",
   "nom": "Roche lisse"
@@ -39,24 +143,212 @@
   "icone": "img/objets/minecraft__stick.png",
   "nom": "Bâton"
  },
+ "minecraft:string": {
+  "icone": "img/objets/minecraft__string.png",
+  "nom": "Ficelle"
+ },
+ "minecraft:terracotta": {
+  "icone": "img/objets/minecraft__terracotta.png",
+  "nom": "Terre cuite"
+ },
+ "minecraft:white_wool": {
+  "icone": "img/objets/minecraft__white_wool.png",
+  "nom": "Laine blanche"
+ },
  "oneforallsurvival:antenna": {
   "icone": "img/objets/oneforallsurvival__antenna.png",
   "nom": "Antenne"
+ },
+ "oneforallsurvival:aviation_wire": {
+  "icone": "img/objets/oneforallsurvival__aviation_wire.png",
+  "nom": "Fil d'aviation"
+ },
+ "oneforallsurvival:battery_cell": {
+  "icone": "img/objets/oneforallsurvival__battery_cell.png",
+  "nom": "Cellule de batterie"
+ },
+ "oneforallsurvival:bearing": {
+  "icone": "img/objets/oneforallsurvival__bearing.png",
+  "nom": "Roulement de rechange"
+ },
+ "oneforallsurvival:breaker": {
+  "icone": "img/objets/oneforallsurvival__breaker.png",
+  "nom": "Disjoncteur d'abonné"
+ },
+ "oneforallsurvival:canteen_pot": {
+  "icone": "img/objets/oneforallsurvival__canteen_pot.png",
+  "nom": "Marmite de cantine"
+ },
+ "oneforallsurvival:cleaning_kit": {
+  "icone": "img/objets/oneforallsurvival__cleaning_kit.png",
+  "nom": "Kit de nettoyage"
+ },
+ "oneforallsurvival:coil": {
+  "icone": "img/objets/oneforallsurvival__coil.png",
+  "nom": "Bobinage de rechange"
+ },
+ "oneforallsurvival:desalinator": {
+  "icone": "img/objets/oneforallsurvival__desalinator.png",
+  "nom": "Dessalinisateur"
+ },
+ "oneforallsurvival:dried_fish": {
+  "icone": "img/objets/oneforallsurvival__dried_fish.png",
+  "nom": "Poisson séché"
+ },
+ "oneforallsurvival:dried_fruit": {
+  "icone": "img/objets/oneforallsurvival__dried_fruit.png",
+  "nom": "Fruit séché"
+ },
+ "oneforallsurvival:dried_meat": {
+  "icone": "img/objets/oneforallsurvival__dried_meat.png",
+  "nom": "Viande séchée"
+ },
+ "oneforallsurvival:dryer": {
+  "icone": "img/objets/oneforallsurvival__dryer.png",
+  "nom": "Séchoir électrique"
+ },
+ "oneforallsurvival:electric_fence": {
+  "icone": "img/objets/oneforallsurvival__electric_fence.png",
+  "nom": "Clôture électrique"
+ },
+ "oneforallsurvival:electrifier": {
+  "icone": "img/objets/oneforallsurvival__electrifier.png",
+  "nom": "Électrificateur"
+ },
+ "oneforallsurvival:engineer_bench": {
+  "icone": "img/objets/oneforallsurvival__engineer_bench.png",
+  "nom": "Établi d'ingénieur"
+ },
+ "oneforallsurvival:fridge": {
+  "icone": "img/objets/oneforallsurvival__fridge.png",
+  "nom": "Armoire frigorifique"
+ },
+ "oneforallsurvival:fuse": {
+  "icone": "img/objets/oneforallsurvival__fuse.png",
+  "nom": "Fusible de rechange"
+ },
+ "oneforallsurvival:galvanic_bath": {
+  "icone": "img/objets/oneforallsurvival__galvanic_bath.png",
+  "nom": "Bain galvanique"
+ },
+ "oneforallsurvival:headlamp": {
+  "icone": "img/objets/oneforallsurvival__headlamp.png",
+  "nom": "Lampe frontale"
+ },
+ "oneforallsurvival:hot_plate": {
+  "icone": "img/objets/oneforallsurvival__hot_plate.png",
+  "nom": "Plaque électrique"
+ },
+ "oneforallsurvival:incubator": {
+  "icone": "img/objets/oneforallsurvival__incubator.png",
+  "nom": "Couveuse"
+ },
+ "oneforallsurvival:instrument_core": {
+  "icone": "img/objets/oneforallsurvival__instrument_core.png",
+  "nom": "Noyau d'instrument"
+ },
+ "oneforallsurvival:lighthouse": {
+  "icone": "img/objets/oneforallsurvival__lighthouse.png",
+  "nom": "Phare"
+ },
+ "oneforallsurvival:load_shedder": {
+  "icone": "img/objets/oneforallsurvival__load_shedder.png",
+  "nom": "Tableau de délestage"
  },
  "oneforallsurvival:maintenance_tool": {
   "icone": "img/objets/oneforallsurvival__maintenance_tool.png",
   "nom": "Outil de maintenance"
  },
+ "oneforallsurvival:metal_detector": {
+  "icone": "img/objets/oneforallsurvival__metal_detector.png",
+  "nom": "Détecteur de métaux"
+ },
+ "oneforallsurvival:meter": {
+  "icone": "img/objets/oneforallsurvival__meter.png",
+  "nom": "Compteur"
+ },
  "oneforallsurvival:phone": {
   "icone": "img/objets/oneforallsurvival__phone.png",
   "nom": "Téléphone"
+ },
+ "oneforallsurvival:potable_water_bottle": {
+  "icone": "img/objets/oneforallsurvival__potable_water_bottle.png",
+  "nom": "Bouteille d'eau potable"
+ },
+ "oneforallsurvival:salt": {
+  "icone": "img/objets/oneforallsurvival__salt.png",
+  "nom": "Sel"
+ },
+ "oneforallsurvival:salted_fish": {
+  "icone": "img/objets/oneforallsurvival__salted_fish.png",
+  "nom": "Poisson salé"
+ },
+ "oneforallsurvival:salted_fruit": {
+  "icone": "img/objets/oneforallsurvival__salted_fruit.png",
+  "nom": "Fruit salé"
+ },
+ "oneforallsurvival:salted_meat": {
+  "icone": "img/objets/oneforallsurvival__salted_meat.png",
+  "nom": "Viande salée"
+ },
+ "oneforallsurvival:scrap_metal": {
+  "icone": "img/objets/oneforallsurvival__scrap_metal.png",
+  "nom": "Ferraille"
+ },
+ "oneforallsurvival:seal": {
+  "icone": "img/objets/oneforallsurvival__seal.png",
+  "nom": "Scellé"
+ },
+ "oneforallsurvival:shower_head": {
+  "icone": "img/objets/oneforallsurvival__shower_head.png",
+  "nom": "Pomme de douche"
+ },
+ "oneforallsurvival:signal_receiver": {
+  "icone": "img/objets/oneforallsurvival__signal_receiver.png",
+  "nom": "Récepteur de signaux"
  },
  "oneforallsurvival:sim_card": {
   "icone": "img/objets/oneforallsurvival__sim_card.png",
   "nom": "Carte SIM"
  },
+ "oneforallsurvival:surge_arrester": {
+  "icone": "img/objets/oneforallsurvival__surge_arrester.png",
+  "nom": "Parafoudre"
+ },
+ "oneforallsurvival:tester": {
+  "icone": "img/objets/oneforallsurvival__tester.png",
+  "nom": "Testeur"
+ },
+ "oneforallsurvival:treated_bearing": {
+  "icone": "img/objets/oneforallsurvival__treated_bearing.png",
+  "nom": "Roulement traité"
+ },
+ "oneforallsurvival:treated_cleaning_kit": {
+  "icone": "img/objets/oneforallsurvival__treated_cleaning_kit.png",
+  "nom": "Kit de nettoyage traité"
+ },
+ "oneforallsurvival:treated_coil": {
+  "icone": "img/objets/oneforallsurvival__treated_coil.png",
+  "nom": "Bobinage traité"
+ },
+ "oneforallsurvival:treated_fuse": {
+  "icone": "img/objets/oneforallsurvival__treated_fuse.png",
+  "nom": "Fusible traité"
+ },
  "oneforallsurvival:wall_socket": {
   "icone": "img/objets/oneforallsurvival__wall_socket.png",
   "nom": "Prise murale"
+ },
+ "oneforallsurvival:water_heater": {
+  "icone": "img/objets/oneforallsurvival__water_heater.png",
+  "nom": "Chauffe-eau"
+ },
+ "oneforallsurvival:weather_station": {
+  "icone": "img/objets/oneforallsurvival__weather_station.png",
+  "nom": "Station météo"
+ },
+ "oneforallsurvival:welder": {
+  "icone": "img/objets/oneforallsurvival__welder.png",
+  "nom": "Poste à souder"
  }
 }

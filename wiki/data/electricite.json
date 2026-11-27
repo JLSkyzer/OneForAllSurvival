@@ -1,702 +1,1476 @@
 {
+  "v": 2,
   "id": "electricite",
   "title": "Électricité et ingénieur",
-  "intro": "L'Ingénieur fabrique, entretient et répare les machines électriques qui font tourner la ville.",
-  "diagrams": [
+  "tagline": "L'ingénieur fabrique, entretient et répare les machines électriques qui font tourner la ville.",
+  "icon": "oneforallsurvival:engineer_bench",
+  "cover": "shots/electricite/cover.webp",
+  "articles": [
     {
-      "title": "Réparer une machine",
-      "steps": [
-        "Usure",
-        "Panne",
-        "Testeur : quelle pièce ?",
-        "Poste à souder + pièce",
-        "État 100 %"
-      ]
-    },
-    {
-      "title": "Le courant d'un abonné",
-      "steps": [
-        "Arrivée de courant",
-        "Tableau de délestage",
-        "Disjoncteur d'abonné",
-        "Compteur",
-        "Maison de l'abonné"
-      ]
-    },
-    {
-      "title": "Conserver les aliments",
-      "steps": [
-        "Aliment frais",
-        "Armoire frigorifique ou séchoir",
-        "Ration séchée ou salée",
-        "Ne périme plus (salée)"
-      ]
-    }
-  ],
-  "cards": [
-    {
-      "id": "roles",
-      "name": "Rôles et métiers",
-      "kind": "role",
-      "status": "dispo",
-      "lot": "Lot 0",
-      "image": null,
-      "what": "Un métier par joueur, affiché en préfixe coloré devant son pseudo.",
-      "steps": [
-        "Sans métier attribué, on est Citoyen.",
-        "Préfixe visible dans le chat, au-dessus de la tête, au TAB.",
-        "Le maire est un statut ajouté au métier."
+      "id": "metiers",
+      "title": "Les métiers",
+      "group": "L'ingénieur",
+      "lead": "Chacun a un métier, affiché devant son pseudo. Seul l'ingénieur fabrique et répare le matériel électrique.",
+      "cover": "shots/electricite/metiers.webp",
+      "covers": [
+        "roles",
+        "commandes-staff"
       ],
-      "numbers": [
+      "chips": [
         {
-          "k": "Métiers codés",
+          "k": "Métiers de départ",
           "v": "5"
         },
         {
           "k": "Maire",
           "v": "1 à la fois"
+        }
+      ],
+      "blocks": [
+        {
+          "type": "shot",
+          "img": "shots/electricite/metiers.webp",
+          "alt": "Quatre joueurs sur la plage, leur métier en couleur au-dessus de la tête : Ingénieur, Médecin, Policier, Citoyen",
+          "title": "Au-dessus de chaque tête"
         },
         {
-          "k": "Contournement",
-          "v": "Opérateur niveau 2"
+          "type": "step",
+          "title": "Ton métier se voit partout",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "Sans métier attribué, tu es **Citoyen**. Ton métier s'affiche en couleur devant ton pseudo : au-dessus de ta tête, dans le chat et dans la liste des joueurs (touche Tab)."
+            },
+            {
+              "type": "row",
+              "blocks": [
+                {
+                  "type": "shot",
+                  "img": "shots/electricite/metiers-chat.webp",
+                  "alt": "Le chat : trois messages, chaque pseudo précédé de son métier en couleur",
+                  "title": "Dans le chat"
+                },
+                {
+                  "type": "shot",
+                  "img": "shots/electricite/metiers-tab.webp",
+                  "alt": "La liste des joueurs : chaque joueur avec son métier",
+                  "title": "Touche Tab"
+                }
+              ]
+            },
+            {
+              "type": "numbers",
+              "title": "Les couleurs",
+              "list": [
+                {
+                  "k": "Médecin",
+                  "v": "rouge"
+                },
+                {
+                  "k": "Ingénieur",
+                  "v": "or"
+                },
+                {
+                  "k": "Policier",
+                  "v": "bleu"
+                },
+                {
+                  "k": "Agriculteur",
+                  "v": "vert"
+                },
+                {
+                  "k": "Citoyen",
+                  "v": "gris"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "step",
+          "title": "Le maire",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "Le **maire** est un statut ajouté au métier, pas un métier : son préfixe devient « [Maire] [Ingénieur] », par exemple. Il n'y a qu'un maire à la fois, nommé par l'équipe."
+            }
+          ]
+        },
+        {
+          "type": "step",
+          "title": "Ce que fait l'ingénieur",
+          "blocks": [
+            {
+              "type": "items",
+              "list": [
+                {
+                  "item": "oneforallsurvival:engineer_bench",
+                  "label": "Fabrique",
+                  "text": "Tout le matériel électrique, à l'établi d'ingénieur."
+                },
+                {
+                  "item": "oneforallsurvival:welder",
+                  "label": "Répare",
+                  "text": "Les machines en panne, au poste à souder."
+                },
+                {
+                  "item": "oneforallsurvival:meter",
+                  "label": "Inscrit et relève",
+                  "text": "Le nom de l'abonné d'un compteur ou d'un disjoncteur, et le relevé au testeur."
+                },
+                {
+                  "item": "oneforallsurvival:seal",
+                  "label": "Scelle",
+                  "text": "Un disjoncteur coupé, que plus personne ne peut réenclencher."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "Les autres métiers ont leurs gestes ailleurs : le policier reçoit les appels du 17, le médecin ceux du 15 (chapitre Téléphone)."
+            }
+          ]
         }
       ],
       "staff": [
-        "Seul l'Ingénieur a des gestes réservés ; les autres métiers sont affichés.",
-        "Le statut de maire n'ouvre encore aucun geste : prévu pour l'économie.",
-        "Préfixes via équipes ofas_<id> : conflit possible avec d'autres plugins d'équipes."
+        "Seul l'ingénieur a des gestes réservés dans ce chapitre ; un opérateur de niveau 2 peut aussi les faire (pour dépanner). Les autres métiers sont affichés, et reçoivent ailleurs leurs gestes (17 et 15 du téléphone).",
+        "Le maire est un statut, pas un métier : il ouvre aujourd'hui des gestes de l'économie et du téléphone (voir ces chapitres). Tant qu'aucun maire n'est nommé, seule l'équipe fait ces gestes.",
+        "Préfixes par équipes de scoreboard `ofas_<id>` (et `ofas.maire` pour le maire) : conflit possible avec d'autres plugins d'équipes.",
+        "Pour tout le monde : `/role list`, `/role get` (son propre métier), `/role mayor` (voir le maire).",
+        "Niveau 2 : `/role get <joueur>`, `/role set <joueur> <id>`, `/role create <id> <couleur> <libellé…>`, `/role edit <id> <couleur> <libellé…>`, `/role delete <id>`.",
+        "Niveau 2 : `/role mayor set <joueur>`, `/role mayor remove`.",
+        "Les cinq métiers de départ (medecin, ingenieur, policier, agriculteur, citoyen) ne se suppriment pas ; un métier créé est seulement affiché.",
+        "Niveau 2 : `/coast zone add <id> <from> <to>`, `/coast zone remove <id>`, `/coast zone list`, `/coast check [pos]` (milieu côtier, voir « Usure et pannes »)."
       ]
     },
     {
-      "id": "etabli-ingenieur",
-      "name": "Établi d'ingénieur",
-      "kind": "machine",
-      "status": "dispo",
-      "lot": "Lot 1",
-      "image": {
-        "type": "block",
-        "top": "engineer_bench_wood.png",
-        "side": "engineer_bench_frame.png",
-        "front": "engineer_bench_panel.png"
-      },
-      "what": "Seul endroit où l'on fabrique le matériel d'ingénierie, par file d'attente.",
-      "who": {
-        "fabrique": "Tous",
-        "pose": "Tous",
-        "utilise": "Ingénieur",
-        "casse": "Tous, à la hache"
-      },
-      "steps": [
-        "Choisir un objet et une quantité, puis Crafter.",
-        "Les ingrédients sont prélevés, la fabrication entre en file.",
-        "Retirer les objets finis dans le Stock."
+      "id": "etabli",
+      "title": "L'établi d'ingénieur",
+      "group": "L'ingénieur",
+      "lead": "Le seul endroit où l'on fabrique le matériel électrique, par file d'attente. Réservé à l'ingénieur, quatre fois plus rapide alimenté.",
+      "cover": "shots/electricite/etabli-hero.webp",
+      "covers": [
+        "etabli-ingenieur"
       ],
-      "flow": [
-        "Inventaire",
-        "File d'attente",
-        "Stock personnel"
-      ],
-      "numbers": [
+      "chips": [
         {
-          "k": "Vitesse alimentée",
+          "k": "Utilise",
+          "v": "Ingénieur"
+        },
+        {
+          "k": "Fabrique et pose",
+          "v": "Tout le monde"
+        },
+        {
+          "k": "Alimenté",
           "v": "×4"
+        }
+      ],
+      "blocks": [
+        {
+          "type": "hero",
+          "img": "shots/electricite/etabli-hero.webp",
+          "alt": "Un établi d'ingénieur posé dans l'herbe, un Générateur Créatif violet collé derrière",
+          "points": [
+            {
+              "at": "plateau",
+              "title": "Clic droit",
+              "text": "Ingénieur : l'écran de l'établi. Les autres lisent « Seul un Ingénieur peut utiliser l'établi. »"
+            },
+            {
+              "at": "courant",
+              "title": "Le courant",
+              "text": "Une source collée (ici un Générateur Créatif, bloc créatif) ou un câble : la fabrication va 4 fois plus vite."
+            }
+          ]
         },
         {
-          "k": "Énergie",
-          "v": "20 FE/t"
+          "type": "step",
+          "title": "Fabriquer l'établi",
+          "blocks": [
+            {
+              "type": "row",
+              "blocks": [
+                {
+                  "type": "recipe",
+                  "item": "oneforallsurvival:engineer_bench",
+                  "title": "À la table, sans métier"
+                },
+                {
+                  "type": "text",
+                  "text": "Tout le monde le fabrique et le pose ; seul l'ingénieur s'en sert. Il se casse à la hache et se ramasse."
+                }
+              ]
+            }
+          ]
         },
         {
-          "k": "Réserve",
-          "v": "1000 FE"
+          "type": "step",
+          "title": "Commander",
+          "blocks": [
+            {
+              "type": "shot",
+              "img": "shots/electricite/etabli-ecran.webp",
+              "alt": "L'écran de l'établi : familles à gauche, recherche, liste des recettes, coût du Testeur, bouton Crafter, file d'attente en bas, Stock en haut à droite",
+              "marks": [
+                {
+                  "at": "onglets",
+                  "text": "Les familles : One For All, Create, Additions…"
+                },
+                {
+                  "at": "recherche",
+                  "text": "Tape un nom pour filtrer la liste."
+                },
+                {
+                  "at": "liste",
+                  "text": "Choisis l'objet à fabriquer."
+                },
+                {
+                  "at": "cout",
+                  "text": "Ses ingrédients (possédé / requis) et son temps, à la main et alimenté."
+                },
+                {
+                  "at": "crafter",
+                  "text": "La quantité (1 à 64), puis « Crafter » : les ingrédients sont prélevés."
+                },
+                {
+                  "at": "file",
+                  "text": "La file : une fabrication après l'autre. « Annuler » rend les ingrédients."
+                },
+                {
+                  "at": "stock",
+                  "text": "« Stock » : les objets finis, à retirer."
+                },
+                {
+                  "at": "vitesse",
+                  "text": "La vitesse du moment : « Alimenté : vitesse x4 » pendant une fabrication, sinon « À la main »."
+                }
+              ]
+            },
+            {
+              "type": "clip",
+              "img": "shots/electricite/etabli-commande.webp",
+              "alt": "Animation : recherche « poste », choix du Poste à souder, Crafter, la fabrication passe dans la file, puis l'écran du stock",
+              "title": "Une commande",
+              "note": "Le Poste à souder : 9 s à la main, un peu plus de 2 s alimenté."
+            }
+          ]
         },
         {
-          "k": "File max",
-          "v": "64"
+          "type": "step",
+          "title": "Retirer",
+          "blocks": [
+            {
+              "type": "shot",
+              "img": "shots/electricite/etabli-stock.webp",
+              "alt": "L'écran « Stock de l'établi » : le Testeur fabriqué, prêt à être pris"
+            },
+            {
+              "type": "text",
+              "text": "Le stock reçoit tout ce que tu fabriques. On y prend, on n'y dépose rien. « Retour » ramène aux commandes."
+            }
+          ]
+        },
+        {
+          "type": "numbers",
+          "title": "À retenir",
+          "list": [
+            {
+              "k": "Vitesse à la main",
+              "v": "×1"
+            },
+            {
+              "k": "Alimenté",
+              "v": "×4 (×3 sous 50 % d'état)"
+            },
+            {
+              "k": "Énergie",
+              "v": "20 FE/t, pendant une fabrication"
+            },
+            {
+              "k": "Réserve",
+              "v": "1 000 FE"
+            },
+            {
+              "k": "File",
+              "v": "64 fabrications par joueur"
+            },
+            {
+              "k": "Durée",
+              "v": "4 s + 1 s par ingrédient et plus, 600 s au plus"
+            }
+          ]
+        },
+        {
+          "type": "problems",
+          "title": "Si ça bloque",
+          "list": [
+            {
+              "msg": "Seul un Ingénieur peut utiliser l'établi.",
+              "text": "Ton métier n'est pas ingénieur : demande-le à l'équipe.",
+              "link": "#electricite/metiers"
+            },
+            {
+              "msg": "Il vous manque des ingrédients.",
+              "text": "Le coût montre en rouge ce qui manque dans ton inventaire."
+            },
+            {
+              "msg": "La file de l'établi est pleine.",
+              "text": "64 fabrications au plus : attends qu'elle avance."
+            },
+            {
+              "msg": "Vous êtes trop loin de l'établi.",
+              "text": "Reste près de l'établi pendant que tu commandes."
+            }
+          ]
         }
       ],
       "staff": [
-        "Les recettes de table des mods d'ingénierie passent à l'établi, pour tous.",
-        "Config : config/oneforallsurvival-common.toml (managedMods, excludedItems...).",
-        "Surcharges de recettes par datapack : bench_overrides/<nom>.json.",
-        "Retirer réacteurs, PC et CPU avec excludedItems."
+        "Les recettes de table des mods d'ingénierie (Create, Crafts & Additions, New Age, Courant, One For All) passent à l'établi, pour tous. L'établi lui-même reste à la table (`tableAllowedItems`).",
+        "Config : `config/oneforallsurvival-common.toml` (`managedMods`, `excludedItems`, `tableAllowedItems`, `baseSeconds`, `secondsPerIngredient`, `maxSeconds`, `manualSpeed`, `poweredSpeed`, `maxQueue`).",
+        "Surcharges de recettes par datapack : `bench_overrides/<nom>.json`.",
+        "Retirer réacteurs, PC et CPU avec `excludedItems`.",
+        "La file avance même joueur parti ; un établi dans une zone déchargée garde la vitesse de son dernier état connu. L'établi ne consomme que quand une tête de file est chez lui.",
+        "C'est une machine du mod : il s'use et tombe en panne ; sans courant il fabrique à la main."
       ]
     },
     {
-      "id": "usure-pannes",
-      "num": 1,
-      "name": "Usure et pannes",
-      "kind": "systeme",
-      "status": "dispo",
-      "lot": "Lot 2",
-      "image": null,
-      "what": "Chaque machine du mod s'use en travaillant et finit par tomber en panne.",
-      "who": {
-        "utilise": "Tous",
-        "casse": "Tous"
-      },
-      "steps": [
-        "Sous 50 %, rendement réduit ; sous 20 %, fumée.",
-        "À 0 %, panne : Fusible, Bobinage, Roulement ou Encrassement.",
-        "Casser puis reposer ne répare pas."
+      "id": "usure",
+      "title": "Usure et pannes",
+      "group": "Pannes et réparation",
+      "lead": "Chaque machine électrique du mod s'use en marchant et finit en panne. Le testeur dit où elle en est et quelle pièce prévoir.",
+      "cover": "shots/electricite/usure-etats.webp",
+      "covers": [
+        "usure-pannes"
       ],
-      "flow": [
-        "En marche",
-        "Fatiguée",
-        "Elle fume",
-        "En panne"
-      ],
-      "numbers": [
+      "chips": [
         {
           "k": "Durée de vie",
           "v": "72 h de marche"
         },
         {
-          "k": "Rendement < 50 %",
-          "v": "75 %"
+          "k": "Au bord de mer",
+          "v": "×2 plus vite"
+        }
+      ],
+      "blocks": [
+        {
+          "type": "shot",
+          "img": "shots/electricite/usure-etats.webp",
+          "alt": "Trois séchoirs côte à côte : le premier en bon état, le deuxième fume et crache des étincelles, le troisième en panne",
+          "marks": [
+            {
+              "at": "bon",
+              "text": "Au-dessus de 50 % : plein rendement."
+            },
+            {
+              "at": "fume",
+              "text": "Sous 20 % : fumée et étincelles. Dès 50 %, elle ne travaille plus qu'à 75 %."
+            },
+            {
+              "at": "panne",
+              "text": "À 0 % : en panne, elle ne fait plus rien. Parfois des flammes, sans feu."
+            }
+          ]
         },
         {
-          "k": "Usure côtière",
-          "v": "×2"
+          "type": "flow",
+          "nodes": [
+            {
+              "label": "En marche"
+            },
+            {
+              "label": "Fatiguée (< 50 %)"
+            },
+            {
+              "label": "Elle fume (< 20 %)"
+            },
+            {
+              "label": "En panne"
+            }
+          ]
+        },
+        {
+          "type": "step",
+          "title": "Diagnostiquer au testeur",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "**Testeur** en main, clic droit sur la machine : le chat donne son état. Tout le monde peut diagnostiquer ; seul l'ingénieur répare."
+            },
+            {
+              "type": "shot",
+              "img": "shots/electricite/usure-testeur.webp",
+              "alt": "Le chat après le testeur : État 15 %, Aspect elle fume, Énergie, Pièce à prévoir, Exposée à la corrosion"
+            }
+          ]
+        },
+        {
+          "type": "step",
+          "title": "Les quatre pannes",
+          "blocks": [
+            {
+              "type": "items",
+              "list": [
+                {
+                  "item": "oneforallsurvival:fuse",
+                  "label": "Fusible",
+                  "text": "Il se répare avec un Fusible de rechange."
+                },
+                {
+                  "item": "oneforallsurvival:coil",
+                  "label": "Bobinage",
+                  "text": "Avec un Bobinage de rechange."
+                },
+                {
+                  "item": "oneforallsurvival:bearing",
+                  "label": "Roulement",
+                  "text": "Avec un Roulement de rechange."
+                },
+                {
+                  "item": "oneforallsurvival:cleaning_kit",
+                  "label": "Encrassement",
+                  "text": "Avec un Kit de nettoyage."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "La pièce qui lâchera est tirée d'avance : le testeur l'annonce dès que la machine n'est plus neuve."
+            }
+          ]
+        },
+        {
+          "type": "numbers",
+          "title": "À retenir",
+          "list": [
+            {
+              "k": "Durée de vie",
+              "v": "72 h de marche (courant payé)"
+            },
+            {
+              "k": "À l'arrêt",
+              "v": "aucune usure"
+            },
+            {
+              "k": "Sous 50 %",
+              "v": "75 % : un séchage de 60 s en prend 80"
+            },
+            {
+              "k": "Bord de mer",
+              "v": "×2 : 36 h, sauf machine protégée"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "Casser puis reposer ne répare pas : l'objet garde l'usure, la panne et la protection."
         }
       ],
       "staff": [
-        "Config : config/oneforallsurvival-machines.toml.",
+        "Config : `config/oneforallsurvival-machines.toml` (`lifetimeHours`, `reducedEfficiency`, `coastalMultiplier`, `flamesEnabled`, `flameChance`, `flameTicks`, `seaLevel`, `coastRadius`).",
         "Seules les machines de ce mod s'usent, pas celles de Create.",
-        "Les flammes de panne sont visuelles : aucun feu posé.",
+        "Les flammes de panne sont visuelles (une chance sur deux à la panne, 10 s) : aucun feu posé.",
+        "Sous 50 %, l'énergie se paie à chaque tic mais le travail n'avance que 3 tics sur 4 : tout dure 4/3 plus longtemps et coûte 4/3 plus de FE.",
+        "Côtier : source d'eau à Y 63 dans un rayon de 16 ; une zone déclarée (`/coast zone`) fait ignorer la détection dans toute la dimension ; résultat gardé 5 minutes. La machine relit le milieu toutes les 10 s.",
         "Équilibrage en jeu pas encore fait."
       ]
     },
     {
-      "id": "trousse-diagnostic",
-      "num": 2,
-      "name": "Trousse de diagnostic",
-      "kind": "objet",
-      "status": "dispo",
-      "lot": "Lot 2",
-      "image": {
-        "type": "item",
-        "file": "welder.png"
-      },
-      "items": [
-        {
-          "name": "Testeur",
-          "file": "tester.png"
-        },
-        {
-          "name": "Poste à souder",
-          "file": "welder.png"
-        },
-        {
-          "name": "Fusible de rechange",
-          "file": "fuse.png"
-        },
-        {
-          "name": "Bobinage de rechange",
-          "file": "coil.png"
-        },
-        {
-          "name": "Roulement de rechange",
-          "file": "bearing.png"
-        },
-        {
-          "name": "Kit de nettoyage",
-          "file": "cleaning_kit.png"
-        }
+      "id": "reparer",
+      "title": "Réparer une machine",
+      "group": "Pannes et réparation",
+      "lead": "L'ingénieur répare au poste à souder, avec la pièce que le testeur annonce. La machine repart à 100 %.",
+      "cover": "shots/electricite/reparer-avant.webp",
+      "covers": [
+        "trousse-diagnostic"
       ],
-      "what": "Le testeur diagnostique la panne, le poste à souder répare avec la pièce.",
-      "who": {
-        "fabrique": "Ingénieur",
-        "utilise": "Tous ; réparer : Ingénieur"
-      },
-      "steps": [
-        "Clic droit au testeur : état, panne, pièce à prévoir.",
-        "Poste accroupi sur une machine : il se recharge.",
-        "Debout, pièce dans l'autre main : réparation à 100 %."
-      ],
-      "numbers": [
+      "chips": [
         {
-          "k": "Batterie du poste",
-          "v": "2000 FE"
+          "k": "Répare",
+          "v": "Ingénieur"
         },
         {
-          "k": "Coût réparation",
+          "k": "Coût",
           "v": "400 FE + 1 pièce"
         }
       ],
+      "blocks": [
+        {
+          "type": "step",
+          "title": "Le matériel",
+          "blocks": [
+            {
+              "type": "items",
+              "list": [
+                {
+                  "item": "oneforallsurvival:tester",
+                  "label": "Testeur",
+                  "text": "Clic droit sur une machine : son état et la pièce à prévoir."
+                },
+                {
+                  "item": "oneforallsurvival:welder",
+                  "label": "Poste à souder",
+                  "text": "Une batterie de 2 000 FE qui paie les réparations."
+                },
+                {
+                  "item": "oneforallsurvival:fuse",
+                  "label": "Fusible de rechange"
+                },
+                {
+                  "item": "oneforallsurvival:coil",
+                  "label": "Bobinage de rechange"
+                },
+                {
+                  "item": "oneforallsurvival:bearing",
+                  "label": "Roulement de rechange"
+                },
+                {
+                  "item": "oneforallsurvival:cleaning_kit",
+                  "label": "Kit de nettoyage"
+                }
+              ]
+            },
+            {
+              "type": "row",
+              "blocks": [
+                {
+                  "type": "recipe",
+                  "item": "oneforallsurvival:tester"
+                },
+                {
+                  "type": "recipe",
+                  "item": "oneforallsurvival:welder"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "step",
+          "title": "Recharger le poste",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "Poste en main, **accroupi**, clic droit sur une machine du mod (elle donne sa réserve) ou sur un bloc d'un autre mod qui rend du courant : « Poste rechargé : +N FE »."
+            },
+            {
+              "type": "text",
+              "text": "Une machine ne donne que ce qu'elle a en réserve (3 000 FE pour un séchoir) : vise une batterie pleine pour un plein d'un coup."
+            }
+          ]
+        },
+        {
+          "type": "step",
+          "title": "Réparer",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "**Debout**, poste à souder en main, la bonne pièce dans l'autre main (seconde main) : clic droit sur la machine."
+            },
+            {
+              "type": "clip",
+              "img": "shots/electricite/reparation.webp",
+              "alt": "Animation : en vue à la première personne, le poste à souder en main et un fusible dans la seconde main ; le clic droit sur le séchoir en panne, des étincelles, il repart",
+              "title": "Le clic",
+              "note": "« Machine réparée. » : état 100 %, panne levée."
+            }
+          ]
+        },
+        {
+          "type": "numbers",
+          "title": "À retenir",
+          "list": [
+            {
+              "k": "Batterie du poste",
+              "v": "2 000 FE",
+              "item": "oneforallsurvival:welder"
+            },
+            {
+              "k": "Une réparation",
+              "v": "400 FE et 1 pièce"
+            },
+            {
+              "k": "Une charge pleine",
+              "v": "5 réparations"
+            }
+          ]
+        },
+        {
+          "type": "step",
+          "title": "Les pièces de rechange",
+          "blocks": [
+            {
+              "type": "row",
+              "blocks": [
+                {
+                  "type": "recipe",
+                  "item": "oneforallsurvival:fuse"
+                },
+                {
+                  "type": "recipe",
+                  "item": "oneforallsurvival:coil"
+                }
+              ]
+            },
+            {
+              "type": "row",
+              "blocks": [
+                {
+                  "type": "recipe",
+                  "item": "oneforallsurvival:bearing"
+                },
+                {
+                  "type": "recipe",
+                  "item": "oneforallsurvival:cleaning_kit"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "problems",
+          "title": "Si ça bloque",
+          "list": [
+            {
+              "msg": "Ce n'est pas la bonne pièce : il faut …",
+              "text": "Rien n'est consommé : prends la pièce que le message (ou le testeur) annonce."
+            },
+            {
+              "msg": "Tenez une pièce de rechange dans l'autre main.",
+              "text": "La pièce va dans la seconde main, le poste dans la main principale."
+            },
+            {
+              "msg": "Le poste à souder n'a plus assez d'énergie.",
+              "text": "Il faut 400 FE : recharge-le, accroupi, sur une source."
+            },
+            {
+              "msg": "Cette machine est déjà en parfait état.",
+              "text": "Rien à faire, rien n'est consommé."
+            },
+            {
+              "msg": "Seul un Ingénieur peut réparer une machine.",
+              "text": "Le diagnostic est à tous, la réparation à l'ingénieur.",
+              "link": "#electricite/metiers"
+            }
+          ]
+        }
+      ],
       "staff": [
-        "Mauvaise pièce : rien n'est consommé.",
-        "Le fusible 16 A d'Advanced Electricity est accepté.",
-        "En créatif, la pièce n'est pas consommée."
+        "Mauvaise pièce : rien n'est consommé (ni pièce ni FE).",
+        "Le fusible 16 A d'Advanced Electricity (Courant) est accepté comme fusible de rechange.",
+        "En créatif, la pièce n'est pas consommée.",
+        "Une pièce traitée de la bonne sorte rend la machine protégée, même si elle était en bon état ; une réparation avec une pièce ordinaire retire la protection.",
+        "Chaque réparation compte pour la quête « Réparer N machines »."
       ]
     },
     {
-      "id": "bain-galvanique",
-      "num": 3,
-      "name": "Bain galvanique",
-      "kind": "machine",
-      "status": "dispo",
-      "lot": "Lot 2",
-      "image": {
-        "type": "block",
-        "top": "galvanic_bath_liquid_running.png",
-        "side": "galvanic_bath_tub.png",
-        "front": "galvanic_bath_anode.png"
-      },
-      "items": [
-        {
-          "name": "Fusible traité",
-          "file": "treated_fuse.png"
-        },
-        {
-          "name": "Bobinage traité",
-          "file": "treated_coil.png"
-        },
-        {
-          "name": "Roulement traité",
-          "file": "treated_bearing.png"
-        },
-        {
-          "name": "Kit de nettoyage traité",
-          "file": "treated_cleaning_kit.png"
-        }
+      "id": "bain",
+      "title": "Le bain galvanique",
+      "group": "Pannes et réparation",
+      "lead": "Il traite les pièces de rechange au zinc. Réparée avec une pièce traitée, une machine ne s'use plus deux fois plus vite au bord de mer.",
+      "cover": "shots/electricite/bain-hero.webp",
+      "covers": [
+        "bain-galvanique"
       ],
-      "what": "Traite les pièces au zinc ; elles protègent la machine de la corrosion marine.",
-      "who": {
-        "fabrique": "Ingénieur",
-        "pose": "Tous",
-        "utilise": "Tous",
-        "casse": "Tous, à la pioche"
-      },
-      "steps": [
-        "Pièce par le dessus, zinc par les côtés.",
-        "Sortie par le dessous, après 10 s.",
-        "Réparer avec une pièce traitée : machine protégée."
-      ],
-      "flow": [
-        "Pièce + zinc",
-        "Bain galvanique",
-        "Pièce traitée",
-        "Machine protégée"
-      ],
-      "numbers": [
+      "chips": [
         {
           "k": "Durée",
-          "v": "10 s"
+          "v": "10 s par pièce"
         },
         {
           "k": "Énergie",
           "v": "20 FE/t"
+        }
+      ],
+      "blocks": [
+        {
+          "type": "hero",
+          "img": "shots/electricite/bain-hero.webp",
+          "alt": "Un bain galvanique entre trois trémies : une au-dessus, une sur le côté, une dessous qui vide dans un coffre",
+          "points": [
+            {
+              "at": "piece",
+              "title": "Par le dessus",
+              "text": "La pièce à traiter (trémie, tuyau, ou à la main)."
+            },
+            {
+              "at": "zinc",
+              "title": "Par les côtés",
+              "text": "Le zinc : un lingot par pièce."
+            },
+            {
+              "at": "bain",
+              "title": "Clic droit",
+              "text": "Son écran, pour tout faire à la main."
+            },
+            {
+              "at": "sortie",
+              "title": "Par le dessous",
+              "text": "La pièce traitée sort (ici une trémie vers un coffre)."
+            }
+          ]
         },
         {
-          "k": "Zinc",
-          "v": "1 lingot"
+          "type": "step",
+          "title": "À la main",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "Clic droit sur le bain, puis **Maj + clic** sur la pièce et sur le zinc de ton inventaire : ils vont dans leurs cases. 10 secondes plus tard, la pièce traitée attend dans la sortie."
+            },
+            {
+              "type": "row",
+              "blocks": [
+                {
+                  "type": "clip",
+                  "img": "shots/electricite/bain-traitement.webp",
+                  "alt": "Animation : l'écran du bain, Maj + clic sur un fusible puis sur un lingot de zinc, la flèche avance, un fusible traité sort",
+                  "title": "Un fusible traité"
+                },
+                {
+                  "type": "shot",
+                  "img": "shots/electricite/bain-ecran.webp",
+                  "alt": "L'écran du bain : pièce, zinc, flèche de progression, sortie, état et énergie",
+                  "marks": [
+                    {
+                      "at": "e-piece",
+                      "text": "La pièce à traiter."
+                    },
+                    {
+                      "at": "e-zinc",
+                      "text": "Le zinc."
+                    },
+                    {
+                      "at": "e-sortie",
+                      "text": "La pièce traitée."
+                    },
+                    {
+                      "at": "e-etat",
+                      "text": "État et réserve du bain."
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "states",
+          "list": [
+            {
+              "img": "shots/electricite/bain-marche.webp",
+              "alt": "Le bain galvanique en marche",
+              "tone": "ok",
+              "title": "En marche",
+              "text": "Le liquide est clair, il traite."
+            },
+            {
+              "img": "shots/electricite/bain-sans-courant.webp",
+              "alt": "Le bain galvanique sans courant, voyants éteints",
+              "tone": "off",
+              "title": "Sans courant",
+              "text": "Plus de courant : il attend, rien n'est perdu."
+            },
+            {
+              "img": "shots/electricite/bain-panne.webp",
+              "alt": "Le bain galvanique en panne, qui fume",
+              "tone": "bad",
+              "title": "En panne",
+              "text": "Fumée et étincelles : il faut un ingénieur."
+            }
+          ]
+        },
+        {
+          "type": "items",
+          "list": [
+            {
+              "item": "oneforallsurvival:treated_fuse",
+              "label": "Fusible traité"
+            },
+            {
+              "item": "oneforallsurvival:treated_coil",
+              "label": "Bobinage traité"
+            },
+            {
+              "item": "oneforallsurvival:treated_bearing",
+              "label": "Roulement traité"
+            },
+            {
+              "item": "oneforallsurvival:treated_cleaning_kit",
+              "label": "Kit de nettoyage traité"
+            }
+          ],
+          "title": "Ce qu'il donne"
+        },
+        {
+          "type": "flow",
+          "nodes": [
+            {
+              "item": "oneforallsurvival:fuse",
+              "label": "Pièce + zinc"
+            },
+            {
+              "item": "oneforallsurvival:galvanic_bath",
+              "label": "Bain galvanique"
+            },
+            {
+              "item": "oneforallsurvival:treated_fuse",
+              "label": "Pièce traitée"
+            },
+            {
+              "label": "Machine protégée"
+            }
+          ]
+        },
+        {
+          "type": "row",
+          "blocks": [
+            {
+              "type": "recipe",
+              "item": "oneforallsurvival:galvanic_bath"
+            },
+            {
+              "type": "numbers",
+              "title": "À retenir",
+              "list": [
+                {
+                  "k": "Durée",
+                  "v": "10 s par pièce (13 s sous 50 %)"
+                },
+                {
+                  "k": "Énergie",
+                  "v": "20 FE/t : 4 000 FE par pièce"
+                },
+                {
+                  "k": "Zinc",
+                  "v": "1 lingot par pièce",
+                  "item": "create:zinc_ingot"
+                },
+                {
+                  "k": "Réserve",
+                  "v": "4 000 FE"
+                }
+              ]
+            }
+          ]
         }
       ],
       "staff": [
         "Côtier : source d'eau à Y 63 dans un rayon de 16.",
         "Une zone déclarée fait ignorer la détection dans toute la dimension.",
-        "Résultat de détection en cache 5 minutes."
+        "Résultat de détection en cache 5 minutes.",
+        "La protection tient jusqu'à la prochaine réparation : une pièce ordinaire l'enlève.",
+        "Recettes `oneforallsurvival:galvanic_bath`, une par pièce, modifiables par datapack."
       ]
     },
     {
       "id": "epave",
-      "num": 4,
-      "name": "Récupération sur l'épave",
-      "kind": "bloc",
-      "status": "dispo",
-      "lot": "Lot 2",
-      "image": {
-        "type": "block",
-        "top": "debris_fuselage.png",
-        "side": "debris_fuselage.png",
-        "front": "debris_fuselage.png"
-      },
-      "items": [
+      "title": "Démonter l'épave",
+      "group": "L'épave",
+      "lead": "Les débris de l'avion se démontent à la pioche ou à la clé de Create. Chaque bloc ne sert qu'une fois.",
+      "cover": "shots/electricite/epave-hero.webp",
+      "covers": [
+        "epave",
+        "debris-cablage",
+        "debris-instruments",
+        "debris-batterie",
+        "debris-cabine"
+      ],
+      "chips": [
         {
-          "name": "Ferraille",
-          "file": "scrap_metal.png"
+          "k": "Outil",
+          "v": "Pioche ou clé de Create"
         },
         {
-          "name": "Fil d'aviation",
-          "file": "aviation_wire.png"
-        },
-        {
-          "name": "Noyau d'instrument",
-          "file": "instrument_core.png"
-        },
-        {
-          "name": "Cellule de batterie",
-          "file": "battery_cell.png"
+          "k": "Débris",
+          "v": "5 sortes"
         }
       ],
-      "what": "Débris d'avion à démonter pour récupérer des matériaux ; stock limité.",
-      "who": {
-        "pose": "Staff",
-        "casse": "Tous, pioche ou clé"
-      },
-      "steps": [
-        "Démonter avec une pioche ou la clé de Create.",
-        "Le bloc disparaît, le butin est tiré au hasard.",
-        "Pièces rares refabricables par assemblage séquencé Create."
-      ],
-      "numbers": [
+      "blocks": [
         {
-          "k": "Types de débris",
-          "v": "5"
+          "type": "hero",
+          "img": "shots/electricite/epave-hero.webp",
+          "alt": "Une épave sur l'herbe près de la plage : fuselage gris, câblage orange, instruments, batterie noire, cabine",
+          "points": [
+            {
+              "at": "fuselage",
+              "title": "Débris de fuselage",
+              "text": "2 à 4 ferrailles et 3 à 6 pépites de fer."
+            },
+            {
+              "at": "instruments",
+              "title": "Débris d'instruments",
+              "text": "35 % : un noyau d'instrument. 1 à 2 ferrailles, 0 à 1 vitre, 1 à 2 redstone."
+            },
+            {
+              "at": "cablage",
+              "title": "Débris de câblage",
+              "text": "2 à 4 fils d'aviation et 0 à 1 lingot de cuivre."
+            },
+            {
+              "at": "batterie",
+              "title": "Débris de batterie",
+              "text": "50 % : une cellule de batterie. 1 à 2 ferrailles, 1 à 3 redstone."
+            },
+            {
+              "at": "cabine",
+              "title": "Débris de cabine",
+              "text": "1 à 2 cuirs, 0 à 2 laines blanches, 1 à 3 ficelles, 0 à 1 ferraille."
+            }
+          ]
         },
         {
-          "k": "Noyau d'instrument",
-          "v": "35 %"
+          "type": "step",
+          "title": "Démonter",
+          "blocks": [
+            {
+              "type": "clip",
+              "img": "shots/electricite/epave-demontage.webp",
+              "alt": "Animation : en vue à la première personne, pioche de fer en main, le débris de câblage se fissure et lâche des fils d'aviation",
+              "title": "À la pioche"
+            },
+            {
+              "type": "text",
+              "text": "Une pioche (n'importe laquelle) ou la clé de Create. À mains nues ou à la pelle, rien ne bouge. Le bloc disparaît, le butin est tiré au hasard."
+            }
+          ]
         },
         {
-          "k": "Cellule de batterie",
-          "v": "50 %"
+          "type": "items",
+          "list": [
+            {
+              "item": "oneforallsurvival:scrap_metal",
+              "label": "Ferraille"
+            },
+            {
+              "item": "oneforallsurvival:aviation_wire",
+              "label": "Fil d'aviation",
+              "text": "Dans presque toutes les recettes électriques."
+            },
+            {
+              "item": "oneforallsurvival:instrument_core",
+              "label": "Noyau d'instrument",
+              "text": "Rare : il en faut un pour chaque testeur."
+            },
+            {
+              "item": "oneforallsurvival:battery_cell",
+              "label": "Cellule de batterie",
+              "text": "Rare : il en faut une pour chaque poste à souder."
+            }
+          ],
+          "title": "Ce qu'on en tire"
+        },
+        {
+          "type": "text",
+          "text": "Le noyau d'instrument et la cellule de batterie se refont aussi avec Create, par assemblage séquencé (trois passages)."
+        },
+        {
+          "type": "numbers",
+          "title": "À retenir",
+          "list": [
+            {
+              "k": "Sortes de débris",
+              "v": "5"
+            },
+            {
+              "k": "Noyau d'instrument",
+              "v": "35 % par débris d'instruments",
+              "item": "oneforallsurvival:instrument_core"
+            },
+            {
+              "k": "Cellule de batterie",
+              "v": "50 % par débris de batterie",
+              "item": "oneforallsurvival:battery_cell"
+            }
+          ]
         }
       ],
       "staff": [
-        "Aucune recette ni génération : les débris se posent à la main.",
-        "Résistent aux explosions, pistons, dragon et Wither.",
-        "Butin : loot_tables/blocks/debris_*.json, surchargeable par datapack."
+        "Aucune recette ni génération : les débris se posent à la main (créatif, `/give`).",
+        "Résistent aux explosions, pistons, dragon et Wither ; une perceuse de Create les démonte et rend le butin.",
+        "Butin : `loot_tables/blocks/debris_*.json`, surchargeable par datapack.",
+        "Assemblage séquencé (Create) : noyau d'instrument = plaque de laiton, puis tube électronique, fil, presse (×3) ; cellule de batterie = plaque de zinc, puis plaque de cuivre, redstone, presse (×3)."
       ]
-    },
-    {
-      "id": "debris-cablage",
-      "num": 4,
-      "name": "Débris de câblage",
-      "kind": "bloc",
-      "status": "dispo",
-      "lot": "Lot 2",
-      "image": {
-        "type": "block",
-        "top": "debris_wiring.png",
-        "side": "debris_wiring.png",
-        "front": "debris_wiring.png"
-      },
-      "items": [
-        {
-          "name": "Fil d'aviation",
-          "file": "aviation_wire.png"
-        }
-      ],
-      "what": "Débris d'épave qui donne du fil d'aviation et un peu de cuivre.",
-      "who": {
-        "pose": "Staff",
-        "casse": "Tous, pioche ou clé"
-      },
-      "numbers": [
-        {
-          "k": "Fil d'aviation",
-          "v": "2 à 4"
-        }
-      ]
-    },
-    {
-      "id": "debris-instruments",
-      "num": 4,
-      "name": "Débris d'instruments",
-      "kind": "bloc",
-      "status": "dispo",
-      "lot": "Lot 2",
-      "image": {
-        "type": "block",
-        "top": "debris_instruments.png",
-        "side": "debris_instruments.png",
-        "front": "debris_instruments.png"
-      },
-      "items": [
-        {
-          "name": "Noyau d'instrument",
-          "file": "instrument_core.png"
-        }
-      ],
-      "what": "Débris d'épave qui peut donner un noyau d'instrument.",
-      "who": {
-        "pose": "Staff",
-        "casse": "Tous, pioche ou clé"
-      },
-      "numbers": [
-        {
-          "k": "Noyau d'instrument",
-          "v": "35 %"
-        }
-      ]
-    },
-    {
-      "id": "debris-batterie",
-      "num": 4,
-      "name": "Débris de batterie",
-      "kind": "bloc",
-      "status": "dispo",
-      "lot": "Lot 2",
-      "image": {
-        "type": "block",
-        "top": "debris_battery.png",
-        "side": "debris_battery.png",
-        "front": "debris_battery.png"
-      },
-      "items": [
-        {
-          "name": "Cellule de batterie",
-          "file": "battery_cell.png"
-        }
-      ],
-      "what": "Débris d'épave qui peut donner une cellule de batterie.",
-      "who": {
-        "pose": "Staff",
-        "casse": "Tous, pioche ou clé"
-      },
-      "numbers": [
-        {
-          "k": "Cellule de batterie",
-          "v": "50 %"
-        }
-      ]
-    },
-    {
-      "id": "debris-cabine",
-      "num": 4,
-      "name": "Débris de cabine",
-      "kind": "bloc",
-      "status": "dispo",
-      "lot": "Lot 2",
-      "image": {
-        "type": "block",
-        "top": "debris_cabin.png",
-        "side": "debris_cabin.png",
-        "front": "debris_cabin.png"
-      },
-      "what": "Débris d'épave qui donne cuir, laine et ficelle.",
-      "who": {
-        "pose": "Staff",
-        "casse": "Tous, pioche ou clé"
-      }
     },
     {
       "id": "delestage",
-      "num": 7,
-      "name": "Tableau de délestage",
-      "kind": "machine",
-      "status": "dispo",
-      "lot": "Lot 4",
-      "image": {
-        "type": "block",
-        "top": "load_shedder_output.png",
-        "side": "load_shedder_input.png",
-        "front": "load_shedder_front_running.png"
-      },
-      "what": "Répartit le courant entre quatre sorties ; coupe les dernières en cas de manque.",
-      "who": {
-        "fabrique": "Ingénieur",
-        "pose": "Tous",
-        "utilise": "Tous",
-        "casse": "Tous, à la pioche"
-      },
-      "steps": [
-        "Poser dos au mur : l'entrée est derrière.",
-        "Sorties : devant, gauche, droite, dessus.",
-        "Clic droit : Monter ou Descendre les priorités."
+      "title": "Le tableau de délestage",
+      "group": "Le réseau",
+      "lead": "Il répartit le courant d'une arrivée entre quatre sorties, dans l'ordre choisi. Quand il en manque, les dernières sont coupées.",
+      "cover": "shots/electricite/delestage-hero.webp",
+      "covers": [
+        "delestage"
       ],
-      "flow": [
-        "Entrée arrière",
-        "Tableau",
-        "Sortie 1 servie d'abord"
-      ],
-      "numbers": [
+      "chips": [
         {
           "k": "Sorties",
           "v": "4"
         },
         {
-          "k": "Débit max",
-          "v": "4096 FE/t"
+          "k": "Débit",
+          "v": "4 096 FE/t"
+        }
+      ],
+      "blocks": [
+        {
+          "type": "hero",
+          "img": "shots/electricite/delestage-hero.webp",
+          "alt": "Un tableau de délestage dans l'herbe, un alternateur derrière lui, un séchoir à gauche, à droite et dessus",
+          "points": [
+            {
+              "at": "tableau",
+              "title": "Le tableau",
+              "text": "Posé, sa face te regarde : l'entrée est derrière, seule face qui reçoit."
+            },
+            {
+              "at": "entree",
+              "title": "L'arrivée",
+              "text": "Ici un alternateur de Crafts & Additions à 32 tr/min : 45 FE/t."
+            },
+            {
+              "at": "dessus",
+              "title": "Les sorties",
+              "text": "Devant, gauche, droite et dessus : une machine ou un câble sur chacune."
+            },
+            {
+              "at": "droite",
+              "title": "Servies dans l'ordre",
+              "text": "Les trois séchoirs veulent 20 FE/t chacun : le troisième n'a que le reste."
+            }
+          ]
         },
         {
-          "k": "Réserve",
-          "v": "aucune"
+          "type": "step",
+          "title": "Régler les priorités",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "Clic droit : l'écran. **Monter** sert une sortie plus tôt, **Descendre** plus tard."
+            },
+            {
+              "type": "row",
+              "blocks": [
+                {
+                  "type": "shot",
+                  "img": "shots/electricite/delestage-ecran.webp",
+                  "alt": "L'écran du tableau : le courant passe ; rangs, sorties, état (Alimentée, Partielle) et FE par tic de chaque sortie",
+                  "marks": [
+                    {
+                      "at": "etat",
+                      "text": "Ce qui passe : le courant passe, aucun, sans courant, en panne."
+                    },
+                    {
+                      "at": "rangs",
+                      "text": "Le rang 1 est servi le premier."
+                    },
+                    {
+                      "at": "fe",
+                      "text": "Ce que chaque sortie reçoit, par tic."
+                    },
+                    {
+                      "at": "boutons",
+                      "text": "Monter, Descendre."
+                    }
+                  ]
+                },
+                {
+                  "type": "clip",
+                  "img": "shots/electricite/delestage-priorite.webp",
+                  "alt": "Animation : clic sur Monter de la troisième ligne, elle passe au rang 2 et devient alimentée",
+                  "title": "Monter une sortie"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "numbers",
+          "title": "À retenir",
+          "list": [
+            {
+              "k": "Sorties",
+              "v": "4 : devant, gauche, droite, dessus"
+            },
+            {
+              "k": "Débit",
+              "v": "4 096 FE/t au plus (3 072 sous 50 %)"
+            },
+            {
+              "k": "Réserve",
+              "v": "aucune : seul ce qui est pris passe"
+            },
+            {
+              "k": "Usure",
+              "v": "seulement quand du courant passe"
+            }
+          ]
+        },
+        {
+          "type": "recipe",
+          "item": "oneforallsurvival:load_shedder"
         }
       ],
       "staff": [
         "Les rangs sont perdus quand on casse le tableau.",
         "Testé avec Crafts & Additions seulement.",
-        "Config : serverconfig/oneforallsurvival-grid.toml (shedderMaxPerTick)."
+        "Config : `serverconfig/oneforallsurvival-grid.toml` (`shedderMaxPerTick`).",
+        "En panne, rien ne passe. Le courant qui reviendrait sur l'entrée par une boucle est refusé."
       ]
     },
     {
-      "id": "compteur",
-      "num": 8,
-      "name": "Compteur",
-      "kind": "bloc",
-      "status": "dispo",
-      "lot": "Lot 4",
-      "image": {
-        "type": "block",
-        "top": "meter_top.png",
-        "side": "meter_side.png",
-        "front": "meter_front.png"
-      },
-      "items": [
-        {
-          "name": "Relevé de compteur",
-          "file": "meter_reading.png"
-        }
+      "id": "abonne",
+      "title": "Compteur et disjoncteur",
+      "group": "Le réseau",
+      "lead": "Sur la ligne d'une maison : le disjoncteur coupe le courant, le compteur compte les FE. L'ingénieur inscrit l'abonné et relève.",
+      "cover": "shots/electricite/abonne-hero.webp",
+      "covers": [
+        "compteur",
+        "disjoncteur"
       ],
-      "what": "Totalise les FE d'un abonné ; l'Ingénieur le relève au testeur.",
-      "who": {
-        "fabrique": "Ingénieur",
-        "pose": "Tous",
-        "utilise": "Ingénieur (inscription, relevé)",
-        "casse": "Tous, à la pioche"
-      },
-      "steps": [
-        "Poser sur le câble, sortie devant vous.",
-        "Ingénieur, main vide : inscrire le nom de l'abonné.",
-        "Ingénieur, testeur : obtenir un Relevé de compteur."
-      ],
-      "numbers": [
+      "chips": [
         {
-          "k": "Débit max",
-          "v": "4096 FE/t"
+          "k": "Débit",
+          "v": "4 096 FE/t"
         },
         {
           "k": "Usure",
           "v": "aucune"
         }
       ],
-      "staff": [
-        "Anomalies au relevé : dépose, remplacement, index en baisse, scellé brisé.",
-        "Aucune monnaie dans le mod : le paiement se fait en RP.",
-        "Facturation automatique prévue avec l'économie (lot E6)."
-      ]
-    },
-    {
-      "id": "disjoncteur",
-      "num": 8,
-      "name": "Disjoncteur d'abonné",
-      "kind": "bloc",
-      "status": "dispo",
-      "lot": "Lot 4",
-      "image": {
-        "type": "block",
-        "top": "breaker_top.png",
-        "side": "breaker_side.png",
-        "front": "breaker_front_closed.png"
-      },
-      "items": [
+      "blocks": [
         {
-          "name": "Scellé",
-          "file": "seal.png"
-        }
-      ],
-      "what": "Coupe la ligne d'un abonné ; un scellé empêche de la rallumer.",
-      "who": {
-        "fabrique": "Ingénieur",
-        "pose": "Tous",
-        "utilise": "Tous si non scellé",
-        "casse": "Tous, à la pioche"
-      },
-      "steps": [
-        "Clic droit main vide : enclenché ou coupé.",
-        "Ingénieur accroupi : inscrire l'abonné ou retirer le scellé.",
-        "Ingénieur, Scellé en main : sceller un disjoncteur coupé."
-      ],
-      "flow": [
-        "Inscrit",
-        "Coupé",
-        "Scellé"
-      ],
-      "numbers": [
-        {
-          "k": "Débit max",
-          "v": "4096 FE/t"
+          "type": "hero",
+          "img": "shots/electricite/abonne-hero.webp",
+          "alt": "Une ligne : un alternateur, un disjoncteur, un compteur, puis un séchoir contre une cabane de bois",
+          "points": [
+            {
+              "at": "source",
+              "title": "L'arrivée",
+              "text": "Ici un alternateur ; en vrai, la ligne qui vient du réseau."
+            },
+            {
+              "at": "disjoncteur",
+              "title": "Le disjoncteur",
+              "text": "Clic droit main vide : coupé ou enclenché, par tout le monde, sauf scellé."
+            },
+            {
+              "at": "compteur",
+              "title": "Le compteur",
+              "text": "Il totalise les FE qui passent, une fois jumelé à un fournisseur (ici, c'est fait)."
+            },
+            {
+              "at": "maison",
+              "title": "La maison",
+              "text": "Ce qui consomme, derrière le compteur."
+            }
+          ]
         },
         {
-          "k": "Usure",
-          "v": "aucune"
+          "type": "step",
+          "title": "Poser sur la ligne",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "Pose-les en regardant vers la maison : la sortie part devant toi, l'entrée est de ton côté. Un câble ou une machine de chaque côté."
+            },
+            {
+              "type": "text",
+              "text": "Attention : un compteur seul ne laisse **rien** passer. Le courant ne passe qu'une fois le compteur jumelé à un poste de fournisseur et accepté par l'abonné (chapitre Économie)."
+            }
+          ]
+        },
+        {
+          "type": "step",
+          "title": "Inscrire l'abonné",
+          "blocks": [
+            {
+              "type": "row",
+              "blocks": [
+                {
+                  "type": "text",
+                  "text": "Ingénieur, **main vide**, clic droit sur le compteur (sur le disjoncteur : **accroupi**). Tape le nom de celui qui paie, puis « Inscrire ». Avant le jumelage : un compteur jumelé ne se réinscrit plus."
+                },
+                {
+                  "type": "shot",
+                  "img": "shots/electricite/abonne-nom.webp",
+                  "alt": "L'écran « Nom de l'abonné » : le nom Ines Lebrun tapé, les boutons Inscrire et Annuler",
+                  "marks": [
+                    {
+                      "at": "champ",
+                      "text": "16 caractères au plus : lettres, chiffres, espace, tiret."
+                    },
+                    {
+                      "at": "inscrire",
+                      "text": "« Inscrire » : « Abonné inscrit : Ines Lebrun »."
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "step",
+          "title": "Relever",
+          "blocks": [
+            {
+              "type": "row",
+              "blocks": [
+                {
+                  "type": "text",
+                  "text": "Ingénieur, **testeur** en main, clic droit sur le compteur : un Relevé de compteur arrive dans l'inventaire, et le chat dit ce qui a été consommé depuis le relevé précédent."
+                },
+                {
+                  "type": "shot",
+                  "img": "shots/electricite/abonne-releve.webp",
+                  "alt": "Le Relevé de compteur et son infobulle : abonné, index, consommation, jour, date, aucune anomalie"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "step",
+          "title": "Couper, sceller",
+          "blocks": [
+            {
+              "type": "row",
+              "blocks": [
+                {
+                  "type": "clip",
+                  "img": "shots/electricite/disjoncteur-bascule.webp",
+                  "alt": "Animation : clic droit main vide sur le disjoncteur, il se coupe, puis se réenclenche",
+                  "title": "Couper, rétablir"
+                },
+                {
+                  "type": "states",
+                  "list": [
+                    {
+                      "img": "shots/electricite/disjoncteur-enclenche.webp",
+                      "alt": "Disjoncteur enclenché",
+                      "tone": "ok",
+                      "title": "Enclenché",
+                      "text": "Le courant passe."
+                    },
+                    {
+                      "img": "shots/electricite/disjoncteur-coupe.webp",
+                      "alt": "Disjoncteur coupé",
+                      "tone": "off",
+                      "title": "Coupé",
+                      "text": "Plus rien ne passe."
+                    },
+                    {
+                      "img": "shots/electricite/disjoncteur-scelle.webp",
+                      "alt": "Disjoncteur coupé et scellé",
+                      "tone": "bad",
+                      "title": "Scellé",
+                      "text": "Plus personne ne le réenclenche."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "Ingénieur, **Scellé** en main, sur un disjoncteur inscrit et coupé : il est scellé. Ingénieur accroupi, main vide : il retire le scellé, qui est détruit."
+            }
+          ]
+        },
+        {
+          "type": "flow",
+          "nodes": [
+            {
+              "label": "Arrivée"
+            },
+            {
+              "item": "oneforallsurvival:load_shedder",
+              "label": "Tableau de délestage"
+            },
+            {
+              "item": "oneforallsurvival:breaker",
+              "label": "Disjoncteur"
+            },
+            {
+              "item": "oneforallsurvival:meter",
+              "label": "Compteur"
+            },
+            {
+              "label": "Maison"
+            }
+          ],
+          "title": "Le courant d'un abonné"
+        },
+        {
+          "type": "text",
+          "text": "Pour faire payer le courant automatiquement chaque minuit, compteur et disjoncteur se jumellent à un poste de fournisseur (chapitre Économie)."
+        },
+        {
+          "type": "row",
+          "blocks": [
+            {
+              "type": "recipe",
+              "item": "oneforallsurvival:meter"
+            },
+            {
+              "type": "recipe",
+              "item": "oneforallsurvival:breaker"
+            },
+            {
+              "type": "recipe",
+              "item": "oneforallsurvival:seal"
+            }
+          ]
+        },
+        {
+          "type": "problems",
+          "title": "Si ça bloque",
+          "list": [
+            {
+              "msg": "Rien ne passe par le compteur",
+              "text": "Il n'est pas encore jumelé à un poste de fournisseur, ou l'abonné n'a pas accepté.",
+              "link": {
+                "href": "#fournisseur",
+                "label": "Voir : Fournisseur d'électricité"
+              }
+            },
+            {
+              "msg": "Disjoncteur scellé : seul un ingénieur peut retirer le scellé (accroupi, main vide).",
+              "text": "Il reste coupé tant que l'ingénieur n'a pas retiré le scellé."
+            },
+            {
+              "msg": "On ne scelle qu'un disjoncteur coupé : coupez-le d'abord.",
+              "text": "Clic droit main vide, puis le scellé."
+            },
+            {
+              "msg": "On ne scelle qu'un disjoncteur inscrit : inscrivez d'abord l'abonné (accroupi, main vide).",
+              "text": "Le nom d'abord."
+            },
+            {
+              "msg": "Compteur sans abonné : rien à relever.",
+              "text": "Inscris l'abonné (main vide), puis relève."
+            }
+          ]
         }
       ],
       "staff": [
-        "Casser un disjoncteur scellé reste possible ; « scellé brisé » apparaît au relevé.",
-        "Le Policier prend le relais en RP."
+        "Anomalies au relevé : compteur déposé, compteur remplacé, index en baisse, scellé brisé ; relevé de clôture quand le compteur passe à un autre abonné.",
+        "Le paiement se fait en RP, ou automatiquement quand compteur et disjoncteur sont jumelés à un poste de fournisseur (lot E6, chapitre Économie, fiche « Fournisseur d'électricité »).",
+        "Jumelés à un fournisseur : seuls ses ayants droit (fondateur, ingénieur, maire, équipe) les ouvrent, règlent ou cassent ; un compteur jumelé ne se réinscrit pas.",
+        "Depuis le lot E6, un compteur nu ne laisse rien passer (`MeterBlockEntity.isOpen`) : seul un compteur jumelé et accepté ouvre la ligne. La fiche du lot 4 ne le disait pas.",
+        "Captures de cet article : le compteur y est raccordé par le raccordement d'essai du développement (`FournisseurDEssai`), pas par le testeur ; l'inscription du nom, elle, est le vrai geste.",
+        "Casser un disjoncteur scellé reste possible ; « Scellé brisé » apparaît au relevé.",
+        "Le Policier prend le relais en RP.",
+        "Config : `serverconfig/oneforallsurvival-grid.toml` (`meterMaxPerTick`, `breakerMaxPerTick`)."
       ]
     },
     {
       "id": "parafoudre",
-      "num": 5,
-      "name": "Parafoudre",
-      "kind": "machine",
-      "status": "dispo",
-      "lot": "Lot 4",
-      "image": {
-        "type": "block",
-        "top": "surge_arrester_end.png",
-        "side": "surge_arrester_side.png",
-        "front": "surge_arrester_side.png"
-      },
-      "what": "Protège les machines proches de la foudre, mais s'use à chaque éclair.",
-      "who": {
-        "fabrique": "Ingénieur",
-        "pose": "Tous",
-        "casse": "Tous, à la pioche"
-      },
-      "steps": [
-        "Poser près des machines, sans câble ni courant.",
-        "Chaque éclair encaissé lui retire 10 points.",
-        "À 0, il ne protège plus : le réparer."
+      "title": "Le parafoudre",
+      "group": "Le réseau",
+      "lead": "Il protège les machines proches des éclairs, mais s'use à chaque coup encaissé.",
+      "cover": "shots/electricite/parafoudre-hero.webp",
+      "covers": [
+        "parafoudre"
       ],
-      "flow": [
-        "Éclair",
-        "Parafoudre",
-        "Machines épargnées"
+      "chips": [
+        {
+          "k": "Protège",
+          "v": "24 blocs autour"
+        },
+        {
+          "k": "Courant",
+          "v": "aucun"
+        }
       ],
-      "numbers": [
+      "blocks": [
         {
-          "k": "Protection",
-          "v": "24 blocs"
+          "type": "hero",
+          "img": "shots/electricite/parafoudre-hero.webp",
+          "alt": "Un parafoudre dans l'herbe, un séchoir et une armoire frigorifique derrière lui",
+          "points": [
+            {
+              "at": "parafoudre",
+              "title": "Le parafoudre",
+              "text": "Ni câble ni courant : pose-le près des machines."
+            },
+            {
+              "at": "machine",
+              "title": "Les machines protégées",
+              "text": "Celles à 24 blocs au plus d'un parafoudre en état."
+            }
+          ]
         },
         {
-          "k": "Rayon de la foudre",
-          "v": "16 blocs"
+          "type": "clip",
+          "img": "shots/electricite/parafoudre-eclair.webp",
+          "alt": "Animation : un éclair tombe près des machines",
+          "title": "Un éclair",
+          "note": "Sans parafoudre, chaque machine à 16 blocs ou moins perd 25 points, et une fois sur quatre son fusible grille."
         },
         {
-          "k": "Risque de fusible",
-          "v": "25 %"
+          "type": "states",
+          "list": [
+            {
+              "img": "shots/electricite/parafoudre-ok.webp",
+              "alt": "Parafoudre en état",
+              "tone": "ok",
+              "title": "En état",
+              "text": "Il protège. Chaque éclair encaissé lui retire 10 points."
+            },
+            {
+              "img": "shots/electricite/parafoudre-panne.webp",
+              "alt": "Parafoudre en panne, qui fume",
+              "tone": "bad",
+              "title": "En panne",
+              "text": "À 0, il ne protège plus : l'ingénieur le répare comme une machine."
+            }
+          ]
         },
         {
-          "k": "Dégât sinon",
-          "v": "25 points"
+          "type": "numbers",
+          "title": "À retenir",
+          "list": [
+            {
+              "k": "Rayon de la foudre",
+              "v": "16 blocs"
+            },
+            {
+              "k": "Protection",
+              "v": "24 blocs autour du parafoudre"
+            },
+            {
+              "k": "Sans protection",
+              "v": "−25 points et 25 % de panne de fusible"
+            },
+            {
+              "k": "Usure du parafoudre",
+              "v": "10 points par éclair : 10 éclairs"
+            }
+          ]
+        },
+        {
+          "type": "recipe",
+          "item": "oneforallsurvival:surge_arrester"
         }
       ],
       "staff": [
         "N'attire pas la foudre : le paratonnerre vanilla garde ce rôle.",
-        "Un éclair /summon compte ; foudre d'un vrai orage non prouvée.",
-        "Config : oneforallsurvival-grid.toml (lightning*, arrester*)."
+        "Un éclair `/summon` compte ; foudre d'un vrai orage non prouvée.",
+        "Config : `oneforallsurvival-grid.toml` (`lightningRadius`, `lightningDamage`, `lightningFuseChance`, `arresterRadius`, `arresterWearPerStrike`).",
+        "Compteur et disjoncteur ne sont pas des machines : la foudre ne les touche jamais. Un parafoudre ne s'use qu'une fois par éclair, s'il a protégé au moins une machine."
       ]
     },
     {
-      "id": "station-meteo",
-      "num": 6,
-      "name": "Station météo",
-      "kind": "machine",
-      "status": "dispo",
-      "lot": "Lot 4",
-      "image": {
-        "type": "block",
-        "top": "weather_station_top.png",
-        "side": "weather_station_side.png",
-        "front": "weather_station_front_storm_soon.png"
-      },
-      "what": "Annonce le temps à venir et émet un signal redstone avant l'orage.",
-      "who": {
-        "fabrique": "Ingénieur",
-        "pose": "Tous",
-        "casse": "Tous, à la pioche"
-      },
-      "steps": [
-        "Lire la face : soleil, nuage ou éclair.",
-        "Orage annoncé : redstone 15 sur toutes les faces.",
-        "Sans courant ou en panne : face éteinte."
+      "id": "meteo",
+      "title": "La station météo",
+      "group": "Le réseau",
+      "lead": "Elle annonce le temps environ 5 minutes à l'avance et donne un signal de redstone avant l'orage.",
+      "cover": "shots/electricite/meteo-orage.webp",
+      "covers": [
+        "station-meteo"
       ],
-      "numbers": [
+      "chips": [
         {
           "k": "Avance",
           "v": "≈ 5 min"
@@ -704,119 +1478,279 @@
         {
           "k": "Énergie",
           "v": "2 FE/t"
+        }
+      ],
+      "blocks": [
+        {
+          "type": "states",
+          "list": [
+            {
+              "img": "shots/electricite/meteo-soleil.webp",
+              "alt": "Station météo, face au soleil",
+              "tone": "ok",
+              "title": "Soleil",
+              "text": "Rien en vue."
+            },
+            {
+              "img": "shots/electricite/meteo-nuage.webp",
+              "alt": "Station météo, face au nuage",
+              "tone": "info",
+              "title": "Nuage",
+              "text": "Pluie dans les 5 minutes, ou en cours."
+            },
+            {
+              "img": "shots/electricite/meteo-orage.webp",
+              "alt": "Station météo, face à l'éclair, une lampe de redstone allumée à côté",
+              "tone": "bad",
+              "title": "Éclair",
+              "text": "Orage annoncé : signal de redstone 15 sur toutes ses faces (ici une lampe)."
+            },
+            {
+              "img": "shots/electricite/meteo-eteinte.webp",
+              "alt": "Station météo à la face éteinte",
+              "tone": "off",
+              "title": "Éteinte",
+              "text": "Sans courant ou en panne : elle n'annonce rien."
+            }
+          ]
         },
         {
-          "k": "Signal",
-          "v": "15"
+          "type": "text",
+          "text": "Lis la face : soleil, nuage ou éclair. Avec un fil de redstone, l'orage peut fermer des volets, allumer une alarme…"
+        },
+        {
+          "type": "numbers",
+          "title": "À retenir",
+          "list": [
+            {
+              "k": "Avance",
+              "v": "≈ 5 min (6 000 tics), ±20 % d'une station à l'autre"
+            },
+            {
+              "k": "Énergie",
+              "v": "2 FE/t, toujours"
+            },
+            {
+              "k": "Signal",
+              "v": "15, orage annoncé seulement"
+            },
+            {
+              "k": "Réserve",
+              "v": "1 000 FE"
+            }
+          ]
+        },
+        {
+          "type": "recipe",
+          "item": "oneforallsurvival:weather_station"
         }
       ],
       "staff": [
         "Nether et End toujours « stable ».",
-        "Config : oneforallsurvival-grid.toml (weatherHorizon, weatherJitter, weatherEnergy).",
-        "Fonctionnement sur un vrai cycle météo non prouvé."
+        "Config : `oneforallsurvival-grid.toml` (`weatherHorizon`, `weatherJitter`, `weatherEnergy`).",
+        "Fonctionnement sur un vrai cycle météo non prouvé.",
+        "L'horizon propre est tiré à la pose : deux stations voisines n'annoncent pas l'orage au même tic."
       ]
     },
     {
       "id": "dessalinisateur",
-      "num": 9,
-      "name": "Dessalinisateur",
-      "kind": "machine",
-      "status": "dispo",
-      "lot": "Lot 3",
-      "image": {
-        "type": "block",
-        "top": "desalinator_top.png",
-        "side": "desalinator_side.png",
-        "front": "desalinator_front_running.png"
-      },
-      "items": [
-        {
-          "name": "Sel",
-          "file": "salt.png"
-        },
-        {
-          "name": "Bouteille d'eau potable",
-          "file": "potable_water_bottle.png"
-        }
+      "title": "Le dessalinisateur",
+      "group": "Les vivres",
+      "lead": "Il change l'eau de mer en eau potable et en sel. Au bord de la mer, il se remplit seul.",
+      "cover": "shots/electricite/dessal-hero.webp",
+      "covers": [
+        "dessalinisateur"
       ],
-      "what": "Transforme l'eau de mer en eau potable et en sel.",
-      "who": {
-        "fabrique": "Ingénieur",
-        "pose": "Tous",
-        "utilise": "Tous",
-        "casse": "Tous, à la pioche"
-      },
-      "steps": [
-        "En bord de mer, il se remplit seul.",
-        "Ailleurs, l'alimenter en eau par tuyau.",
-        "Bouteille vide dans sa case : bouteille d'eau potable."
-      ],
-      "flow": [
-        "Eau de mer",
-        "Dessalinisateur",
-        "Eau potable + sel"
-      ],
-      "numbers": [
+      "chips": [
         {
           "k": "Énergie",
           "v": "40 FE/t"
         },
         {
-          "k": "Cycle",
-          "v": "250 → 200 mB"
+          "k": "Un cycle",
+          "v": "5 s"
+        }
+      ],
+      "blocks": [
+        {
+          "type": "hero",
+          "img": "shots/electricite/dessal-hero.webp",
+          "alt": "Un dessalinisateur sur le sable, la mer juste derrière",
+          "points": [
+            {
+              "at": "machine",
+              "title": "Le dessalinisateur",
+              "text": "Clic droit : son écran. Une bouteille vide dans sa case en ressort pleine d'eau potable."
+            },
+            {
+              "at": "mer",
+              "title": "La mer",
+              "text": "Une source d'eau au niveau de la mer à 16 blocs au plus : il se remplit seul, 100 mB par seconde."
+            }
+          ]
         },
         {
-          "k": "Sel",
-          "v": "1 tous les 4 cycles"
+          "type": "step",
+          "title": "Remplir une bouteille",
+          "blocks": [
+            {
+              "type": "row",
+              "blocks": [
+                {
+                  "type": "clip",
+                  "img": "shots/electricite/dessal-bouteille.webp",
+                  "alt": "Animation : Maj + clic sur des bouteilles vides, l'une se remplit et passe dans la case de droite",
+                  "title": "Maj + clic sur les bouteilles"
+                },
+                {
+                  "type": "shot",
+                  "img": "shots/electricite/dessal-ecran.webp",
+                  "alt": "L'écran du dessalinisateur : jauge d'eau à dessaler, bouteilles, cycle, sel, jauge d'eau potable",
+                  "marks": [
+                    {
+                      "at": "eau",
+                      "text": "L'eau à dessaler (8 000 mB)."
+                    },
+                    {
+                      "at": "bouteille",
+                      "text": "Les bouteilles vides."
+                    },
+                    {
+                      "at": "remplie",
+                      "text": "Les bouteilles d'eau potable."
+                    },
+                    {
+                      "at": "sel",
+                      "text": "Le sel."
+                    },
+                    {
+                      "at": "potable",
+                      "text": "L'eau potable (8 000 mB)."
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
         },
         {
-          "k": "Cuves",
-          "v": "2 × 8000 mB"
+          "type": "text",
+          "text": "Loin de la mer, amène-lui de l'eau par tuyau et pompe de Create (voir « Chauffe-eau et douche »)."
+        },
+        {
+          "type": "states",
+          "list": [
+            {
+              "img": "shots/electricite/dessal-marche.webp",
+              "alt": "Le dessalinisateur en marche",
+              "tone": "ok",
+              "title": "En marche",
+              "text": "Il dessale."
+            },
+            {
+              "img": "shots/electricite/dessal-sans-courant.webp",
+              "alt": "Le dessalinisateur sans courant, voyants éteints",
+              "tone": "off",
+              "title": "Sans courant",
+              "text": "Il attend le courant : rien ne se perd."
+            },
+            {
+              "img": "shots/electricite/dessal-panne.webp",
+              "alt": "Le dessalinisateur en panne, qui fume",
+              "tone": "bad",
+              "title": "En panne",
+              "text": "Plus rien, pas même le remplissage au bord de mer."
+            }
+          ]
+        },
+        {
+          "type": "items",
+          "list": [
+            {
+              "item": "oneforallsurvival:potable_water_bottle",
+              "label": "Bouteille d'eau potable",
+              "text": "250 mB d'eau potable."
+            },
+            {
+              "item": "oneforallsurvival:salt",
+              "label": "Sel",
+              "text": "Pour le séchoir : rations salées."
+            }
+          ],
+          "title": "Ce qu'il donne"
+        },
+        {
+          "type": "flow",
+          "nodes": [
+            {
+              "label": "Eau de mer"
+            },
+            {
+              "item": "oneforallsurvival:desalinator",
+              "label": "Dessalinisateur"
+            },
+            {
+              "item": "oneforallsurvival:salt",
+              "label": "Eau potable + sel"
+            }
+          ]
+        },
+        {
+          "type": "row",
+          "blocks": [
+            {
+              "type": "recipe",
+              "item": "oneforallsurvival:desalinator"
+            },
+            {
+              "type": "numbers",
+              "title": "À retenir",
+              "list": [
+                {
+                  "k": "Un cycle",
+                  "v": "5 s : 250 mB d'eau → 200 mB potables"
+                },
+                {
+                  "k": "Sel",
+                  "v": "1 tous les 4 cycles (20 s)",
+                  "item": "oneforallsurvival:salt"
+                },
+                {
+                  "k": "Bouteille",
+                  "v": "250 mB",
+                  "item": "oneforallsurvival:potable_water_bottle"
+                },
+                {
+                  "k": "Cuves",
+                  "v": "2 × 8 000 mB"
+                },
+                {
+                  "k": "Énergie",
+                  "v": "40 FE/t : 4 000 FE par cycle"
+                }
+              ]
+            }
+          ]
         }
       ],
       "staff": [
-        "Casser la machine perd le contenu des cuves.",
-        "Config : serverconfig/oneforallsurvival-food.toml.",
-        "Pas de soif sur le serveur : l'eau potable est un ingrédient."
+        "Casser la machine perd le contenu des cuves (les objets tombent).",
+        "Config : `serverconfig/oneforallsurvival-food.toml` (`desalinatorEnergy`, `desalinatorCycle`, `waterPerCycle`, `potablePerCycle`, `cyclesPerSalt`).",
+        "Pas de soif sur le serveur : l'eau potable est un ingrédient (et l'eau du chauffe-eau).",
+        "Les trémies ne mettent que des bouteilles vides ; un cycle attend s'il n'a pas la place de rendre son eau ou son sel.",
+        "Capture : le monde d'essai est plat (mer hors du niveau 63) ; le bord de mer y est une zone déclarée (`/coast zone add`), ce qui revient au même pour la machine."
       ]
     },
     {
-      "id": "armoire-frigorifique",
-      "num": 10,
-      "name": "Armoire frigorifique",
-      "kind": "machine",
-      "status": "dispo",
-      "lot": "Lot 3",
-      "image": {
-        "type": "block",
-        "top": "fridge_top.png",
-        "side": "fridge_side.png",
-        "front": "fridge_front_running.png"
-      },
-      "items": [
-        {
-          "name": "Déchet d'aliment avarié",
-          "file": "spoiled_food.png"
-        }
+      "id": "armoire",
+      "title": "L'armoire frigorifique",
+      "group": "Les vivres",
+      "lead": "Elle fait vieillir quatre fois moins vite viandes, poissons et plats, tant qu'elle a du courant.",
+      "cover": "shots/electricite/armoire-hero.webp",
+      "covers": [
+        "armoire-frigorifique"
       ],
-      "what": "Ralentit la péremption des viandes, poissons et plats tant qu'elle est alimentée.",
-      "who": {
-        "fabrique": "Ingénieur",
-        "pose": "Tous",
-        "utilise": "Tous",
-        "casse": "Tous, à la pioche"
-      },
-      "steps": [
-        "Ranger les aliments périssables dans ses 27 cases.",
-        "Sans courant, la péremption reprend sa vitesse normale.",
-        "Aliment avarié : déchet compostable."
-      ],
-      "flow": [
-        "Frais",
-        "Rassis",
-        "Avarié"
-      ],
-      "numbers": [
+      "chips": [
         {
           "k": "Conservation",
           "v": "×4"
@@ -824,259 +1758,491 @@
         {
           "k": "Énergie",
           "v": "4 FE/t"
+        }
+      ],
+      "blocks": [
+        {
+          "type": "shot",
+          "img": "shots/electricite/armoire-hero.webp",
+          "alt": "Une armoire frigorifique dans une cuisine, entre un tonneau et un fumoir, contre un mur de bouleau"
         },
         {
-          "k": "Frais puis rassis",
-          "v": "6 h + 6 h"
+          "type": "step",
+          "title": "Ranger",
+          "blocks": [
+            {
+              "type": "row",
+              "blocks": [
+                {
+                  "type": "shot",
+                  "img": "shots/electricite/armoire-ecran.webp",
+                  "alt": "L'écran de l'armoire : 27 cases avec de la viande et du poisson, l'état « Au froid » et l'énergie",
+                  "marks": [
+                    {
+                      "at": "etat",
+                      "text": "« Au froid » : le courant passe."
+                    },
+                    {
+                      "at": "cases",
+                      "text": "27 cases, comme un coffre."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": "Elle ne consomme qu'avec un aliment périssable dedans ; les trémies peuvent la remplir et la vider."
+                }
+              ]
+            }
+          ]
         },
         {
-          "k": "Cases",
-          "v": "27"
+          "type": "step",
+          "title": "Frais, rassis, avarié",
+          "blocks": [
+            {
+              "type": "states",
+              "list": [
+                {
+                  "img": "shots/electricite/armoire-frais.webp",
+                  "alt": "Infobulle d'un steak : Frais",
+                  "tone": "ok",
+                  "title": "Frais",
+                  "text": "6 h hors de l'armoire, 24 h dedans."
+                },
+                {
+                  "img": "shots/electricite/armoire-rassis.webp",
+                  "alt": "Infobulle d'un steak : Rassis",
+                  "tone": "info",
+                  "title": "Rassis",
+                  "text": "Il nourrit moitié moins. Encore 6 h (24 h dedans)."
+                },
+                {
+                  "img": "shots/electricite/armoire-avarie.webp",
+                  "alt": "Infobulle d'un steak : Avarié",
+                  "tone": "bad",
+                  "title": "Avarié",
+                  "text": "Il devient un déchet d'aliment avarié, compostable."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "states",
+          "list": [
+            {
+              "img": "shots/electricite/armoire-marche.webp",
+              "alt": "L'armoire frigorifique en marche",
+              "tone": "ok",
+              "title": "En marche",
+              "text": "Au froid."
+            },
+            {
+              "img": "shots/electricite/armoire-sans-courant.webp",
+              "alt": "L'armoire frigorifique sans courant, voyants éteints",
+              "tone": "off",
+              "title": "Sans courant",
+              "text": "La péremption reprend son rythme ; rien n'est perdu, et le froid revient avec le courant."
+            },
+            {
+              "img": "shots/electricite/armoire-panne.webp",
+              "alt": "L'armoire frigorifique en panne, qui fume",
+              "tone": "bad",
+              "title": "En panne",
+              "text": "Plus de froid : il faut un ingénieur."
+            }
+          ]
+        },
+        {
+          "type": "row",
+          "blocks": [
+            {
+              "type": "recipe",
+              "item": "oneforallsurvival:fridge"
+            },
+            {
+              "type": "numbers",
+              "title": "À retenir",
+              "list": [
+                {
+                  "k": "Conservation",
+                  "v": "×4 (×2,3 sous 50 %)"
+                },
+                {
+                  "k": "Énergie",
+                  "v": "4 FE/t, avec un aliment périssable dedans"
+                },
+                {
+                  "k": "Frais puis rassis",
+                  "v": "6 h + 6 h, serveur allumé"
+                },
+                {
+                  "k": "Cases",
+                  "v": "27"
+                }
+              ]
+            }
+          ]
         }
       ],
       "staff": [
         "Durées en temps serveur allumé.",
-        "Listes par tags : perishable, slow_perishable, non_perishable.",
-        "Config : oneforallsurvival-food.toml (freshHours, staleHours, fridgeFactor)."
+        "Listes par tags : `perishable`, `slow_perishable`, `non_perishable`.",
+        "Config : `oneforallsurvival-food.toml` (`freshHours`, `staleHours`, `fridgeFactor`).",
+        "Zone déchargée : si l'armoire était au froid, le temps passé est rattrapé au retour, sans payer de courant."
       ]
     },
     {
       "id": "sechoir",
-      "num": 11,
-      "name": "Séchoir électrique",
-      "kind": "machine",
-      "status": "dispo",
-      "lot": "Lot 3",
-      "image": {
-        "type": "block",
-        "top": "dryer_top.png",
-        "side": "dryer_side.png",
-        "front": "dryer_front_running.png"
-      },
-      "items": [
-        {
-          "name": "Viande séchée",
-          "file": "dried_meat.png"
-        },
-        {
-          "name": "Poisson séché",
-          "file": "dried_fish.png"
-        },
-        {
-          "name": "Fruit séché",
-          "file": "dried_fruit.png"
-        },
-        {
-          "name": "Viande salée",
-          "file": "salted_meat.png"
-        },
-        {
-          "name": "Poisson salé",
-          "file": "salted_fish.png"
-        },
-        {
-          "name": "Fruit salé",
-          "file": "salted_fruit.png"
-        }
+      "title": "Le séchoir électrique",
+      "group": "Les vivres",
+      "lead": "Il change viande, poisson et fruits en rations qui se gardent : séchées sans sel, salées avec.",
+      "cover": "shots/electricite/sechoir-hero.webp",
+      "covers": [
+        "sechoir"
       ],
-      "what": "Change viande, poisson et fruits en rations qui se conservent.",
-      "who": {
-        "fabrique": "Ingénieur",
-        "pose": "Tous",
-        "utilise": "Tous",
-        "casse": "Tous, à la pioche"
-      },
-      "steps": [
-        "Aliment par le dessus, sel par les côtés.",
-        "Attendre 60 s, sortie par le dessous.",
-        "Sans sel : séchée ; avec sel : salée."
-      ],
-      "flow": [
-        "Aliment (+ sel)",
-        "Séchoir",
-        "Ration séchée ou salée"
-      ],
-      "numbers": [
+      "chips": [
         {
           "k": "Durée",
-          "v": "60 s"
+          "v": "60 s par aliment"
         },
         {
           "k": "Énergie",
           "v": "20 FE/t"
+        }
+      ],
+      "blocks": [
+        {
+          "type": "shot",
+          "img": "shots/electricite/sechoir-hero.webp",
+          "alt": "Un séchoir électrique dans l'herbe, une botte de paille derrière"
         },
         {
-          "k": "Séchée",
-          "v": "périme 8× moins vite"
+          "type": "step",
+          "title": "Sécher",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "Clic droit : l'aliment dans sa case, le sel dans la sienne (facultatif). Par les trémies : l'aliment par le dessus, le sel par les côtés, la sortie par le dessous."
+            },
+            {
+              "type": "row",
+              "blocks": [
+                {
+                  "type": "shot",
+                  "img": "shots/electricite/sechoir-ecran.webp",
+                  "alt": "L'écran du séchoir : viande crue, sel, flèche presque pleine, sortie",
+                  "marks": [
+                    {
+                      "at": "aliment",
+                      "text": "L'aliment."
+                    },
+                    {
+                      "at": "sel",
+                      "text": "Le sel, facultatif."
+                    },
+                    {
+                      "at": "sortie",
+                      "text": "La ration, quand la flèche est pleine."
+                    }
+                  ]
+                },
+                {
+                  "type": "clip",
+                  "img": "shots/electricite/sechoir-fin.webp",
+                  "alt": "Animation : la flèche finit de se remplir, une viande salée tombe dans la sortie",
+                  "title": "La fin d'un séchage",
+                  "note": "La fin d'une minute de séchage : un aliment et un sel sont pris, une ration sort."
+                }
+              ]
+            }
+          ]
         },
         {
-          "k": "Salée",
-          "v": "ne périme jamais"
+          "type": "states",
+          "list": [
+            {
+              "img": "shots/electricite/sechoir-marche.webp",
+              "alt": "Le séchoir en marche",
+              "tone": "ok",
+              "title": "En marche",
+              "text": "Il sèche."
+            },
+            {
+              "img": "shots/electricite/sechoir-sans-courant.webp",
+              "alt": "Le séchoir sans courant, voyants éteints",
+              "tone": "off",
+              "title": "Sans courant",
+              "text": "Il attend le courant ; la progression est gardée."
+            },
+            {
+              "img": "shots/electricite/sechoir-panne.webp",
+              "alt": "Le séchoir en panne, qui fume",
+              "tone": "bad",
+              "title": "En panne",
+              "text": "Il faut un ingénieur."
+            }
+          ]
+        },
+        {
+          "type": "items",
+          "list": [
+            {
+              "item": "oneforallsurvival:dried_meat",
+              "label": "Viande séchée"
+            },
+            {
+              "item": "oneforallsurvival:dried_fish",
+              "label": "Poisson séché"
+            },
+            {
+              "item": "oneforallsurvival:dried_fruit",
+              "label": "Fruit séché"
+            },
+            {
+              "item": "oneforallsurvival:salted_meat",
+              "label": "Viande salée"
+            },
+            {
+              "item": "oneforallsurvival:salted_fish",
+              "label": "Poisson salé"
+            },
+            {
+              "item": "oneforallsurvival:salted_fruit",
+              "label": "Fruit salé"
+            }
+          ],
+          "title": "Les rations"
+        },
+        {
+          "type": "flow",
+          "nodes": [
+            {
+              "label": "Aliment (+ sel)"
+            },
+            {
+              "item": "oneforallsurvival:dryer",
+              "label": "Séchoir"
+            },
+            {
+              "item": "oneforallsurvival:salted_meat",
+              "label": "Ration séchée ou salée"
+            }
+          ]
+        },
+        {
+          "type": "row",
+          "blocks": [
+            {
+              "type": "recipe",
+              "item": "oneforallsurvival:dryer"
+            },
+            {
+              "type": "numbers",
+              "title": "À retenir",
+              "list": [
+                {
+                  "k": "Durée",
+                  "v": "60 s par aliment (80 s sous 50 %)"
+                },
+                {
+                  "k": "Énergie",
+                  "v": "20 FE/t : 24 000 FE par aliment"
+                },
+                {
+                  "k": "Séchée",
+                  "v": "périme 8 fois moins vite",
+                  "item": "oneforallsurvival:dried_meat"
+                },
+                {
+                  "k": "Salée",
+                  "v": "ne périme jamais, 1 sel par aliment",
+                  "item": "oneforallsurvival:salted_meat"
+                }
+              ]
+            }
+          ]
         }
       ],
       "staff": [
-        "Recettes oneforallsurvival:drying, modifiables par datapack.",
-        "Fruits acceptés via le tag dryable_fruits.",
+        "Recettes `oneforallsurvival:drying`, modifiables par datapack.",
+        "Fruits acceptés via le tag `dryable_fruits` (pomme, baies sucrées, baies lumineuses, tranche de pastèque).",
         "Un aliment avarié est refusé."
       ]
     },
     {
-      "id": "commandes-staff",
-      "name": "Commandes staff",
-      "kind": "commande",
-      "status": "dispo",
-      "lot": "Lot 0",
-      "image": null,
-      "what": "Commandes livrées pour les métiers, le maire et la détection côtière.",
-      "who": {
-        "utilise": "Opérateur niveau 2"
-      },
-      "staff": [
-        "/role list",
-        "/role get [joueur]",
-        "/role set <joueur> <id>",
-        "/role create <id> <couleur> <libellé...>",
-        "/role edit <id> <couleur> <libellé...>",
-        "/role delete <id>",
-        "/role mayor [set <joueur> | remove]",
-        "/coast zone add <id> <from> <to>",
-        "/coast zone remove <id>",
-        "/coast zone list",
-        "/coast check [pos]"
-      ]
-    },
-    {
-      "id": "bien-etre",
-      "name": "Effet Bien-être",
-      "kind": "systeme",
-      "status": "dispo",
-      "lot": "Lot 6",
-      "image": null,
-      "what": "Léger bonus d'activité, sans soin, donné par la douche chaude.",
-      "who": {
-        "utilise": "Tous"
-      },
-      "steps": [
-        "Rester 5 secondes continues sous une pomme de douche alimentée en eau chaude.",
-        "L'effet dure 6 minutes ; une douche de plus remet la durée au maximum, sans cumul.",
-        "Il ne rend aucun point de vie, ni par régénération, ni par soin."
-      ],
-      "flow": [
-        "Eau chaude",
-        "Pomme de douche",
-        "5 s dessous",
-        "Bien-être"
-      ],
-      "numbers": [
-        {
-          "k": "Marche",
-          "v": "+5 %"
-        },
-        {
-          "k": "Minage",
-          "v": "+10 %"
-        },
-        {
-          "k": "Durée",
-          "v": "6 min"
-        },
-        {
-          "k": "Niveau",
-          "v": "un seul"
-        }
-      ],
-      "staff": [
-        "Config oneforallsurvival-town.toml : wellBeingSpeedBonus, wellBeingMiningBonus, showerWellBeingMinutes.",
-        "Ne réutilise aucun effet de Farmer's Delight et ne touche pas aux points de vie, y compris sous First Aid.",
-        "Équilibrage en jeu pas encore fait."
-      ]
-    },
-    {
       "id": "couveuse",
-      "num": 12,
-      "name": "Couveuse",
-      "kind": "machine",
-      "status": "dispo",
-      "lot": "Lot 5",
-      "image": {
-        "type": "block",
-        "top": "incubator_top.png",
-        "side": "incubator_side.png",
-        "front": "incubator_front_running.png"
-      },
-      "what": "Fait éclore à coup sûr jusqu'à 4 œufs ; une coupure trop longue perd la couvée.",
-      "who": {
-        "fabrique": "Ingénieur",
-        "pose": "Tous",
-        "utilise": "Tous",
-        "casse": "Tous, à la pioche"
-      },
-      "steps": [
-        "Un œuf par place (4), par le menu ou par le dessus.",
-        "Compter 20 min de marche, œuf par œuf.",
-        "L'animal naît petit au-dessus ; sans place, l'œuf attend."
+      "title": "La couveuse",
+      "group": "Les vivres",
+      "lead": "Elle fait éclore à coup sûr jusqu'à 4 œufs. Une coupure de courant de plus d'une minute perd toute la couvée.",
+      "cover": "shots/electricite/couveuse-hero.webp",
+      "covers": [
+        "couveuse"
       ],
-      "flow": [
-        "Œuf + courant",
-        "Couveuse",
-        "Poussin ou jeune animal"
-      ],
-      "numbers": [
+      "chips": [
         {
           "k": "Places",
           "v": "4"
         },
         {
           "k": "Incubation",
-          "v": "20 min"
+          "v": "20 min de marche"
+        }
+      ],
+      "blocks": [
+        {
+          "type": "shot",
+          "img": "shots/electricite/couveuse-hero.webp",
+          "alt": "Une couveuse posée près de bottes de paille"
         },
         {
-          "k": "Énergie",
-          "v": "8 FE/t"
+          "type": "step",
+          "title": "Mettre les œufs",
+          "blocks": [
+            {
+              "type": "row",
+              "blocks": [
+                {
+                  "type": "shot",
+                  "img": "shots/electricite/couveuse-ecran.webp",
+                  "alt": "L'écran de la couveuse : quatre œufs, quatre barres de progression, l'état « Couve »",
+                  "marks": [
+                    {
+                      "at": "places",
+                      "text": "Un œuf par place : poule ou tortue."
+                    },
+                    {
+                      "at": "barres",
+                      "text": "Chaque œuf avance de son côté."
+                    },
+                    {
+                      "at": "etat",
+                      "text": "État et énergie."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": "Par l'écran, ou par le dessus (trémie). Retirer un œuf remet sa progression à zéro."
+                }
+              ]
+            }
+          ]
         },
         {
-          "k": "Coupure tolérée",
-          "v": "60 s"
+          "type": "step",
+          "title": "L'éclosion",
+          "blocks": [
+            {
+              "type": "clip",
+              "img": "shots/electricite/couveuse-eclosion.webp",
+              "alt": "Animation : un poussin apparaît sur la couveuse",
+              "title": "Un poussin",
+              "note": "La fin d'une couvée de 20 minutes : le petit naît au-dessus (ou sur un côté)."
+            },
+            {
+              "type": "text",
+              "text": "Sans place libre autour, l'œuf mûr attend dans sa case : il n'est jamais perdu."
+            }
+          ]
+        },
+        {
+          "type": "step",
+          "title": "Attention aux coupures",
+          "blocks": [
+            {
+              "type": "row",
+              "blocks": [
+                {
+                  "type": "shot",
+                  "img": "shots/electricite/couveuse-coupure.webp",
+                  "alt": "L'écran d'une couveuse sans courant : « Couvée perdue dans … s »",
+                  "marks": [
+                    {
+                      "at": "compte",
+                      "text": "Le compte à rebours : rétablis le courant avant la fin."
+                    }
+                  ]
+                },
+                {
+                  "type": "states",
+                  "list": [
+                    {
+                      "img": "shots/electricite/couveuse-marche.webp",
+                      "alt": "Couveuse en marche",
+                      "tone": "ok",
+                      "title": "En marche",
+                      "text": "Elle couve."
+                    },
+                    {
+                      "img": "shots/electricite/couveuse-sans-courant.webp",
+                      "alt": "Couveuse sans courant",
+                      "tone": "off",
+                      "title": "Sans courant",
+                      "text": "Réserve vide : 60 s pour rétablir, sinon la couvée est perdue."
+                    },
+                    {
+                      "img": "shots/electricite/couveuse-panne.webp",
+                      "alt": "Couveuse en panne, qui fume",
+                      "tone": "bad",
+                      "title": "En panne",
+                      "text": "Une panne, elle, ne perd rien."
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "row",
+          "blocks": [
+            {
+              "type": "recipe",
+              "item": "oneforallsurvival:incubator"
+            },
+            {
+              "type": "numbers",
+              "title": "À retenir",
+              "list": [
+                {
+                  "k": "Places",
+                  "v": "4 œufs de poule ou de tortue"
+                },
+                {
+                  "k": "Incubation",
+                  "v": "20 min de marche (26 min 40 sous 50 %)"
+                },
+                {
+                  "k": "Énergie",
+                  "v": "8 FE/t, quel que soit le nombre d'œufs"
+                },
+                {
+                  "k": "Coupure tolérée",
+                  "v": "60 s, après ≈ 12 s de réserve (2 000 FE)"
+                }
+              ]
+            }
+          ]
         }
       ],
       "staff": [
-        "Config oneforallsurvival-food.toml : incubatorEggs, incubatorHatchMinutes, incubatorOutageSeconds, incubatorEnergy.",
+        "Config `oneforallsurvival-food.toml` : `incubatorEggs` (poule, tortue au départ), `incubatorHatchMinutes`, `incubatorOutageSeconds`, `incubatorEnergy`.",
         "Le compteur de coupure part quand la réserve (2 000 FE) est vide ; il est sauvegardé, un arrêt du serveur ne le remet pas à zéro.",
         "Seule machine du mod dont une coupure détruit le contenu ; une panne ou une zone déchargée ne perd rien."
       ]
     },
     {
-      "id": "cuisine-cantine",
-      "num": 13,
-      "name": "Cuisine de cantine",
-      "kind": "machine",
-      "status": "dispo",
-      "lot": "Lot 5",
-      "image": {
-        "type": "block",
-        "top": "canteen_pot_top.png",
-        "side": "canteen_pot_side.png",
-        "front": "canteen_pot_front_running.png"
-      },
-      "what": "Marmite électrique pour Farmer's Delight en grande quantité, et plaque électrique.",
-      "who": {
-        "fabrique": "Ingénieur",
-        "pose": "Tous",
-        "utilise": "Tous",
-        "casse": "Tous, à la pioche"
-      },
-      "steps": [
-        "Ingrédients d'une recette du Cooking Pot, et un bol par portion.",
-        "La marmite cuit sans feu, en 10 s pour un ragoût.",
-        "Une fournée : 3 portions pour un seul jeu d'ingrédients.",
-        "La plaque, sous un ustensile de Farmer's Delight, le chauffe."
+      "id": "cantine",
+      "title": "La cuisine de cantine",
+      "group": "Les vivres",
+      "lead": "La marmite électrique cuit en triple les recettes de la Marmite de Farmer's Delight. La plaque électrique chauffe ses ustensiles.",
+      "cover": "shots/electricite/cantine-hero.webp",
+      "covers": [
+        "cuisine-cantine"
       ],
-      "flow": [
-        "Ingrédients + bols",
-        "Marmite de cantine",
-        "3 portions"
-      ],
-      "numbers": [
+      "chips": [
         {
           "k": "Portions",
           "v": "3 par fournée"
@@ -1084,393 +2250,950 @@
         {
           "k": "Marmite",
           "v": "30 FE/t"
+        }
+      ],
+      "blocks": [
+        {
+          "type": "hero",
+          "img": "shots/electricite/cantine-hero.webp",
+          "alt": "Une marmite de cantine contre un mur de briques, une plaque électrique à côté avec une Marmite de Farmer's Delight dessus",
+          "points": [
+            {
+              "at": "marmite",
+              "title": "La marmite de cantine",
+              "text": "Clic droit : son écran. Elle cuit sans feu."
+            },
+            {
+              "at": "plaque",
+              "title": "La plaque électrique",
+              "text": "Elle chauffe l'ustensile posé dessus, comme un feu."
+            },
+            {
+              "at": "ustensile",
+              "title": "Un ustensile de Farmer's Delight",
+              "text": "Marmite ou poêle : la plaque consomme dès qu'il est là."
+            }
+          ]
         },
         {
-          "k": "Plaque",
-          "v": "10 FE/t"
+          "type": "step",
+          "title": "Une fournée",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "Les ingrédients d'une recette de la Marmite de Farmer's Delight, et un bol par portion, présents d'avance."
+            },
+            {
+              "type": "row",
+              "blocks": [
+                {
+                  "type": "shot",
+                  "img": "shots/electricite/cantine-ecran.webp",
+                  "alt": "L'écran de la marmite : bœuf, carottes, pommes de terre, bols, sortie",
+                  "marks": [
+                    {
+                      "at": "ingredients",
+                      "text": "Les ingrédients (6 cases)."
+                    },
+                    {
+                      "at": "bols",
+                      "text": "Les récipients : 3 bols pour 3 portions."
+                    },
+                    {
+                      "at": "sortie",
+                      "text": "Les portions."
+                    }
+                  ]
+                },
+                {
+                  "type": "clip",
+                  "img": "shots/electricite/cantine-fournee.webp",
+                  "alt": "Animation : la cuisson finit, trois ragoûts de bœuf sortent",
+                  "title": "Trois ragoûts",
+                  "note": "La fin d'une cuisson de 10 s : un jeu d'ingrédients, trois bols, trois ragoûts."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "states",
+          "list": [
+            {
+              "img": "shots/electricite/cantine-marche.webp",
+              "alt": "La marmite de cantine en marche",
+              "tone": "ok",
+              "title": "En marche",
+              "text": "Elle cuit."
+            },
+            {
+              "img": "shots/electricite/cantine-sans-courant.webp",
+              "alt": "La marmite de cantine sans courant, voyants éteints",
+              "tone": "off",
+              "title": "Sans courant",
+              "text": "Elle attend le courant ; la cuisson est gardée."
+            },
+            {
+              "img": "shots/electricite/cantine-panne.webp",
+              "alt": "La marmite de cantine en panne, qui fume",
+              "tone": "bad",
+              "title": "En panne",
+              "text": "Il faut un ingénieur."
+            }
+          ]
+        },
+        {
+          "type": "row",
+          "blocks": [
+            {
+              "type": "recipe",
+              "item": "oneforallsurvival:canteen_pot"
+            },
+            {
+              "type": "recipe",
+              "item": "oneforallsurvival:hot_plate"
+            }
+          ]
+        },
+        {
+          "type": "numbers",
+          "title": "À retenir",
+          "list": [
+            {
+              "k": "Portions",
+              "v": "3 pour un jeu d'ingrédients"
+            },
+            {
+              "k": "Marmite",
+              "v": "30 FE/t : 6 000 FE par ragoût de 10 s",
+              "item": "oneforallsurvival:canteen_pot"
+            },
+            {
+              "k": "Plaque",
+              "v": "10 FE/t, ustensile posé",
+              "item": "oneforallsurvival:hot_plate"
+            }
+          ]
         }
       ],
       "staff": [
-        "Config oneforallsurvival-food.toml : canteenPotEnergy, canteenPotPortions, hotPlateEnergy.",
+        "Config `oneforallsurvival-food.toml` : `canteenPotEnergy`, `canteenPotPortions`, `hotPlateEnergy`.",
         "La plaque consomme et s'use dès qu'un ustensile est posé dessus, même vide ; sans ustensile, elle est à l'arrêt.",
-        "La marmite ne donne pas d'expérience ; JEI la montre comme catalyseur de la catégorie Cuisson."
+        "La marmite ne donne pas d'expérience ; JEI la montre comme catalyseur de la catégorie Cuisson.",
+        "Les restes (seau d'un lait, bouteille) tombent au-dessus du bloc, comme au Cooking Pot."
       ]
     },
     {
-      "id": "cloture-electrique",
-      "num": 16,
-      "name": "Clôture électrique",
-      "kind": "machine",
-      "status": "dispo",
-      "lot": "Lot 5",
-      "image": {
-        "type": "block",
-        "top": "electrifier_top.png",
-        "side": "electrifier_side_running.png",
-        "front": "electrifier_side_running.png"
-      },
-      "what": "Un électrificateur alimente 64 blocs de clôture qui repoussent et blessent les mobs.",
-      "who": {
-        "fabrique": "Ingénieur",
-        "pose": "Tous",
-        "utilise": "Tous",
-        "casse": "Tous, à la pioche"
-      },
-      "steps": [
-        "Poser l'électrificateur contre une clôture électrique, avec du courant.",
-        "Les clôtures contiguës (64 au plus) sont électrifiées.",
-        "Un contact blesse et repousse ; sans courant, plus rien."
+      "id": "cloture",
+      "title": "La clôture électrique",
+      "group": "Protéger et vivre",
+      "lead": "Un électrificateur met sous tension les clôtures électriques qui le touchent. Un contact blesse et repousse.",
+      "cover": "shots/electricite/cloture-hero.webp",
+      "covers": [
+        "cloture-electrique"
       ],
-      "flow": [
-        "Courant",
-        "Électrificateur",
-        "Clôture qui repousse"
-      ],
-      "numbers": [
+      "chips": [
         {
           "k": "Portée",
           "v": "64 clôtures"
         },
         {
           "k": "Énergie",
-          "v": "2 + 0,25 par clôture FE/t"
+          "v": "2 + 0,25 par clôture"
+        }
+      ],
+      "blocks": [
+        {
+          "type": "hero",
+          "img": "shots/electricite/cloture-hero.webp",
+          "alt": "Un électrificateur au bout d'une ligne de clôtures électriques, une vache dans le pré",
+          "points": [
+            {
+              "at": "electrificateur",
+              "title": "L'électrificateur",
+              "text": "Contre une clôture électrique, avec du courant."
+            },
+            {
+              "at": "cloture",
+              "title": "La ligne",
+              "text": "Les clôtures électriques qui se touchent, 64 au plus (les plus proches)."
+            }
+          ]
         },
         {
-          "k": "Dégâts",
-          "v": "2 (mob), 1 (joueur)"
+          "type": "clip",
+          "img": "shots/electricite/cloture-choc.webp",
+          "alt": "Animation : la vache touche la clôture, des étincelles, elle est repoussée",
+          "title": "Un contact",
+          "note": "Un choc toutes les demi-secondes de contact."
         },
         {
-          "k": "Orage",
-          "v": "consommation ×2"
+          "type": "states",
+          "list": [
+            {
+              "img": "shots/electricite/cloture-marche.webp",
+              "alt": "L'électrificateur en marche",
+              "tone": "ok",
+              "title": "En marche",
+              "text": "La ligne est sous tension."
+            },
+            {
+              "img": "shots/electricite/cloture-sans-courant.webp",
+              "alt": "L'électrificateur sans courant, voyants éteints",
+              "tone": "off",
+              "title": "Sans courant",
+              "text": "Plus rien : la clôture n'est qu'une clôture."
+            },
+            {
+              "img": "shots/electricite/cloture-panne.webp",
+              "alt": "L'électrificateur en panne, qui fume",
+              "tone": "bad",
+              "title": "En panne",
+              "text": "Plus rien : il faut un ingénieur."
+            }
+          ]
+        },
+        {
+          "type": "numbers",
+          "title": "À retenir",
+          "list": [
+            {
+              "k": "Portée",
+              "v": "64 clôtures",
+              "item": "oneforallsurvival:electric_fence"
+            },
+            {
+              "k": "Énergie",
+              "v": "2 + 0,25 par clôture FE/t : 18 pour 64"
+            },
+            {
+              "k": "Végétation contre la ligne",
+              "v": "+1 FE/t par bloc"
+            },
+            {
+              "k": "Orage",
+              "v": "consommation ×2"
+            },
+            {
+              "k": "Dégâts",
+              "v": "2 (monstre), 1 (joueur)"
+            },
+            {
+              "k": "Ne tue pas",
+              "v": "joueurs et animaux : 4 points de vie gardés"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "La clôture électrique se raccorde aux autres clôtures en métal, pas à celles en bois."
+        },
+        {
+          "type": "row",
+          "blocks": [
+            {
+              "type": "recipe",
+              "item": "oneforallsurvival:electrifier"
+            },
+            {
+              "type": "recipe",
+              "item": "oneforallsurvival:electric_fence"
+            }
+          ]
         }
       ],
       "staff": [
-        "Config oneforallsurvival-fence.toml : maxLength, baseEnergy, perFenceEnergy, perVegetationEnergy, stormMultiplier, mobDamage, playerDamage, safeHealth, lethalForPlayers, knockback.",
-        "Les hostiles peuvent en mourir ; joueurs et animaux s'arrêtent à safeHealth (4 points de vie vanilla). Sous First Aid, la tête et le torse d'un joueur gardent en plus 1 point de membre, car First Aid tue à zéro quelle que soit la vie totale : le choc est alors réduit ou nul.",
-        "La végétation (tag fence_vegetation) contre la ligne coûte 1 FE/t par bloc."
+        "Config `oneforallsurvival-fence.toml` : `maxLength`, `baseEnergy`, `perFenceEnergy`, `perVegetationEnergy`, `stormMultiplier`, `mobDamage`, `playerDamage`, `safeHealth`, `lethalForPlayers`, `knockback`.",
+        "Les hostiles peuvent en mourir ; joueurs et animaux s'arrêtent à `safeHealth` (4 points de vie vanilla). Sous First Aid, la tête et le torse d'un joueur gardent en plus 1 point de membre, car First Aid tue à zéro quelle que soit la vie totale : le choc est alors réduit ou nul.",
+        "La végétation (tag `fence_vegetation`) contre la ligne coûte 1 FE/t par bloc.",
+        "Deux électrificateurs sur la même ligne ne doublent pas le choc."
+      ]
+    },
+    {
+      "id": "douche",
+      "title": "Chauffe-eau et douche",
+      "group": "Protéger et vivre",
+      "lead": "Le chauffe-eau chauffe l'eau potable ; cinq secondes sous la pomme de douche donnent le Bien-être.",
+      "cover": "shots/electricite/douche-chaine.webp",
+      "covers": [
+        "chauffe-eau-douche",
+        "bien-etre"
+      ],
+      "chips": [
+        {
+          "k": "Douche",
+          "v": "5 s continues"
+        },
+        {
+          "k": "Bien-être",
+          "v": "6 min"
+        }
+      ],
+      "blocks": [
+        {
+          "type": "hero",
+          "img": "shots/electricite/douche-chaine.webp",
+          "alt": "Un puits, une pompe, un dessalinisateur, une pompe, un chauffe-eau, une pompe qui monte et une pomme de douche à l'étage, reliés par des tuyaux de Create",
+          "points": [
+            {
+              "at": "puits",
+              "title": "L'eau",
+              "text": "Un puits, et une pompe de Create entraînée par un moteur."
+            },
+            {
+              "at": "dessalinisateur",
+              "title": "Le dessalinisateur",
+              "text": "L'eau potable sort par tuyau, une pompe la pousse."
+            },
+            {
+              "at": "chauffe-eau",
+              "title": "Le chauffe-eau",
+              "text": "Avec du courant, il change l'eau potable en eau chaude."
+            },
+            {
+              "at": "pomme",
+              "title": "La pomme de douche",
+              "text": "Elle peut être à l'étage : une pompe fait monter l'eau chaude."
+            }
+          ]
+        },
+        {
+          "type": "step",
+          "title": "Brancher l'eau",
+          "blocks": [
+            {
+              "type": "row",
+              "blocks": [
+                {
+                  "type": "text",
+                  "text": "Relie le dessalinisateur au chauffe-eau, puis le chauffe-eau à la pomme, par des tuyaux et des pompes de Create. Le chauffe-eau ne prend que l'eau potable du mod."
+                },
+                {
+                  "type": "shot",
+                  "img": "shots/electricite/chauffe-eau-ecran.webp",
+                  "alt": "L'écran du chauffe-eau : jauge d'eau potable, état « Chauffe », énergie, jauge d'eau chaude",
+                  "marks": [
+                    {
+                      "at": "potable",
+                      "text": "L'eau potable qui entre (4 000 mB)."
+                    },
+                    {
+                      "at": "etat",
+                      "text": "« Chauffe » et la réserve."
+                    },
+                    {
+                      "at": "chaude",
+                      "text": "L'eau chaude qui sort (4 000 mB)."
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "step",
+          "title": "Se doucher",
+          "blocks": [
+            {
+              "type": "row",
+              "blocks": [
+                {
+                  "type": "shot",
+                  "img": "shots/electricite/douche-bien-etre.webp",
+                  "alt": "Le joueur sous la pomme de douche, l'icône du Bien-être en haut à droite",
+                  "title": "Sous la pomme"
+                },
+                {
+                  "type": "text",
+                  "text": "Pose la pomme 2 ou 3 blocs au-dessus du sol et tiens-toi dessous : 5 secondes continues d'eau chaude donnent le **Bien-être**. Une douche de plus remet ses 6 minutes au maximum, sans cumul."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "numbers",
+          "title": "Le Bien-être",
+          "list": [
+            {
+              "k": "Marche",
+              "v": "+5 %"
+            },
+            {
+              "k": "Minage",
+              "v": "+10 %"
+            },
+            {
+              "k": "Durée",
+              "v": "6 min"
+            },
+            {
+              "k": "Soin",
+              "v": "aucun point de vie"
+            }
+          ]
+        },
+        {
+          "type": "states",
+          "list": [
+            {
+              "img": "shots/electricite/chauffe-eau-marche.webp",
+              "alt": "Le chauffe-eau en marche",
+              "tone": "ok",
+              "title": "En marche",
+              "text": "Il chauffe."
+            },
+            {
+              "img": "shots/electricite/chauffe-eau-sans-courant.webp",
+              "alt": "Le chauffe-eau sans courant, voyants éteints",
+              "tone": "off",
+              "title": "Sans courant",
+              "text": "Il attend le courant : rien ne se perd."
+            },
+            {
+              "img": "shots/electricite/chauffe-eau-panne.webp",
+              "alt": "Le chauffe-eau en panne, qui fume",
+              "tone": "bad",
+              "title": "En panne",
+              "text": "Il faut un ingénieur."
+            }
+          ]
+        },
+        {
+          "type": "row",
+          "blocks": [
+            {
+              "type": "recipe",
+              "item": "oneforallsurvival:water_heater"
+            },
+            {
+              "type": "recipe",
+              "item": "oneforallsurvival:shower_head"
+            }
+          ]
+        },
+        {
+          "type": "numbers",
+          "title": "À retenir",
+          "list": [
+            {
+              "k": "Chauffe-eau",
+              "v": "5 mB/t, 40 FE/t (8 FE par mB)",
+              "item": "oneforallsurvival:water_heater"
+            },
+            {
+              "k": "Cuves",
+              "v": "2 × 4 000 mB"
+            },
+            {
+              "k": "Pomme de douche",
+              "v": "1 000 mB, 2 mB/t dessous",
+              "item": "oneforallsurvival:shower_head"
+            },
+            {
+              "k": "Une douche",
+              "v": "200 mB d'eau chaude, 1 600 FE de chauffe"
+            }
+          ]
+        }
+      ],
+      "staff": [
+        "Config `oneforallsurvival-town.toml` : `heaterMbPerTick`, `heaterEnergy`, `showerSeconds`, `showerMbPerTick`, `wellBeingSpeedBonus`, `wellBeingMiningBonus`, `showerWellBeingMinutes`.",
+        "Le chauffe-eau n'accepte que l'eau potable du mod (ni eau vanilla, ni lave) et ne rend que l'eau chaude (fluide `hot_water`, ni seau ni bloc).",
+        "La pomme n'a ni courant ni usure et ne se vide pas par les tuyaux. Casser le chauffe-eau perd ses cuves.",
+        "Une zone déchargée n'est pas une coupure : la machine se fige sans rien perdre.",
+        "Le Bien-être ne réutilise aucun effet de Farmer's Delight et ne touche pas aux points de vie, y compris sous First Aid.",
+        "Équilibrage en jeu pas encore fait."
       ]
     },
     {
       "id": "phare",
-      "num": 17,
-      "name": "Phare",
-      "kind": "machine",
-      "status": "dispo",
-      "lot": "Lot 6",
-      "image": {
-        "type": "block",
-        "top": "lighthouse_base.png",
-        "side": "lighthouse_lamp_lit.png",
-        "front": "lighthouse_lamp_lit.png"
-      },
-      "what": "Faisceau tournant au sommet d'une tour libre, allumé la nuit seulement, repère et symbole de la ville.",
-      "who": {
-        "fabrique": "Ingénieur",
-        "pose": "Tous",
-        "utilise": "Tous",
-        "casse": "Tous, à la pioche"
-      },
-      "steps": [
-        "Poser le phare au sommet d'une tour, à ciel libre et à 8 blocs au moins au-dessus de la mer.",
-        "Lui donner du courant : la nuit, deux faisceaux opposés tournent.",
-        "De jour, sous un toit ou trop bas, il reste éteint et ne consomme rien."
+      "title": "Le phare",
+      "group": "Protéger et vivre",
+      "lead": "Au sommet d'une tour libre, il allume la nuit deux faisceaux tournants. Le jour, il ne consomme rien.",
+      "cover": "shots/electricite/phare-nuit.webp",
+      "covers": [
+        "phare"
       ],
-      "flow": [
-        "Courant",
-        "Phare",
-        "Tour libre et nuit ?",
-        "Faisceaux"
-      ],
-      "numbers": [
+      "chips": [
         {
           "k": "Énergie",
-          "v": "32 FE/t, la nuit seulement"
+          "v": "32 FE/t, la nuit"
         },
         {
           "k": "Hauteur",
           "v": "8 blocs au-dessus de la mer"
+        }
+      ],
+      "blocks": [
+        {
+          "type": "shot",
+          "img": "shots/electricite/phare-nuit.webp",
+          "alt": "La nuit, un phare au sommet d'une haute tour blanche, deux faisceaux de lumière"
         },
         {
-          "k": "Faisceaux",
-          "v": "2, un tour en 8 s"
+          "type": "clip",
+          "img": "shots/electricite/phare-tour.webp",
+          "alt": "Animation : les deux faisceaux font un tour complet",
+          "title": "Un tour en 8 s"
         },
         {
-          "k": "Longueur",
-          "v": "96 blocs"
+          "type": "states",
+          "list": [
+            {
+              "img": "shots/electricite/phare-pres-nuit.webp",
+              "alt": "Le phare allumé, de près, la nuit",
+              "tone": "ok",
+              "title": "Allumé",
+              "text": "La nuit, à ciel libre, assez haut, avec du courant."
+            },
+            {
+              "img": "shots/electricite/phare-jour.webp",
+              "alt": "Le même phare éteint, en plein jour",
+              "tone": "off",
+              "title": "Le jour",
+              "text": "Éteint, il ne consomme rien."
+            },
+            {
+              "img": "shots/electricite/phare-trop-bas.webp",
+              "alt": "Un phare posé au sol, éteint, la nuit",
+              "tone": "bad",
+              "title": "Trop bas ou couvert",
+              "text": "Moins de 8 blocs au-dessus de la mer, ou sous un toit : il reste éteint."
+            }
+          ]
+        },
+        {
+          "type": "step",
+          "title": "Le poser",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "Au sommet d'une tour, à ciel libre, à 8 blocs au moins au-dessus de la mer (le message le dit à la pose sinon). Puis du courant : la nuit, il s'allume."
+            }
+          ]
+        },
+        {
+          "type": "numbers",
+          "title": "À retenir",
+          "list": [
+            {
+              "k": "Énergie",
+              "v": "32 FE/t, la nuit seulement"
+            },
+            {
+              "k": "Hauteur",
+              "v": "8 blocs au-dessus de la mer (y 71 et plus)"
+            },
+            {
+              "k": "Faisceaux",
+              "v": "2, un tour en 8 s"
+            },
+            {
+              "k": "Longueur",
+              "v": "96 blocs"
+            }
+          ]
+        },
+        {
+          "type": "recipe",
+          "item": "oneforallsurvival:lighthouse"
         }
       ],
       "staff": [
-        "Config oneforallsurvival-light.toml : lighthouseEnergy, lighthouseMinAboveSea.",
+        "Config `oneforallsurvival-light.toml` : `lighthouseEnergy`, `lighthouseMinAboveSea`.",
         "Consomme au moins le double de la plus forte lampe relevée dans Crafts & Additions, New Age et Advanced Electricity (15 FE/t au maximum) : à relever si un serveur monte leurs réglages.",
         "Le niveau de la mer est celui de la détection côtière (63 par défaut).",
-        "« Nuit » est le jugement du jeu (Level.isNight, côté serveur) : un orage compte comme nuit, une dimension à heure fixe (Nether, End) jamais."
+        "« Nuit » est le jugement du jeu (`Level.isNight`, côté serveur) : un orage compte comme nuit, une dimension à heure fixe (Nether, End) jamais."
       ]
     },
     {
-      "id": "detecteur-metaux",
-      "num": 21,
-      "name": "Détecteur de métaux",
-      "kind": "objet",
-      "status": "dispo",
-      "lot": "Lot 7",
-      "image": {
-        "type": "item",
-        "file": "metal_detector.png"
-      },
-      "what": "Objet à batterie qui bipe de plus en plus vite et de plus en plus aigu en approchant d'une cache enfouie par le staff.",
-      "who": {
-        "fabrique": "Ingénieur",
-        "pose": "-",
-        "utilise": "Tous",
-        "casse": "-"
-      },
-      "steps": [
-        "Le recharger : accroupi, clic droit sur une source (machine du mod, ou bloc d'un autre mod qui donne des FE).",
-        "Le tenir dans une main : un bip toutes les 40 ticks à 24 blocs, toutes les 2 ticks au contact. Seul le porteur l'entend.",
-        "Casser la cache (à la hache ou à la main) : le butin tombe une fois, la cache sort de la liste et le détecteur se tait."
+      "id": "detecteur",
+      "title": "Le détecteur de métaux",
+      "group": "Explorer",
+      "lead": "Tenu en main, il bipe de plus en plus vite et de plus en plus aigu en approchant d'une cache enfouie.",
+      "cover": "shots/electricite/detecteur-main.webp",
+      "covers": [
+        "detecteur-metaux"
       ],
-      "flow": [
-        "Batterie",
-        "Détecteur en main",
-        "Cache à portée ?",
-        "Bips"
-      ],
-      "numbers": [
+      "chips": [
         {
           "k": "Batterie",
           "v": "24 000 FE"
         },
         {
-          "k": "Consommation",
-          "v": "2 FE/t, tenu en main"
-        },
-        {
           "k": "Portée",
-          "v": "24 blocs, distance réelle"
+          "v": "24 blocs"
+        }
+      ],
+      "blocks": [
+        {
+          "type": "shot",
+          "img": "shots/electricite/detecteur-main.webp",
+          "alt": "En vue à la première personne, le détecteur de métaux en main, au-dessus d'une cache enfouie dans le sol",
+          "marks": [
+            {
+              "at": "cache",
+              "text": "Une cache enfouie : la casser (à la hache ou à la main) donne son butin, une fois."
+            }
+          ]
         },
         {
-          "k": "Cadence",
-          "v": "40 ticks au bord, 2 au contact"
+          "type": "step",
+          "title": "S'en servir",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "Recharge-le : accroupi, clic droit sur une source (machine du mod, ou bloc d'un autre mod qui rend du courant)."
+            },
+            {
+              "type": "row",
+              "blocks": [
+                {
+                  "type": "text",
+                  "text": "Tiens-le dans une main : un bip toutes les 2 s au bord de la portée, 10 par seconde au contact. Seul celui qui le tient l'entend."
+                },
+                {
+                  "type": "shot",
+                  "img": "shots/electricite/detecteur-infobulle.webp",
+                  "alt": "L'infobulle du détecteur : sa batterie et son usage"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "numbers",
+          "title": "À retenir",
+          "list": [
+            {
+              "k": "Batterie",
+              "v": "24 000 FE",
+              "item": "oneforallsurvival:metal_detector"
+            },
+            {
+              "k": "Consommation",
+              "v": "2 FE/t en main : 10 min"
+            },
+            {
+              "k": "Portée",
+              "v": "24 blocs, distance réelle"
+            },
+            {
+              "k": "Cadence",
+              "v": "40 tics au bord, 2 au contact"
+            }
+          ]
+        },
+        {
+          "type": "recipe",
+          "item": "oneforallsurvival:metal_detector"
         }
       ],
       "staff": [
-        "Config oneforallsurvival-explore.toml : detectorCapacity, detectorEnergy, detectorRange.",
+        "Config `oneforallsurvival-explore.toml` : `detectorCapacity`, `detectorEnergy`, `detectorRange`.",
         "Sans cache dans la dimension il ne consomme rien. Une zone déchargée n'est jamais chargée pour lui.",
-        "Les caches se posent avec /give ou en créatif ; /cache list les liste, /cache loot <pos> <table> change leur butin."
+        "Les caches se posent avec `/give` ou en créatif ; `/cache list` les liste, `/cache loot <pos> <table>` change leur butin."
       ]
     },
     {
-      "id": "lampe-frontale",
-      "num": 22,
-      "name": "Lampe frontale rechargeable",
-      "kind": "objet",
-      "status": "dispo",
-      "lot": "Lot 7",
-      "image": {
-        "type": "item",
-        "file": "headlamp.png"
-      },
-      "what": "Portée à la place du casque (protection 1), elle éclaire autour de la tête tant que sa batterie tient.",
-      "who": {
-        "fabrique": "Ingénieur",
-        "pose": "-",
-        "utilise": "Tous",
-        "casse": "-"
-      },
-      "steps": [
-        "La recharger : en main, accroupi, clic droit sur une source (machine du mod, ou bloc d'un autre mod qui donne des FE).",
-        "La mettre sur la tête (clic droit) : une lumière invisible suit le joueur.",
-        "La retirer, la vider ou quitter : la lumière disparaît."
+      "id": "lampe",
+      "title": "La lampe frontale",
+      "group": "Explorer",
+      "lead": "Portée à la place du casque, elle éclaire autour de la tête tant que sa batterie tient.",
+      "cover": "shots/electricite/lampe-avec.webp",
+      "covers": [
+        "lampe-frontale"
       ],
-      "flow": [
-        "Batterie",
-        "Lampe portée",
-        "Tête dans l'air ou l'eau ?",
-        "Lumière de niveau 14"
-      ],
-      "numbers": [
+      "chips": [
         {
           "k": "Batterie",
           "v": "36 000 FE"
         },
         {
-          "k": "Consommation",
-          "v": "2 FE/t, soit environ 15 min"
+          "k": "Autonomie",
+          "v": "15 min"
+        }
+      ],
+      "blocks": [
+        {
+          "type": "states",
+          "list": [
+            {
+              "img": "shots/electricite/lampe-avec.webp",
+              "alt": "Dans une grotte la nuit, le joueur avec la lampe frontale : la roche est éclairée autour de lui",
+              "tone": "ok",
+              "title": "Avec la lampe",
+              "text": "Une lumière de niveau 14 suit ta tête."
+            },
+            {
+              "img": "shots/electricite/lampe-sans.webp",
+              "alt": "La même grotte sans la lampe : presque noire",
+              "tone": "off",
+              "title": "Sans",
+              "text": "Le noir de la grotte."
+            }
+          ]
         },
         {
-          "k": "Lumière",
-          "v": "niveau 14"
+          "type": "step",
+          "title": "S'en servir",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "Recharge-la : en main, accroupi, clic droit sur une source. Puis clic droit pour la mettre sur la tête (elle prend la place du casque)."
+            },
+            {
+              "type": "row",
+              "blocks": [
+                {
+                  "type": "text",
+                  "text": "La retirer, la vider ou quitter le jeu : la lumière disparaît."
+                },
+                {
+                  "type": "shot",
+                  "img": "shots/electricite/lampe-infobulle.webp",
+                  "alt": "L'infobulle de la lampe frontale : sa batterie et son usage"
+                }
+              ]
+            }
+          ]
         },
         {
-          "k": "Protection",
-          "v": "1, sans durabilité"
+          "type": "numbers",
+          "title": "À retenir",
+          "list": [
+            {
+              "k": "Batterie",
+              "v": "36 000 FE",
+              "item": "oneforallsurvival:headlamp"
+            },
+            {
+              "k": "Consommation",
+              "v": "2 FE/t portée : 15 min"
+            },
+            {
+              "k": "Lumière",
+              "v": "niveau 14, dans l'air ou l'eau"
+            },
+            {
+              "k": "Protection",
+              "v": "1, sans durabilité"
+            }
+          ]
+        },
+        {
+          "type": "recipe",
+          "item": "oneforallsurvival:headlamp"
         }
       ],
       "staff": [
-        "Config oneforallsurvival-explore.toml : headlampCapacity, headlampEnergy, headlampLight.",
-        "La lumière est un bloc minecraft:light posé seulement dans l'air ou l'eau, noté dans les données du chunk et retiré à la déconnexion, la mort, le changement de dimension et l'arrêt du serveur.",
+        "Config `oneforallsurvival-explore.toml` : `headlampCapacity`, `headlampEnergy`, `headlampLight`.",
+        "La lumière est un bloc `minecraft:light` posé seulement dans l'air ou l'eau, noté dans les données du chunk et retiré à la déconnexion, la mort, le changement de dimension et l'arrêt du serveur.",
         "Le coût sur un serveur chargé n'est pas mesuré.",
-        "Changer headlampLight pendant que des lampes sont allumées laisse leurs blocs de lumière."
+        "Changer `headlampLight` pendant que des lampes sont allumées laisse leurs blocs de lumière."
       ]
     },
     {
-      "id": "recepteur-signaux",
-      "num": 23,
-      "name": "Récepteur de signaux",
-      "kind": "machine",
-      "status": "dispo",
-      "lot": "Lot 7",
-      "image": {
-        "type": "block",
-        "top": "signal_receiver.png",
-        "side": "signal_receiver.png",
-        "front": "signal_receiver.png"
-      },
-      "what": "Bloc alimenté réglé sur une fréquence ; il archive les messages envoyés par le staff et allume un voyant tant qu'un message n'est pas lu.",
-      "who": {
-        "fabrique": "Ingénieur",
-        "pose": "Tous",
-        "utilise": "Tous",
-        "casse": "Tous, à la pioche"
-      },
-      "steps": [
-        "Le poser et lui donner du courant : il écoute.",
-        "Clic droit : l'écran règle la fréquence (1 à 9999) et montre les 50 derniers messages.",
-        "Un récepteur sans courant ou dans une zone déchargée manque le message."
+      "id": "recepteur",
+      "title": "Le récepteur de signaux",
+      "group": "Explorer",
+      "lead": "Réglé sur une fréquence, il garde les messages envoyés par l'équipe et allume un voyant tant qu'un message n'est pas lu.",
+      "cover": "shots/electricite/recepteur-ecran.webp",
+      "covers": [
+        "recepteur-signaux"
       ],
-      "flow": [
-        "Courant",
-        "Récepteur",
-        "Bonne fréquence ?",
-        "Archive et voyant"
-      ],
-      "numbers": [
-        {
-          "k": "Énergie",
-          "v": "4 FE/t pour écouter, tampon de 2 000 FE"
-        },
+      "chips": [
         {
           "k": "Fréquence",
           "v": "1 à 9999"
         },
         {
-          "k": "Archive",
-          "v": "50 messages de 256 caractères"
+          "k": "Énergie",
+          "v": "4 FE/t"
+        }
+      ],
+      "blocks": [
+        {
+          "type": "states",
+          "list": [
+            {
+              "img": "shots/electricite/recepteur-ecoute.webp",
+              "alt": "Récepteur à l'écoute, voyant vert",
+              "tone": "ok",
+              "title": "À l'écoute",
+              "text": "Il a du courant."
+            },
+            {
+              "img": "shots/electricite/recepteur-message.webp",
+              "alt": "Récepteur avec un message non lu",
+              "tone": "info",
+              "title": "Message non lu",
+              "text": "Ouvre-le pour le lire."
+            },
+            {
+              "img": "shots/electricite/recepteur-eteint.webp",
+              "alt": "Récepteur hors tension",
+              "tone": "off",
+              "title": "Hors tension",
+              "text": "Il manque les messages, sans rattrapage."
+            }
+          ]
+        },
+        {
+          "type": "step",
+          "title": "Régler et lire",
+          "blocks": [
+            {
+              "type": "row",
+              "blocks": [
+                {
+                  "type": "text",
+                  "text": "Clic droit : l'écran. Tape la fréquence (1 à 9999), « Régler ». Les 50 derniers messages s'affichent, le plus récent en haut."
+                },
+                {
+                  "type": "shot",
+                  "img": "shots/electricite/recepteur-ecran.webp",
+                  "alt": "L'écran du récepteur : fréquence 42, En écoute, deux messages reçus",
+                  "marks": [
+                    {
+                      "at": "frequence",
+                      "text": "La fréquence, puis « Régler »."
+                    },
+                    {
+                      "at": "ecoute",
+                      "text": "En écoute, et la réserve."
+                    },
+                    {
+                      "at": "archive",
+                      "text": "Les messages reçus, avec leur jour et leur heure."
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "numbers",
+          "title": "À retenir",
+          "list": [
+            {
+              "k": "Énergie",
+              "v": "4 FE/t pour écouter, réserve de 2 000 FE"
+            },
+            {
+              "k": "Fréquence",
+              "v": "1 à 9999"
+            },
+            {
+              "k": "Archive",
+              "v": "50 messages de 256 caractères"
+            }
+          ]
+        },
+        {
+          "type": "recipe",
+          "item": "oneforallsurvival:signal_receiver"
         }
       ],
       "staff": [
-        "/signal send <fréquence> <rayon> <message> (niveau 2) : rayon horizontal de 1 à 30 000 blocs autour de la source de la commande, dans sa dimension ; la réponse donne le nombre de récepteurs qui l'ont reçu.",
-        "Config oneforallsurvival-explore.toml : receiverEnergy.",
-        "Aucun texte n'est livré avec le mod : les messages sont ceux de l'équipe."
+        "`/signal send <fréquence> <rayon> <message>` (niveau 2) : rayon horizontal de 1 à 30 000 blocs autour de la source de la commande, dans sa dimension ; la réponse donne le nombre de récepteurs qui l'ont reçu.",
+        "Config `oneforallsurvival-explore.toml` : `receiverEnergy`.",
+        "Aucun texte n'est livré avec le mod : les messages sont ceux de l'équipe.",
+        "Il ne s'use pas et ne tombe pas en panne ; sa réserve tient ≈ 25 s sans courant."
       ]
     },
     {
-      "id": "mecanismes-ruines",
-      "num": 24,
-      "name": "Mécanismes des ruines",
-      "kind": "bloc",
-      "status": "dispo",
-      "lot": "Lot 7",
-      "image": {
-        "type": "block",
-        "top": "ancient_mechanism_active.png",
-        "side": "ancient_mechanism_active.png",
-        "front": "ancient_mechanism_active.png"
-      },
-      "what": "Bloc ancien qui exige du courant un temps donné, puis reste actif et émet un signal de redstone jusqu'à sa remise à zéro.",
-      "who": {
-        "pose": "Staff",
-        "casse": "Personne en survie"
-      },
-      "steps": [
-        "Le brancher à un câble (d'un autre mod) qui lui donne au moins le seuil de FE à chaque tick.",
-        "Tenir le seuil sans coupure pendant la durée réglée : ses veines s'allument une à une, puis il s'active.",
-        "Actif, il émet 15 de redstone de tous côtés (une porte de fer s'ouvre) jusqu'à /mechanism reset."
+      "id": "mecanismes",
+      "title": "Les mécanismes des ruines",
+      "group": "Explorer",
+      "lead": "Un bloc ancien qui exige du courant un temps donné, puis s'active et donne un signal de redstone.",
+      "cover": "shots/electricite/mecanisme-actif.webp",
+      "covers": [
+        "mecanismes-ruines"
       ],
-      "flow": [
-        "Câble",
-        "Seuil tenu ?",
-        "Durée écoulée ?",
-        "Actif, signal 15"
-      ],
-      "numbers": [
+      "chips": [
         {
-          "k": "Seuil par défaut",
+          "k": "Seuil",
           "v": "100 FE/t"
         },
         {
-          "k": "Durée par défaut",
+          "k": "Durée",
           "v": "10 s"
+        }
+      ],
+      "blocks": [
+        {
+          "type": "row",
+          "blocks": [
+            {
+              "type": "shot",
+              "img": "shots/electricite/mecanisme-repos.webp",
+              "alt": "Un mécanisme ancien éteint dans un mur de ruine, une porte de fer fermée",
+              "title": "Au repos"
+            },
+            {
+              "type": "shot",
+              "img": "shots/electricite/mecanisme-actif.webp",
+              "alt": "Le mécanisme actif, ses veines allumées, la porte de fer ouverte",
+              "title": "Actif"
+            }
+          ]
         },
         {
-          "k": "Coupure",
-          "v": "un tick sans seuil remet à zéro"
+          "type": "clip",
+          "img": "shots/electricite/mecanisme-activation.webp",
+          "alt": "Animation : le courant arrive, les veines s'allument une à une, la porte s'ouvre",
+          "title": "L'activation",
+          "note": "Ici une source créative cachée derrière le mur, 100 FE par tic pendant 10 s."
         },
         {
-          "k": "Dureté",
-          "v": "incassable en survie"
+          "type": "step",
+          "title": "L'activer",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "Branche-le à un câble (d'un autre mod) qui lui donne au moins le seuil de FE à chaque tic."
+            },
+            {
+              "type": "text",
+              "text": "Tiens le seuil sans coupure pendant la durée : ses veines s'allument une à une, puis il s'active. Un seul tic sous le seuil remet tout à zéro."
+            },
+            {
+              "type": "text",
+              "text": "Actif, il donne 15 de redstone de tous côtés (une porte de fer s'ouvre), jusqu'à ce que l'équipe le remette à zéro."
+            }
+          ]
+        },
+        {
+          "type": "numbers",
+          "title": "À retenir",
+          "list": [
+            {
+              "k": "Seuil par défaut",
+              "v": "100 FE/t"
+            },
+            {
+              "k": "Durée par défaut",
+              "v": "10 s"
+            },
+            {
+              "k": "Coupure",
+              "v": "un tic sans le seuil remet à zéro"
+            },
+            {
+              "k": "Dureté",
+              "v": "incassable en survie"
+            }
+          ]
         }
       ],
       "staff": [
-        "/mechanism set <pos> <fe_par_tick> <secondes>, /mechanism reset <pos>, /mechanism info <pos> (niveau 2).",
+        "`/mechanism set <pos> <fe_par_tick> <secondes>`, `/mechanism reset <pos>`, `/mechanism info <pos>` (niveau 2).",
         "Ni l'explosion, ni le Wither, ni le dragon, ni le piston ne le déplacent. Il ne s'use pas.",
         "Il garde son état actif après un redémarrage (prouvé sur serveur dédié) ; sa progression est gardée au rechargement (GameTest)."
-      ]
-    },
-    {
-      "id": "chauffe-eau-douche",
-      "num": 25,
-      "name": "Chauffe-eau et douche",
-      "kind": "machine",
-      "status": "dispo",
-      "lot": "Lot 6",
-      "image": {
-        "type": "block",
-        "top": "water_heater_top.png",
-        "side": "water_heater_side.png",
-        "front": "water_heater_front_running.png"
-      },
-      "what": "Chauffe l'eau potable au courant ; quelques secondes sous la pomme de douche donnent le Bien-être.",
-      "who": {
-        "fabrique": "Ingénieur",
-        "pose": "Tous",
-        "utilise": "Tous",
-        "casse": "Tous, à la pioche"
-      },
-      "steps": [
-        "Relier un dessalinisateur au chauffe-eau par des tuyaux et une pompe de Create, avec du courant.",
-        "Relier le chauffe-eau à la pomme de douche de la même façon (elle peut être à l'étage).",
-        "Poser la pomme 2 ou 3 blocs au-dessus du sol et se tenir dessous : 5 secondes continues d'eau chaude donnent le Bien-être."
-      ],
-      "flow": [
-        "Dessalinisateur",
-        "Chauffe-eau",
-        "Pomme de douche",
-        "Bien-être"
-      ],
-      "numbers": [
-        {
-          "k": "Chauffe-eau",
-          "v": "5 mB/t, 40 FE/t"
-        },
-        {
-          "k": "Cuves du chauffe-eau",
-          "v": "2 × 4 000 mB"
-        },
-        {
-          "k": "Pomme de douche",
-          "v": "1 000 mB, 2 mB/t dessous"
-        },
-        {
-          "k": "Douche",
-          "v": "5 s continues"
-        }
-      ],
-      "staff": [
-        "Config oneforallsurvival-town.toml : heaterMbPerTick, heaterEnergy, showerSeconds, showerMbPerTick.",
-        "Le chauffe-eau n'accepte que l'eau potable du mod (ni eau vanilla, ni lave) et ne rend que l'eau chaude (fluide hot_water, ni seau ni bloc).",
-        "La pomme n'a ni courant ni usure et ne se vide pas par les tuyaux. Casser le chauffe-eau perd ses cuves.",
-        "Une zone déchargée n'est pas une coupure : la machine se fige sans rien perdre."
       ]
     }
   ]
