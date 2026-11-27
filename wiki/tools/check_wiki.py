@@ -213,6 +213,8 @@ def bloc(ctx, ou, b):
         texte(ou, b["note"], TEXTE_MAX, "note")
     if t == "text":
         texte(ou, b.get("text"), TEXTE_MAX)
+        if b.get("link"):
+            lien(ctx, ou, b["link"] if isinstance(b["link"], str) else b["link"].get("href"))
     elif t == "hero":
         for p in b.get("points") or []:
             point(ctx, ou, p, b.get("img"), ["title", "text"])

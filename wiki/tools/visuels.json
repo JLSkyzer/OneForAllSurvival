@@ -1,5 +1,5 @@
 {
-  "_note": "Un visuel publié par entrée ; produit par python wiki/tools/build_visuals.py (voir son en-tête pour les champs). Sources : run-wiki/captures (atelier runWikiStudio) ou run/frames-* (TelephoneShots).",
+  "_note": "Un visuel publié par entrée ; produit par python wiki/tools/build_visuals.py (voir son en-tête pour les champs). Sources : run-wiki/captures (atelier runWikiStudio) run/frames-* (TelephoneShots) ou run-titre/frames-wiki-* (TitleShots, F3Shots, TabShots, film de la scène de chargement recopié en f0000.png… dans run-titre/wiki-chargement-seq).",
   "visuels": [
     {"sortie": "shots/telephone/cover.webp", "reperes": false, "source": "run-wiki/captures/telephone/antenne-hero.png", "recadrage": [0, 120, 1280, 520], "largeur": 1000},
     {"sortie": "shots/telephone/antenne-hero.webp", "source": "run-wiki/captures/telephone/antenne-hero.png", "recadrage": [100, 70, 1080, 560], "largeur": 1000},
@@ -220,6 +220,34 @@
     {"sortie": "shots/economie/equipe-stats-haut.webp", "source": "run-wiki/captures/economie/equipe-stats-haut.png", "recadrage": [0, 272, 670, 368]},
     {"sortie": "shots/economie/equipe-stats.webp", "source": "run-wiki/captures/economie/equipe-stats.png", "recadrage": [0, 272, 670, 370]},
     {"sortie": "shots/economie/equipe-registre.webp", "source": "run-wiki/captures/economie/equipe-registre.png", "recadrage": [0, 425, 670, 217]},
-    {"sortie": "shots/economie/equipe-power.webp", "source": "run-wiki/captures/economie/equipe-power.png", "recadrage": [0, 455, 670, 185]}
+    {"sortie": "shots/economie/equipe-power.webp", "source": "run-wiki/captures/economie/equipe-power.png", "recadrage": [0, 455, 670, 185]},
+    {"sortie": "shots/interface/cover.webp", "reperes": false, "source": "run-titre/frames-wiki-titre/04-titre-30s.png", "recadrage": [30, 20, 560, 520]},
+    {"sortie": "shots/interface/titre.webp", "source": "run-titre/frames-wiki-titre/04-titre-30s.png", "recadrage": [0, 0, 680, 720]},
+    {"sortie": "shots/interface/chargement-feux.webp", "source": "run-titre/wiki-chargement-seq/f0180.png", "largeur": 1000},
+    {"sortie": "shots/interface/chargement-chute.webp", "reperes": false, "source": "run-titre/wiki-chargement-seq/f0080.png", "largeur": 600},
+    {"sortie": "shots/interface/chargement-impact.webp", "reperes": false, "source": "run-titre/wiki-chargement-seq/f0095.png", "largeur": 600},
+    {"sortie": "shots/interface/chargement-aube.webp", "reperes": false, "source": "run-titre/wiki-chargement-seq/f0320.png", "largeur": 600},
+    {"sortie": "shots/interface/chargement-recit.webp", "sequence": "run-titre/wiki-chargement-seq", "debut": 48, "pas": 3, "duree": 100, "largeur": 560},
+    {"sortie": "shots/interface/tab.webp", "source": "run-titre/frames-wiki-tab/b-12-joueurs.png", "recadrage": [528, 12, 862, 306]},
+    {"sortie": "shots/interface/tab-cas.webp", "source": "run-titre/frames-wiki-tab/e-cas-limites.png", "recadrage": [622, 10, 658, 354]},
+    {"sortie": "shots/interface/tab-40.webp", "source": "run-titre/frames-wiki-tab/c-40-joueurs.png", "recadrage": [122, 12, 1676, 396], "largeur": 1000},
+    {"sortie": "shots/interface/f3.webp", "source": "run-titre/frames-wiki-f3/02-f3-jour-machine-ingenieur.png", "recadrage": [0, 0, 600, 592]},
+    {"sortie": "shots/interface/f3-performances.webp", "source": "run-titre/frames-wiki-f3/02-f3-jour-machine-ingenieur.png", "recadrage": [862, 12, 412, 240]},
+    {"sortie": "shots/interface/f3-machine-ingenieur.webp", "source": "run-titre/frames-wiki-f3/02-f3-jour-machine-ingenieur.png", "recadrage": [8, 445, 584, 175]},
+    {"sortie": "shots/interface/f3-machine-citoyen.webp", "source": "run-titre/frames-wiki-f3/04-f3-machine-citoyen.png", "recadrage": [8, 445, 584, 175]},
+    {"sortie": "shots/interface/f3-compteur.webp", "source": "run-titre/frames-wiki-f3/06-f3-compteur-ingenieur.png", "recadrage": [8, 445, 584, 175]},
+    {"sortie": "shots/interface/f3-disjoncteur.webp", "source": "run-titre/frames-wiki-f3/07-f3-disjoncteur.png", "recadrage": [8, 445, 584, 175]},
+    {"sortie": "shots/interface/f3-reduit.webp", "source": "run-titre/frames-wiki-f3/08-f3-reduit.png", "largeur": 800},
+    {"sortie": "shots/maire/cover.webp", "reperes": false, "source": "run-wiki/captures/maire/mairie.png", "recadrage": [300, 110, 800, 380], "largeur": 800},
+    {"sortie": "shots/maire/mairie.webp", "source": "run-wiki/captures/maire/mairie.png", "recadrage": [300, 110, 800, 380]},
+    {"sortie": "shots/maire/maire-nom.webp", "source": "run-wiki/captures/maire/maire-nom.png", "recadrage": [0, 250, 1080, 470], "largeur": 900},
+    {"sortie": "shots/maire/liste-maire.webp", "source": "run-titre/frames-wiki-tab/b-12-joueurs.png", "recadrage": [540, 64, 840, 56]},
+    {"sortie": "shots/maire/nommer-chat.webp", "source": "run-wiki/captures/maire/nommer-chat.png", "recadrage": [0, 432, 670, 172]},
+    {"sortie": "shots/maire/reseaux-power.webp", "source": "run-wiki/captures/maire/reseaux-power.png", "recadrage": [0, 510, 670, 135]},
+    {"sortie": "shots/maire/reseaux-operator.webp", "source": "run-wiki/captures/maire/reseaux-operator.png", "recadrage": [0, 510, 670, 135]},
+    {"sortie": "shots/maire/reseaux-remove.webp", "source": "run-wiki/captures/maire/reseaux-remove.png", "recadrage": [0, 545, 670, 100]},
+    {"sortie": "shots/accueil/place-soir.webp", "source": "run-wiki/captures/accueil/place-soir.png", "recadrage": [0, 150, 1280, 480], "largeur": 900},
+    {"sortie": "shots/accueil/crash.webp", "reperes": false, "source": "run-titre/wiki-chargement-seq/f0180.png", "recadrage": [0, 60, 1280, 560], "largeur": 900},
+    {"sortie": "shots/accueil/maire.webp", "reperes": false, "source": "run-wiki/captures/maire/mairie.png", "recadrage": [330, 170, 740, 330], "largeur": 740}
   ]
 }

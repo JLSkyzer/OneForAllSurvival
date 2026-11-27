@@ -1,112 +1,428 @@
 {
+  "v": 2,
   "id": "interface",
   "title": "Interface",
-  "intro": "L'identité Lost Island RP, de l'ouverture de la fenêtre jusqu'au jeu.",
-  "diagrams": [
+  "tagline": "L'identité Lost Island RP, de l'ouverture de la fenêtre jusqu'au jeu : écran de chargement, écran titre, liste des joueurs et menu F3.",
+  "cover": "shots/interface/cover.webp",
+  "articles": [
     {
-      "title": "Du lancement au menu",
-      "steps": ["Ouverture de la fenêtre", "Récit du crash", "Aube jusqu'au chargement", "Écran titre sans coupure"]
-    },
-    {
-      "title": "Le récit de chargement",
-      "steps": ["Chute de nuit sous la pluie", "Impact", "Feux", "Lever du jour"]
-    }
-  ],
-  "cards": [
-    {
-      "id": "ecran-chargement",
-      "name": "Écran de chargement",
-      "kind": "systeme",
-      "status": "dispo",
-      "lot": "Chantier 1",
-      "image": null,
-      "what": "Scène animée du crash, avec barre et texte suivant le vrai chargement.",
-      "who": {"utilise": "Tous"},
-      "steps": [
-        "Le récit se joue, puis reste sur l'aube.",
-        "La barre ne recule jamais.",
-        "Les messages thématiques montrent l'étape réelle."
+      "id": "chargement",
+      "title": "L'écran de chargement",
+      "group": "Au lancement",
+      "lead": "Pendant que le jeu charge, un récit : l'avion tombe de nuit, s'écrase, brûle, puis le jour se lève sur l'île.",
+      "cover": "shots/interface/chargement-feux.webp",
+      "covers": [
+        "ecran-chargement"
       ],
-      "flow": ["Forge démarre", "Mods", "Textures", "Bienvenue"],
-      "numbers": [
-        {"k": "Durée du récit", "v": "36 s"},
-        {"k": "Jar de service", "v": "57 Mio"}
+      "chips": [
+        {
+          "k": "Pour",
+          "v": "Tous"
+        },
+        {
+          "k": "Récit",
+          "v": "36 s"
+        }
+      ],
+      "blocks": [
+        {
+          "type": "hero",
+          "img": "shots/interface/chargement-feux.webp",
+          "alt": "L'écran de chargement : l'épave brûle de nuit sous la lune, logo Lost Island, message « Tri des caisses de l'épave… (mods 13/20) », barre à 56 %",
+          "points": [
+            {
+              "x": 9,
+              "y": 83,
+              "title": "Le message",
+              "text": "Il dit l'étape réelle du chargement, en mots de l'île : la soute, les caisses de l'épave, le littoral…"
+            },
+            {
+              "x": 20,
+              "y": 93.3,
+              "title": "La barre",
+              "text": "Elle suit le vrai chargement et ne recule jamais ; l'avion avance avec elle."
+            },
+            {
+              "x": 67,
+              "y": 89,
+              "title": "Le pourcentage",
+              "text": "Le même avancement, en chiffres."
+            }
+          ]
+        },
+        {
+          "type": "clip",
+          "img": "shots/interface/chargement-recit.webp",
+          "alt": "Le récit en entier : l'avion en feu traverse la nuit, l'impact, les feux sur l'épave, puis l'aube sur la plage",
+          "title": "Le récit",
+          "note": "Relevé pendant un vrai démarrage du jeu (en accéléré : le chargement a fini avant le récit)."
+        },
+        {
+          "type": "row",
+          "blocks": [
+            {
+              "type": "shot",
+              "img": "shots/interface/chargement-chute.webp",
+              "alt": "De nuit, l'avion en feu pique vers l'île, une traînée de fumée derrière lui",
+              "title": "La chute"
+            },
+            {
+              "type": "shot",
+              "img": "shots/interface/chargement-impact.webp",
+              "alt": "L'impact : un éclair de feu blanc sur le flanc de l'île",
+              "title": "L'impact"
+            },
+            {
+              "type": "shot",
+              "img": "shots/interface/chargement-aube.webp",
+              "alt": "L'aube sur l'épave et la plage, le logo et « Là où tout recommence. », barre à 99 %",
+              "title": "L'aube"
+            }
+          ]
+        },
+        {
+          "type": "flow",
+          "title": "Du lancement au menu",
+          "nodes": [
+            {
+              "label": "Ouverture de la fenêtre"
+            },
+            {
+              "label": "Récit du crash"
+            },
+            {
+              "label": "Aube jusqu'au chargement"
+            },
+            {
+              "label": "Écran titre sans coupure"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "Si le jeu finit de charger avant la fin du récit, celui-ci accélère jusqu'à l'aube, sans saut. S'il charge plus longtemps, l'aube reste à l'écran."
+        },
+        {
+          "type": "numbers",
+          "list": [
+            {
+              "k": "Durée du récit",
+              "v": "36 s"
+            },
+            {
+              "k": "Jar de service",
+              "v": "57 Mio"
+            }
+          ]
+        }
       ],
       "staff": [
-        "fml.toml : earlyWindowProvider = \"lostisland\".",
-        "Ne jamais écrire fml.toml avec un BOM.",
-        "Sans jar ni réglage : écran de Forge, sans plantage.",
-        "Jar absent mais demandé : aucune fenêtre anticipée."
+        "fml.toml : earlyWindowProvider = \"lostisland\". Ne jamais écrire fml.toml avec un BOM.",
+        "Sans jar ni réglage : écran de Forge, sans plantage. Jar absent mais demandé : aucune fenêtre anticipée.",
+        "Étapes de la barre : Forge démarre, mods, textures, bienvenue. Récit : chute de nuit sous la pluie, impact, feux, lever du jour.",
+        "Images : un vrai démarrage en développement (run-titre, -PsceneFrames), 1280 × 720 ; le chargement y finit en 17 s, d'où le récit accéléré."
       ]
     },
     {
-      "id": "ecran-titre",
-      "name": "Écran titre",
-      "kind": "systeme",
-      "status": "dispo",
-      "lot": "Chantier 2",
-      "image": null,
-      "what": "Scène de l'aube en boucle, logo et boutons empilés à gauche.",
-      "who": {"utilise": "Tous"},
-      "steps": [
-        "Boutons : Solo, Rejoindre l'île, Options, Quitter.",
-        "Rejoindre l'île connecte directement au serveur, à l'adresse réglée sur le site.",
-        "Mods, langue, accessibilité : rangée en bas à gauche."
+      "id": "titre",
+      "title": "L'écran titre",
+      "group": "Au lancement",
+      "lead": "L'aube du chargement reste en fond, sans coupure : le logo, puis Solo, Rejoindre l'île, Options et Quitter le jeu.",
+      "cover": "shots/interface/titre.webp",
+      "covers": [
+        "ecran-titre"
       ],
-      "flow": ["Rejoindre l'île", "Serveur"],
+      "chips": [
+        {
+          "k": "Pour",
+          "v": "Tous"
+        }
+      ],
+      "blocks": [
+        {
+          "type": "hero",
+          "img": "shots/interface/titre.webp",
+          "alt": "L'écran titre : logo Lost Island, « Là où tout recommence. », boutons Solo, Rejoindre l'île, Options, Quitter le jeu, rangée Mods en bas à gauche, l'épave à l'aube derrière",
+          "points": [
+            {
+              "x": 44,
+              "y": 52.5,
+              "title": "Rejoindre l'île",
+              "text": "Te connecte directement au serveur, à l'adresse réglée sur le site."
+            },
+            {
+              "x": 44,
+              "y": 42.4,
+              "title": "Solo",
+              "text": "Tes mondes à toi, comme dans Minecraft."
+            },
+            {
+              "x": 24.5,
+              "y": 93,
+              "title": "La rangée du bas",
+              "text": "Mods, langue, accessibilité (et les boutons des autres mods)."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "Serveur en maintenance (dit par le site) : « Rejoindre l'île » est grisé et son info-bulle donne le message du site. Aucune adresse connue : grisé, « Serveur bientôt disponible »."
+        },
+        {
+          "type": "text",
+          "text": "Connexion refusée : l'écran d'erreur habituel de Minecraft. Il n'y a pas de bouton Multijoueur."
+        },
+        {
+          "type": "flow",
+          "nodes": [
+            {
+              "label": "Rejoindre l'île"
+            },
+            {
+              "label": "Serveur"
+            }
+          ]
+        }
+      ],
       "staff": [
         "Adresse du serveur : lue au démarrage sur le site (/api/adresse), changeable depuis l'admin du site sans nouvelle version.",
         "Dernière adresse connue gardée dans config/oneforallsurvival-adresse.txt ; repli : constante du code.",
         "Maintenance sur le site : bouton grisé, infobulle = message du site (vue en direct, jamais gardée).",
         "Aucune adresse connue : bouton grisé, « Serveur bientôt disponible ».",
         "Pas de Multijoueur ; Create passe par Mods → Config.",
-        "Connexion refusée : écran d'erreur habituel de Minecraft."
-      ]
-    },
-    {
-      "id": "menu-f3",
-      "name": "Menu F3",
-      "kind": "systeme",
-      "status": "prevu",
-      "lot": "Chantier 3",
-      "image": null,
-      "what": "F3 redessiné en panneaux de verre ambré, rangés par thème.",
-      "who": {"utilise": "Tous"},
-      "steps": [
-        "Panneaux : position, monde, Lost Island, performances, cible, mods.",
-        "Vue détaillée avec F3 + Tab.",
-        "F3 + B, H, T continuent de marcher."
-      ],
-      "staff": [
-        "La règle reducedDebugInfo reste respectée.",
-        "Le texte vient de Minecraft et Forge ; seul le dessin change.",
-        "Pas encore de plan."
+        "Connexion refusée : écran d'erreur habituel de Minecraft. Image : run-titre (-PtitleShots), 1280 × 720, adresse connue."
       ]
     },
     {
       "id": "liste-joueurs",
-      "name": "Liste des joueurs",
-      "kind": "systeme",
-      "status": "dispo",
-      "lot": "Interface",
-      "image": null,
-      "what": "Touche TAB redessinée en verre ambré : survivants rangés par métier, maire en tête, jour et heure du monde.",
-      "who": {"utilise": "Tous"},
-      "steps": [
-        "Le maire a son bandeau en haut ; les autres sont rangés par métier, puis par pseudo.",
-        "Chaque survivant : tête, pseudo, métier dans sa couleur, ping en ms et en barres.",
-        "Les spectateurs sont grisés en bas et ne comptent pas parmi les survivants.",
-        "Pied : jour (il change à minuit) et heure du monde."
+      "title": "La liste des joueurs",
+      "group": "En jeu",
+      "lead": "Touche TAB : les survivants rangés par métier, le maire en tête, le jour et l'heure du monde.",
+      "cover": "shots/interface/tab.webp",
+      "covers": [
+        "liste-joueurs"
       ],
-      "flow": ["TAB enfoncée", "Liste", "TAB relâchée"],
-      "numbers": [
-        {"k": "Lignes par colonne", "v": "10, jusqu'à 20 si la largeur manque"}
+      "chips": [
+        {
+          "k": "Pour",
+          "v": "Tous"
+        },
+        {
+          "k": "Touche",
+          "v": "TAB, tenue"
+        }
+      ],
+      "blocks": [
+        {
+          "type": "shot",
+          "img": "shots/interface/tab.webp",
+          "alt": "La liste des joueurs : « Lost Island RP · liste des joueurs », 12 survivants sur l'île ; bandeau « Maire de l'île » de Dev, Agriculteur ; deux colonnes de survivants avec métier en couleur et ping ; pied « Jour 14 Heure 18:40 »",
+          "marks": [
+            {
+              "x": 52,
+              "y": 26,
+              "text": "Le maire a son bandeau en haut."
+            },
+            {
+              "x": 46,
+              "y": 96,
+              "text": "Le jour (il change à minuit) et l'heure du monde."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "Les autres sont rangés par métier, puis par pseudo. Chacun : sa tête, son pseudo, son métier dans sa couleur, son ping en millisecondes et en barres."
+        },
+        {
+          "type": "step",
+          "title": "Les cas particuliers",
+          "blocks": [
+            {
+              "type": "shot",
+              "img": "shots/interface/tab-cas.webp",
+              "alt": "Une liste de 8 survivants : un pseudo très long, un métier coupé « Responsable du… », un ping inconnu « … », un spectateur grisé en bas",
+              "marks": [
+                {
+                  "x": 60,
+                  "y": 88.5,
+                  "text": "Un spectateur : grisé, en bas, hors du compte des survivants."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "Un métier trop long finit par « … » ; un ping pas encore connu s'écrit « … », barres éteintes."
+            }
+          ]
+        },
+        {
+          "type": "step",
+          "title": "Beaucoup de monde",
+          "blocks": [
+            {
+              "type": "shot",
+              "img": "shots/interface/tab-40.webp",
+              "alt": "La liste avec 39 survivants sur quatre colonnes de dix, maire Ingénieur en tête"
+            },
+            {
+              "type": "text",
+              "text": "10 lignes par colonne, jusqu'à 20 si la largeur manque ; au-delà, des colonnes plus serrées, puis « et N autres »."
+            }
+          ]
+        },
+        {
+          "type": "numbers",
+          "list": [
+            {
+              "k": "Lignes par colonne",
+              "v": "10, jusqu'à 20 si la largeur manque"
+            }
+          ]
+        }
       ],
       "staff": [
         "Métier et couleur lus dans les équipes des rôles : un métier créé ou renommé par commande s'affiche tel quel.",
         "Foule trop grande pour l'écran : colonnes compactes, puis « et N autres ».",
-        "Le nom RP, l'en-tête et le pied envoyés par le serveur ne sont pas affichés."
+        "Le nom RP, l'en-tête et le pied envoyés par le serveur ne sont pas affichés.",
+        "Images : TabShots (run-titre, -PtabShots), joueurs factices côté client, équipes et maire par les vraies commandes ; fenêtre 1920 × 1080, échelle 2."
+      ]
+    },
+    {
+      "id": "f3",
+      "title": "Le menu F3",
+      "group": "En jeu",
+      "lead": "F3 redessiné en panneaux de verre, rangés par thème ; le panneau Lost Island dit l'état de la machine ou du compteur regardé.",
+      "cover": "shots/interface/f3.webp",
+      "covers": [
+        "menu-f3"
+      ],
+      "chips": [
+        {
+          "k": "Pour",
+          "v": "Tous"
+        },
+        {
+          "k": "Touche",
+          "v": "F3"
+        }
+      ],
+      "blocks": [
+        {
+          "type": "hero",
+          "img": "shots/interface/f3.webp",
+          "alt": "Le F3 ouvert devant un dessalinisateur : panneaux Position, Monde et Lost Island (zone d'eau salée non, machine Dessalinisateur à l'arrêt, usure 25 %)",
+          "points": [
+            {
+              "x": 30,
+              "y": 5.5,
+              "title": "Position",
+              "text": "Coordonnées, bloc, chunk et regard."
+            },
+            {
+              "x": 22,
+              "y": 37,
+              "title": "Monde",
+              "text": "Dimension, lumière, biome, difficulté, jour et heure, météo."
+            },
+            {
+              "x": 35,
+              "y": 78.5,
+              "title": "Lost Island",
+              "text": "Zone d'eau salée, et la machine, le compteur ou le disjoncteur que tu regardes."
+            }
+          ]
+        },
+        {
+          "type": "row",
+          "blocks": [
+            {
+              "type": "shot",
+              "img": "shots/interface/f3-performances.webp",
+              "alt": "Le panneau Performances : 115 FPS, 8,8 ms, la mémoire, Serveur 20.0 TPS",
+              "title": "Performances"
+            },
+            {
+              "type": "text",
+              "text": "Images par seconde, mémoire et santé du serveur (TPS). À droite aussi : la Cible (le bloc visé) et les Mods, avec les lignes de Minecraft et des mods."
+            }
+          ]
+        },
+        {
+          "type": "step",
+          "title": "Le panneau Lost Island",
+          "blocks": [
+            {
+              "type": "row",
+              "blocks": [
+                {
+                  "type": "shot",
+                  "img": "shots/interface/f3-machine-ingenieur.webp",
+                  "alt": "Panneau Lost Island : Machine Dessalinisateur à l'arrêt, Usure 25 %",
+                  "title": "Une machine, vue par l'ingénieur",
+                  "note": "Son état, son usure et sa panne s'il y en a une."
+                },
+                {
+                  "type": "shot",
+                  "img": "shots/interface/f3-machine-citoyen.webp",
+                  "alt": "Panneau Lost Island : Machine Dessalinisateur à l'arrêt, sans ligne d'usure",
+                  "title": "La même, vue par un citoyen",
+                  "note": "L'état seulement : usure et panne sont réservées à l'ingénieur et à l'équipe."
+                }
+              ]
+            },
+            {
+              "type": "row",
+              "blocks": [
+                {
+                  "type": "shot",
+                  "img": "shots/interface/f3-compteur.webp",
+                  "alt": "Panneau Lost Island : Abonné Mairie, Débit 0 FE/t, Index 0 FE",
+                  "title": "Un compteur",
+                  "note": "L'abonné et le débit pour tous ; l'index pour l'ingénieur et l'équipe."
+                },
+                {
+                  "type": "shot",
+                  "img": "shots/interface/f3-disjoncteur.webp",
+                  "alt": "Panneau Lost Island : Disjoncteur fermé",
+                  "title": "Un disjoncteur",
+                  "note": "Fermé ou ouvert, et scellé s'il l'est."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "F3 + Tab fait défiler des pages détaillées (les lignes complètes de Minecraft), puis revient à la vue normale. Le rappel est en bas à droite."
+        },
+        {
+          "type": "text",
+          "text": "F3 + B, H, T et les autres combinaisons marchent comme d'habitude."
+        },
+        {
+          "type": "step",
+          "title": "Sur un serveur qui réduit le F3",
+          "blocks": [
+            {
+              "type": "shot",
+              "img": "shots/interface/f3-reduit.webp",
+              "alt": "Le F3 réduit : seuls « Chunk relatif » et le panneau Performances restent"
+            },
+            {
+              "type": "text",
+              "text": "Règle `reducedDebugInfo` active : rien qui te situe, ni le panneau Lost Island, pour tout le monde (équipe comprise)."
+            }
+          ]
+        }
+      ],
+      "staff": [
+        "La règle reducedDebugInfo reste respectée : le serveur ne renvoie rien qui situe le joueur, opérateurs compris.",
+        "Le texte vient de Minecraft et Forge ; seul le dessin change. Les lignes vanilla (Cible, vue détaillée) restent en anglais.",
+        "Livré au chantier 3 (tasks/todo.md) : données Lost Island par paquet filtré côté serveur ; usure, panne et index réservés à l'ingénieur et à l'équipe. Si le jeu ne permet pas F3 + Tab, une touche « Vue détaillée du F3 » (F9) prend le relais.",
+        "Images : F3Shots (run-titre, -PdebugShots), 1280 × 720, échelle 3."
       ]
     }
-  ]
+  ],
+  "planned": []
 }

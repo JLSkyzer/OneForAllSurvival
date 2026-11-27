@@ -1,7 +1,7 @@
 {
   "id": "medecin",
   "title": "Médecin",
-  "intro": "Les citoyens gardent les premiers secours ; seul le médecin soigne vraiment, et un blessé grave tombe à terre au lieu de mourir.",
+  "intro": "Les citoyens gardent les premiers secours ; seul le médecin soigne vraiment, et un blessé grave tombe à terre au lieu de mourir. Déjà en jeu : le métier de médecin et les appels d'urgence au **15**, qui sonnent chez les médecins connectés (Téléphone › Urgences).",
   "diagrams": [
     {
       "title": "Du coup à la guérison",

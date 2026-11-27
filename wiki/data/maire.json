@@ -1,196 +1,155 @@
 {
+  "v": 2,
   "id": "maire",
   "title": "Maire",
-  "intro": "Il tient la caisse de la ville, fixe taxes et impôt, arbitre les réseaux ; chaque décision est publique et motivée.",
-  "diagrams": [
-    {"title": "D'où vient l'argent public", "steps": ["Taxe sur les ventes", "Taxe sur l'électricité", "Amendes", "Impôt sur les coffres-forts", "Trésor"]},
-    {"title": "Où va l'argent public", "steps": ["Trésor", "Salaires à minuit", "Dépenses au bureau", "Registre public"]},
-    {"title": "Une décision du maire", "steps": ["Décision et motif", "Registre public", "Annonce", "Appliquée à minuit"]}
-  ],
-  "cards": [
+  "tagline": "Élu en RP puis nommé par l'équipe, le maire tient le trésor de la ville et encadre les prix de l'électricité et du téléphone ; chaque geste est noté.",
+  "icon": "oneforallsurvival:treasury",
+  "cover": "shots/maire/cover.webp",
+  "articles": [
     {
-      "id": "metier-maire", "name": "Le métier", "kind": "role", "status": "prevu", "lot": "Lot M1",
-      "image": null,
-      "what": "Un statut qui s'ajoute au métier : préfixe [Maire] [Métier].",
-      "who": {"utilise": "Maire"},
-      "steps": [
-        "Élu en RP, puis nommé par l'équipe.",
-        "Réservé : bureau, trésor, taxes, réseaux, annonces.",
-        "Un seul maire à la fois, mandat sans durée."
+      "id": "le-maire",
+      "title": "Le maire",
+      "group": "Le statut",
+      "lead": "Un statut qui s'ajoute au métier : un seul maire à la fois, nommé par l'équipe après l'élection RP, sans durée de mandat.",
+      "cover": "shots/maire/mairie.webp",
+      "covers": ["metier-maire", "nommer-le-maire"],
+      "chips": [{"k": "Nomme", "v": "Équipe"}, {"k": "Combien", "v": "Un seul"}, {"k": "Salaire", "v": "0 par défaut"}],
+      "blocks": [
+        {"type": "hero", "img": "shots/maire/mairie.webp",
+         "alt": "Maelle devant la mairie de pierre, « [Maire] [Citoyen] Maelle » au-dessus de sa tête ; à côté, le tableau de la mairie et le trésor, deux lanternes",
+         "points": [
+           {"x": 64.8, "y": 72, "title": "La maire", "text": "Au-dessus de sa tête : [Maire], puis son métier, ici [Citoyen]."},
+           {"at": "tableau", "title": "Le tableau de la mairie", "text": "Le solde du trésor et les salaires dus, pour tous."},
+           {"at": "tresor", "title": "Le trésor", "text": "La caisse de la ville : le maire et l'équipe l'ouvrent."}
+         ]},
+        {"type": "step", "title": "Son nom", "blocks": [
+          {"type": "shot", "img": "shots/maire/maire-nom.webp", "alt": "De près : « [Maire] [Citoyen] Maelle » au-dessus de la tête de Maelle"},
+          {"type": "text", "text": "Le préfixe [Maire] [Métier] le suit partout : au-dessus de sa tête, au chat et dans la liste des joueurs, où il a son bandeau en haut."},
+          {"type": "shot", "img": "shots/maire/liste-maire.webp", "alt": "Le haut de la liste des joueurs : bandeau « Maire de l'île », Dev, Agriculteur, 42 ms"}
+        ]},
+        {"type": "step", "title": "Le nommer", "blocks": [
+          {"type": "shot", "img": "shots/maire/nommer-chat.webp", "alt": "Le chat : « Aucun maire n'est nommé… », « Maelle est désormais maire », « Maire : Maelle », « Robin est désormais maire, à la place de Maelle »"},
+          {"type": "text", "text": "`/role mayor set <pseudo>` (équipe) : nomme le maire ; l'ancien perd le statut, son métier ne change pas. `/role mayor remove` le retire. `/role mayor` : tout le monde peut demander qui l'est."}
+        ]},
+        {"type": "text", "text": "Ce qu'il fait déjà : ouvrir le trésor et motiver ses dépenses, poser le tableau de la mairie, encadrer les prix des réseaux.", "link": "#maire/tresor"},
+        {"type": "text", "text": "Absent, tout tourne seul (salaires, prélèvements). Sans maire, l'équipe fait ses gestes ; tout autre joueur est refusé avec un message clair."},
+        {"type": "numbers", "list": [{"k": "Maires", "v": "un seul à la fois"}, {"k": "Mandat", "v": "sans durée"}, {"k": "Salaire", "v": "0 par défaut"}]},
+        {"type": "problems", "list": [
+          {"msg": "Seuls le maire et l'équipe du serveur font ce geste.", "text": "Réponse à un joueur qui n'est ni maire ni de l'équipe."},
+          {"msg": "Aucun maire n'est nommé : seule l'équipe du serveur fait les gestes du maire", "text": "Réponse de `/role mayor` quand personne n'est maire."},
+          {"msg": "Maelle est déjà maire", "text": "Elle l'était déjà : rien ne change."}
+        ]}
       ],
       "staff": [
-        "Sans adjoints ; il ne nomme ni policiers ni médecins.",
-        "Aucun salaire par défaut ; si l'équipe lui en fixe un, il est payé sur le trésor, dans son coffre-fort.",
-        "Absent : tout tourne seul ; sans maire, l'équipe agit.",
-        "Un non-maire reçoit un message clair ; l'équipe garde un contournement."
+        "/role mayor set <joueur> : nomme le maire (un seul profil). /role mayor remove : retire le statut. /role mayor : dit qui est maire (tous).",
+        "Sans adjoints ; il ne nomme ni policiers ni médecins (/role set reste à l'équipe).",
+        "Aucun salaire par défaut (mayorSalaryPerHour = 0) ; si l'équipe lui en fixe un (/eco salary set mayor <taux>), il est payé sur le trésor, en plus de son métier, comme les autres salaires.",
+        "Absent : tout tourne seul ; sans maire, l'équipe agit. Un non-maire reçoit un message clair ; l'équipe garde un contournement (niveau 2).",
+        "« mayor » est un identifiant réservé : aucun rôle ne peut le prendre. Images : Maelle est un joueur simulé nommé par la console ; Robin (atelier) est opérateur."
       ]
     },
     {
-      "id": "nommer-le-maire", "name": "Nommer le maire", "kind": "commande", "status": "dispo",
-      "image": null,
-      "what": "Donner ou retirer le statut de maire, sans toucher au métier.",
-      "who": {"utilise": "Opérateur niveau 2"},
-      "steps": [
-        "Nommer un joueur retire le grade à l'ancien.",
-        "Le préfixe devient [Maire] [Métier]."
+      "id": "tresor",
+      "title": "Le trésor et le tableau",
+      "group": "La caisse de la ville",
+      "lead": "Le maire ouvre le trésor, dépense avec un motif noté au registre, et pose le tableau qui montre à tous le solde de la ville.",
+      "cover": "shots/economie/tresor-tableau.webp",
+      "covers": ["tresor-depenses", "tableau-de-la-mairie", "deplacer-blocs-mairie"],
+      "chips": [{"k": "Ouvre", "v": "Maire, équipe"}, {"k": "Lit le tableau", "v": "Tous"}, {"k": "Déplace", "v": "Maire, équipe, ingénieur outillé"}],
+      "blocks": [
+        {"type": "step", "title": "Dépenser, avec un motif", "actor": "toi", "actorLabel": "Le maire", "blocks": [
+          {"type": "shot", "img": "shots/economie/tresor-motif.webp", "alt": "La fenêtre « Motif de la dépense » : « Retirer 1 or du trésor », motif « Lanternes de la place », Confirmer et Annuler"},
+          {"type": "text", "text": "Clic droit sur le trésor : déposer au clic gauche, retirer au clic droit. Chaque retrait demande un motif, noté au registre du trésor avec son auteur."}
+        ]},
+        {"type": "step", "title": "Relire le registre", "actor": "toi", "actorLabel": "Le maire", "blocks": [
+          {"type": "shot", "img": "shots/economie/tresor-registre.webp", "alt": "Le chat après /treasury log : le registre du trésor, dépôts, dépense « Lanternes de la place », trésor posé"},
+          {"type": "text", "text": "`/treasury log [page]` (maire, équipe). Les salaires tombent seuls à minuit, sans lui."}
+        ]},
+        {"type": "step", "title": "Le tableau de la mairie", "blocks": [
+          {"type": "shot", "img": "shots/economie/tresor-tableau.webp", "alt": "Le tableau de la mairie : « Trésor de la ville », « Solde : 1 or », « Aucun salaire dû »"},
+          {"type": "text", "text": "`/treasury board` en donne un au maire ou à l'équipe (un seul tant qu'on en porte un). Il se pose sur ses pieds : 3 blocs de large sur 2 de haut, libres face à soi."}
+        ]},
+        {"type": "step", "title": "Déplacer le trésor ou le tableau", "blocks": [
+          {"type": "shot", "img": "shots/maire/mairie.webp", "alt": "Le trésor et le tableau de la mairie contre le mur de la mairie, Maelle à côté"},
+          {"type": "text", "text": "Le casser, puis le reposer ailleurs : il garde son contenu et son registre. Le maire, l'équipe, ou un ingénieur qui tient son outil de maintenance ; en créatif, accroupi."}
+        ]},
+        {"type": "text", "text": "Le détail (écran, change, registre, salaires) est dans l'Économie.", "link": "#economie/tresor"},
+        {"type": "numbers", "list": [{"k": "Trésors", "v": "un seul"}, {"k": "Motif d'une dépense", "v": "80 caractères"}, {"k": "Tableau", "v": "3 × 2 blocs"}]},
+        {"type": "problems", "list": [
+          {"msg": "Seuls le maire et l'équipe posent un tableau de la mairie", "text": "Pose refusée à tout autre joueur."},
+          {"msg": "Seuls le maire, l'équipe et un ingénieur déplacent le tableau de la mairie", "text": "L'ingénieur doit tenir son outil de maintenance."},
+          {"msg": "Pas assez de place : le tableau fait 3 blocs de large et 2 de haut, face à vous", "text": "Libère la place devant toi."},
+          {"msg": "En créatif, accroupissez-vous pour casser ce bloc", "text": "Pour tout le monde, contre l'accident.", "link": "#economie/tresor"}
+        ]}
       ],
       "staff": [
-        "/role mayor set <joueur> : nomme le maire.",
-        "/role mayor remove : retire le statut de maire.",
-        "/role mayor : dit qui est maire."
+        "Entrées : taxes, factures publiques, dépôts, injection de l'équipe (/eco treasury give). Amendes et impôt : lots du policier et du maire.",
+        "Un détournement reste possible, mais il se voit : chaque retrait est noté avec son motif et son auteur. Prévu : l'alerte de l'équipe au-delà d'un seuil réglable.",
+        "Tableau : vient de l'économie (feature 73) ; il n'affiche pas encore le registre public ni les annonces (prévus, lot M1 et M4). Il se déplace comme le trésor.",
+        "Déplacer : ingénieur avec son outil de maintenance (lot T2). Piège créatif : casser accroupi, sans rien lâcher ; reposer depuis l'onglet créatif. Même règle que pour le trésor (économie, feature 73).",
+        "Images : celles de l'Économie (Robin maire, trésor et tableau posés à la mairie de l'atelier)."
       ]
     },
     {
-      "id": "bureau-du-maire", "num": 102, "name": "Bureau du maire", "kind": "bloc", "status": "prevu", "lot": "Lot M1",
-      "image": null,
-      "what": "Bloc unique à la mairie : tout se gère en six onglets.",
-      "who": {"pose": "Équipe", "utilise": "Maire et équipe"},
-      "steps": [
-        "Trésor : solde, entrées, sorties, salaires dus, dépenses.",
-        "Taxes : ventes, électricité, impôt, barème des amendes.",
-        "Réseaux : fournisseurs, opérateurs, plafond du prix.",
-        "Annonces : rédiger, publier, revoir les précédentes.",
-        "Registre : toutes les décisions, d'hier et d'aujourd'hui.",
-        "Mandats : délivrer un mandat de perquisition à la police."
+      "id": "reseaux",
+      "title": "Encadrer l'électricité et le téléphone",
+      "group": "Les réseaux",
+      "lead": "Voir les fournisseurs et les opérateurs, plafonner leurs prix, taxer l'électricité, supprimer un abus : par commande, valable au lendemain.",
+      "cover": "shots/maire/reseaux-power.webp",
+      "covers": ["reseaux", "taxes-baremes"],
+      "chips": [{"k": "Utilise", "v": "Maire, équipe"}, {"k": "Prend effet", "v": "Lendemain, minuit"}],
+      "blocks": [
+        {"type": "step", "title": "L'électricité : voir, plafonner, taxer", "blocks": [
+          {"type": "shot", "img": "shots/maire/reseaux-power.webp", "alt": "Le chat : « Fournisseurs d'électricité : 1 », Courant de la Baie de Lucas, prix et abonnement d'aujourd'hui et de demain ; « Plafond du prix de l'électricité : 1 argent 5 cuivres par 100000 FE » ; « Taxe sur l'électricité : 5 % »"},
+          {"type": "text", "text": "`/power suppliers` : fondateur, clients, prix et abonnement. `/power cap <cuivres>` plafonne le prix ; `/power tax <pour cent>` fixe la taxe versée au trésor. Les deux valent au lendemain."}
+        ]},
+        {"type": "step", "title": "Le téléphone : voir, plafonner", "blocks": [
+          {"type": "shot", "img": "shots/maire/reseaux-operator.webp", "alt": "Le chat : « Opérateurs du téléphone : 1 », plafond des tarifs, Radio du Lagon de Maelle avec ses antennes et ses cartes ; « Plafond des tarifs du téléphone : 4 argent par jour, à partir de demain »"},
+          {"type": "text", "text": "`/operator list` et `/operator cap <cuivres>`, au lendemain. Un fondateur au-dessus du plafond est prévenu ; son tarif y est ramené à minuit."}
+        ]},
+        {"type": "step", "title": "Fixer un tarif, changer de fondateur, supprimer", "blocks": [
+          {"type": "shot", "img": "shots/maire/reseaux-remove.webp", "alt": "Le chat : « Supprimer Courant de la Baie (0 client(s), caisse 0 cuivre) pour le motif « Prix abusifs » ? … Confirmez dans les 60 secondes : [Confirmer la suppression] »"},
+          {"type": "text", "text": "`/power set <fournisseur> price|subscription <valeur>`, `/operator set <opérateur> tariff <cuivres>` (au lendemain), `owner <nom> <pseudo>`. `remove <nom> <motif>`, puis confirmation dans les 60 s."}
+        ]},
+        {"type": "text", "text": "Le maire ouvre aussi le panneau d'un poste ou d'une antenne de n'importe qui, et agit sur les compteurs jumelés, sauf son propre raccordement ; la caisse reste au fondateur."},
+        {"type": "text", "text": "Ce que ça change pour un fournisseur ou un opérateur.", "link": "#economie/fournisseur"},
+        {"type": "numbers", "list": [{"k": "Taxe sur l'électricité", "v": "0 à 20 %"}, {"k": "Plafond par défaut", "v": "20 cuivres par 100 000 FE"}, {"k": "Confirmer une suppression", "v": "60 s"}, {"k": "Motif", "v": "100 caractères"}]},
+        {"type": "problems", "list": [
+          {"msg": "Seuls le maire et l'équipe du serveur font ce geste.", "text": "Ni un citoyen, ni un ingénieur, ni le fondateur lui-même."},
+          {"msg": "Taxe refusée : de 0 à 20 %.", "text": "Hors des bornes réglées par l'équipe."},
+          {"msg": "Plafond refusé : de 0 à … par jour.", "text": "Le plafond du téléphone a lui aussi sa borne."}
+        ]}
       ],
       "staff": [
-        "Chaque décision exige un motif court.",
-        "Décision lourde : confirmation demandée.",
-        "Seul endroit où sortir des pièces du trésor.",
-        "Interface Minecraft classique, sans téléphone."
-      ]
-    },
-    {
-      "id": "tableau-de-la-mairie", "name": "Tableau de la mairie", "kind": "bloc", "status": "prevu", "lot": "Lot M1",
-      "image": null,
-      "what": "Affiche à tous le solde du trésor, le registre et les annonces.",
-      "who": {"utilise": "Tous (lecture)", "casse": "Comme le bureau"},
-      "steps": [
-        "Lire le solde du trésor.",
-        "Lire les décisions du registre.",
-        "Lire les annonces officielles."
-      ],
-      "staff": ["Vient de l'économie (feature 73).", "Se déplace comme le bureau du maire."]
-    },
-    {
-      "id": "registre-public", "num": 103, "name": "Registre public", "kind": "systeme", "status": "prevu", "lot": "Lot M1",
-      "image": null,
-      "what": "Toutes les décisions du maire, lisibles par tous, jamais effacées.",
-      "who": {"utilise": "Tous (lecture)"},
-      "steps": [
-        "Ligne : date, maire, décision, avant, après, motif.",
-        "Lu au tableau de la mairie ou dans l'appli.",
-        "Les habitants contestent en RP."
-      ],
-      "flow": ["Décision", "Registre", "Annonce"],
-      "staff": ["Seule l'équipe corrige une ligne, et la correction est notée.", "Commande de correction non précisée."]
-    },
-    {
-      "id": "tresor-depenses", "num": 104, "name": "Trésor et dépenses", "kind": "systeme", "status": "prevu", "lot": "Lot M1",
-      "image": null,
-      "what": "Le maire voit les comptes de la ville et dépense librement, publiquement.",
-      "who": {"utilise": "Maire"},
-      "steps": [
-        "Au bureau, sortir des pièces ou verser à un joueur.",
-        "Motif obligatoire, inscrit au registre public.",
-        "Les salaires tombent seuls, sans lui."
-      ],
-      "flow": ["Trésor", "Dépense motivée", "Registre public"],
-      "staff": [
-        "Entrées : taxes, amendes, impôt, factures publiques.",
-        "Au-delà d'un seuil réglable, l'équipe est prévenue.",
-        "Un détournement reste possible, mais il se voit."
-      ]
-    },
-    {
-      "id": "taxes-baremes", "num": 105, "name": "Taxes et barèmes", "kind": "systeme", "status": "prevu", "lot": "Lot M2",
-      "image": null,
-      "what": "Le maire règle taxes et barème des amendes, dans des bornes.",
-      "who": {"utilise": "Maire"},
-      "steps": [
-        "Régler la taxe sur les ventes des étals.",
-        "Régler la taxe sur l'électricité.",
-        "Régler le montant de chaque motif d'amende."
-      ],
-      "flow": ["Nouveau taux", "Annonce", "Minuit suivant"],
-      "numbers": [{"k": "Application", "v": "Lendemain à minuit"}],
-      "staff": ["Bornes de chaque taux en config ; hors bornes, refusé.", "Calendrier réel, avec rattrapage au démarrage."]
-    },
-    {
-      "id": "impot-coffres-forts", "num": 106, "name": "Impôt sur les coffres-forts", "kind": "systeme", "status": "prevu", "lot": "Lot M2",
-      "image": null,
-      "what": "Chaque nuit, un pourcentage des pièces de chaque joueur part au trésor.",
-      "who": {"utilise": "Maire"},
-      "steps": [
-        "Le maire fixe le taux.",
-        "Prélevé à minuit sur le coffre-fort et les pièces portées.",
-        "Les 500 premiers cuivres ne sont pas imposés.",
-        "L'imposé reçoit une notification du montant."
-      ],
-      "flow": ["Coffre-fort + pièces sur soi", "Minuit", "Trésor"],
-      "numbers": [{"k": "Taux", "v": "0 à 5 %"}, {"k": "Fréquence", "v": "Chaque jour"}, {"k": "Exemption", "v": "500 cuivres"}],
-      "staff": [
-        "Déconnecté à minuit : ses pièces portées paient à la connexion.",
-        "Étals, trésor et caisses ne sont pas imposés.",
-        "L'équipe peut abaisser le maximum en config."
-      ]
-    },
-    {
-      "id": "reseaux", "num": 107, "name": "Réseaux", "kind": "systeme", "status": "prevu", "lot": "Lot M3",
-      "image": null,
-      "what": "Superviser fournisseurs d'électricité et opérateurs, plafonner le prix du FE.",
-      "who": {"utilise": "Maire"},
-      "steps": [
-        "Voir fondateur, nombre de clients et prix.",
-        "Plafonner le prix : l'excès est ramené à minuit.",
-        "Supprimer un acteur abusif, avec confirmation et motif."
-      ],
-      "staff": [
-        "Suppression : compteurs inactifs ou SIM désactivées.",
-        "Fondateur et clients prévenus, annonce automatique.",
-        "Il peut ouvrir ou casser antenne, poste, compteur, disjoncteur."
-      ]
-    },
-    {
-      "id": "annonces-officielles", "num": 108, "name": "Annonces officielles", "kind": "systeme", "status": "prevu", "lot": "Lot M4",
-      "image": null,
-      "what": "Une annonce courte, diffusée partout à la fois.",
-      "who": {"utilise": "Maire"},
-      "steps": [
-        "Écrire un titre et un texte.",
-        "Publiée au tableau, en notification et sur Écho.",
-        "Taxes et suppressions publient leur annonce seules."
-      ],
-      "numbers": [{"k": "Par jour", "v": "3 max"}, {"k": "Rappel à la connexion", "v": "24 h"}],
-      "staff": ["Limite par jour réglable en config.", "Compte Écho officiel « Mairie », marqué vérifié."]
-    },
-    {
-      "id": "appli-mairie", "num": 109, "name": "Appli Mairie", "kind": "appli", "status": "prevu", "lot": "Lot M4",
-      "image": null,
-      "what": "Le bureau du maire dans le téléphone, sans jamais sortir de pièces.",
-      "who": {"utilise": "Maire"},
-      "steps": [
-        "S'installe seule sur le téléphone du maire.",
-        "Reprend les onglets du bureau, sauf les dépenses.",
-        "Citoyens : version en lecture seule sur l'App Store."
-      ],
-      "staff": ["Disparaît quand le maire perd le grade.", "Refuse toute dépense ; tourne via MCEF."]
-    },
-    {
-      "id": "deplacer-blocs-mairie", "num": 102, "name": "Déplacer le bureau et les tableaux", "kind": "systeme", "status": "prevu", "lot": "Lot M1",
-      "image": null,
-      "what": "Casser pour reposer ailleurs, sans rien perdre des réglages.",
-      "who": {"casse": "Ingénieur, maire, équipe"},
-      "steps": [
-        "Survie : casser, puis reposer ailleurs.",
-        "Créatif : casser accroupi.",
-        "Créatif : reposer depuis l'onglet créatif."
-      ],
-      "staff": [
-        "Ingénieur : avec son outil de maintenance.",
-        "Piège créatif : casser accroupi pour garder les réglages.",
-        "Même règle que pour le trésor (économie, feature 73)."
+        "Chaque geste accepté laisse une ligne au registre de l'économie (/eco ledger), avec son auteur ; ce n'est pas encore le registre public (lot M1).",
+        "Suppression d'un fournisseur : clients détachés, prévenus et coupés ; factures dues annulées ; caisse versée au fondateur (jamais détruite). D'un opérateur : cartes désactivées, antennes arrêtées, caisse au fondateur. Fondateur et clients prévenus ; l'annonce automatique viendra avec les annonces.",
+        "Bornes en config : powerTaxMaxPercent (20), powerDefaultPriceCap (20 par powerPriceUnitFe = 100 000 FE), powerMaxSubscription (50), phoneTariffMax ; hors bornes, refusé. Calendrier réel, avec rattrapage au démarrage.",
+        "Il peut ouvrir ou casser antenne et poste, agir sur compteur et disjoncteur jumelés (sauf les siens) ; jamais retirer d'une caisse. Un nom avec des espaces s'écrit entre guillemets.",
+        "Taxe des ventes aux étals : réglée par l'équipe (salesTaxPercent, 0 % par défaut), pas encore par le maire. Barème des amendes : lot du policier.",
+        "Images : Robin est opérateur et maire ; Lucas et Maelle sont des joueurs simulés (fournisseur et opérateur fondés par le vrai chemin)."
       ]
     }
+  ],
+  "planned": [
+    {"id": "bureau-du-maire", "num": 102, "name": "Bureau du maire", "lot": "Lot M1",
+     "what": "Bloc unique à la mairie, six onglets : trésor, taxes, réseaux, annonces, registre, mandats de perquisition pour la police. Aujourd'hui, ces gestes passent par le trésor et des commandes.",
+     "staff": ["Chaque décision exige un motif court.", "Décision lourde : confirmation demandée.", "Seul endroit où sortir des pièces du trésor, avec le bloc du trésor.", "Interface Minecraft classique, sans téléphone."]},
+    {"id": "registre-public", "num": 103, "name": "Registre public", "lot": "Lot M1",
+     "what": "Toutes les décisions du maire, lisibles par tous, jamais effacées : date, maire, décision, avant, après, motif. Lu au tableau de la mairie ou dans l'appli ; les habitants contestent en RP.",
+     "staff": ["Seule l'équipe corrige une ligne, et la correction est notée.", "Commande de correction non précisée.", "Aujourd'hui : registre du trésor (/treasury log, maire et équipe) et registre de l'économie (/eco ledger, équipe)."]},
+    {"id": "alerte-depense", "name": "Alerte des grosses dépenses", "lot": "Lot M1",
+     "what": "Au-delà d'un seuil réglable, une dépense du trésor prévient l'équipe."},
+    {"id": "taxe-ventes-amendes", "num": 105, "name": "Taxe des ventes et barème des amendes", "lot": "Lot M2",
+     "what": "Le maire règle la taxe sur les ventes des étals et le montant de chaque motif d'amende, dans des bornes, au lendemain avec une annonce.",
+     "staff": ["Aujourd'hui la taxe des étals est dans la config de l'équipe (salesTaxPercent, 0 %).", "Les amendes viendront avec le policier."]},
+    {"id": "impot-coffres-forts", "num": 106, "name": "Impôt sur les coffres-forts", "lot": "Lot M2",
+     "what": "Chaque nuit, un pourcentage (0 à 5 %) des pièces de chaque joueur, coffre-fort et pièces portées, part au trésor ; les 500 premiers cuivres ne sont pas imposés ; l'imposé est prévenu.",
+     "staff": ["Déconnecté à minuit : ses pièces portées paient à la connexion.", "Étals, trésor et caisses ne sont pas imposés.", "L'équipe peut abaisser le maximum en config."]},
+    {"id": "annonces-officielles", "num": 108, "name": "Annonces officielles", "lot": "Lot M4",
+     "what": "Une annonce courte (titre et texte), publiée au tableau, en notification et sur Écho ; taxes et suppressions publient la leur seules. 3 par jour au plus, rappel à la connexion pendant 24 h.",
+     "staff": ["Limite par jour réglable en config.", "Compte Écho officiel « Mairie », marqué vérifié."]},
+    {"id": "appli-mairie", "num": 109, "name": "Appli Mairie", "lot": "Lot M4",
+     "what": "Le bureau du maire dans le téléphone, sans jamais sortir de pièces : elle s'installe seule chez le maire ; les citoyens en ont une version en lecture seule sur l'App Store.",
+     "staff": ["Disparaît quand le maire perd le grade.", "Refuse toute dépense ; tourne via MCEF."]}
   ]
 }

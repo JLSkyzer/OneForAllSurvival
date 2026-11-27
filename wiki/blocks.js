@@ -51,7 +51,15 @@
   // ---------- Blocs ----------
   const R = {};
 
-  R.text = (b) => `<p class="texte">${rich(b.text)}</p>`;
+  // Un lien (`link`, une ancre « # » ou {href, label}) devient « Voir : <titre de la page> » à la suite du texte.
+  function voir(link, ctx) {
+    if (!link) return "";
+    const href = typeof link === "string" ? link : link.href;
+    const label = (typeof link === "object" && link.label) || (ctx && ctx.lien && ctx.lien(href) ? "Voir : " + ctx.lien(href) : "En savoir plus");
+    return `<a href="${esc(href)}">${esc(label)}</a>`;
+  }
+
+  R.text = (b, ctx) => `<p class="texte">${rich(b.text)}${b.link ? " " + voir(b.link, ctx) : ""}</p>`;
 
   R.hero = function (b, ctx) {
     const pts = (b.points || []).map((p, i) => ({ p, i, xy: pos(ctx, p, b.img) }));
@@ -155,12 +163,7 @@
   R.numbers = (b, ctx) => `<div class="chiffres">${(b.list || []).map((n) => `<div class="puce${n.item ? " avec-ico" : ""}">${n.item ? icone(ctx, n.item, null, "") + "<div>" : ""}<span class="k">${esc(n.k)}</span><b style="display:block">${rich(n.v)}</b>${n.item ? "</div>" : ""}</div>`).join("")}</div>`;
 
   R.problems = (b, ctx) => `<div class="pb">${(b.list || []).map((p) => {
-    let lien = "";
-    if (p.link) {
-      const href = typeof p.link === "string" ? p.link : p.link.href;
-      const label = (typeof p.link === "object" && p.link.label) || (ctx.lien && ctx.lien(href) ? "Voir : " + ctx.lien(href) : "En savoir plus");
-      lien = `<a href="${esc(href)}">${esc(label)}</a>`;
-    }
+    const lien = voir(p.link, ctx);
     return `<div class="card"><span class="msg">${esc(p.msg)}</span><span>${rich(p.text)}</span>${lien}</div>`;
   }).join("")}</div>`;
 
