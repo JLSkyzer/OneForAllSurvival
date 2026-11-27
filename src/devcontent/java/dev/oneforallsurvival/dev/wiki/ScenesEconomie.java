@@ -304,7 +304,7 @@ public final class ScenesEconomie implements Chapitre {
                 .client("bulle « casser »", mc -> ((CoinAccountScreen<?>) mc.screen).pinHover("break.gold"))
                 .pause(400)
                 .prise("changer-casser")
-                .client("bulle grisée", mc -> ((CoinAccountScreen<?>) mc.screen).pinHover("group.emerald"))
+                .client("bulle grisée", mc -> ((CoinAccountScreen<?>) mc.screen).pinHover("break.emerald"))
                 .pause(400)
                 .prise("changer-grise")
                 .client("sans bulle", mc -> ((CoinAccountScreen<?>) mc.screen).pinHover(null))
@@ -343,6 +343,12 @@ public final class ScenesEconomie implements Chapitre {
                 })
                 .camera(new Vec3(1.3, 1.7, -1.4), new Vec3(0.5, 0.95, 0.5))
                 .prise("ranger-entonnoir")
+                .pause(230)
+                .prise("ranger-entonnoir-b")
+                .pause(230)
+                .prise("ranger-entonnoir-c")
+                .pause(230)
+                .prise("ranger-entonnoir-d")
                 .regarder(new BlockPos(0, 0, 1), new Vec3(0.0, 0.8, 2.3))
                 .ouvrirBloc(new BlockPos(0, 0, 1), Direction.SOUTH, net.minecraft.client.gui.screens.inventory.ContainerScreen.class)
                 .client("Maj + clic sur les pièces", mc -> clicMenu(mc, caseDe(mc, Coin.GOLD), 0, ClickType.QUICK_MOVE))
@@ -559,8 +565,8 @@ public final class ScenesEconomie implements Chapitre {
                     j.getInventory().setItem(0, new ItemStack(Coin.GOLD.item(), 1));
                     j.getInventory().setItem(1, bourse(0, 0, 4, 0));
                 })
-                .camera(new Vec3(1.3, 1.15, 2.2), new Vec3(0.5, 0.55, 0.3))
-                .repereBloc("comptoir", A, 0.95, 0.68, 0.15)
+                .camera(new Vec3(0.9, 0.95, 1.9), new Vec3(0.5, 0.6, 0.35))
+                .repereBloc("comptoir", A, 0.5, 0.3, 0.0)
                 .repereBloc("auvent", A, 0.05, 1.0, 0.5)
                 .prise("etal-hero")
                 // La vitrine de Maelle : Robin (opérateur) s'accroupit, main vide, pour la voir comme un client.
@@ -744,7 +750,7 @@ public final class ScenesEconomie implements Chapitre {
                 .client("main vide", mc -> mc.player.getInventory().selected = 8)
                 .camera(new Vec3(0.5, 1.9, 4.8), new Vec3(0.5, 0.8, -1.0))
                 .repereBloc("tresor", TRESOR, 0.5, 1.05, 0.5)
-                .repereBloc("tableau", TABLEAU.east().east(), 0.55, 1.5, 0.9)
+                .repereBloc("tableau", TABLEAU.east().east(), 0.3, 1.05, 0.9)
                 .prise("tresor-hero")
                 .regarder(TRESOR, new Vec3(0.0, 0.8, 2.3))
                 .ouvrirBloc(TRESOR, Direction.SOUTH, TreasuryScreen.class)
@@ -1107,6 +1113,8 @@ public final class ScenesEconomie implements Chapitre {
                     j.getInventory().setItem(0, new ItemStack(Items.IRON_SWORD));
                     // Toutes les recettes connues d'avance : aucune notification « Nouvelle(s) recette(s) » au ramassage.
                     console(lieu.serveur(), "recipe give " + j.getGameProfile().getName() + " *");
+                    // Et tous les progrès : aucune notification « Chasseur de monstres » au premier zombie tué.
+                    console(lieu.serveur(), "advancement grant " + j.getGameProfile().getName() + " everything");
                     console(lieu.serveur(), "e2equetes imposer " + j.getGameProfile().getName() + " daily 0 kill_zombies 5");
                     vagues = 0;
                     vague(lieu);
@@ -1331,6 +1339,8 @@ public final class ScenesEconomie implements Chapitre {
                 .camera(new Vec3(0.5, 1.9, 4.0), new Vec3(0.5, 0.6, -3.0))
                 .client("chat visible, haut", mc -> {
                     chatVisible(mc);
+                    // Les sorties de l'équipe sont longues : chat pleine largeur, 20 lignes.
+                    mc.options.chatWidth().set(1.0);
                     mc.options.chatHeightUnfocused().set(1.0);
                 })
                 .client("/eco give", mc -> mc.player.connection.sendCommand("eco give "
@@ -1345,7 +1355,7 @@ public final class ScenesEconomie implements Chapitre {
                 .client("/eco stats", mc -> mc.player.connection.sendCommand("eco stats"))
                 .pause(1500)
                 .prise("equipe-stats")
-                .client("chat remonté", mc -> mc.gui.getChat().scrollChat(20))
+                .client("chat remonté", mc -> mc.gui.getChat().scrollChat(100))
                 .pause(500)
                 .prise("equipe-stats-haut")
                 .client("chat redescendu", mc -> mc.gui.getChat().resetChatScroll())
@@ -1521,6 +1531,8 @@ public final class ScenesEconomie implements Chapitre {
         CHAT.clear();
         mc.options.chatVisibility().set(ChatVisiblity.FULL);
         mc.options.broadcastOptions();
+        // Un chat plus étroit (en mémoire) : des lignes courtes, lisibles une fois l'image réduite à 390 px.
+        mc.options.chatWidth().set(0.6);
         WikiStudio.ath(mc, true);
         WikiStudio.elements(VanillaGuiOverlay.CHAT_PANEL);
         WikiStudio.reticule(false);
@@ -1531,6 +1543,7 @@ public final class ScenesEconomie implements Chapitre {
         mc.gui.getChat().clearMessages(false);
         mc.options.chatVisibility().set(ChatVisiblity.HIDDEN);
         mc.options.broadcastOptions();
+        mc.options.chatWidth().set(1.0);
         WikiStudio.ath(mc, false);
     }
 

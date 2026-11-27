@@ -80,8 +80,8 @@ Constats en jeu (atelier, journal `[wiki] constat`) :
   du joueur (`TradeEscrow`), écrites avec lui.
 - **Étal, facture.** « Que le lot E3 rattachera au trésor », « le prélèvement arrive avec le lot E6 » : faits.
 - **Quêtes.** « ~20 cuivres une journalière » : la récompense vaut celle du modèle × quantité ÷ minimum
-  (`QuestTemplate.rewardFor`), soit 10 à 50 cuivres pour une journalière avec `quests.json` livré, × 5 en hebdomadaire
-  (× 3 pour les réparations). Vu : « Éliminer 5 zombies » paie 15 cuivres.
+  (`QuestTemplate.rewardFor`), soit 10 à 38 cuivres pour une journalière avec `quests.json` livré, 50 à 180 en hebdomadaire
+  (× 5, × 3 pour les réparations). Vu : « Éliminer 5 zombies » paie 15 cuivres.
 - **Trésor.** `/treasury board` (maire, équipe) donne un tableau de la mairie (`TreasuryCommands`) : absent des fiches.
 - **Fournisseur.** Le poste se pose par n'importe quel joueur et appartient à son poseur (la fiche disait « Pose : le
   fournisseur ») ; un joueur n'a qu'un fournisseur (`already_has_one`) ; seuls le fondateur et l'équipe retirent de la
@@ -119,3 +119,16 @@ Défauts d'affichage relevés (le mod n'est pas modifié ici) :
 - Salaire au chat : date ISO (« Salaire du 2026-11-27 », `debt.day().toString()` dans `PayrollService`) quand la
   facture écrit « 28/11/2026 » ; « 100000 FE » sans espace dans les messages de tarif et de facture, « 7220 FE » au
   panneau, alors que le plafond y est écrit « 100 000 FE ».
+
+Relecture (lots A et B, 27/11 soir), vérifié dans le code :
+
+- **Quêtes au plafond** : `QuestService.claim` paie `min(récompense, reste)` puis marque la quête réclamée : le
+  surplus est perdu (`QuestClaimGameTests.lePlafondReduitPuisArrete`) ; la fiche v1 disait « la quête attend le
+  lundi », vrai seulement quand le reste est nul.
+- **Rubis** : il naît aussi d'un paiement d'au moins 10 000 cuivres rendu en grosses coupures (`CoinMath.decompose`,
+  `CommerceDelivery.payTo`, caisse d'étal `StallTrade.buy`).
+- **Échange, mort** : pièces et contenu des bourses vont au coffre-fort s'il y en a un (`giveBack`, `park`,
+  `intoSafe`), le reste en attente.
+- **Fournisseur** : le fondateur et l'équipe agissent sur leur propre raccordement (`PowerPairing.mayActOn`) ; seuls
+  un ingénieur ou un maire clients sont refusés. Le disjoncteur s'inscrit accroupi ; debout, le clic le bascule.
+- **Bourse** : une bourse qui contient des pièces est de l'argent (`MoneyStorageRules.isMoney`), refusée aux coffres.
