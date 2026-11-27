@@ -98,6 +98,12 @@ public final class PhoneWebScreen extends WebScreen implements PhoneClient.Shown
         byServer = true;
     }
 
+    /** Lot T3 : l'état d'appel. La page ne le montre qu'à la tâche 4b ; il est lisible par {@code PhoneClient.lastCall}. */
+    @Override
+    public void showCall(dev.oneforallsurvival.phone.call.PhoneCallStatePacket call) {
+        // Ignoré pour l'instant (tâche 4b).
+    }
+
     // --- Appli « Antenne » -----------------------------------------------------------------------------------------
 
     /** Une vue de l'appli, reçue du serveur. */

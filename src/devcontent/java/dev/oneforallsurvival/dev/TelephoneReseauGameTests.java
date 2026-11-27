@@ -69,7 +69,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
  * Le téléphone en réseau, côté serveur (lot T2, tâche 7) : la vue réseau envoyée avec l'état du téléphone (carte,
  * opérateur, barres, numéro, titulaire, cartes de l'inventaire, opérateurs demandables, appli « Antenne »), réduite à la
  * carte, l'opérateur et les barres hors {@code UNLOCKED} ; le signal rafraîchi sans jamais renvoyer la même vue ; le mode
- * avion qui prend effet ; les gestes de carte (glisser, retirer, demander) rejoués par le serveur ; le protocole « 11 ».
+ * avion qui prend effet ; les gestes de carte (glisser, retirer, demander) rejoués par le serveur ; le protocole du canal (« 12 » depuis le lot T3).
  *
  * <p>Les états sont décodés des octets réellement envoyés ({@link JoueurDeTest#etatsTelephoneRecus}). Les gestes d'un
  * même tic oublient le frein entre deux ({@code PhoneService.clearThrottle}, par réflexion), sauf l'essai du frein.
@@ -742,11 +742,11 @@ public final class TelephoneReseauGameTests {
     }
 
     /**
-     * Le canal du mod est au protocole « 11 » (une seule montée pour le lot T2) : un client ou un serveur du protocole
-     * « 10 » (lot T1) est refusé par Forge à la connexion, celui du « 11 » accepté.
+     * Le canal du mod est au protocole « 12 » (une seule montée pour le lot T3) : un client ou un serveur du protocole
+     * « 10 » (lot T1) ou « 11 » (lot T2) est refusé par Forge à la connexion, celui du « 12 » accepté.
      */
     @GameTest(template = "test/plancher", batch = LOT_RESEAU)
-    public static void unClientDuProtocole10EstRefuse(GameTestHelper helper) {
+    public static void unClientDuProtocole10Ou11EstRefuse(GameTestHelper helper) {
         try {
             Field champ = SimpleChannel.class.getDeclaredField("instance");
             champ.setAccessible(true);
@@ -757,12 +757,15 @@ public final class TelephoneReseauGameTests {
             version.setAccessible(true);
             client.setAccessible(true);
             serveur.setAccessible(true);
-            helper.assertTrue("11".equals(version.invoke(instance)), "protocole « 11 » attendu, vu "
+            helper.assertTrue("12".equals(version.invoke(instance)), "protocole « 12 » attendu, vu "
                     + version.invoke(instance));
-            helper.assertTrue(!(Boolean) client.invoke(instance, "10") && !(Boolean) serveur.invoke(instance, "10"),
-                    "un client ou un serveur du protocole « 10 » doit être refusé");
-            helper.assertTrue((Boolean) client.invoke(instance, "11") && (Boolean) serveur.invoke(instance, "11"),
-                    "le protocole « 11 » est accepté");
+            for (String ancien : new String[] {"10", "11"}) {
+                helper.assertTrue(!(Boolean) client.invoke(instance, ancien)
+                        && !(Boolean) serveur.invoke(instance, ancien),
+                        "un client ou un serveur du protocole « " + ancien + " » doit être refusé");
+            }
+            helper.assertTrue((Boolean) client.invoke(instance, "12") && (Boolean) serveur.invoke(instance, "12"),
+                    "le protocole « 12 » est accepté");
         } catch (ReflectiveOperationException ex) {
             helper.fail("canal du mod illisible : " + ex);
         }

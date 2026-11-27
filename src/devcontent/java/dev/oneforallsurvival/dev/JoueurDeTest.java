@@ -66,6 +66,10 @@ public final class JoueurDeTest {
     /** Les octets de ces vues, tels qu'envoyés (sans le numéro du message) : pour y chercher ce qui ne doit pas y être. */
     private final List<byte[]> octetsPanneauxOperateur = new ArrayList<>();
     private final List<dev.oneforallsurvival.phone.net.OperatorNoticePacket> avisOperateur = new ArrayList<>();
+    /** Les états d'appel reçus (lot T3), décodés depuis les octets réellement envoyés. */
+    private final List<dev.oneforallsurvival.phone.call.PhoneCallStatePacket> etatsAppel = new ArrayList<>();
+    /** Les noms des sons joués au joueur (« minecraft:block.note_block.bell »…), dans l'ordre. */
+    private final List<String> sonsNommes = new ArrayList<>();
     /** Ceux que l'entrée en jeu elle-même a envoyés, avant qu'on ne les oublie. */
     private final List<dev.oneforallsurvival.economy.town.TownFinancesPacket> financesALaConnexion = new ArrayList<>();
     /** Les clés des messages (chat ou barre d'action) reçus, dans l'ordre ; un texte brut est gardé tel quel. */
@@ -255,6 +259,7 @@ public final class JoueurDeTest {
             equipements.add(equipement);
         } else if (message instanceof ClientboundSoundPacket son) {
             sons.add(son.getPitch());
+            sonsNommes.add(son.getSound().unwrapKey().map(k -> k.location().toString()).orElse("?"));
         } else if (message instanceof ClientboundContainerSetContentPacket
                 || message instanceof ClientboundContainerSetSlotPacket
                 || message instanceof ClientboundContainerSetDataPacket) {
@@ -287,6 +292,8 @@ public final class JoueurDeTest {
                     donnees.getBytes(donnees.readerIndex(), octets);
                     octetsPanneauxOperateur.add(octets);
                     panneauxOperateur.add(dev.oneforallsurvival.phone.net.OperatorPanelPacket.decode(donnees).view());
+                } else if (discriminant == BenchNetwork.ID_PHONE_CALL_STATE) {
+                    etatsAppel.add(dev.oneforallsurvival.phone.call.PhoneCallStatePacket.decode(donnees));
                 } else if (discriminant == BenchNetwork.ID_OPERATOR_NOTICE) {
                     avisOperateur.add(dev.oneforallsurvival.phone.net.OperatorNoticePacket.decode(donnees));
                 } else if (discriminant == BenchNetwork.ID_INVOICE_FORM) {
@@ -303,6 +310,22 @@ public final class JoueurDeTest {
         lire();
         List<dev.oneforallsurvival.phone.net.OperatorNoticePacket> out = new ArrayList<>(avisOperateur);
         avisOperateur.clear();
+        return out;
+    }
+
+    /** Les états d'appel reçus depuis le dernier appel (décodés comme le client les lit), retirés. */
+    public List<dev.oneforallsurvival.phone.call.PhoneCallStatePacket> etatsAppelRecus() {
+        lire();
+        List<dev.oneforallsurvival.phone.call.PhoneCallStatePacket> out = new ArrayList<>(etatsAppel);
+        etatsAppel.clear();
+        return out;
+    }
+
+    /** Les noms des sons reçus depuis le dernier appel, retirés (indépendamment de {@link #sonsRecus}). */
+    public List<String> sonsNommesRecus() {
+        lire();
+        List<String> out = new ArrayList<>(sonsNommes);
+        sonsNommes.clear();
         return out;
     }
 

@@ -226,6 +226,11 @@ public final class CallService {
         return true;
     }
 
+    /** Tous les appels en cours, par ordre de début (copie). */
+    public static List<Call> calls() {
+        return BOOK.all();
+    }
+
     /** L'appel de ce joueur, qu'il sonne ou soit en ligne. */
     public static Optional<Call> callOf(ServerPlayer player) {
         return player == null ? Optional.empty() : BOOK.of(player.getUUID());

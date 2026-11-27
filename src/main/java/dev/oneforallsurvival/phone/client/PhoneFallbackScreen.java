@@ -57,6 +57,8 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
     enum Page { CODE, HOME, SETTINGS, SIM }
 
     private PhoneStatePacket state;
+    /** Le dernier état d'appel reçu (lot T3), pour la tâche 7. */
+    @Nullable private dev.oneforallsurvival.phone.call.PhoneCallStatePacket call;
     private long receivedAt = Util.getMillis();
     private long lockoutEnd;
     private Page page;
@@ -129,6 +131,21 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
     @Override
     public void closedByServer() {
         byServer = true;
+    }
+
+    /**
+     * Lot T3 : l'état d'appel, gardé pour le repli des appels (tâche 7) ; rien n'est encore dessiné. Lisible aussi par
+     * {@code PhoneClient.lastCall}.
+     */
+    @Override
+    public void showCall(dev.oneforallsurvival.phone.call.PhoneCallStatePacket next) {
+        call = next;
+    }
+
+    /** Le dernier état d'appel reçu par cet écran (nul avant le premier). */
+    @Nullable
+    public dev.oneforallsurvival.phone.call.PhoneCallStatePacket call() {
+        return call;
     }
 
     // --- Lu par un automate (tâche 11) -----------------------------------------------------------------------------

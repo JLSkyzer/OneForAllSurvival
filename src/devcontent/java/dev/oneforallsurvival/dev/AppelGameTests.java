@@ -77,14 +77,14 @@ public final class AppelGameTests {
     /** Les deux essais qui passent la sonnerie entière (plus de 600 tics), joués ensemble. */
     private static final String LOT_LONGS = "telephone_appels_longs";
 
-    private static final BlockPos A = new BlockPos(1, 0, 1);
-    private static final BlockPos B = new BlockPos(6, 0, 6);
+    static final BlockPos A = new BlockPos(1, 0, 1);
+    static final BlockPos B = new BlockPos(6, 0, 6);
     private static final BlockPos C = new BlockPos(6, 0, 1);
     private static final Vec3 JOUEUR = new Vec3(3.5, 0, 3.5);
     private static final int RESERVE = 40_000;
 
     /** Une fin d'appel vue par l'écouteur d'essai. */
-    private record Fin(Call call, End reason, int tick) {}
+    record Fin(Call call, End reason, int tick) {}
 
     /** Les fins et les changements vus depuis le démarrage du serveur d'essai ; fil du serveur. */
     private static final List<Fin> FINS = new ArrayList<>();
@@ -121,7 +121,7 @@ public final class AppelGameTests {
         apres();
     }
 
-    private static void apres() {
+    static void apres() {
         for (JoueurDeTest j : OUVERTS) {
             if (j.connecte()) {
                 j.quitter();
@@ -152,7 +152,7 @@ public final class AppelGameTests {
     // Aides
     // ---------------------------------------------------------------------------------------------
 
-    private static final class Essai {
+    static final class Essai {
         private final GameTestHelper helper;
         private final List<JoueurDeTest> joueurs = new ArrayList<>();
         private final List<UUID> fondateurs = new ArrayList<>();
@@ -280,10 +280,10 @@ public final class AppelGameTests {
     }
 
     /** Deux opérateurs, chacun son fondateur et sa ligne, l'appelant sur A, l'appelé sur B. */
-    private record Paire(Essai essai, JoueurDeTest m, JoueurDeTest l, ItemStack phoneM, ItemStack phoneL,
+    record Paire(Essai essai, JoueurDeTest m, JoueurDeTest l, ItemStack phoneM, ItemStack phoneL,
             SimCard carteM, SimCard carteL) {}
 
-    private static Paire paire(GameTestHelper helper, String prefixe) {
+    static Paire paire(GameTestHelper helper, String prefixe) {
         Essai essai = new Essai(helper);
         JoueurDeTest m = essai.joueur("ap_" + prefixe + "_m");
         JoueurDeTest l = essai.joueur("ap_" + prefixe + "_l");
@@ -319,12 +319,12 @@ public final class AppelGameTests {
         return -1;
     }
 
-    private static <T> T exiger(GameTestHelper helper, Optional<T> valeur, String message) {
+    static <T> T exiger(GameTestHelper helper, Optional<T> valeur, String message) {
         helper.assertTrue(valeur.isPresent(), message);
         return valeur.get();
     }
 
-    private static Optional<Fin> fin(int callId) {
+    static Optional<Fin> fin(int callId) {
         return FINS.stream().filter(f -> f.call().id() == callId).findFirst();
     }
 
@@ -349,7 +349,7 @@ public final class AppelGameTests {
                 + (d.message() == null ? "aucun" : d.message().getContents()));
     }
 
-    private static void finiPar(GameTestHelper helper, int callId, End attendu) {
+    static void finiPar(GameTestHelper helper, int callId, End attendu) {
         Optional<Fin> f = fin(callId);
         helper.assertTrue(f.isPresent(), "l'appel " + callId + " n'a pas fini");
         helper.assertTrue(f.get().reason() == attendu, "fin " + attendu + " attendue, vu " + f.get().reason());

@@ -105,7 +105,63 @@ public final class PhoneService {
                 hasCode(record) ? Lock.LOCKED : Lock.SETUP);
         SESSIONS.put(player.getUUID(), session);
         send(player, view(player, session, Kind.OPEN, Result.NONE, CloseReason.NONE));
+        // Lot T3 : un appel en cours (qui sonne, ou décroché écran fermé) est montré dès l'ouverture.
+        dev.oneforallsurvival.phone.call.CallUpdates.sessionOpened(player);
         return Outcome.OPENED;
+    }
+
+    /**
+     * Ce qu'un geste d'appel (lot T3, tâche 4a) trouve après les mêmes contrôles que {@link #act} : la session ouverte
+     * sous ce numéro, le téléphone de la session dans sa main, et son enregistrement, verrou remis d'accord.
+     */
+    public record Held(PhoneSession session, ItemStack phone, PhoneRecord record) {
+
+        public boolean unlocked() {
+            return session.lock() == Lock.UNLOCKED;
+        }
+    }
+
+    /**
+     * Les contrôles de {@link #act} sans le frein : vrai joueur en ligne, session ouverte de ce numéro, même téléphone
+     * dans la même main. Vide sinon (rien n'est envoyé). Le verrou de la session est relu ({@link #syncLock}).
+     */
+    public static Optional<Held> held(ServerPlayer player, int sessionId) {
+        if (gone(player)) {
+            return Optional.empty();
+        }
+        PhoneSession session = SESSIONS.get(player.getUUID());
+        if (session == null || session.id() != sessionId) {
+            return Optional.empty();
+        }
+        ItemStack stack = player.getItemInHand(session.hand());
+        if (!(stack.getItem() instanceof PhoneItem)
+                || !PhoneItem.phoneId(stack).equals(Optional.of(session.phoneId()))) {
+            return Optional.empty();
+        }
+        PhoneRecord record = PhoneData.get(player.server).record(session.phoneId());
+        syncLock(session, record);
+        return Optional.of(new Held(session, stack, record));
+    }
+
+    /**
+     * Le frein des gestes de l'écran, partagé avec {@link #act} : vrai (geste ignoré) si ce joueur a déjà fait un geste
+     * il y a moins de {@link #MIN_TICKS_BETWEEN} tics ; sinon ce tic est noté.
+     */
+    public static boolean throttle(ServerPlayer player) {
+        return throttled(player);
+    }
+
+    /**
+     * Ce joueur a-t-il une session ouverte et déverrouillée sur ce téléphone, verrou relu ? Pour envoyer un carnet sans
+     * qu'il l'ait demandé (fin d'appel) : jamais à un écran verrouillé.
+     */
+    public static boolean unlockedOn(ServerPlayer player, UUID phoneId) {
+        PhoneSession session = SESSIONS.get(player.getUUID());
+        if (session == null || !session.phoneId().equals(phoneId)) {
+            return false;
+        }
+        syncLock(session, PhoneData.get(player.server).record(phoneId));
+        return session.lock() == Lock.UNLOCKED;
     }
 
     /** La session ouverte de ce joueur. */

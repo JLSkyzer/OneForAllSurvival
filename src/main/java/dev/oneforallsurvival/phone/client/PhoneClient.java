@@ -7,6 +7,7 @@ import dev.oneforallsurvival.phone.PhoneActionPacket;
 import dev.oneforallsurvival.phone.PhoneActionPacket.Action;
 import dev.oneforallsurvival.phone.PhoneStatePacket;
 import dev.oneforallsurvival.phone.PhoneStatePacket.CloseReason;
+import dev.oneforallsurvival.phone.call.PhoneCallStatePacket;
 import dev.oneforallsurvival.phone.net.OperatorNoticePacket;
 import dev.oneforallsurvival.phone.net.OperatorView;
 import dev.oneforallsurvival.phone.net.client.OperatorPanelScreen;
@@ -38,9 +39,14 @@ public final class PhoneClient {
 
         /** Le serveur a fermé la session (ou une autre l'a remplacée) : l'écran ne lui renverra pas {@code CLOSE}. */
         void closedByServer();
+
+        /** Lot T3 : un nouvel état d'appel du porteur (il ne dépend pas de la session). */
+        void showCall(PhoneCallStatePacket call);
     }
 
     @Nullable private static PhoneStatePacket last;
+    /** Le dernier état d'appel reçu (lot T3) ; oublié à la déconnexion. */
+    @Nullable private static PhoneCallStatePacket lastCall;
     /** Le dernier panneau de l'appli « Antenne » fermé par le joueur : une vue de ce numéro arrivée après ne le rouvre pas. */
     private static int closedAntenna = -1;
 
@@ -55,6 +61,7 @@ public final class PhoneClient {
     @SubscribeEvent
     public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         last = null;
+        lastCall = null;
         // Les numéros de panneau repartent de 1 sur un serveur relancé (revue de la tâche 10, mineur 5).
         closedAntenna = -1;
         OperatorPanelScreen.forgetSessions();
@@ -62,6 +69,23 @@ public final class PhoneClient {
 
     static void remember(PhoneStatePacket state) {
         last = state;
+    }
+
+    /** Le dernier état d'appel reçu du serveur (lot T3), écran ouvert ou non. */
+    public static Optional<PhoneCallStatePacket> lastCall() {
+        return Optional.ofNullable(lastCall);
+    }
+
+    /**
+     * Un état d'appel (lot T3) : gardé, et passé à l'écran du téléphone s'il est ouvert (page ou repli, sous le panneau
+     * de l'appli « Antenne » compris). Écran fermé, le serveur passe lui-même ses messages en barre d'action.
+     */
+    public static void acceptCall(PhoneCallStatePacket call) {
+        lastCall = call;
+        Shown shown = shown(Minecraft.getInstance().screen);
+        if (shown != null) {
+            shown.showCall(call);
+        }
     }
 
     /**

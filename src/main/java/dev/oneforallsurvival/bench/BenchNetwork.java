@@ -40,7 +40,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 import org.slf4j.Logger;
 
 /**
- * Le canal réseau du mod (né avec l'établi), protocole « 11 » : client et serveur doivent concorder. Chaque paquet du
+ * Le canal réseau du mod (né avec l'établi), protocole « 12 » : client et serveur doivent concorder. Chaque paquet du
  * client est traité sur le thread du serveur, et revalide tout : rôle, distance, menu ouvert. Un client
  * n'est jamais cru sur parole.
  */
@@ -48,11 +48,11 @@ public final class BenchNetwork {
 
     public static final ResourceLocation CHANNEL_ID = new ResourceLocation(OneForAllSurvival.MODID, "bench");
     /**
-     * « 11 » depuis la vue réseau du téléphone (lot T2, une seule montée pour tout le lot ; « 10 » : écran du
-     * téléphone, lot T1 ; « 9 » : panneau du poste de fournisseur, lot E6 ; « 8 » : écran des quêtes, lot E5) : un
+     * « 12 » depuis les appels (lot T3, une seule montée pour tout le lot ; « 11 » : vue réseau du téléphone, lot T2 ;
+     * « 10 » : écran du téléphone, lot T1 ; « 9 » : panneau du poste de fournisseur, lot E6 ; « 8 » : écran des quêtes, lot E5) : un
      * client ou un serveur d'une autre version est refusé à la connexion.
      */
-    private static final String PROTOCOL = "11";
+    private static final String PROTOCOL = "12";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(CHANNEL_ID, () -> PROTOCOL,
             PROTOCOL::equals, PROTOCOL::equals);
@@ -105,6 +105,9 @@ public final class BenchNetwork {
     public static final int ID_OPERATOR_ACTION = 29;
     /** Lot T2, tâche 10 : le retour d'un geste et la fermeture d'un panneau de l'opérateur (serveur vers client). */
     public static final int ID_OPERATOR_NOTICE = 30;
+    /** Lot T3 : un geste d'appel ou de carnet (client vers serveur) et l'état d'appel d'un porteur (serveur vers client). */
+    public static final int ID_PHONE_CALL_ACTION = 31;
+    public static final int ID_PHONE_CALL_STATE = 32;
 
     /** Clé de traduction d'un refus : {@code message.oneforallsurvival.bench.refused.<résultat>}. */
     public static final String REFUSED_KEY = "message.oneforallsurvival.bench.refused.";
@@ -224,7 +227,16 @@ public final class BenchNetwork {
                 .encoder(dev.oneforallsurvival.phone.net.OperatorNoticePacket::encode)
                 .decoder(dev.oneforallsurvival.phone.net.OperatorNoticePacket::decode)
                 .consumerMainThread(dev.oneforallsurvival.phone.net.OperatorNoticePacket::handle).add();
-    }
+        CHANNEL.messageBuilder(dev.oneforallsurvival.phone.call.PhoneCallActionPacket.class, ID_PHONE_CALL_ACTION,
+                        NetworkDirection.PLAY_TO_SERVER)
+                .encoder(dev.oneforallsurvival.phone.call.PhoneCallActionPacket::encode)
+                .decoder(dev.oneforallsurvival.phone.call.PhoneCallActionPacket::decode)
+                .consumerMainThread(dev.oneforallsurvival.phone.call.PhoneCallActionPacket::handle).add();
+        CHANNEL.messageBuilder(dev.oneforallsurvival.phone.call.PhoneCallStatePacket.class, ID_PHONE_CALL_STATE,
+                        NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(dev.oneforallsurvival.phone.call.PhoneCallStatePacket::encode)
+                .decoder(dev.oneforallsurvival.phone.call.PhoneCallStatePacket::decode)
+                .consumerMainThread(dev.oneforallsurvival.phone.call.PhoneCallStatePacket::handle).add();    }
 
     // --- Serveur vers client -----------------------------------------------------------------
 

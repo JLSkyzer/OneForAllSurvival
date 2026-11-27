@@ -160,6 +160,9 @@ public final class OneForAllSurvival {
         // serveur, où tout appel finit et sa poignée de trafic se ferme). Un seul point d'inscription, rejoué par les
         // essais sur un bus à part (revue de la tâche 3, I3).
         dev.oneforallsurvival.phone.call.CallService.register(MinecraftForge.EVENT_BUS);
+        // Lot T3, tâche 4a : l'état d'appel poussé aux porteurs, la sonnerie et la batterie pendant l'appel.
+        dev.oneforallsurvival.phone.call.CallUpdates.install();
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.phone.call.CallUpdates::onServerTick);
         // Le tableau de la mairie : les comptes publics partent à la connexion puis quand ils changent (1 fois par seconde).
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.town.TownFinances::onLoggedIn);
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.town.TownFinances::onServerTick);
