@@ -90,7 +90,7 @@ public final class WikiStudio {
 
     /** Les chapitres connus de l'atelier ; chaque tâche de contenu ajoute le sien. */
     private static List<Chapitre> chapitres() {
-        return List.of(new ScenesControle(), new WikiExports());
+        return List.of(new ScenesControle(), new ScenesTelephone(), new WikiExports());
     }
 
     private enum Phase { TITRE, MONDE, SCENES, FIN }
@@ -284,6 +284,12 @@ public final class WikiStudio {
             GLFW.glfwSetWindowSize(f.getWindow(), LARGEUR, HAUTEUR);
         }
         racine = mc.gameDirectory.toPath().resolve(DOSSIER);
+        try {
+            // Le bilan d'une passe précédente ne doit pas passer pour celui-ci (build_visuals.py le lit).
+            Files.deleteIfExists(racine.resolve("termine.json"));
+        } catch (IOException e) {
+            throw new IllegalStateException("ancien bilan non effacé", e);
+        }
         journal("titre atteint ; langue " + mc.getLanguageManager().getSelected() + ", fenêtre " + f.getWidth() + "x"
                 + f.getHeight() + ", filtre « " + SEUL + " », mcef " + ModList.get().isLoaded("mcef") + ", jei "
                 + ModList.get().isLoaded("jei") + ", PID " + ProcessHandle.current().pid());
@@ -346,6 +352,10 @@ public final class WikiStudio {
         for (Chapitre c : chapitres()) {
             atelier.chapitre(c.id());
             c.scenes(atelier);
+            // Un chapitre joué en entier repart d'un dossier vide : aucune prise d'une ancienne passe n'y reste.
+            if (filtres.isEmpty() || filtres.stream().anyMatch(f -> memeChapitre(c.id(), f[0]) && f.length == 1)) {
+                viderDossier(racine.resolve(c.id()));
+            }
         }
         for (Scene s : atelier.scenes()) {
             boolean garde = filtres.isEmpty() || filtres.stream().anyMatch(f -> memeChapitre(s.chapitre(), f[0])
@@ -362,6 +372,23 @@ public final class WikiStudio {
         if (PAS.isEmpty()) {
             echec("filtre", "aucune scène retenue par « " + SEUL + " »");
         }
+    }
+
+    /** Efface le contenu du dossier d'un chapitre (le dossier lui-même reste). */
+    private static void viderDossier(Path dossier) {
+        if (!Files.isDirectory(dossier)) {
+            return;
+        }
+        try (Stream<Path> tout = Files.walk(dossier)) {
+            for (Path p : tout.sorted(Comparator.reverseOrder()).toList()) {
+                if (!p.equals(dossier)) {
+                    Files.delete(p);
+                }
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("dossier de captures non vidé : " + dossier, e);
+        }
+        journal("dossier vidé : " + dossier.getFileName());
     }
 
     /** {@code _export} se demande aussi {@code export}. */
@@ -689,6 +716,8 @@ public final class WikiStudio {
         int n;
         volatile String erreur;
         boolean finie;
+        /** Gestes du client pendant la séquence (millisecondes depuis la première image), ou {@code null}. */
+        java.util.function.BiConsumer<Minecraft, Long> pendant;
 
         Sequence(FilmCapture cap, String nom, long dureeMs, long pasMs) {
             this.cap = cap;
@@ -699,6 +728,14 @@ public final class WikiStudio {
 
         void capturer(Minecraft mc) {
             long maintenant = System.nanoTime();
+            if (!finie && pendant != null && erreur == null) {
+                try {
+                    pendant.accept(mc, (maintenant - debutNs) / 1_000_000L);
+                } catch (RuntimeException e) {
+                    LOG.error("[wiki] geste pendant la séquence {}", nom, e);
+                    erreur = "geste pendant la séquence : " + e;
+                }
+            }
             if (finie || maintenant < prochaineNs) {
                 return;
             }
@@ -713,7 +750,8 @@ public final class WikiStudio {
         }
     }
 
-    static void commencerSequence(Scene s, String nom, long dureeMs, long pasMs, Consumer<Lieu> auDebut) {
+    static void commencerSequence(Scene s, String nom, long dureeMs, long pasMs, Consumer<Lieu> auDebut,
+            java.util.function.BiConsumer<Minecraft, Long> pendant) {
         Path d = dossier(s.chapitre()).resolve(nom);
         try {
             Files.createDirectories(d);
@@ -725,6 +763,7 @@ public final class WikiStudio {
                 }
             }
             sequence = new Sequence(new FilmCapture(d, "atelier du wiki"), s.chapitre() + "/" + nom, dureeMs, pasMs);
+            sequence.pendant = pendant;
         } catch (IOException e) {
             throw new IllegalStateException("dossier de la séquence " + d, e);
         }
@@ -798,6 +837,9 @@ public final class WikiStudio {
                 }
             } else if ((maintenant - DEBUT_NS) / 1e9 > GARDE_S) {
                 raison = "délai global de " + (long) GARDE_S + " s dépassé à la phase " + phase;
+            } else if (derniereImageNs == 0 && maintenant - DEBUT_NS > 600_000_000_000L) {
+                // Une erreur de chargement de Forge peut laisser le client ouvert sans qu'aucune image n'arrive ici.
+                raison = "aucune image rendue 600 s après le démarrage";
             } else if (derniereImageNs != 0 && maintenant - derniereImageNs > 120_000_000_000L) {
                 raison = "plus aucune image rendue depuis 120 s (phase " + phase + ")";
             } else if (phase == Phase.SCENES && delaiPasNs > 0

@@ -668,10 +668,10 @@ public final class TelephoneShots {
             }
             dev.oneforallsurvival.phone.net.SimCard cible = registre.issue(idMairie, null, "",
                     net.minecraft.util.RandomSource.create(), EconomyClock.now());
-            registre.issue(idMairie, java.util.UUID.randomUUID(), "Capitaine Barbe-Grise",
+            registre.issue(idMairie, java.util.UUID.randomUUID(), "Jonas Mercier",
                     net.minecraft.util.RandomSource.create(), EconomyClock.now());
             idCible = cible.simId().toString();
-            registre.request(idMairie, java.util.UUID.randomUUID(), "Naufrage", EconomyClock.now())
+            registre.request(idMairie, java.util.UUID.randomUUID(), "Inès Lebrun", EconomyClock.now())
                     .ifPresent(d -> idDemande = d.id().toString());
             ligneFaite = !idDemande.isEmpty();
         }), () -> ligneFaite, 5, null);
@@ -875,7 +875,7 @@ public final class TelephoneShots {
     private static void preparerAppels(Minecraft mc, String pre) {
         decor(mc, 80);
         pas(pre + "-correspondant", () -> serveur(mc, (srv, sp) -> {
-            JoueurDeTest j = JoueurDeTest.rejoindre(sp.serverLevel(), "Correspondant",
+            JoueurDeTest j = JoueurDeTest.rejoindre(sp.serverLevel(), "Maelle",
                     Vec3.atBottomCenterOf(sp.blockPosition().west(4)));
             fondateurLagon = j.uuid();
             correspondant = j;
@@ -914,7 +914,7 @@ public final class TelephoneShots {
             PhoneItem.store(phoneC, PhoneConfig.capacity());
             c.setItemInHand(InteractionHand.MAIN_HAND, phoneC);
             PhoneSims.issueTo(sp, mairie.get(), sp.getUUID(), sp.getGameProfile().getName(), EconomyClock.now());
-            PhoneSims.issueTo(c, lagon.get(), c.getUUID(), "Correspondant", EconomyClock.now());
+            PhoneSims.issueTo(c, lagon.get(), c.getUUID(), "Maëlle", EconomyClock.now());
             for (ServerPlayer p : List.of(sp, c)) {
                 for (int s = 0; s < p.getInventory().getContainerSize(); s++) {
                     if (p.getInventory().getItem(s).getItem() instanceof dev.oneforallsurvival.phone.net.SimCardItem) {
@@ -2425,7 +2425,7 @@ public final class TelephoneShots {
             PhoneOperators registre = PhoneOperators.get(srv);
             // Mode appel : Lagon est fondé par le correspondant simulé, qui peut ainsi s'émettre sa carte.
             java.util.UUID fondatrice = fondateurLagon != null ? fondateurLagon : java.util.UUID.randomUUID();
-            PhoneOperators.Result lagon = registre.found(fondatrice, fondateurLagon != null ? "Correspondant"
+            PhoneOperators.Result lagon = registre.found(fondatrice, fondateurLagon != null ? "Maelle"
                     : "Fondatrice", LAGON, EconomyClock.now());
             if (lagon.founded()) {
                 idLagon = lagon.operator().id();
@@ -3517,6 +3517,42 @@ public final class TelephoneShots {
         journal(String.format(Locale.ROOT, "image %s.png : fenêtre %dx%d, interface %dx%d échelle %.0f%s ; %s", nom,
                 f.getWidth(), f.getHeight(), f.getGuiScaledWidth(), f.getGuiScaledHeight(), f.getGuiScale(), cadre,
                 resume()));
+        ecrireReperes(mc, nom);
+    }
+
+    /**
+     * À côté de l'image, {@code <nom>.json} : le centre de chaque boîte de la page (MCEF) visible dans le cadre du
+     * téléphone, en pourcentage de l'image, au format des repères de l'atelier du wiki ({@code build_visuals.py} les
+     * ramène au recadrage).
+     */
+    private static void ecrireReperes(Minecraft mc, String nom) {
+        if (!(mc.screen instanceof PhoneWebScreen w) || !w.pageReady()) {
+            return;
+        }
+        var f = mc.getWindow();
+        double k = w.pageScale() / f.getGuiScale();
+        Rect c = w.frameRect();
+        JsonObject points = new JsonObject();
+        for (Map.Entry<String, int[]> e : new java.util.TreeMap<>(w.rects()).entrySet()) {
+            int[] b = e.getValue();
+            double gx = c.x() + (b[0] + b[2] / 2.0) * k;
+            double gy = c.y() + (b[1] + b[3] / 2.0) * k;
+            if (b[2] <= 0 || b[3] <= 0 || gx < c.x() || gy < c.y() || gx > c.x() + c.width() || gy > c.y() + c.height()) {
+                continue;
+            }
+            com.google.gson.JsonArray a = new com.google.gson.JsonArray();
+            a.add(Math.round(gx * f.getGuiScale() / f.getWidth() * 10000) / 100.0);
+            a.add(Math.round(gy * f.getGuiScale() / f.getHeight() * 10000) / 100.0);
+            points.add(e.getKey(), a);
+        }
+        JsonObject o = new JsonObject();
+        o.addProperty("image", nom + ".png");
+        o.addProperty("largeur", f.getWidth());
+        o.addProperty("hauteur", f.getHeight());
+        o.addProperty("echelle", (int) f.getGuiScale());
+        o.add("reperes", points);
+        ecrireFichier(nom + ".json", new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(o) + "\n",
+                false);
     }
 
     private static void echec(String nom, String detail) {

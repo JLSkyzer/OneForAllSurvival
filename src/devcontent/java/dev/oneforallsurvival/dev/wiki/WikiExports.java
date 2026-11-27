@@ -69,6 +69,8 @@ public final class WikiExports implements Chapitre {
     private static final int RENDU = 256;
     private static final int TAILLE = 128;
     private static final Pattern IDENTIFIANT = Pattern.compile("\"([a-z0-9_.-]+:[a-z0-9_./-]+)\"");
+    /** Les fichiers de {@code wiki/data/} écrits par {@code build_visuals.py} : ce ne sont pas des fiches. */
+    private static final Set<String> PRODUITS = Set.of("objets.json", "recettes.json", "reperes.json");
 
     private static volatile JsonArray recettes;
     private static volatile Set<ResourceLocation> objets;
@@ -238,7 +240,10 @@ public final class WikiExports implements Chapitre {
         Path wiki = Minecraft.getInstance().gameDirectory.toPath().toAbsolutePath().normalize().getParent()
                 .resolve("wiki");
         try (Stream<Path> fiches = Files.list(wiki.resolve("data"))) {
-            for (Path f : fiches.filter(p -> p.toString().endsWith(".json")).toList()) {
+            // Les fichiers produits par build_visuals.py ne sont pas des fiches : les lire ferait grossir l'export à
+            // chaque passe (tous les objets de la passe précédente redeviendraient « cités »).
+            for (Path f : fiches.filter(p -> p.toString().endsWith(".json") && !PRODUITS.contains(
+                    p.getFileName().toString())).toList()) {
                 Matcher m = IDENTIFIANT.matcher(Files.readString(f, StandardCharsets.UTF_8));
                 while (m.find()) {
                     ResourceLocation id = ResourceLocation.tryParse(m.group(1));

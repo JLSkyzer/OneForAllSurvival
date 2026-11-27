@@ -284,8 +284,17 @@ public final class Scene {
      * {@code captures/<chapitre>/<nom>/f0000.png}… ; {@code auDebut} est joué par le serveur à la première image.
      */
     public Scene sequence(String nomSequence, long dureeMs, long pasMs, Consumer<Lieu> auDebut) {
+        return sequence(nomSequence, dureeMs, pasMs, auDebut, null);
+    }
+
+    /**
+     * Une séquence pendant laquelle le client fait des gestes : {@code pendant} est appelé à chaque image rendue avec le
+     * temps écoulé depuis la première prise (en ms), sur le fil du rendu ; une exception fait échouer la scène.
+     */
+    public Scene sequence(String nomSequence, long dureeMs, long pasMs, Consumer<Lieu> auDebut,
+            java.util.function.BiConsumer<Minecraft, Long> pendant) {
         ajouter("séquence " + nomSequence, () -> WikiStudio.commencerSequence(this, nomSequence, dureeMs, pasMs,
-                auDebut), WikiStudio::sequenceFinie, 0, dureeMs + DELAI_MS, WikiStudio::finirSequence);
+                auDebut, pendant), WikiStudio::sequenceFinie, 0, dureeMs + DELAI_MS, WikiStudio::finirSequence);
         return this;
     }
 
