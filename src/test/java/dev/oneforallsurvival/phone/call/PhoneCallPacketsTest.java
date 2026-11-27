@@ -141,21 +141,22 @@ class PhoneCallPacketsTest {
             for (boolean carnet : new boolean[] {false, true}) {
                 PhoneCallStatePacket etat = new PhoneCallStatePacket(phase, 42, NUMERO, "Maman",
                         phase == Phase.ACTIVE ? 1_789_000_000_000L : -1L, phase.ordinal() % 2 == 0,
-                        phase.ordinal() % 3 == 0, Component.translatable("message.oneforallsurvival.call.busy"),
+                        phase.ordinal() % 3 == 0, !carnet,
+                        Component.translatable("message.oneforallsurvival.call.busy"),
                         carnet ? plein() : null);
                 PhoneCallStatePacket relu = allerRetour(etat);
                 assertEquals(etat, relu, phase + " carnet " + carnet);
                 assertEquals(carnet, relu.book() != null);
             }
         }
-        PhoneCallStatePacket vide = new PhoneCallStatePacket(Phase.NONE, 0, null, null, -1L, false, false, null, null);
+        PhoneCallStatePacket vide = new PhoneCallStatePacket(Phase.NONE, 0, null, null, -1L, false, false, true, null, null);
         assertEquals("", vide.number());
         assertEquals("", vide.name());
         assertEquals(Component.empty(), vide.message());
         assertEquals(vide, allerRetour(vide));
         assertNull(allerRetour(vide).book());
-        PhoneCallStatePacket carnetVide = new PhoneCallStatePacket(Phase.NONE, 0, "", "", -1L, false, false, null,
-                new Book(null, null));
+        PhoneCallStatePacket carnetVide = new PhoneCallStatePacket(Phase.NONE, 0, "", "", -1L, false, false, true,
+                null, new Book(null, null));
         assertEquals(carnetVide, allerRetour(carnetVide));
         assertTrue(allerRetour(carnetVide).book().contacts().isEmpty());
     }
@@ -169,7 +170,7 @@ class PhoneCallPacketsTest {
         List<Recent> recents = new ArrayList<>(plein().recents());
         recents.add(new Recent("0799999999", Recent.Kind.MISSED, 1L, 0));
         PhoneCallStatePacket etat = new PhoneCallStatePacket(Phase.INCOMING, 3, "9".repeat(40), "m".repeat(40), -1L,
-                false, false, null, new Book(contacts, recents));
+                false, false, false, null, new Book(contacts, recents));
         assertEquals(PhoneCallStatePacket.MAX_CONTACTS, etat.book().contacts().size());
         assertEquals(PhoneCallStatePacket.MAX_RECENTS, etat.book().recents().size());
         assertEquals(PhoneCallStatePacket.MAX_NAME, etat.book().contacts().get(0).name().length());
@@ -188,6 +189,7 @@ class PhoneCallPacketsTest {
         buf.writeLong(-1L);
         buf.writeBoolean(false);
         buf.writeBoolean(false);
+        buf.writeBoolean(true); // sur ce téléphone
         buf.writeBoolean(false); // aucun message
         return buf;
     }
@@ -246,7 +248,7 @@ class PhoneCallPacketsTest {
     void leToStringDUnEtatMasqueNumerosEtNoms() {
         Book book = new Book(List.of(new Contact("0798765432", "Tonton")),
                 List.of(new Recent("0711223344", Recent.Kind.INCOMING, 5L, 9)));
-        String texte = new PhoneCallStatePacket(Phase.ACTIVE, 12, NUMERO, "Maman", 5L, true, false, null, book)
+        String texte = new PhoneCallStatePacket(Phase.ACTIVE, 12, NUMERO, "Maman", 5L, true, false, true, null, book)
                 .toString();
         for (String secret : new String[] {"12345678", "Maman", "98765432", "Tonton", "11223344"}) {
             assertFalse(texte.contains(secret), secret + " dans " + texte);

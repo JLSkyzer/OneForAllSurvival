@@ -103,6 +103,11 @@ public final class PhoneClient {
     public static void accept(PhoneStatePacket state) {
         Minecraft mc = Minecraft.getInstance();
         remember(state);
+        if (state.kind() == PhoneStatePacket.Kind.OPEN) {
+            // Revue de la tâche 4a, I3 : une ouverture oublie l'état d'appel d'avant (message, numéro, carnet d'un autre
+            // téléphone) ; le serveur envoie l'état de cette session juste après.
+            lastCall = null;
+        }
         Shown shown = shown(mc.screen);
         if ((state.kind() == PhoneStatePacket.Kind.OPEN || state.kind() == PhoneStatePacket.Kind.CLOSE)
                 && mc.screen instanceof OperatorPanelScreen panel && shown != null

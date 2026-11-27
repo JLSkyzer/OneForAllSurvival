@@ -152,12 +152,17 @@ public final class PhoneService {
     }
 
     /**
-     * Ce joueur a-t-il une session ouverte et déverrouillée sur ce téléphone, verrou relu ? Pour envoyer un carnet sans
-     * qu'il l'ait demandé (fin d'appel) : jamais à un écran verrouillé.
+     * Ce joueur a-t-il une session ouverte et déverrouillée sur ce téléphone, verrou relu, ce téléphone toujours dans la
+     * main de la session (revue de la tâche 4a, mineur) ? Pour envoyer un carnet sans qu'il l'ait demandé (fin
+     * d'appel) : jamais à un écran verrouillé, ni à une session dont le téléphone a quitté la main.
      */
     public static boolean unlockedOn(ServerPlayer player, UUID phoneId) {
         PhoneSession session = SESSIONS.get(player.getUUID());
         if (session == null || !session.phoneId().equals(phoneId)) {
+            return false;
+        }
+        ItemStack stack = player.getItemInHand(session.hand());
+        if (!(stack.getItem() instanceof PhoneItem) || !PhoneItem.phoneId(stack).equals(Optional.of(phoneId))) {
             return false;
         }
         syncLock(session, PhoneData.get(player.server).record(phoneId));
@@ -211,6 +216,11 @@ public final class PhoneService {
                 || !PhoneItem.phoneId(stack).equals(Optional.of(session.phoneId()))) {
             return Outcome.NO_SESSION;
         }
+        if (packet.action() == PhoneActionPacket.Action.CLOSE) {
+            // Fermer ne passe jamais par le frein (revue de la tâche 4a, mineur ; contrainte du lot T3).
+            SESSIONS.remove(player.getUUID(), session);
+            return Outcome.DONE;
+        }
         if (throttled(player)) {
             return Outcome.THROTTLED;
         }
@@ -219,10 +229,7 @@ public final class PhoneService {
         syncLock(session, record);
         Result[] last = {Result.NONE};
         Outcome outcome = switch (packet.action()) {
-            case CLOSE -> {
-                SESSIONS.remove(player.getUUID(), session);
-                yield Outcome.DONE;
-            }
+            case CLOSE -> Outcome.DONE; // déjà joué plus haut, avant le frein
             case SETUP -> setup(player, session, data, record, packet.first(), packet.second(), last);
             case UNLOCK -> unlock(session, data, record, packet.first(), last);
             case LOCK -> {

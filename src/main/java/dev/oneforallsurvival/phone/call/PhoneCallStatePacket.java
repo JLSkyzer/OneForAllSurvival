@@ -24,12 +24,15 @@ import net.minecraftforge.network.NetworkEvent;
  * @param answeredMillis l'instant du décroché ({@code EconomyClock.now()}), -1 avant
  * @param muted le micro de ce porteur est coupé
  * @param speaker le haut-parleur de ce porteur est mis
+ * @param here l'appel est porté par le téléphone de la session ouverte de ce porteur (revue de la tâche 4a, I3) : faux
+ *     écran fermé ou ouvert sur un autre téléphone, où la page ne montre pas l'appel ; vrai pour un {@link Phase#NONE}
+ *     qui répond à la session ouverte (ouverture, geste)
  * @param message la fin ou l'échec à montrer (composant traduit chez le client) ; {@link Component#empty()} sinon
  * @param book le carnet de la carte (contacts et récents), seulement quand l'application Téléphone le demande ou qu'il
  *     change ; nul sinon
  */
 public record PhoneCallStatePacket(Phase phase, int callId, String number, String name, long answeredMillis,
-        boolean muted, boolean speaker, Component message, @Nullable Book book) {
+        boolean muted, boolean speaker, boolean here, Component message, @Nullable Book book) {
 
     /** Borne d'un numéro sur le réseau. */
     public static final int MAX_TEXT = 32;
@@ -90,7 +93,7 @@ public record PhoneCallStatePacket(Phase phase, int callId, String number, Strin
     @Override
     public String toString() {
         return "PhoneCallStatePacket[phase=" + phase + ", callId=" + callId + ", number=***, name=***, answeredMillis="
-                + answeredMillis + ", muted=" + muted + ", speaker=" + speaker + ", message="
+                + answeredMillis + ", muted=" + muted + ", speaker=" + speaker + ", here=" + here + ", message="
                 + (message.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents t
                         ? t.getKey() : "…")
                 + ", book=" + book + "]";
@@ -108,6 +111,7 @@ public record PhoneCallStatePacket(Phase phase, int callId, String number, Strin
         buf.writeLong(answeredMillis);
         buf.writeBoolean(muted);
         buf.writeBoolean(speaker);
+        buf.writeBoolean(here);
         boolean hasMessage = !message.equals(Component.empty());
         buf.writeBoolean(hasMessage);
         if (hasMessage) {
@@ -138,6 +142,7 @@ public record PhoneCallStatePacket(Phase phase, int callId, String number, Strin
         long answeredMillis = buf.readLong();
         boolean muted = buf.readBoolean();
         boolean speaker = buf.readBoolean();
+        boolean here = buf.readBoolean();
         Component message = buf.readBoolean() ? buf.readComponent() : Component.empty();
         Book book = null;
         if (buf.readBoolean()) {
@@ -155,7 +160,8 @@ public record PhoneCallStatePacket(Phase phase, int callId, String number, Strin
             }
             book = new Book(c, r);
         }
-        return new PhoneCallStatePacket(phase, callId, number, name, answeredMillis, muted, speaker, message, book);
+        return new PhoneCallStatePacket(phase, callId, number, name, answeredMillis, muted, speaker, here, message,
+                book);
     }
 
     private static int size(int n, int max, String what) {

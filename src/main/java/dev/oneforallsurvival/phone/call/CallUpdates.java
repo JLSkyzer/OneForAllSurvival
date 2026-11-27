@@ -34,12 +34,13 @@ import net.minecraftforge.server.ServerLifecycleHooks;
 /**
  * Ce que les porteurs reçoivent des appels (lot T3, tâche 4a), écran fermé compris : l'état d'appel
  * ({@link PhoneCallStatePacket}) à chaque changement et à chaque fin, aux deux bouts ; la sonnerie et la tonalité ; le
- * message de fin en barre d'action quand l'écran est fermé ; la batterie qui se vide pendant l'appel.
+ * message de fin en barre d'action quand aucun écran n'est ouvert sur ce téléphone ; la batterie qui se vide pendant
+ * l'appel.
  *
- * <p>Sonnerie : toutes les {@value #RING_PERIOD} tics depuis le début de l'appel, un son de cloche joué à la position de
- * l'appelé, envoyé à tous les joueurs à {@value #RING_RANGE} blocs au plus (les voisins l'entendent, décision du
- * 27/11) ; l'appelé sans écran de téléphone ouvert lit « Appel entrant » en barre d'action ; l'appelant entend un bip,
- * pour lui seul.
+ * <p>Sonnerie : au premier tic où l'appel sonne, puis toutes les {@value #RING_PERIOD} tics, un son de cloche joué à la
+ * position de l'appelé, envoyé à tous les joueurs à {@value #RING_RANGE} blocs au plus (les voisins l'entendent, décision
+ * du 27/11) ; l'appelé sans écran ouvert sur le téléphone appelé lit « Appel entrant » en barre d'action ; l'appelant
+ * entend un bip, pour lui seul.
  *
  * <p>Batterie : pendant un appel (sonnerie comprise), le téléphone de chaque bout paie
  * {@link PhoneConfig#drainPerTick()} par tic, par blocs de vingt tics, comme l'écran ouvert ; un bout dont l'écran est
@@ -62,6 +63,12 @@ public final class CallUpdates {
 
     /** L'instant du décroché de chaque appel en ligne ({@code EconomyClock.now()}). */
     private static final Map<Integer, Long> ANSWERED_AT = new HashMap<>();
+    /**
+     * Le tic de la prochaine sonnerie de chaque appel qui sonne. La première sonne au premier tic vu (revue de la tâche
+     * 4a, mineur) : un vrai paquet {@code DIAL} est joué entre deux tics, après la fin du tic de {@code startedTick},
+     * qu'un calcul depuis {@code startedTick} ne faisait sonner que 40 tics plus tard.
+     */
+    private static final Map<Integer, Integer> NEXT_RING = new HashMap<>();
     /** Les tics de batterie déjà payés par le téléphone de chaque bout en appel. */
     private static final Map<UUID, ItemBattery.Prepaid> DRAIN = new HashMap<>();
 
@@ -97,7 +104,8 @@ public final class CallUpdates {
     static PhoneCallStatePacket view(ServerPlayer player, @Nullable Call call, @Nullable Component message,
             @Nullable Book book) {
         if (call == null || !call.involves(player.getUUID())) {
-            return new PhoneCallStatePacket(Phase.NONE, 0, "", "", -1L, false, false, message, book);
+            // Hors appel, l'état répond à la session ouverte (ouverture, geste) : il la concerne.
+            return new PhoneCallStatePacket(Phase.NONE, 0, "", "", -1L, false, false, true, message, book);
         }
         boolean caller = call.caller().player().equals(player.getUUID());
         Party me = caller ? call.caller() : call.callee();
@@ -107,7 +115,7 @@ public final class CallUpdates {
                 ? ANSWERED_AT.getOrDefault(call.id(), EconomyClock.now()) : -1L;
         return new PhoneCallStatePacket(phase, call.id(), other.number(), nameOf(player.server, me, other), answered,
                 caller ? call.callerMuted() : call.calleeMuted(), caller ? call.callerSpeaker() : call.calleeSpeaker(),
-                message, book);
+                openOn(player, me.phoneId()), message, book);
     }
 
     /** L'état d'appel actuel de ce joueur (son appel en cours, ou aucun). */
@@ -132,9 +140,21 @@ public final class CallUpdates {
         BenchNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), packet);
     }
 
-    /** Une session de téléphone s'ouvre : un appel en cours lui est montré tout de suite. */
+    /**
+     * Ce joueur a-t-il un écran de téléphone ouvert sur ce téléphone-là ? Un écran ouvert sur un autre téléphone ne
+     * compte pas (revue de la tâche 4a, I3) : il ne montre pas l'appel, la barre d'action continue.
+     */
+    static boolean openOn(ServerPlayer player, UUID phoneId) {
+        return PhoneService.session(player.getUUID()).filter(s -> s.phoneId().equals(phoneId)).isPresent();
+    }
+
+    /**
+     * Une session de téléphone s'ouvre : elle reçoit toujours un état, même {@link Phase#NONE} (revue de la tâche 4a,
+     * I3 : le client oublie ainsi le message, le numéro et le carnet d'un état précédent) ; un appel en cours lui est
+     * montré tout de suite, marqué « ailleurs » s'il est porté par un autre téléphone.
+     */
     public static void sessionOpened(ServerPlayer player) {
-        CallService.callOf(player).ifPresent(call -> send(player, view(player, call, null, null)));
+        send(player, current(player, null, null));
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -164,6 +184,7 @@ public final class CallUpdates {
      */
     private static void onEnded(Call call, End reason) {
         Long answered = ANSWERED_AT.remove(call.id());
+        NEXT_RING.remove(call.id());
         MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
         for (Party party : new Party[] {call.caller(), call.callee()}) {
             DRAIN.remove(party.player());
@@ -176,8 +197,9 @@ public final class CallUpdates {
             Component message = Component.translatable(ENDED + endKey(reason, caller));
             Book book = PhoneService.unlockedOn(player, party.phoneId()) ? book(server, party.simId()) : null;
             send(player, new PhoneCallStatePacket(Phase.NONE, call.id(), other.number(),
-                    nameOf(server, party, other), answered == null ? -1L : answered, false, false, message, book));
-            if (PhoneService.session(player.getUUID()).isEmpty()) {
+                    nameOf(server, party, other), answered == null ? -1L : answered, false, false,
+                    openOn(player, party.phoneId()), message, book));
+            if (!openOn(player, party.phoneId())) {
                 player.displayClientMessage(message, true);
             }
         }
@@ -206,8 +228,14 @@ public final class CallUpdates {
         MinecraftServer server = event.getServer();
         int tick = server.getTickCount();
         for (Call call : CallService.calls()) {
-            if (call.state() == CallBook.State.RINGING && (tick - call.startedTick()) % RING_PERIOD == 0) {
-                ring(server, call);
+            if (call.state() == CallBook.State.RINGING) {
+                int next = NEXT_RING.getOrDefault(call.id(), tick);
+                if (tick >= next) {
+                    NEXT_RING.put(call.id(), tick + RING_PERIOD);
+                    ring(server, call);
+                }
+            } else {
+                NEXT_RING.remove(call.id());
             }
             drain(server, call.caller());
             drain(server, call.callee());
@@ -224,7 +252,7 @@ public final class CallUpdates {
                     near.connection.send(bell);
                 }
             }
-            if (PhoneService.session(callee.getUUID()).isEmpty()) {
+            if (!openOn(callee, call.callee().phoneId())) {
                 callee.displayClientMessage(Component.translatable(INCOMING), true);
             }
         }
