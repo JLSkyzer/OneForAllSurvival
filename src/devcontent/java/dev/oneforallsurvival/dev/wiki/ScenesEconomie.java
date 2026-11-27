@@ -1141,7 +1141,7 @@ public final class ScenesEconomie implements Chapitre {
                 .pause(800)
                 .repereInterface("reclamer", mc -> {
                     double[] b = boutonQuete(mc, 0);
-                    return b == null ? null : new double[] {b[0] - 34, b[1] - 9};
+                    return b == null ? null : new double[] {b[0] + 41, b[1]};
                 })
                 .repereInterface("plafond", mc -> {
                     var t = ((QuestScreen) mc.screen).layout().cap();
