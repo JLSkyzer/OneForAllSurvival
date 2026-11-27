@@ -77,6 +77,8 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
     /** Le fond choisi au choix du code, envoyé avec lui ; affiché tout de suite. */
     private String setupWallpaper;
     private Component message = Component.empty();
+    /** Le message vient d'un appel refusé (une urgence pendant un blocage) : dessiné même pendant le blocage. */
+    private boolean messageFromCall;
     private boolean messageAlert;
     private boolean eraseArmed;
     private boolean byServer;
@@ -154,6 +156,7 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
         String outside = calls.accept(next, text, Util.getMillis());
         if (!outside.isEmpty()) {
             alert(Component.literal(outside));
+            messageFromCall = true;
         }
         rebuild();
     }
@@ -663,6 +666,7 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
     private void alert(Component text) {
         message = text;
         messageAlert = true;
+        messageFromCall = false;
     }
 
     /** Le message de l'issue du dernier geste ; {@code NONE} laisse le message en place. */
@@ -747,8 +751,19 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
         }
     }
 
+    /**
+     * Un bouton retiré par {@link #rebuild} ne garde pas le focus : le clic qui reconstruit l'écran le lui remet après
+     * {@code onPress}, et Espace ou Entrée l'actionnerait sous le nouvel écran ({@link PhoneFallbackFocus}).
+     */
+    private void dropStaleFocus() {
+        if (getFocused() != null && PhoneFallbackFocus.kept(getFocused(), children()) == null) {
+            setFocused(null);
+        }
+    }
+
     @Override
     public boolean keyPressed(int key, int scan, int modifiers) {
+        dropStaleFocus();
         boolean noCall = shownCall == PhoneFallbackCall.Mode.NONE;
         if (noCall && page == Page.CODE && key == GLFW.GLFW_KEY_BACKSPACE) {
             backspace();
@@ -779,6 +794,7 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
 
     @Override
     public boolean charTyped(char c, int modifiers) {
+        dropStaleFocus();
         boolean noCall = shownCall == PhoneFallbackCall.Mode.NONE;
         if (noCall && page == Page.CODE && c >= '0' && c <= '9') {
             digit(c);
@@ -918,7 +934,10 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
         }
         y = text.messageY();
         if (lockedOut()) {
-            drawCentered(g, Component.translatable(KEY + "locked_out"), cx, y, RED);
+            // Une urgence refusée pendant le blocage (avion, pas de réseau…) prend la ligne « bloqué » : le décompte
+            // dessous dit encore le blocage.
+            boolean refusal = messageFromCall && !message.getString().isEmpty();
+            drawCentered(g, refusal ? message : Component.translatable(KEY + "locked_out"), cx, y, RED);
             y += text.lineStep();
             PhoneWaitText.Wait wait = PhoneWaitText.of((lockoutEnd - Util.getMillis() + 999) / 1000);
             String duration = Component.translatable(wait.form().key(), wait.arguments()).getString();

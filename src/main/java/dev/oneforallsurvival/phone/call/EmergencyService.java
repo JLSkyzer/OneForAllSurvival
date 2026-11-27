@@ -307,7 +307,9 @@ public final class EmergencyService {
         if (call.isPresent() && data.log().answered(p.logSeq, r.name())) {
             data.setDirty();
         }
-        Component taken = Component.translatable(MESSAGE + "taken", r.name());
+        // Prise refusée par le carnet : personne n'a pris l'appel, les autres lisent l'interruption, pas « Pris en charge ».
+        Component taken = call.isPresent() ? Component.translatable(MESSAGE + "taken", r.name())
+                : Component.translatable(CallUpdates.ENDED + "interrupted");
         for (UUID other : p.dispatch.ringing()) {
             Responder o = p.responders.get(other);
             ServerPlayer op = server.getPlayerList().getPlayer(other);
