@@ -47,7 +47,8 @@ import org.slf4j.Logger;
  *   <li><b>Six parties</b> ({@link TownBoardPart}) : la partie du bas au milieu est la maîtresse, posée à l'endroit
  *       visé ; le tableau s'étend d'un bloc à gauche, d'un à droite et d'un vers le haut, face au joueur. Seule la
  *       maîtresse porte une entité de bloc (rendu et données) ; les autres renvoient vers elle ({@link #masterPos}).
- *   <li><b>Pose</b> ({@link TownBlockRules#mayPlaceBoard}) : le maire ou l'équipe, sans limite de nombre, et seulement
+ *   <li><b>Pose</b> ({@link TownBlockRules#mayPlaceBoard}) : le maire, l'équipe ou l'ingénieur qui tient l'outil de
+ *       maintenance (il le repose après l'avoir déplacé), sans limite de nombre, et seulement
  *       si les six emplacements sont libres et remplaçables (sinon : refus, message, objet gardé). Refusée sans joueur
  *       (distributeur) et pour un faux joueur.
  *   <li><b>Casse</b> ({@link TownBlockRules#moveRefusal}) : un ingénieur, le maire ou l'équipe ; en créatif il faut être

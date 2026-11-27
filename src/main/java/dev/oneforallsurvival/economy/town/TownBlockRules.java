@@ -92,8 +92,23 @@ public final class TownBlockRules {
         return !liveTreasuryExists && (mayor(server) || engineerMayMove(server));
     }
 
-    /** Poser un tableau de la mairie : le maire ou l'équipe. */
+    /**
+     * Poser un tableau de la mairie : le maire, l'équipe, ou l'ingénieur outillé ({@link #engineerMayMove}), qui le
+     * casse « pour le reposer ailleurs » (cahier du métier de maire, 102). Ne donne pas de tableau neuf : voir
+     * {@link #mayGiveBoard}.
+     */
     public static boolean mayPlaceBoard(Player player) {
+        if (player instanceof FakePlayer) {
+            return false;
+        }
+        if (!(player instanceof ServerPlayer server)) {
+            return true;
+        }
+        return staff(server) || mayor(server) || engineerMayMove(server);
+    }
+
+    /** Recevoir un tableau neuf ({@code /treasury board}) : le maire ou l'équipe, jamais l'ingénieur. */
+    public static boolean mayGiveBoard(Player player) {
         if (player instanceof FakePlayer) {
             return false;
         }

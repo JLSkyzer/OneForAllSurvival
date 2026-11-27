@@ -140,7 +140,7 @@ public final class TreasuryCommands {
             source.sendFailure(Component.translatable("command.oneforallsurvival.treasury.board.player_only"));
             return 0;
         }
-        if (!TownBlockRules.mayPlaceBoard(player)) {
+        if (!TownBlockRules.mayGiveBoard(player)) {
             source.sendFailure(Component.translatable("command.oneforallsurvival.treasury.board.denied"));
             return 0;
         }

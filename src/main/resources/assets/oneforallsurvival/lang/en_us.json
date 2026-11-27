@@ -532,7 +532,7 @@
   "message.oneforallsurvival.treasury.break_denied": "Only the mayor, the staff and an engineer move the treasury",
   "message.oneforallsurvival.treasury.crouch": "In creative mode, crouch to break this block",
   "block.oneforallsurvival.town_board": "Town Hall Board",
-  "message.oneforallsurvival.town_board.place_denied": "Only the mayor and the staff place a town hall board",
+  "message.oneforallsurvival.town_board.place_denied": "Only the mayor, the staff and an engineer holding the maintenance tool place a town hall board",
   "message.oneforallsurvival.town_board.break_denied": "Only the mayor, the staff and an engineer move the town hall board",
   "message.oneforallsurvival.town_board.no_room": "Not enough room: the board is 3 blocks wide and 2 high, facing you",
   "message.oneforallsurvival.town_board.crouch": "In creative mode, crouch to break this block",

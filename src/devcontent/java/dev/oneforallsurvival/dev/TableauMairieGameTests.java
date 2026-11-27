@@ -729,9 +729,14 @@ public final class TableauMairieGameTests {
             JoueurDeTest chef = essai.equipe("tm_cmd_chef");
             JoueurDeTest citoyen = essai.citoyen("tm_cmd_citoyen");
             JoueurDeTest inge = essai.ingenieur("tm_cmd_inge");
-            for (JoueurDeTest refuse : List.of(citoyen, inge)) {
+            // L'ingénieur outillé repose un tableau, mais n'en reçoit pas de neuf (TownBlockRules.mayGiveBoard).
+            JoueurDeTest outille = essai.ingenieur("tm_cmd_outille");
+            outille.joueur().setItemInHand(InteractionHand.OFF_HAND,
+                    new ItemStack(dev.oneforallsurvival.repair.RepairRegistry.MAINTENANCE_TOOL.get()));
+            for (JoueurDeTest refuse : List.of(citoyen, inge, outille)) {
                 refuse.textesRecus();
-                helper.assertTrue(commande(helper, refuse, "treasury board") == 0, "refusé");
+                helper.assertTrue(commande(helper, refuse, "treasury board") == 0,
+                        "refusé à " + refuse.joueur().getGameProfile().getName());
                 helper.assertTrue(!porte(refuse), "aucun tableau donné");
                 helper.assertTrue(!refuse.textesRecus().isEmpty(), "le refus est dit");
             }
@@ -753,6 +758,44 @@ public final class TableauMairieGameTests {
                 helper.assertTrue(r.consumesAction() && helper.getBlockState(pos).is(EconomyRegistry.TOWN_BOARD.get()),
                         nom + " pose le tableau reçu : " + r);
             }
+            helper.succeed();
+        }
+    }
+
+    /**
+     * Cahier du maire (102, choix de Killian) : l'ingénieur qui tient l'outil de maintenance casse le tableau « pour le
+     * reposer ailleurs » ; il le repose donc. Sans l'outil, la pose lui est refusée ({@code /treasury board}, qui donne
+     * un tableau neuf, lui reste refusé même outillé : voir {@link #treasuryBoardDonneUnTableauAuMaire}).
+     */
+    @GameTest(template = "test/plancher", batch = LOT_B)
+    public static void lIngenieurOutilleReposeLeTableau(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest chef = essai.equipe("tm_repose_chef");
+            JoueurDeTest inge = essai.ingenieur("tm_repose_inge");
+            ItemStack outil = new ItemStack(dev.oneforallsurvival.repair.RepairRegistry.MAINTENANCE_TOOL.get());
+            inge.joueur().setItemInHand(InteractionHand.OFF_HAND, outil);
+            poserEtVerifier(helper, chef, A);
+            helper.assertTrue(inge.joueur().gameMode.destroyBlock(helper.absolutePos(A)) && helper.getBlockState(A).isAir(),
+                    "l'ingénieur outillé casse le tableau");
+            seulLeTableauTombe(helper);
+            ItemStack objet = objets(helper).get(0).getItem().copy();
+            ramasserLesObjets(helper);
+
+            // Sans l'outil : refusé, message, l'objet reste en main.
+            inge.joueur().setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY);
+            inge.messagesRecus();
+            ItemStack sansOutil = objet.copy();
+            InteractionResult refus = poser(helper, inge, sansOutil, B);
+            helper.assertTrue(!refus.consumesAction() && helper.getBlockState(B).isAir() && sansOutil.getCount() == 1,
+                    "sans l'outil, l'ingénieur ne repose pas le tableau : " + refus);
+            helper.assertTrue(inge.messagesRecus().contains(MSG + "place_denied"), "message de refus attendu");
+
+            // Outil en main secondaire : il le repose ailleurs, entier.
+            inge.joueur().setItemInHand(InteractionHand.OFF_HAND, outil);
+            InteractionResult r = poser(helper, inge, objet.copy(), B);
+            helper.assertTrue(r.consumesAction() && helper.getBlockState(B).is(EconomyRegistry.TOWN_BOARD.get()),
+                    "l'ingénieur outillé repose le tableau : " + r + ", vu " + helper.getBlockState(B));
+            entier(helper, B, Direction.NORTH);
             helper.succeed();
         }
     }
