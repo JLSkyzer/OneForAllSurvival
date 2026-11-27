@@ -44,7 +44,7 @@ class CallBridgeMessagesTest {
     @Test
     void lesGestesDuContratSontReconnus() {
         for (String a : new String[] {"callDial", "callAnswer", "callDecline", "callHangup", "callMute",
-                "callSpeaker", "contactSave", "contactRemove", "phoneApp"}) {
+                "callSpeaker", "contactSave", "contactRemove", "phoneApp", "shareScan", "shareSend"}) {
             assertTrue(CallBridgeMessages.isCall(a), a);
         }
         for (String a : new String[] {"unlock", "opClose", "call", "CallDial", "callDIAL", "contact", "", "phone"}) {
@@ -235,5 +235,29 @@ class CallBridgeMessagesTest {
         assertEquals(Optional.empty(), action("{\"a\":7}"));
         assertEquals(Optional.empty(), action("{\"a\":\"unlock\",\"code\":\"1234\"}"));
         assertEquals(Optional.empty(), CallBridgeMessages.toAction(null, SESSION, EN_COURS));
+    }
+
+    /** « Partager mon numéro » (retours d'essai du 27/11) : la liste sans champ, l'envoi à un numéro d'entité entier. */
+    @Test
+    void partagerMonNumero() {
+        assertEquals(Action.SHARE_SCAN, action("{\"a\":\"shareScan\"}").orElseThrow().action());
+        PhoneCallActionPacket p = action("{\"a\":\"shareSend\",\"to\":4021}").orElseThrow();
+        assertEquals(Action.SHARE_SEND, p.action());
+        assertEquals("4021", p.first());
+        assertEquals(SESSION, p.session());
+        assertEquals("0", action("{\"a\":\"shareSend\",\"to\":0}").orElseThrow().first());
+        assertEquals("2147483647", action("{\"a\":\"shareSend\",\"to\":2147483647}").orElseThrow().first());
+        for (String faux : new String[] {
+                "{\"a\":\"shareScan\",\"x\":1}",
+                "{\"a\":\"shareSend\"}",
+                "{\"a\":\"shareSend\",\"to\":\"4021\"}",
+                "{\"a\":\"shareSend\",\"to\":-1}",
+                "{\"a\":\"shareSend\",\"to\":40.0}",
+                "{\"a\":\"shareSend\",\"to\":4e3}",
+                "{\"a\":\"shareSend\",\"to\":2147483648}",
+                "{\"a\":\"shareSend\",\"to\":007}",
+                "{\"a\":\"shareSend\",\"to\":1,\"x\":1}"}) {
+            assertTrue(action(faux).isEmpty(), faux);
+        }
     }
 }

@@ -1776,3 +1776,132 @@ body {
   50% { transform: scale(0.9); opacity: 0.72; }
 }
 
+/* ---------------------------------------------------------------- Partager mon numéro (retours d'essai du 27/11) */
+
+.tel-share {
+  display: flex;
+  align-items: center;
+  min-height: 52px;
+  margin: 6px 16px 10px;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: #f2f2f7;
+  color: #007aff;
+  font-size: 17px;
+}
+.tel-share:active { background: #e5e5ea; }
+.tel-share-text { flex: 1; }
+.share-ico { flex: none; width: 30px; height: 30px; margin-right: 10px; color: #007aff; }
+.share-ico svg { width: 100%; height: 100%; display: block; }
+
+#share {
+  z-index: 40;
+  background: #f2f2f7;
+  color: #000;
+  transform: translateY(100%);
+  visibility: hidden;
+  pointer-events: none;
+  transition: transform 0.42s cubic-bezier(0.32, 0.72, 0, 1), visibility 0s linear 0.42s;
+}
+#phone.share-open #share {
+  transform: translateY(0);
+  visibility: visible;
+  pointer-events: auto;
+  transition: transform 0.42s cubic-bezier(0.32, 0.72, 0, 1), visibility 0s;
+}
+.share-me { padding: 18px 16px 16px; text-align: center; }
+.share-radar {
+  position: relative;
+  width: 74px;
+  height: 74px;
+  margin: 0 auto 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.share-ico.big { width: 46px; height: 46px; margin: 0; position: relative; z-index: 1; }
+.share-wave {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 122, 255, 0.45);
+  animation: share-wave 2.4s ease-out infinite;
+}
+.share-wave.w2 { animation-delay: 1.2s; }
+@keyframes share-wave {
+  0% { transform: scale(0.45); opacity: 0.9; }
+  100% { transform: scale(1.15); opacity: 0; }
+}
+.share-number { font-size: 22px; font-weight: 600; letter-spacing: 0.4px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.share-name { margin-top: 3px; font-size: 15px; color: #3c3c43; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.share-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px 6px;
+  margin-bottom: 14px;
+  padding: 16px 8px 14px;
+  border-radius: 12px;
+  background: #fff;
+  min-height: 92px;
+}
+.share-person {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  padding: 4px 2px;
+  border-radius: 12px;
+}
+.share-person:active { background: #e5e5ea; }
+.share-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #a5abb7 0%, #858b97 100%);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  font-weight: 500;
+}
+.share-avatar svg { width: 34px; height: 34px; }
+.share-pname {
+  margin-top: 6px;
+  max-width: 100%;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.share-state { margin-top: 1px; font-size: 12px; color: #8a8a8e; min-height: 15px; white-space: nowrap; }
+.share-person .share-state { color: #007aff; }
+.share-empty {
+  grid-column: 1 / -1;
+  align-self: center;
+  text-align: center;
+  font-size: 15px;
+  color: #8a8a8e;
+}
+.share-note { margin: 0 16px; font-size: 13px; line-height: 1.35; color: #6d6d72; }
+/* Le mot du dernier envoi : passager, posé sur la liste sans jamais prendre ses touchers. */
+.share-msg {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 28px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(30, 30, 32, 0.88);
+  color: #fff;
+  font-size: 14px;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.2s, transform 0.2s;
+  pointer-events: none;
+}
+.share-msg.show { opacity: 1; transform: translateY(0); }

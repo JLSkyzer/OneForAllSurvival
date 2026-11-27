@@ -143,6 +143,11 @@ import org.lwjgl.glfw.GLFW;
  *   caractères d'un clavier AZERTY sans Maj ; numéro composé au pavé et appelé par l'Entrée du pavé (relu au
  *   serveur) ; enfin la touche liée à {@code key.push_to_talk} (et {@code key.whisper} si elle est liée), téléphone
  *   ouvert : l'événement {@code InputEvent.Key} de Forge part à l'appui et au relâchement, et pas pour un chiffre.</li>
+ *   <li>{@code faceid} (retours d'essai du 27/11, lot B) : Face ID activé dans les Réglages par de vrais clics et le
+ *   code au clavier, réouverture déverrouillée par le visage (animation capturée), tête couverte (« Visage non
+ *   reconnu » relu dans la page) ; puis « Partager mon numéro » : la liste montre le second joueur d'essai, un vrai clic
+ *   lui envoie le numéro, il accepte par le lien du chat, la fiche est relue dans son carnet et le joueur reçoit
+ *   « accepté » dans son chat.</li>
  * </ul>
  *
  * <p>{@code options.txt} n'est jamais réécrit (taille de fenêtre, échelle et plafond en mémoire seulement). La touche
@@ -340,6 +345,7 @@ public final class TelephoneShots {
                         case "signal" -> composerSignal(mc);
                         case "appel" -> composerAppel(mc);
                         case "clavier" -> composerClavier(mc);
+                        case "faceid" -> composerFaceId(mc);
                         case "urgence" -> composerUrgence(mc);
                         case "prise" -> composerPriseMur(mc);
                         default -> composer(mc);
@@ -1130,6 +1136,155 @@ public final class TelephoneShots {
                 + dev.oneforallsurvival.phone.call.CallService.calls().size()), () -> attendu(2.5), 4, null);
         echap(mc, "appel-echap-fin");
         pas("appel-correspondant-sort", () -> serveur(mc, (srv, sp) -> {
+            if (ecouteAppels != null) {
+                dev.oneforallsurvival.phone.call.CallService.removeListener(ecouteAppels);
+            }
+            JoueurDeTest j = correspondant;
+            if (j != null && j.connecte()) {
+                j.quitter();
+            }
+            correspondant = null;
+        }), () -> correspondant == null, 5, null);
+        bilanDuPont();
+    }
+
+    // --- Face ID et « Partager mon numéro » (retours d'essai du 27/11, lot B) ------------------------------------------
+
+    /** L'instant où la page de l'ouverture par le visage a été vue prête (0 avant). */
+    private static long faceVueNs;
+    /** Le numéro d'entité du second joueur d'essai, lu au serveur intégré (-1 avant). */
+    private static int idCorr = -1;
+    private static volatile String partage = "";
+
+    private static boolean dernierResultat(Result r) {
+        return PhoneClient.last().map(p -> p.last() == r).orElse(false);
+    }
+
+    /**
+     * Mode {@code faceid} : page (MCEF), monde solo. Le téléphone configuré (code {@value #CODE}, carte de Mairie) et le
+     * second joueur d'essai (Maelle, carte de Lagon) de {@link #preparerAppels}.
+     */
+    private static void composerFaceId(Minecraft mc) {
+        if (SERVEUR != null || !web) {
+            echec("faceid", "le mode faceid se joue en monde solo, dans la page (MCEF)");
+            return;
+        }
+        preparerAppels(mc, "faceid");
+
+        // 1. Face ID activé dans les Réglages : l'interrupteur, puis le code au clavier.
+        ouvrir(mc, "faceid-ouverture-1", Lock.LOCKED, null);
+        pas("faceid-deverrouillage", () -> stable(mc, "key-0"), () -> taper(mc, CODE),
+                () -> etat(Lock.UNLOCKED) && cible(mc, "app-settings") && attendu(0.6), 15, null);
+        clic(mc, "faceid-reglages", "app-settings", () -> stable(mc, "row-faceid") && attendu(0.8), 10,
+                "f00-reglages-face-id-coupe");
+        clic(mc, "faceid-interrupteur", "row-faceid", () -> stable(mc, "key-0") && attendu(0.8), 10,
+                "f01-code-pour-face-id");
+        pas("faceid-code", () -> stable(mc, "key-0"), () -> taper(mc, CODE),
+                () -> dernierResultat(Result.FACE_ID_ON) && PhoneClient.last().map(PhoneStatePacket::faceId)
+                        .orElse(false) && stable(mc, "row-faceid") && attendu(1.2), 10, "f02-face-id-active");
+        pas("faceid-relu-au-serveur", () -> {}, () -> {
+            String v = lu(mc, "faceid-actif", (srv, sp) -> PhoneItem.phoneId(sp.getMainHandItem())
+                    .map(id -> Boolean.toString(dev.oneforallsurvival.phone.PhoneData.get(srv).record(id).faceId()))
+                    .orElse("?"));
+            if ("false".equals(v)) {
+                echec("faceid-relu-au-serveur", "Face ID coupé au serveur");
+                return true;
+            }
+            return "true".equals(v);
+        }, 5, null);
+        echap(mc, "faceid-echap-1");
+
+        // 2. Réouverture, visage découvert : déverrouillé par le serveur, animation sur l'écran verrouillé, puis l'accueil.
+        pas("faceid-ouverture-visage", () -> {
+            faceVueNs = 0;
+            mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
+        }, () -> {
+            if (!(mc.screen instanceof PhoneWebScreen w) || !w.pageReady() || !dernierResultat(Result.FACE_UNLOCKED)) {
+                return false;
+            }
+            if (faceVueNs == 0) {
+                faceVueNs = System.nanoTime();
+            }
+            return secondes(faceVueNs) >= 0.45;
+        }, 20, "f03-face-id-animation");
+        pas("faceid-accueil", () -> {}, () -> etat(Lock.UNLOCKED) && stable(mc, "app-phone") && attendu(1.0), 10,
+                "f04-accueil-par-le-visage");
+        echap(mc, "faceid-echap-2");
+
+        // 3. Tête couverte : le pavé, « Visage non reconnu ».
+        pas("faceid-casque", () -> serveur(mc, (srv, sp) -> sp.setItemSlot(EquipmentSlot.HEAD,
+                new ItemStack(Items.IRON_HELMET))), () -> !mc.player.getItemBySlot(EquipmentSlot.HEAD).isEmpty(), 5,
+                null);
+        ouvrir(mc, "faceid-ouverture-casque", Lock.LOCKED, null);
+        pas("faceid-non-reconnu", () -> releveDemande = false, () -> {
+            if (!dernierResultat(Result.FACE_NOT_RECOGNIZED)) {
+                echec("faceid-non-reconnu", "issue de l'ouverture : " + resume());
+                return true;
+            }
+            JsonObject r = demander(mc, "{msg:" + texteDe("lock-msg") + "}");
+            if (r == null || !attendu(1.0)) {
+                return false;
+            }
+            String msg = r.get("msg").getAsString();
+            journal("tête couverte : « " + msg + " »");
+            if (!"Visage non reconnu".equals(msg)) {
+                echec("faceid-non-reconnu", "message « " + msg + " »");
+            }
+            return true;
+        }, 8, "f05-visage-non-reconnu");
+        pas("faceid-decouvert", () -> serveur(mc, (srv, sp) -> sp.setItemSlot(EquipmentSlot.HEAD, ItemStack.EMPTY)),
+                () -> mc.player.getItemBySlot(EquipmentSlot.HEAD).isEmpty(), 5, null);
+        pas("faceid-code-apres-casque", () -> stable(mc, "key-0"), () -> taper(mc, CODE),
+                () -> etat(Lock.UNLOCKED) && cible(mc, "app-phone") && attendu(0.8), 15, null);
+
+        // 4. « Partager mon numéro » : le second joueur à 4 blocs au nord, en vue (les antennes sont à l'est et à l'ouest).
+        pas("partage-place", () -> serveur(mc, (srv, sp) -> {
+            ServerPlayer c = corr();
+            if (c != null) {
+                BlockPos ici = sp.blockPosition().north(4);
+                c.teleportTo(sp.serverLevel(), ici.getX() + 0.5, ici.getY(), ici.getZ() + 0.5, 180f, 0f);
+                idCorr = c.getId();
+                correspondant.composantsRecus();
+            }
+        }), () -> idCorr >= 0, 5, null);
+        clic(mc, "partage-appli", "app-phone", () -> stable(mc, "tel-tab-contacts") && attendu(1.0), 10, null);
+        clic(mc, "partage-contacts", "tel-tab-contacts", () -> stable(mc, "contact-share") && attendu(0.8), 10,
+                "f06-contacts");
+        clic(mc, "partage-ouvrir", "contact-share", () -> stable(mc, "share-" + idCorr) && attendu(1.0), 10,
+                "f07-partager-mon-numero");
+        // Le numéro d'entité n'est connu qu'au pas « partage-place » : la cible se lit au moment du pas.
+        pas("partage-envoyer", () -> stable(mc, "share-" + idCorr), () -> cliquer(mc, "share-" + idCorr), () -> {
+            String recu = lu(mc, "offre-recue", (srv, sp) -> {
+                List<String> liens = new ArrayList<>();
+                for (Component c : correspondant.composantsRecus()) {
+                    liens.addAll(JoueurDeTest.commandes(c));
+                }
+                if (!liens.isEmpty()) {
+                    partage = liens.get(0);
+                }
+                return partage;
+            });
+            return recu.startsWith("/phoneshare accept ") && attendu(0.9);
+        }, 10, "f08-numero-envoye");
+        pas("partage-accepte", () -> serveur(mc, (srv, sp) -> {
+            ServerPlayer c = corr();
+            journal("le second joueur clique : " + partage);
+            srv.getCommands().performPrefixedCommand(c.createCommandSourceStack(), partage.substring(1));
+        }), () -> {
+            String fiche = lu(mc, "fiche", (srv, sp) -> {
+                ServerPlayer c = corr();
+                return c == null ? "?" : PhoneSims.line(srv, c.getMainHandItem())
+                        .flatMap(l -> dev.oneforallsurvival.phone.call.PhoneDirectory.get(srv).nameOf(l.simId(),
+                                numeroJoueur)).orElse("");
+            });
+            return !fiche.isEmpty() && avisDansLeChat(mc, "message.oneforallsurvival.call.share.accepted") > 0
+                    && attendu(0.8);
+        }, 10, "f09-accepte");
+        pas("partage-bilan", () -> journal("fiche de Maelle : « " + LU.getOrDefault("fiche", "") + " » pour le numéro du"
+                + " joueur ; « accepté » dans le chat du joueur : " + avisDansLeChat(mc,
+                "message.oneforallsurvival.call.share.accepted")), () -> true, 1, null);
+        echap(mc, "partage-echap");
+        pas("faceid-correspondant-sort", () -> serveur(mc, (srv, sp) -> {
             if (ecouteAppels != null) {
                 dev.oneforallsurvival.phone.call.CallService.removeListener(ecouteAppels);
             }
@@ -3384,9 +3539,9 @@ public final class TelephoneShots {
             "changeCode", "wallpaper", "airplane", "insertSim", "removeSim", "requestSim", "antennaApp", "opTariff",
             "opIssue", "opRefuse", "opAnonymous", "opSuspend", "opReactivate", "opReplace", "opDeactivate", "opMain",
             "opPage", "opClose", "callDial", "callAnswer", "callDecline", "callHangup", "callMute", "callSpeaker",
-            "contactSave", "contactRemove", "phoneApp", "textFocus");
+            "contactSave", "contactRemove", "phoneApp", "textFocus", "faceId", "shareScan", "shareSend");
     private static final Set<String> CLES = Set.of("a", "rects", "code", "old", "new", "id", "on", "wallpaper", "slot",
-            "op", "value", "n", "number", "name");
+            "op", "value", "n", "number", "name", "to");
 
     /**
      * Le pont de l'écran est entouré d'un témoin qui compte chaque message par sorte (jamais son contenu : il peut

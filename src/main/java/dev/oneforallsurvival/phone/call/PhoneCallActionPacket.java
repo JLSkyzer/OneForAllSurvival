@@ -14,7 +14,8 @@ import net.minecraftforge.network.NetworkEvent;
  * @param first {@link Action#DIAL} : le numéro composé ; {@link Action#ANSWER}, {@link Action#DECLINE},
  *     {@link Action#HANGUP} : le numéro de l'appel visé, en chiffres décimaux ; {@link Action#MUTE},
  *     {@link Action#SPEAKER} : {@code "on"} ou {@code "off"} ; {@link Action#SAVE_CONTACT},
- *     {@link Action#REMOVE_CONTACT} : le numéro du contact ; sinon vide
+ *     {@link Action#REMOVE_CONTACT} : le numéro du contact ; {@link Action#SHARE_SEND} : le numéro d'entité du
+ *     destinataire, en chiffres décimaux ; sinon vide
  * @param second {@link Action#SAVE_CONTACT} : le nom du contact ; sinon vide
  */
 public record PhoneCallActionPacket(int session, Action action, String first, String second) {
@@ -22,7 +23,11 @@ public record PhoneCallActionPacket(int session, Action action, String first, St
     /** Borne de chaque texte, à la construction (coupé) et à la lecture (refusé au-delà). */
     public static final int MAX_TEXT = 32;
 
-    public enum Action { DIAL, ANSWER, DECLINE, HANGUP, MUTE, SPEAKER, SAVE_CONTACT, REMOVE_CONTACT, OPEN_PHONE_APP }
+    public enum Action {
+        DIAL, ANSWER, DECLINE, HANGUP, MUTE, SPEAKER, SAVE_CONTACT, REMOVE_CONTACT, OPEN_PHONE_APP,
+        // Retours d'essai du 27/11, « Partager mon numéro » : la liste des personnes à proximité, puis l'envoi à l'une.
+        SHARE_SCAN, SHARE_SEND
+    }
 
     public PhoneCallActionPacket {
         if (action == null) {

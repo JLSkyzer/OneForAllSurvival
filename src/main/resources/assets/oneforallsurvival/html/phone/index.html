@@ -377,7 +377,11 @@
     </div>
     <div class="tel-scroll" id="tel-scroll">
       <div class="tel-pane" id="tel-recents"><div class="group" id="tel-recent-list"></div></div>
-      <div class="tel-pane" id="tel-contacts"><div class="group" id="tel-contact-list"></div></div>
+      <div class="tel-pane" id="tel-contacts">
+        <!-- « Partager mon numéro » (retours d'essai du 27/11) : la liste vient du serveur (phone.share). -->
+        <div class="tel-share" id="contact-share"><span class="share-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="1.9" fill="currentColor"/><path d="M8.3 16.7a5.2 5.2 0 1 1 7.4 0M5.4 19.5a9.3 9.3 0 1 1 13.2 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span><span class="tel-share-text">Partager mon numéro</span><span class="chev"></span></div>
+        <div class="group" id="tel-contact-list"></div>
+      </div>
       <div class="tel-wait" id="tel-wait">Chargement…</div>
     </div>
     <div class="tel-pad" id="tel-keypad">
@@ -434,6 +438,26 @@
         <div class="row tap center red" id="cform-delete">Supprimer le contact</div>
       </div>
     </div>
+  </section>
+
+  <!-- « Partager mon numéro » (retours d'essai du 27/11) : les joueurs à 8 blocs ou moins, en vue, avec un téléphone et
+       une carte SIM, tels que le serveur les liste (phone.share). Un toucher envoie le numéro ; le serveur juge tout. -->
+  <section id="share" class="layer">
+    <div class="sheet-nav">
+      <span class="sheet-cancel" id="share-close">Fermer</span>
+      <span class="sheet-title">Partager mon numéro</span>
+    </div>
+    <div class="sim-scroll" id="share-scroll">
+      <div class="group share-me">
+        <div class="share-radar"><span class="share-wave"></span><span class="share-wave w2"></span><span class="share-ico big"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="1.9" fill="currentColor"/><path d="M8.3 16.7a5.2 5.2 0 1 1 7.4 0M5.4 19.5a9.3 9.3 0 1 1 13.2 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span></div>
+        <div class="share-number" id="share-number"></div>
+        <div class="share-name" id="share-name"></div>
+      </div>
+      <div class="grp-head">À proximité</div>
+      <div class="share-grid" id="share-list"></div>
+      <p class="share-note">Les joueurs à 8 blocs ou moins, en vue, qui ont un téléphone et une carte SIM. Ils reçoivent la fiche dans le chat et choisissent de l'accepter.</p>
+    </div>
+    <div class="share-msg" id="share-msg"></div>
   </section>
 
   <!-- Le clavier, unique, déplacé dans l'écran qui le montre -->

@@ -166,6 +166,12 @@ public final class OneForAllSurvival {
         // Lot T3, tâche 4a : l'état d'appel poussé aux porteurs, la sonnerie et la batterie pendant l'appel.
         dev.oneforallsurvival.phone.call.CallUpdates.install();
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.phone.call.CallUpdates::onServerTick);
+        // Retours d'essai du 27/11 : « Partager mon numéro » (expiration des demandes, départ, arrêt) et la commande des
+        // liens du chat, ouverte à tous mais qui ne sert qu'au destinataire.
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.phone.call.ShareService::onServerTick);
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.phone.call.ShareService::onLoggedOut);
+        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.phone.call.ShareService::onServerStopped);
+        MinecraftForge.EVENT_BUS.register(new dev.oneforallsurvival.phone.call.ShareCommands());
         // Lot T3, tâches 5 et 6 : la voix des appels (routes publiées par le tic au greffon de Simple Voice Chat).
         dev.oneforallsurvival.phone.voice.VoiceService.register(MinecraftForge.EVENT_BUS);
         // Le tableau de la mairie : les comptes publics partent à la connexion puis quand ils changent (1 fois par seconde).

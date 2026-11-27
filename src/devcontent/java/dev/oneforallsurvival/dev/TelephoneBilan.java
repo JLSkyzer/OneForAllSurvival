@@ -106,6 +106,11 @@ final class TelephoneBilan {
                     "clavier-rangee-code", "clavier-numero-au-pave", "clavier-numero-relu", "clavier-entree-du-pave",
                     "clavier-un-seul-appel", "clavier-raccrocher", "clavier-voix", "clavier-correspondant-sort",
                     "bilan-du-pont");
+            case "faceid" -> List.of("faceid-correspondant", "faceid-lignes", "faceid-deverrouillage",
+                    "faceid-reglages", "faceid-interrupteur", "faceid-code", "faceid-relu-au-serveur",
+                    "faceid-ouverture-visage", "faceid-accueil", "faceid-casque", "faceid-non-reconnu",
+                    "faceid-code-apres-casque", "partage-place", "partage-ouvrir", "partage-envoyer", "partage-accepte",
+                    "faceid-correspondant-sort", "bilan-du-pont");
             case "urgence" -> List.of("urgence-correspondant", "urgence-lignes", "urgence-policier",
                     "urgence-ecran-verrouille", "urgence-bouton", "urgence-police-17", "urgence-policier-decroche",
                     "urgence-active-releve", "urgence-raccrocher", "urgence-deverrouillage", "urgence-clavier",

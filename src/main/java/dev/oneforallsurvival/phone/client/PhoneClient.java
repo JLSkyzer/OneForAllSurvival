@@ -42,6 +42,9 @@ public final class PhoneClient {
 
         /** Lot T3 : un nouvel état d'appel du porteur (il ne dépend pas de la session). */
         void showCall(PhoneCallStatePacket call);
+
+        /** Retours d'essai du 27/11 : la liste « Partager mon numéro » ; l'écran de repli n'en a pas (pas d'envoi). */
+        default void showShare(dev.oneforallsurvival.phone.call.PhoneSharePacket share) {}
     }
 
     @Nullable private static PhoneStatePacket last;
@@ -85,6 +88,14 @@ public final class PhoneClient {
         Shown shown = shown(Minecraft.getInstance().screen);
         if (shown != null) {
             shown.showCall(call);
+        }
+    }
+
+    /** La liste « Partager mon numéro » : à l'écran du téléphone ouvert seulement (écran fermé, rien). */
+    public static void acceptShare(dev.oneforallsurvival.phone.call.PhoneSharePacket share) {
+        Shown shown = shown(Minecraft.getInstance().screen);
+        if (shown != null) {
+            shown.showShare(share);
         }
     }
 

@@ -81,6 +81,24 @@ public final class PhoneCallJson {
         return Optional.ofNullable(call.book()).map(PhoneCallJson::directory);
     }
 
+    /**
+     * Retours d'essai du 27/11 : {@code phone.share} : {@code {rows: [{id, name}], message}}, la liste « Partager mon
+     * numéro » dans l'ordre du serveur (les plus proches d'abord) et le mot du dernier envoi, déjà traduit ("" sans mot).
+     */
+    public static JsonObject share(dev.oneforallsurvival.phone.call.PhoneSharePacket share, @Nullable String message) {
+        JsonArray rows = new JsonArray();
+        for (dev.oneforallsurvival.phone.call.PhoneSharePacket.Row r : share.rows()) {
+            JsonObject o = new JsonObject();
+            o.addProperty("id", r.id());
+            o.addProperty("name", r.name());
+            rows.add(o);
+        }
+        JsonObject v = new JsonObject();
+        v.add("rows", rows);
+        v.addProperty("message", message == null ? "" : message);
+        return v;
+    }
+
     public static JsonObject directory(Book book) {
         Map<String, String> names = new HashMap<>();
         JsonArray contacts = new JsonArray();

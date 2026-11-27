@@ -17,7 +17,9 @@ import javax.annotation.Nullable;
  * {@link PhoneCallActionPacket}, au numéro de session que Java tient. Contrat : {@code {"a":"callDial","number":"…"}} ;
  * {@code callAnswer}, {@code callDecline}, {@code callHangup} sans champ ; {@code {"a":"callMute"|"callSpeaker",
  * "on":true|false}} (booléen JSON) ; {@code {"a":"contactSave","number":"…","name":"…"}} ;
- * {@code {"a":"contactRemove","number":"…"}} ; {@code {"a":"phoneApp"}}. Un numéro : de 1 à
+ * {@code {"a":"contactRemove","number":"…"}} ; {@code {"a":"phoneApp"}} ; « Partager mon numéro » (retours d'essai du
+ * 27/11) : {@code {"a":"shareScan"}} et {@code {"a":"shareSend","to":N}} ({@code N} : entier JSON de 0 à
+ * {@link Integer#MAX_VALUE}, sans signe, zéro de tête, décimale ni exposant). Un numéro : de 1 à
  * {@value PhoneCallActionPacket#MAX_TEXT} chiffres ASCII, sans espace (la page les retire) ; un nom : une chaîne de 1 à
  * {@value PhoneCallActionPacket#MAX_TEXT} unités UTF-16, nettoyée par le serveur ({@code ContactRules}). Exactement ces
  * champs : un champ de plus, un type faux ou un texte trop long, et rien ne part (jamais coupé ici).
@@ -30,11 +32,13 @@ import javax.annotation.Nullable;
 public final class CallBridgeMessages {
 
     private static final Set<String> GESTURES = Set.of("callDial", "callAnswer", "callDecline", "callHangup",
-            "callMute", "callSpeaker", "contactSave", "contactRemove", "phoneApp");
+            "callMute", "callSpeaker", "contactSave", "contactRemove", "phoneApp", "shareScan", "shareSend");
     private static final Set<String> ONLY_A = Set.of("a");
     private static final Set<String> NUMBER = Set.of("a", "number");
     private static final Set<String> NUMBER_NAME = Set.of("a", "number", "name");
     private static final Set<String> ON = Set.of("a", "on");
+    private static final Set<String> TO = Set.of("a", "to");
+    private static final Pattern ENTITY = Pattern.compile("0|[1-9][0-9]{0,9}");
     private static final Pattern DIGITS = Pattern.compile("[0-9]{1," + PhoneCallActionPacket.MAX_TEXT + "}");
 
     private CallBridgeMessages() {}
@@ -85,6 +89,15 @@ public final class CallBridgeMessages {
             case "phoneApp" -> exactly(message, ONLY_A)
                     ? Optional.of(new PhoneCallActionPacket(session, Action.OPEN_PHONE_APP, "", ""))
                     : Optional.empty();
+            case "shareScan" -> exactly(message, ONLY_A)
+                    ? Optional.of(new PhoneCallActionPacket(session, Action.SHARE_SCAN, "", ""))
+                    : Optional.empty();
+            case "shareSend" -> {
+                String to = entity(message.get("to"));
+                yield exactly(message, TO) && to != null
+                        ? Optional.of(new PhoneCallActionPacket(session, Action.SHARE_SEND, to, ""))
+                        : Optional.empty();
+            }
             default -> Optional.empty();
         };
     }
@@ -104,6 +117,19 @@ public final class CallBridgeMessages {
         return exactly(message, ON) && on != null && on.isJsonPrimitive() && on.getAsJsonPrimitive().isBoolean()
                 ? Optional.of(new PhoneCallActionPacket(session, action, on.getAsBoolean() ? "on" : "off", ""))
                 : Optional.empty();
+    }
+
+    /**
+     * Un numéro d'entité écrit par la page : un nombre JSON écrit comme un entier de 0 à {@link Integer#MAX_VALUE}
+     * ({@code "5"}, {@code 5.0}, {@code 5e0}, {@code -1} ne passent pas), sinon {@code null}.
+     */
+    @Nullable
+    private static String entity(@Nullable JsonElement e) {
+        if (e == null || !e.isJsonPrimitive() || !e.getAsJsonPrimitive().isNumber()) {
+            return null;
+        }
+        String text = e.getAsJsonPrimitive().getAsString();
+        return ENTITY.matcher(text).matches() && Long.parseLong(text) <= Integer.MAX_VALUE ? text : null;
     }
 
     /** Un numéro écrit par la page : de 1 à 32 chiffres ASCII, sinon {@code null}. */

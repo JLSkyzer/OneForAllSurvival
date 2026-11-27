@@ -109,6 +109,8 @@ public final class BenchNetwork {
     /** Lot T3 : un geste d'appel ou de carnet (client vers serveur) et l'état d'appel d'un porteur (serveur vers client). */
     public static final int ID_PHONE_CALL_ACTION = 31;
     public static final int ID_PHONE_CALL_STATE = 32;
+    /** Retours d'essai du 27/11 : la liste « Partager mon numéro » et le mot d'un envoi (serveur vers client). */
+    public static final int ID_PHONE_SHARE = 33;
 
     /** Clé de traduction d'un refus : {@code message.oneforallsurvival.bench.refused.<résultat>}. */
     public static final String REFUSED_KEY = "message.oneforallsurvival.bench.refused.";
@@ -237,7 +239,13 @@ public final class BenchNetwork {
                         NetworkDirection.PLAY_TO_CLIENT)
                 .encoder(dev.oneforallsurvival.phone.call.PhoneCallStatePacket::encode)
                 .decoder(dev.oneforallsurvival.phone.call.PhoneCallStatePacket::decode)
-                .consumerMainThread(dev.oneforallsurvival.phone.call.PhoneCallStatePacket::handle).add();    }
+                .consumerMainThread(dev.oneforallsurvival.phone.call.PhoneCallStatePacket::handle).add();
+        CHANNEL.messageBuilder(dev.oneforallsurvival.phone.call.PhoneSharePacket.class, ID_PHONE_SHARE,
+                        NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(dev.oneforallsurvival.phone.call.PhoneSharePacket::encode)
+                .decoder(dev.oneforallsurvival.phone.call.PhoneSharePacket::decode)
+                .consumerMainThread(dev.oneforallsurvival.phone.call.PhoneSharePacket::handle).add();
+    }
 
     // --- Serveur vers client -----------------------------------------------------------------
 

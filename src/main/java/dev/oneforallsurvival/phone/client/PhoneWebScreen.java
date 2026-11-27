@@ -129,6 +129,17 @@ public final class PhoneWebScreen extends WebScreen implements PhoneClient.Shown
         }
     }
 
+    /**
+     * Retours d'essai du 27/11 : la liste « Partager mon numéro » part à {@code window.phone.share}
+     * ({@link PhoneCallJson#share}).
+     */
+    @Override
+    public void showShare(dev.oneforallsurvival.phone.call.PhoneSharePacket share) {
+        if (isReady()) {
+            run(WebScript.call("phone.share", PhoneCallJson.share(share, share.message().getString())));
+        }
+    }
+
     private void pushCall(PhoneCallStatePacket c) {
         run(WebScript.call("phone.call", PhoneCallJson.call(c, serverNow(), c.message().getString())));
         PhoneCallJson.directoryOf(c).ifPresent(d -> run(WebScript.call("phone.directory", d)));

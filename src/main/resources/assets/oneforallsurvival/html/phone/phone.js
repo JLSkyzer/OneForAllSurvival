@@ -45,6 +45,10 @@
 //   view.last : FACE_UNLOCKED (à l'ouverture : déverrouillé par le visage, la page joue l'animation sur l'écran
 //   verrouillé puis passe à l'accueil), FACE_NOT_RECOGNIZED (à l'ouverture : visage couvert, le pavé avec « Visage non
 //   reconnu »), FACE_ID_ON, FACE_ID_OFF. Boîte de layout : row-faceid.
+//   « Partager mon numéro » (même jour) : page -> Java : {"a":"shareScan"} (la liste) ; {"a":"shareSend","to":N} (N : le
+//   numéro d'entité d'une ligne reçue). Java -> page : phone.share({rows: [{id, name}], message}) : les personnes à
+//   proximité telles que le serveur les liste (les plus proches d'abord) et le mot du dernier envoi (texte traduit ou
+//   ""). Boîtes de layout : contact-share, share-close, share-<id>.
 // Le serveur fait foi : la page ne juge aucun code, elle les transmet. Tout texte venu de la vue passe par textContent.
 // Un téléphone neuf (lock SETUP) montre l'assistant de première configuration : Bonjour, Configuration rapide, Fond
 // d'écran, le code (écran #lock), puis Tout est prêt. Rien n'est configuré avant l'envoi du code : fermer avant laisse
@@ -1854,6 +1858,19 @@
     form: null // { edit: bool, number } : la feuille d'un contact
   };
 
+  // « Partager mon numéro » (retours d'essai du 27/11) : la liste vient du serveur (phone.share), relue toutes les
+  // SHARE_SCAN_MS tant que la feuille est ouverte ; un toucher envoie le numéro, le serveur juge et répond par un mot.
+  var SHARE_SCAN_MS = 4000;
+  var SHARE_ROWS = 16;
+  var SHARE_MSG_MS = 3200;
+  var share = {
+    open: false,
+    rows: null, // null : en attente de la première liste
+    sent: {}, // numéro d'entité -> 'sending' : envoyé, en attente du mot du serveur
+    timer: null,
+    msgTimer: null
+  };
+
   /** Un numéro lisible : « 0612345678 » devient « 06 12 34 56 78 » (paires depuis la gauche, comme SimNumbers). */
   function formatNumber(n) {
     if (!n) {
@@ -2205,6 +2222,141 @@
 
   // ------------------------------------------------------------------------------------------- Application Téléphone
 
+  function cleanShare(raw) {
+    raw = raw && typeof raw === 'object' ? raw : {};
+    var out = { rows: [], message: text(raw.message, 200) };
+    var list = Array.isArray(raw.rows) ? raw.rows : [];
+    for (var i = 0; i < list.length && out.rows.length < SHARE_ROWS; i++) {
+      var r = list[i];
+      if (r && typeof r === 'object' && integer(r.id, 0, 2147483647)) {
+        out.rows.push({ id: r.id, name: text(r.name, MAX_TEXT) });
+      }
+    }
+    return out;
+  }
+
+  function openShare() {
+    if (!tel.open || share.open) {
+      return;
+    }
+    share.open = true;
+    share.rows = null;
+    share.sent = {};
+    $('share-scroll').scrollTop = 0;
+    $('share-msg').classList.remove('show');
+    paintShare();
+    phoneEl.classList.add('share-open');
+    send({ a: 'shareScan' });
+    share.timer = setInterval(function () {
+      if (share.open) {
+        send({ a: 'shareScan' });
+      }
+    }, SHARE_SCAN_MS);
+    scheduleLayout();
+  }
+
+  function closeShare() {
+    if (!share.open) {
+      return;
+    }
+    share.open = false;
+    clearInterval(share.timer);
+    share.timer = null;
+    phoneEl.classList.remove('share-open');
+    scheduleLayout();
+  }
+
+  function paintShare() {
+    var v = state.view;
+    var number = v && v.net ? v.net.number : '';
+    $('share-number').textContent = number || 'Aucune carte SIM active';
+    $('share-name').textContent = v && v.ownerName ? 'Téléphone de ' + v.ownerName : '';
+    var box = $('share-list');
+    clearBox(box);
+    if (share.rows === null) {
+      box.appendChild(el('div', 'share-empty', 'Recherche…'));
+      return;
+    }
+    if (share.rows.length === 0) {
+      box.appendChild(el('div', 'share-empty', 'Personne à proximité'));
+      return;
+    }
+    for (var i = 0; i < share.rows.length; i++) {
+      var r = share.rows[i];
+      var person = el('div', 'share-person');
+      person.id = 'share-' + r.id;
+      person.setAttribute('data-share', String(r.id));
+      var avatar = el('div', 'share-avatar');
+      paintAvatar(avatar, r.name);
+      person.appendChild(avatar);
+      person.appendChild(el('div', 'share-pname', r.name));
+      var st = share.sent[r.id];
+      person.appendChild(el('div', 'share-state', st === 'sending' ? 'Envoi…' : ''));
+      box.appendChild(person);
+    }
+  }
+
+  function shareMessage(message) {
+    if (!message) {
+      return;
+    }
+    $('share-msg').textContent = message;
+    $('share-msg').classList.add('show');
+    clearTimeout(share.msgTimer);
+    share.msgTimer = setTimeout(function () { $('share-msg').classList.remove('show'); }, SHARE_MSG_MS);
+  }
+
+  /** Java appelle window.phone.share(liste) : la liste du serveur, et le mot du dernier envoi. */
+  function onShare(raw) {
+    var d = cleanShare(raw);
+    if (!share.open) {
+      return;
+    }
+    share.rows = d.rows;
+    if (d.message) {
+      // Un mot répond à l'envoi : l'attente s'arrête ; ce qu'il en est (envoyé, en attente, patientez…), le mot le dit.
+      share.sent = {};
+    }
+    paintShare();
+    shareMessage(d.message);
+    scheduleLayout(150);
+  }
+
+  function shareTap(t) {
+    if (t.closest('#share-close') || t.closest('#home-bar')) {
+      closeShare();
+      return;
+    }
+    var person = t.closest('[data-share]');
+    if (!person) {
+      return;
+    }
+    var id = Number(person.getAttribute('data-share'));
+    if (!integer(id, 0, 2147483647)) {
+      return;
+    }
+    share.sent[id] = 'sending';
+    paintShare();
+    send({ a: 'shareSend', to: id });
+    // Geste ignoré par le serveur (trop rapproché) : la page n'attend pas sans fin.
+    setTimeout(function () {
+      if (share.open && share.sent[id] === 'sending') {
+        delete share.sent[id];
+        paintShare();
+      }
+    }, PENDING_MS);
+  }
+
+  function shareRects(add) {
+    add('share-close');
+    var sc = $('share-scroll').getBoundingClientRect();
+    var clip = { left: sc.left, top: sc.top, right: sc.right, bottom: sc.bottom };
+    var people = $('share-list').querySelectorAll('[data-share]');
+    for (var i = 0; i < people.length; i++) {
+      add(people[i].id, clip);
+    }
+  }
+
   function directory(raw) {
     var d = cleanDirectory(raw);
     tel.contacts = d.contacts;
@@ -2239,6 +2391,7 @@
     if (!tel.open) {
       return;
     }
+    closeShare();
     closeForm();
     tel.open = false;
     phoneEl.classList.remove('tel-open');
@@ -2436,6 +2589,14 @@
   }
 
   function telTap(t) {
+    if (share.open) {
+      shareTap(t);
+      return;
+    }
+    if (t.closest('#contact-share')) {
+      openShare();
+      return;
+    }
     if (tel.form) {
       if (t.closest('#cform-cancel')) {
         closeForm();
@@ -2502,7 +2663,7 @@
    * maintenue (repeat) ne valide ni n'appelle une seconde fois.
    */
   function telKey(e) {
-    if (!tel.open || call.shown || phoneEl.classList.contains('alert-open')) {
+    if (!tel.open || share.open || call.shown || phoneEl.classList.contains('alert-open')) {
       return false;
     }
     var c = e.keyCode || e.which || 0;
@@ -2542,6 +2703,12 @@
     return true;
   }
 
+  /** La zone visible de la liste de l'application Téléphone. */
+  function clip0() {
+    var sc = $('tel-scroll').getBoundingClientRect();
+    return { left: sc.left, top: sc.top, right: sc.right, bottom: sc.bottom };
+  }
+
   function telRects(add) {
     if (tel.form) {
       add('cform-cancel');
@@ -2571,6 +2738,9 @@
     }
     if (tel.tab === 'contacts') {
       add('contact-add');
+      if (tel.loaded) {
+        add('contact-share', clip0());
+      }
     }
     if (!tel.loaded) {
       return;
@@ -2647,6 +2817,10 @@
     add('status-bars');
     if (islandCall()) {
       add('island');
+    }
+    if (tel.open && share.open) {
+      shareRects(add);
+      return rects;
     }
     if (tel.open) {
       telRects(add);
@@ -3055,7 +3229,11 @@
       requestsFull: false,
       founder: true,
       founderOp: 'a1b2c3d4e5f6', // l'opérateur fondé : la Mairie
-      faceId: false // Face ID (retours d'essai du 27/11)
+      faceId: false, // Face ID (retours d'essai du 27/11)
+      // « Partager mon numéro » : trois personnes à proximité (dont un nom de 22 caractères), les demandes posées.
+      nearby: [{ id: 101, name: 'Maëlys' }, { id: 102, name: 'Capitaine_Barbe_Grise' }, { id: 103, name: 'Noé' }],
+      shared: {},
+      lastShare: 0
     };
 
     function operatorOf(id) {
@@ -3409,6 +3587,33 @@
       setTimeout(function () { render(view(last)); }, 220);
     }
 
+    /** ShareService : la liste, et l'envoi (une demande par personne, une toutes les 3 s, carte active exigée). */
+    function shareGesture(m) {
+      var message = '';
+      if (m.a === 'shareSend') {
+        var who = null;
+        for (var i = 0; i < mock.nearby.length; i++) {
+          if (mock.nearby[i].id === m.to) { who = mock.nearby[i]; }
+        }
+        var now = Date.now();
+        if (!mock.lodged || mock.lodged.validity !== 'ACTIVE') {
+          message = 'Il faut une carte SIM active pour partager son numéro.';
+        } else if (!who) {
+          message = "Ce joueur n'est plus à portée.";
+        } else if (mock.shared[who.id]) {
+          message = 'Une demande attend déjà la réponse de ' + who.name + '.';
+        } else if (now - mock.lastShare < 3000) {
+          message = 'Patientez quelques secondes avant un nouvel envoi.';
+        } else {
+          mock.shared[who.id] = true;
+          mock.lastShare = now;
+          message = 'Numéro envoyé à ' + who.name + '.';
+        }
+      }
+      var rows = mock.nearby.slice();
+      setTimeout(function () { window.phone.share({ rows: rows, message: message }); }, 180);
+    }
+
     function handle(m) {
       var r;
       switch (m.a) {
@@ -3473,6 +3678,11 @@
           }
           mock.faceId = m.on === true;
           reply(mock.faceId ? 'FACE_ID_ON' : 'FACE_ID_OFF');
+          break;
+        case 'shareScan':
+        case 'shareSend':
+          if (mock.lock !== 'UNLOCKED') { return; }
+          shareGesture(m);
           break;
         case 'insertSim':
         case 'removeSim':
@@ -3732,7 +3942,7 @@
       callerHangsUp: function () { telEnd('Appel terminé', tel.call && tel.call.phase === 'INCOMING' ? 'MISSED' : 'INCOMING'); },
       noContacts: function () { tel.contacts = []; tel.recents = []; },
       // Retours d'essai du 27/11 : faceOpen() (ouverture par le propriétaire, visage découvert, Face ID actif),
-      // faceCovered() (même ouverture, tête couverte).
+      // faceCovered() (même ouverture, tête couverte), nobody() (personne à proximité), crowd() (16 personnes).
       faceOpen: function () {
         mock.session++; mock.code = mock.code || '1234'; mock.faceId = true; mock.lock = 'UNLOCKED';
         render(view('FACE_UNLOCKED'));
@@ -3740,6 +3950,11 @@
       faceCovered: function () {
         mock.session++; mock.code = mock.code || '1234'; mock.faceId = true; mock.lock = 'LOCKED';
         render(view('FACE_NOT_RECOGNIZED'));
+      },
+      nobody: function () { mock.nearby = []; },
+      crowd: function () {
+        mock.nearby = [];
+        for (var i = 0; i < 16; i++) { mock.nearby.push({ id: 200 + i, name: i % 3 ? 'Joueur_' + i : 'Abcdefghijklmnop' }); }
       }
     };
   }
@@ -3747,7 +3962,7 @@
   // ------------------------------------------------------------------------------------------- Démarrage
 
   window.phone = { render: render, antenna: antenna, antennaStatus: antennaStatus, call: onCall, directory: directory,
-    key: gameKey };
+    key: gameKey, share: onShare };
 
   function start() {
     $('pad').classList.add('pad-park');
@@ -3764,6 +3979,7 @@
     setInterval(tickLockout, 250);
     setInterval(tickCall, 250);
     $('tel-scroll').addEventListener('scroll', function () { scheduleLayout(150); }, { passive: true });
+    $('share-scroll').addEventListener('scroll', function () { scheduleLayout(150); }, { passive: true });
     if (mockMode && window.oneforall) {
       startMock();
     }
