@@ -30,6 +30,8 @@ import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.gametest.framework.AfterBatch;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -39,11 +41,14 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.ServerOpListEntry;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
@@ -51,6 +56,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.piston.PistonBaseBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.level.material.PushReaction;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
@@ -62,6 +68,7 @@ import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.util.FakePlayer;
 import net.minecraftforge.common.util.FakePlayerFactory;
 import net.minecraftforge.event.level.BlockEvent;
+import net.minecraftforge.fml.ModList;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
@@ -85,6 +92,19 @@ public final class AntenneDroitsGameTests {
 
     private static final String LOT_DROITS = "antenne_droits";
     private static final String LOT_OUTIL = "outil_maintenance";
+    private static final String LOT_CONNECTEUR = "antenne_connecteur";
+
+    /**
+     * Les connecteurs du pack qui se posent contre un bloc pour l'alimenter, relevés dans les jars (Crafts & Additions
+     * 1.3.3 : petit connecteur, grand connecteur, petit connecteur à lampe) ; l'étiquette
+     * {@code oneforallsurvival:power_connectors} les liste en entrées facultatives.
+     */
+    private static final List<ResourceLocation> CONNECTEURS = List.of(
+            new ResourceLocation("createaddition", "connector"),
+            new ResourceLocation("createaddition", "large_connector"),
+            new ResourceLocation("createaddition", "small_light_connector"));
+    private static final TagKey<Item> ETIQUETTE_CONNECTEURS =
+            TagKey.create(Registries.ITEM, new ResourceLocation(OneForAllSurvival.MODID, "power_connectors"));
 
     private static final String MSG = AntennaBlock.MESSAGE;
     /** La première ligne du rapport de machine du testeur. */
@@ -127,6 +147,11 @@ public final class AntenneDroitsGameTests {
 
     @AfterBatch(batch = LOT_OUTIL)
     public static void apresOutil(ServerLevel level) {
+        fermerLesRestes();
+    }
+
+    @AfterBatch(batch = LOT_CONNECTEUR)
+    public static void apresConnecteur(ServerLevel level) {
         fermerLesRestes();
     }
 
@@ -830,6 +855,71 @@ public final class AntenneDroitsGameTests {
             Optional<PhoneOperators.Result> parLIngenieur = AntennaBlock.found(inge.joueur(), absB, "Sans Poseur");
             helper.assertTrue(parLIngenieur.isPresent() && parLIngenieur.get().founded()
                     && parLIngenieur.get().operator().founder().equals(inge.uuid()), "l'ingénieur outillé fonde : " + parLIngenieur);
+            helper.succeed();
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Lot antenne_connecteur
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * Un connecteur tenu se pose sur l'antenne, debout comme accroupi, par l'ayant droit comme par un passant (accroupi,
+     * le passant le posait déjà : aucun droit ne garde la pose d'un bloc contre l'antenne) ; le panneau reste à la main
+     * vide et à tout autre objet. Sans le pack, l'étiquette est vide (entrées facultatives) et seul le panneau se vérifie.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_CONNECTEUR)
+    public static void unConnecteurSePoseDeboutCommeAccroupi(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper)) {
+            JoueurDeTest fondateur = essai.citoyen("ac_fond");
+            JoueurDeTest passant = essai.citoyen("ac_passant");
+            fonder(helper, fondateur, A, "Connecteurs Essai");
+            BlockPos dessus = A.above();
+
+            mains(fondateur, ItemStack.EMPTY, ItemStack.EMPTY);
+            helper.assertTrue(ouvre(helper, fondateur, A), "main vide : le panneau s'ouvre");
+            mains(fondateur, new ItemStack(Items.COBBLESTONE), ItemStack.EMPTY);
+            helper.assertTrue(ouvre(helper, fondateur, A) && helper.getBlockState(dessus).isAir(),
+                    "un bloc ordinaire en main : le panneau s'ouvre, rien n'est posé");
+
+            if (!ModList.get().isLoaded("createaddition")) {
+                helper.assertTrue(BuiltInRegistries.ITEM.getTag(ETIQUETTE_CONNECTEURS).map(t -> t.size()).orElse(0) == 0,
+                        "sans le pack, l'étiquette des connecteurs est vide");
+                helper.succeed();
+                return;
+            }
+            for (ResourceLocation id : CONNECTEURS) {
+                Item objet = BuiltInRegistries.ITEM.get(id);
+                Block bloc = BuiltInRegistries.BLOCK.get(id);
+                helper.assertTrue(objet != Items.AIR && bloc != Blocks.AIR, id + " existe avec le pack");
+                for (JoueurDeTest qui : List.of(fondateur, passant)) {
+                    for (boolean accroupi : new boolean[] {false, true}) {
+                        String cas = id + ", " + (qui == fondateur ? "le fondateur" : "un passant") + ", "
+                                + (accroupi ? "accroupi" : "debout");
+                        helper.setBlock(dessus, Blocks.AIR);
+                        mains(qui, new ItemStack(objet), ItemStack.EMPTY);
+                        qui.joueur().setShiftKeyDown(accroupi);
+                        qui.panneauxOperateurRecus();
+                        qui.messagesRecus();
+                        clicDroit(helper, qui, A);
+                        qui.joueur().setShiftKeyDown(false);
+                        dev.oneforallsurvival.phone.net.OperatorPanels.close(qui.uuid());
+                        BlockState pose = helper.getBlockState(dessus);
+                        helper.assertTrue(pose.is(bloc), cas + " : le connecteur doit se poser, vu " + pose);
+                        helper.assertTrue(qui.panneauxOperateurRecus().isEmpty(), cas + " : aucun panneau");
+                        List<String> recus = qui.messagesRecus();
+                        helper.assertTrue(!recus.contains(MSG + "of") && !recus.contains(MSG + "no_operator"),
+                                cas + " : aucun message de l'antenne : " + recus);
+                        Direction vers = pose.getProperties().stream()
+                                .filter(p -> p instanceof DirectionProperty && p.getName().equals("facing"))
+                                .map(p -> (Direction) pose.getValue((DirectionProperty) p)).findFirst().orElse(null);
+                        helper.assertTrue(vers == Direction.DOWN, cas + " : tourné vers l'antenne, vu " + vers);
+                    }
+                }
+                helper.assertTrue(new ItemStack(objet).is(ETIQUETTE_CONNECTEURS), id + " est dans l'étiquette");
+            }
+            helper.setBlock(dessus, Blocks.AIR);
+            helper.assertTrue(estAntenne(helper, A), "l'antenne est toujours là");
             helper.succeed();
         }
     }

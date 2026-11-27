@@ -10,13 +10,17 @@ import java.util.Optional;
 import java.util.UUID;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
@@ -234,14 +238,23 @@ public final class AntennaBlock extends ElectricMachineBlock {
     // ---------------------------------------------------------------------------------------------
 
     /**
-     * Le testeur en main principale est laissé au testeur (rapport de machine, comme au lot 2). Sinon un ayant droit
-     * ({@link AntennaRules#mayManage}) ouvre le panneau de l'opérateur ({@link OperatorPanels#openFromBlock}) ; les
-     * autres lisent à quel opérateur elle est.
+     * Les connecteurs des mods du pack qui se posent contre un bloc pour l'alimenter (Crafts &amp; Additions : petit, grand
+     * et à lampe ; entrées facultatives, l'étiquette est vide sans eux).
+     */
+    public static final TagKey<Item> POWER_CONNECTORS =
+            TagKey.create(Registries.ITEM, new ResourceLocation("oneforallsurvival", "power_connectors"));
+
+    /**
+     * Le testeur en main principale est laissé au testeur (rapport de machine, comme au lot 2), et un connecteur
+     * ({@link #POWER_CONNECTORS}) à sa pose, debout comme accroupi : la pose d'un bloc contre l'antenne ne demande
+     * aucun droit, comme accroupi. Sinon un ayant droit ({@link AntennaRules#mayManage}) ouvre le panneau de
+     * l'opérateur ({@link OperatorPanels#openFromBlock}) ; les autres lisent à quel opérateur elle est.
      */
     @Override
     public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand,
             BlockHitResult hit) {
-        if (hand != InteractionHand.MAIN_HAND || player.getMainHandItem().is(RepairRegistry.TESTER.get())) {
+        ItemStack held = player.getMainHandItem();
+        if (hand != InteractionHand.MAIN_HAND || held.is(RepairRegistry.TESTER.get()) || held.is(POWER_CONNECTORS)) {
             return InteractionResult.PASS;
         }
         if (level.isClientSide) {
