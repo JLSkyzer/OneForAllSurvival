@@ -53,13 +53,25 @@ répondu. **Repli sans MCEF, 45 pas, TOUT PASSE** : le même parcours par les wi
 en relecture (bouton retiré gardant le focus du clavier) rejoué : Espace n'agit plus. « Secours 15 », la position
 chez le secours et la voix d'une urgence ne sont pas joués.
 
+## Serveur dédié avec le pack (27/11, `3b0d8fd`, 09:09 à 09:29)
+
+Les étapes d'essai de bout en bout existantes (aucune étape neuve pour les appels), coupe-circuit sans alerte.
+
+| Passage | Résultat |
+|---|---|
+| Complet, monde neuf | 138 PASS puis 1 échec sur la cache enterrée (lot 7, instabilité connue) : arrêté avant le téléphone |
+| Étape du téléphone seule (réseau, antenne, cartes), monde neuf | **TOUT PASSE, 57 PASS** |
+| Relance de cette étape | **TOUT PASSE, 12 PASS** |
+
+Le serveur dédié et le client démarrent donc avec Simple Voice Chat obligatoire et le protocole `12`.
+
 ## Non prouvé et limites
 
 - **La voix n'a jamais été entendue** : aucun essai avec deux clients et de vrais micros ; le vrai puits Simple Voice
   Chat (`SvcSink`) n'est gardé que par la lecture de ses références (`09dffa8`) ; codec Opus jamais exécuté.
 - Aucun essai à deux vrais clients : le correspondant et les secours sont simulés côté serveur.
 - Les mondes sont lus au démarrage du serveur vocal : une dimension créée plus tard n'aurait pas de haut-parleur.
-- Rien avec le pack de mods ni sur serveur dédié pour ce lot ; aucun bout en bout.
+- Aucun appel joué sur serveur dédié avec le pack ; aucun passage complet vert depuis le lot (voir ci-dessus).
 - Repli : à 320 × 240, la ligne d'un secours (nom, position, minuteur) peut être coupée (estimation, relecture) ;
   clavier sans ligne visible tant que le numéro est vide ; « Appel terminé » en rouge.
 - Un second appel d'urgence pendant qu'un premier sonne ne sonne pas chez les secours déjà occupés (question 17).
