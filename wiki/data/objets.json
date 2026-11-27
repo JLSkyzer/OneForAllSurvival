@@ -63,6 +63,10 @@
   "icone": "img/objets/farmersdelight__cooking_pot.png",
   "nom": "Marmite"
  },
+ "minecraft:barrel": {
+  "icone": "img/objets/minecraft__barrel.png",
+  "nom": "Tonneau"
+ },
  "minecraft:blaze_powder": {
   "icone": "img/objets/minecraft__blaze_powder.png",
   "nom": "Poudre de Blaze"
@@ -71,9 +75,17 @@
   "icone": "img/objets/minecraft__blue_ice.png",
   "nom": "Glace bleue"
  },
+ "minecraft:book": {
+  "icone": "img/objets/minecraft__book.png",
+  "nom": "Livre"
+ },
  "minecraft:cauldron": {
   "icone": "img/objets/minecraft__cauldron.png",
   "nom": "Chaudron"
+ },
+ "minecraft:chest": {
+  "icone": "img/objets/minecraft__chest.png",
+  "nom": "Coffre"
  },
  "minecraft:compass": {
   "icone": "img/objets/minecraft__compass.png",
@@ -95,9 +107,17 @@
   "icone": "img/objets/minecraft__glass_pane.png",
   "nom": "Vitre"
  },
+ "minecraft:ink_sac": {
+  "icone": "img/objets/minecraft__ink_sac.png",
+  "nom": "Poche d'encre"
+ },
  "minecraft:iron_bars": {
   "icone": "img/objets/minecraft__iron_bars.png",
   "nom": "Barreaux de fer"
+ },
+ "minecraft:iron_block": {
+  "icone": "img/objets/minecraft__iron_block.png",
+  "nom": "Bloc de fer"
  },
  "minecraft:iron_ingot": {
   "icone": "img/objets/minecraft__iron_ingot.png",
@@ -106,6 +126,10 @@
  "minecraft:iron_nugget": {
   "icone": "img/objets/minecraft__iron_nugget.png",
   "nom": "Pépite de fer"
+ },
+ "minecraft:item_frame": {
+  "icone": "img/objets/minecraft__item_frame.png",
+  "nom": "Cadre"
  },
  "minecraft:leather": {
   "icone": "img/objets/minecraft__leather.png",
@@ -122,6 +146,10 @@
  "minecraft:oak_planks": {
   "icone": "img/objets/minecraft__oak_planks.png",
   "nom": "Planches de chêne"
+ },
+ "minecraft:paper": {
+  "icone": "img/objets/minecraft__paper.png",
+  "nom": "Papier"
  },
  "minecraft:redstone": {
   "icone": "img/objets/minecraft__redstone.png",
@@ -187,6 +215,10 @@
   "icone": "img/objets/oneforallsurvival__coil.png",
   "nom": "Bobinage de rechange"
  },
+ "oneforallsurvival:copper_coin": {
+  "icone": "img/objets/oneforallsurvival__copper_coin.png",
+  "nom": "Pièce de cuivre"
+ },
  "oneforallsurvival:desalinator": {
   "icone": "img/objets/oneforallsurvival__desalinator.png",
   "nom": "Dessalinisateur"
@@ -215,6 +247,10 @@
   "icone": "img/objets/oneforallsurvival__electrifier.png",
   "nom": "Électrificateur"
  },
+ "oneforallsurvival:emerald_coin": {
+  "icone": "img/objets/oneforallsurvival__emerald_coin.png",
+  "nom": "Pièce d'émeraude"
+ },
  "oneforallsurvival:engineer_bench": {
   "icone": "img/objets/oneforallsurvival__engineer_bench.png",
   "nom": "Établi d'ingénieur"
@@ -230,6 +266,10 @@
  "oneforallsurvival:galvanic_bath": {
   "icone": "img/objets/oneforallsurvival__galvanic_bath.png",
   "nom": "Bain galvanique"
+ },
+ "oneforallsurvival:gold_coin": {
+  "icone": "img/objets/oneforallsurvival__gold_coin.png",
+  "nom": "Pièce d'or"
  },
  "oneforallsurvival:headlamp": {
   "icone": "img/objets/oneforallsurvival__headlamp.png",
@@ -247,6 +287,14 @@
   "icone": "img/objets/oneforallsurvival__instrument_core.png",
   "nom": "Noyau d'instrument"
  },
+ "oneforallsurvival:invoice": {
+  "icone": "img/objets/oneforallsurvival__invoice.png",
+  "nom": "Facture"
+ },
+ "oneforallsurvival:invoice_book": {
+  "icone": "img/objets/oneforallsurvival__invoice_book.png",
+  "nom": "Carnet de factures"
+ },
  "oneforallsurvival:lighthouse": {
   "icone": "img/objets/oneforallsurvival__lighthouse.png",
   "nom": "Phare"
@@ -258,6 +306,10 @@
  "oneforallsurvival:maintenance_tool": {
   "icone": "img/objets/oneforallsurvival__maintenance_tool.png",
   "nom": "Outil de maintenance"
+ },
+ "oneforallsurvival:market_stall": {
+  "icone": "img/objets/oneforallsurvival__market_stall.png",
+  "nom": "Étal de marché"
  },
  "oneforallsurvival:metal_detector": {
   "icone": "img/objets/oneforallsurvival__metal_detector.png",
@@ -274,6 +326,22 @@
  "oneforallsurvival:potable_water_bottle": {
   "icone": "img/objets/oneforallsurvival__potable_water_bottle.png",
   "nom": "Bouteille d'eau potable"
+ },
+ "oneforallsurvival:power_station": {
+  "icone": "img/objets/oneforallsurvival__power_station.png",
+  "nom": "Poste de fournisseur"
+ },
+ "oneforallsurvival:purse": {
+  "icone": "img/objets/oneforallsurvival__purse.png",
+  "nom": "Bourse"
+ },
+ "oneforallsurvival:ruby_coin": {
+  "icone": "img/objets/oneforallsurvival__ruby_coin.png",
+  "nom": "Pièce de rubis"
+ },
+ "oneforallsurvival:safe": {
+  "icone": "img/objets/oneforallsurvival__safe.png",
+  "nom": "Coffre-fort"
  },
  "oneforallsurvival:salt": {
   "icone": "img/objets/oneforallsurvival__salt.png",
@@ -307,6 +375,10 @@
   "icone": "img/objets/oneforallsurvival__signal_receiver.png",
   "nom": "Récepteur de signaux"
  },
+ "oneforallsurvival:silver_coin": {
+  "icone": "img/objets/oneforallsurvival__silver_coin.png",
+  "nom": "Pièce d'argent"
+ },
  "oneforallsurvival:sim_card": {
   "icone": "img/objets/oneforallsurvival__sim_card.png",
   "nom": "Carte SIM"
@@ -318,6 +390,10 @@
  "oneforallsurvival:tester": {
   "icone": "img/objets/oneforallsurvival__tester.png",
   "nom": "Testeur"
+ },
+ "oneforallsurvival:treasury": {
+  "icone": "img/objets/oneforallsurvival__treasury.png",
+  "nom": "Trésor de la ville"
  },
  "oneforallsurvival:treated_bearing": {
   "icone": "img/objets/oneforallsurvival__treated_bearing.png",

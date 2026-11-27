@@ -1,4 +1,294 @@
 {
+ "shots/economie/bourse-ecran.webp": {
+  "change": [
+   87.5,
+   5.79
+  ],
+  "lignes": [
+   27.18,
+   33.06
+  ],
+  "regrouper": [
+   55.0,
+   55.79
+  ],
+  "tout": [
+   2.5,
+   55.79
+  ]
+ },
+ "shots/economie/butin-pieces.webp": {
+  "pieces": [
+   60.77,
+   61.28
+  ]
+ },
+ "shots/economie/changer-table.webp": {
+  "grille": [
+   33.15,
+   27.43
+  ],
+  "resultat": [
+   88.6,
+   27.43
+  ]
+ },
+ "shots/economie/coffre-ecran.webp": {
+  "change": [
+   87.5,
+   5.79
+  ],
+  "lignes": [
+   27.18,
+   33.06
+  ],
+  "total": [
+   49.68,
+   10.74
+  ],
+  "tout": [
+   2.5,
+   55.79
+  ]
+ },
+ "shots/economie/coffre-hero.webp": {
+  "face": [
+   46.83,
+   34.69
+  ]
+ },
+ "shots/economie/echange-fenetre.webp": {
+  "autre": [
+   55.39,
+   26.81
+  ],
+  "confirmer": [
+   68.86,
+   50.0
+  ],
+  "pieces": [
+   99.23,
+   30.46
+  ],
+  "recu": [
+   2.32,
+   50.0
+  ],
+  "toi": [
+   21.54,
+   26.81
+  ]
+ },
+ "shots/economie/etal-hero.webp": {
+  "auvent": [
+   34.62,
+   40.57
+  ],
+  "comptoir": [
+   64.33,
+   52.5
+  ]
+ },
+ "shots/economie/etal-offres.webp": {
+  "cases": [
+   49.73,
+   32.41
+  ],
+  "champs": [
+   49.73,
+   41.01
+  ],
+  "definir": [
+   95.15,
+   48.1
+  ]
+ },
+ "shots/economie/etal-stock.webp": {
+  "onglets": [
+   95.15,
+   15.2
+  ],
+  "stock": [
+   49.73,
+   40.5
+  ]
+ },
+ "shots/economie/etal-vitrine.webp": {
+  "acheter": [
+   95.42,
+   18.93
+  ],
+  "ligne": [
+   4.06,
+   18.93
+  ],
+  "onglets": [
+   95.42,
+   11.27
+  ]
+ },
+ "shots/economie/facture-ecran.webp": {
+  "payer": [
+   3.92,
+   84.47
+  ]
+ },
+ "shots/economie/facture-formulaire.webp": {
+  "emettre": [
+   26.96,
+   74.13
+  ],
+  "montant": [
+   71.73,
+   33.44
+  ],
+  "motif": [
+   71.73,
+   64.47
+  ]
+ },
+ "shots/economie/fournisseur-clients.webp": {
+  "conso": [
+   21.28,
+   89.77
+  ],
+  "couper": [
+   71.29,
+   93.6
+  ]
+ },
+ "shots/economie/fournisseur-coupe.webp": {
+  "retablir": [
+   71.29,
+   93.6
+  ]
+ },
+ "shots/economie/fournisseur-demande.webp": {
+  "accepter": [
+   71.29,
+   93.6
+  ]
+ },
+ "shots/economie/fournisseur-ligne.webp": {
+  "compteur": [
+   40.49,
+   45.05
+  ],
+  "disjoncteur": [
+   53.81,
+   46.84
+  ],
+  "maison": [
+   24.54,
+   48.59
+  ],
+  "poste": [
+   67.73,
+   47.02
+  ]
+ },
+ "shots/economie/fournisseur-nom.webp": {
+  "fonder": [
+   85.49,
+   91.34
+  ],
+  "nom": [
+   36.46,
+   61.74
+  ]
+ },
+ "shots/economie/fournisseur-tarifs.webp": {
+  "abonnement": [
+   71.1,
+   31.77
+  ],
+  "caisse": [
+   75.27,
+   7.05
+  ],
+  "prix": [
+   71.1,
+   18.83
+  ]
+ },
+ "shots/economie/minuit-papier.webp": {
+  "payer": [
+   3.92,
+   87.07
+  ]
+ },
+ "shots/economie/pieces-sol.webp": {
+  "argent": [
+   27.68,
+   88.68
+  ],
+  "cuivre": [
+   6.3,
+   88.68
+  ],
+  "emeraude": [
+   70.43,
+   88.68
+  ],
+  "or": [
+   49.06,
+   88.68
+  ],
+  "rubis": [
+   91.82,
+   88.68
+  ]
+ },
+ "shots/economie/quetes-ecran.webp": {
+  "plafond": [
+   58.44,
+   12.56
+  ],
+  "reclamer": [
+   97.2,
+   24.05
+  ]
+ },
+ "shots/economie/ranger-coffre.webp": {
+  "coffre": [
+   3.56,
+   19.43
+  ],
+  "piece": [
+   16.33,
+   94.29
+  ]
+ },
+ "shots/economie/tresor-ecran.webp": {
+  "change": [
+   87.5,
+   5.79
+  ],
+  "lignes": [
+   27.18,
+   33.06
+  ]
+ },
+ "shots/economie/tresor-hero.webp": {
+  "tableau": [
+   78.98,
+   52.47
+  ],
+  "tresor": [
+   30.99,
+   59.82
+  ]
+ },
+ "shots/economie/tresor-motif.webp": {
+  "confirmer": [
+   26.96,
+   68.01
+  ],
+  "motif": [
+   71.73,
+   55.56
+  ]
+ },
  "shots/electricite/abonne-hero.webp": {
   "compteur": [
    45.08,

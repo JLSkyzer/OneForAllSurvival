@@ -1,9 +1,7 @@
 {
   "chapters": ["electricite", "economie", "telephone", "interface", "maire", "medecin", "policier", "agriculteur", "casino", "loisirs", "substances"],
   "hidden": [],
-  "chapterCovers": {
-    "economie": "shots/accueil/economie.webp"
-  },
+  "chapterCovers": {},
   "actions": [
     {"title": "Avoir du réseau", "href": "#telephone/antenne",
      "imgs": [{"img": "shots/telephone/etat-en-marche.webp", "alt": "Une antenne en marche, voyant vert allumé"}],
@@ -18,7 +16,10 @@
      "path": [{"text": "Urgence"}, {"text": "17 police"}, {"or": true}, {"text": "15 secours"}]},
     {"title": "Réparer une machine", "href": "#electricite/reparer",
      "imgs": [{"img": "shots/electricite/usure-etats.webp", "alt": "Trois séchoirs : en bon état, qui fume, en panne"}],
-     "path": [{"item": "oneforallsurvival:tester"}, {"item": "oneforallsurvival:welder"}, {"item": "oneforallsurvival:fuse"}, {"text": "Réparée", "tone": "ok"}]}
+     "path": [{"item": "oneforallsurvival:tester"}, {"item": "oneforallsurvival:welder"}, {"item": "oneforallsurvival:fuse"}, {"text": "Réparée", "tone": "ok"}]},
+    {"title": "Vendre à l'étal", "href": "#economie/etal",
+     "imgs": [{"img": "shots/economie/etal-hero.webp", "alt": "L'étal de Maelle, pains, pommes et morue cuite sur le comptoir"}],
+     "path": [{"item": "oneforallsurvival:market_stall"}, {"text": "Une offre"}, {"item": "oneforallsurvival:silver_coin"}, {"text": "Vendu", "tone": "ok"}]}
   ],
   "rules": [
     {"icon": "metier", "text": "Ton métier décide de ce que tu fabriques."},

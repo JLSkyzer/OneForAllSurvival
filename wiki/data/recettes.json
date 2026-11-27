@@ -609,6 +609,40 @@
   "secondes": 20
  },
  {
+  "recette": "oneforallsurvival:power_station",
+  "sortie": "oneforallsurvival:power_station",
+  "nombre": 1,
+  "poste": "etabli",
+  "ingredients": [
+   {
+    "item": "create:copper_sheet",
+    "nombre": 3,
+    "etiquette": "forge:plates/copper"
+   },
+   {
+    "item": "minecraft:redstone",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:meter",
+    "nombre": 1
+   },
+   {
+    "item": "create:brass_casing",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:breaker",
+    "nombre": 1
+   },
+   {
+    "item": "oneforallsurvival:coil",
+    "nombre": 2
+   }
+  ],
+  "secondes": 39
+ },
+ {
   "recette": "oneforallsurvival:seal",
   "sortie": "oneforallsurvival:seal",
   "nombre": 4,
@@ -882,6 +916,65 @@
   ]
  },
  {
+  "recette": "oneforallsurvival:invoice_book",
+  "sortie": "oneforallsurvival:invoice_book",
+  "nombre": 1,
+  "poste": "table",
+  "ingredients": [
+   {
+    "item": "minecraft:book",
+    "nombre": 1
+   },
+   {
+    "item": "minecraft:ink_sac",
+    "nombre": 1
+   },
+   {
+    "item": "minecraft:paper",
+    "nombre": 2
+   }
+  ]
+ },
+ {
+  "recette": "oneforallsurvival:market_stall",
+  "sortie": "oneforallsurvival:market_stall",
+  "nombre": 1,
+  "poste": "table",
+  "grille": [
+   [
+    "minecraft:white_wool",
+    "minecraft:white_wool",
+    "minecraft:white_wool"
+   ],
+   [
+    "minecraft:stick",
+    null,
+    "minecraft:stick"
+   ],
+   [
+    "minecraft:oak_planks",
+    "minecraft:oak_planks",
+    "minecraft:oak_planks"
+   ]
+  ],
+  "ingredients": [
+   {
+    "item": "minecraft:white_wool",
+    "nombre": 3,
+    "etiquette": "minecraft:wool"
+   },
+   {
+    "item": "minecraft:stick",
+    "nombre": 2
+   },
+   {
+    "item": "minecraft:oak_planks",
+    "nombre": 3,
+    "etiquette": "minecraft:planks"
+   }
+  ]
+ },
+ {
   "recette": "oneforallsurvival:phone",
   "sortie": "oneforallsurvival:phone",
   "nombre": 1,
@@ -922,6 +1015,76 @@
    },
    {
     "item": "minecraft:iron_ingot",
+    "nombre": 1
+   }
+  ]
+ },
+ {
+  "recette": "oneforallsurvival:purse",
+  "sortie": "oneforallsurvival:purse",
+  "nombre": 1,
+  "poste": "table",
+  "grille": [
+   [
+    null,
+    "minecraft:string",
+    null
+   ],
+   [
+    "minecraft:leather",
+    null,
+    "minecraft:leather"
+   ],
+   [
+    null,
+    "minecraft:leather",
+    null
+   ]
+  ],
+  "ingredients": [
+   {
+    "item": "minecraft:string",
+    "nombre": 1
+   },
+   {
+    "item": "minecraft:leather",
+    "nombre": 3
+   }
+  ]
+ },
+ {
+  "recette": "oneforallsurvival:safe",
+  "sortie": "oneforallsurvival:safe",
+  "nombre": 1,
+  "poste": "table",
+  "grille": [
+   [
+    "minecraft:iron_ingot",
+    "minecraft:iron_ingot",
+    "minecraft:iron_ingot"
+   ],
+   [
+    "minecraft:iron_ingot",
+    "minecraft:lever",
+    "minecraft:iron_ingot"
+   ],
+   [
+    "minecraft:iron_ingot",
+    "minecraft:iron_block",
+    "minecraft:iron_ingot"
+   ]
+  ],
+  "ingredients": [
+   {
+    "item": "minecraft:iron_ingot",
+    "nombre": 7
+   },
+   {
+    "item": "minecraft:lever",
+    "nombre": 1
+   },
+   {
+    "item": "minecraft:iron_block",
     "nombre": 1
    }
   ]
