@@ -494,10 +494,21 @@ afterEvaluate {
         lancement.property 'oneforallsurvival.fenetre.secondEcran', 'true'
         def fml = new File(lancement.workingDirectory, 'config/fml.toml')
         def voix = new File(lancement.workingDirectory, 'config/voicechat/voicechat-client.properties')
-        tasks.matching { it.name == "run${lancement.name.capitalize()}" }.configureEach {
+        def modsDuLancement = new File(lancement.workingDirectory, 'mods')
+        tasks.matching { it.name == "run${lancement.name.capitalize()}" }.configureEach { run ->
+            // Un dossier qui charge notre fenêtre anticipée (« lostisland ») reçoit toujours le jar fraîchement
+            // construit : un jar périmé ouvrait la fenêtre sur l'écran principal, avec le focus (tâche 11a du lot T3).
+            run.dependsOn 'earlyWindowJar'
             doFirst {
                 couperFenetreForge(fml)
                 passerAccueilVoix(voix)
+                def perimes = modsDuLancement.listFiles({ f -> f.name ==~ /${mod_id}-earlywindow-.*\.jar/ } as FileFilter)
+                if (perimes) {
+                    perimes.each { it.delete() }
+                    def frais = tasks.named('earlyWindowJar', Jar).get().archiveFile.get().asFile
+                    java.nio.file.Files.copy(frais.toPath(), new File(modsDuLancement, frais.name).toPath())
+                    logger.lifecycle("Fenêtre anticipée : ${frais.name} recopié dans ${modsDuLancement}")
+                }
             }
         }
     }
