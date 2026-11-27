@@ -18,10 +18,9 @@ import dev.oneforallsurvival.phone.net.SimCard;
 import dev.oneforallsurvival.phone.net.SimNumbers;
 import dev.oneforallsurvival.phone.net.TrafficHandle;
 import dev.oneforallsurvival.phone.net.TrafficKind;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -39,6 +38,8 @@ import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.server.ServerStoppingEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
+import net.minecraftforge.eventbus.api.IEventBus;
 import org.slf4j.Logger;
 
 /**
@@ -90,9 +91,14 @@ public final class CallService {
 
     private static final CallBook BOOK = new CallBook();
     private static final Map<Integer, Line> LINES = new HashMap<>();
-    /** Tics serveur des derniers appels composés, par joueur (une minute au plus). */
-    private static final Map<UUID, Deque<Integer>> DIALS = new HashMap<>();
+    /** Les appels composés de la dernière minute, par joueur ; gardés à la déconnexion (revue de la tâche 3, I1). */
+    private static final DialThrottle DIALS = new DialThrottle(DIAL_WINDOW_TICKS);
     private static final List<CallListener> LISTENERS = new CopyOnWriteArrayList<>();
+    /**
+     * Vrai pendant {@link #stopAll} : un écouteur qui composerait depuis une fin d'appel ferait naître un appel que
+     * l'arrêt effacerait sans fin ni récents (revue de la tâche 3, m1) ; il est refusé.
+     */
+    private static boolean stopping;
 
     private CallService() {}
 
@@ -113,11 +119,11 @@ public final class CallService {
      * n'a aucun porteur connecté, ou si son téléphone est en mode avion ou à plat ; occupé s'il est déjà en appel.
      */
     public static Dial dial(ServerPlayer caller, ItemStack phone, boolean airplane, String rawNumber) {
-        if (caller == null || caller instanceof FakePlayer) {
+        if (caller == null || caller instanceof FakePlayer || !caller.isAlive() || stopping) {
             return new Dial(Outcome.FAILED, null, 0);
         }
         MinecraftServer server = caller.server;
-        if (!allowDial(caller.getUUID(), now(server))) {
+        if (!DIALS.allow(caller.getUUID(), now(server), PhoneConfig.callDialsPerMinute())) {
             return refused(Outcome.TOO_FAST, "too_fast");
         }
         if (BOOK.of(caller.getUUID()).isPresent()) {
@@ -138,7 +144,7 @@ public final class CallService {
         Optional<SimCard> target = PhoneNetwork.lineOf(server, number.get());
         Optional<PhoneCarriers.Carrier> carrier = target.map(SimCard::phoneId)
                 .flatMap(id -> PhoneCarriers.find(server, id))
-                .filter(c -> reachable(server, c.phone()));
+                .filter(c -> c.player().isAlive() && reachable(server, c.phone()));
         if (carrier.isPresent() && carrier.get().player() == caller) {
             return refused(Outcome.SELF, "self");
         }
@@ -176,25 +182,15 @@ public final class CallService {
         return new Dial(outcome, Component.translatable(MESSAGE + key), 0);
     }
 
-    /** Le frein : vrai, et l'appel est compté, s'il en reste à composer dans la minute. */
-    private static boolean allowDial(UUID player, int tick) {
-        Deque<Integer> recent = DIALS.computeIfAbsent(player, id -> new ArrayDeque<>());
-        // Une horloge repartie de zéro (nouveau monde) oublie tout.
-        while (!recent.isEmpty() && (tick - recent.peekFirst() >= DIAL_WINDOW_TICKS || tick < recent.peekFirst())) {
-            recent.pollFirst();
-        }
-        if (recent.size() >= PhoneConfig.callDialsPerMinute()) {
-            return false;
-        }
-        recent.addLast(tick);
-        return true;
-    }
-
-    /** L'appelé décroche. Faux si l'appel ne sonne pas, n'est pas le sien, ou s'il ne porte plus son téléphone. */
+    /**
+     * L'appelé décroche. Faux si l'appel ne sonne pas, n'est pas le sien, s'il n'est plus en vie, ne porte plus son
+     * téléphone ou l'a mis en mode avion (l'appel reste alors manqué : le relevé le finit).
+     */
     public static boolean answer(ServerPlayer callee, int callId) {
         Optional<Call> call = BOOK.get(callId);
-        if (callee == null || call.isEmpty() || call.get().state() != CallBook.State.RINGING
+        if (callee == null || !callee.isAlive() || call.isEmpty() || call.get().state() != CallBook.State.RINGING
                 || !call.get().callee().player().equals(callee.getUUID())
+                || PhoneData.get(callee.server).record(call.get().callee().phoneId()).airplane()
                 || present(callee.server, callee, call.get().callee()).isEmpty()) {
             return false;
         }
@@ -282,8 +278,11 @@ public final class CallService {
                         .isPresent());
     }
 
-    /** Ce qui coupe cet appel à ce relevé, s'il y a quelque chose ; rouvre la poignée si le trajet a changé. */
-    private static Optional<End> verdict(MinecraftServer server, Call call, int tick, int ringTicks) {
+    /**
+     * Ce qui coupe cet appel à ce relevé, s'il y a quelque chose ; rouvre la poignée si le trajet a changé. La sonnerie
+     * expirée n'est pas jugée ici : {@link #checkAll} la lit dans {@link CallBook#expired}, seule règle.
+     */
+    private static Optional<End> verdict(MinecraftServer server, Call call) {
         ServerPlayer caller = server.getPlayerList().getPlayer(call.caller().player());
         ServerPlayer callee = server.getPlayerList().getPlayer(call.callee().player());
         if (caller == null || callee == null) {
@@ -312,21 +311,28 @@ public final class CallService {
             setLine(call.id(), new Line(PhoneNetwork.openTraffic(server, r, TrafficKind.CALL), r.caller().id(),
                     r.callee().id()));
         }
-        if (call.state() == CallBook.State.RINGING && tick - call.startedTick() >= ringTicks) {
-            return Optional.of(End.NO_ANSWER);
-        }
         return Optional.empty();
     }
 
-    /** Relève tous les appels en cours (le tic le fait toutes les {@value #CHECK_PERIOD} tics). */
+    /**
+     * Relève tous les appels en cours (le tic le fait toutes les {@value #CHECK_PERIOD} tics) : d'abord ce qui les
+     * coupe ({@link #verdict}), puis la sonnerie expirée, par la seule règle de {@link CallBook#expired} (un appel
+     * décroché n'expire jamais).
+     */
     static void checkAll(MinecraftServer server) {
         int tick = now(server);
-        int ringTicks = PhoneConfig.callRingSeconds() * 20;
+        Set<Integer> expired = new HashSet<>();
+        for (Call call : BOOK.expired(tick, PhoneConfig.callRingSeconds() * 20)) {
+            expired.add(call.id());
+        }
         for (Call call : BOOK.all()) {
             if (BOOK.get(call.id()).isEmpty()) {
                 continue;
             }
-            Optional<End> end = verdict(server, call, tick, ringTicks);
+            Optional<End> end = verdict(server, call);
+            if (end.isEmpty() && expired.contains(call.id())) {
+                end = Optional.of(End.NO_ANSWER);
+            }
             end.ifPresent(reason -> finish(server, BOOK.get(call.id()).orElse(call), reason));
         }
     }
@@ -381,8 +387,15 @@ public final class CallService {
                 answered ? Recent.Kind.INCOMING : Recent.Kind.MISSED, at, seconds));
     }
 
+    /**
+     * Prévient les écouteurs d'un changement. Un écouteur qui finit ou change l'appel (réentrance) arrête la diffusion :
+     * les suivants ne reçoivent pas un état qui n'est plus celui du carnet (revue de la tâche 3, m1).
+     */
     private static void changed(Call call) {
         for (CallListener listener : LISTENERS) {
+            if (!BOOK.get(call.id()).filter(call::equals).isPresent()) {
+                return;
+            }
             try {
                 listener.changed(call);
             } catch (RuntimeException e) {
@@ -397,30 +410,50 @@ public final class CallService {
 
     /** Arrêt du serveur : tous les appels finissent, puis tout est oublié (aucune poignée, aucun frein). */
     public static void stopAll(MinecraftServer server) {
-        for (Call call : BOOK.all()) {
-            finish(server, call, End.SERVER_STOPPING);
+        stopping = true;
+        try {
+            for (Call call : BOOK.all()) {
+                finish(server, call, End.SERVER_STOPPING);
+            }
+            BOOK.clear();
+            for (Integer id : new ArrayList<>(LINES.keySet())) {
+                setLine(id, null);
+            }
+            DIALS.clear();
+        } finally {
+            // Un serveur intégré relancé dans la même JVM recompose normalement.
+            stopping = false;
         }
-        BOOK.clear();
-        for (Integer id : new ArrayList<>(LINES.keySet())) {
-            setLine(id, null);
-        }
-        DIALS.clear();
     }
 
     // ---------------------------------------------------------------------------------------------
     // Bus de Forge
     // ---------------------------------------------------------------------------------------------
 
+    /**
+     * Inscrit les écouteurs des appels sur {@code bus} : le mod le fait sur le bus de Forge, les essais sur un bus à
+     * part pour prouver l'inscription (l'arrêt surtout) sans réveiller les autres écouteurs du jeu. La mort passe en
+     * priorité la plus haute : l'appel finit avant les lâchers.
+     */
+    public static void register(IEventBus bus) {
+        bus.addListener(CallService::onServerTick);
+        bus.addListener(CallService::onLoggedOut);
+        bus.addListener(EventPriority.HIGHEST, CallService::onDeath);
+        bus.addListener(CallService::onChangedDimension);
+        bus.addListener(CallService::onServerStopping);
+    }
+
     public static void onServerTick(TickEvent.ServerTickEvent event) {
         if (event.phase == TickEvent.Phase.END && event.getServer().getTickCount() % CHECK_PERIOD == 0) {
             checkAll(event.getServer());
+            DIALS.purge(now(event.getServer()));
         }
     }
 
+    /** Le départ finit l'appel ; le frein reste (quitter puis revenir ne le remet pas à zéro). */
     public static void onLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             endFor(player.server, player.getUUID(), End.PARTY_LEFT);
-            DIALS.remove(player.getUUID());
         }
     }
 

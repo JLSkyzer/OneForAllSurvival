@@ -6,6 +6,7 @@ import dev.oneforallsurvival.phone.call.Contact;
 import dev.oneforallsurvival.phone.call.PhoneDirectory;
 import dev.oneforallsurvival.phone.call.Recent;
 import dev.oneforallsurvival.phone.net.PhoneOperator;
+import dev.oneforallsurvival.phone.net.PhoneOperators;
 import dev.oneforallsurvival.phone.net.PhoneSims;
 import dev.oneforallsurvival.phone.net.SimCard;
 import dev.oneforallsurvival.phone.net.SimCardItem;
@@ -188,6 +189,48 @@ public final class CarnetGameTests {
         helper.assertTrue(fin.nameOf(carte, MAMAN).equals(Optional.of("Mamie")),
                 "nom relu : " + fin.nameOf(carte, MAMAN));
         helper.succeed();
+    }
+
+    /**
+     * Le vrai prédicat « carte vivante » du carnet du serveur ({@link PhoneDirectory#get}), lu au registre des
+     * opérateurs (revue de la tâche 3, I4) : une carte suspendue garde son carnet et en obtient un neuf ; une carte
+     * désactivée n'en obtient pas de neuf ({@code DEAD_CARD}) mais garde celui qu'elle avait.
+     */
+    @GameTest(template = "test/plancher", batch = LOT)
+    public static void leCarnetSuitLEtatDeLaCarte(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper, "carnet_etat")) {
+            MinecraftServer serveur = helper.getLevel().getServer();
+            PhoneOperators registre = PhoneOperators.get(serveur);
+            PhoneOperator op = OperateurDEssai.fonder(helper, essai.joueur, "Carnet Etat");
+            UUID suspendueNeuve = emettre(helper, op, essai.joueur);
+            UUID suspendueAncienne = emettre(helper, op, essai.joueur);
+            UUID desactiveeNeuve = emettre(helper, op, essai.joueur);
+            UUID desactiveeAncienne = emettre(helper, op, essai.joueur);
+            PhoneDirectory carnet = PhoneDirectory.get(serveur);
+            for (UUID ancienne : new UUID[] {suspendueAncienne, desactiveeAncienne}) {
+                helper.assertTrue(carnet.saveContact(ancienne, MAMAN, "Maman") == PhoneDirectory.SaveResult.SAVED,
+                        "carnet ouvert tant que la carte est active");
+            }
+            helper.assertTrue(registre.setState(suspendueNeuve, SimCard.State.SUSPENDED)
+                    && registre.setState(suspendueAncienne, SimCard.State.SUSPENDED)
+                    && registre.setState(desactiveeNeuve, SimCard.State.DEACTIVATED)
+                    && registre.setState(desactiveeAncienne, SimCard.State.DEACTIVATED), "états posés");
+            carnet = PhoneDirectory.get(serveur);
+            PhoneDirectory.SaveResult r = carnet.saveContact(suspendueNeuve, MAMAN, "Maman");
+            helper.assertTrue(r == PhoneDirectory.SaveResult.SAVED, "suspendue, carnet neuf : SAVED attendu, vu " + r);
+            r = carnet.saveContact(suspendueAncienne, GARAGE, "Garage");
+            helper.assertTrue(r == PhoneDirectory.SaveResult.SAVED, "suspendue, carnet gardé : SAVED attendu, vu " + r);
+            r = carnet.saveContact(desactiveeNeuve, MAMAN, "Maman");
+            helper.assertTrue(r == PhoneDirectory.SaveResult.DEAD_CARD,
+                    "désactivée, carnet neuf : DEAD_CARD attendu, vu " + r);
+            helper.assertTrue(!carnet.log(desactiveeNeuve, new Recent(MAMAN, Recent.Kind.MISSED, EconomyClock.now(), 0)),
+                    "désactivée : aucun récent ne recrée de carnet");
+            r = carnet.saveContact(desactiveeAncienne, GARAGE, "Garage");
+            helper.assertTrue(r == PhoneDirectory.SaveResult.SAVED,
+                    "désactivée, carnet existant : SAVED attendu, vu " + r);
+            helper.assertTrue(carnet.contacts(desactiveeNeuve).isEmpty(), "aucun carnet pour la désactivée neuve");
+            helper.succeed();
+        }
     }
 
     @GameTest(template = "test/plancher", batch = LOT)

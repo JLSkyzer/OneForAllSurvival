@@ -157,13 +157,9 @@ public final class OneForAllSurvival {
         // Revue finale du lot T2 (m3) : les panneaux de l'opérateur ouverts sont oubliés à l'arrêt du serveur.
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.phone.net.OperatorPanels::onServerStopped);
         // Lot T3, tâche 3 : les appels (relevé toutes les 20 tics, départ, mort avant les lâchers, dimension, arrêt du
-        // serveur, où tout appel finit et sa poignée de trafic se ferme).
-        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.phone.call.CallService::onServerTick);
-        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.phone.call.CallService::onLoggedOut);
-        MinecraftForge.EVENT_BUS.addListener(net.minecraftforge.eventbus.api.EventPriority.HIGHEST,
-                dev.oneforallsurvival.phone.call.CallService::onDeath);
-        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.phone.call.CallService::onChangedDimension);
-        MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.phone.call.CallService::onServerStopping);
+        // serveur, où tout appel finit et sa poignée de trafic se ferme). Un seul point d'inscription, rejoué par les
+        // essais sur un bus à part (revue de la tâche 3, I3).
+        dev.oneforallsurvival.phone.call.CallService.register(MinecraftForge.EVENT_BUS);
         // Le tableau de la mairie : les comptes publics partent à la connexion puis quand ils changent (1 fois par seconde).
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.town.TownFinances::onLoggedIn);
         MinecraftForge.EVENT_BUS.addListener(dev.oneforallsurvival.economy.town.TownFinances::onServerTick);

@@ -47,6 +47,9 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.event.server.ServerStoppingEvent;
+import net.minecraftforge.eventbus.api.BusBuilder;
+import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
@@ -69,6 +72,10 @@ public final class AppelGameTests {
      * essais qui tournent avec lui.
      */
     private static final String LOT_ARRET = "telephone_appels_arret";
+    /** Tour 1 de la tâche 3 : frein gardé, réentrance, mort, mode avion et batterie en cours d'appel. */
+    private static final String LOT_C = "telephone_appels_c";
+    /** Les deux essais qui passent la sonnerie entière (plus de 600 tics), joués ensemble. */
+    private static final String LOT_LONGS = "telephone_appels_longs";
 
     private static final BlockPos A = new BlockPos(1, 0, 1);
     private static final BlockPos B = new BlockPos(6, 0, 6);
@@ -101,6 +108,16 @@ public final class AppelGameTests {
 
     @AfterBatch(batch = LOT_ARRET)
     public static void apresArret(ServerLevel level) {
+        apres();
+    }
+
+    @AfterBatch(batch = LOT_C)
+    public static void apresC(ServerLevel level) {
+        apres();
+    }
+
+    @AfterBatch(batch = LOT_LONGS)
+    public static void apresLongs(ServerLevel level) {
         apres();
     }
 
@@ -457,7 +474,12 @@ public final class AppelGameTests {
 
     @GameTest(template = "test/plancher", batch = LOT_A, timeoutTicks = 300)
     public static void lAppelantSeDeconnecte(GameTestHelper helper) {
-        couper(helper, "depart", true, ici -> ici.m().quitter(), End.PARTY_LEFT, p -> {
+        couper(helper, "depart", true, ici -> {
+            int id = exiger(helper, CallService.callOf(ici.m().joueur()), "appel en cours").id();
+            ici.m().quitter();
+            // Dans le même tic que le départ, sans attendre le relevé (revue de la tâche 3, I3).
+            finiPar(helper, id, End.PARTY_LEFT);
+        }, End.PARTY_LEFT, p -> {
             Recent l = dernierRecent(helper, p.essai().serveur(), p.carteL(), "l'appelé");
             helper.assertTrue(l.kind() == Recent.Kind.INCOMING, "récent de l'appelé : " + l.kind());
         });
@@ -465,7 +487,12 @@ public final class AppelGameTests {
 
     @GameTest(template = "test/plancher", batch = LOT_A, timeoutTicks = 300)
     public static void lAppeleMeurt(GameTestHelper helper) {
-        couper(helper, "mort", true, ici -> ici.l().joueur().kill(), End.DIED, p -> { });
+        couper(helper, "mort", true, ici -> {
+            int id = exiger(helper, CallService.callOf(ici.l().joueur()), "appel en cours").id();
+            ici.l().joueur().kill();
+            // Dans le même tic que la mort, sans attendre le relevé (revue de la tâche 3, I3).
+            finiPar(helper, id, End.DIED);
+        }, End.DIED, p -> { });
     }
 
     @GameTest(template = "test/plancher", batch = LOT_A, timeoutTicks = 300)
@@ -666,9 +693,36 @@ public final class AppelGameTests {
                 .thenIdle(2)
                 .thenExecute(() -> {
                     enLigne(helper, essai);
-                    // Ce que fait ServerStoppingEvent ; seul dans son lot, aucun autre essai n'a d'appel ouvert.
-                    CallService.stopAll(essai.serveur());
+                    // Un écouteur qui recompose depuis la fin d'arrêt (réentrance, revue de la tâche 3, m1).
+                    List<CallService.Dial> recompose = new ArrayList<>();
+                    CallListener rappel = new CallListener() {
+                        @Override
+                        public void changed(Call call) {}
+
+                        @Override
+                        public void ended(Call call, End reason) {
+                            if (call.id() == id[0]) {
+                                recompose.add(CallService.dial(p.m().joueur(), p.phoneM(), false,
+                                        p.carteL().number()));
+                            }
+                        }
+                    };
+                    CallService.addListener(rappel);
+                    // L'inscription du mod (CallService.register) sur un bus à part, où seul l'arrêt est publié : on
+                    // prouve que ServerStoppingEvent finit les appels sans réveiller les autres écouteurs du jeu
+                    // (revue de la tâche 3, I3). Seul dans son lot : aucun autre essai n'a d'appel ouvert.
+                    IEventBus bus = BusBuilder.builder().build();
+                    CallService.register(bus);
+                    try {
+                        bus.post(new ServerStoppingEvent(essai.serveur()));
+                    } finally {
+                        CallService.removeListener(rappel);
+                    }
                     finiPar(helper, id[0], End.SERVER_STOPPING);
+                    helper.assertTrue(recompose.size() == 1, "l'écouteur a recomposé une fois : " + recompose.size());
+                    CallService.Dial d = recompose.get(0);
+                    helper.assertTrue(d.outcome() != CallService.Outcome.RINGING || fin(d.callId()).isPresent(),
+                            "un appel composé pendant l'arrêt ne disparaît pas sans fin : " + d.outcome());
                     helper.assertTrue(CallService.callOf(p.m().joueur()).isEmpty()
                             && CallService.callOf(p.l().joueur()).isEmpty(), "aucun appel fantôme");
                 })
@@ -750,7 +804,11 @@ public final class AppelGameTests {
                 .thenSucceed();
     }
 
-    @GameTest(template = "test/plancher", batch = LOT_B, timeoutTicks = 900)
+    /**
+     * Sans réponse, la sonnerie cesse au relevé qui tombe exactement {@code callRingSeconds × 20} tics après son début :
+     * l'appel est composé sur un tic de relevé, la borne est donc comprise ({@code >=}, revue de la tâche 3, I2).
+     */
+    @GameTest(template = "test/plancher", batch = LOT_LONGS, timeoutTicks = 900)
     public static void sansReponseLaSonnerieCesse(GameTestHelper helper) {
         Paire p = paire(helper, "sonnerie");
         Essai essai = p.essai();
@@ -758,7 +816,11 @@ public final class AppelGameTests {
         int[] id = new int[1];
         helper.startSequence()
                 .thenWaitUntil(() -> helper.assertTrue(essai.enService(A) && essai.enService(B), "antennes en service"))
-                .thenExecute(() -> id[0] = sonner(helper, p.m(), p.phoneM(), p.carteL().number()))
+                .thenWaitUntil(() -> {
+                    // Composé sur un tic de relevé : le relevé du 600e tic après lui juge la borne.
+                    helper.assertTrue(srv.getTickCount() % CallService.CHECK_PERIOD == 0, "tic de relevé attendu");
+                    id[0] = sonner(helper, p.m(), p.phoneM(), p.carteL().number());
+                })
                 .thenIdle(300)
                 .thenExecute(() -> {
                     // 55 FE par tic sur A : la réserve tiendrait à peine les 600 tics. On la remplit à mi-chemin.
@@ -773,8 +835,9 @@ public final class AppelGameTests {
                     long duree = f.tick() - f.call().startedTick();
                     int sonnerie = PhoneConfig.callRingSeconds() * 20;
                     helper.assertTrue(sonnerie == 600, "30 s de sonnerie : " + sonnerie);
-                    helper.assertTrue(duree >= sonnerie && duree < sonnerie + CallService.CHECK_PERIOD + 2,
-                            "fin entre 600 et 621 tics après la sonnerie, vu " + duree);
+                    helper.assertTrue(f.call().startedTick() % CallService.CHECK_PERIOD == 0,
+                            "composé sur un tic de relevé : " + f.call().startedTick());
+                    helper.assertTrue(duree == sonnerie, "fin au relevé du 600e tic (borne comprise), vu " + duree);
                     Recent l = dernierRecent(helper, srv, p.carteL(), "l'appelé");
                     helper.assertTrue(l.kind() == Recent.Kind.MISSED && l.seconds() == 0, "manqué : " + l.kind());
                     essai.fermer();
@@ -782,4 +845,190 @@ public final class AppelGameTests {
                 .thenSucceed();
     }
 
+    /** Un appel décroché passe la durée de sonnerie sans être coupé : seule une sonnerie expire (revue, I2). */
+    @GameTest(template = "test/plancher", batch = LOT_LONGS, timeoutTicks = 1000)
+    public static void unAppelDecrocheTientAuDelaDeLaSonnerie(GameTestHelper helper) {
+        Paire p = paire(helper, "tient");
+        Essai essai = p.essai();
+        int[] id = new int[1];
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(essai.enService(A) && essai.enService(B), "antennes en service"))
+                .thenExecute(() -> {
+                    id[0] = sonner(helper, p.m(), p.phoneM(), p.carteL().number());
+                    helper.assertTrue(CallService.answer(p.l().joueur(), id[0]), "décroché");
+                })
+                .thenIdle(300)
+                .thenExecute(() -> {
+                    verser(essai.antenne(A));
+                    verser(essai.antenne(B));
+                })
+                .thenIdle(400)
+                .thenExecute(() -> {
+                    helper.assertTrue(fin(id[0]).isEmpty(), "l'appel décroché tient 700 tics : "
+                            + fin(id[0]).map(Fin::reason));
+                    helper.assertTrue(CallService.callOf(p.m().joueur()).map(Call::state)
+                            .filter(CallBook.State.ACTIVE::equals).isPresent(), "toujours en ligne");
+                    helper.assertTrue(CallService.hangUp(p.m().joueur(), id[0]), "raccroché");
+                    finiPar(helper, id[0], End.HUNG_UP);
+                    essai.fermer();
+                })
+                .thenSucceed();
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Lot telephone_appels_c : tour 1 de la tâche 3
+    // ---------------------------------------------------------------------------------------------
+
+    /** Quitter puis revenir ne remet pas le frein à zéro (revue de la tâche 3, I1). */
+    @GameTest(template = "test/plancher", batch = LOT_C, timeoutTicks = 200)
+    public static void leFreinSurvitALaReconnexion(GameTestHelper helper) {
+        Paire p = paire(helper, "frein");
+        Essai essai = p.essai();
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(essai.enService(A) && essai.enService(B), "antennes en service"))
+                .thenExecute(() -> {
+                    ServerPlayer m = p.m().joueur();
+                    for (int i = 0; i < PhoneConfig.callDialsPerMinute(); i++) {
+                        issue(helper, CallService.dial(m, p.phoneM(), false, "06000001" + (10 + i)),
+                                CallService.Outcome.FAILED, RelayFailure.Reason.CALLEE_UNKNOWN.langKey(), "essai " + i);
+                    }
+                    p.m().quitter();
+                    JoueurDeTest revenu = essai.joueur("ap_frein_m");
+                    helper.assertTrue(revenu.uuid().equals(m.getUUID()), "le même joueur revient");
+                    issue(helper, CallService.dial(revenu.joueur(), ItemStack.EMPTY, false, p.carteL().number()),
+                            CallService.Outcome.TOO_FAST, "message.oneforallsurvival.call.too_fast", "après le retour");
+                    essai.fermer();
+                })
+                .thenSucceed();
+    }
+
+    /**
+     * Un écouteur qui raccroche dès la sonnerie annoncée : les écouteurs suivants ne reçoivent pas cette sonnerie
+     * périmée (revue de la tâche 3, m1).
+     */
+    @GameTest(template = "test/plancher", batch = LOT_C, timeoutTicks = 200)
+    public static void unEcouteurQuiRaccrocheArreteLaDiffusion(GameTestHelper helper) {
+        Paire p = paire(helper, "reentre");
+        Essai essai = p.essai();
+        UUID m = p.m().uuid();
+        List<Call> vusApres = new ArrayList<>();
+        CallListener raccroche = new CallListener() {
+            @Override
+            public void changed(Call call) {
+                if (call.caller().player().equals(m) && call.state() == CallBook.State.RINGING) {
+                    CallService.hangUp(p.m().joueur(), call.id());
+                }
+            }
+
+            @Override
+            public void ended(Call call, End reason) {}
+        };
+        CallListener temoin = new CallListener() {
+            @Override
+            public void changed(Call call) {
+                if (call.caller().player().equals(m)) {
+                    vusApres.add(call);
+                }
+            }
+
+            @Override
+            public void ended(Call call, End reason) {}
+        };
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(essai.enService(A) && essai.enService(B), "antennes en service"))
+                .thenExecute(() -> {
+                    CallService.addListener(raccroche);
+                    CallService.addListener(temoin);
+                    CallService.Dial d;
+                    try {
+                        d = CallService.dial(p.m().joueur(), p.phoneM(), false, p.carteL().number());
+                    } finally {
+                        CallService.removeListener(raccroche);
+                        CallService.removeListener(temoin);
+                    }
+                    helper.assertTrue(d.callId() > 0, "l'appel a sonné : " + d.outcome());
+                    finiPar(helper, d.callId(), End.HUNG_UP);
+                    helper.assertTrue(vusApres.isEmpty(), "une sonnerie déjà raccrochée a été diffusée : " + vusApres);
+                    helper.assertTrue(CallService.callOf(p.m().joueur()).isEmpty(), "plus d'appel");
+                    essai.fermer();
+                })
+                .thenSucceed();
+    }
+
+    /** Un joueur mort (vie à 0) ne sonne pas, ne décroche pas, ne compose pas (revue de la tâche 3, m2). */
+    @GameTest(template = "test/plancher", batch = LOT_C, timeoutTicks = 200)
+    public static void unMortNeSonneNeDecrocheNeComposePas(GameTestHelper helper) {
+        Paire p = paire(helper, "mort2");
+        Essai essai = p.essai();
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(essai.enService(A) && essai.enService(B), "antennes en service"))
+                .thenExecute(() -> {
+                    ServerPlayer m = p.m().joueur();
+                    ServerPlayer l = p.l().joueur();
+                    // Vie à 0 sans mort jouée (le joueur d'essai ne tique pas) : le téléphone reste dans la main.
+                    l.setHealth(0f);
+                    helper.assertTrue(!l.isAlive() && l.getMainHandItem().getItem() instanceof PhoneItem,
+                            "l'appelé est mort, téléphone en main");
+                    issue(helper, CallService.dial(m, p.phoneM(), false, p.carteL().number()),
+                            CallService.Outcome.UNREACHABLE, "message.oneforallsurvival.call.unreachable", "appelé mort");
+                    l.setHealth(20f);
+                    int id = sonner(helper, p.m(), p.phoneM(), p.carteL().number());
+                    l.setHealth(0f);
+                    helper.assertTrue(!CallService.answer(l, id), "un mort ne décroche pas");
+                    l.setHealth(20f);
+                    helper.assertTrue(CallService.hangUp(m, id), "raccroché");
+                    m.setHealth(0f);
+                    CallService.Dial d = CallService.dial(m, p.phoneM(), false, p.carteL().number());
+                    m.setHealth(20f);
+                    helper.assertTrue(d.outcome() == CallService.Outcome.FAILED && d.callId() == 0,
+                            "un mort ne compose pas : " + d.outcome());
+                    helper.assertTrue(CallService.callOf(l).isEmpty(), "rien ne sonne");
+                    essai.fermer();
+                })
+                .thenSucceed();
+    }
+
+    /** L'appelé passe en mode avion pendant la sonnerie : il ne décroche plus, l'appel reste manqué (m3). */
+    @GameTest(template = "test/plancher", batch = LOT_C, timeoutTicks = 200)
+    public static void enModeAvionOnNeDecrochePas(GameTestHelper helper) {
+        Paire p = paire(helper, "avion_d");
+        Essai essai = p.essai();
+        int[] id = new int[1];
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(essai.enService(A) && essai.enService(B), "antennes en service"))
+                .thenExecute(() -> {
+                    id[0] = sonner(helper, p.m(), p.phoneM(), p.carteL().number());
+                    avion(essai.serveur(), p.phoneL(), true);
+                    helper.assertTrue(!CallService.answer(p.l().joueur(), id[0]), "en mode avion, on ne décroche pas");
+                })
+                .thenWaitUntil(() -> helper.assertTrue(fin(id[0]).isPresent(), "l'appel doit finir"))
+                .thenExecute(() -> {
+                    finiPar(helper, id[0], End.NO_SIGNAL);
+                    Recent l = dernierRecent(helper, essai.serveur(), p.carteL(), "l'appelé");
+                    helper.assertTrue(l.kind() == Recent.Kind.MISSED, "manqué : " + l.kind());
+                    essai.fermer();
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_C, timeoutTicks = 300)
+    public static void leModeAvionEnCoursDAppelCoupe(GameTestHelper helper) {
+        couper(helper, "avion", true, ici -> avion(ici.essai().serveur(), ici.phoneL(), true), End.NO_SIGNAL, p -> { });
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_C, timeoutTicks = 300)
+    public static void laBatterieVideEnCoursDAppelCoupe(GameTestHelper helper) {
+        couper(helper, "pile", true, ici -> PhoneItem.store(ici.phoneL(), 0), End.PHONE_GONE, p -> { });
+    }
+
+    /** Met le téléphone en mode avion (ou l'en sort), comme le réglage de l'écran. */
+    private static void avion(MinecraftServer srv, ItemStack phone, boolean on) {
+        // Jamais d'exception autre qu'une assertion dans une séquence : un téléphone sans identifiant ne change rien.
+        PhoneItem.phoneId(phone).ifPresent(phoneId -> {
+            PhoneData data = PhoneData.get(srv);
+            PhoneData.PhoneRecord r = data.record(phoneId);
+            data.put(phoneId, new PhoneData.PhoneRecord(r.owner(), r.ownerName(), r.salt(), r.codeHash(),
+                    r.failures(), r.lockedUntil(), r.lockoutLevel(), r.wallpaper(), on));
+        });
+    }
 }
