@@ -90,7 +90,7 @@ public final class WikiStudio {
 
     /** Les chapitres connus de l'atelier ; chaque tâche de contenu ajoute le sien. */
     private static List<Chapitre> chapitres() {
-        return List.of(new ScenesControle(), new ScenesTelephone(), new WikiExports());
+        return List.of(new ScenesControle(), new ScenesTelephone(), new ScenesElectricite(), new WikiExports());
     }
 
     private enum Phase { TITRE, MONDE, SCENES, FIN }
@@ -179,9 +179,31 @@ public final class WikiStudio {
         reticule = visible;
     }
 
+    /**
+     * Les éléments d'interface gardés quand l'interface est montrée ({@code null} : tous) : une prise qui a besoin des noms
+     * au-dessus des têtes ou d'une seule partie de l'interface (chat, icônes d'effets) cache le reste. Remis à « tous » à
+     * chaque terrain.
+     */
+    private static volatile java.util.Set<net.minecraft.resources.ResourceLocation> elementsGardes;
+
+    static void elements(net.minecraftforge.client.gui.overlay.VanillaGuiOverlay... gardes) {
+        java.util.Set<net.minecraft.resources.ResourceLocation> ids = new java.util.HashSet<>();
+        for (var g : gardes) {
+            ids.add(g.id());
+        }
+        elementsGardes = ids;
+    }
+
     @SubscribeEvent
     public static void onOverlay(net.minecraftforge.client.event.RenderGuiOverlayEvent.Pre event) {
-        if (ACTIF && !reticule && event.getOverlay() == net.minecraftforge.client.gui.overlay.VanillaGuiOverlay.CROSSHAIR.type()) {
+        if (!ACTIF) {
+            return;
+        }
+        if (!reticule && event.getOverlay() == net.minecraftforge.client.gui.overlay.VanillaGuiOverlay.CROSSHAIR.type()) {
+            event.setCanceled(true);
+        }
+        var gardes = elementsGardes;
+        if (gardes != null && !gardes.contains(event.getOverlay().id())) {
             event.setCanceled(true);
         }
     }
@@ -499,6 +521,7 @@ public final class WikiStudio {
         fermerEcran(mc);
         ath(mc, false);
         reticule = true;
+        elementsGardes = null;
         echelle(mc, 2);
         mc.options.setCameraType(CameraType.FIRST_PERSON);
         TENIR.clear();

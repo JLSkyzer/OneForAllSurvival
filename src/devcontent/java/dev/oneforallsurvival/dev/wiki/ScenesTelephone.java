@@ -563,7 +563,7 @@ public final class ScenesTelephone implements Chapitre {
 
     // --- outils --------------------------------------------------------------------------------------------------------
 
-    private static Block bloc(String id) {
+    static Block bloc(String id) {
         Block b = BuiltInRegistries.BLOCK.get(new ResourceLocation(id));
         if (b == Blocks.AIR) {
             throw new IllegalStateException(id + " absent (pack non chargé ?)");
@@ -571,7 +571,7 @@ public final class ScenesTelephone implements Chapitre {
         return b;
     }
 
-    private static ItemStack objet(String id) {
+    static ItemStack objet(String id) {
         Item i = BuiltInRegistries.ITEM.get(new ResourceLocation(id));
         if (i == Items.AIR) {
             throw new IllegalStateException(id + " absent (pack non chargé ?)");
@@ -579,7 +579,7 @@ public final class ScenesTelephone implements Chapitre {
         return new ItemStack(i, 16);
     }
 
-    private static void constat(String texte) {
+    static void constat(String texte) {
         WikiStudio.journal("constat : " + texte);
     }
 
@@ -605,7 +605,7 @@ public final class ScenesTelephone implements Chapitre {
     }
 
     /** 100 FE par tic dans la machine jusqu'à la fin de la scène (source invisible : l'image ne montre que l'état). */
-    private static void alimenter(Lieu lieu, BlockPos rel) {
+    static void alimenter(Lieu lieu, BlockPos rel) {
         BlockPos p = lieu.p(rel.getX(), rel.getY(), rel.getZ());
         lieu.tenir(monde -> {
             if (monde.getBlockEntity(p) instanceof ElectricMachineBlockEntity m) {
@@ -614,7 +614,7 @@ public final class ScenesTelephone implements Chapitre {
         });
     }
 
-    private static InteractionResult utiliser(Lieu lieu, ItemStack pile, BlockPos rel, Direction face,
+    static InteractionResult utiliser(Lieu lieu, ItemStack pile, BlockPos rel, Direction face,
             boolean accroupi) {
         return utiliser(lieu, pile, lieu.p(rel.getX(), rel.getY(), rel.getZ()), face, accroupi, true);
     }
@@ -624,7 +624,7 @@ public final class ScenesTelephone implements Chapitre {
      * chemin du serveur ({@code ServerPlayerGameMode.useItemOn}) qu'emprunte le paquet du client ; {@code accroupi} : le
      * joueur se baisse le temps du clic. La main reprend ce qu'elle tenait.
      */
-    private static InteractionResult utiliser(Lieu lieu, ItemStack pile, BlockPos pos, Direction face,
+    static InteractionResult utiliser(Lieu lieu, ItemStack pile, BlockPos pos, Direction face,
             boolean accroupi, boolean absolu) {
         ServerPlayer j = lieu.joueur();
         ItemStack avant = j.getItemInHand(InteractionHand.MAIN_HAND);
@@ -641,7 +641,7 @@ public final class ScenesTelephone implements Chapitre {
         }
     }
 
-    private static String mode(Lieu lieu, BlockPos pos) {
+    static String mode(Lieu lieu, BlockPos pos) {
         BlockState s = lieu.monde().getBlockState(pos);
         String id = String.valueOf(BuiltInRegistries.BLOCK.getKey(s.getBlock()));
         if (!id.startsWith("createaddition:")) {
@@ -650,22 +650,22 @@ public final class ScenesTelephone implements Chapitre {
         return ReseauxDev.propriete(s, "mode").toLowerCase(Locale.ROOT);
     }
 
-    private static String nomBloc(Lieu lieu, BlockPos pos) {
+    static String nomBloc(Lieu lieu, BlockPos pos) {
         return String.valueOf(BuiltInRegistries.BLOCK.getKey(lieu.monde().getBlockState(pos).getBlock()));
     }
 
-    private static String etatServeur(Lieu lieu, BlockPos rel) {
+    static String etatServeur(Lieu lieu, BlockPos rel) {
         BlockState s = lieu.monde().getBlockState(lieu.p(rel.getX(), rel.getY(), rel.getZ()));
         return s.hasProperty(ElectricMachineBlock.STATE) ? s.getValue(ElectricMachineBlock.STATE).name() : "?";
     }
 
-    private static int energie(Lieu lieu, BlockPos rel) {
+    static int energie(Lieu lieu, BlockPos rel) {
         return lieu.monde().getBlockEntity(lieu.p(rel.getX(), rel.getY(), rel.getZ()))
                 instanceof ElectricMachineBlockEntity m ? m.energy().getEnergyStored() : -1;
     }
 
     /** L'état de la machine en {@code rel} vu par le client, ou {@code null}. */
-    private static MachineState etat(BlockPos rel) {
+    static MachineState etat(BlockPos rel) {
         Minecraft mc = Minecraft.getInstance();
         BlockPos o = WikiStudio.origineEnCours();
         if (o == null || mc.level == null) {
