@@ -102,6 +102,11 @@ final class TelephoneBilan {
                     "appel-vert-releve", "appel-fermer-appli", "appel-ile", "appel-raccrocher", "appel-fin-serveur",
                     "appel-entrant", "appel-entrant-verrouille", "appel-refuser", "appel-repondre", "appel-raccrocher-2",
                     "appel-inconnu", "appel-correspondant-sort", "bilan-du-pont");
+            case "urgence" -> List.of("urgence-correspondant", "urgence-lignes", "urgence-policier",
+                    "urgence-ecran-verrouille", "urgence-bouton", "urgence-police-17", "urgence-policier-decroche",
+                    "urgence-active-releve", "urgence-raccrocher", "urgence-deverrouillage", "urgence-clavier",
+                    "urgence-entrant", "urgence-repondre", "urgence-raccrocher-2", "urgence-correspondant-sort",
+                    "bilan-du-pont");
             case "prise" -> List.of("fil-decor", "fil-prise-posee", "fil-telephone-branche", "fil-connecteur-source",
                     "fil-connecteur-mur", "fil-sans-fil-releve", "fil-bobine-source", "fil-bobine-mur", "fil-en-charge",
                     "fil-en-charge-releve", "fil-cle", "fil-reste-sur-aucun");

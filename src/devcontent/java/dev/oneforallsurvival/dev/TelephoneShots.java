@@ -332,6 +332,7 @@ public final class TelephoneShots {
                         }
                         case "signal" -> composerSignal(mc);
                         case "appel" -> composerAppel(mc);
+                        case "urgence" -> composerUrgence(mc);
                         case "prise" -> composerPriseMur(mc);
                         default -> composer(mc);
                     }
@@ -868,19 +869,12 @@ public final class TelephoneShots {
     }
 
     /**
-     * Mode {@code appel} (lot T3, tâche 11a) : un téléphone configuré avec une carte de Mairie, un correspondant simulé
-     * ({@link JoueurDeTest}) qui a fondé Lagon et porte un téléphone avec sa carte, à 4 blocs ; l'application Téléphone
-     * par de vrais clics sur les boîtes de la page : onglets, contact ajouté (nom accentué tapé dans le champ natif),
-     * appel composé au clavier, décroché du correspondant, Silence et Haut-parleur, île, raccroché, appels entrants
-     * (déverrouillé, verrouillé refusé, verrouillé répondu), numéro inconnu. Chaque étape relue au serveur intégré.
+     * Décor, correspondant simulé (fondateur de Lagon, téléphone en main), téléphone du joueur mis en service et
+     * déverrouillé, antennes, une carte pour chacun ; les pas sont nommés {@code <pre>-...}.
      */
-    private static void composerAppel(Minecraft mc) {
-        if (SERVEUR != null || !web) {
-            echec("appel", "le mode appel se joue en monde solo, dans la page (MCEF)");
-            return;
-        }
+    private static void preparerAppels(Minecraft mc, String pre) {
         decor(mc, 80);
-        pas("appel-correspondant", () -> serveur(mc, (srv, sp) -> {
+        pas(pre + "-correspondant", () -> serveur(mc, (srv, sp) -> {
             JoueurDeTest j = JoueurDeTest.rejoindre(sp.serverLevel(), "Correspondant",
                     Vec3.atBottomCenterOf(sp.blockPosition().west(4)));
             fondateurLagon = j.uuid();
@@ -897,16 +891,16 @@ public final class TelephoneShots {
             };
             dev.oneforallsurvival.phone.call.CallService.addListener(ecouteAppels);
         }), () -> correspondant != null, 5, null);
-        ouvrir(mc, "appel-ouverture-0", Lock.SETUP, null);
-        assistantJusquAuFond(mc, "appel-assistant", "aube", false);
-        assistantVersLeCode(mc, "appel-assistant", false);
-        cliquerCode(mc, "appel-choix", CODE);
-        pas("appel-confirmation-au-clavier", () -> stable(mc, "key-0"), () -> taper(mc, CODE),
+        ouvrir(mc, pre + "-ouverture-0", Lock.SETUP, null);
+        assistantJusquAuFond(mc, pre + "-assistant", "aube", false);
+        assistantVersLeCode(mc, pre + "-assistant", false);
+        cliquerCode(mc, pre + "-choix", CODE);
+        pas(pre + "-confirmation-au-clavier", () -> stable(mc, "key-0"), () -> taper(mc, CODE),
                 () -> etat(Lock.UNLOCKED), 10, null);
-        toutEstPret(mc, "appel-assistant", "aube", null);
-        echap(mc, "appel-echap-0");
+        toutEstPret(mc, pre + "-assistant", "aube", null);
+        echap(mc, pre + "-echap-0");
         antennes(mc);
-        pas("appel-lignes", () -> serveur(mc, (srv, sp) -> {
+        pas(pre + "-lignes", () -> serveur(mc, (srv, sp) -> {
             PhoneOperators registre = PhoneOperators.get(srv);
             Optional<PhoneOperator> mairie = registre.byId(idMairie);
             Optional<PhoneOperator> lagon = registre.byId(idLagon);
@@ -936,6 +930,21 @@ public final class TelephoneShots {
             });
             PhoneSims.line(srv, c.getMainHandItem()).ifPresent(l -> numeroCorr = l.number());
         }), () -> !numeroJoueur.isEmpty() && !numeroCorr.isEmpty(), 5, null);
+    }
+
+    /**
+     * Mode {@code appel} (lot T3, tâche 11a) : un téléphone configuré avec une carte de Mairie, un correspondant simulé
+     * ({@link JoueurDeTest}) qui a fondé Lagon et porte un téléphone avec sa carte, à 4 blocs ; l'application Téléphone
+     * par de vrais clics sur les boîtes de la page : onglets, contact ajouté (nom accentué tapé dans le champ natif),
+     * appel composé au clavier, décroché du correspondant, Silence et Haut-parleur, île, raccroché, appels entrants
+     * (déverrouillé, verrouillé refusé, verrouillé répondu), numéro inconnu. Chaque étape relue au serveur intégré.
+     */
+    private static void composerAppel(Minecraft mc) {
+        if (SERVEUR != null || !web) {
+            echec("appel", "le mode appel se joue en monde solo, dans la page (MCEF)");
+            return;
+        }
+        preparerAppels(mc, "appel");
 
         // 1. Déverrouiller, l'application Téléphone, ses trois onglets.
         ouvrir(mc, "appel-ouverture-1", Lock.LOCKED, null);
@@ -1113,6 +1122,152 @@ public final class TelephoneShots {
                 + dev.oneforallsurvival.phone.call.CallService.calls().size()), () -> attendu(2.5), 4, null);
         echap(mc, "appel-echap-fin");
         pas("appel-correspondant-sort", () -> serveur(mc, (srv, sp) -> {
+            if (ecouteAppels != null) {
+                dev.oneforallsurvival.phone.call.CallService.removeListener(ecouteAppels);
+            }
+            JoueurDeTest j = correspondant;
+            if (j != null && j.connecte()) {
+                j.quitter();
+            }
+            correspondant = null;
+        }), () -> correspondant == null, 5, null);
+        bilanDuPont();
+    }
+
+    // --- Les urgences (lot T3, tâche 11b) -----------------------------------------------------------------------------
+
+    /** L'état de l'appel du joueur au serveur intégré : {@code ACTIVE}, {@code RINGING}… ou {@code aucun}. */
+    private static String etatAuServeur(Minecraft mc, String cle) {
+        return lu(mc, cle, (srv, sp) -> dev.oneforallsurvival.phone.call.CallService.callOf(sp)
+                .map(x -> x.state().name()).orElse("aucun"));
+    }
+
+    /** Les chiffres composés au clavier du repli (champ privé, lu pour l'essai). */
+    private static String chiffresComposes(Minecraft mc) {
+        if (!(mc.screen instanceof PhoneFallbackScreen r)) {
+            return "?";
+        }
+        try {
+            java.lang.reflect.Field f = PhoneFallbackScreen.class.getDeclaredField("dialed");
+            f.setAccessible(true);
+            return f.get(r).toString();
+        } catch (ReflectiveOperationException e) {
+            return "?" + e;
+        }
+    }
+
+    /**
+     * Mode {@code urgence} (lot T3, tâche 11b), page (MCEF) ou repli : le correspondant simulé a le rôle
+     * {@code policier} et un téléphone chargé ; écran verrouillé, « Urgence », « Police 17 » touché, le policier décroche
+     * au serveur, appel actif relu, raccroché. Puis l'accueil (« Téléphone »), le clavier (17 et 15), un appel entrant
+     * du correspondant, répondu (en cours), raccroché. Clics au centre des boîtes de la page ou des boutons du repli.
+     */
+    private static void composerUrgence(Minecraft mc) {
+        if (SERVEUR != null) {
+            echec("urgence", "le mode urgence se joue en monde solo");
+            return;
+        }
+        preparerAppels(mc, "urgence");
+        pas("urgence-policier", () -> serveur(mc, (srv, sp) -> {
+            ServerPlayer c = corr();
+            dev.oneforallsurvival.role.RoleSavedData roles = dev.oneforallsurvival.role.RoleSavedData.get(srv);
+            roles.book().assign(c.getUUID(), "policier");
+            roles.setDirty();
+            PhoneItem.ensurePhoneId(c.getMainHandItem());
+            dev.oneforallsurvival.phone.call.EmergencyService.forgetCooldown();
+            LU.put("role", roles.book().roleOf(c.getUUID()).id());
+        }), () -> "policier".equals(LU.get("role")), 5, null);
+
+        // 1. Écran verrouillé, « Urgence », « Police 17 », le policier décroche, raccroché.
+        ouvrir(mc, "urgence-ouverture", Lock.LOCKED, null);
+        pas("urgence-ecran-verrouille", () -> {}, () -> stable(mc, "lock-sos") && attendu(1.0), 10,
+                "u01-verrouille-bouton-urgence");
+        clic(mc, "urgence-bouton", "lock-sos", () -> stable(mc, "sos-17") && stable(mc, "sos-15")
+                && stable(mc, "sos-cancel") && attendu(0.8), 10, "u02-panneau-urgence");
+        clic(mc, "urgence-police-17", "sos-17", () -> {
+            String s = lu(mc, "implique", (srv, sp) -> String.valueOf(
+                    dev.oneforallsurvival.phone.call.EmergencyService.involved(sp.getUUID())));
+            return phase(dev.oneforallsurvival.phone.call.PhoneCallStatePacket.Phase.OUTGOING)
+                    && appel().map(c -> "17".equals(c.number())).orElse(false) && "true".equals(s)
+                    && stable(mc, "call-hangup") && attendu(0.8);
+        }, 10, "u03-appel-police-17");
+        pas("urgence-policier-decroche", () -> serveur(mc, (srv, sp) -> {
+            ServerPlayer c = corr();
+            int id = appel().map(x -> x.callId()).orElse(-1);
+            boolean pris = dev.oneforallsurvival.phone.call.EmergencyService.answer(c,
+                    PhoneItem.phoneId(c.getMainHandItem()).orElseThrow(), id);
+            journal("le policier décroche l'urgence " + id + " : " + pris);
+        }), () -> phase(dev.oneforallsurvival.phone.call.PhoneCallStatePacket.Phase.ACTIVE)
+                && "ACTIVE".equals(etatAuServeur(mc, "urgence-active")) && stable(mc, "call-hangup") && attendu(3.3),
+                10, "u04-urgence-en-cours");
+        pas("urgence-active-releve", () -> LU.remove("urgence-detail"), () -> {
+            String s = lu(mc, "urgence-detail", (srv, sp) -> dev.oneforallsurvival.phone.call.CallService.callOf(sp)
+                    .map(x -> x.state() + " " + x).orElse("aucun"));
+            if (s.isEmpty()) {
+                return false;
+            }
+            journal("appel d'urgence au serveur : " + s + " ; client " + appel().map(c -> c.phase() + " "
+                    + c.number()).orElse(""));
+            if (!s.startsWith("ACTIVE")) {
+                echec("urgence-active-releve", "appel au serveur : " + s);
+            }
+            return true;
+        }, 5, null);
+        clic(mc, "urgence-raccrocher", "call-hangup", () -> phase(
+                dev.oneforallsurvival.phone.call.PhoneCallStatePacket.Phase.NONE)
+                && "aucun".equals(etatAuServeur(mc, "urgence-fin")) && attendu(0.7), 10, "u05-urgence-raccrochee");
+        pas("urgence-fin-releve", () -> journal("fin de l'urgence : message « " + appel().map(c -> cleDuMessage(
+                c.message())).orElse("") + " », fins au serveur " + FINS_APPEL), () -> attendu(2.5), 4, null);
+
+        // 2. L'accueil, le clavier (17 et 15), un appel entrant répondu puis raccroché.
+        pas("urgence-deverrouillage", () -> stable(mc, "key-0"), () -> taper(mc, CODE),
+                () -> etat(Lock.UNLOCKED) && stable(mc, "app-phone") && attendu(1.0), 15, "u06-accueil-telephone");
+        if (web) {
+            clic(mc, "urgence-appli", "app-phone", () -> stable(mc, "tel-tab-keypad") && attendu(1.0), 10, null);
+            clic(mc, "urgence-clavier", "tel-tab-keypad", () -> stable(mc, "dial-call") && attendu(0.8), 10,
+                    "u07-clavier");
+        } else {
+            clic(mc, "urgence-clavier", "app-phone", () -> stable(mc, "dial-call") && stable(mc, "dial-17")
+                    && stable(mc, "dial-15") && attendu(0.8), 10, "u07-clavier");
+        }
+        if (!web) {
+            // Relecture de la tâche 7 (C1) : la touche « 1 » cliquée garde le focus ; l'appel entrant reconstruit
+            // l'écran et la retire. Espace ne doit plus l'actionner sous l'appel.
+            clic(mc, "urgence-touche-1", "key-1", () -> chiffresComposes(mc).equals("1") && attendu(0.5), 5, null);
+        }
+        pas("urgence-entrant", () -> corrAppelle(mc), () -> phase(
+                dev.oneforallsurvival.phone.call.PhoneCallStatePacket.Phase.INCOMING) && stable(mc, "call-answer")
+                && attendu(0.8), 10, "u08-appel-entrant");
+        if (!web) {
+            pas("urgence-espace-sous-l-appel", () -> {
+                Screen s = mc.screen;
+                LU.put("focus-avant", String.valueOf(s.getFocused() == null ? "aucun"
+                        : s.children().contains(s.getFocused()) ? "présent" : "retiré"));
+                int scan = GLFW.glfwGetKeyScancode(GLFW.GLFW_KEY_SPACE);
+                s.keyPressed(GLFW.GLFW_KEY_SPACE, scan, 0);
+                s.charTyped(' ', 0);
+                s.keyReleased(GLFW.GLFW_KEY_SPACE, scan, 0);
+            }, () -> attendu(0.8), 5, null);
+            pas("urgence-espace-releve", () -> {}, () -> {
+                String champ = chiffresComposes(mc);
+                boolean entrant = phase(dev.oneforallsurvival.phone.call.PhoneCallStatePacket.Phase.INCOMING);
+                journal("Espace sous l'appel entrant : focus avant « " + LU.get("focus-avant") + " », après "
+                        + (mc.screen.getFocused() == null ? "aucun" : "un bouton") + ", chiffres composés « " + champ
+                        + " », appel " + appel().map(c -> c.phase().name()).orElse("?"));
+                if (!champ.equals("1") || !entrant) {
+                    echec("urgence-espace-releve", "Espace a agi sous l'appel : « " + champ + " », entrant " + entrant);
+                }
+                return true;
+            }, 3, null);
+        }
+        clic(mc, "urgence-repondre", "call-answer", () -> "ACTIVE".equals(etatAuServeur(mc, "repondu"))
+                && phase(dev.oneforallsurvival.phone.call.PhoneCallStatePacket.Phase.ACTIVE)
+                && stable(mc, "call-hangup") && attendu(2.3), 10, "u09-appel-en-cours");
+        clic(mc, "urgence-raccrocher-2", "call-hangup", () -> FINS_APPEL.contains(appelCorr + ":HUNG_UP")
+                && phase(dev.oneforallsurvival.phone.call.PhoneCallStatePacket.Phase.NONE) && attendu(1.5), 10,
+                "u10-appel-raccroche");
+        echap(mc, "urgence-echap-fin");
+        pas("urgence-correspondant-sort", () -> serveur(mc, (srv, sp) -> {
             if (ecouteAppels != null) {
                 dev.oneforallsurvival.phone.call.CallService.removeListener(ecouteAppels);
             }
