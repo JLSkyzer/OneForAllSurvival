@@ -11,7 +11,7 @@
    "blocks": [
     {"type": "hero", "img": "shots/telephone/antenne-hero.webp", "alt": "Une antenne posée dans l'herbe près de la plage, voyant vert allumé",
      "points": [{"at": "voyant", "title": "Le voyant", "text": "Vert : l'antenne émet. Éteint : elle ne donne aucun réseau."},
-                {"at": "mat", "title": "Clic droit", "text": "Ouvre le panneau de l'opérateur : réseau, cartes SIM, tarif. N'importe quel objet en main l'ouvre aussi."},
+                {"at": "mat", "title": "Clic droit", "text": "Fondateur, maire, staff ou ingénieur outillé : le panneau de l'opérateur, même un objet en main (sauf le testeur). Les autres lisent « Antenne de Mairie. »."},
                 {"at": "socle", "title": "Le socle", "text": "Posée, elle garde son chunk chargé. Sa source de courant doit être dans ce même chunk."}]},
     {"type": "step", "title": "Fabriquer", "blocks": [
       {"type": "text", "text": "Seul un **ingénieur** la fabrique, à l'établi d'ingénieur."},
@@ -20,7 +20,7 @@
         {"type": "clip", "img": "shots/telephone/etabli-antenne.webp", "alt": "Animation : à l'établi, recherche « ante », choix de l'antenne, « Crafter », la fabrication, puis l'antenne dans « Stock »",
          "title": "L'établi en action", "note": "Tape « ante », choisis l'Antenne, « Crafter ». Quand c'est fini, reprends-la dans « Stock »."}]}]},
     {"type": "step", "title": "Poser et nommer", "blocks": [
-      {"type": "text", "text": "Pose-la en hauteur ou au centre de la zone à couvrir. Celui qui la pose devient le **fondateur** de l'opérateur ; un joueur n'a qu'un opérateur."},
+      {"type": "text", "text": "Pose-la en hauteur ou au centre de la zone à couvrir. Celui qui la pose devient le **fondateur** de l'opérateur ; un joueur n'a qu'un opérateur. Seuls fondateur, maire, staff et ingénieur outillé la cassent."},
       {"type": "row", "blocks": [
         {"type": "shot", "title": "Clic droit : « Antenne à fonder »", "img": "shots/telephone/antenne-a-fonder.webp", "alt": "Écran Antenne à fonder : le nom Mairie tapé dans le champ, le bouton Fonder",
          "marks": [{"at": "champ", "text": "Le nom de l'opérateur : 1 à 24 caractères, unique sur le serveur."},
@@ -32,26 +32,26 @@
       {"type": "text", "text": "Les antennes que tu poses ensuite rejoignent ton opérateur ; tu peux désigner une autre principale au panneau."}]},
     {"type": "step", "title": "Alimenter", "blocks": [
       {"type": "row", "blocks": [
-        {"type": "shot", "title": "Tirer le fil", "img": "shots/telephone/fil.webp", "alt": "Une antenne reliée par un fil de cuivre à une source, un connecteur sur chacune",
-         "marks": [{"at": "connecteur-source", "text": "Un Petit Connecteur sur la source : il se règle seul en extraction."},
-                   {"at": "connecteur-antenne", "text": "Un second sur l'antenne, accroupi (Maj + clic droit) : debout, le clic ouvre le panneau. Il se règle seul en insertion."},
+        {"type": "shot", "title": "Tirer le fil", "img": "shots/telephone/fil.webp", "alt": "Une antenne reliée par un fil de cuivre à un Générateur Créatif violet, un connecteur sur chacun",
+         "marks": [{"at": "connecteur-source", "text": "Un Petit Connecteur (Crafts & Additions, fait à l'établi) sur la source : il se règle seul en « Récéption » (il y prend le courant)."},
+                   {"at": "connecteur-antenne", "text": "Un second sur l'antenne, accroupi (Maj + clic droit) : debout, le clic ouvre le panneau. Il se règle seul en « Envoie »."},
                    {"at": "fil", "text": "Bobine de Cuivre en main : clic droit sur un connecteur, puis sur l'autre (16 blocs au plus)."}]},
         {"type": "clip", "img": "shots/telephone/fil-pose.webp", "alt": "Animation : un connecteur sur la source, un autre sur l'antenne, le fil tiré, le voyant passe au vert", "title": "Le branchement",
          "note": "Le voyant passe au vert dès que le fil est tiré."}]},
       {"type": "row", "blocks": [
         {"type": "power", "standby": 40, "perCard": 6, "perCall": 9, "speeds": [32, 64, 128, 256], "feAt256": 360},
-        {"type": "shot", "title": "Ou un alternateur collé", "img": "shots/telephone/alternateur.webp", "alt": "Une antenne en marche, un alternateur collé contre elle, entraîné par un moteur",
+        {"type": "shot", "title": "Ou un alternateur collé", "img": "shots/telephone/alternateur.webp", "alt": "Une antenne en marche, un alternateur collé contre elle, entraîné par un moteur créatif",
          "marks": [{"at": "antenne", "text": "L'antenne : en marche."},
                    {"at": "alternateur", "text": "Un alternateur collé contre elle lui donne son courant, sans fil."},
-                   {"at": "moteur", "text": "Ce qui le fait tourner : 32 tr/min tiennent la veille, viser 64 pour la marge."}],
-         "note": "Essayé en jeu : à 32 tr/min, 45 FE/t arrivent et l'antenne reste en marche."}]},
+                   {"at": "moteur", "text": "Ce qui le fait tourner (ici un moteur créatif) : vise 64 tr/min, 90 FE/t, assez pour 6 cartes et un appel. Il coûte 64 SU par tr/min."}],
+         "note": "32 tr/min (45 FE/t) ne tiennent qu'une antenne sans aucune carte : chaque carte active ajoute 6 FE/t. Calcule avec le tableau."}]},
       {"type": "chunk", "item": "oneforallsurvival:antenna", "title": "Même chunk, sinon ça s'arrête quand tu pars",
        "text": "Seul le chunk de l'antenne reste chargé : la source doit s'y trouver, ou être chargée autrement. **F3 + G** montre ses limites."}]},
     {"type": "step", "title": "Vérifier d'un coup d'œil", "blocks": [
       {"type": "states", "list": [
         {"img": "shots/telephone/etat-en-marche.webp", "alt": "Antenne au voyant vert", "tone": "ok", "title": "En marche", "text": "Voyant vert. Rien à faire."},
-        {"img": "shots/telephone/etat-sans-courant.webp", "alt": "Antenne au voyant éteint", "tone": "off", "title": "Sans courant", "text": "Voyant éteint, plus de signal. Revoir la source, le fil, les connecteurs, le chunk."},
-        {"img": "shots/telephone/etat-en-panne.webp", "alt": "Antenne en panne, de la fumée au-dessus", "tone": "bad", "title": "En panne", "text": "Elle fume, plus de signal. Appeler un ingénieur : testeur, puis réparation."}]}]},
+        {"img": "shots/telephone/etat-sans-courant.webp", "alt": "Antenne au voyant éteint", "tone": "off", "title": "Sans courant", "text": "Voyant éteint, plus de signal. Revoir la source et sa puissance, le fil, les connecteurs, le chunk."},
+        {"img": "shots/telephone/etat-en-panne.webp", "alt": "Antenne en panne, fumée et étincelles au sommet", "tone": "bad", "title": "En panne", "text": "Fumée et étincelles, plus de signal. Appeler un ingénieur : testeur, puis réparation."}]}]},
     {"type": "range", "item": "oneforallsurvival:antenna", "bars": [67.5, 135, 202.5, 270], "max": 320},
     {"type": "numbers", "title": "Ce que consomme une antenne", "list": [
       {"k": "Veille", "v": "40 FE/t", "item": "oneforallsurvival:antenna"},
@@ -62,13 +62,13 @@
       {"k": "Réception", "v": "4 000 FE/t"}]},
     {"type": "problems", "title": "Si ça bloque", "list": [
       {"msg": "Le clic ouvre le panneau", "text": "Pour poser un connecteur sur l'antenne, accroupis-toi (Maj) avant le clic droit."},
-      {"msg": "Sans courant", "text": "Source hors du chunk de l'antenne, fil absent, ou connecteur mal réglé : côté source en extraction, côté antenne en insertion (se change à la clé)."},
+      {"msg": "Sans courant", "text": "Courant insuffisant (cartes en plus, alternateur trop lent), source hors du chunk, fil absent, ou connecteur mal réglé : « Récéption » côté source, « Envoie » côté antenne (clé)."},
       {"msg": "Le nom est déjà pris", "text": "Un nom d'opérateur est unique sur le serveur : choisis-en un autre."}]}
    ],
    "staff": [
     "Essai rapide en créatif : `/give @s oneforallsurvival:antenna`, puis un Générateur Créatif (`createaddition:creative_energy`) à un bloc d'air de l'antenne, relié par deux connecteurs et un fil, ou collé contre elle. Métier d'ingénieur : `/role set <joueur> ingenieur`.",
-    "Alternateur de Crafts & Additions aux réglages par défaut : 360 FE/t à 256 tr/min, proportionnel à la vitesse ; contrainte 64 SU par tr/min (chiffres lus dans le mod et sa configuration).",
-    "Constaté en jeu le 27/11 (atelier du wiki) : à 32 tr/min, l'alternateur collé tient l'antenne en marche (réserve +100 FE par seconde) ; à 16 tr/min, rien n'est arrivé (0 FE en 40 s, « Sans courant »).",
+    "Alternateur de Crafts & Additions aux réglages par défaut : 360 FE/t à 256 tr/min, proportionnel à la vitesse ; contrainte 64 SU par tr/min (chiffres lus dans le mod et sa configuration, pas mesurés sur le serveur).",
+    "Constaté en jeu le 27/11 (atelier du wiki), opérateur sans carte : à 32 tr/min, l'alternateur collé tient l'antenne en marche (réserve +100 FE par seconde) ; à 16 tr/min, rien n'est arrivé (0 FE en 40 s). Dès une carte active, 32 tr/min ne suffisent plus (46 FE/t).",
     "Constaté en jeu le 27/11 : un connecteur posé sur la source prend seul le mode « pull », un posé accroupi sur l'antenne le mode « push », sans clé. Debout, connecteur en main, le clic droit sur l'antenne ouvre le panneau et ne pose rien.",
     "Chaque antenne en service paie 6 FE/t par carte active de son opérateur, insérée ou non.",
     "Chunk gardé chargé (`antennaKeepsChunkLoaded`) ; coût serveur de nombreuses antennes non mesuré. Réglage coupé, serveur relancé puis réglage rallumé : les antennes loin des joueurs restent hors service jusqu'au passage d'un joueur.",
@@ -89,8 +89,9 @@
       {"type": "text", "text": "À la table, sans métier : le téléphone et la prise murale."},
       {"type": "recipe", "item": "oneforallsurvival:phone"},
       {"type": "recipe", "item": "oneforallsurvival:wall_socket"},
+      {"type": "text", "text": "**Un téléphone neuf est vide.** Pose la prise contre un mur plein et alimente-la (connecteur sur le bloc qui la porte, fil jusqu'à une source). Clic droit téléphone en main : il charge, plein en 90 s."},
       {"type": "shot", "img": "shots/telephone/prise-en-charge.webp", "alt": "Une prise murale sur un mur de planches, téléphone branché, voyant vert, reliée par un fil à une source",
-       "note": "**Un téléphone neuf est vide** : branche-le sur une prise murale (charge complète en 90 s)."}]},
+       "note": "Clic droit main vide pour le reprendre. Tout le détail : « Batterie et prise murale »."}]},
     {"type": "step", "title": "Allumer", "actor": "toi", "blocks": [
       {"type": "text", "text": "Clic droit avec le téléphone : « Commencer », un fond d'écran, un code à 4 chiffres."},
       {"type": "phones", "list": [
@@ -102,25 +103,24 @@
       {"type": "text", "text": "À portée d'une antenne en service : Réglages › Carte SIM › **Demander une carte**, puis l'opérateur."},
       {"type": "phones", "list": [
         {"img": "shots/telephone/tel-sim-vide.webp", "alt": "Feuille Carte SIM : aucune carte, Demander une carte", "points": [{"at": "sim-request"}], "caption": "Demander une carte"},
-        {"img": "shots/telephone/tel-sim-operateurs.webp", "alt": "La liste des opérateurs à portée : Lagon et Mairie", "points": [{"x": 22, "y": 55.1}], "caption": "Choisir l'opérateur"},
+        {"img": "shots/telephone/tel-sim-operateurs.webp", "alt": "La liste des opérateurs à portée : Lagon et Mairie, avec leurs barres", "points": [{"x": 84, "y": 49.9}], "caption": "Choisir l'opérateur (ici Lagon)"},
         {"img": "shots/telephone/tel-sim-envoyee.webp", "alt": "Bandeau : demande envoyée à l'opérateur", "caption": "La demande part"}]}]},
     {"type": "step", "title": "Émettre la carte", "actor": "autre", "actorLabel": "Le fondateur de l'antenne", "blocks": [
-      {"type": "text", "text": "Prévenu (à sa connexion s'il est absent), il émet au panneau de l'antenne ou dans l'appli « Antenne » : **Cartes › Émettre**. Il peut aussi refuser."},
+      {"type": "text", "text": "Prévenu (à sa connexion s'il est absent), il émet au panneau de l'antenne ou dans l'appli « Antenne » : **Cartes › Émettre**. S'il refuse, tu es prévenu."},
       {"type": "shot", "img": "shots/telephone/panneau-cartes.webp", "alt": "Panneau de l'antenne, onglet Cartes : une demande de Maëlle Rivière, bouton Émettre",
        "marks": [{"at": "emettre", "text": "« Émettre » : la carte arrive dans son inventaire (refusé s'il est plein)."}]},
       {"type": "phones", "list": [
         {"img": "shots/telephone/tel-antenne-cartes.webp", "alt": "Appli Antenne, onglet Cartes : une demande en attente", "caption": "Dans l'appli « Antenne »"},
         {"img": "shots/telephone/tel-antenne-emise.webp", "alt": "Bandeau : carte émise, elle est dans votre inventaire", "caption": "Émise"}]}]},
-    {"type": "pass", "item": "oneforallsurvival:sim_card", "text": "Le fondateur remet la carte en main propre. Pour son propre téléphone, il fait la même demande."},
+    {"type": "pass", "item": "oneforallsurvival:sim_card", "text": "Le fondateur remet la carte en main propre. Pour son propre téléphone : même demande, puis il émet au panneau de l'antenne (son appli est grisée sans carte)."},
     {"type": "step", "title": "Glisser la carte", "actor": "toi", "blocks": [
-      {"type": "text", "text": "Réglages › Carte SIM, touche la carte de ton inventaire. Le numéro et les barres apparaissent."},
+      {"type": "text", "text": "Réglages › Carte SIM, touche la carte de ton inventaire : le numéro et les barres apparaissent. « Retirer la carte » la rend (inventaire plein : refusé) ; le numéro suit la carte d'un téléphone à l'autre."},
       {"type": "phones", "list": [
         {"img": "shots/telephone/tel-sim-ok.webp", "alt": "Carte SIM insérée : numéro, titulaire, Mairie active, quatre barres", "caption": "Ta ligne"},
         {"img": "shots/telephone/tel-verrouille-operateur.webp", "alt": "Écran verrouillé : Mairie et les barres en haut à gauche", "caption": "L'opérateur, même verrouillé"}]}]},
     {"type": "phones", "title": "Ce que montre ta ligne", "list": [
       {"img": "shots/telephone/tel-deux-barres.webp", "alt": "Réglages : opérateur Mairie, deux barres en haut à droite", "caption": "Plus loin : moins de barres"},
       {"img": "shots/telephone/tel-avion.webp", "alt": "Réglages : mode avion activé, Mode avion en haut à droite", "caption": "Mode avion : plus de réseau"},
-      {"img": "shots/telephone/tel-sim-suspendue.webp", "alt": "Feuille Carte SIM : Mairie, SIM suspendue en rouge", "caption": "Suspendue par le fondateur"},
       {"img": "shots/telephone/tel-sim-inactive.webp", "alt": "Feuille Carte SIM : SIM inactive", "caption": "Désactivée : pour toujours"}]},
     {"type": "numbers", "title": "À retenir", "list": [
       {"k": "Numéro", "v": "06 xx xx xx xx", "item": "oneforallsurvival:sim_card"},
@@ -129,7 +129,7 @@
       {"k": "Portée du réseau", "v": "270 blocs"}]},
     {"type": "problems", "title": "Si ça bloque", "list": [
       {"msg": "Pas de service", "text": "Antenne sans courant, trop loin, ou mode avion.", "link": "#telephone/antenne"},
-      {"msg": "Demander une carte grisé", "text": "Il faut ton propre téléphone déverrouillé, sans carte active, hors mode avion et à portée d'une antenne en service de l'opérateur."},
+      {"msg": "Aucun opérateur ici", "text": "La liste ne propose rien : aucune antenne en service à portée (trop loin, éteinte) ou ce n'est pas ton téléphone. « Demander une carte » grisé : une carte active est déjà dedans, ou mode avion."},
       {"msg": "SIM suspendue", "text": "Plus de signal jusqu'à ce que le fondateur la réactive."},
       {"msg": "SIM inactive", "text": "Carte désactivée pour toujours (par le fondateur, ou opérateur supprimé) : demande une nouvelle carte."}]}
    ],
@@ -157,16 +157,17 @@
       {"img": "shots/telephone/tel-accueil-antenne.webp", "alt": "Accueil du téléphone : Téléphone, Réglages, Antenne ; Mairie et quatre barres en haut", "label": "Ouvre « Téléphone »", "points": [{"at": "app-phone"}]},
       {"img": "shots/telephone/tel-clavier.webp", "alt": "Clavier avec un numéro composé", "label": "Onglet « Clavier » : compose, puis le bouton vert", "points": [{"at": "dial-call"}]},
       {"img": "shots/telephone/tel-sortant.webp", "alt": "Appel en train de sonner : Zoé Hélène, Appel…", "label": "Ça sonne (30 s au plus)"},
-      {"img": "shots/telephone/tel-entrant.webp", "alt": "Appel entrant chez l'autre : Refuser ou Répondre", "label": "L'autre touche « Répondre », même écran verrouillé", "points": [{"at": "call-answer"}]},
-      {"img": "shots/telephone/tel-silence.webp", "alt": "Appel en cours, Silence et Haut-parleur activés", "label": "Silence · Haut-parleur", "points": [{"at": "call-mute"}, {"at": "call-speaker"}]},
-      {"img": "shots/telephone/tel-ile.webp", "alt": "Accueil pendant l'appel : l'île dynamique montre le minuteur", "label": "Ailleurs, l'île montre le minuteur : touche-la pour revenir", "points": [{"at": "island"}]},
-      {"img": "shots/telephone/tel-raccroche.webp", "alt": "Appel terminé", "label": "Le bouton rouge raccroche"}]},
+      {"img": "shots/telephone/tel-entrant.webp", "alt": "Appel entrant chez l'autre : Refuser ou Répondre", "label": "Chez l'autre, rien ne s'ouvre : « Appel entrant — prenez votre téléphone ». Il le prend en main, clic droit, « Répondre »", "points": [{"at": "call-answer"}]},
+      {"img": "shots/telephone/tel-silence.webp", "alt": "Appel en cours, Silence et Haut-parleur activés", "label": "Silence · Haut-parleur (inactifs si on a répondu écran verrouillé)", "points": [{"at": "call-mute"}, {"at": "call-speaker"}]},
+      {"img": "shots/telephone/tel-ile.webp", "alt": "Accueil pendant l'appel : l'île dynamique montre le minuteur", "label": "La barre du bas quitte l'écran d'appel sans raccrocher ; l'île montre le minuteur : touche-la pour revenir", "points": [{"at": "island"}]},
+      {"img": "shots/telephone/tel-silence.webp", "alt": "Appel en cours : le bouton rouge en bas", "label": "Le bouton rouge raccroche", "points": [{"at": "call-hangup"}]},
+      {"img": "shots/telephone/tel-raccroche.webp", "alt": "Écran Appel terminé", "label": "« Appel terminé » : l'appel est fini"}]},
     {"type": "step", "title": "Tes contacts", "blocks": [
       {"type": "text", "text": "Un contact s'ajoute par le bouton « + » de l'onglet Contacts, ou depuis le clavier par « Ajouter aux contacts ». On appelle aussi depuis les contacts et les appels récents."},
       {"type": "phones", "list": [
         {"img": "shots/telephone/tel-contact-nouveau.webp", "alt": "Nouveau contact : nom Zoé Hélène et son numéro", "caption": "Nouveau contact"},
         {"img": "shots/telephone/tel-contacts.webp", "alt": "Onglet Contacts : Zoé Hélène", "caption": "Contacts"},
-        {"img": "shots/telephone/tel-clavier.webp", "alt": "Clavier : un numéro tapé, Ajouter aux contacts", "points": [{"at": "dial-add"}], "caption": "Depuis le clavier"}]}]},
+        {"img": "shots/telephone/tel-clavier.webp", "alt": "Clavier : un numéro tapé, Ajouter aux contacts", "caption": "« Ajouter aux contacts », sous le numéro"}]}]},
     {"type": "step", "title": "Ce que chacun entend", "blocks": [
       {"type": "flow", "nodes": [
         {"item": "oneforallsurvival:phone", "label": "Ton téléphone"}, {"item": "oneforallsurvival:antenna", "label": "Ton antenne"},
@@ -178,7 +179,8 @@
       {"k": "Haut-parleur, micro", "v": "16 blocs"}, {"k": "Compositions", "v": "10 par minute"},
       {"k": "Batterie en appel", "v": "2 FE/t, sonnerie comprise"}]},
     {"type": "problems", "title": "Si ça coupe", "list": [
-      {"msg": "Injoignable · Antenne de Mairie hors tension", "text": "L'antenne de l'autre n'a plus de courant ou est en panne.", "link": "#telephone/operateur"},
+      {"msg": "Injoignable · Antenne de Mairie hors tension", "text": "L'antenne de l'autre n'a plus de courant ou est en panne.", "link": "#telephone/antenne"},
+      {"msg": "Injoignable", "text": "L'autre ne peut pas recevoir : absent, téléphone à plat, mode avion, ou hors de portée."},
       {"msg": "Numéro inconnu", "text": "Aucune carte ne porte ce numéro."},
       {"msg": "L'appel se coupe", "text": "Départ, mort, changement de dimension, téléphone ou carte retirés, batterie vide, plus de signal."},
       {"msg": "On ne s'entend pas", "text": "La voix passe par Simple Voice Chat : micro réglé chez les deux joueurs (touche V par défaut)."}]}
@@ -205,15 +207,17 @@
         {"img": "shots/telephone/tel-urgence-appel.webp", "alt": "Appel Police 17 : Appel…, ça sonne chez les policiers", "caption": "Ça sonne chez eux"}]},
       {"type": "text", "text": "Il faut de la batterie, le mode avion coupé et une antenne en service à portée, de n'importe quel opérateur."}]},
     {"type": "step", "title": "Chez le policier ou le médecin", "actor": "autre", "actorLabel": "Les policiers (17) ou les médecins (15) connectés", "blocks": [
-      {"type": "text", "text": "Chacun reçoit un message avec ton nom et ta position, et son téléphone sonne. Le premier qui répond prend l'appel."},
-      {"type": "shot", "img": "shots/telephone/urgence-policier.webp", "alt": "Vue d'un policier : dans le chat, « Urgence police : Maelle appelle depuis » et la position ; au-dessus, Urgence entrante, prenez votre téléphone",
+      {"type": "text", "text": "Chacun reçoit dans le chat ton nom et ta position, et « Urgence entrante — prenez votre téléphone ». Il le prend en main, clic droit, « Répondre » : le premier qui répond prend l'appel."},
+      {"type": "shot", "img": "shots/telephone/urgence-policier.webp", "alt": "Vue d'un policier : Maelle près de l'antenne ; dans le chat, Urgence police : Maelle appelle depuis et la position ; au-dessus, Urgence entrante, prenez votre téléphone",
        "note": "Ce que voit un policier quand Maelle compose le 17."}]},
     {"type": "numbers", "title": "À retenir", "list": [
       {"k": "Délai entre deux appels", "v": "60 s"}, {"k": "Sonnerie", "v": "30 s"}]},
     {"type": "problems", "title": "Si ça bloque", "list": [
       {"msg": "Aucun service disponible", "text": "Personne de ce métier n'est connecté."},
       {"msg": "Aucune réponse", "text": "Personne n'a répondu en 30 secondes."},
-      {"msg": "Pas de service", "text": "Aucune antenne en service à portée, batterie vide ou mode avion.", "link": "#telephone/antenne"}]}
+      {"msg": "Pas de réseau", "text": "Aucune antenne en service à portée, de quelque opérateur que ce soit.", "link": "#telephone/antenne"},
+      {"msg": "Mode avion", "text": "Coupe le mode avion dans les Réglages."},
+      {"msg": "Le téléphone ne s'ouvre pas", "text": "Batterie vide : pas d'urgence possible, recharge-le.", "link": "#telephone/batterie"}]}
    ],
    "staff": [
     "Métiers : `/role set <joueur> policier` ou `/role set <joueur> medecin`. L'appelant ne reçoit jamais son propre appel.",
@@ -239,10 +243,10 @@
         {"img": "shots/telephone/tel-accueil.webp", "alt": "L'accueil : horloge, batterie, Téléphone, Réglages"}]}]},
     {"type": "step", "title": "Le code", "blocks": [
       {"type": "text", "text": "À chaque ouverture, l'écran verrouillé demande le code. Cinq faux codes de suite : téléphone bloqué 60 secondes, avec un décompte."},
-      {"type": "states", "list": [
-        {"img": "shots/telephone/tel-verrouille.webp", "alt": "Écran verrouillé : Saisissez le code", "tone": "info", "title": "Verrouillé", "text": "Tape tes 4 chiffres."},
-        {"img": "shots/telephone/tel-essais.webp", "alt": "Écran verrouillé : Essais restants 1", "tone": "off", "title": "Faux code", "text": "Il compte les essais restants."},
-        {"img": "shots/telephone/tel-bloque.webp", "alt": "Téléphone bloqué, réessayez dans 58 s", "tone": "bad", "title": "Bloqué", "text": "60 s, puis le double à chaque nouvelle série ratée (120, 240… jusqu'à 1 heure). Un bon code ramène à 60 s."}]},
+      {"type": "phones", "list": [
+        {"img": "shots/telephone/tel-verrouille.webp", "alt": "Écran verrouillé : Saisissez le code", "caption": "Verrouillé : tape tes 4 chiffres"},
+        {"img": "shots/telephone/tel-essais.webp", "alt": "Écran verrouillé : Essais restants 1", "caption": "Faux code : il compte les essais restants"},
+        {"img": "shots/telephone/tel-bloque.webp", "alt": "Téléphone bloqué, réessayez dans 59 s", "caption": "Bloqué 60 s, puis le double à chaque série ratée (120, 240… jusqu'à 1 h) ; un bon code ramène à 60 s"}]},
       {"type": "text", "text": "Seul le propriétaire change le code ou efface le téléphone, en donnant le code actuel. Effacé, il redemande un code : qui le choisit devient le nouveau propriétaire."}]},
     {"type": "step", "title": "Les Réglages", "blocks": [
       {"type": "row", "blocks": [
@@ -297,7 +301,7 @@
     {"type": "step", "title": "Ce qui vide la batterie", "blocks": [
       {"type": "row", "blocks": [
         {"type": "phones", "list": [
-          {"img": "shots/telephone/tel-batterie.webp", "alt": "Réglages : la ligne Batterie et son pourcentage", "caption": "Dans les Réglages"},
+          {"img": "shots/telephone/tel-deux-barres.webp", "alt": "Réglages : la ligne Batterie et son pourcentage", "caption": "Dans les Réglages"},
           {"img": "shots/telephone/tel-accueil.webp", "alt": "Accueil : le cadran Batterie", "caption": "Sur l'accueil"}]},
         {"type": "items", "list": [
           {"item": "oneforallsurvival:phone", "label": "Écran fermé, hors appel", "text": "Aucune dépense."},
@@ -333,7 +337,7 @@
           {"img": "shots/telephone/tel-accueil-antenne.webp", "alt": "Accueil du fondateur : l'icône Antenne", "points": [{"at": "app-antenna"}], "caption": "L'icône « Antenne »"},
           {"img": "shots/telephone/tel-antenne-reseau.webp", "alt": "Appli Antenne, onglet Réseau : deux antennes de Mairie en marche, relais entre opérateurs", "caption": "Onglet Réseau"},
           {"img": "shots/telephone/tel-antenne-grisee.webp", "alt": "Icône Antenne grisée touchée : Réseau, Pas de réseau.", "caption": "Grisée : « Pas de réseau. »"}]},
-        {"type": "text", "text": "L'appli demande une carte active de ton opérateur dans ce téléphone, une barre au moins et le mode avion coupé. Sinon l'icône est grisée : seul « Pas de réseau. » répond. Ni caisse ni nom dans l'appli."}]}]},
+        {"type": "text", "text": "Il faut une carte active de ton opérateur dans ce téléphone, une barre et pas de mode avion ; sinon l'icône grisée ne répond que « Pas de réseau. ». Ni caisse ni nom ici ; sans MCEF, « Antenne » ouvre le panneau."}]}]},
     {"type": "step", "title": "Réseau", "blocks": [
       {"type": "row", "blocks": [
       {"type": "shot", "img": "shots/telephone/panneau-reseau.webp", "alt": "Onglet Réseau du panneau : antenne en marche, principale, relais",
@@ -364,8 +368,8 @@
         {"type": "recipe", "item": "oneforallsurvival:maintenance_tool"},
         {"type": "items", "list": [
           {"item": "oneforallsurvival:maintenance_tool", "label": "Pour l'ingénieur", "text": "Sans lui, le métier ne suffit pas. Tenu dans une main : le panneau d'une antenne (sans cartes, tarif ni caisse), la casser, reposer une antenne qui porte un opérateur."},
-          {"item": "oneforallsurvival:maintenance_tool", "label": "Mairie", "text": "Le tenir aussi pour déplacer le trésor et le tableau de la mairie."},
-          {"item": "oneforallsurvival:maintenance_tool", "label": "Avec le testeur", "text": "Le testeur en main principale garde son rapport de machine. Un par pile, aucune usure."}]}]}]},
+          {"item": "oneforallsurvival:maintenance_tool", "label": "Mairie", "text": "Le tenir aussi pour déplacer le trésor et le tableau de la mairie. Un par pile, aucune usure."},
+          {"item": "oneforallsurvival:maintenance_tool", "label": "Avec le testeur", "text": "Le testeur en main principale garde son rapport de machine."}]}]}]},
     {"type": "numbers", "title": "À retenir", "list": [
       {"k": "Tarif", "v": "0 à 1 000 cuivres par jour"}, {"k": "Plafond de départ", "v": "20 cuivres par jour"},
       {"k": "Demandes en attente", "v": "32 par opérateur"}, {"k": "Cartes actives ou suspendues", "v": "256 par opérateur"},
@@ -388,7 +392,7 @@
    ]}
  ],
  "planned": [
-  {"id": "abonnement", "num": 92, "name": "Abonnement", "lot": "Lot T6", "what": "Tarif par jour fixé par le fondateur, prélevé en pièces à minuit : dans l'inventaire, puis le coffre-fort. Refus : abonné et fondateur prévenus ; carte suspendue, plus rien sauf les urgences.",
+  {"id": "abonnement", "num": 92, "name": "Abonnement", "lot": "Lot T6", "what": "Tarif par jour fixé par le fondateur, prélevé en pièces à minuit (inventaire, puis coffre-fort) et versé à la caisse de l'antenne principale, pour le fondateur. Refus : abonné et fondateur prévenus ; carte suspendue, rien sauf les urgences.",
    "staff": ["Vient après le lot E6 de l'économie.", "Jours manqués rattrapés au démarrage."]},
   {"id": "facetime", "num": 94, "name": "FaceTime", "lot": "Lot T4", "what": "Appel avec le personnage de l'autre rendu en direct, pas une vidéo. On passe de l'appel vocal à FaceTime et inversement ; batterie vidée plus vite, +24 FE/t par antenne.",
    "staff": ["Scénario de performance prévu : images par seconde, mémoire."]},
@@ -398,7 +402,7 @@
    "staff": ["Quota de photos par joueur, taille non précisée.", "L'équipe peut retirer une photo.", "Chaque envoi est noté avec son auteur."]},
   {"id": "echo", "num": 98, "name": "Écho", "lot": "Lot T5", "what": "Fil d'actualité public de l'île, façon Twitter, signé du joueur : publier demande du réseau ; photos, mentions et « j'aime ». Le compte vérifié « Mairie » publie les annonces du maire.",
    "staff": ["L'équipe peut retirer une publication.", "Elle peut suspendre un compte."]},
-  {"id": "ombre", "num": 99, "name": "Ombre", "lot": "Lot T5", "what": "Chat anonyme et caché : un pseudo unique lié au téléphone, des canaux rejoints en connaissant leur nom exact (aucune liste, les noms circulent en RP). Messages gardés 24 h réelles.",
+  {"id": "ombre", "num": 99, "name": "Ombre", "lot": "Lot T5", "what": "Chat anonyme et caché : un pseudo unique lié au téléphone, des canaux créés, ou rejoints en connaissant leur nom exact (aucune liste, les noms circulent en RP). Messages gardés 24 h réelles.",
    "staff": ["Personne ne lève l'anonymat en jeu, pas même la police.", "Téléphone volé et déverrouillé : pseudo du propriétaire livré.", "L'équipe voit l'auteur réel, pour la modération hors RP."]},
   {"id": "app-store", "num": 100, "name": "App Store", "lot": "Lot T5", "what": "Applis supplémentaires choisies par l'équipe, payées avec les pièces de l'inventaire ; télécharger demande du réseau. Au départ : Annonces, Carte, Notes.",
    "staff": ["L'équipe choisit les applis et leur prix."]}

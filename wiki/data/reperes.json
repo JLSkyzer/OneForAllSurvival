@@ -15,11 +15,11 @@
  },
  "shots/telephone/antenne-a-fonder.webp": {
   "champ": [
-   54.11,
+   55.97,
    60.0
   ],
   "fonder": [
-   85.23,
+   85.83,
    76.99
   ]
  },
@@ -57,21 +57,21 @@
  },
  "shots/telephone/panneau-cartes.webp": {
   "emettre": [
-   58.83,
+   60.5,
    35.89
   ]
  },
  "shots/telephone/panneau-reseau.webp": {
   "etat": [
-   2.11,
+   3.29,
    55.38
   ],
   "onglets": [
-   34.05,
+   36.72,
    20.76
   ],
   "principale": [
-   75.72,
+   73.92,
    46.15
   ]
  },
@@ -612,6 +612,10 @@
    49.99,
    78.05
   ],
+  "status-bars": [
+   82.26,
+   5.52
+  ],
   "wp-aube": [
    19.81,
    80.38
@@ -627,56 +631,6 @@
   "wp-nuit": [
    80.18,
    80.38
-  ]
- },
- "shots/telephone/tel-batterie.webp": {
-  "home-bar": [
-   49.99,
-   95.97
-  ],
-  "row-battery": [
-   49.99,
-   33.22
-  ],
-  "row-code": [
-   49.99,
-   23.78
-  ],
-  "row-erase": [
-   49.99,
-   89.82
-  ],
-  "row-info": [
-   49.99,
-   72.0
-  ],
-  "row-lock": [
-   49.99,
-   81.67
-  ],
-  "row-plan": [
-   49.99,
-   15.7
-  ],
-  "row-wallpaper": [
-   49.99,
-   52.5
-  ],
-  "wp-aube": [
-   19.81,
-   54.82
-  ],
-  "wp-jungle": [
-   59.99,
-   54.82
-  ],
-  "wp-lagon": [
-   40.03,
-   54.82
-  ],
-  "wp-nuit": [
-   80.18,
-   54.82
   ]
  },
  "shots/telephone/tel-bloque.webp": {
@@ -996,6 +950,10 @@
    49.99,
    78.05
   ],
+  "status-bars": [
+   82.26,
+   5.52
+  ],
   "wp-aube": [
    19.81,
    80.38
@@ -1234,11 +1192,11 @@
   ]
  },
  "shots/telephone/tel-sim-envoyee.webp": {
-  "request-1c9caa7a0826": [
+  "request-53d417267d62": [
    49.99,
    49.91
   ],
-  "request-7451111a5c9b": [
+  "request-ce9f5ab8786f": [
    49.99,
    55.1
   ],
@@ -1284,11 +1242,11 @@
   ]
  },
  "shots/telephone/tel-sim-operateurs.webp": {
-  "request-1c9caa7a0826": [
+  "request-53d417267d62": [
    49.99,
    49.91
   ],
-  "request-7451111a5c9b": [
+  "request-ce9f5ab8786f": [
    49.99,
    55.1
   ],
@@ -1303,20 +1261,6 @@
   "sim-request": [
    49.99,
    44.7
-  ]
- },
- "shots/telephone/tel-sim-suspendue.webp": {
-  "sim-close": [
-   15.08,
-   10.78
-  ],
-  "sim-remove": [
-   49.99,
-   32.04
-  ],
-  "sim-request": [
-   49.99,
-   53.97
   ]
  },
  "shots/telephone/tel-sim-vide.webp": {
