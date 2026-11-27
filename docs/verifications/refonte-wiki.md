@@ -199,10 +199,13 @@ GameTests 1242/1242 sans le pack puis avec (`-PwithPack`), sur le code final ; e
 correction ; passe de mutations avec le pack, chaque mutation d'une règle de droit rougit un essai différent.
 
 - **Connecteur sur l'antenne** : un objet de l'étiquette `oneforallsurvival:power_connectors` (Crafts & Additions :
-  petit connecteur, grand connecteur, petit connecteur à lampe ; entrées facultatives) passe à sa pose, debout comme
-  accroupi (`AntennaBlock.use`). Le panneau reste à la main vide et à tout autre objet. Droits inchangés : la pose d'un
-  bloc contre l'antenne n'en demande aucun, un passant posait déjà un connecteur accroupi. Le connecteur se pose sur le
-  dessus de l'antenne (`AntenneDroitsGameTests.unConnecteurSePoseDeboutCommeAccroupi`, avec le pack). Même défaut,
+  petit connecteur, grand connecteur, petit connecteur à lampe ; Create New Age : connecteur électrique ; Advanced
+  Electricity : boîte de jonction, ces deux derniers ajoutés après relecture ; entrées facultatives) passe à sa pose,
+  debout comme accroupi (`AntennaBlock.use`). Le panneau reste à la main vide et à tout autre objet. Droits inchangés :
+  la pose d'un bloc contre l'antenne n'en demande aucun, un passant posait déjà un connecteur accroupi. Le connecteur se
+  pose sur le dessus de l'antenne (`AntenneDroitsGameTests.unConnecteurSePoseDeboutCommeAccroupi`, avec le pack : il
+  découvre les connecteurs à partir de ceux que `ReseauxDev` pose contre un bloc et de leur famille de blocs, et ne
+  recopie plus de liste ; la pose sur le dessus est essayée, pas le courant reçu par l'antenne). Même défaut,
   laissé tel quel : établi de l'ingénieur, marmite, dessalinisateur, séchoir, frigo, couveuse, tableau de délestage, bain
   galvanique, chauffe-eau (tout objet ouvre l'écran) ; prise murale libre (« occupée » pour tout objet autre qu'un
   téléphone).
@@ -219,3 +222,11 @@ correction ; passe de mutations avec le pack, chaque mutation d'une règle de dr
   comme le dit le cahier du maire (102) ; `/treasury board` (tableau neuf) reste au maire et à l'équipe
   (`mayGiveBoard`). Refus de pose : « Seuls le maire, l'équipe et un ingénieur muni de l'outil de maintenance posent un
   tableau de la mairie ».
+
+Après relecture (27/11 soir) : en plus des deux connecteurs, des essais gardent désormais les appels eux-mêmes,
+`/eco quests` sur un modèle livré (`QuestClaimGameTests.ecoQuestsMontreLesTotaux`, « Slay zombies » attendu) et les
+trois écritures de motif de `DirectDebit` au registre (lot `prelevement_c` : refus, prélèvement, paiement par l'objet).
+Vus rouges ensemble, avec le pack, sur l'ancienne étiquette et les anciens textes remis dans le code (cinq échecs
+voulus sur 1253) ; puis JUnit 1294/1294 et GameTests 1253/1253 sans puis avec le pack. Constaté en route : un
+connecteur New Age retiré dans le tic de sa pose lève une `NullPointerException` dans Create New Age (réseau pas
+encore créé) ; l'essai laisse deux tics entre pose et retrait.
