@@ -10,7 +10,7 @@
       "id": "metiers",
       "title": "Les métiers",
       "group": "L'ingénieur",
-      "lead": "Chacun a un métier, affiché devant son pseudo. Seul l'ingénieur fabrique et répare le matériel électrique.",
+      "lead": "Chacun a un métier, affiché devant son pseudo. Seul l'ingénieur se sert de l'établi et répare les machines.",
       "cover": "shots/electricite/metiers.webp",
       "covers": [
         "roles",
@@ -39,7 +39,7 @@
           "blocks": [
             {
               "type": "text",
-              "text": "Sans métier attribué, tu es **Citoyen**. Ton métier s'affiche en couleur devant ton pseudo : au-dessus de ta tête, dans le chat et dans la liste des joueurs (touche Tab)."
+              "text": "Sans métier attribué, tu es **Citoyen**. Ton métier s'affiche en couleur devant ton pseudo : au-dessus de ta tête, dans le chat, et dans la colonne « Métier » de la liste des joueurs (touche Tab)."
             },
             {
               "type": "row",
@@ -87,14 +87,8 @@
           ]
         },
         {
-          "type": "step",
-          "title": "Le maire",
-          "blocks": [
-            {
-              "type": "text",
-              "text": "Le **maire** est un statut ajouté au métier, pas un métier : son préfixe devient « [Maire] [Ingénieur] », par exemple. Il n'y a qu'un maire à la fois, nommé par l'équipe."
-            }
-          ]
+          "type": "text",
+          "text": "Le **maire** est un statut ajouté au métier, pas un métier : son préfixe devient « [Maire] [Ingénieur] », par exemple. Il n'y a qu'un maire à la fois, nommé par l'équipe."
         },
         {
           "type": "step",
@@ -106,7 +100,7 @@
                 {
                   "item": "oneforallsurvival:engineer_bench",
                   "label": "Fabrique",
-                  "text": "Tout le matériel électrique, à l'établi d'ingénieur."
+                  "text": "Le matériel électrique, à l'établi d'ingénieur (le téléphone et la prise murale, eux, se font à la table, par tous)."
                 },
                 {
                   "item": "oneforallsurvival:welder",
@@ -162,6 +156,10 @@
           "v": "Tout le monde"
         },
         {
+          "k": "Casse",
+          "v": "À la hache"
+        },
+        {
           "k": "Alimenté",
           "v": "×4"
         }
@@ -175,7 +173,7 @@
             {
               "at": "plateau",
               "title": "Clic droit",
-              "text": "Ingénieur : l'écran de l'établi. Les autres lisent « Seul un Ingénieur peut utiliser l'établi. »"
+              "text": "Ingénieur : l'écran de l'établi. Les autres lisent « Seul un Ingénieur peut faire cela. »"
             },
             {
               "at": "courant",
@@ -218,34 +216,22 @@
                   "text": "Les familles : One For All, Create, Additions…"
                 },
                 {
-                  "at": "recherche",
-                  "text": "Tape un nom pour filtrer la liste."
-                },
-                {
                   "at": "liste",
-                  "text": "Choisis l'objet à fabriquer."
+                  "text": "Choisis l'objet à fabriquer (la barre au-dessus filtre par nom)."
                 },
                 {
                   "at": "cout",
-                  "text": "Ses ingrédients (possédé / requis) et son temps, à la main et alimenté."
-                },
-                {
-                  "at": "crafter",
-                  "text": "La quantité (1 à 64), puis « Crafter » : les ingrédients sont prélevés."
+                  "text": "Ses ingrédients (possédé / requis) et son temps à la main."
                 },
                 {
                   "at": "file",
                   "text": "La file : une fabrication après l'autre. « Annuler » rend les ingrédients."
-                },
-                {
-                  "at": "stock",
-                  "text": "« Stock » : les objets finis, à retirer."
-                },
-                {
-                  "at": "vitesse",
-                  "text": "La vitesse du moment : « Alimenté : vitesse x4 » pendant une fabrication, sinon « À la main »."
                 }
               ]
+            },
+            {
+              "type": "text",
+              "text": "En bas à droite : la quantité (1 à 64), puis **Crafter** : les ingrédients sont prélevés. En haut à droite : **Stock**, les objets finis, et la vitesse du moment."
             },
             {
               "type": "clip",
@@ -261,13 +247,18 @@
           "title": "Retirer",
           "blocks": [
             {
-              "type": "shot",
-              "img": "shots/electricite/etabli-stock.webp",
-              "alt": "L'écran « Stock de l'établi » : le Testeur fabriqué, prêt à être pris"
-            },
-            {
-              "type": "text",
-              "text": "Le stock reçoit tout ce que tu fabriques. On y prend, on n'y dépose rien. « Retour » ramène aux commandes."
+              "type": "row",
+              "blocks": [
+                {
+                  "type": "shot",
+                  "img": "shots/electricite/etabli-stock.webp",
+                  "alt": "L'écran « Stock de l'établi » : le Poste à souder fabriqué, prêt à être pris"
+                },
+                {
+                  "type": "text",
+                  "text": "Ton stock personnel reçoit tout ce que tu fabriques. On y prend, on n'y dépose rien. « Retour » ramène aux commandes."
+                }
+              ]
             }
           ]
         },
@@ -282,6 +273,10 @@
             {
               "k": "Alimenté",
               "v": "×4 (×3 sous 50 % d'état)"
+            },
+            {
+              "k": "Sans courant ou en panne",
+              "v": "×1, comme à la main"
             },
             {
               "k": "Énergie",
@@ -306,7 +301,7 @@
           "title": "Si ça bloque",
           "list": [
             {
-              "msg": "Seul un Ingénieur peut utiliser l'établi.",
+              "msg": "Seul un Ingénieur peut faire cela.",
               "text": "Ton métier n'est pas ingénieur : demande-le à l'équipe.",
               "link": "#electricite/metiers"
             },
@@ -365,7 +360,7 @@
             },
             {
               "at": "fume",
-              "text": "Sous 20 % : fumée et étincelles. Dès 50 %, elle ne travaille plus qu'à 75 %."
+              "text": "Sous 20 % : fumée et étincelles. Sous 50 % déjà, elle ne travaille plus qu'à 75 %."
             },
             {
               "at": "panne",
@@ -548,25 +543,19 @@
         },
         {
           "type": "step",
-          "title": "Recharger le poste",
-          "blocks": [
-            {
-              "type": "text",
-              "text": "Poste en main, **accroupi**, clic droit sur une machine du mod (elle donne sa réserve) ou sur un bloc d'un autre mod qui rend du courant : « Poste rechargé : +N FE »."
-            },
-            {
-              "type": "text",
-              "text": "Une machine ne donne que ce qu'elle a en réserve (3 000 FE pour un séchoir) : vise une batterie pleine pour un plein d'un coup."
-            }
-          ]
-        },
-        {
-          "type": "step",
           "title": "Réparer",
           "blocks": [
             {
               "type": "text",
+              "text": "D'abord, recharge le poste : en main, **accroupi**, clic droit sur une machine du mod (elle donne ce qu'elle a en réserve) ou sur un bloc d'un autre mod qui rend du courant."
+            },
+            {
+              "type": "text",
               "text": "**Debout**, poste à souder en main, la bonne pièce dans l'autre main (seconde main) : clic droit sur la machine."
+            },
+            {
+              "type": "text",
+              "text": "Avec une pièce **traitée** (bain galvanique), la machine devient protégée ; avec une pièce ordinaire, elle perd sa protection."
             },
             {
               "type": "clip",
@@ -649,6 +638,10 @@
               "text": "Rien à faire, rien n'est consommé."
             },
             {
+              "msg": "Rien à récupérer sur cette machine.",
+              "text": "En rechargeant le poste : cette source n'a plus de courant en réserve. Essaie une autre machine ou une batterie."
+            },
+            {
               "msg": "Seul un Ingénieur peut réparer une machine.",
               "text": "Le diagnostic est à tous, la réparation à l'ingénieur.",
               "link": "#electricite/metiers"
@@ -681,6 +674,14 @@
         {
           "k": "Énergie",
           "v": "20 FE/t"
+        },
+        {
+          "k": "Pose, utilise",
+          "v": "Tout le monde"
+        },
+        {
+          "k": "Casse",
+          "v": "À la pioche, sinon perdu"
         }
       ],
       "blocks": [
@@ -692,7 +693,7 @@
             {
               "at": "piece",
               "title": "Par le dessus",
-              "text": "La pièce à traiter (trémie, tuyau, ou à la main)."
+              "text": "La pièce à traiter (une trémie, ou à la main par l'écran)."
             },
             {
               "at": "zinc",
@@ -702,7 +703,7 @@
             {
               "at": "bain",
               "title": "Clic droit",
-              "text": "Son écran, pour tout faire à la main."
+              "text": "Son écran, pour tout faire à la main. Il lui faut du courant (câble ou connecteur) ; ici, une source hors de l'image."
             },
             {
               "at": "sortie",
@@ -763,21 +764,21 @@
               "alt": "Le bain galvanique en marche",
               "tone": "ok",
               "title": "En marche",
-              "text": "Le liquide est clair, il traite."
+              "text": "Le dessus est jaune : il traite."
             },
             {
               "img": "shots/electricite/bain-sans-courant.webp",
-              "alt": "Le bain galvanique sans courant, voyants éteints",
+              "alt": "Le bain galvanique sans courant",
               "tone": "off",
               "title": "Sans courant",
-              "text": "Plus de courant : il attend, rien n'est perdu."
+              "text": "Le dessus vire à l'orange : il attend le courant, rien n'est perdu."
             },
             {
               "img": "shots/electricite/bain-panne.webp",
-              "alt": "Le bain galvanique en panne, qui fume",
+              "alt": "Le bain galvanique en panne",
               "tone": "bad",
               "title": "En panne",
-              "text": "Fumée et étincelles : il faut un ingénieur."
+              "text": "Dessus rouge, fumée et étincelles : il faut un ingénieur."
             }
           ]
         },
@@ -822,6 +823,10 @@
               "label": "Machine protégée"
             }
           ]
+        },
+        {
+          "type": "text",
+          "text": "La protection tient jusqu'à la réparation suivante : réparée avec une pièce ordinaire, la machine la perd."
         },
         {
           "type": "row",
@@ -1010,6 +1015,14 @@
         {
           "k": "Débit",
           "v": "4 096 FE/t"
+        },
+        {
+          "k": "Pose, règle",
+          "v": "Tout le monde"
+        },
+        {
+          "k": "Casse",
+          "v": "À la pioche, sinon perdu"
         }
       ],
       "blocks": [
@@ -1026,17 +1039,17 @@
             {
               "at": "entree",
               "title": "L'arrivée",
-              "text": "Ici un alternateur de Crafts & Additions à 32 tr/min : 45 FE/t."
-            },
-            {
-              "at": "dessus",
-              "title": "Les sorties",
-              "text": "Devant, gauche, droite et dessus : une machine ou un câble sur chacune."
+              "text": "Derrière : un alternateur de Crafts & Additions entraîné par un moteur créatif (bloc créatif) à 32 tr/min, 45 FE/t."
             },
             {
               "at": "droite",
+              "title": "Les sorties",
+              "text": "Devant, gauche, droite (vues face au tableau) et dessus : une machine ou un câble sur chacune."
+            },
+            {
+              "at": "dessus",
               "title": "Servies dans l'ordre",
-              "text": "Les trois séchoirs veulent 20 FE/t chacun : le troisième n'a que le reste."
+              "text": "Chaque séchoir veut 20 FE/t : celui du dessus, servi le dernier, n'a que le reste (5 FE/t)."
             }
           ]
         },
@@ -1058,7 +1071,7 @@
                   "marks": [
                     {
                       "at": "etat",
-                      "text": "Ce qui passe : le courant passe, aucun, sans courant, en panne."
+                      "text": "« Le courant passe », « Aucun courant ne passe », ou « En panne : sorties coupées »."
                     },
                     {
                       "at": "rangs",
@@ -1070,19 +1083,23 @@
                     },
                     {
                       "at": "boutons",
-                      "text": "Monter, Descendre."
+                      "text": "Les flèches : monter (servie plus tôt), descendre."
                     }
                   ]
                 },
                 {
                   "type": "clip",
                   "img": "shots/electricite/delestage-priorite.webp",
-                  "alt": "Animation : clic sur Monter de la troisième ligne, elle passe au rang 2 et devient alimentée",
+                  "alt": "Animation : clic sur la flèche du haut de la quatrième ligne (Dessus) : elle passe au rang 3 et reçoit 25 FE ; Droite descend au rang 4 et est coupée",
                   "title": "Monter une sortie"
                 }
               ]
             }
           ]
+        },
+        {
+          "type": "text",
+          "text": "En panne, le tableau ne laisse plus rien passer, sur aucune sortie."
         },
         {
           "type": "numbers",
@@ -1136,6 +1153,10 @@
         {
           "k": "Usure",
           "v": "aucune"
+        },
+        {
+          "k": "Casse",
+          "v": "À la pioche, sinon perdu"
         }
       ],
       "blocks": [
@@ -1147,17 +1168,17 @@
             {
               "at": "source",
               "title": "L'arrivée",
-              "text": "Ici un alternateur ; en vrai, la ligne qui vient du réseau."
+              "text": "Ici un alternateur entraîné par un moteur créatif (bloc créatif) ; en vrai, la ligne qui vient du poste du fournisseur."
             },
             {
               "at": "disjoncteur",
               "title": "Le disjoncteur",
-              "text": "Clic droit main vide : coupé ou enclenché, par tout le monde, sauf scellé."
+              "text": "Clic droit main vide : coupé ou enclenché. Non jumelé : par tout le monde, sauf scellé. Jumelé : par les ayants droit du fournisseur."
             },
             {
               "at": "compteur",
               "title": "Le compteur",
-              "text": "Il totalise les FE qui passent, une fois jumelé à un fournisseur (ici, c'est fait)."
+              "text": "Il ne laisse passer le courant que jumelé, accepté et non coupé, et compte ce qui passe (ici, c'est fait)."
             },
             {
               "at": "maison",
@@ -1167,42 +1188,44 @@
           ]
         },
         {
-          "type": "step",
-          "title": "Poser sur la ligne",
-          "blocks": [
-            {
-              "type": "text",
-              "text": "Pose-les en regardant vers la maison : la sortie part devant toi, l'entrée est de ton côté. Un câble ou une machine de chaque côté."
-            },
-            {
-              "type": "text",
-              "text": "Attention : un compteur seul ne laisse **rien** passer. Le courant ne passe qu'une fois le compteur jumelé à un poste de fournisseur et accepté par l'abonné (chapitre Économie)."
-            }
-          ]
+          "type": "text",
+          "text": "Pose-les en regardant vers la maison : la sortie part devant toi, l'entrée est de ton côté. Un câble ou une machine de chaque côté."
+        },
+        {
+          "type": "text",
+          "text": "Attention : un compteur seul ne laisse **rien** passer. Il faut qu'il soit jumelé à un poste de fournisseur, que l'abonné donne son accord, puis que le fournisseur clique « Accepter »."
+        },
+        {
+          "type": "text",
+          "text": "Une coupure décidée par le fournisseur, au panneau de son poste, arrête aussi le courant."
         },
         {
           "type": "step",
           "title": "Inscrire l'abonné",
           "blocks": [
             {
+              "type": "text",
+              "text": "Ingénieur, **main vide**, clic droit sur le compteur (sur le disjoncteur : **accroupi**). Tape le **pseudo Minecraft exact** du payeur (un nom RP fait refuser le jumelage), puis « Inscrire »."
+            },
+            {
               "type": "row",
               "blocks": [
                 {
                   "type": "text",
-                  "text": "Ingénieur, **main vide**, clic droit sur le compteur (sur le disjoncteur : **accroupi**). Tape le nom de celui qui paie, puis « Inscrire ». Avant le jumelage : un compteur jumelé ne se réinscrit plus."
+                  "text": "Fais-le avant le jumelage : un compteur jumelé ne se réinscrit plus."
                 },
                 {
                   "type": "shot",
                   "img": "shots/electricite/abonne-nom.webp",
-                  "alt": "L'écran « Nom de l'abonné » : le nom Ines Lebrun tapé, les boutons Inscrire et Annuler",
+                  "alt": "L'écran « Nom de l'abonné » : le pseudo InesLebrun tapé, les boutons Inscrire et Annuler",
                   "marks": [
                     {
                       "at": "champ",
-                      "text": "16 caractères au plus : lettres, chiffres, espace, tiret."
+                      "text": "16 caractères au plus : lettres, chiffres, espace, tiret ; le « _ » des pseudos passe aussi."
                     },
                     {
                       "at": "inscrire",
-                      "text": "« Inscrire » : « Abonné inscrit : Ines Lebrun »."
+                      "text": "« Inscrire » : « Abonné inscrit : InesLebrun »."
                     }
                   ]
                 }
@@ -1248,7 +1271,7 @@
                   "list": [
                     {
                       "img": "shots/electricite/disjoncteur-enclenche.webp",
-                      "alt": "Disjoncteur enclenché",
+                      "alt": "Disjoncteur enclenché, levier en haut",
                       "tone": "ok",
                       "title": "Enclenché",
                       "text": "Le courant passe."
@@ -1270,6 +1293,10 @@
                   ]
                 }
               ]
+            },
+            {
+              "type": "text",
+              "text": "Non jumelé, tout le monde le bascule (sauf scellé). Jumelé à un fournisseur, seuls le fondateur, un ingénieur, le maire et l'équipe le basculent, jamais l'abonné."
             },
             {
               "type": "text",
@@ -1303,7 +1330,7 @@
         },
         {
           "type": "text",
-          "text": "Pour faire payer le courant automatiquement chaque minuit, compteur et disjoncteur se jumellent à un poste de fournisseur (chapitre Économie)."
+          "text": "Le jumelage ne sert pas qu'à payer : sans lui, le compteur ne laisse rien passer. Facturation chaque minuit, coupure à distance et panneau du poste : chapitre Économie."
         },
         {
           "type": "row",
@@ -1328,11 +1355,19 @@
           "list": [
             {
               "msg": "Rien ne passe par le compteur",
-              "text": "Il n'est pas encore jumelé à un poste de fournisseur, ou l'abonné n'a pas accepté.",
+              "text": "Pas encore jumelé, accord de l'abonné ou « Accepter » du fournisseur manquant, ou coupure du fournisseur.",
               "link": {
                 "href": "#fournisseur",
                 "label": "Voir : Fournisseur d'électricité"
               }
+            },
+            {
+              "msg": "Aucun joueur connu du serveur ne s'appelle … : jumelage refusé.",
+              "text": "Le nom inscrit n'est pas un pseudo : réinscris le pseudo exact du payeur (avant le jumelage)."
+            },
+            {
+              "msg": "Le disjoncteur ne bascule pas",
+              "text": "Il est jumelé : seuls les ayants droit du fournisseur le basculent, pas l'abonné. Ou il est scellé."
             },
             {
               "msg": "Disjoncteur scellé : seul un ingénieur peut retirer le scellé (accroupi, main vide).",
@@ -1358,7 +1393,8 @@
         "Le paiement se fait en RP, ou automatiquement quand compteur et disjoncteur sont jumelés à un poste de fournisseur (lot E6, chapitre Économie, fiche « Fournisseur d'électricité »).",
         "Jumelés à un fournisseur : seuls ses ayants droit (fondateur, ingénieur, maire, équipe) les ouvrent, règlent ou cassent ; un compteur jumelé ne se réinscrit pas.",
         "Depuis le lot E6, un compteur nu ne laisse rien passer (`MeterBlockEntity.isOpen`) : seul un compteur jumelé et accepté ouvre la ligne. La fiche du lot 4 ne le disait pas.",
-        "Captures de cet article : le compteur y est raccordé par le raccordement d'essai du développement (`FournisseurDEssai`), pas par le testeur ; l'inscription du nom, elle, est le vrai geste.",
+        "Captures de cet article : le compteur y est raccordé par le raccordement d'essai du développement (`FournisseurDEssai`, état ACTIVE d'emblée), pas par le testeur, l'accord et « Accepter » ; l'inscription du pseudo, elle, est le vrai geste.",
+        "Le débiteur est trouvé par le nom inscrit (`PowerPairing.knownPlayer`) : un nom qui n'est pas le pseudo d'un joueur connu du serveur fait refuser le jumelage. L'indication de l'écran ne cite pas le « _ », pourtant accepté (`MeterLedger.isNameChar`).",
         "Casser un disjoncteur scellé reste possible ; « Scellé brisé » apparaît au relevé.",
         "Le Policier prend le relais en RP.",
         "Config : `serverconfig/oneforallsurvival-grid.toml` (`meterMaxPerTick`, `breakerMaxPerTick`)."
@@ -1381,6 +1417,10 @@
         {
           "k": "Courant",
           "v": "aucun"
+        },
+        {
+          "k": "Casse",
+          "v": "À la pioche, sinon perdu"
         }
       ],
       "blocks": [
@@ -1406,7 +1446,7 @@
           "img": "shots/electricite/parafoudre-eclair.webp",
           "alt": "Animation : un éclair tombe près des machines",
           "title": "Un éclair",
-          "note": "Sans parafoudre, chaque machine à 16 blocs ou moins perd 25 points, et une fois sur quatre son fusible grille."
+          "note": "Sans parafoudre, chaque machine à 16 blocs ou moins : une fois sur quatre son fusible grille (panne immédiate), sinon elle perd 25 points."
         },
         {
           "type": "states",
@@ -1441,7 +1481,7 @@
             },
             {
               "k": "Sans protection",
-              "v": "−25 points et 25 % de panne de fusible"
+              "v": "25 % : panne de fusible ; sinon −25 points"
             },
             {
               "k": "Usure du parafoudre",
@@ -1478,6 +1518,10 @@
         {
           "k": "Énergie",
           "v": "2 FE/t"
+        },
+        {
+          "k": "Casse",
+          "v": "À la pioche, sinon perdu"
         }
       ],
       "blocks": [
@@ -1503,7 +1547,7 @@
               "alt": "Station météo, face à l'éclair, une lampe de redstone allumée à côté",
               "tone": "bad",
               "title": "Éclair",
-              "text": "Orage annoncé : signal de redstone 15 sur toutes ses faces (ici une lampe)."
+              "text": "Orage annoncé, puis pendant tout l'orage : signal de redstone 15 sur toutes ses faces (ici une lampe)."
             },
             {
               "img": "shots/electricite/meteo-eteinte.webp",
@@ -1516,7 +1560,7 @@
         },
         {
           "type": "text",
-          "text": "Lis la face : soleil, nuage ou éclair. Avec un fil de redstone, l'orage peut fermer des volets, allumer une alarme…"
+          "text": "Lis sa face avant (celle qui te regarde quand tu la poses) : soleil, nuage ou éclair. Avec un fil de redstone, l'orage peut fermer des volets, allumer une alarme…"
         },
         {
           "type": "numbers",
@@ -1532,7 +1576,7 @@
             },
             {
               "k": "Signal",
-              "v": "15, orage annoncé seulement"
+              "v": "15, orage annoncé ou en cours"
             },
             {
               "k": "Réserve",
@@ -1569,6 +1613,10 @@
         {
           "k": "Un cycle",
           "v": "5 s"
+        },
+        {
+          "k": "Casse",
+          "v": "À la pioche, sinon perdu"
         }
       ],
       "blocks": [
@@ -1617,11 +1665,7 @@
                     },
                     {
                       "at": "remplie",
-                      "text": "Les bouteilles d'eau potable."
-                    },
-                    {
-                      "at": "sel",
-                      "text": "Le sel."
+                      "text": "Les bouteilles d'eau potable ; le sel tombe dans la case en dessous."
                     },
                     {
                       "at": "potable",
@@ -1642,24 +1686,24 @@
           "list": [
             {
               "img": "shots/electricite/dessal-marche.webp",
-              "alt": "Le dessalinisateur en marche",
+              "alt": "Le dessalinisateur en marche, voyant vert",
               "tone": "ok",
               "title": "En marche",
-              "text": "Il dessale."
+              "text": "Voyant vert. Il dessale."
             },
             {
               "img": "shots/electricite/dessal-sans-courant.webp",
-              "alt": "Le dessalinisateur sans courant, voyants éteints",
+              "alt": "Le dessalinisateur sans courant, voyant orange",
               "tone": "off",
               "title": "Sans courant",
-              "text": "Il attend le courant : rien ne se perd."
+              "text": "Voyant orange. Il ne dessale plus ; au bord de mer il se remplit encore, et il remplit encore les bouteilles."
             },
             {
               "img": "shots/electricite/dessal-panne.webp",
-              "alt": "Le dessalinisateur en panne, qui fume",
+              "alt": "Le dessalinisateur en panne, voyant rouge",
               "tone": "bad",
               "title": "En panne",
-              "text": "Plus rien, pas même le remplissage au bord de mer."
+              "text": "Voyant rouge. Plus rien, pas même le remplissage au bord de mer."
             }
           ]
         },
@@ -1738,7 +1782,7 @@
         "Config : `serverconfig/oneforallsurvival-food.toml` (`desalinatorEnergy`, `desalinatorCycle`, `waterPerCycle`, `potablePerCycle`, `cyclesPerSalt`).",
         "Pas de soif sur le serveur : l'eau potable est un ingrédient (et l'eau du chauffe-eau).",
         "Les trémies ne mettent que des bouteilles vides ; un cycle attend s'il n'a pas la place de rendre son eau ou son sel.",
-        "Capture : le monde d'essai est plat (mer hors du niveau 63) ; le bord de mer y est une zone déclarée (`/coast zone add`), ce qui revient au même pour la machine."
+        "Capture : le monde d'essai est plat (mer hors du niveau 63) ; le bord de mer y est une zone déclarée (`/coast zone add`). Attention sur le serveur : dès qu'une zone est déclarée, la détection de l'eau est ignorée dans toute la dimension (seules les zones comptent)."
       ]
     },
     {
@@ -1758,6 +1802,14 @@
         {
           "k": "Énergie",
           "v": "4 FE/t"
+        },
+        {
+          "k": "Pose, utilise",
+          "v": "Tout le monde"
+        },
+        {
+          "k": "Casse",
+          "v": "À la pioche, sinon perdu"
         }
       ],
       "blocks": [
@@ -1833,24 +1885,24 @@
           "list": [
             {
               "img": "shots/electricite/armoire-marche.webp",
-              "alt": "L'armoire frigorifique en marche",
+              "alt": "L'armoire frigorifique en marche, voyant vert",
               "tone": "ok",
               "title": "En marche",
-              "text": "Au froid."
+              "text": "Voyant vert. Au froid."
             },
             {
               "img": "shots/electricite/armoire-sans-courant.webp",
-              "alt": "L'armoire frigorifique sans courant, voyants éteints",
+              "alt": "L'armoire frigorifique sans courant, voyant orange",
               "tone": "off",
               "title": "Sans courant",
-              "text": "La péremption reprend son rythme ; rien n'est perdu, et le froid revient avec le courant."
+              "text": "Voyant orange. La péremption reprend son rythme ; rien n'est perdu, et le froid revient avec le courant."
             },
             {
               "img": "shots/electricite/armoire-panne.webp",
-              "alt": "L'armoire frigorifique en panne, qui fume",
+              "alt": "L'armoire frigorifique en panne, voyant rouge",
               "tone": "bad",
               "title": "En panne",
-              "text": "Plus de froid : il faut un ingénieur."
+              "text": "Voyant rouge. Plus de froid : il faut un ingénieur."
             }
           ]
         },
@@ -1910,6 +1962,14 @@
         {
           "k": "Énergie",
           "v": "20 FE/t"
+        },
+        {
+          "k": "Pose, utilise",
+          "v": "Tout le monde"
+        },
+        {
+          "k": "Casse",
+          "v": "À la pioche, sinon perdu"
         }
       ],
       "blocks": [
@@ -1932,7 +1992,7 @@
                 {
                   "type": "shot",
                   "img": "shots/electricite/sechoir-ecran.webp",
-                  "alt": "L'écran du séchoir : viande crue, sel, flèche presque pleine, sortie",
+                  "alt": "L'écran du séchoir : viande crue, sel, flèche aux trois quarts, sortie",
                   "marks": [
                     {
                       "at": "aliment",
@@ -1964,24 +2024,24 @@
           "list": [
             {
               "img": "shots/electricite/sechoir-marche.webp",
-              "alt": "Le séchoir en marche",
+              "alt": "Le séchoir en marche, voyant vert",
               "tone": "ok",
               "title": "En marche",
-              "text": "Il sèche."
+              "text": "Voyant vert. Il sèche."
             },
             {
               "img": "shots/electricite/sechoir-sans-courant.webp",
-              "alt": "Le séchoir sans courant, voyants éteints",
+              "alt": "Le séchoir sans courant, voyant orange",
               "tone": "off",
               "title": "Sans courant",
-              "text": "Il attend le courant ; la progression est gardée."
+              "text": "Voyant orange. Il attend le courant ; la progression est gardée."
             },
             {
               "img": "shots/electricite/sechoir-panne.webp",
-              "alt": "Le séchoir en panne, qui fume",
+              "alt": "Le séchoir en panne, voyant rouge",
               "tone": "bad",
               "title": "En panne",
-              "text": "Il faut un ingénieur."
+              "text": "Voyant rouge. Il faut un ingénieur."
             }
           ]
         },
@@ -2032,6 +2092,14 @@
           ]
         },
         {
+          "type": "text",
+          "text": "Viande et poisson crus : 6 h frais puis 6 h rassis ; séchés, 48 h puis 48 h ; salés, toujours."
+        },
+        {
+          "type": "text",
+          "text": "Un fruit frais, lui, ne périme pas : séché **sans** sel, il devient périssable (48 h + 48 h). Pour un fruit, seul le salé a un intérêt."
+        },
+        {
           "type": "row",
           "blocks": [
             {
@@ -2052,7 +2120,7 @@
                 },
                 {
                   "k": "Séchée",
-                  "v": "périme 8 fois moins vite",
+                  "v": "8 fois plus lente : 48 h + 48 h",
                   "item": "oneforallsurvival:dried_meat"
                 },
                 {
@@ -2088,6 +2156,14 @@
         {
           "k": "Incubation",
           "v": "20 min de marche"
+        },
+        {
+          "k": "Pose, utilise",
+          "v": "Tout le monde"
+        },
+        {
+          "k": "Casse",
+          "v": "À la pioche, sinon perdu"
         }
       ],
       "blocks": [
@@ -2143,7 +2219,7 @@
             },
             {
               "type": "text",
-              "text": "Sans place libre autour, l'œuf mûr attend dans sa case : il n'est jamais perdu."
+              "text": "Sans place libre autour, l'œuf mûr attend dans sa case. Une coupure de plus d'une minute le perd quand même, comme les autres."
             }
           ]
         },
@@ -2170,24 +2246,24 @@
                   "list": [
                     {
                       "img": "shots/electricite/couveuse-marche.webp",
-                      "alt": "Couveuse en marche",
+                      "alt": "Couveuse en marche, voyant vert",
                       "tone": "ok",
                       "title": "En marche",
-                      "text": "Elle couve."
+                      "text": "Voyant vert : elle couve."
                     },
                     {
                       "img": "shots/electricite/couveuse-sans-courant.webp",
-                      "alt": "Couveuse sans courant",
+                      "alt": "Couveuse sans courant, voyant orange",
                       "tone": "off",
                       "title": "Sans courant",
-                      "text": "Réserve vide : 60 s pour rétablir, sinon la couvée est perdue."
+                      "text": "Voyant orange. Réserve vide : 60 s pour rétablir, sinon la couvée est perdue."
                     },
                     {
                       "img": "shots/electricite/couveuse-panne.webp",
-                      "alt": "Couveuse en panne, qui fume",
+                      "alt": "Couveuse en panne, voyant rouge",
                       "tone": "bad",
                       "title": "En panne",
-                      "text": "Une panne, elle, ne perd rien."
+                      "text": "Voyant rouge. Une panne, elle, ne perd rien."
                     }
                   ]
                 }
@@ -2250,6 +2326,14 @@
         {
           "k": "Marmite",
           "v": "30 FE/t"
+        },
+        {
+          "k": "Pose, utilise",
+          "v": "Tout le monde"
+        },
+        {
+          "k": "Casse",
+          "v": "À la pioche, sinon perdu"
         }
       ],
       "blocks": [
@@ -2281,7 +2365,11 @@
           "blocks": [
             {
               "type": "text",
-              "text": "Les ingrédients d'une recette de la Marmite de Farmer's Delight, et un bol par portion, présents d'avance."
+              "text": "Les ingrédients d'une recette de la Marmite de Farmer's Delight, et son récipient pour chaque portion, présents d'avance."
+            },
+            {
+              "type": "text",
+              "text": "Le récipient dépend de la recette : un bol pour un ragoût, une bouteille pour une boisson, aucun pour certains plats. L'écran dit combien : « Récipients requis : N »."
             },
             {
               "type": "row",
@@ -2321,24 +2409,24 @@
           "list": [
             {
               "img": "shots/electricite/cantine-marche.webp",
-              "alt": "La marmite de cantine en marche",
+              "alt": "La marmite de cantine en marche, voyant vert",
               "tone": "ok",
               "title": "En marche",
-              "text": "Elle cuit."
+              "text": "Voyant vert. Elle cuit."
             },
             {
               "img": "shots/electricite/cantine-sans-courant.webp",
-              "alt": "La marmite de cantine sans courant, voyants éteints",
+              "alt": "La marmite de cantine sans courant, voyant orange",
               "tone": "off",
               "title": "Sans courant",
-              "text": "Elle attend le courant ; la cuisson est gardée."
+              "text": "Voyant orange. Elle attend le courant ; la cuisson est gardée."
             },
             {
               "img": "shots/electricite/cantine-panne.webp",
-              "alt": "La marmite de cantine en panne, qui fume",
+              "alt": "La marmite de cantine en panne, voyant rouge",
               "tone": "bad",
               "title": "En panne",
-              "text": "Il faut un ingénieur."
+              "text": "Voyant rouge. Il faut un ingénieur."
             }
           ]
         },
@@ -2365,7 +2453,7 @@
             },
             {
               "k": "Marmite",
-              "v": "30 FE/t : 6 000 FE par ragoût de 10 s",
+              "v": "30 FE/t : 6 000 FE la fournée de 3 ragoûts",
               "item": "oneforallsurvival:canteen_pot"
             },
             {
@@ -2387,7 +2475,7 @@
       "id": "cloture",
       "title": "La clôture électrique",
       "group": "Protéger et vivre",
-      "lead": "Un électrificateur met sous tension les clôtures électriques qui le touchent. Un contact blesse et repousse.",
+      "lead": "Un électrificateur met sous tension la ligne de clôtures électriques reliée à lui. Un contact blesse et repousse.",
       "cover": "shots/electricite/cloture-hero.webp",
       "covers": [
         "cloture-electrique"
@@ -2400,6 +2488,14 @@
         {
           "k": "Énergie",
           "v": "2 + 0,25 par clôture"
+        },
+        {
+          "k": "Pose, utilise",
+          "v": "Tout le monde"
+        },
+        {
+          "k": "Casse",
+          "v": "À la pioche, sinon perdu"
         }
       ],
       "blocks": [
@@ -2416,7 +2512,7 @@
             {
               "at": "cloture",
               "title": "La ligne",
-              "text": "Les clôtures électriques qui se touchent, 64 au plus (les plus proches)."
+              "text": "Les clôtures électriques reliées de proche en proche à l'électrificateur, 64 au plus (les plus proches)."
             }
           ]
         },
@@ -2425,31 +2521,31 @@
           "img": "shots/electricite/cloture-choc.webp",
           "alt": "Animation : la vache touche la clôture, des étincelles, elle est repoussée",
           "title": "Un contact",
-          "note": "Un choc toutes les demi-secondes de contact."
+          "note": "Un choc toutes les demi-secondes de contact. Les étincelles, elles, jaillissent au hasard le long de la ligne."
         },
         {
           "type": "states",
           "list": [
             {
               "img": "shots/electricite/cloture-marche.webp",
-              "alt": "L'électrificateur en marche",
+              "alt": "L'électrificateur en marche, voyant vert",
               "tone": "ok",
               "title": "En marche",
-              "text": "La ligne est sous tension."
+              "text": "Voyant vert. La ligne est sous tension."
             },
             {
               "img": "shots/electricite/cloture-sans-courant.webp",
-              "alt": "L'électrificateur sans courant, voyants éteints",
+              "alt": "L'électrificateur sans courant, voyant orange",
               "tone": "off",
               "title": "Sans courant",
-              "text": "Plus rien : la clôture n'est qu'une clôture."
+              "text": "Voyant orange. Plus rien : la clôture n'est qu'une clôture."
             },
             {
               "img": "shots/electricite/cloture-panne.webp",
-              "alt": "L'électrificateur en panne, qui fume",
+              "alt": "L'électrificateur en panne, voyant rouge",
               "tone": "bad",
               "title": "En panne",
-              "text": "Plus rien : il faut un ingénieur."
+              "text": "Voyant rouge. Plus rien : il faut un ingénieur."
             }
           ]
         },
@@ -2476,7 +2572,7 @@
             },
             {
               "k": "Dégâts",
-              "v": "2 (monstre), 1 (joueur)"
+              "v": "2 (monstres et animaux), 1 (joueur)"
             },
             {
               "k": "Ne tue pas",
@@ -2486,7 +2582,7 @@
         },
         {
           "type": "text",
-          "text": "La clôture électrique se raccorde aux autres clôtures en métal, pas à celles en bois."
+          "text": "La clôture électrique se raccorde visuellement à toute clôture qui n'est pas en bois, mais seules les clôtures électriques sont mises sous tension."
         },
         {
           "type": "row",
@@ -2527,18 +2623,26 @@
         {
           "k": "Bien-être",
           "v": "6 min"
+        },
+        {
+          "k": "Pose, utilise",
+          "v": "Tout le monde"
+        },
+        {
+          "k": "Casse",
+          "v": "À la pioche, sinon perdu"
         }
       ],
       "blocks": [
         {
           "type": "hero",
           "img": "shots/electricite/douche-chaine.webp",
-          "alt": "Un puits, une pompe, un dessalinisateur, une pompe, un chauffe-eau, une pompe qui monte et une pomme de douche à l'étage, reliés par des tuyaux de Create",
+          "alt": "Sur une terrasse de pierre : un puits, une pompe, un dessalinisateur, une pompe, un chauffe-eau, une pompe et la pomme de douche au bout, reliés par des tuyaux de Create",
           "points": [
             {
               "at": "puits",
               "title": "L'eau",
-              "text": "Un puits, et une pompe de Create entraînée par un moteur."
+              "text": "Un puits de quatre sources, et une pompe de Create (ici entraînée par un moteur créatif, bloc créatif)."
             },
             {
               "at": "dessalinisateur",
@@ -2548,12 +2652,12 @@
             {
               "at": "chauffe-eau",
               "title": "Le chauffe-eau",
-              "text": "Avec du courant, il change l'eau potable en eau chaude."
+              "text": "Avec du courant (ici un Générateur Créatif derrière), il change l'eau potable en eau chaude."
             },
             {
               "at": "pomme",
               "title": "La pomme de douche",
-              "text": "Elle peut être à l'étage : une pompe fait monter l'eau chaude."
+              "text": "Au bout du tuyau, 2 blocs au-dessus du sol : on se tient dessous."
             }
           ]
         },
@@ -2566,20 +2670,16 @@
               "blocks": [
                 {
                   "type": "text",
-                  "text": "Relie le dessalinisateur au chauffe-eau, puis le chauffe-eau à la pomme, par des tuyaux et des pompes de Create. Le chauffe-eau ne prend que l'eau potable du mod."
+                  "text": "Relie le dessalinisateur au chauffe-eau, puis le chauffe-eau à la pomme, par des tuyaux et des pompes de Create, sans bout de tuyau ouvert (l'eau s'y perd). Le chauffe-eau ne prend que l'eau potable du mod."
                 },
                 {
                   "type": "shot",
                   "img": "shots/electricite/chauffe-eau-ecran.webp",
-                  "alt": "L'écran du chauffe-eau : jauge d'eau potable, état « Chauffe », énergie, jauge d'eau chaude",
+                  "alt": "L'écran du chauffe-eau : jauge d'eau potable, état « À l'arrêt » (la cuve d'eau chaude est pleine), énergie, jauge d'eau chaude",
                   "marks": [
                     {
                       "at": "potable",
                       "text": "L'eau potable qui entre (4 000 mB)."
-                    },
-                    {
-                      "at": "etat",
-                      "text": "« Chauffe » et la réserve."
                     },
                     {
                       "at": "chaude",
@@ -2601,7 +2701,7 @@
                 {
                   "type": "shot",
                   "img": "shots/electricite/douche-bien-etre.webp",
-                  "alt": "Le joueur sous la pomme de douche, l'icône du Bien-être en haut à droite",
+                  "alt": "Vue de face : le joueur sous la pomme de douche qui coule, l'icône du Bien-être en haut à droite",
                   "title": "Sous la pomme"
                 },
                 {
@@ -2639,24 +2739,24 @@
           "list": [
             {
               "img": "shots/electricite/chauffe-eau-marche.webp",
-              "alt": "Le chauffe-eau en marche",
+              "alt": "Le chauffe-eau en marche, voyant vert",
               "tone": "ok",
               "title": "En marche",
-              "text": "Il chauffe."
+              "text": "Voyant vert. Il chauffe."
             },
             {
               "img": "shots/electricite/chauffe-eau-sans-courant.webp",
-              "alt": "Le chauffe-eau sans courant, voyants éteints",
+              "alt": "Le chauffe-eau sans courant, voyant orange",
               "tone": "off",
               "title": "Sans courant",
-              "text": "Il attend le courant : rien ne se perd."
+              "text": "Voyant orange. Il attend le courant : rien ne se perd."
             },
             {
               "img": "shots/electricite/chauffe-eau-panne.webp",
-              "alt": "Le chauffe-eau en panne, qui fume",
+              "alt": "Le chauffe-eau en panne, voyant rouge",
               "tone": "bad",
               "title": "En panne",
-              "text": "Il faut un ingénieur."
+              "text": "Voyant rouge. Il faut un ingénieur."
             }
           ]
         },
@@ -2703,6 +2803,7 @@
         "Le chauffe-eau n'accepte que l'eau potable du mod (ni eau vanilla, ni lave) et ne rend que l'eau chaude (fluide `hot_water`, ni seau ni bloc).",
         "La pomme n'a ni courant ni usure et ne se vide pas par les tuyaux. Casser le chauffe-eau perd ses cuves.",
         "Une zone déchargée n'est pas une coupure : la machine se fige sans rien perdre.",
+        "Vérifié dans l'atelier (27/11), cuves vides au départ, chaîne horizontale : pomme pleine en moins d'une minute, puis l'eau chaude s'accumule au rythme du dessalinisateur (40 mB/s, 2 mB/t). Un premier montage avec une pompe verticale perdait l'eau (bout de tuyau ouvert) : éviter les bouts de tuyau libres.",
         "Le Bien-être ne réutilise aucun effet de Farmer's Delight et ne touche pas aux points de vie, y compris sous First Aid.",
         "Équilibrage en jeu pas encore fait."
       ]
@@ -2724,6 +2825,14 @@
         {
           "k": "Hauteur",
           "v": "8 blocs au-dessus de la mer"
+        },
+        {
+          "k": "Pose, utilise",
+          "v": "Tout le monde"
+        },
+        {
+          "k": "Casse",
+          "v": "À la pioche, sinon perdu"
         }
       ],
       "blocks": [
@@ -2758,9 +2867,23 @@
             {
               "img": "shots/electricite/phare-trop-bas.webp",
               "alt": "Un phare posé au sol, éteint, la nuit",
-              "tone": "bad",
+              "tone": "off",
               "title": "Trop bas ou couvert",
-              "text": "Moins de 8 blocs au-dessus de la mer, ou sous un toit : il reste éteint."
+              "text": "Moins de 8 blocs au-dessus de la mer, ou sous un toit : éteint, il ne consomme rien."
+            },
+            {
+              "img": "shots/electricite/phare-sans-courant.webp",
+              "alt": "La nuit, un phare au sommet d'une colonne, éteint faute de courant",
+              "tone": "off",
+              "title": "Sans courant",
+              "text": "La nuit, en haut, mais sans courant : éteint."
+            },
+            {
+              "img": "shots/electricite/phare-panne.webp",
+              "alt": "La nuit, un phare en panne au sommet d'une colonne, éteint",
+              "tone": "bad",
+              "title": "En panne",
+              "text": "Éteint : il faut un ingénieur."
             }
           ]
         },
@@ -2770,7 +2893,7 @@
           "blocks": [
             {
               "type": "text",
-              "text": "Au sommet d'une tour, à ciel libre, à 8 blocs au moins au-dessus de la mer (le message le dit à la pose sinon). Puis du courant : la nuit, il s'allume."
+              "text": "Au sommet d'une tour, à ciel libre, à 8 blocs au moins au-dessus de la mer (le message le dit à la pose sinon). Puis du courant : la nuit, il s'allume, et aussi de jour pendant un orage."
             }
           ]
         },
@@ -2825,6 +2948,10 @@
         {
           "k": "Portée",
           "v": "24 blocs"
+        },
+        {
+          "k": "Caches",
+          "v": "Posées par l'équipe"
         }
       ],
       "blocks": [
@@ -2845,7 +2972,7 @@
           "blocks": [
             {
               "type": "text",
-              "text": "Recharge-le : accroupi, clic droit sur une source (machine du mod, ou bloc d'un autre mod qui rend du courant)."
+              "text": "Recharge-le : en main, accroupi, clic droit sur une source, c'est-à-dire une machine du mod ou un bloc d'un autre mod qui rend du courant."
             },
             {
               "type": "row",
@@ -2942,7 +3069,7 @@
           "blocks": [
             {
               "type": "text",
-              "text": "Recharge-la : en main, accroupi, clic droit sur une source. Puis clic droit pour la mettre sur la tête (elle prend la place du casque)."
+              "text": "Recharge-la : en main, accroupi, clic droit sur une source (une machine du mod, ou un bloc d'un autre mod qui rend du courant). Puis clic droit pour la mettre sur la tête, à la place du casque."
             },
             {
               "type": "row",
@@ -2979,7 +3106,7 @@
             },
             {
               "k": "Protection",
-              "v": "1, sans durabilité"
+              "v": "1 point d'armure, sans durabilité"
             }
           ]
         },
@@ -2992,7 +3119,8 @@
         "Config `oneforallsurvival-explore.toml` : `headlampCapacity`, `headlampEnergy`, `headlampLight`.",
         "La lumière est un bloc `minecraft:light` posé seulement dans l'air ou l'eau, noté dans les données du chunk et retiré à la déconnexion, la mort, le changement de dimension et l'arrêt du serveur.",
         "Le coût sur un serveur chargé n'est pas mesuré.",
-        "Changer `headlampLight` pendant que des lampes sont allumées laisse leurs blocs de lumière."
+        "Changer `headlampLight` pendant que des lampes sont allumées laisse leurs blocs de lumière.",
+        "Avec First Aid, l'infobulle affiche l'armure à sa façon (« +7 Point d'Armure Locale » sur la tête) ; la lampe donne 1 point d'armure vanilla (`HeadlampItem.Material`)."
       ]
     },
     {
@@ -3012,6 +3140,14 @@
         {
           "k": "Énergie",
           "v": "4 FE/t"
+        },
+        {
+          "k": "Pose, utilise",
+          "v": "Tout le monde"
+        },
+        {
+          "k": "Casse",
+          "v": "À la pioche, sinon perdu"
         }
       ],
       "blocks": [
@@ -3037,7 +3173,7 @@
               "alt": "Récepteur hors tension",
               "tone": "off",
               "title": "Hors tension",
-              "text": "Il manque les messages, sans rattrapage."
+              "text": "Il manque les messages, sans rattrapage, comme un récepteur dans une zone déchargée."
             }
           ]
         },
@@ -3057,10 +3193,6 @@
                   "img": "shots/electricite/recepteur-ecran.webp",
                   "alt": "L'écran du récepteur : fréquence 42, En écoute, deux messages reçus",
                   "marks": [
-                    {
-                      "at": "frequence",
-                      "text": "La fréquence, puis « Régler »."
-                    },
                     {
                       "at": "ecoute",
                       "text": "En écoute, et la réserve."
@@ -3122,6 +3254,10 @@
         {
           "k": "Durée",
           "v": "10 s"
+        },
+        {
+          "k": "Pose",
+          "v": "L'équipe"
         }
       ],
       "blocks": [
