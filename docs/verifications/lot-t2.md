@@ -412,7 +412,7 @@ Les défauts de la revue finale, la recette, la fuite de pièces et les mineurs 
 11. Panneau à 320 × 240 : un bouton ou un cadre hors limites fait échouer ; les textes coupés sont comptés, non assertés. La bulle du repli posée au rendu n'a ni essai ni capture au survol.
 12. La ligne d'état de l'appli laisse passer les touchers : les boutons cachés dessous restent atteignables (« Remplacer » n'a pas de confirmation).
 13. Couveuse du lot 5 à la relance : **corrigée** (`07d9874`), voir « Reprise des restes ».
-14. **Aucune relance complète n'a encore abouti** : le 27/11 elle s'arrête à l'étape des quêtes, la dernière (essai qui dépend du jour réel, « Reprise des restes ») ; la fin de la relance des quêtes n'est pas jouée. La cache enterrée, le détecteur et le zombie restent instables (tableau des « Essais réels »).
+14. La relance complète **aboutit** (27/11, « Reprise des restes »). La cache enterrée, le détecteur et le zombie restent instables (tableau des « Essais réels »).
 15. Après un échec de l'étape : inventaire et position non rendus ; rien n'est rangé si le client est déconnecté (`Dev` peut rester non opérateur) ; la difficulté rendue est ensuite remise à « peaceful » par le rangement commun.
 16. Non joués : écran de mort réel, autre dimension que le Nether.
 17. L'absence du code d'essai dans le jar livré n'est vue que sur le jar du 2026-11-14 (aucune classe `dev/`) et dans `build.gradle` ; jar reconstruit et contrôlé sans être lancé le 26/11 (« Reprise des restes »).
@@ -456,7 +456,7 @@ Un connecteur de Crafts & Additions posé sur n'importe quelle face du bloc qui 
 
 ## Reprise des restes (tâche 16, 2026-11-26 et 27)
 
-**État : l'appli et la prise sont vues dans un vrai client, le premier passage complet passe, la relance complète s'arrête encore à sa dernière étape.**
+**État : l'appli et la prise sont vues dans un vrai client ; le passage complet et sa relance passent tous les deux.**
 
 ### Passage complet et relance sur serveur dédié avec le pack (27/11, code de `8756a7c`)
 
@@ -464,11 +464,13 @@ Un connecteur de Crafts & Additions posé sur n'importe quelle face du bloc qui 
 |---|---|---|
 | Passage complet, monde neuf | 00:49 à 01:08 | **TOUT PASSE, 476 PASS** |
 | Relance complète | 01:09 à 01:12 | 122 PASS, 1 échec : quêtes (E5) |
+| Passage complet, monde neuf (essai des quêtes corrigé) | 01:23 à 01:42 | **TOUT PASSE, 476 PASS** |
+| Relance complète | 01:43 à 01:47 | **TOUT PASSE, 137 PASS** |
 
 - **Joués pour la première fois dans une relance complète depuis le nettoyage** : la couveuse (chunk dit non chargé par la console avant l'arrivée du joueur ; compteur 352 ticks 2,8 s après l'arrivée pour 301 à l'arrêt, œuf présent), le minuit de l'électricité (compteur d'Abonne dans un chunk `charge=false`, factures et caisse justes) et la partie téléphone (antenne de Mairie, tarif du lendemain, opérateur supprimé, cartes relues).
-- **Échec des quêtes, défaut de l'essai** : le relevé d'avant l'arrêt a l'hebdomadaire `cook_meals` à 1/2 ; le seul repas retrouvé ensuite au journal est le ragoût du lot 5, et elle vaut 2/2 à la relance. L'horloge de la relance tombe un lundi (30/11, le passage étant joué un vendredi) : la semaine change, l'hebdomadaire finie passe dans les récompenses en attente, ce que le jeu doit faire. L'assertion de `E2eQuetes` interdit `cook_meals` dans l'attente quand la semaine change. **Non corrigé** : le corriger demande un nouveau passage complet.
+- **Échec des quêtes à 01:12, défaut de l'essai** : le relevé de l'étape a l'hebdomadaire `cook_meals` à 1/2 ; le seul repas retrouvé ensuite au journal est le ragoût du lot 5, et elle vaut 2/2 à la relance. L'horloge de la relance tombe un lundi (30/11, passage joué un vendredi) : la semaine change, l'hebdomadaire finie passe dans les récompenses en attente, ce que le jeu doit faire, et l'assertion l'interdisait. **Corrigé** : `E2eQuetes` relève le carnet juste avant le `/stop` et en déduit ce qui doit attendre. À 01:47, branche « semaine changée » jouée (`cook_meals` 2/2 attendue en attente, puis réclamée avec les planches, +51 cuivres). La branche « même semaine » n'a pas été rejouée depuis la correction, et aucun jeu volontairement cassé n'a été essayé contre elle.
 - Le zombie du butin, instable, a été tué en 3 coups ; son nouveau journal de combat (`E2eButin`) n'a donc pas servi.
-- Avant ce passage : un passage le 26/11 (23:32 à 23:44) a échoué sur ce zombie (266 PASS, 1 échec), et un autre (23:51) a été interrompu quand le client d'essai a pris la souris de Killian (corrigé par `8756a7c`). Pendant le passage et la relance du 27/11, un relevé extérieur toutes les 30 ms (20 111 relevés) n'a vu aucune prise du premier plan ni du curseur.
+- Avant ce passage : un passage le 26/11 (23:32 à 23:44) a échoué sur ce zombie (266 PASS, 1 échec), et un autre (23:51) a été interrompu quand le client d'essai a pris la souris de Killian (corrigé par `8756a7c`). Pendant les deux passages et relances du 27/11, un relevé extérieur toutes les 30 ms (20 111 puis 17 154 relevés) n'a vu aucune prise du premier plan ni du curseur.
 
 ### Vrai client (26/11)
 

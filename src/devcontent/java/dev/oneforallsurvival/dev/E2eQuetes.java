@@ -19,6 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -72,6 +73,8 @@ final class E2eQuetes {
 
     private static final Logger LOG = LogManager.getLogger("oneforallsurvival-e2e");
     private static final String FICHIER = "e2e-quetes.txt";
+    /** Le carnet juste avant le /stop : les étapes des lots suivants le font encore avancer (le ragoût du lot 5). */
+    private static final String FICHIER_ARRET = "e2e-quetes-arret.txt";
     private static final double DELAI = 25;
     private static final int Y_AIRE = 150;
     private static final Pattern CLE_VALEUR = Pattern.compile("(\\w+)=(\\[[^\\]]*\\]|[^ ]+)");
@@ -329,6 +332,10 @@ final class E2eQuetes {
 
     private static Path fichier() {
         return mc.gameDirectory.toPath().resolve(FICHIER);
+    }
+
+    private static Path fichierArret() {
+        return mc.gameDirectory.toPath().resolve(FICHIER_ARRET);
     }
 
     private static boolean pres(BlockPos bloc) {
@@ -932,6 +939,7 @@ final class E2eQuetes {
             lignes.add("reclamations=" + r.get("reclamations"));
             lignes.add("quests=" + q);
             try {
+                Files.deleteIfExists(fichierArret());
                 Files.write(fichier(), lignes, StandardCharsets.UTF_8);
             } catch (IOException e) {
                 throw new IllegalStateException(e);
@@ -1007,15 +1015,15 @@ final class E2eQuetes {
     // Après un arrêt et une relance du serveur (en dernier)
     // ================================================================================================
 
-    private static Map<String, String> lireFichier() {
+    private static Map<String, String> lireFichier(Path chemin) {
         Map<String, String> lu = new LinkedHashMap<>();
         try {
-            for (String l : Files.readAllLines(fichier(), StandardCharsets.UTF_8)) {
+            for (String l : Files.readAllLines(chemin, StandardCharsets.UTF_8)) {
                 int i = l.indexOf('=');
                 lu.put(l.substring(0, i), l.substring(i + 1));
             }
         } catch (IOException e) {
-            throw new IllegalStateException("premiere phase absente : " + fichier(), e);
+            throw new IllegalStateException("premiere phase absente : " + chemin, e);
         }
         return lu;
     }
@@ -1025,11 +1033,16 @@ final class E2eQuetes {
         return new BlockPos(Integer.parseInt(t[0]), Integer.parseInt(t[1]), Integer.parseInt(t[2]));
     }
 
+    /** Les hebdomadaires qui attendent, en texte trié pour se comparer. */
+    private static List<String> hebdoEnAttente(List<Q> attente) {
+        return attente.stream().filter(a -> "WEEKLY".equals(a.origine())).map(Q::toString).sorted().toList();
+    }
+
     static void relance() {
         Map<String, String> lu = new LinkedHashMap<>();
         pas("Relance : état d'avant l'arrêt relu ; journalières renouvelées, la journalière finie attend ; ligne « Quêtes » et "
                 + "/eco quests identiques", () -> {
-            lu.putAll(lireFichier());
+            lu.putAll(lireFichier(fichier()));
             fermer();
             o = position(lu.get("origine"));
             depart = mc.player.blockPosition();
@@ -1047,20 +1060,29 @@ final class E2eQuetes {
             boolean jourNeuf = !c.get("jour").equals(lu.get("jour")) && c.get("jour").equals(c.get("aujourdhui")) && j.size() == 3;
             Q planches = attente.stream().filter(a -> a.modele().equals("place_planks") && a.progres() == 2 && !a.reclamee()
                     && "DAILY".equals(a.origine()) && a.cle().equals(lu.get("jour"))).findFirst().orElse(null);
-            boolean memeSemaine = c.get("semaine").equals(lu.get("semaine"));
-            boolean hebdoJuste = memeSemaine ? h.get(0).modele().equals("break_logs") && h.get(0).progres() == 3
-                    : c.get("semaine").equals(c.get("cettesemaine")) && h.size() == 5
-                            && attente.stream().noneMatch(a -> a.modele().equals("break_logs") || a.modele().equals("cook_meals"));
+            // Le jour réel décide si l'horloge de la relance change de semaine : l'attendu part du carnet relevé à l'arrêt.
+            Map<String, String> arret = lireFichier(fichierArret());
+            List<Q> hArret = quetes(arret.get("hebdo"));
+            boolean memeSemaine = c.get("semaine").equals(arret.get("semaine"));
+            List<String> attendues = new ArrayList<>(hebdoEnAttente(quetes(arret.get("attente"))));
+            if (!memeSemaine) {
+                hArret.stream().filter(a -> a.progres() >= a.but() && !a.reclamee()).forEach(a -> attendues.add(a.toString()));
+            }
+            Collections.sort(attendues);
+            boolean hebdoJuste = (memeSemaine ? h.equals(hArret) : c.get("semaine").equals(c.get("cettesemaine")) && h.size() == 5)
+                    && hebdoEnAttente(attente).equals(attendues);
             if (!jourNeuf || planches == null || planches.recompense() != Long.parseLong(lu.get("planches")) || !hebdoJuste
                     || !q.equals(lu.get("quests")) || !sansCrochets(r.get("ligne")).equals(lu.get("ligne")) || !stats.contains(lu.get("ligne"))
                     || !r.get("total").equals(lu.get("total")) || !r.get("reclamations").equals(lu.get("reclamations"))) {
-                throw new IllegalStateException("carnet " + c + " ; avant " + lu + " ; registre " + r + " ; quests " + q);
+                throw new IllegalStateException("carnet " + c + " ; avant " + lu + " ; a l'arret " + arret
+                        + " ; hebdomadaires attendues en attente " + attendues + " ; registre " + r + " ; quests " + q);
             }
             recompenseAttendue = planches.recompense();
             return "relance des quetes : journalieres renouvelees (cle " + lu.get("jour") + " -> " + c.get("jour") + ", " + j + ") ; en attente : "
-                    + planches + " du " + planches.cle() + " ; " + (memeSemaine ? "meme semaine (" + c.get("semaine") + ") : hebdomadaire 0 gardee, "
-                            + h.get(0) : "semaine changee (" + lu.get("semaine") + " -> " + c.get("semaine") + ") : 5 nouvelles hebdomadaires "
-                            + h + ", l'ancienne a 3/10 expiree sans attente") + " ; ligne « " + lu.get("ligne").trim() + " » et /eco quests identiques ("
+                    + planches + " du " + planches.cle() + " ; " + (memeSemaine
+                            ? "meme semaine qu'a l'arret (" + c.get("semaine") + ") : hebdomadaires gardees " + h
+                            : "semaine changee (" + arret.get("semaine") + " -> " + c.get("semaine") + ") : 5 nouvelles hebdomadaires " + h)
+                    + " ; hebdomadaires finies en attente " + attendues + " ; ligne « " + lu.get("ligne").trim() + " » et /eco quests identiques ("
                     + q + ")";
         });
         allerALAire("Relance : ");
@@ -1177,8 +1199,11 @@ final class E2eQuetes {
             rcon("op " + nom());
             rcon("gamerule doMobSpawning " + naissancesAvant);
             rcon("difficulty " + difficulteAvant);
-        } catch (RuntimeException e) {
-            LOG.error("[e2e] rcon impossible avant l'arret", e);
+            Map<String, String> c = carnet();
+            Files.write(fichierArret(), List.of("semaine=" + c.get("semaine"), "hebdo=" + c.get("hebdo"),
+                    "attente=" + c.get("attente")), StandardCharsets.UTF_8);
+        } catch (RuntimeException | IOException e) {
+            LOG.error("[e2e] rcon ou carnet impossible avant l'arret", e);
         }
     }
 }
