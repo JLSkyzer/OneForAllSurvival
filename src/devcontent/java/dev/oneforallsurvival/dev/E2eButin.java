@@ -485,7 +485,22 @@ final class E2eButin {
                 dernierCoup = System.nanoTime();
             }
             return false;
-        }, () -> "mob " + mob(uuid.get()) + ", " + coups + " coup(s)", apres);
+        }, () -> "mob " + mob(uuid.get()) + ", " + coups + " coup(s)" + etatDuCombat(uuid.get()), apres);
+    }
+
+    /**
+     * Ce que le serveur garde du mob et de Dev quand un combat échoue (instabilité du zombie A, cause non établie) : un coup
+     * reçu change {@code Health} et {@code HurtByTimestamp} ; un {@code HurtTime} figé au-dessus de zéro dit que le mob ne
+     * tique pas.
+     */
+    private static String etatDuCombat(String uuid) {
+        StringBuilder s = new StringBuilder();
+        for (String c : List.of("data get entity " + uuid + " Health", "data get entity " + uuid + " HurtTime",
+                "data get entity " + uuid + " HurtByTimestamp", "data get entity " + nom() + " Pos",
+                "data get entity " + nom() + " SelectedItem.id")) {
+            s.append(" ; ").append(rcon(c).trim());
+        }
+        return s.toString();
     }
 
     /** Un mob tué qui ne doit rien donner : aucune pièce au sol, registre inchangé. */
