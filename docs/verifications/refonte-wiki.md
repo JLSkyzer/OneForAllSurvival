@@ -132,3 +132,6 @@ Relecture (lots A et B, 27/11 soir), vérifié dans le code :
 - **Fournisseur** : le fondateur et l'équipe agissent sur leur propre raccordement (`PowerPairing.mayActOn`) ; seuls
   un ingénieur ou un maire clients sont refusés. Le disjoncteur s'inscrit accroupi ; debout, le clic le bascule.
 - **Bourse** : une bourse qui contient des pièces est de l'argent (`MoneyStorageRules.isMoney`), refusée aux coffres.
+
+- **Registre de l’économie : accents manquants** (vu sur la capture de `/eco ledger`, 27/11) : « tresor » et « somme de
+  depart » sont écrits sans accent dans les motifs enregistrés par le mod. Non corrigé.

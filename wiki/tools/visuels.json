@@ -181,7 +181,7 @@
     {"sortie": "shots/economie/echange-demande.webp", "source": "run-wiki/captures/economie/echange-demande.png", "recadrage": [0, 200, 1000, 410], "largeur": 900},
     {"sortie": "shots/economie/echange-fenetre.webp", "source": "run-wiki/captures/economie/echange-fenetre.png", "recadrage": [380, 140, 545, 440]},
     {"sortie": "shots/economie/echange-recu.webp", "source": "run-wiki/captures/economie/echange-recu.png", "recadrage": [290, 280, 600, 280]},
-    {"sortie": "shots/economie/etal-hero.webp", "source": "run-wiki/captures/economie/etal-hero.png", "recadrage": [280, 20, 720, 600], "largeur": 720},
+    {"sortie": "shots/economie/etal-hero.webp", "source": "run-wiki/captures/economie/etal-hero.png", "recadrage": [280, 0, 720, 620], "largeur": 720},
     {"sortie": "shots/economie/etal-vitrine.webp", "source": "run-wiki/captures/economie/etal-vitrine.png", "recadrage": [455, 125, 370, 470]},
     {"sortie": "shots/economie/etal-stock.webp", "source": "run-wiki/captures/economie/etal-stock.png", "recadrage": [456, 160, 370, 395]},
     {"sortie": "shots/economie/etal-offres.webp", "source": "run-wiki/captures/economie/etal-offres.png", "recadrage": [456, 160, 370, 395]},
@@ -219,7 +219,7 @@
     {"sortie": "shots/economie/equipe-give.webp", "source": "run-wiki/captures/economie/equipe-give.png", "recadrage": [0, 538, 1000, 66]},
     {"sortie": "shots/economie/equipe-stats-haut.webp", "source": "run-wiki/captures/economie/equipe-stats-haut.png", "recadrage": [0, 272, 670, 368]},
     {"sortie": "shots/economie/equipe-stats.webp", "source": "run-wiki/captures/economie/equipe-stats.png", "recadrage": [0, 272, 670, 370]},
-    {"sortie": "shots/economie/equipe-registre.webp", "source": "run-wiki/captures/economie/equipe-registre.png", "recadrage": [0, 430, 670, 210]},
+    {"sortie": "shots/economie/equipe-registre.webp", "source": "run-wiki/captures/economie/equipe-registre.png", "recadrage": [0, 425, 670, 217]},
     {"sortie": "shots/economie/equipe-power.webp", "source": "run-wiki/captures/economie/equipe-power.png", "recadrage": [0, 455, 670, 185]}
   ]
 }
