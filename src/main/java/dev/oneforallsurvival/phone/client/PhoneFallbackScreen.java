@@ -33,7 +33,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
 import net.minecraft.util.FormattedCharSequence;
-import org.lwjgl.glfw.GLFW;
 
 /**
  * Le téléphone en interface Minecraft classique, quand le navigateur du jeu ne sert pas : même cadre que la page, mêmes
@@ -761,21 +760,45 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
         }
     }
 
+    /**
+     * Retours d'essai du 27/11 : les chiffres viennent de la touche ({@link PhoneKeys#key} : rangée du haut avec ou sans
+     * Maj, clavier AZERTY compris, et pavé numérique), et non plus du caractère tapé, que la rangée du haut d'un clavier
+     * AZERTY sans Maj ne donne pas ; {@link #charTyped} ne compte donc plus les chiffres, qui ne comptent qu'une fois.
+     * Les touches « parler » et « chuchoter » du voice chat ne sont pas prises.
+     */
     @Override
     public boolean keyPressed(int key, int scan, int modifiers) {
+        if (PhoneWebScreen.voiceKey(minecraft, key, scan)) {
+            return false;
+        }
         dropStaleFocus();
         boolean noCall = shownCall == PhoneFallbackCall.Mode.NONE;
-        if (noCall && page == Page.CODE && key == GLFW.GLFW_KEY_BACKSPACE) {
-            backspace();
+        String k = PhoneKeys.key(key, modifiers);
+        if (noCall && page == Page.CODE && k != null && !PhoneKeys.ENTER.equals(k)) {
+            if (PhoneKeys.BACK.equals(k)) {
+                backspace();
+            } else {
+                digit(k.charAt(0));
+            }
             return true;
         }
-        if (noCall && page == Page.DIAL && key == GLFW.GLFW_KEY_BACKSPACE) {
-            if (dialed.length() > 0) {
+        if (noCall && page == Page.DIAL && k != null && !PhoneKeys.ENTER.equals(k)) {
+            if (!PhoneKeys.BACK.equals(k)) {
+                dialDigit(k.charAt(0));
+            } else if (dialed.length() > 0) {
                 dialed.setLength(dialed.length() - 1);
             }
             return true;
         }
         return super.keyPressed(key, scan, modifiers);
+    }
+
+    @Override
+    public boolean keyReleased(int key, int scan, int modifiers) {
+        if (PhoneWebScreen.voiceKey(minecraft, key, scan)) {
+            return false;
+        }
+        return super.keyReleased(key, scan, modifiers);
     }
 
     @Override
@@ -796,13 +819,8 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
     public boolean charTyped(char c, int modifiers) {
         dropStaleFocus();
         boolean noCall = shownCall == PhoneFallbackCall.Mode.NONE;
-        if (noCall && page == Page.CODE && c >= '0' && c <= '9') {
-            digit(c);
-            return true;
-        }
-        if (noCall && page == Page.DIAL && c >= '0' && c <= '9') {
-            dialDigit(c);
-            return true;
+        if (noCall && (page == Page.CODE || page == Page.DIAL) && c >= '0' && c <= '9') {
+            return true; // déjà compté par keyPressed
         }
         return super.charTyped(c, modifiers);
     }
@@ -1178,11 +1196,32 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
         }
     }
 
-    /** Un champ de code : le narrateur n'en lit que le libellé, jamais les chiffres saisis. */
+    /**
+     * Un champ de code : le narrateur n'en lit que le libellé, jamais les chiffres saisis. Retours d'essai du 27/11 : ses
+     * chiffres viennent de la touche ({@link PhoneKeys#key}), pas du caractère, comme le clavier de l'écran.
+     */
     private static final class CodeBox extends EditBox {
 
         CodeBox(Font font, int x, int y, int w, int h, Component label) {
             super(font, x, y, w, h, label);
+        }
+
+        @Override
+        public boolean keyPressed(int key, int scan, int modifiers) {
+            String k = PhoneKeys.key(key, modifiers);
+            if (canConsumeInput() && k != null && k.length() == 1) {
+                insertText(k);
+                return true;
+            }
+            return super.keyPressed(key, scan, modifiers);
+        }
+
+        @Override
+        public boolean charTyped(char c, int modifiers) {
+            if (canConsumeInput() && c >= '0' && c <= '9') {
+                return true; // déjà compté par keyPressed
+            }
+            return super.charTyped(c, modifiers);
         }
 
         @Override

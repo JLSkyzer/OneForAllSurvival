@@ -40,6 +40,12 @@ import org.apache.logging.log4j.Logger;
  * <p>Lot T3, tâche 4b : chaque état d'appel part à {@code window.phone.call} et son carnet à {@code window.phone.directory}
  * ({@link PhoneCallJson}) ; les gestes d'appel et de carnet de la page sont relus par {@link CallBridgeMessages}, le
  * numéro de l'appel visé pris au dernier état reçu.
+ *
+ * <p>Retours d'essai du 27/11 : les touches du téléphone sont traduites ici ({@link PhoneKeys#press}) et données à la
+ * page par {@code window.phone.key}, jamais aussi au navigateur ; un champ de texte qui a la main (message
+ * {@code textFocus} de la page, relu par {@link PhoneBridgeMessages#textFocus}) garde sa saisie. Les touches « parler »
+ * et « chuchoter » du voice chat ne sont pas prises : l'événement clavier de Forge part, que Simple Voice Chat écoute.
+ * Rien de ce qui est tapé n'est écrit au journal.
  */
 public final class PhoneWebScreen extends WebScreen implements PhoneClient.Shown {
 
@@ -63,6 +69,9 @@ public final class PhoneWebScreen extends WebScreen implements PhoneClient.Shown
     /** Le panneau de l'appli « Antenne » montré par la page (son numéro), et sa dernière vue. */
     private final AntennaSession antenna = new AntennaSession();
     @Nullable private OperatorView antennaView;
+    /** Un champ de texte de la page a la main (dernier {@code textFocus} reçu). */
+    private boolean textFocus;
+    private final PhoneKeys.Held held = new PhoneKeys.Held();
 
     public PhoneWebScreen(PhoneStatePacket state) {
         this(state, new Bridge());
@@ -238,6 +247,55 @@ public final class PhoneWebScreen extends WebScreen implements PhoneClient.Shown
         RenderSystem.disableBlend();
     }
 
+    /**
+     * Vrai si cette touche est liée à « parler » ou « chuchoter » de Simple Voice Chat ({@link PhoneKeys#VOICE_MAPPINGS}),
+     * telle que le joueur l'a réglée. Une liaison à la souris ne répond jamais : la souris passe déjà par un événement de
+     * Forge publié avant l'écran.
+     */
+    static boolean voiceKey(net.minecraft.client.Minecraft mc, int key, int scan) {
+        if (mc == null || mc.options == null) {
+            return false;
+        }
+        for (net.minecraft.client.KeyMapping mapping : mc.options.keyMappings) {
+            if (PhoneKeys.isVoiceMapping(mapping.getName()) && mapping.matches(key, scan)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public boolean keyPressed(int key, int scan, int modifiers) {
+        if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) {
+            return super.keyPressed(key, scan, modifiers);
+        }
+        PhoneKeys.Decision d = PhoneKeys.press(key, modifiers, voiceKey(minecraft, key, scan), textFocus);
+        switch (d.route()) {
+            case VOICE -> {
+                return false;
+            }
+            case PAGE -> {
+                boolean repeat = held.press(key);
+                if (isReady()) {
+                    run(WebScript.call("phone.key", new JsonPrimitive(d.key()), new JsonPrimitive(repeat)));
+                }
+                return true;
+            }
+            default -> {
+                return super.keyPressed(key, scan, modifiers);
+            }
+        }
+    }
+
+    @Override
+    public boolean keyReleased(int key, int scan, int modifiers) {
+        held.release(key);
+        if (key != org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE && voiceKey(minecraft, key, scan)) {
+            return false;
+        }
+        return super.keyReleased(key, scan, modifiers);
+    }
+
     @Override
     protected void onFallback(WebFailure failure) {
         toFallback = true;
@@ -262,6 +320,8 @@ public final class PhoneWebScreen extends WebScreen implements PhoneClient.Shown
         String a = message.get("a").getAsString();
         switch (a) {
             case "ready" -> {
+                textFocus = false; // page (re)chargée : aucun champ n'a la main
+                held.clear();
                 render();
                 if (call != null && call.here() && call.phase() != PhoneCallStatePacket.Phase.NONE) {
                     // Un appel en cours au chargement de la page : montré tout de suite (sans carnet, l'appli le demande).
@@ -272,6 +332,7 @@ public final class PhoneWebScreen extends WebScreen implements PhoneClient.Shown
                 antenna.ready().ifPresent(this::closeAntennaPanel);
             }
             case "layout" -> rects = PhoneBridgeMessages.layout(message);
+            case "textFocus" -> PhoneBridgeMessages.textFocus(message).ifPresent(on -> textFocus = on);
             case "close" -> onClose();
             default -> {
                 if (AntennaBridgeMessages.isAntenna(a)) {

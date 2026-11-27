@@ -93,6 +93,7 @@ import net.minecraft.world.level.levelgen.presets.WorldPresets;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.event.InputEvent;
 import net.minecraftforge.client.gui.ModMismatchDisconnectedScreen;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.event.TickEvent;
@@ -136,6 +137,12 @@ import org.lwjgl.glfw.GLFW;
  *   <li>{@code prise} (lot T2, tâche 16, avec le pack) : la prise à travers son mur, câblée par de vrais clics
  *   (connecteurs de Crafts &amp; Additions, bobine de cuivre), puis le connecteur du mur remis sur « aucun » à la clé de
  *   Create ; valeurs relues au serveur.</li>
+ *   <li>{@code clavier} (retours d'essai du 27/11) : les vraies touches, données par le gestionnaire de clavier du jeu
+ *   ({@code KeyboardHandler.keyPress}, codes GLFW et {@code glfwGetKeyScancode}, caractère tapé comme le rappel de
+ *   GLFW) : code tapé au pavé numérique (un chiffre effacé par Retour arrière), puis à la rangée du haut avec les
+ *   caractères d'un clavier AZERTY sans Maj ; numéro composé au pavé et appelé par l'Entrée du pavé (relu au
+ *   serveur) ; enfin la touche liée à {@code key.push_to_talk} (et {@code key.whisper} si elle est liée), téléphone
+ *   ouvert : l'événement {@code InputEvent.Key} de Forge part à l'appui et au relâchement, et pas pour un chiffre.</li>
  * </ul>
  *
  * <p>{@code options.txt} n'est jamais réécrit (taille de fenêtre, échelle et plafond en mémoire seulement). La touche
@@ -332,6 +339,7 @@ public final class TelephoneShots {
                         }
                         case "signal" -> composerSignal(mc);
                         case "appel" -> composerAppel(mc);
+                        case "clavier" -> composerClavier(mc);
                         case "urgence" -> composerUrgence(mc);
                         case "prise" -> composerPriseMur(mc);
                         default -> composer(mc);
@@ -1122,6 +1130,219 @@ public final class TelephoneShots {
                 + dev.oneforallsurvival.phone.call.CallService.calls().size()), () -> attendu(2.5), 4, null);
         echap(mc, "appel-echap-fin");
         pas("appel-correspondant-sort", () -> serveur(mc, (srv, sp) -> {
+            if (ecouteAppels != null) {
+                dev.oneforallsurvival.phone.call.CallService.removeListener(ecouteAppels);
+            }
+            JoueurDeTest j = correspondant;
+            if (j != null && j.connecte()) {
+                j.quitter();
+            }
+            correspondant = null;
+        }), () -> correspondant == null, 5, null);
+        bilanDuPont();
+    }
+
+    // --- Le clavier et le voice chat (retours d'essai du 27/11) --------------------------------------------------------
+
+    /** Les caractères que tape la rangée du haut d'un clavier AZERTY sans Maj, de 0 à 9. */
+    private static final String AZERTY = "à&é\"'(-è_ç";
+    /** Les événements {@code InputEvent.Key} de Forge relevés pendant le mode {@code clavier} : « touche:action ». */
+    private static final List<String> TOUCHES_FORGE = new ArrayList<>();
+
+    @SubscribeEvent
+    public static void onKey(InputEvent.Key event) {
+        if (ACTIF && "clavier".equals(MODE)) {
+            TOUCHES_FORGE.add(event.getKey() + ":" + event.getAction());
+        }
+    }
+
+    /**
+     * Une touche réelle : appui puis relâchement par le gestionnaire de clavier du jeu (comme le rappel de GLFW), et le
+     * caractère {@code c} entre les deux s'il n'est pas nul (comme le rappel de caractère de GLFW).
+     */
+    private static void toucheReelle(Minecraft mc, int key, char c) {
+        long fenetre = mc.getWindow().getWindow();
+        int scan = GLFW.glfwGetKeyScancode(key);
+        mc.keyboardHandler.keyPress(fenetre, key, scan, GLFW.GLFW_PRESS, 0);
+        if (c != 0) {
+            try {
+                java.lang.reflect.Method m = net.minecraft.client.KeyboardHandler.class.getDeclaredMethod("charTyped",
+                        long.class, int.class, int.class);
+                m.setAccessible(true);
+                m.invoke(mc.keyboardHandler, fenetre, (int) c, 0);
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException("caractère non tapé", e);
+            }
+        }
+        mc.keyboardHandler.keyPress(fenetre, key, scan, GLFW.GLFW_RELEASE, 0);
+    }
+
+    /** Des chiffres au pavé numérique (le caractère du chiffre, pavé verrouillé en chiffres). */
+    private static void auPave(Minecraft mc, String chiffres) {
+        for (char c : chiffres.toCharArray()) {
+            toucheReelle(mc, GLFW.GLFW_KEY_KP_0 + (c - '0'), c);
+        }
+    }
+
+    /** Des chiffres à la rangée du haut d'un clavier AZERTY, sans Maj : la touche du chiffre, le caractère « & é " ' ( … ». */
+    private static void rangeeAzerty(Minecraft mc, String chiffres) {
+        for (char c : chiffres.toCharArray()) {
+            toucheReelle(mc, GLFW.GLFW_KEY_0 + (c - '0'), AZERTY.charAt(c - '0'));
+        }
+    }
+
+    @Nullable
+    private static net.minecraft.client.KeyMapping liaison(Minecraft mc, String nom) {
+        for (net.minecraft.client.KeyMapping k : mc.options.keyMappings) {
+            if (nom.equals(k.getName())) {
+                return k;
+            }
+        }
+        return null;
+    }
+
+    /** Vrai une fois le téléphone déverrouillé ; un faux code parti fait échouer le pas (un chiffre compté deux fois). */
+    private static boolean deverrouilleSansFauxCode(Minecraft mc, String nom) {
+        if (etat(Lock.UNLOCKED) && cible(mc, "app-phone") && attendu(0.6)) {
+            return true;
+        }
+        if (PhoneClient.last().map(p -> p.last() == Result.WRONG_CODE).orElse(false)) {
+            echec(nom, "un faux code est parti : " + resume());
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Mode {@code clavier} : page (MCEF), monde solo. Téléphone configuré (code {@value #CODE}), correspondant simulé ;
+     * le code tapé au pavé puis à la rangée du haut (AZERTY sans Maj), un numéro composé au pavé et appelé par
+     * l'Entrée du pavé, puis la touche « parler » du voice chat téléphone ouvert. Effets relus au serveur et dans la page.
+     */
+    private static void composerClavier(Minecraft mc) {
+        if (SERVEUR != null || !web) {
+            echec("clavier", "le mode clavier se joue en monde solo, dans la page (MCEF)");
+            return;
+        }
+        preparerAppels(mc, "clavier");
+
+        // 1. Le code au pavé numérique : un 9 effacé par Retour arrière, puis le code. Un chiffre compté deux fois, ou
+        // un Retour arrière perdu, enverrait un faux code.
+        ouvrir(mc, "clavier-ouverture-1", Lock.LOCKED, "k00-verrouille");
+        pas("clavier-pave-code", () -> stable(mc, "key-0"), () -> {
+            journal("pavé numérique : scancodes KP_0 " + GLFW.glfwGetKeyScancode(GLFW.GLFW_KEY_KP_0) + ", KP_9 "
+                    + GLFW.glfwGetKeyScancode(GLFW.GLFW_KEY_KP_9) + ", Entrée du pavé "
+                    + GLFW.glfwGetKeyScancode(GLFW.GLFW_KEY_KP_ENTER) + ", Retour arrière "
+                    + GLFW.glfwGetKeyScancode(GLFW.GLFW_KEY_BACKSPACE));
+            auPave(mc, "9");
+            toucheReelle(mc, GLFW.GLFW_KEY_BACKSPACE, (char) 0);
+            auPave(mc, CODE);
+        }, () -> deverrouilleSansFauxCode(mc, "clavier-pave-code"), 10, "k01-deverrouille-au-pave");
+        echap(mc, "clavier-echap-1");
+
+        // 2. Le code à la rangée du haut, caractères d'un clavier AZERTY sans Maj.
+        ouvrir(mc, "clavier-ouverture-2", Lock.LOCKED, null);
+        pas("clavier-rangee-code", () -> stable(mc, "key-0"), () -> {
+            journal("rangée du haut : scancodes 0 " + GLFW.glfwGetKeyScancode(GLFW.GLFW_KEY_0) + ", 1 "
+                    + GLFW.glfwGetKeyScancode(GLFW.GLFW_KEY_1) + ", 9 " + GLFW.glfwGetKeyScancode(GLFW.GLFW_KEY_9));
+            rangeeAzerty(mc, CODE);
+        }, () -> deverrouilleSansFauxCode(mc, "clavier-rangee-code"), 10, "k02-deverrouille-rangee-azerty");
+
+        // 3. Le numéro au pavé (un chiffre de trop effacé), appelé par l'Entrée du pavé.
+        clic(mc, "clavier-appli", "app-phone", () -> stable(mc, "tel-tab-keypad") && attendu(1.0), 10, null);
+        clic(mc, "clavier-onglet-clavier", "tel-tab-keypad", () -> stable(mc, "dial-call") && attendu(0.6), 10, null);
+        pas("clavier-numero-au-pave", () -> stable(mc, "dial-call"), () -> {
+            auPave(mc, numeroCorr + "7");
+            toucheReelle(mc, GLFW.GLFW_KEY_BACKSPACE, (char) 0);
+        }, () -> attendu(0.8), 5, "k03-numero-au-pave");
+        pas("clavier-numero-relu", () -> releveDemande = false, () -> {
+            JsonObject r = demander(mc, "{champ:" + texteDe("dial-number") + "}");
+            if (r == null) {
+                return false;
+            }
+            String vus = r.get("champ").getAsString().replaceAll("\\D", "");
+            journal("numéro au pavé : " + vus.length() + " chiffre(s), attendu " + numeroCorr.length()
+                    + (vus.equals(numeroCorr) ? " (identique)" : " (différent)"));
+            if (!vus.equals(numeroCorr)) {
+                echec("clavier-numero-relu", vus.length() + " chiffre(s) au lieu de " + numeroCorr.length());
+            }
+            return true;
+        }, 5, null);
+        pas("clavier-entree-du-pave", () -> stable(mc, "dial-call"), () -> {
+            composesAvant = SORTES_DU_PONT.getOrDefault("callDial", 0);
+            toucheReelle(mc, GLFW.GLFW_KEY_KP_ENTER, (char) 0);
+        }, () -> {
+            String s = lu(mc, "sonne-clavier", (srv, sp) -> dev.oneforallsurvival.phone.call.CallService
+                    .callOf(corr()).map(x -> x.state().name()).orElse("aucun"));
+            return phase(dev.oneforallsurvival.phone.call.PhoneCallStatePacket.Phase.OUTGOING) && "RINGING".equals(s)
+                    && stable(mc, "call-hangup") && attendu(0.8);
+        }, 10, "k04-appel-par-l-entree-du-pave");
+        pas("clavier-un-seul-appel", () -> {
+            int n = SORTES_DU_PONT.getOrDefault("callDial", 0) - composesAvant;
+            journal("Entrée du pavé : " + n + " callDial envoyé(s)");
+            if (n != 1) {
+                echec("clavier-un-seul-appel", n + " callDial au lieu de 1");
+            }
+        }, () -> true, 1, null);
+        clic(mc, "clavier-raccrocher", "call-hangup",
+                () -> phase(dev.oneforallsurvival.phone.call.PhoneCallStatePacket.Phase.NONE) && attendu(2.5), 10, null);
+
+        // 4. Le voice chat, téléphone ouvert : l'événement de Forge part pour « parler » (appui et relâchement), pas
+        // pour un chiffre, et l'écran reste le téléphone.
+        pas("clavier-voix", () -> mc.screen instanceof PhoneWebScreen, () -> {
+            net.minecraft.client.KeyMapping parler = liaison(mc, "key.push_to_talk");
+            net.minecraft.client.KeyMapping chuchoter = liaison(mc, "key.whisper");
+            if (parler == null || chuchoter == null) {
+                echec("clavier-voix", "liaisons du voice chat absentes (Simple Voice Chat non chargé ?)");
+                return;
+            }
+            // Simple Voice Chat ne lie « parler » et « chuchoter » à aucune touche par défaut : liées ici en mémoire
+            // seulement (options.txt n'est jamais réécrit par l'automate), puis rendues. « Chuchoter » prend un chiffre
+            // du pavé : une touche du voice chat l'emporte sur le téléphone, quelle qu'elle soit.
+            com.mojang.blaze3d.platform.InputConstants.Key avantParler = parler.getKey();
+            com.mojang.blaze3d.platform.InputConstants.Key avantChuchoter = chuchoter.getKey();
+            if (parler.isUnbound()) {
+                parler.setKey(com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM.getOrCreate(GLFW.GLFW_KEY_CAPS_LOCK));
+            }
+            if (chuchoter.isUnbound()) {
+                chuchoter.setKey(com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM.getOrCreate(GLFW.GLFW_KEY_KP_5));
+            }
+            net.minecraft.client.KeyMapping.resetMapping();
+            try {
+                int touche = parler.getKey().getValue();
+                int t = chuchoter.getKey().getValue();
+                TOUCHES_FORGE.clear();
+                toucheReelle(mc, GLFW.GLFW_KEY_KP_1, '1');
+                List<String> pourUnChiffre = new ArrayList<>(TOUCHES_FORGE);
+                TOUCHES_FORGE.clear();
+                toucheReelle(mc, touche, (char) 0);
+                List<String> pourParler = new ArrayList<>(TOUCHES_FORGE);
+                TOUCHES_FORGE.clear();
+                toucheReelle(mc, t, (char) 0);
+                List<String> pourChuchoter = new ArrayList<>(TOUCHES_FORGE);
+                journal("voice chat : « parler » liée à " + parler.getKey().getName() + ", événements " + pourParler
+                        + " ; « chuchoter » liée à " + chuchoter.getKey().getName() + ", événements " + pourChuchoter
+                        + " ; pour un chiffre du pavé : " + pourUnChiffre + " ; écran "
+                        + mc.screen.getClass().getSimpleName());
+                if (!pourParler.equals(List.of(touche + ":" + GLFW.GLFW_PRESS, touche + ":" + GLFW.GLFW_RELEASE))) {
+                    echec("clavier-voix", "« parler » : événements " + pourParler);
+                }
+                if (!pourChuchoter.equals(List.of(t + ":" + GLFW.GLFW_PRESS, t + ":" + GLFW.GLFW_RELEASE))) {
+                    echec("clavier-voix", "« chuchoter » : événements " + pourChuchoter);
+                }
+                if (!pourUnChiffre.isEmpty()) {
+                    echec("clavier-voix", "un chiffre est sorti de l'écran : " + pourUnChiffre);
+                }
+                if (!(mc.screen instanceof PhoneWebScreen)) {
+                    echec("clavier-voix", "l'écran n'est plus le téléphone : " + mc.screen);
+                }
+            } finally {
+                parler.setKey(avantParler);
+                chuchoter.setKey(avantChuchoter);
+                net.minecraft.client.KeyMapping.resetMapping();
+            }
+        }, () -> attendu(0.5), 5, "k05-voix-telephone-ouvert");
+        echap(mc, "clavier-echap-fin");
+        pas("clavier-correspondant-sort", () -> serveur(mc, (srv, sp) -> {
             if (ecouteAppels != null) {
                 dev.oneforallsurvival.phone.call.CallService.removeListener(ecouteAppels);
             }
@@ -3163,7 +3384,7 @@ public final class TelephoneShots {
             "changeCode", "wallpaper", "airplane", "insertSim", "removeSim", "requestSim", "antennaApp", "opTariff",
             "opIssue", "opRefuse", "opAnonymous", "opSuspend", "opReactivate", "opReplace", "opDeactivate", "opMain",
             "opPage", "opClose", "callDial", "callAnswer", "callDecline", "callHangup", "callMute", "callSpeaker",
-            "contactSave", "contactRemove", "phoneApp");
+            "contactSave", "contactRemove", "phoneApp", "textFocus");
     private static final Set<String> CLES = Set.of("a", "rects", "code", "old", "new", "id", "on", "wallpaper", "slot",
             "op", "value", "n", "number", "name");
 

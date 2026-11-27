@@ -35,6 +35,11 @@
 //   tel-close, tel-tab-recents, tel-tab-contacts, tel-tab-keypad, contact-add, recent-<n>, contact-<n>,
 //   contact-info-<n>, dial-0 à dial-9, dial-back, dial-call, dial-add, cform-cancel, cform-save, cform-name,
 //   cform-number, cform-delete, call-answer, call-decline, call-hangup, call-mute, call-speaker, island.
+//   Retours d'essai du 27/11 (clavier) : page -> Java : {"a":"textFocus","on":true|false} quand un champ de saisie
+//   prend ou perd la main (Java lui laisse alors sa saisie). Java -> page : phone.key(touche, répétée), touche "0" à
+//   "9", "back" ou "enter", traduite par le jeu (PhoneKeys) et passée aux mêmes règles qu'une touche du navigateur :
+//   dans MCEF, Chromium reçoit le code de touche de GLFW tel quel et ne reconnaît pas le pavé numérique ; le jeu ne lui
+//   donne plus ces touches hors d'un champ.
 // Le serveur fait foi : la page ne juge aucun code, elle les transmet. Tout texte venu de la vue passe par textContent.
 // Un téléphone neuf (lock SETUP) montre l'assistant de première configuration : Bonjour, Configuration rapide, Fond
 // d'écran, le code (écran #lock), puis Tout est prêt. Rien n'est configuré avant l'envoi du code : fermer avant laisse
@@ -2643,6 +2648,7 @@
     }
     lastLayout = key;
     send({ a: 'layout', rects: rects });
+    reportTextFocus(); // un champ caché sans perdre la main ne doit pas garder la saisie
   }
 
   // ------------------------------------------------------------------------------------------- Gestes
@@ -2880,6 +2886,36 @@
       flash(el);
     }
     press(k);
+  }
+
+  // Retours d'essai du 27/11 : une touche traduite par le jeu (PhoneKeys.press), passée aux mêmes règles qu'une
+  // touche du navigateur. Rien d'autre que "0" à "9", "back" et "enter" n'est accepté.
+  function gameKey(k, repeat) {
+    if (typeof k !== 'string' || !/^(?:[0-9]|back|enter)$/.test(k)) {
+      return;
+    }
+    onKey({
+      key: k === 'back' ? 'Backspace' : (k === 'enter' ? 'Enter' : k),
+      keyCode: 0,
+      which: 0,
+      repeat: repeat === true,
+      preventDefault: function () {}
+    });
+  }
+
+  function editable(el) {
+    return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable === true);
+  }
+
+  // Le jeu laisse sa saisie à un champ qui a la main : il l'apprend ici (au départ, aucun champ n'a la main).
+  var textFocusSent = false;
+
+  function reportTextFocus() {
+    var on = editable(document.activeElement);
+    if (on !== textFocusSent) {
+      textFocusSent = on;
+      send({ a: 'textFocus', on: on });
+    }
   }
 
   function onScroll() {
@@ -3585,13 +3621,16 @@
 
   // ------------------------------------------------------------------------------------------- Démarrage
 
-  window.phone = { render: render, antenna: antenna, antennaStatus: antennaStatus, call: onCall, directory: directory };
+  window.phone = { render: render, antenna: antenna, antennaStatus: antennaStatus, call: onCall, directory: directory,
+    key: gameKey };
 
   function start() {
     $('pad').classList.add('pad-park');
     $('lock-slot').appendChild($('pad'));
     phoneEl.addEventListener('click', onTap);
     document.addEventListener('keydown', onKey);
+    document.addEventListener('focusin', reportTextFocus);
+    document.addEventListener('focusout', function () { setTimeout(reportTextFocus, 0); });
     $('settings-scroll').addEventListener('scroll', onScroll, { passive: true });
     $('sim-scroll').addEventListener('scroll', function () { scheduleLayout(150); }, { passive: true });
     $('ant-scroll').addEventListener('scroll', function () { scheduleLayout(150); }, { passive: true });

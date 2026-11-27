@@ -301,6 +301,35 @@ class PhoneBridgeMessagesTest {
         assertEquals(boutons, PhoneBridgeMessages.layout(message).keySet());
     }
 
+    /** Retours d'essai du 27/11 : la page dit quand un champ de texte a la main ; rien n'en part vers le serveur. */
+    @Test
+    void textFocusSeLitEtNePartPas() {
+        JsonObject on = JsonParser.parseString("{\"a\":\"textFocus\",\"on\":true}").getAsJsonObject();
+        JsonObject off = JsonParser.parseString("{\"a\":\"textFocus\",\"on\":false}").getAsJsonObject();
+        assertEquals(Optional.of(true), PhoneBridgeMessages.textFocus(on));
+        assertEquals(Optional.of(false), PhoneBridgeMessages.textFocus(off));
+        assertEquals(Optional.empty(), PhoneBridgeMessages.toAction(on, SESSION), "rien pour le serveur");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "{\"a\":\"textFocus\"}",
+            "{\"a\":\"textFocus\",\"on\":\"true\"}",
+            "{\"a\":\"textFocus\",\"on\":1}",
+            "{\"a\":\"textFocus\",\"on\":null}",
+            "{\"a\":\"textFocus\",\"on\":true,\"x\":1}",
+            "{\"a\":\"lock\",\"on\":true}",
+            "{\"on\":true}"
+    })
+    void textFocusMalFormeNeSeLitPas(String json) {
+        assertEquals(Optional.empty(), PhoneBridgeMessages.textFocus(JsonParser.parseString(json).getAsJsonObject()));
+    }
+
+    @Test
+    void textFocusNulNeSeLitPas() {
+        assertEquals(Optional.empty(), PhoneBridgeMessages.textFocus(null));
+    }
+
     @Test
     void unMessageSansActionNePartPas() {
         assertEquals(Optional.empty(), action("{\"code\":\"4821\"}"));

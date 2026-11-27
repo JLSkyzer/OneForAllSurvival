@@ -102,6 +102,10 @@ final class TelephoneBilan {
                     "appel-vert-releve", "appel-fermer-appli", "appel-ile", "appel-raccrocher", "appel-fin-serveur",
                     "appel-entrant", "appel-entrant-verrouille", "appel-refuser", "appel-repondre", "appel-raccrocher-2",
                     "appel-inconnu", "appel-correspondant-sort", "bilan-du-pont");
+            case "clavier" -> List.of("clavier-correspondant", "clavier-lignes", "clavier-pave-code",
+                    "clavier-rangee-code", "clavier-numero-au-pave", "clavier-numero-relu", "clavier-entree-du-pave",
+                    "clavier-un-seul-appel", "clavier-raccrocher", "clavier-voix", "clavier-correspondant-sort",
+                    "bilan-du-pont");
             case "urgence" -> List.of("urgence-correspondant", "urgence-lignes", "urgence-policier",
                     "urgence-ecran-verrouille", "urgence-bouton", "urgence-police-17", "urgence-policier-decroche",
                     "urgence-active-releve", "urgence-raccrocher", "urgence-deverrouillage", "urgence-clavier",

@@ -25,7 +25,8 @@ import javax.annotation.Nullable;
  * Lot T2 : {@code insertSim} ({@code slot}, entier JSON de 0 à 40 écrit sans signe, sans zéro de tête, sans partie
  * décimale ni exposant), {@code removeSim} et {@code antennaApp} (sans champ), {@code requestSim} ({@code op},
  * identifiant d'opérateur de 12 caractères hexadécimaux en minuscules, la forme du registre).
- * {@code ready}, {@code layout} et {@code close} restent dans le client. Le serveur revérifie tout de toute façon.
+ * {@code ready}, {@code layout}, {@code close} et {@code textFocus} ({@link #textFocus}) restent dans le client. Le
+ * serveur revérifie tout de toute façon.
  */
 public final class PhoneBridgeMessages {
 
@@ -35,6 +36,7 @@ public final class PhoneBridgeMessages {
     private static final Set<String> CHANGE = Set.of("a", "old", "new");
     private static final Set<String> WALLPAPER = Set.of("a", "id");
     private static final Set<String> AIRPLANE = Set.of("a", "on");
+    private static final Set<String> TEXT_FOCUS = Set.of("a", "on");
     private static final Set<String> SLOT = Set.of("a", "slot");
     private static final Set<String> OPERATOR = Set.of("a", "op");
     /** Une case de l'inventaire telle que JSON l'écrit : 0 à 40, sans signe, zéro de tête, décimale ni exposant. */
@@ -147,6 +149,20 @@ public final class PhoneBridgeMessages {
             }
         }
         return Collections.unmodifiableMap(out);
+    }
+
+    /**
+     * Retours d'essai du 27/11 : {@code {"a":"textFocus","on":true|false}}, la page dit qu'un champ de texte a la main
+     * (ou ne l'a plus), pour que l'écran laisse sa saisie au champ ({@link PhoneKeys#press}). Exactement ces deux champs,
+     * {@code on} booléen JSON ; sinon rien. Ce message reste dans le client.
+     */
+    public static Optional<Boolean> textFocus(@Nullable JsonObject message) {
+        if (message == null || !"textFocus".equals(string(message.get("a"))) || !exactly(message, TEXT_FOCUS)) {
+            return Optional.empty();
+        }
+        JsonElement on = message.get("on");
+        return on.isJsonPrimitive() && on.getAsJsonPrimitive().isBoolean()
+                ? Optional.of(on.getAsBoolean()) : Optional.empty();
     }
 
     /**
