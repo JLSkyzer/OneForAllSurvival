@@ -135,3 +135,35 @@ Relecture (lots A et B, 27/11 soir), vérifié dans le code :
 
 - **Registre de l’économie : accents manquants** (vu sur la capture de `/eco ledger`, 27/11) : « tresor » et « somme de
   depart » sont écrits sans accent dans les motifs enregistrés par le mod. Non corrigé.
+
+## Tâche 6 : Interface, Maire, chapitres à venir, accueil (27/11 soir)
+
+Statuts changés, preuve à l'appui :
+
+- **Menu F3** (`interface/menu-f3`, « Prévu » → article) : chantier 3 livré (`tasks/todo.md`), code dans
+  `client/debug/` (`DebugPanels`, `IslandLines`, `DebugKeys`) ; captures d'un vrai client (`F3Shots`, run-titre,
+  `-PdebugShots=frames-wiki-f3`, 0 échec). Usure, panne et index réservés à `RoleGate.canDoEngineerWork`
+  (`IslandDebugInfo.collect`) ; sous `reducedDebugInfo`, réponse vide pour tous (`IslandDebugRequest.answer`) et panneau
+  Lost Island masqué (`IslandLines.rows`).
+- **Maire, le métier** (`metier-maire`, « Prévu » → article `maire/le-maire`) : statut `RoleBook.mayor`, préfixe
+  `RoleTeams.mayorPrefix` ([Maire] [Métier], vu au-dessus d'un joueur simulé), un seul maire (`appointMayor`
+  remplace), refus `power.not_mayor` / `operator.not_mayor`, salaire `mayorSalaryPerHour` (0).
+- **Trésor et dépenses, tableau de la mairie, déplacer** (« Prévu » → article `maire/tresor`) : livrés au lot E3
+  (`economy/town/`, `TownBlockRules`). Pas en jeu : l'alerte de l'équipe au-delà d'un seuil (nouvel élément prévu
+  `alerte-depense`), le registre public et les annonces au tableau (restés prévus).
+- **Réseaux, taxes et barèmes** (« Prévu » → article `maire/reseaux`) : `/power cap|tax|suppliers|set|owner|remove`
+  (`PowerCommands`, lot E6) et `/operator list|cap|set|owner|remove` (`OperatorCommands`, lot T2), vus au chat d'un
+  vrai client. Le maire agit sur postes, antennes et raccordements jumelés (`PowerRules.mayManage`,
+  `AntennaRules.mayManage`, `PowerPairing.mayActOn`, sauf son propre raccordement), jamais sur les caisses. Pas en jeu :
+  taxe des étals réglée par le maire (config `salesTaxPercent` seulement) et barème des amendes → élément prévu
+  `taxe-ventes-amendes`.
+- Restent prévus : bureau du maire, registre public, impôt sur les coffres-forts, annonces, appli Mairie ; tous les
+  chapitres Médecin, Policier, Agriculteur, Casino, Loisirs, Substances (aucune classe de ces lots dans `src/main`).
+  Médecin et Policier : l'intro dit ce qui existe déjà (métier, salaire du policier, appels 15 et 17).
+
+Défauts vus pendant les captures (mod non modifié) :
+
+- `/power suppliers` et les messages de plafond écrivent « 100000 FE » sans espace (déjà noté).
+- Les pages de la vue détaillée du F3 et le panneau Cible affichent les lignes de Minecraft en anglais (« facing
+  north », « state stopped ») : voulu (le texte vient de Minecraft), pas montré dans le wiki en dehors du rappel.
+- L'écran titre garde « Copyright Mojang AB. Do not distribute! » de Minecraft : la capture publiée est recadrée.

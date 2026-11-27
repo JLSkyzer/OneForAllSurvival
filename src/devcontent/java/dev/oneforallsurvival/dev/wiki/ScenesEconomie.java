@@ -1386,7 +1386,7 @@ public final class ScenesEconomie implements Chapitre {
 
     // --- outils -------------------------------------------------------------------------------------------------------
 
-    private static JoueurDeTest figurant(Lieu lieu, String nom, Vec3 rel, float yaw, boolean vider) {
+    static JoueurDeTest figurant(Lieu lieu, String nom, Vec3 rel, float yaw, boolean vider) {
         Vec3 ou = lieu.v(rel.x, rel.y, rel.z);
         JoueurDeTest j = JoueurDeTest.rejoindre(lieu.monde(), nom, ou, vider, p -> {});
         j.joueur().teleportTo(lieu.monde(), ou.x, ou.y, ou.z, yaw, 0F);
@@ -1404,7 +1404,7 @@ public final class ScenesEconomie implements Chapitre {
         throw new IllegalStateException("pas de joueur simulé " + nom);
     }
 
-    private static void quitterFigurants() {
+    static void quitterFigurants() {
         for (JoueurDeTest j : FIGURANTS) {
             if (j.connecte()) {
                 j.quitter();
@@ -1421,12 +1421,12 @@ public final class ScenesEconomie implements Chapitre {
     }
 
     /** Les retours des commandes tapées par le joueur (règle sendCommandFeedback, coupée par l'atelier). */
-    private static void retours(MinecraftServer srv, boolean oui) {
+    static void retours(MinecraftServer srv, boolean oui) {
         srv.getGameRules().getRule(GameRules.RULE_SENDCOMMANDFEEDBACK).set(oui, srv);
     }
 
     /** Une commande de la console (niveau 4), sans retour. */
-    private static void console(MinecraftServer srv, String ligne) {
+    static void console(MinecraftServer srv, String ligne) {
         srv.getCommands().performPrefixedCommand(srv.createCommandSourceStack().withSuppressedOutput(), ligne);
     }
 
@@ -1446,7 +1446,7 @@ public final class ScenesEconomie implements Chapitre {
     }
 
     /** Un clic droit de ce joueur (objet en main) sur la face d'un bloc, par le chemin du serveur. */
-    private static void poserPar(ServerPlayer p, ItemStack pile, BlockPos pos, Direction face) {
+    static void poserPar(ServerPlayer p, ItemStack pile, BlockPos pos, Direction face) {
         ItemStack avant = p.getItemInHand(InteractionHand.MAIN_HAND);
         p.setItemInHand(InteractionHand.MAIN_HAND, pile);
         try {
@@ -1458,7 +1458,7 @@ public final class ScenesEconomie implements Chapitre {
     }
 
     /** Le joueur oublie son ancien fournisseur (une scène rejouée dans le même monde en refonde un). */
-    private static void oublierFournisseur(MinecraftServer srv, UUID qui) {
+    static void oublierFournisseur(MinecraftServer srv, UUID qui) {
         PowerSuppliers r = PowerSuppliers.get(srv);
         r.byFounder(qui).ifPresent(f -> {
             for (PowerClient c : r.clients(f.id())) {
@@ -1489,7 +1489,7 @@ public final class ScenesEconomie implements Chapitre {
     }
 
     /** Un étal tenu par {@code proprio} : pains, pommes, morue cuite ; les trois offres se voient sur le comptoir. */
-    private static void etalGarni(Lieu lieu, BlockPos rel, ServerPlayer proprio) {
+    static void etalGarni(Lieu lieu, BlockPos rel, ServerPlayer proprio) {
         lieu.poser(rel.getX(), rel.getY(), rel.getZ(), face(EconomyRegistry.MARKET_STALL.get()));
         MarketStallBlockEntity e = be(lieu, rel, MarketStallBlockEntity.class);
         e.setOwner(proprio.getUUID(), proprio.getGameProfile().getName());
@@ -1526,7 +1526,7 @@ public final class ScenesEconomie implements Chapitre {
         return o == null ? null : new Lieu(mc.getSingleplayerServer(), o);
     }
 
-    private static void chatVisible(Minecraft mc) {
+    static void chatVisible(Minecraft mc) {
         mc.gui.getChat().clearMessages(false);
         CHAT.clear();
         mc.options.chatVisibility().set(ChatVisiblity.FULL);
@@ -1539,7 +1539,7 @@ public final class ScenesEconomie implements Chapitre {
         mc.gameRenderer.setRenderHand(false);
     }
 
-    private static void chatMasque(Minecraft mc) {
+    static void chatMasque(Minecraft mc) {
         mc.gui.getChat().clearMessages(false);
         mc.options.chatVisibility().set(ChatVisiblity.HIDDEN);
         mc.options.broadcastOptions();
@@ -1548,7 +1548,7 @@ public final class ScenesEconomie implements Chapitre {
     }
 
     /** Vrai si un message reçu porte cette clé de traduction (le message lui-même ou une de ses parties). */
-    private static boolean cle(String cle) {
+    static boolean cle(String cle) {
         synchronized (CHAT) {
             for (Component c : CHAT) {
                 if (porteCle(c, cle)) {

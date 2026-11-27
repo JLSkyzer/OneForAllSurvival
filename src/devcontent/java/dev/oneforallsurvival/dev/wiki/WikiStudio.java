@@ -91,7 +91,7 @@ public final class WikiStudio {
     /** Les chapitres connus de l'atelier ; chaque tâche de contenu ajoute le sien. */
     private static List<Chapitre> chapitres() {
         return List.of(new ScenesControle(), new ScenesTelephone(), new ScenesElectricite(), new ScenesEconomie(),
-                new WikiExports());
+                new ScenesMaire(), new ScenesAccueil(), new WikiExports());
     }
 
     private enum Phase { TITRE, MONDE, SCENES, FIN }
