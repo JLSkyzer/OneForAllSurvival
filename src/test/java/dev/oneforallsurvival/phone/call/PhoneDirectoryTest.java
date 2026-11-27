@@ -6,9 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.IntTag;
@@ -130,8 +132,9 @@ class PhoneDirectoryTest {
     @Test
     void aNomEgalLOrdreEstCeluiDesNumeros() {
         PhoneDirectory directory = new PhoneDirectory();
-        directory.saveContact(SIM, number(3), "ALICE");
-        directory.saveContact(SIM, number(1), "alice");
+        // Sans la force secondaire du tri, la casse départagerait (« alice », « Alice », « ALICE ») : 3, 2, 1.
+        directory.saveContact(SIM, number(3), "alice");
+        directory.saveContact(SIM, number(1), "ALICE");
         directory.saveContact(SIM, number(2), "Alice");
         assertEquals(List.of(number(1), number(2), number(3)),
                 directory.contacts(SIM).stream().map(Contact::number).toList());
@@ -234,7 +237,7 @@ class PhoneDirectoryTest {
     @Test
     void unNumeroCourtSInscritUnNumeroIllisibleNon() {
         PhoneDirectory directory = new PhoneDirectory();
-        for (String number : new String[] {"", "abc", "06 11 11 11 11", "06111111111", "-17"}) {
+        for (String number : new String[] {"", "abc", "06 11 11 11 1", "06111111111", "-17", "1 7"}) {
             directory.log(SIM, new Recent(number, Recent.Kind.OUTGOING, 1L, 1));
         }
         assertEquals(List.of(), directory.recents(SIM));
@@ -244,6 +247,127 @@ class PhoneDirectoryTest {
         Recent police = new Recent("17", Recent.Kind.OUTGOING, 1L, 1);
         directory.log(SIM, police);
         assertEquals(List.of(police), reload(directory).recents(SIM));
+    }
+
+    @Test
+    void desChiffresDUneAutreEcritureNeSInscriventPas() {
+        PhoneDirectory directory = new PhoneDirectory();
+        // « 17 » en chiffres arabes orientaux, puis en pleine chasse ; et un numéro de carte en pleine chasse.
+        String arabe = new StringBuilder().appendCodePoint(0x0661).appendCodePoint(0x0667).toString();
+        String pleineChasse = new StringBuilder().appendCodePoint(0xFF11).appendCodePoint(0xFF17).toString();
+        StringBuilder carte = new StringBuilder();
+        for (char c : ALICE.toCharArray()) {
+            carte.appendCodePoint(0xFF10 + (c - '0'));
+        }
+        for (String number : new String[] {arabe, pleineChasse, carte.toString()}) {
+            assertFalse(directory.log(SIM, new Recent(number, Recent.Kind.OUTGOING, 1L, 1)), number);
+        }
+        assertEquals(List.of(), directory.recents(SIM));
+        assertFalse(directory.isDirty());
+    }
+
+    @Test
+    void unNumeroEcritAvecSesEspacesSInscritSansEux() {
+        PhoneDirectory directory = new PhoneDirectory();
+        assertTrue(directory.log(SIM, new Recent("06 11 11 11 11", Recent.Kind.INCOMING, 3L, 4)));
+        assertEquals(List.of(new Recent(ALICE, Recent.Kind.INCOMING, 3L, 4)), directory.recents(SIM));
+        assertEquals(List.of(new Recent(ALICE, Recent.Kind.INCOMING, 3L, 4)), reload(directory).recents(SIM));
+        // Un numéro court s'inscrit tel quel ; un texte illisible est refusé et le dit.
+        assertTrue(directory.log(SIM, new Recent("15", Recent.Kind.OUTGOING, 5L, 0)));
+        assertFalse(directory.log(SIM, new Recent("06 11 11 11 1a", Recent.Kind.OUTGOING, 6L, 0)));
+        assertEquals(2, directory.recents(SIM).size());
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Nombre de carnets (revue de la tâche 2, I1)
+    // ---------------------------------------------------------------------------------------------
+
+    @Test
+    void auPlafondLesCarnetsDeCartesMortesSontOubliesPasLesAutres() {
+        Set<UUID> dead = new HashSet<>();
+        PhoneDirectory directory = new PhoneDirectory(simId -> !dead.contains(simId));
+        // Le plafond rempli : un carnet sur deux appartient à une carte qui mourra (désactivée ou inconnue).
+        for (int i = 0; i < ContactRules.MAX_BOOKS; i++) {
+            assertEquals(PhoneDirectory.SaveResult.SAVED, directory.saveContact(uuid(1_000 + i), ALICE, "Alice"));
+        }
+        for (int i = 0; i < ContactRules.MAX_BOOKS; i += 2) {
+            dead.add(uuid(1_000 + i));
+        }
+        // Rien n'est oublié tant que le plafond n'est pas atteint par un carnet neuf : un carnet connu s'écrit encore.
+        assertEquals(PhoneDirectory.SaveResult.SAVED, directory.saveContact(uuid(1_000), BOB, "Bob"));
+        assertTrue(directory.log(uuid(1_000), recent(1)));
+        assertEquals(2, directory.contacts(uuid(1_000)).size());
+
+        assertEquals(PhoneDirectory.SaveResult.SAVED, directory.saveContact(SIM, ALICE, "Neuf"));
+
+        assertEquals(List.of(), directory.contacts(uuid(1_000)));
+        assertEquals(List.of(), directory.recents(uuid(1_000)));
+        assertEquals(List.of(new Contact(ALICE, "Alice")), directory.contacts(uuid(1_001)));
+        assertEquals(List.of(new Contact(ALICE, "Neuf")), directory.contacts(SIM));
+        assertEquals(ContactRules.MAX_BOOKS / 2 + 1,
+                directory.save(new CompoundTag()).getList("books", Tag.TAG_COMPOUND).size());
+    }
+
+    @Test
+    void auPlafondDeCartesVivantesUnCarnetNeufEstRefuse() {
+        PhoneDirectory directory = new PhoneDirectory(simId -> true);
+        for (int i = 0; i < ContactRules.MAX_BOOKS; i++) {
+            assertEquals(PhoneDirectory.SaveResult.SAVED, directory.saveContact(uuid(1_000 + i), ALICE, "Alice"));
+        }
+        directory.setDirty(false);
+        assertEquals(PhoneDirectory.SaveResult.DIRECTORY_FULL, directory.saveContact(SIM, ALICE, "Alice"));
+        assertFalse(directory.log(SIM, recent(1)));
+        assertEquals(List.of(), directory.contacts(SIM));
+        assertEquals(List.of(), directory.recents(SIM));
+        assertFalse(directory.isDirty());
+        // Les carnets déjà là s'écrivent toujours.
+        assertEquals(PhoneDirectory.SaveResult.SAVED, directory.saveContact(uuid(1_000), BOB, "Bob"));
+        assertTrue(directory.log(uuid(1_001), recent(2)));
+        // Une place libérée (carnet redevenu vide) se reprend.
+        assertTrue(directory.removeContact(uuid(1_002), ALICE));
+        assertTrue(directory.log(SIM, recent(1)));
+        assertEquals(List.of(recent(1)), directory.recents(SIM));
+        assertEquals(PhoneDirectory.SaveResult.DIRECTORY_FULL, directory.saveContact(OTHER, ALICE, "Alice"));
+    }
+
+    @Test
+    void uneCarteMorteNeRecoitPasDeCarnetNeuf() {
+        UUID mort = uuid(66);
+        PhoneDirectory directory = new PhoneDirectory(simId -> !simId.equals(mort));
+        assertEquals(PhoneDirectory.SaveResult.DEAD_CARD, directory.saveContact(mort, ALICE, "Alice"));
+        assertFalse(directory.log(mort, recent(1)));
+        assertEquals(List.of(), directory.contacts(mort));
+        assertEquals(List.of(), directory.recents(mort));
+        assertFalse(directory.isDirty());
+        // Un refus du numéro ou du nom se dit d'abord, comme pour une carte vivante.
+        assertEquals(PhoneDirectory.SaveResult.BAD_NUMBER, directory.saveContact(mort, "abc", "Alice"));
+        assertEquals(PhoneDirectory.SaveResult.BAD_NAME, directory.saveContact(mort, ALICE, " "));
+        // Témoin : une carte vivante en reçoit un.
+        assertEquals(PhoneDirectory.SaveResult.SAVED, directory.saveContact(SIM, ALICE, "Alice"));
+    }
+
+    @Test
+    void uneCarteMorteGardeLeCarnetQuElleAvaitSousLePlafond() {
+        Set<UUID> dead = new HashSet<>();
+        PhoneDirectory directory = new PhoneDirectory(simId -> !dead.contains(simId));
+        directory.saveContact(SIM, ALICE, "Alice");
+        dead.add(SIM);
+        // Les preuves restent pour la fouille tant qu'il y a de la place.
+        assertEquals(List.of(new Contact(ALICE, "Alice")), directory.contacts(SIM));
+        directory.saveContact(OTHER, BOB, "Bob");
+        assertEquals(List.of(new Contact(ALICE, "Alice")), directory.contacts(SIM));
+    }
+
+    @Test
+    void laLectureBorneLeNombreDeCarnets() {
+        CompoundTag[] rows = new CompoundTag[ContactRules.MAX_BOOKS + 5];
+        for (int i = 0; i < rows.length; i++) {
+            rows[i] = bookRow(uuid(1_000 + i), List.of(contactRow(ALICE, "Alice")), List.of());
+        }
+        PhoneDirectory back = PhoneDirectory.load(saved(rows));
+        assertEquals(ContactRules.MAX_BOOKS, back.save(new CompoundTag()).getList("books", Tag.TAG_COMPOUND).size());
+        assertEquals(1, back.contacts(uuid(1_000)).size());
+        assertEquals(List.of(), back.contacts(uuid(1_000 + ContactRules.MAX_BOOKS)));
     }
 
     @Test

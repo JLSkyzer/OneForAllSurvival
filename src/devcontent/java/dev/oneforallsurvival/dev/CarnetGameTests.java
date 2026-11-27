@@ -144,10 +144,20 @@ public final class CarnetGameTests {
 
     @GameTest(template = "test/plancher", batch = LOT)
     public static void leCarnetSEcritEtSeReluDuFichier(GameTestHelper helper) {
+        try (Essai essai = new Essai(helper, "carnet_fichier")) {
+            ecritEtRelit(helper, essai);
+        }
+    }
+
+    private static void ecritEtRelit(GameTestHelper helper, Essai essai) {
         MinecraftServer serveur = helper.getLevel().getServer();
         PhoneDirectory carnet = PhoneDirectory.get(serveur);
         helper.assertTrue(PhoneDirectory.get(serveur) == carnet, "un seul carnet par serveur");
-        UUID carte = UUID.randomUUID();
+        // Une vraie carte du registre : une carte inconnue ne reçoit pas de carnet (revue de la tâche 2, I1).
+        PhoneOperator op = OperateurDEssai.fonder(helper, essai.joueur, "Carnet Fichier");
+        UUID carte = emettre(helper, op, essai.joueur);
+        helper.assertTrue(carnet.saveContact(UUID.randomUUID(), MAMAN, "Maman") == PhoneDirectory.SaveResult.DEAD_CARD,
+                "une carte inconnue du registre n'a pas de carnet");
         long maintenant = EconomyClock.now();
 
         helper.assertTrue(carnet.saveContact(carte, "06 11 22 33 44", "  Maman ") == PhoneDirectory.SaveResult.SAVED,

@@ -27,6 +27,20 @@ class ContactRulesTest {
     private static final int LONE_SURROGATE = 0xD800;
     /** Un caractère hors du premier plan : deux unités UTF-16. */
     private static final int EMOJI = 0x1F600;
+    /** Les remplissages coréens et la case braille vide : des lettres ou symboles qui ne dessinent rien. */
+    private static final int HANGUL_CHOSEONG_FILLER = 0x115F;
+    private static final int HANGUL_JUNGSEONG_FILLER = 0x1160;
+    private static final int HANGUL_FILLER = 0x3164;
+    private static final int HALFWIDTH_HANGUL_FILLER = 0xFFA0;
+    private static final int BRAILLE_BLANK = 0x2800;
+    /** Usage privé (premier plan et plan 15) et un point de code non attribué. */
+    private static final int PRIVATE_USE = 0xE000;
+    private static final int PRIVATE_USE_PLANE_15 = 0xF0000;
+    private static final int UNASSIGNED = 0x0378;
+    /** Sélecteur de variante (dessin en couleur d'un emoji) et accent aigu combinant : des marques sans largeur. */
+    private static final int VARIATION_SELECTOR_16 = 0xFE0F;
+    private static final int COMBINING_ACUTE = 0x0301;
+    private static final int HEART = 0x2764;
 
     private static String cp(int... codePoints) {
         StringBuilder text = new StringBuilder();
@@ -45,6 +59,7 @@ class ContactRulesTest {
         assertEquals(100, ContactRules.MAX_CONTACTS);
         assertEquals(32, ContactRules.MAX_NAME);
         assertEquals(50, ContactRules.MAX_RECENTS);
+        assertEquals(2048, ContactRules.MAX_BOOKS);
     }
 
     @Test
@@ -85,6 +100,31 @@ class ContactRulesTest {
                 + cp(BYTE_ORDER_MARK) + "an" + cp(LONE_SURROGATE)));
         // Une vraie paire est un caractère : gardée.
         assertEquals(Optional.of("Zoé " + cp(EMOJI)), clean("Zoé " + cp(EMOJI)));
+    }
+
+    @Test
+    void lesRemplissagesLUsagePriveEtLeNonAttribueSontRetires() {
+        assertEquals(Optional.of("Maman"), clean(cp(HANGUL_CHOSEONG_FILLER) + "Ma" + cp(HANGUL_JUNGSEONG_FILLER) + "m"
+                + cp(HANGUL_FILLER) + "a" + cp(HALFWIDTH_HANGUL_FILLER) + "n" + cp(BRAILLE_BLANK)));
+        assertEquals(Optional.of("Bob"), clean("B" + cp(PRIVATE_USE) + "o" + cp(PRIVATE_USE_PLANE_15) + "b"
+                + cp(UNASSIGNED)));
+        // Retirés avant la règle des espaces : « a » puis un remplissage entre deux espaces ne laisse qu'une espace.
+        assertEquals(Optional.of("a b"), clean("a " + cp(HANGUL_FILLER) + " b"));
+    }
+
+    @Test
+    void unNomSansRienDeVisibleEstRefuse() {
+        assertEquals(Optional.empty(), clean(cp(HANGUL_FILLER, HANGUL_FILLER, HALFWIDTH_HANGUL_FILLER)));
+        assertEquals(Optional.empty(), clean(cp(BRAILLE_BLANK) + " " + cp(PRIVATE_USE, UNASSIGNED)));
+        // Des marques seules (sélecteur de variante, accent combinant) ne se voient pas.
+        assertEquals(Optional.empty(), clean(cp(VARIATION_SELECTOR_16, COMBINING_ACUTE)));
+        assertEquals(Optional.empty(), clean(" " + cp(COMBINING_ACUTE) + " " + cp(VARIATION_SELECTOR_16) + " "));
+    }
+
+    @Test
+    void unSelecteurDeVarianteApresUnEmojiResteGarde() {
+        assertEquals(Optional.of(cp(HEART, VARIATION_SELECTOR_16)), clean(cp(HEART, VARIATION_SELECTOR_16)));
+        assertEquals(Optional.of("Zoe" + cp(COMBINING_ACUTE)), clean("Zoe" + cp(COMBINING_ACUTE)));
     }
 
     @Test
