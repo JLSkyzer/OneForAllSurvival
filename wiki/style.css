@@ -321,6 +321,8 @@ details.staff ul{margin:0;padding:0 20px 16px 36px;display:flex;flex-direction:c
 .v-joueurs .inconnu{display:none}
 .schemas{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:16px}
 
+/* Entre tablette et grand écran : un en-tête sur une ligne avec six chapitres. */
+@media (min-width:621px) and (max-width:1400px){.bar{gap:12px 14px}.nav{gap:2px}.nav a{padding:0 10px;gap:6px}.reglages{gap:8px 12px}.seul .suite-label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}
 @media (max-width:620px){
   h1{font-size:46px}.art h1{font-size:44px}h2{font-size:30px}
   .w{gap:44px;padding-top:24px}

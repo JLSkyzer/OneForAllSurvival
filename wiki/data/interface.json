@@ -10,7 +10,7 @@
       "title": "L'écran de chargement",
       "group": "Au lancement",
       "lead": "Pendant que le jeu charge, un récit : l'avion tombe de nuit, s'écrase, brûle, puis le jour se lève sur l'île.",
-      "cover": "shots/interface/chargement-feux.webp",
+      "cover": "shots/interface/chargement-cover.webp",
       "covers": [
         "ecran-chargement"
       ],
@@ -31,20 +31,20 @@
           "alt": "L'écran de chargement : l'épave brûle de nuit sous la lune, logo Lost Island, message « Tri des caisses de l'épave… (mods 13/20) », barre à 56 %",
           "points": [
             {
-              "x": 9,
-              "y": 83,
+              "x": 6,
+              "y": 76,
               "title": "Le message",
               "text": "Il dit l'étape réelle du chargement, en mots de l'île : la soute, les caisses de l'épave, le littoral…"
             },
             {
-              "x": 20,
-              "y": 93.3,
+              "x": 48,
+              "y": 87,
               "title": "La barre",
               "text": "Elle suit le vrai chargement et ne recule jamais ; l'avion avance avec elle."
             },
             {
-              "x": 67,
-              "y": 89,
+              "x": 63,
+              "y": 80,
               "title": "Le pourcentage",
               "text": "Le même avancement, en chiffres."
             }
@@ -69,13 +69,13 @@
             {
               "type": "shot",
               "img": "shots/interface/chargement-impact.webp",
-              "alt": "L'impact : un éclair de feu blanc sur le flanc de l'île",
+              "alt": "L'impact : une boule de feu blanche sur le flanc de l'île, la traînée de fumée au-dessus",
               "title": "L'impact"
             },
             {
               "type": "shot",
               "img": "shots/interface/chargement-aube.webp",
-              "alt": "L'aube sur l'épave et la plage, le logo et « Là où tout recommence. », barre à 99 %",
+              "alt": "L'aube sur l'épave et la plage, le logo et « Là où tout recommence. », message « Bienvenue sur Lost Island. », barre à 100 %",
               "title": "L'aube"
             }
           ]
@@ -127,8 +127,8 @@
       "id": "titre",
       "title": "L'écran titre",
       "group": "Au lancement",
-      "lead": "L'aube du chargement reste en fond, sans coupure : le logo, puis Solo, Rejoindre l'île, Options et Quitter le jeu.",
-      "cover": "shots/interface/titre.webp",
+      "lead": "L'aube du chargement reste en fond, en mouvement, sans recommencer le récit : le logo, puis Solo, Rejoindre l'île, Options et Quitter le jeu.",
+      "cover": "shots/interface/titre-cover.webp",
       "covers": [
         "ecran-titre"
       ],
@@ -145,19 +145,19 @@
           "alt": "L'écran titre : logo Lost Island, « Là où tout recommence. », boutons Solo, Rejoindre l'île, Options, Quitter le jeu, rangée Mods en bas à gauche, l'épave à l'aube derrière",
           "points": [
             {
-              "x": 44,
+              "x": 83,
               "y": 52.5,
               "title": "Rejoindre l'île",
               "text": "Te connecte directement au serveur, à l'adresse réglée sur le site."
             },
             {
-              "x": 44,
+              "x": 83,
               "y": 42.4,
               "title": "Solo",
               "text": "Tes mondes à toi, comme dans Minecraft."
             },
             {
-              "x": 24.5,
+              "x": 49,
               "y": 93,
               "title": "La rangée du bas",
               "text": "Mods, langue, accessibilité (et les boutons des autres mods)."
@@ -198,7 +198,7 @@
       "title": "La liste des joueurs",
       "group": "En jeu",
       "lead": "Touche TAB : les survivants rangés par métier, le maire en tête, le jour et l'heure du monde.",
-      "cover": "shots/interface/tab.webp",
+      "cover": "shots/interface/tab-cover.webp",
       "covers": [
         "liste-joueurs"
       ],
@@ -241,12 +241,12 @@
             {
               "type": "shot",
               "img": "shots/interface/tab-cas.webp",
-              "alt": "Une liste de 8 survivants : un pseudo très long, un métier coupé « Responsable du… », un ping inconnu « … », un spectateur grisé en bas",
+              "alt": "Une liste de 8 survivants : un métier coupé « Responsable du… », un ping inconnu « … », une spectatrice grisée en bas",
               "marks": [
                 {
                   "x": 60,
                   "y": 88.5,
-                  "text": "Un spectateur : grisé, en bas, hors du compte des survivants."
+                  "text": "Une spectatrice : grisée, en bas, hors du compte des survivants."
                 }
               ]
             },
@@ -263,7 +263,7 @@
             {
               "type": "shot",
               "img": "shots/interface/tab-40.webp",
-              "alt": "La liste avec 39 survivants sur quatre colonnes de dix, maire Ingénieur en tête"
+              "alt": "Deux des quatre colonnes d'une liste de 39 survivants, dix par colonne, maire Ingénieur en tête"
             },
             {
               "type": "text",
@@ -293,7 +293,7 @@
       "title": "Le menu F3",
       "group": "En jeu",
       "lead": "F3 redessiné en panneaux de verre, rangés par thème ; le panneau Lost Island dit l'état de la machine ou du compteur regardé.",
-      "cover": "shots/interface/f3.webp",
+      "cover": "shots/interface/f3-cover.webp",
       "covers": [
         "menu-f3"
       ],
@@ -344,7 +344,7 @@
             },
             {
               "type": "text",
-              "text": "Images par seconde, mémoire et santé du serveur (TPS). À droite aussi : la Cible (le bloc visé) et les Mods, avec les lignes de Minecraft et des mods."
+              "text": "Images par seconde, mémoire et santé du serveur (TPS). À droite aussi : la Cible (le bloc visé). À gauche, sous Lost Island : le panneau Mods, avec les lignes des autres mods."
             }
           ]
         },

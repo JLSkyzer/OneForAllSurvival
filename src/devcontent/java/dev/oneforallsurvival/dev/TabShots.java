@@ -252,6 +252,12 @@ public final class TabShots {
                 faux("Mia_Survie", "citoyen", 31), faux("Nouveau_Venu", "citoyen", 0),
                 new Faux("Admin_Fantome", "citoyen", 12, true));
         ajouter("e-cas-limites", List.of("role set " + moi + " citoyen", "role mayor set " + moi), e, 55, 1920, 1080, 2);
+        // Les mêmes cas pour le wiki, avec des pseudos ordinaires (aucun nom d'essai à l'écran).
+        List<Faux> w = List.of(faux("Docteur_Ash", "medecin", 38), faux("Agent_Kovak", "policier", 88),
+                faux("Lucky_Vince", "casino", 72), faux("Pecheur_Noe", "pecheur", 61), faux("Capitaine_Marin", "port", 143),
+                faux("Mia_Survie", "citoyen", 31), faux("Nouveau_Venu", "citoyen", 0),
+                new Faux("Visiteuse_Lea", "citoyen", 12, true));
+        ajouter("w-wiki-cas", List.of(), w, 55, 1920, 1080, 2);
 
         List<Faux> c = quarante();
         List<String> maireIngenieur = List.of("role set " + moi + " ingenieur", "role mayor set " + moi);

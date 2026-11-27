@@ -1,7 +1,7 @@
 {
   "id": "policier",
   "title": "Policier",
-  "intro": "Il répond aux alertes, interpelle, enquête et sanctionne, sans arme létale ; le mod ne désigne jamais le coupable. Déjà en jeu : le métier de policier, son salaire de 60 cuivres par heure (Économie › Les salaires publics) et les appels d'urgence au **17**, qui sonnent chez les policiers connectés (Téléphone › Urgences).",
+  "intro": "Il répond aux alertes, interpelle, enquête et sanctionne, sans arme létale ; le mod ne désigne jamais le coupable. Existent déjà, hors de ce chapitre : le métier de policier (donné par l'équipe), son salaire de 60 cuivres par heure (Économie › Les salaires publics) et les appels au **17** : chaque policier connecté lit l'alerte au chat, et son téléphone sonne s'il le porte chargé, hors mode avion, libre et à portée d'une antenne (Téléphone › Urgences).",
   "diagrams": [
     {"title": "De l'alerte à la cellule", "steps": ["Sifflet ou alarme", "Alerte avec repère", "Étourdi", "Menotté", "Escorté", "Cellule"]},
     {"title": "De la trace au suspect", "steps": ["Tache de sang", "Lampe UV", "Écouvillon", "Heure", "Enquête", "Suspect"]},

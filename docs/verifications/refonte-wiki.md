@@ -167,3 +167,16 @@ Défauts vus pendant les captures (mod non modifié) :
 - Les pages de la vue détaillée du F3 et le panneau Cible affichent les lignes de Minecraft en anglais (« facing
   north », « state stopped ») : voulu (le texte vient de Minecraft), pas montré dans le wiki en dehors du rappel.
 - L'écran titre garde « Copyright Mojang AB. Do not distribute! » de Minecraft : la capture publiée est recadrée.
+
+Relecture finale de la tâche 6, vérifié dans le code :
+
+- **Tableau de la mairie et ingénieur** : l'ingénieur outillé peut le casser (`TownBlockRules.mayMove`) mais pas le
+  reposer (`mayPlaceBoard` : maire et équipe ; refus dans `TownBoardBlock.getStateForPlacement`). Le trésor, lui, se
+  repose par l'ingénieur outillé s'il n'en existe plus (`mayPlaceTreasury`). Corrigé dans Maire, Téléphone (outil de
+  maintenance) et Économie (note d'équipe). **Écart du mod, non corrigé ici** : le refus de casse dit « Seuls le maire,
+  l'équipe et un ingénieur déplacent le tableau de la mairie » et l'info-bulle de l'outil « Réservé à l'ingénieur :
+  antennes, trésor, tableau », alors que l'ingénieur ne peut que retirer le tableau.
+- **Commandes du maire** : plafond, taxe et tarifs valent au lendemain ; changement de fondateur (`setFounder`) et
+  suppression confirmée (`confirmRemove`, `/power` et `/operator`) prennent effet tout de suite. Le bouton
+  « [Confirmer la suppression] » préremplit `… confirm` dans le chat (`SUGGEST_COMMAND`) : il faut valider par Entrée.
+- **Panneau Mods du F3** : à gauche (`DebugLayout.Slot.MODS`, `right = false`) ; à droite, Performances et Cible.

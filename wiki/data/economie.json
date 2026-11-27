@@ -1315,7 +1315,7 @@
         "En créatif, casser le trésor exige d'être accroupi, pour tout le monde ; reposer un trésor neuf de l'onglet reprend le trésor unique.",
         "Sans emplacement (bloc retiré), la taxe et les salaires continuent ; seule l'ouverture est impossible. Un bloc posé par /setblock hors de l'emplacement noté n'ouvre rien et, cassé, ne lâche rien.",
         "Insensible aux explosions, au Wither, au dragon et aux pistons. Le déplacer (casser, aucun outil exigé) : maire, équipe, ou ingénieur qui tient son outil de maintenance (lot T2) ; il lâche son bloc en survie, rien en créatif.",
-        "Crochetage par le policier : lot du policier. Tableau de la mairie : posé par le maire ou l'équipe, déplacé par eux ou par un ingénieur outillé ; /treasury board en donne un."
+        "Crochetage par le policier : lot du policier. Tableau de la mairie : posé par le maire ou l'équipe ; un ingénieur outillé peut le casser, mais pas le reposer (TownBlockRules.mayPlaceBoard) ; /treasury board en donne un."
       ]
     },
     {
@@ -2321,9 +2321,9 @@
   "planned": [
     {
       "id": "maire",
-      "name": "Le maire",
-      "what": "Statut ajouté au métier, nommé par l'équipe après l'élection RP. Il tient déjà le trésor et règle l'électricité (/power cap, /power tax, /power set, /power remove) ; l'impôt (0 à 5 % par jour) viendra avec son lot.",
-      "lot": "Métier du maire",
+      "name": "L'impôt du maire",
+      "what": "Le maire est déjà en jeu : chapitre Maire (statut, trésor, réseaux). Reste à venir : l'impôt sur les coffres-forts, 0 à 5 % par jour, dont le maire fixe le taux.",
+      "lot": "Lot M2 du maire",
       "staff": [
         "Nommer : /role mayor set <joueur>.",
         "Sans maire, seule l'équipe fait ces gestes. /power cap <cuivres> : plafond du prix, au lendemain ; un fournisseur au-dessus est prévenu et ramené au plafond à minuit. /power tax <pour cent> (0 à 20) : au lendemain, versée au trésor.",

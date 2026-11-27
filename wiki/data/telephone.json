@@ -368,7 +368,7 @@
         {"type": "recipe", "item": "oneforallsurvival:maintenance_tool"},
         {"type": "items", "list": [
           {"item": "oneforallsurvival:maintenance_tool", "label": "Pour l'ingénieur", "text": "Sans lui, le métier ne suffit pas. Tenu dans une main : le panneau d'une antenne (sans cartes, tarif ni caisse), la casser, reposer une antenne qui porte un opérateur."},
-          {"item": "oneforallsurvival:maintenance_tool", "label": "Mairie", "text": "Le tenir aussi pour déplacer le trésor et le tableau de la mairie. Un par pile, aucune usure."},
+          {"item": "oneforallsurvival:maintenance_tool", "label": "Mairie", "text": "Le tenir aussi pour déplacer le trésor de la ville (le casser, puis le reposer) et pour casser le tableau de la mairie, que seuls le maire et l'équipe reposent. Un par pile, aucune usure."},
           {"item": "oneforallsurvival:maintenance_tool", "label": "Avec le testeur", "text": "Le testeur en main principale garde son rapport de machine."}]}]}]},
     {"type": "numbers", "title": "À retenir", "list": [
       {"k": "Tarif", "v": "0 à 1 000 cuivres par jour"}, {"k": "Plafond de départ", "v": "20 cuivres par jour"},

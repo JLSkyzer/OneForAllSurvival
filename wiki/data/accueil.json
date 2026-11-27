@@ -28,7 +28,7 @@
      "path": [{"item": "oneforallsurvival:safe"}, {"text": "Déposer"}, {"text": "Gardé par le serveur", "tone": "ok"}]},
     {"title": "Avoir du courant chez soi", "href": "#electricite/abonne",
      "imgs": [{"img": "shots/electricite/abonne-hero.webp", "alt": "Une ligne : un alternateur, un disjoncteur, un compteur, puis un séchoir contre une cabane de bois"}],
-     "path": [{"item": "oneforallsurvival:meter"}, {"text": "Ton accord"}, {"text": "Courant", "tone": "ok"}]},
+     "path": [{"item": "oneforallsurvival:meter"}, {"text": "Ton accord"}, {"text": "Accepté"}, {"text": "Courant", "tone": "ok"}]},
     {"title": "Réparer une machine", "href": "#electricite/reparer",
      "imgs": [{"img": "shots/electricite/usure-etats.webp", "alt": "Trois séchoirs : en bon état, qui fume, en panne"}],
      "path": [{"item": "oneforallsurvival:tester"}, {"item": "oneforallsurvival:welder"}, {"item": "oneforallsurvival:fuse"}, {"text": "Réparée", "tone": "ok"}]}
@@ -40,7 +40,7 @@
   ],
   "seen": [
     {"title": "La place, au coucher du soleil", "img": "shots/accueil/place-soir.webp", "alt": "La place de la ville au coucher du soleil : l'étal de Maelle, Lucas, le tableau de la mairie et le trésor contre le mur, un séchoir et une armoire", "href": "#economie/etal"},
-    {"title": "Le crash, au chargement", "img": "shots/accueil/crash.webp", "alt": "L'écran de chargement : l'épave de l'avion brûle de nuit sous la lune", "href": "#interface/chargement"},
+    {"title": "Le crash, au chargement", "img": "shots/accueil/crash.webp", "alt": "L'écran de chargement : l'épave de l'avion brûle de nuit sous la lune", "href": "#interface/chargement", "position": "40% 65%"},
     {"title": "La maire de l'île", "img": "shots/accueil/maire.webp", "alt": "Maelle devant la mairie, « [Maire] [Citoyen] Maelle » au-dessus de sa tête, le tableau de la mairie à côté", "href": "#maire/le-maire"}
   ]
 }
