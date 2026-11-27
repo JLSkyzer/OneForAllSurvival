@@ -914,11 +914,13 @@ public final class TelephoneShots {
             if (mairie.isEmpty() || lagon.isEmpty() || c == null) {
                 return;
             }
-            PhoneSims.issueTo(sp, mairie.get(), sp.getUUID(), sp.getGameProfile().getName(), EconomyClock.now());
-            PhoneSims.issueTo(c, lagon.get(), c.getUUID(), "Correspondant", EconomyClock.now());
+            // Le téléphone en main d'abord : la carte émise va dans la première case libre, celle de la main
+            // quand elle est vide (passe 2 : la carte du correspondant écrasée par son téléphone).
             ItemStack phoneC = new ItemStack(PhoneRegistry.PHONE.get());
             PhoneItem.store(phoneC, PhoneConfig.capacity());
             c.setItemInHand(InteractionHand.MAIN_HAND, phoneC);
+            PhoneSims.issueTo(sp, mairie.get(), sp.getUUID(), sp.getGameProfile().getName(), EconomyClock.now());
+            PhoneSims.issueTo(c, lagon.get(), c.getUUID(), "Correspondant", EconomyClock.now());
             for (ServerPlayer p : List.of(sp, c)) {
                 for (int s = 0; s < p.getInventory().getContainerSize(); s++) {
                     if (p.getInventory().getItem(s).getItem() instanceof dev.oneforallsurvival.phone.net.SimCardItem) {
