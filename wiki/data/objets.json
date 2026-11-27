@@ -1,17 +1,62 @@
 {
-  "oneforallsurvival:antenna": {"nom": "Antenne", "icone": "img/objets/oneforallsurvival__antenna.png"},
-  "oneforallsurvival:phone": {"nom": "Téléphone", "icone": "img/objets/oneforallsurvival__phone.png"},
-  "oneforallsurvival:sim_card": {"nom": "Carte SIM", "icone": "img/objets/oneforallsurvival__sim_card.png"},
-  "oneforallsurvival:maintenance_tool": {"nom": "Outil de maintenance", "icone": "img/objets/oneforallsurvival__maintenance_tool.png"},
-  "minecraft:copper_ingot": {"nom": "Lingot de cuivre", "icone": "img/objets/minecraft__copper_ingot.png"},
-  "minecraft:crafting_table": {"nom": "Établi", "icone": "img/objets/minecraft__crafting_table.png"},
-  "minecraft:glass": {"nom": "Verre", "icone": "img/objets/minecraft__glass.png"},
-  "minecraft:iron_bars": {"nom": "Barreaux de fer", "icone": "img/objets/minecraft__iron_bars.png"},
-  "minecraft:iron_ingot": {"nom": "Lingot de fer", "icone": "img/objets/minecraft__iron_ingot.png"},
-  "minecraft:iron_nugget": {"nom": "Pépite de fer", "icone": "img/objets/minecraft__iron_nugget.png"},
-  "minecraft:lightning_rod": {"nom": "Paratonnerre", "icone": "img/objets/minecraft__lightning_rod.png"},
-  "minecraft:redstone": {"nom": "Poudre de redstone", "icone": "img/objets/minecraft__redstone.png"},
-  "minecraft:redstone_block": {"nom": "Bloc de redstone", "icone": "img/objets/minecraft__redstone_block.png"},
-  "minecraft:smooth_stone": {"nom": "Pierre lisse", "icone": "img/objets/minecraft__smooth_stone.png"},
-  "minecraft:oak_planks": {"nom": "Planches de chêne", "icone": "img/objets/minecraft__oak_planks.png"}
+ "minecraft:copper_ingot": {
+  "icone": "img/objets/minecraft__copper_ingot.png",
+  "nom": "Lingot de cuivre"
+ },
+ "minecraft:glass": {
+  "icone": "img/objets/minecraft__glass.png",
+  "nom": "Verre"
+ },
+ "minecraft:iron_bars": {
+  "icone": "img/objets/minecraft__iron_bars.png",
+  "nom": "Barreaux de fer"
+ },
+ "minecraft:iron_ingot": {
+  "icone": "img/objets/minecraft__iron_ingot.png",
+  "nom": "Lingot de fer"
+ },
+ "minecraft:iron_nugget": {
+  "icone": "img/objets/minecraft__iron_nugget.png",
+  "nom": "Pépite de fer"
+ },
+ "minecraft:lightning_rod": {
+  "icone": "img/objets/minecraft__lightning_rod.png",
+  "nom": "Paratonnerre"
+ },
+ "minecraft:redstone": {
+  "icone": "img/objets/minecraft__redstone.png",
+  "nom": "Poudre de redstone"
+ },
+ "minecraft:redstone_block": {
+  "icone": "img/objets/minecraft__redstone_block.png",
+  "nom": "Bloc de redstone"
+ },
+ "minecraft:smooth_stone": {
+  "icone": "img/objets/minecraft__smooth_stone.png",
+  "nom": "Roche lisse"
+ },
+ "minecraft:stick": {
+  "icone": "img/objets/minecraft__stick.png",
+  "nom": "Bâton"
+ },
+ "oneforallsurvival:antenna": {
+  "icone": "img/objets/oneforallsurvival__antenna.png",
+  "nom": "Antenne"
+ },
+ "oneforallsurvival:maintenance_tool": {
+  "icone": "img/objets/oneforallsurvival__maintenance_tool.png",
+  "nom": "Outil de maintenance"
+ },
+ "oneforallsurvival:phone": {
+  "icone": "img/objets/oneforallsurvival__phone.png",
+  "nom": "Téléphone"
+ },
+ "oneforallsurvival:sim_card": {
+  "icone": "img/objets/oneforallsurvival__sim_card.png",
+  "nom": "Carte SIM"
+ },
+ "oneforallsurvival:wall_socket": {
+  "icone": "img/objets/oneforallsurvival__wall_socket.png",
+  "nom": "Prise murale"
+ }
 }

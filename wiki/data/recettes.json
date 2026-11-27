@@ -1,16 +1,138 @@
 [
-  {"sortie": "oneforallsurvival:antenna", "nombre": 1, "poste": "etabli",
-   "grille": [[null, "minecraft:lightning_rod", null],
-              ["minecraft:copper_ingot", "minecraft:redstone_block", "minecraft:copper_ingot"],
-              ["minecraft:iron_ingot", "minecraft:iron_bars", "minecraft:iron_ingot"]],
-   "ingredients": [{"item": "minecraft:lightning_rod", "nombre": 1}, {"item": "minecraft:copper_ingot", "nombre": 2},
-                   {"item": "minecraft:redstone_block", "nombre": 1}, {"item": "minecraft:iron_ingot", "nombre": 2},
-                   {"item": "minecraft:iron_bars", "nombre": 1}]},
-  {"sortie": "oneforallsurvival:phone", "nombre": 1, "poste": "table",
-   "grille": [["minecraft:iron_nugget", "minecraft:glass", "minecraft:iron_nugget"],
-              ["minecraft:redstone", "minecraft:copper_ingot", "minecraft:redstone"],
-              ["minecraft:iron_nugget", "minecraft:iron_ingot", "minecraft:iron_nugget"]],
-   "ingredients": [{"item": "minecraft:iron_nugget", "nombre": 4}, {"item": "minecraft:glass", "nombre": 1},
-                   {"item": "minecraft:redstone", "nombre": 2}, {"item": "minecraft:copper_ingot", "nombre": 1},
-                   {"item": "minecraft:iron_ingot", "nombre": 1}]}
+ {
+  "recette": "oneforallsurvival:antenna",
+  "sortie": "oneforallsurvival:antenna",
+  "nombre": 1,
+  "poste": "etabli",
+  "ingredients": [
+   {
+    "item": "minecraft:lightning_rod",
+    "nombre": 1
+   },
+   {
+    "item": "minecraft:copper_ingot",
+    "nombre": 2
+   },
+   {
+    "item": "minecraft:redstone_block",
+    "nombre": 1
+   },
+   {
+    "item": "minecraft:iron_ingot",
+    "nombre": 2
+   },
+   {
+    "item": "minecraft:iron_bars",
+    "nombre": 1
+   }
+  ],
+  "secondes": 11
+ },
+ {
+  "recette": "oneforallsurvival:maintenance_tool",
+  "sortie": "oneforallsurvival:maintenance_tool",
+  "nombre": 1,
+  "poste": "etabli",
+  "ingredients": [
+   {
+    "item": "minecraft:iron_ingot",
+    "nombre": 2
+   },
+   {
+    "item": "minecraft:redstone",
+    "nombre": 1
+   },
+   {
+    "item": "minecraft:copper_ingot",
+    "nombre": 1
+   },
+   {
+    "item": "minecraft:stick",
+    "nombre": 1
+   }
+  ],
+  "secondes": 9
+ },
+ {
+  "recette": "oneforallsurvival:phone",
+  "sortie": "oneforallsurvival:phone",
+  "nombre": 1,
+  "poste": "table",
+  "grille": [
+   [
+    "minecraft:iron_nugget",
+    "minecraft:glass",
+    "minecraft:iron_nugget"
+   ],
+   [
+    "minecraft:redstone",
+    "minecraft:copper_ingot",
+    "minecraft:redstone"
+   ],
+   [
+    "minecraft:iron_nugget",
+    "minecraft:iron_ingot",
+    "minecraft:iron_nugget"
+   ]
+  ],
+  "ingredients": [
+   {
+    "item": "minecraft:iron_nugget",
+    "nombre": 4
+   },
+   {
+    "item": "minecraft:glass",
+    "nombre": 1
+   },
+   {
+    "item": "minecraft:redstone",
+    "nombre": 2
+   },
+   {
+    "item": "minecraft:copper_ingot",
+    "nombre": 1
+   },
+   {
+    "item": "minecraft:iron_ingot",
+    "nombre": 1
+   }
+  ]
+ },
+ {
+  "recette": "oneforallsurvival:wall_socket",
+  "sortie": "oneforallsurvival:wall_socket",
+  "nombre": 1,
+  "poste": "table",
+  "grille": [
+   [
+    "minecraft:smooth_stone",
+    "minecraft:copper_ingot",
+    "minecraft:smooth_stone"
+   ],
+   [
+    "minecraft:smooth_stone",
+    "minecraft:redstone",
+    "minecraft:smooth_stone"
+   ],
+   [
+    null,
+    null,
+    null
+   ]
+  ],
+  "ingredients": [
+   {
+    "item": "minecraft:smooth_stone",
+    "nombre": 4
+   },
+   {
+    "item": "minecraft:copper_ingot",
+    "nombre": 1
+   },
+   {
+    "item": "minecraft:redstone",
+    "nombre": 1
+   }
+  ]
+ }
 ]

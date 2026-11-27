@@ -1,22 +1,21 @@
 {
   "chapters": ["electricite", "economie", "telephone", "interface", "maire", "medecin", "policier", "agriculteur", "casino", "loisirs", "substances"],
-  "hidden": ["essai"],
+  "hidden": [],
   "chapterCovers": {
     "electricite": "shots/accueil/electricite.webp",
-    "economie": "shots/accueil/economie.webp",
-    "telephone": "shots/accueil/telephone.webp"
+    "economie": "shots/accueil/economie.webp"
   },
   "actions": [
-    {"title": "Avoir du réseau", "href": "#tuto-antenne",
-     "imgs": [{"img": "shots/accueil/antenne-en-marche.webp", "alt": "Une antenne en marche, voyant vert allumé"}],
+    {"title": "Avoir du réseau", "href": "#telephone/antenne",
+     "imgs": [{"img": "shots/telephone/etat-en-marche.webp", "alt": "Une antenne en marche, voyant vert allumé"}],
      "path": [{"item": "oneforallsurvival:antenna"}, {"text": "Courant"}, {"text": "En marche", "tone": "ok"}]},
-    {"title": "Appeler quelqu'un", "href": "#tuto-ligne",
-     "imgs": [{"img": "shots/accueil/tel-clavier.webp", "alt": "Le clavier du téléphone, un numéro composé"},
-              {"img": "shots/accueil/tel-entrant.webp", "alt": "Un appel entrant"}],
+    {"title": "Appeler quelqu'un", "href": "#telephone/appeler",
+     "imgs": [{"img": "shots/telephone/tel-clavier.webp", "alt": "Le clavier du téléphone, un numéro composé"},
+              {"img": "shots/telephone/tel-entrant.webp", "alt": "Un appel entrant"}],
      "path": [{"item": "oneforallsurvival:phone"}, {"item": "oneforallsurvival:sim_card"}, {"text": "Ça sonne", "tone": "ok"}]},
-    {"title": "Appeler les secours", "href": "#urgences", "tone": "bad",
-     "imgs": [{"img": "shots/accueil/tel-urgence.webp", "alt": "Écran verrouillé, panneau Urgence ouvert"},
-              {"img": "shots/accueil/tel-police.webp", "alt": "Appel Police 17 en cours"}],
+    {"title": "Appeler les secours", "href": "#telephone/urgences", "tone": "bad",
+     "imgs": [{"img": "shots/telephone/tel-urgence-panneau.webp", "alt": "Écran verrouillé, panneau Urgence ouvert"},
+              {"img": "shots/telephone/tel-urgence-appel.webp", "alt": "Appel Police 17 qui sonne"}],
      "path": [{"text": "Urgence"}, {"text": "17 police"}, {"or": true}, {"text": "15 secours"}]}
   ],
   "rules": [
@@ -27,6 +26,6 @@
   "seen": [
     {"title": "Armoire frigorifique", "img": "shots/accueil/armoire.webp", "alt": "Une armoire frigorifique posée dans l'herbe", "href": "#armoire-frigorifique"},
     {"title": "Clôture électrique", "img": "shots/accueil/cloture.webp", "alt": "Une clôture électrique, la nuit", "href": "#cloture-electrique"},
-    {"title": "Antenne en panne", "img": "shots/accueil/antenne-en-panne.webp", "alt": "Une antenne en panne, qui fume", "href": "#antenne", "position": "50% 15%"}
+    {"title": "Antenne en panne", "img": "shots/telephone/etat-en-panne.webp", "alt": "Une antenne en panne, qui fume", "href": "#telephone/antenne", "position": "50% 30%"}
   ]
 }
