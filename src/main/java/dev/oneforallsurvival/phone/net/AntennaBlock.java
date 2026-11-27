@@ -238,8 +238,9 @@ public final class AntennaBlock extends ElectricMachineBlock {
     // ---------------------------------------------------------------------------------------------
 
     /**
-     * Les connecteurs des mods du pack qui se posent contre un bloc pour l'alimenter (Crafts &amp; Additions : petit, grand
-     * et à lampe ; entrées facultatives, l'étiquette est vide sans eux).
+     * Les connecteurs des mods du pack qui se posent contre un bloc pour l'alimenter (Crafts &amp; Additions : petit,
+     * grand et à lampe ; Create New Age : connecteur électrique ; Advanced Electricity : boîte de jonction ; entrées
+     * facultatives, l'étiquette est vide sans ces mods).
      */
     public static final TagKey<Item> POWER_CONNECTORS =
             TagKey.create(Registries.ITEM, new ResourceLocation("oneforallsurvival", "power_connectors"));

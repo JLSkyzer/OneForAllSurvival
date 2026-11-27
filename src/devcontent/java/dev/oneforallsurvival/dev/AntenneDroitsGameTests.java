@@ -24,9 +24,11 @@ import dev.oneforallsurvival.role.RoleBook;
 import dev.oneforallsurvival.role.RoleSavedData;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -35,6 +37,7 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.gametest.framework.AfterBatch;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.gametest.framework.GameTestSequence;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -46,6 +49,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -94,15 +98,6 @@ public final class AntenneDroitsGameTests {
     private static final String LOT_OUTIL = "outil_maintenance";
     private static final String LOT_CONNECTEUR = "antenne_connecteur";
 
-    /**
-     * Les connecteurs du pack qui se posent contre un bloc pour l'alimenter, relevés dans les jars (Crafts & Additions
-     * 1.3.3 : petit connecteur, grand connecteur, petit connecteur à lampe) ; l'étiquette
-     * {@code oneforallsurvival:power_connectors} les liste en entrées facultatives.
-     */
-    private static final List<ResourceLocation> CONNECTEURS = List.of(
-            new ResourceLocation("createaddition", "connector"),
-            new ResourceLocation("createaddition", "large_connector"),
-            new ResourceLocation("createaddition", "small_light_connector"));
     private static final TagKey<Item> ETIQUETTE_CONNECTEURS =
             TagKey.create(Registries.ITEM, new ResourceLocation(OneForAllSurvival.MODID, "power_connectors"));
 
@@ -864,63 +859,134 @@ public final class AntenneDroitsGameTests {
     // ---------------------------------------------------------------------------------------------
 
     /**
+     * Les connecteurs que le pack pose contre un bloc, découverts et jamais recopiés : on part de ceux que les scènes de
+     * réseau posent contre un bloc ({@link ReseauxDev.Reseau#connecteurs}, courant prouvé par les GameTests de réseaux),
+     * puis on prend tous les objets du jeu dont le bloc est de la même famille (la classe la plus haute encore dans le
+     * paquet du mod : le grand connecteur et le connecteur à lampe de Crafts &amp; Additions viennent ainsi avec le petit).
+     * Un mod ou une famille qu'aucune scène ne pose ne serait pas découvert.
+     */
+    private static List<ResourceLocation> connecteursDuPack(GameTestHelper helper) {
+        Set<Class<?>> familles = new LinkedHashSet<>();
+        for (ReseauxDev.Reseau reseau : ReseauxDev.Reseau.values()) {
+            for (String id : reseau.connecteurs()) {
+                Block bloc = BuiltInRegistries.BLOCK.get(new ResourceLocation(id));
+                helper.assertTrue(bloc != Blocks.AIR, id + " existe avec le pack");
+                familles.add(famille(bloc.getClass()));
+            }
+        }
+        List<ResourceLocation> trouves = new ArrayList<>();
+        for (Item objet : BuiltInRegistries.ITEM) {
+            if (objet instanceof BlockItem pose && familles.stream().anyMatch(f -> f.isInstance(pose.getBlock()))) {
+                trouves.add(BuiltInRegistries.ITEM.getKey(objet));
+            }
+        }
+        return trouves;
+    }
+
+    /** La classe la plus haute au-dessus de {@code bloc} qui appartient encore à son mod. */
+    private static Class<?> famille(Class<?> bloc) {
+        Class<?> haut = bloc;
+        while (racine(haut.getSuperclass()).equals(racine(bloc))) {
+            haut = haut.getSuperclass();
+        }
+        return haut;
+    }
+
+    /** Les deux premiers segments du paquet d'une classe (« com.mrh0 », « net.minecraft »). */
+    private static String racine(Class<?> classe) {
+        String[] segments = classe.getPackageName().split("\\.");
+        return segments[0] + "." + segments[1];
+    }
+
+    /**
      * Un connecteur tenu se pose sur l'antenne, debout comme accroupi, par l'ayant droit comme par un passant (accroupi,
      * le passant le posait déjà : aucun droit ne garde la pose d'un bloc contre l'antenne) ; le panneau reste à la main
-     * vide et à tout autre objet. Sans le pack, l'étiquette est vide (entrées facultatives) et seul le panneau se vérifie.
+     * vide et à tout autre objet. Chaque connecteur que le pack pose contre un bloc est vérifié
+     * ({@link #connecteursDuPack}), et l'étiquette ne liste rien d'autre. Sans le pack, l'étiquette est vide (entrées
+     * facultatives) et seul le panneau se vérifie.
+     *
+     * <p>Une pose par étape, retirée deux tics plus tard : un connecteur New Age retiré avant son premier tic lève une
+     * {@code NullPointerException} dans le mod (son réseau n'existe pas encore).
      */
-    @GameTest(template = "test/plancher", batch = LOT_CONNECTEUR)
+    @GameTest(template = "test/plancher", batch = LOT_CONNECTEUR, timeoutTicks = 200)
     public static void unConnecteurSePoseDeboutCommeAccroupi(GameTestHelper helper) {
-        try (Essai essai = new Essai(helper)) {
-            JoueurDeTest fondateur = essai.citoyen("ac_fond");
-            JoueurDeTest passant = essai.citoyen("ac_passant");
-            fonder(helper, fondateur, A, "Connecteurs Essai");
-            BlockPos dessus = A.above();
+        // Fermé par la dernière étape, ou par l'@AfterBatch du lot si l'essai échoue avant.
+        Essai essai = new Essai(helper);
+        JoueurDeTest fondateur = essai.citoyen("ac_fond");
+        JoueurDeTest passant = essai.citoyen("ac_passant");
+        fonder(helper, fondateur, A, "Connecteurs Essai");
+        BlockPos dessus = A.above();
 
-            mains(fondateur, ItemStack.EMPTY, ItemStack.EMPTY);
-            helper.assertTrue(ouvre(helper, fondateur, A), "main vide : le panneau s'ouvre");
-            mains(fondateur, new ItemStack(Items.COBBLESTONE), ItemStack.EMPTY);
-            helper.assertTrue(ouvre(helper, fondateur, A) && helper.getBlockState(dessus).isAir(),
-                    "un bloc ordinaire en main : le panneau s'ouvre, rien n'est posé");
+        mains(fondateur, ItemStack.EMPTY, ItemStack.EMPTY);
+        helper.assertTrue(ouvre(helper, fondateur, A), "main vide : le panneau s'ouvre");
+        mains(fondateur, new ItemStack(Items.COBBLESTONE), ItemStack.EMPTY);
+        helper.assertTrue(ouvre(helper, fondateur, A) && helper.getBlockState(dessus).isAir(),
+                "un bloc ordinaire en main : le panneau s'ouvre, rien n'est posé");
 
-            if (!ModList.get().isLoaded("createaddition")) {
-                helper.assertTrue(BuiltInRegistries.ITEM.getTag(ETIQUETTE_CONNECTEURS).map(t -> t.size()).orElse(0) == 0,
-                        "sans le pack, l'étiquette des connecteurs est vide");
-                helper.succeed();
-                return;
-            }
-            for (ResourceLocation id : CONNECTEURS) {
-                Item objet = BuiltInRegistries.ITEM.get(id);
-                Block bloc = BuiltInRegistries.BLOCK.get(id);
-                helper.assertTrue(objet != Items.AIR && bloc != Blocks.AIR, id + " existe avec le pack");
-                for (JoueurDeTest qui : List.of(fondateur, passant)) {
-                    for (boolean accroupi : new boolean[] {false, true}) {
-                        String cas = id + ", " + (qui == fondateur ? "le fondateur" : "un passant") + ", "
-                                + (accroupi ? "accroupi" : "debout");
-                        helper.setBlock(dessus, Blocks.AIR);
-                        mains(qui, new ItemStack(objet), ItemStack.EMPTY);
-                        qui.joueur().setShiftKeyDown(accroupi);
-                        qui.panneauxOperateurRecus();
-                        qui.messagesRecus();
-                        clicDroit(helper, qui, A);
-                        qui.joueur().setShiftKeyDown(false);
-                        dev.oneforallsurvival.phone.net.OperatorPanels.close(qui.uuid());
-                        BlockState pose = helper.getBlockState(dessus);
-                        helper.assertTrue(pose.is(bloc), cas + " : le connecteur doit se poser, vu " + pose);
-                        helper.assertTrue(qui.panneauxOperateurRecus().isEmpty(), cas + " : aucun panneau");
-                        List<String> recus = qui.messagesRecus();
-                        helper.assertTrue(!recus.contains(MSG + "of") && !recus.contains(MSG + "no_operator"),
-                                cas + " : aucun message de l'antenne : " + recus);
-                        Direction vers = pose.getProperties().stream()
-                                .filter(p -> p instanceof DirectionProperty && p.getName().equals("facing"))
-                                .map(p -> (Direction) pose.getValue((DirectionProperty) p)).findFirst().orElse(null);
-                        helper.assertTrue(vers == Direction.DOWN, cas + " : tourné vers l'antenne, vu " + vers);
-                    }
-                }
-                helper.assertTrue(new ItemStack(objet).is(ETIQUETTE_CONNECTEURS), id + " est dans l'étiquette");
-            }
-            helper.setBlock(dessus, Blocks.AIR);
-            helper.assertTrue(estAntenne(helper, A), "l'antenne est toujours là");
+        if (!ModList.get().isLoaded("createaddition")) {
+            helper.assertTrue(BuiltInRegistries.ITEM.getTag(ETIQUETTE_CONNECTEURS).map(t -> t.size()).orElse(0) == 0,
+                    "sans le pack, l'étiquette des connecteurs est vide");
+            essai.close();
             helper.succeed();
+            return;
+        }
+        // Tous les défauts d'un coup : un connecteur oublié n'en cache pas un autre.
+        List<String> defauts = new ArrayList<>();
+        List<ResourceLocation> connecteurs = connecteursDuPack(helper);
+        GameTestSequence suite = helper.startSequence();
+        for (ResourceLocation id : connecteurs) {
+            for (JoueurDeTest qui : List.of(fondateur, passant)) {
+                for (boolean accroupi : new boolean[] {false, true}) {
+                    String cas = id + ", " + (qui == fondateur ? "le fondateur" : "un passant") + ", "
+                            + (accroupi ? "accroupi" : "debout");
+                    suite = suite.thenExecute(() -> poserSurLAntenne(helper, qui, id, accroupi, cas, defauts))
+                            .thenIdle(2)
+                            .thenExecute(() -> helper.setBlock(dessus, Blocks.AIR));
+                }
+            }
+        }
+        suite.thenExecute(() -> {
+            for (ResourceLocation id : connecteurs) {
+                if (!new ItemStack(BuiltInRegistries.ITEM.get(id)).is(ETIQUETTE_CONNECTEURS)) {
+                    defauts.add(id + " absent de l'étiquette");
+                }
+            }
+            BuiltInRegistries.ITEM.getTag(ETIQUETTE_CONNECTEURS).ifPresent(etiquette -> etiquette.forEach(objet -> {
+                ResourceLocation id = BuiltInRegistries.ITEM.getKey(objet.value());
+                if (!connecteurs.contains(id)) {
+                    defauts.add(id + " dans l'étiquette, mais pas un connecteur du pack");
+                }
+            }));
+            boolean enPlace = estAntenne(helper, A);
+            essai.close();
+            helper.assertTrue(defauts.isEmpty(), defauts.size() + " défauts sur " + connecteurs + " : " + defauts);
+            helper.assertTrue(enPlace, "l'antenne est toujours là");
+        }).thenSucceed();
+    }
+
+    /** Un clic droit sur l'antenne en {@code A}, ce connecteur en main : posé dessus, contre elle, sans panneau. */
+    private static void poserSurLAntenne(GameTestHelper helper, JoueurDeTest qui, ResourceLocation id, boolean accroupi,
+            String cas, List<String> defauts) {
+        Item objet = BuiltInRegistries.ITEM.get(id);
+        mains(qui, new ItemStack(objet), ItemStack.EMPTY);
+        qui.joueur().setShiftKeyDown(accroupi);
+        qui.panneauxOperateurRecus();
+        qui.messagesRecus();
+        clicDroit(helper, qui, A);
+        qui.joueur().setShiftKeyDown(false);
+        dev.oneforallsurvival.phone.net.OperatorPanels.close(qui.uuid());
+        BlockState pose = helper.getBlockState(A.above());
+        boolean panneau = !qui.panneauxOperateurRecus().isEmpty();
+        List<String> recus = qui.messagesRecus();
+        Direction vers = pose.getProperties().stream()
+                .filter(p -> p instanceof DirectionProperty && p.getName().equals("facing"))
+                .map(p -> (Direction) pose.getValue((DirectionProperty) p)).findFirst().orElse(null);
+        // Crafts & Additions tourne son connecteur vers le bloc qui le porte ; New Age et Advanced Electricity le
+        // tournent à l'opposé du bloc porteur (canSurvive et getSupportingBlockPos, lus aux jars).
+        Direction contreLAntenne = "createaddition".equals(id.getNamespace()) ? Direction.DOWN : Direction.UP;
+        if (!pose.is(((BlockItem) objet).getBlock()) || vers != contreLAntenne || panneau || recus.contains(MSG + "of")
+                || recus.contains(MSG + "no_operator")) {
+            defauts.add(cas + " : vu " + pose + (panneau ? ", panneau ouvert" : "") + " " + recus);
         }
     }
 }

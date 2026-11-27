@@ -33,19 +33,31 @@ import net.minecraftforge.fml.ModList;
  */
 public final class ReseauxDev {
 
-    /** Les réseaux éprouvés. */
+    /** Les réseaux éprouvés, avec les connecteurs que la scène pose contre la source puis contre la cible des fils. */
     public enum Reseau {
-        TEMOIN("Témoin : source collée à la machine", "createaddition"),
-        CREATE_ADDITION("Create Crafts & Additions", "createaddition"),
-        NEW_AGE("Create New Age", "create_new_age"),
-        ADVANCED_ELECTRICITY("Advanced Electricity", "light_bulb_addon_create_crafts_and__addions");
+        TEMOIN("Témoin : source collée à la machine", "createaddition", null, null),
+        CREATE_ADDITION("Create Crafts & Additions", "createaddition",
+                "createaddition:connector", "createaddition:connector"),
+        NEW_AGE("Create New Age", "create_new_age",
+                "create_new_age:electrical_connector", "create_new_age:electrical_connector"),
+        ADVANCED_ELECTRICITY("Advanced Electricity", "light_bulb_addon_create_crafts_and__addions",
+                "createaddition:connector", "light_bulb_addon_create_crafts_and__addions:power_box");
 
         public final String nom;
         public final String modId;
+        private final String connecteurSource;
+        private final String connecteurCible;
 
-        Reseau(String nom, String modId) {
+        Reseau(String nom, String modId, String connecteurSource, String connecteurCible) {
             this.nom = nom;
             this.modId = modId;
+            this.connecteurSource = connecteurSource;
+            this.connecteurCible = connecteurCible;
+        }
+
+        /** Les objets que la scène de ce réseau pose contre un bloc (aucun pour le témoin). */
+        public List<String> connecteurs() {
+            return connecteurSource == null ? List.of() : List.of(connecteurSource, connecteurCible);
         }
 
         /** Les mods nécessaires sont-ils chargés (le pack complet, ou pas) ? */
@@ -203,23 +215,10 @@ public final class ReseauxDev {
         }
         poserBloc(level, source, "createaddition:creative_energy", j);
 
-        switch (reseau) {
-            case CREATE_ADDITION -> {
-                cliquer(level, "createaddition:connector", source, Direction.EAST, Direction.WEST, 1, j);
-                cliquer(level, "createaddition:connector", cibleFils, Direction.WEST, Direction.EAST, 1, j);
-            }
-            case NEW_AGE -> {
-                cliquer(level, "create_new_age:electrical_connector", source, Direction.EAST, Direction.WEST, 1, j);
-                cliquer(level, "create_new_age:electrical_connector", cibleFils, Direction.WEST, Direction.EAST, 1, j);
-            }
-            case ADVANCED_ELECTRICITY -> {
-                cliquer(level, "createaddition:connector", source, Direction.EAST, Direction.WEST, 1, j);
-                cliquer(level, "light_bulb_addon_create_crafts_and__addions:power_box", cibleFils, Direction.WEST,
-                        Direction.EAST, 1, j);
-                j.add("power_box : face " + propriete(level.getBlockState(pointB), "facing"));
-            }
-            default -> {
-            }
+        cliquer(level, reseau.connecteurSource, source, Direction.EAST, Direction.WEST, 1, j);
+        cliquer(level, reseau.connecteurCible, cibleFils, Direction.WEST, Direction.EAST, 1, j);
+        if (reseau == Reseau.ADVANCED_ELECTRICITY) {
+            j.add("power_box : face " + propriete(level.getBlockState(pointB), "facing"));
         }
         return new Scene(reseau, enLigne, source, machine, inline, pointA, pointB, j);
     }

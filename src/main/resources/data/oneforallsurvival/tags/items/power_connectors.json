@@ -12,6 +12,14 @@
     {
       "id": "createaddition:small_light_connector",
       "required": false
+    },
+    {
+      "id": "create_new_age:electrical_connector",
+      "required": false
+    },
+    {
+      "id": "light_bulb_addon_create_crafts_and__addions:power_box",
+      "required": false
     }
   ]
 }
