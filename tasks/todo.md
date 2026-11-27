@@ -56,7 +56,7 @@ Les visuels finaux font partie de chaque lot qui ajoute un bloc ou un objet livr
 - [x] **Lot T2 : clôture** (2026-11-26). Revue finale et sa relecture faites, corrections poussées ; la prise murale prend le courant à travers son mur (demande de Killian) ; plan archivé.
 - [ ] **Restes du lot T2.** Le jar livré jamais lancé (installation Forge à télécharger, accord de Killian) ; le porteur d'un téléphone vu par un second joueur. Fait les 26 et 27/11 : couveuse et essai des quêtes corrigés, passage complet **et relance complète verts** (476 et 137 PASS), appli « Antenne » dans MCEF et prise à travers le mur dans un vrai client, jar contrôlé (`docs/verifications/lot-t2.md`, « Reprise des restes »).
 - [x] **Condition du lot T3 (messages) : blocage croissant du téléphone** (2026-11-27, `21571d1`, `b497198`) : la durée double à chaque série ratée (60 à 1920 s puis `lockoutMaxSeconds`, 3600 s), le niveau est sauvegardé et retombe à 0 au bon code. JUnit et GameTests ; pas vu dans un client Minecraft.
-- [ ] **Lot T3 : appels, messages, urgences.** [Plan](../docs/superpowers/plans/2026-11-27-lot-t3-appels-messages.md), en cours depuis le 2026-11-27.
+- [ ] **Lot T3 : appels, messages, urgences.** [Plan](../docs/superpowers/plans/2026-11-27-lot-t3-appels-messages.md), [vérification](../docs/verifications/lot-t3.md). Fait la nuit du 27/11 : appels, voix et haut-parleur, urgences 17 et 15, appli Téléphone et repli, vus en jeu (JUnit 1260, GameTests 1240). **Reste** : messages (96), voix à essayer avec deux clients et de vrais micros, bout en bout sur serveur dédié avec le pack, wiki ; réponses de Killian aux questions de la nuit.
 
 ## Idées pour plus tard
 

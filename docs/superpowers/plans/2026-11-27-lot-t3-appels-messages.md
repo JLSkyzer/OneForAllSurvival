@@ -53,9 +53,31 @@ prépare » de [la vérification T2](../../verifications/lot-t2.md).
   n'existe).
 - Mode avion ou batterie vide : ni appel ni urgence.
 - Message vers un destinataire injoignable : « non distribué », renvoyable (pas de remise différée).
-- Grésillement à une barre : perte de trames, pas de bruit ajouté.
+- Grésillement à une barre : bruit léger ajouté et quelques trames coupées (décodage puis réencodage Opus ; sauter
+  une trame sans la remplacer ne s'entend pas comme un trou).
+- Simple Voice Chat est une dépendance **obligatoire** du serveur et des clients, comme le dit le cahier.
+- Un joueur dans un groupe vocal fermé garde le comportement de Simple Voice Chat (sa voix n'atteint plus la
+  proximité) ; le haut-parleur ne capte pas les membres d'un groupe fermé.
+- A et B à portée de voix s'entendent deux fois (proximité et téléphone) : accepté. Le chuchotement est relayé.
+
+## Relevé de l'API vocale (étude du 27/11, non exécutée)
+
+- Maven : `de.maxhenkel.voicechat:voicechat-api:2.6.20` (`compileOnly`, dépôt
+  `https://maven.maxhenkel.de/repository/public`, groupe seul) ; mod `maven.modrinth:simple-voice-chat:S11m0QIb`
+  (`fg.deobf`, version du pack, 2.6.22).
+- Greffon : classe publique annotée `@ForgeVoicechatPlugin implements VoicechatPlugin` ; événements
+  `VoicechatServerStarted/StoppedEvent`, `MicrophonePacketEvent` (fil vocal unique : ne jamais bloquer, ne jamais
+  `cancel()`, aucune lecture du monde), `PlayerDisconnectedEvent`, `PlayerStateChangedEvent`.
+- Canaux : un `StaticAudioChannel` par flux (appel, parleur, auditeur) ; haut-parleur `LocationalAudioChannel`
+  (`setDistance(8)`, filtre à 8 blocs, exclure l'appelant). Données vides = fin de parole : `flush()` et
+  `resetState()` des codecs.
+- Micro muet inconnu du serveur ; `VoicechatConnection.isDisabled/isInGroup/getGroup`.
+- Conception : le tic serveur publie un instantané immuable `parleur -> routes` (champ `volatile`) lu par le fil vocal.
 
 ---
+
+**Avancement au 27/11, 09:05** : tâches 1 à 8 et l'essai en jeu des appels et des urgences faits ; restent les
+tâches 9 et 10 (messages) et la suite de la tâche 11 (serveur dédié avec le pack, voix à deux clients, wiki).
 
 ### Task 1: Blocage croissant du code
 
