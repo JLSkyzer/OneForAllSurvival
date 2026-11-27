@@ -128,4 +128,71 @@ class PhoneFallbackTextsTest {
             assertFalse(st.line().cut(), s + " coupé à " + w + " x " + h + " : " + st);
         }
     }
+
+    /**
+     * Lot T3, tâche 7 : chaque libellé des appels tient sans « … » dans son bouton (demi-largeur, touche du clavier,
+     * pleine largeur) ; la ligne d'état « Appel entrant » ou « Appel… »
+     * tient sur une ligne.
+     */
+    @ParameterizedTest(name = "interface {0} x {1}")
+    @CsvSource({"320, 240", "427, 240", "480, 270", "640, 328", "640, 360", "960, 540", "1920, 1080", "320, 480"})
+    void lesLibellesDesAppelsTiennent(int w, int h) throws IOException {
+        Rect z = zone(w, h);
+        JsonObject fr = fr();
+        PhoneFallbackLayout.CallScreen c = PhoneFallbackLayout.callScreen(z, LH);
+        PhoneFallbackLayout.Dial d = PhoneFallbackLayout.dial(z, LH);
+        String[][] boutons = {
+            {"decline", String.valueOf(c.decline().width())}, {"answer", String.valueOf(c.answer().width())},
+            {"hangup", String.valueOf(c.hangup().width())},
+            {"dial", String.valueOf(d.call().width())}, {"sos_police", String.valueOf(d.police().width())},
+            {"sos_medical", String.valueOf(d.medical().width())}, {"app", String.valueOf(z.width())},
+            {"sos", String.valueOf(PhoneFallbackLayout.lockSos(z, LH).width())},
+            {"cancel", String.valueOf(z.width())}};
+        List<String[]> tous = new ArrayList<>(List.of(boutons));
+        tous.add(new String[] {"mute", String.valueOf(c.mute().width())});
+        tous.add(new String[] {"speaker", String.valueOf(c.speaker().width())});
+        tous.add(new String[] {"back", String.valueOf(d.back().width())});
+        for (String[] b : tous) {
+            String texte = t(fr, b[0].equals("back") ? k("back") : PhoneFallbackCall.KEY + b[0]);
+            PhoneFallbackLayout.StatusLine l = PhoneFallbackLayout.button(texte, Integer.parseInt(b[1]),
+                    FontEstimate::width);
+            assertFalse(l.cut(), "« " + texte + " » coupé à " + w + " x " + h);
+        }
+        for (String s : List.of("incoming", "outgoing")) {
+            PhoneFallbackLayout.Wrapped r = PhoneFallbackLayout.wrap(t(fr, PhoneFallbackCall.KEY + s), z.width(),
+                    FontEstimate::width, 1);
+            assertFalse(r.cut(), s);
+        }
+        for (String fin : List.of("message.oneforallsurvival.call.ended.party_left",
+                "message.oneforallsurvival.call.emergency.no_answer", "message.oneforallsurvival.call.hang_up_first")) {
+            PhoneFallbackLayout.Wrapped r = PhoneFallbackLayout.wrap(t(fr, fin), z.width(), FontEstimate::width,
+                    PhoneFallbackLayout.MAX_TEXT_LINES);
+            assertFalse(r.cut(), fin + " à " + w + " x " + h);
+        }
+    }
+
+    /** Les mots des appels du repli sont ceux de la page (index.html et phone.js), en français et en anglais. */
+    @org.junit.jupiter.api.Test
+    void lesTextesDesAppelsSontCeuxDeLaPage() throws IOException {
+        JsonObject fr = fr();
+        String racine = System.getProperty("oneforallsurvival.mainResources");
+        String html = Files.readString(Paths.get(racine).resolve("assets/oneforallsurvival/html/phone/index.html"),
+                StandardCharsets.UTF_8);
+        String js = Files.readString(Paths.get(racine).resolve("assets/oneforallsurvival/html/phone/phone.js"),
+                StandardCharsets.UTF_8);
+        for (String nom : List.of("answer", "decline", "mute", "speaker", "sos", "sos_police", "sos_medical", "cancel",
+                "app")) {
+            String mot = t(fr, PhoneFallbackCall.KEY + nom);
+            assertTrue(html.contains(">" + mot + "<"), "« " + mot + " » n'est pas un mot de la page");
+        }
+        assertTrue(js.contains("INCOMING: '" + t(fr, PhoneFallbackCall.KEY + "incoming") + "'"), "Appel entrant");
+        assertTrue(js.contains("OUTGOING: '" + t(fr, PhoneFallbackCall.KEY + "outgoing") + "'"), "Appel…");
+        JsonObject en = JsonParser.parseString(Files.readString(Paths.get(racine).resolve(
+                "assets/oneforallsurvival/lang/en_us.json"), StandardCharsets.UTF_8)).getAsJsonObject();
+        for (String cle : fr.keySet()) {
+            if (cle.startsWith(PhoneFallbackCall.KEY)) {
+                assertTrue(en.has(cle), "clé absente de en_us : " + cle);
+            }
+        }
+    }
 }

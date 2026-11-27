@@ -191,6 +191,13 @@ public final class PhoneClient {
         }
     }
 
+    /** Envoie un geste d'appel au serveur (repli, lot T3 tâche 7 ; sans effet hors connexion). */
+    static void sendCall(dev.oneforallsurvival.phone.call.PhoneCallActionPacket packet) {
+        if (Minecraft.getInstance().getConnection() != null) {
+            BenchNetwork.CHANNEL.sendToServer(packet);
+        }
+    }
+
     /** Le joueur a fermé l'écran : le serveur arrête la session (et la dépense de batterie). */
     static void sendClose(int session) {
         send(new PhoneActionPacket(session, Action.CLOSE, "", "", false));

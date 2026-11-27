@@ -411,4 +411,89 @@ class PhoneFallbackLayoutTest {
         assertEquals(1f, PhoneFallbackLayout.fit(0, 86, 1f));
         assertEquals(82, PhoneFallbackLayout.textRoom(86));
     }
+
+    /**
+     * Lot T3, tâche 7 : l'écran d'appel tient de 320 × 240 aux plus grandes ; le titre et deux lignes d'état au-dessus
+     * des boutons ; Refuser et Répondre côte à côte en bas ; Silence et Haut-parleur au-dessus de Raccrocher.
+     */
+    @ParameterizedTest(name = "interface {0} x {1}")
+    @CsvSource({"320, 240", "427, 240", "480, 270", "640, 328", "640, 360", "960, 540", "1920, 1080", "320, 480"})
+    void lEcranDAppelTient(int w, int h) {
+        Rect zone = inner(w, h);
+        PhoneFallbackLayout.CallScreen c = PhoneFallbackLayout.callScreen(zone, LH);
+        for (Rect r : List.of(c.decline(), c.answer(), c.mute(), c.speaker(), c.hangup())) {
+            dedans(r, zone, "bouton d'appel");
+            assertTrue(r.height() >= PhoneFallbackLayout.MIN_ROW, "bouton trop bas : " + r);
+            assertTrue(r.y() >= c.subBottom(), "bouton sur la ligne d'état : " + r);
+        }
+        assertTrue(c.titleY() >= zone.y() && c.subY() >= c.titleY() + LH, "titre puis ligne d'état");
+        assertFalse(chevauche(c.decline(), c.answer()), "Refuser et Répondre");
+        assertFalse(chevauche(c.mute(), c.speaker()), "Silence et Haut-parleur");
+        assertFalse(chevauche(c.mute(), c.speaker()), "Silence et Haut-parleur");
+        assertFalse(chevauche(c.mute(), c.hangup()) || chevauche(c.speaker(), c.hangup()), "Raccrocher");
+    }
+
+    /**
+     * L'appli « Téléphone » : le numéro et un message en haut, Police 17 et Secours 15, Retour et Appeler, puis le
+     * clavier ; rien ne se chevauche, tout tient.
+     */
+    @ParameterizedTest(name = "interface {0} x {1}")
+    @CsvSource({"320, 240", "427, 240", "480, 270", "640, 328", "640, 360", "960, 540", "1920, 1080", "320, 480"})
+    void leClavierDAppelTient(int w, int h) {
+        Rect zone = inner(w, h);
+        PhoneFallbackLayout.Dial d = PhoneFallbackLayout.dial(zone, LH);
+        java.util.List<Rect> tout = new java.util.ArrayList<>(d.keys());
+        tout.add(d.call());
+        tout.add(d.police());
+        tout.add(d.medical());
+        tout.add(d.back());
+        for (int i = 0; i < tout.size(); i++) {
+            Rect r = tout.get(i);
+            dedans(r, zone, "élément " + i);
+            assertTrue(r.height() >= PhoneFallbackLayout.MIN_ROW, "élément " + i + " trop bas : " + r);
+            assertTrue(r.y() >= d.messageY() + LH, "élément " + i + " sur le numéro ou le message : " + r);
+            for (int j = i + 1; j < tout.size(); j++) {
+                assertFalse(chevauche(r, tout.get(j)), "éléments " + i + " et " + j + " : " + r + " " + tout.get(j));
+            }
+        }
+        assertEquals(d.back().y(), d.call().y(), "Appeler à côté de Retour");
+        assertTrue(d.messageY() >= d.numberY() + LH, "le message sous le numéro");
+    }
+
+    /** Le bouton « Urgence » de l'écran verrouillé, sous le texte d'un blocage, sur le clavier jamais. */
+    @ParameterizedTest(name = "interface {0} x {1}")
+    @CsvSource({"320, 240", "427, 240", "480, 270", "640, 328", "640, 360", "960, 540", "1920, 1080", "320, 480"})
+    void lUrgenceDeLEcranVerrouilleTient(int w, int h) {
+        Rect zone = inner(w, h);
+        Rect sos = PhoneFallbackLayout.lockSos(zone, LH);
+        dedans(sos, zone, "Urgence");
+        assertTrue(sos.height() >= PhoneFallbackLayout.MIN_ROW, "Urgence trop bas : " + sos);
+        int texte = PhoneFallbackLayout.codeText(zone, LH, PhoneFallbackLayout.LOCKOUT_LINES).bottom();
+        assertTrue(sos.y() >= texte, "Urgence sur le texte du code : " + sos);
+        for (Rect t : PhoneFallbackLayout.keypad(zone)) {
+            assertFalse(chevauche(sos, t), "Urgence sur le clavier : " + sos + " " + t);
+        }
+        PhoneFallbackLayout.Sos p = PhoneFallbackLayout.sos(zone, LH);
+        for (Rect r : List.of(p.police(), p.medical(), p.cancel())) {
+            dedans(r, zone, "panneau Urgence");
+            assertTrue(r.y() >= p.titleY() + LH, "sous le titre : " + r);
+        }
+        assertFalse(chevauche(p.police(), p.medical()) || chevauche(p.medical(), p.cancel()), "panneau Urgence");
+    }
+
+    /** L'accueil : « Téléphone » entre l'appli « Antenne » et « Réglages », sous l'heure et le message. */
+    @ParameterizedTest(name = "interface {0} x {1}")
+    @CsvSource({"320, 240", "427, 240", "480, 270", "640, 328", "640, 360", "960, 540", "1920, 1080", "320, 480"})
+    void lAccueilMontreLeTelephone(int w, int h) {
+        Rect zone = inner(w, h);
+        PhoneFallbackLayout.Home home = PhoneFallbackLayout.home(zone, true, true);
+        dedans(home.phone(), zone, "Téléphone");
+        assertTrue(home.phone().y() + home.phone().height() < home.settings().y(), "Téléphone sur Réglages");
+        assertTrue(home.antenna().y() + home.antenna().height() < home.phone().y(), "Antenne sur Téléphone");
+        // L'heure en grand, le propriétaire et un message de deux lignes (drawHome) restent au-dessus des boutons.
+        float big = Math.max(1f, Math.min(3f, zone.width() / 45f));
+        int texte = zone.y() + 10 + Math.round(LH * big) + 6 + LH + 4 + 2 * (LH + 1);
+        assertTrue(texte <= home.antenna().y(), "le texte de l'accueil sur les boutons : " + texte + " > "
+                + home.antenna().y() + " à " + w + " x " + h);
+    }
 }

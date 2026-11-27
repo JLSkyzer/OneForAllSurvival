@@ -9,6 +9,7 @@ import dev.oneforallsurvival.phone.PhoneStatePacket;
 import dev.oneforallsurvival.phone.PhoneStatePacket.Lock;
 import dev.oneforallsurvival.phone.PhoneStatePacket.Result;
 import dev.oneforallsurvival.phone.PhoneWallpapers;
+import dev.oneforallsurvival.phone.call.PhoneCallActionPacket;
 import dev.oneforallsurvival.phone.net.PhoneSims;
 import java.util.ArrayList;
 import java.time.Instant;
@@ -54,11 +55,20 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
     private static final int SOFT = 0xFFD8DCE4;
     private static final int RED = 0xFFFF6B6B;
 
-    enum Page { CODE, HOME, SETTINGS, SIM }
+    enum Page { CODE, HOME, SETTINGS, SIM, DIAL, SOS }
+
+    /** Les chiffres au plus du clavier de l'appli « Téléphone » (comme {@code DIAL_MAX} de la page). */
+    static final int DIAL_MAX = 15;
 
     private PhoneStatePacket state;
-    /** Le dernier état d'appel reçu (lot T3), pour la tâche 7. */
+    /** Le dernier état d'appel reçu (lot T3). */
     @Nullable private dev.oneforallsurvival.phone.call.PhoneCallStatePacket call;
+    /** Ce que l'écran d'appel montre (lot T3, tâche 7). */
+    private final PhoneFallbackCall calls = new PhoneFallbackCall();
+    /** Le mode d'appel montré par la dernière construction des boutons. */
+    private PhoneFallbackCall.Mode shownCall = PhoneFallbackCall.Mode.NONE;
+    /** Le numéro en cours de composition de l'appli « Téléphone » ; jamais écrit ailleurs qu'à l'écran. */
+    private final StringBuilder dialed = new StringBuilder();
     private long receivedAt = Util.getMillis();
     private long lockoutEnd;
     private Page page;
@@ -134,12 +144,18 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
     }
 
     /**
-     * Lot T3 : l'état d'appel, gardé pour le repli des appels (tâche 7) ; rien n'est encore dessiné. Lisible aussi par
-     * {@code PhoneClient.lastCall}.
+     * Lot T3, tâche 7 : l'état d'appel. Un appel d'ici prend tout l'écran (entrant, sortant, en cours, puis la fin deux
+     * secondes) ; un message hors appel (appel composé refusé) s'écrit comme l'issue d'un geste.
      */
     @Override
     public void showCall(dev.oneforallsurvival.phone.call.PhoneCallStatePacket next) {
         call = next;
+        String text = next.message() == null ? "" : next.message().getString();
+        String outside = calls.accept(next, text, Util.getMillis());
+        if (!outside.isEmpty()) {
+            alert(Component.literal(outside));
+        }
+        rebuild();
     }
 
     /** Le dernier état d'appel reçu par cet écran (nul avant le premier). */
@@ -166,6 +182,10 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
      * {@code sim}, {@code airplane}, {@code wallpaper}, {@code old}, {@code new}, {@code confirm}, {@code change},
      * {@code lock}, {@code erase}, {@code back} ; feuille « Carte SIM » : {@code sim-remove},
      * {@code sim-choice-<case>}, {@code sim-request}, {@code request-<id>}, {@code back} (lignes visibles seulement).
+     * Lot T3 : {@code app-phone} (accueil) ; appli « Téléphone » : {@code key-0} à {@code key-9}, {@code key-clear},
+     * {@code dial-call}, {@code dial-17}, {@code dial-15}, {@code back} ; écran verrouillé : {@code lock-sos}, puis
+     * {@code sos-17}, {@code sos-15}, {@code sos-cancel} ; appel : {@code call-decline}, {@code call-answer} ou
+     * {@code call-mute}, {@code call-speaker}, {@code call-hangup}.
      */
     public Map<String, AbstractWidget> widgets() {
         return Collections.unmodifiableMap(named);
@@ -223,12 +243,139 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
         settingsLayout = null;
         simLayout = null;
         lockedOutShown = false;
+        shownCall = calls.mode(Util.getMillis());
+        if (shownCall != PhoneFallbackCall.Mode.NONE) {
+            buildCall();
+            return;
+        }
         switch (page) {
             case CODE -> buildKeypad();
             case HOME -> buildHome();
             case SETTINGS -> buildSettings(keptOld, keptNew, keptConfirm);
             case SIM -> buildSim();
+            case DIAL -> buildDial();
+            case SOS -> buildSos();
         }
+    }
+
+    // --- Appels (lot T3, tâche 7) ----------------------------------------------------------------------------------
+
+    /** L'écran d'appel : Refuser et Répondre, ou Silence, Haut-parleur et Raccrocher ; rien pendant la fin. */
+    private void buildCall() {
+        PhoneFallbackLayout.CallScreen layout = PhoneFallbackLayout.callScreen(inner, font.lineHeight);
+        dev.oneforallsurvival.phone.call.PhoneCallStatePacket live = calls.live();
+        boolean unlocked = state.lock() == Lock.UNLOCKED;
+        for (String id : PhoneFallbackCall.buttons(shownCall)) {
+            if (live == null) {
+                break;
+            }
+            String callId = Integer.toString(live.callId());
+            FitButton b = switch (id) {
+                case "call-decline" -> new FitButton(layout.decline(), callText("decline"),
+                        btn -> sendCall(PhoneCallActionPacket.Action.DECLINE, callId), null);
+                case "call-answer" -> new FitButton(layout.answer(), callText("answer"),
+                        btn -> sendCall(PhoneCallActionPacket.Action.ANSWER, callId), null);
+                case "call-mute" -> toggle(layout.mute(), "mute", live.muted(),
+                        btn -> sendCall(PhoneCallActionPacket.Action.MUTE, live.muted() ? "off" : "on"));
+                case "call-speaker" -> toggle(layout.speaker(), "speaker", live.speaker(),
+                        btn -> sendCall(PhoneCallActionPacket.Action.SPEAKER, live.speaker() ? "off" : "on"));
+                default -> new FitButton(layout.hangup(), callText("hangup"),
+                        btn -> sendCall(PhoneCallActionPacket.Action.HANGUP, callId), null);
+            };
+            // Verrouillé, le serveur refuse le silence et le haut-parleur : grisés, comme dans la page.
+            b.active = PhoneFallbackCall.active(id, unlocked);
+            add(id, b);
+        }
+    }
+
+    private static Component callText(String name) {
+        return Component.translatable(PhoneFallbackCall.KEY + name);
+    }
+
+    /** Silence ou Haut-parleur : en service, le bouton est entouré d'un trait clair ({@link FitButton#lit}). */
+    private static FitButton toggle(Rect r, String name, boolean on, Button.OnPress press) {
+        FitButton b = new FitButton(r, callText(name), press, null);
+        b.lit = on;
+        return b;
+    }
+
+    private static Component text(PhoneFallbackCall.Text t) {
+        return t.key() == null ? Component.literal(t.literal())
+                : Component.translatable(t.key()).append(t.literal());
+    }
+
+    private void sendCall(PhoneCallActionPacket.Action action, String first) {
+        PhoneClient.sendCall(new PhoneCallActionPacket(state.session(), action, first,
+                ""));
+    }
+
+    private void dial(String number) {
+        if (!number.isEmpty()) {
+            sendCall(PhoneCallActionPacket.Action.DIAL, number);
+        }
+    }
+
+    /** L'appli « Téléphone » : clavier, Effacer, Appeler ; « Police 17 », « Secours 15 » ; « Retour » à l'accueil. */
+    private void buildDial() {
+        PhoneFallbackLayout.Dial layout = PhoneFallbackLayout.dial(inner, font.lineHeight);
+        List<Rect> keys = layout.keys();
+        for (int d = 1; d <= 9; d++) {
+            dialKey(String.valueOf(d), keys.get(d - 1));
+        }
+        dialKey("0", keys.get(10));
+        Component word = Component.translatable(KEY + "clear");
+        Rect r = keys.get(9);
+        boolean symbol = PhoneFallbackLayout.clearAsSymbol(font.width(word), r.width());
+        FitButton clear = new FitButton(r, symbol ? Component.literal("←") : word, b -> {
+            if (dialed.length() > 0) {
+                dialed.setLength(dialed.length() - 1);
+            }
+        }, word);
+        if (symbol) {
+            clear.setTooltip(Tooltip.create(word));
+        }
+        add("key-clear", clear);
+        add("dial-call", new FitButton(layout.call(), callText("dial"), b -> {
+            String number = dialed.toString();
+            message = Component.empty();
+            dial(number);
+        }, null));
+        add("dial-17", new FitButton(layout.police(), callText("sos_police"), b -> dial("17"), null));
+        add("dial-15", new FitButton(layout.medical(), callText("sos_medical"), b -> dial("15"), null));
+        add("back", new FitButton(layout.back(), Component.translatable(KEY + "back"), b -> {
+            page = Page.HOME;
+            dialed.setLength(0);
+            message = Component.empty();
+            rebuild();
+        }, null));
+    }
+
+    private void dialKey(String digit, Rect r) {
+        add("key-" + digit, new FitButton(r, Component.literal(digit), b -> dialDigit(digit.charAt(0)), null));
+    }
+
+    private void dialDigit(char d) {
+        if (dialed.length() < DIAL_MAX) {
+            dialed.append(d);
+        }
+    }
+
+    /** Le panneau « Urgence » de l'écran verrouillé : les deux numéros composent, « Annuler » revient au code. */
+    private void buildSos() {
+        PhoneFallbackLayout.Sos layout = PhoneFallbackLayout.sos(inner, font.lineHeight);
+        add("sos-17", new FitButton(layout.police(), callText("sos_police"), b -> sosDial("17"), null));
+        add("sos-15", new FitButton(layout.medical(), callText("sos_medical"), b -> sosDial("15"), null));
+        add("sos-cancel", new FitButton(layout.cancel(), callText("cancel"), b -> {
+            page = Page.CODE;
+            rebuild();
+        }, null));
+    }
+
+    private void sosDial(String number) {
+        page = Page.CODE;
+        message = Component.empty();
+        dial(number);
+        rebuild();
     }
 
     /** Le clavier : trois colonnes 1-9, puis Effacer et 0, dans le bas de l'écran ({@link PhoneFallbackLayout#keypad}). */
@@ -259,6 +406,13 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
                         rebuild();
                     }, null));
         }
+        if (state.lock() == Lock.LOCKED) {
+            // « Urgence » : 17 et 15 sans le code, même pendant un blocage (comme la page).
+            add("lock-sos", new FitButton(PhoneFallbackLayout.lockSos(inner, font.lineHeight), callText("sos"), b -> {
+                page = Page.SOS;
+                rebuild();
+            }, null));
+        }
     }
 
     private void key(String digit, Rect r, boolean active) {
@@ -272,6 +426,12 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
                 net().founderAppAvailable());
         add("settings", new FitButton(home.settings(), Component.translatable(KEY + "settings"), b -> {
             page = Page.SETTINGS;
+            message = Component.empty();
+            rebuild();
+        }, null));
+        add("app-phone", new FitButton(home.phone(), callText("app"), b -> {
+            page = Page.DIAL;
+            dialed.setLength(0);
             message = Component.empty();
             rebuild();
         }, null));
@@ -577,6 +737,10 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
     @Override
     public void tick() {
         super.tick();
+        if (calls.mode(Util.getMillis()) != shownCall) {
+            rebuild(); // fin du message de fin d'appel : la page revient
+            return;
+        }
         if (page == Page.CODE && lockedOutShown && !lockedOut()) {
             message = Component.empty();
             rebuild(); // fin du blocage : le clavier revient
@@ -585,8 +749,15 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
 
     @Override
     public boolean keyPressed(int key, int scan, int modifiers) {
-        if (page == Page.CODE && key == GLFW.GLFW_KEY_BACKSPACE) {
+        boolean noCall = shownCall == PhoneFallbackCall.Mode.NONE;
+        if (noCall && page == Page.CODE && key == GLFW.GLFW_KEY_BACKSPACE) {
             backspace();
+            return true;
+        }
+        if (noCall && page == Page.DIAL && key == GLFW.GLFW_KEY_BACKSPACE) {
+            if (dialed.length() > 0) {
+                dialed.setLength(dialed.length() - 1);
+            }
             return true;
         }
         return super.keyPressed(key, scan, modifiers);
@@ -608,8 +779,13 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
 
     @Override
     public boolean charTyped(char c, int modifiers) {
-        if (page == Page.CODE && c >= '0' && c <= '9') {
+        boolean noCall = shownCall == PhoneFallbackCall.Mode.NONE;
+        if (noCall && page == Page.CODE && c >= '0' && c <= '9') {
             digit(c);
+            return true;
+        }
+        if (noCall && page == Page.DIAL && c >= '0' && c <= '9') {
+            dialDigit(c);
             return true;
         }
         return super.charTyped(c, modifiers);
@@ -640,13 +816,52 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
         // Le cadre par-dessus le fond : ses coins arrondis (verre transparent) arrondissent le fond.
         PhoneWebScreen.drawBezel(g, frame);
         drawStatus(g);
-        switch (page) {
-            case CODE -> drawCode(g);
-            case HOME -> drawHome(g);
-            case SETTINGS -> drawSettings(g);
-            case SIM -> drawSim(g);
+        if (shownCall != PhoneFallbackCall.Mode.NONE) {
+            drawCall(g);
+        } else {
+            switch (page) {
+                case CODE -> drawCode(g);
+                case HOME -> drawHome(g);
+                case SETTINGS -> drawSettings(g);
+                case SIM -> drawSim(g);
+                case DIAL -> drawDial(g);
+                case SOS -> drawCentered(g, callText("sos"), inner.x() + inner.width() / 2,
+                        PhoneFallbackLayout.sos(inner, font.lineHeight).titleY(), WHITE);
+            }
         }
         super.render(g, mouseX, mouseY, partialTick);
+    }
+
+    /** L'écran d'appel : le titre, puis la ligne d'état (position d'une urgence, durée, message de fin). */
+    private void drawCall(GuiGraphics g) {
+        PhoneFallbackLayout.CallScreen layout = PhoneFallbackLayout.callScreen(inner, font.lineHeight);
+        long now = Util.getMillis();
+        int cx = inner.x() + inner.width() / 2;
+        String title = text(calls.title(now)).getString();
+        PhoneFallbackLayout.StatusLine t = PhoneFallbackLayout.statusLine("", title, inner.width(), font::width);
+        drawScaled(g, t, cx - Math.round(font.width(t.text()) * t.scale()) / 2, layout.titleY(), WHITE);
+        long serverNow = state.serverMillis() + (now - receivedAt);
+        Component sub = text(calls.sub(now, serverNow));
+        if (!sub.getString().isEmpty()) {
+            drawWrapped(g, sub, cx, layout.subY(), shownCall == PhoneFallbackCall.Mode.ENDED ? RED : SOFT);
+        }
+    }
+
+    /** L'appli « Téléphone » : le numéro composé (par paires, comme la page) et le message d'un appel refusé. */
+    private void drawDial(GuiGraphics g) {
+        PhoneFallbackLayout.Dial layout = PhoneFallbackLayout.dial(inner, font.lineHeight);
+        int cx = inner.x() + inner.width() / 2;
+        String shown = dialed.length() == 0 ? "" : PhoneFallbackCall.pairs(dialed.toString());
+        if (!shown.isEmpty()) {
+            PhoneFallbackLayout.StatusLine l = PhoneFallbackLayout.statusLine("", shown, inner.width(), font::width);
+            drawScaled(g, l, cx - Math.round(font.width(l.text()) * l.scale()) / 2, layout.numberY(), WHITE);
+        }
+        if (!message.getString().isEmpty()) {
+            PhoneFallbackLayout.StatusLine l = PhoneFallbackLayout.statusLine("", message.getString(), inner.width(),
+                    font::width);
+            drawScaled(g, l, cx - Math.round(font.width(l.text()) * l.scale()) / 2, layout.messageY(),
+                    messageAlert ? RED : WHITE);
+        }
     }
 
     private void drawStatus(GuiGraphics g) {
@@ -895,6 +1110,8 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
 
         /** Dessiné comme un bouton inactif (grisé) tout en restant touchable. */
         boolean dimmed;
+        /** Un interrupteur en service (Silence, Haut-parleur) : entouré d'un trait clair. */
+        boolean lit;
 
         FitButton(Rect r, Component text, OnPress onPress, @Nullable Component spoken) {
             super(r.x(), r.y(), r.width(), r.height(), text, onPress,
@@ -905,6 +1122,9 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
         protected void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
             if (!dimmed) {
                 super.renderWidget(g, mouseX, mouseY, partialTick);
+                if (lit) {
+                    g.renderOutline(getX(), getY(), getWidth(), getHeight(), WHITE);
+                }
                 return;
             }
             // L'apparence d'un bouton inactif (fond et texte gris du jeu), le temps du dessin seulement.

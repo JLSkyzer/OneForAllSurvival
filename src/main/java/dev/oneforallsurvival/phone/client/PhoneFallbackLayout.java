@@ -106,16 +106,92 @@ public final class PhoneFallbackLayout {
      * L'accueil : « Réglages » en bas et, au-dessus, le bouton de l'appli « Antenne » ({@code antenna}, nul s'il ne se
      * montre pas), dessiné grisé ({@code antennaDimmed}) quand le serveur refuserait de l'ouvrir.
      */
-    public record Home(Rect settings, @Nullable Rect antenna, boolean antennaDimmed) {}
+    public record Home(Rect settings, Rect phone, @Nullable Rect antenna, boolean antennaDimmed) {}
 
+    /** L'accueil, de bas en haut : « Réglages », « Téléphone » (lot T3, tâche 7), puis l'appli « Antenne ». */
     public static Home home(Rect inner, boolean founderApp, boolean founderAppAvailable) {
         int y = inner.y() + inner.height() - HOME_BUTTON - 4;
         Rect settings = new Rect(inner.x(), y, inner.width(), HOME_BUTTON);
+        Rect phone = new Rect(inner.x(), y - HOME_BUTTON - 4, inner.width(), HOME_BUTTON);
         if (!founderApp) {
-            return new Home(settings, null, false);
+            return new Home(settings, phone, null, false);
         }
-        return new Home(settings, new Rect(inner.x(), y - HOME_BUTTON - 4, inner.width(), HOME_BUTTON),
-                !founderAppAvailable);
+        return new Home(settings, phone, new Rect(inner.x(), phone.y() - HOME_BUTTON - 4, inner.width(),
+                HOME_BUTTON), !founderAppAvailable);
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Lot T3, tâche 7 : appels et urgences
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * L'écran d'appel : le titre (nom, numéro ou service), dessous une ligne d'état sur {@value #MAX_TEXT_LINES} lignes
+     * au plus (« Appel entrant », la durée, la position d'une urgence, le message de fin) ; en bas, toute la largeur,
+     * « Répondre » au-dessus de « Refuser » (appel entrant), ou « Silence », « Haut-parleur » et « Raccrocher »
+     * (sortant, en cours ; « Raccrocher » à la place de « Refuser »). {@code subBottom} : le premier y libre sous la ligne d'état.
+     */
+    public record CallScreen(int titleY, int subY, int subBottom, Rect decline, Rect answer, Rect mute, Rect speaker,
+            Rect hangup) {}
+
+    public static CallScreen callScreen(Rect inner, int lineHeight) {
+        int titleY = inner.y() + 8;
+        int subY = titleY + lineHeight + 4;
+        int subBottom = subY + MAX_TEXT_LINES * (lineHeight + 1);
+        int bottom = inner.y() + inner.height() - 4;
+        // Toute la largeur : « Haut-parleur » ne tient pas en demi-largeur de 320 × 240 à 480 × 270.
+        Rect hangup = new Rect(inner.x(), bottom - HOME_BUTTON, inner.width(), HOME_BUTTON);
+        Rect speaker = new Rect(inner.x(), hangup.y() - 4 - HOME_BUTTON, inner.width(), HOME_BUTTON);
+        Rect mute = new Rect(inner.x(), speaker.y() - 4 - HOME_BUTTON, inner.width(), HOME_BUTTON);
+        Rect decline = hangup;
+        Rect answer = speaker;
+        return new CallScreen(titleY, subY, subBottom, decline, answer, mute, speaker, hangup);
+    }
+
+    /**
+     * L'appli « Téléphone » du repli : le numéro composé en haut, « Police 17 », « Secours 15 », « Retour »
+     * et « Appeler » côte à côte, puis le clavier ({@link #keypad} : 1 à 9, Effacer, 0 ; « Appeler » ne tient pas dans
+     * une touche à 320 × 240). {@code messageY} : une ligne pour le message d'un appel refusé, sous le numéro.
+     */
+    public record Dial(int numberY, int messageY, Rect police, Rect medical, Rect back, List<Rect> keys, Rect call) {}
+
+    public static Dial dial(Rect inner, int lineHeight) {
+        List<Rect> keys = keypad(inner);
+        int numberY = inner.y() + 2;
+        int messageY = numberY + lineHeight + 2;
+        int top = messageY + lineHeight + 3;
+        int rh = clamp((keys.get(0).y() - top - 4 * KEY_GAP) / 3);
+        int half = (inner.width() - KEY_GAP) / 2;
+        // « Secours 15 » ne tient pas en demi-largeur à 320 × 240 : les urgences ont chacune leur ligne.
+        Rect police = new Rect(inner.x(), top, inner.width(), rh);
+        Rect medical = new Rect(inner.x(), top + rh + KEY_GAP, inner.width(), rh);
+        Rect back = new Rect(inner.x(), medical.y() + rh + KEY_GAP, half, rh);
+        Rect call = new Rect(inner.x() + inner.width() - half, back.y(), half, rh);
+        return new Dial(numberY, messageY, police, medical, back, keys, call);
+    }
+
+    /**
+     * Le bouton « Urgence » de l'écran verrouillé : entre le texte du code (avec les lignes d'un blocage : il reste
+     * touchable pendant un blocage) et le haut du clavier, toute la largeur.
+     */
+    public static Rect lockSos(Rect inner, int lineHeight) {
+        int text = codeText(inner, lineHeight, LOCKOUT_LINES).bottom();
+        int keypadTop = keypad(inner).get(0).y();
+        int room = keypadTop - text - 2 * KEY_GAP;
+        int h = clamp(room);
+        int y = text + KEY_GAP + Math.max(0, (room - h) / 2);
+        return new Rect(inner.x(), y, inner.width(), h);
+    }
+
+    /** Le panneau « Urgence » de l'écran verrouillé : « Police 17 », « Secours 15 » et « Annuler », l'un sous l'autre. */
+    public record Sos(int titleY, Rect police, Rect medical, Rect cancel) {}
+
+    public static Sos sos(Rect inner, int lineHeight) {
+        int titleY = inner.y() + 8;
+        int y = titleY + lineHeight + 8;
+        Rect police = new Rect(inner.x(), y, inner.width(), HOME_BUTTON);
+        Rect medical = new Rect(inner.x(), y + HOME_BUTTON + 4, inner.width(), HOME_BUTTON);
+        Rect cancel = new Rect(inner.x(), inner.y() + inner.height() - HOME_BUTTON - 4, inner.width(), HOME_BUTTON);
+        return new Sos(titleY, police, medical, cancel);
     }
 
     /** Les Réglages : deux lignes de texte, puis dix lignes (« Carte SIM » en tête) ; un libellé d'une ligne au-dessus de chaque champ de code. */
