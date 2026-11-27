@@ -54,7 +54,7 @@
             {
               "at": "rubis",
               "title": "Rubis",
-              "text": "10 000 cuivres : elle ne naît que d'une injection de l'équipe ou de 10 émeraudes regroupées."
+              "text": "10 000 cuivres : 10 émeraudes regroupées, une injection de l'équipe, ou un gros paiement rendu en grosses coupures."
             }
           ]
         },
@@ -124,7 +124,7 @@
       "staff": [
         "Aucune recette ne crée de pièce, hors le change à valeur égale ; les autres sont retirées et signalées au journal au chargement.",
         "Valeurs réglables dans la config du serveur ; si elles ne donnent pas un rapport de 10, le change à la table est désactivé.",
-        "Le rubis ne naît que d'une injection de l'équipe ou du regroupement de 10 émeraudes.",
+        "Le rubis naît d'une injection de l'équipe, du regroupement de 10 émeraudes, ou d'un paiement d'au moins 10 000 cuivres versé en grosses coupures (CoinMath.decompose : caisse d'un étal, facture payée, salaire).",
         "Les pièces perdues à la mort, dans la lave, dans le vide ou disparues au sol sont comptées au registre : vérifié en GameTest, pas encore en jeu réel."
       ]
     },
@@ -195,7 +195,7 @@
             {
               "type": "shot",
               "img": "shots/economie/changer-grise.webp",
-              "alt": "La bulle d'un bouton grisé « 10 or → 1 émeraude » : « indisponible : pas assez de pièces »"
+              "alt": "La bulle du bouton grisé « 1 émeraude → 10 or » : « Casser : 1 émeraude → 10 or », « indisponible : pas assez de pièces »"
             },
             {
               "type": "text",
@@ -235,7 +235,7 @@
       "id": "ranger",
       "title": "Où ranger ses pièces",
       "group": "Les pièces",
-      "lead": "Sur toi, dans ta bourse ou ton coffre-fort. Coffres, tonneaux et autres rangements refusent la pièce.",
+      "lead": "Sur toi, dans ta bourse ou ton coffre-fort. Coffres, tonneaux et autres rangements refusent la pièce, et la bourse qui en contient.",
       "cover": "shots/economie/ranger-entonnoir.webp",
       "covers": [
         "ou-ranger"
@@ -319,7 +319,7 @@
             },
             {
               "type": "text",
-              "text": "Clic, Maj + clic, touche numérique : la pièce ne passe pas."
+              "text": "Clic, Maj + clic, touche numérique : la pièce ne passe pas. Une bourse qui contient des pièces non plus ; vide, elle se range comme tout objet."
             }
           ]
         },
@@ -488,7 +488,7 @@
             {
               "type": "shot",
               "img": "shots/economie/coffre-ecran.webp",
-              "alt": "L'écran du coffre-fort après « Déposer tout » : total, lignes par coupure, boutons 1, 10, 64, panneau Change ; l'inventaire vide",
+              "alt": "L'écran du coffre-fort après « Déposer tout » : total 5 or 7 cuivres, lignes par coupure, boutons 1, 10, 64, panneau Change ; plus aucune pièce dans l'inventaire",
               "marks": [
                 {
                   "at": "total",
@@ -515,7 +515,7 @@
             },
             {
               "type": "text",
-              "text": "Ce qui ne rentre pas dans ton inventaire reste au coffre. Chaque bouton a une bulle qui dit aussi quel sens est indisponible."
+              "text": "Un retrait va en vrac dans ton inventaire, puis dans tes bourses ; ce qui ne tient nulle part reste au coffre. Chaque bouton a une bulle qui dit aussi quel sens est indisponible."
             }
           ]
         },
@@ -615,19 +615,12 @@
         },
         {
           "type": "step",
-          "title": "Accepter",
+          "title": "Accepter, poser, verser, confirmer",
           "blocks": [
             {
               "type": "text",
-              "text": "Clic sur « [Accepter] » (ou « [Refuser] »), `/trade accept <pseudo>`, ou le même geste en retour. La fenêtre s'ouvre chez les deux."
-            }
-          ],
-          "actor": "toi"
-        },
-        {
-          "type": "step",
-          "title": "Poser, verser, confirmer",
-          "blocks": [
+              "text": "Clic sur « [Accepter] » (ou « [Refuser] »), `/trade accept <pseudo>`, ou le même geste en retour : la fenêtre s'ouvre chez les deux."
+            },
             {
               "type": "shot",
               "img": "shots/economie/echange-fenetre.webp",
@@ -651,7 +644,7 @@
                 },
                 {
                   "at": "confirmer",
-                  "text": "« Confirmer » : tu acceptes l'état affiché."
+                  "text": "Ici, Robin a déjà cliqué « Confirmer » : le bouton reste « Confirmé », on attend Maelle."
                 }
               ]
             },
@@ -716,7 +709,7 @@
       "staff": [
         "Distance et durée de la demande : tradeMaxDistance et tradeRequestSeconds (oneforallsurvival-economy.toml).",
         "Ce qui est posé est gardé par le serveur dans les données du joueur (TradeEscrow), écrites avec lui : après un arrêt brutal, ce qui était en garde revient à son propriétaire, une seule fois.",
-        "À la mort, ce qui était posé va en attente et revient à la réapparition, au lieu de tomber au sol avec le reste.",
+        "À la mort, ce qui était posé ne tombe pas au sol : pièces et contenu des bourses vont au coffre-fort s'il y en a un, le reste en attente, rendu à la réapparition (CommerceDelivery.giveBack, park, intoSafe).",
         "Ce qui revient à un joueur absent ou sans place : les pièces et le contenu des bourses vont dans son coffre-fort s'il en a un (dans la limite du plafond), le reste va en attente, livré à sa connexion puis toutes les 30 secondes. Total : /eco stats (« En attente ») ; détail : /eco pending.",
         "Les pièces échangées sont un transfert au registre (/eco ledger) : ni créées ni détruites."
       ]
@@ -748,12 +741,12 @@
         {
           "type": "hero",
           "img": "shots/economie/etal-hero.webp",
-          "alt": "L'étal de Maelle sur la plage, pains, pommes et morue cuite posés sur le comptoir ; Maelle derrière",
+          "alt": "L'étal de Maelle vu de face, à hauteur du comptoir : pains, pommes et morue cuite posés sous l'auvent ; Maelle derrière",
           "points": [
             {
               "at": "comptoir",
               "title": "Le comptoir",
-              "text": "Les trois premières offres de vente y sont posées."
+              "text": "Les trois premières offres de vente y sont posées, au-dessus."
             },
             {
               "at": "auvent",
@@ -772,7 +765,7 @@
             },
             {
               "type": "text",
-              "text": "Trois laines (de n'importe quelle couleur) en haut, deux bâtons, trois planches en bas. Celui qui le pose en est le propriétaire."
+              "text": "Trois laines et trois planches, de n'importe quelle sorte, deux bâtons. Celui qui le pose en est le propriétaire."
             }
           ]
         },
@@ -801,7 +794,7 @@
             },
             {
               "type": "text",
-              "text": "« Vendre », sur l'onglet Rachète, te paie depuis la caisse de l'étal. Le propriétaire voit sa propre vitrine accroupi, main vide."
+              "text": "Clic droit sur l'étal d'un autre : sa vitrine. Sur l'onglet Rachète, « Vendre » te paie depuis sa caisse. Le propriétaire voit sa propre vitrine accroupi, main vide."
             }
           ],
           "actor": "autre",
@@ -825,6 +818,10 @@
                   "text": "27 cases de marchandise."
                 }
               ]
+            },
+            {
+              "type": "text",
+              "text": "Clic droit sur ton étal : sa gestion, onglet Stock. Ranges-y la marchandise depuis ton inventaire."
             }
           ],
           "actor": "toi",
@@ -852,9 +849,14 @@
                   "text": "Prends l'objet sur le curseur, puis « Définir » : l'objet te reste."
                 }
               ]
+            },
+            {
+              "type": "text",
+              "text": "« Ventes » ou « Rachats » au-dessus des cases : le genre d'offre. « Retirer » efface l'offre choisie."
             }
           ],
-          "actor": "toi"
+          "actor": "toi",
+          "actorLabel": "Le propriétaire"
         },
         {
           "type": "step",
@@ -872,7 +874,7 @@
                 {
                   "type": "shot",
                   "img": "shots/economie/etal-registre.webp",
-                  "alt": "Le registre de l'étal : « vente 8 × Carotte », 2 argent, 27/11 16:22, Maelle",
+                  "alt": "Le registre de l'étal : une ligne « vente 8 × Carotte », 2 argent, la date et l'heure, Maelle",
                   "title": "Registre"
                 }
               ]
@@ -882,7 +884,8 @@
               "text": "La caisse : déposer ou retirer des pièces (le même écran que le coffre-fort). Le registre : ventes, rachats, retraits et dépôts."
             }
           ],
-          "actor": "toi"
+          "actor": "toi",
+          "actorLabel": "Le propriétaire"
         },
         {
           "type": "numbers",
@@ -996,31 +999,30 @@
             },
             {
               "type": "text",
-              "text": "Carnet en main, clic droit sur un joueur proche : le formulaire s'ouvre. Le débiteur reçoit la facture dans son inventaire."
+              "text": "Carnet en main, clic droit sur un joueur proche : le formulaire s'ouvre. Le débiteur reçoit la facture dans son inventaire ; toi, « Facture … adressée à … »."
             }
           ],
           "actor": "toi"
         },
         {
           "type": "step",
-          "title": "Recevoir",
+          "title": "Recevoir une facture",
           "blocks": [
             {
               "type": "shot",
               "img": "shots/economie/facture-chat.webp",
-              "alt": "Le chat : « Facture … adressée à Maelle : 8 argent » puis « Maelle vous adresse une facture de 4 argent 5 cuivres : « Trois pommes et un pain » »"
+              "alt": "Maelle face à Robin ; son chat : « Facture … adressée à Maelle : 8 argent » (son émission), puis « Maelle vous adresse une facture de 4 argent 5 cuivres : « Trois pommes et un pain » »"
             },
             {
               "type": "text",
-              "text": "La facture porte l'émetteur, le débiteur, le motif, le montant, la date et un numéro."
+              "text": "Maelle, à son tour, t'adresse une facture : le papier arrive dans ton inventaire. Il porte l'émetteur, le débiteur, le motif, le montant, la date et un numéro."
             }
           ],
-          "actor": "autre",
-          "actorLabel": "Maelle"
+          "actor": "toi"
         },
         {
           "type": "step",
-          "title": "Payer",
+          "title": "Payer la facture de Maelle",
           "blocks": [
             {
               "type": "shot",
@@ -1051,7 +1053,7 @@
             },
             {
               "type": "text",
-              "text": "Payée, la facture devient un reçu. Payée de main à main (échange), l'émetteur la déclare réglée : `/invoice settle <numéro>`, ou le lien « [Réglée] » de `/invoice list`."
+              "text": "Payée, la facture devient un reçu. `/invoice list` : tes factures émises et reçues, dues ou réglées. Payée de main à main, l'émetteur la déclare réglée (lien « [Réglée] », ou `/invoice settle <numéro>`)."
             }
           ],
           "actor": "toi"
@@ -1154,7 +1156,11 @@
         },
         {
           "type": "text",
-          "text": "L'équipe pose le trésor (il vient de l'onglet créatif) ; un second est refusé tant que le premier existe. Cassé puis reposé, il garde son contenu et son registre."
+          "text": "L'équipe pose le trésor (il vient de l'onglet créatif) ; un second est refusé tant que le premier existe. Le maire, l'équipe ou un ingénieur (outil de maintenance en main) le déplacent : il garde contenu et registre."
+        },
+        {
+          "type": "text",
+          "text": "Le registre note chaque déplacement : « Trésor retiré », puis « Trésor posé »."
         },
         {
           "type": "step",
@@ -1203,7 +1209,8 @@
               ]
             }
           ],
-          "actor": "toi"
+          "actor": "toi",
+          "actorLabel": "Le maire"
         },
         {
           "type": "step",
@@ -1216,13 +1223,13 @@
             },
             {
               "type": "text",
-              "text": "Le maire et l'équipe en reçoivent un par `/treasury board`, et le posent contre un mur (3 blocs de large, 2 de haut)."
+              "text": "Le maire et l'équipe en reçoivent un par `/treasury board` (un seul tant qu'on en porte un) ; il tient sur ses pieds et demande 3 places de large sur 2 de haut, libres face à soi."
             }
           ]
         },
         {
           "type": "step",
-          "title": "Les commandes",
+          "title": "Les comptes au chat",
           "blocks": [
             {
               "type": "row",
@@ -1231,15 +1238,19 @@
                   "type": "shot",
                   "img": "shots/economie/tresor-commande.webp",
                   "alt": "Le chat après /treasury : solde, salaires dus, ce que la ville vous doit, temps compté aujourd'hui",
-                  "title": "/treasury (tous)"
+                  "title": "Pour tous"
                 },
                 {
                   "type": "shot",
                   "img": "shots/economie/tresor-registre.webp",
                   "alt": "Le chat après /treasury log : le registre du trésor, dépôts, dépense « Lanternes de la place », trésor posé",
-                  "title": "/treasury log (maire, équipe)"
+                  "title": "Maire et équipe"
                 }
               ]
+            },
+            {
+              "type": "text",
+              "text": "`/treasury` (tous) : solde, salaires dus par la ville, ce qu'elle te doit, ton temps compté aujourd'hui. `/treasury log [page]` (maire, équipe) : le registre."
             }
           ]
         },
@@ -1349,7 +1360,7 @@
             {
               "type": "shot",
               "img": "shots/economie/minuit-salaire.webp",
-              "alt": "Le chat au premier minuit : « Salaire du … (Policier, 0 h 2 min) : 2 cuivres, … »"
+              "alt": "Le chat au premier minuit : « Salaire du 2026-11-27 (Policier, 0 h 3 min) : 3 cuivres, versé dans votre coffre-fort »"
             },
             {
               "type": "text",
@@ -1359,7 +1370,11 @@
         },
         {
           "type": "text",
-          "text": "Trésor insuffisant : le salaire reste dû, jamais payé en partie. Les dettes se paient par ancienneté, chaque minuit et dès que de l'argent arrive au trésor. Le tableau de la mairie et `/treasury` affichent la dette."
+          "text": "Trésor insuffisant : le salaire reste dû, jamais payé en partie. Les dettes se paient par ancienneté, chaque minuit et dès que de l'argent arrive au trésor."
+        },
+        {
+          "type": "text",
+          "text": "La dette de la ville s'affiche sur le tableau de la mairie et dans `/treasury` ; tu en es prévenu à ta connexion (« La ville vous doit … »)."
         },
         {
           "type": "numbers",
@@ -1397,7 +1412,7 @@
       "id": "prelevement",
       "title": "Le prélèvement de minuit",
       "group": "La ville",
-      "lead": "Chaque minuit, les factures publiques dues sont prises à distance, en entier ou pas du tout, même si tu es absent.",
+      "lead": "Chaque minuit, les factures publiques dues sont prises à distance, en entier ou pas du tout, même si tu es absent ou ta zone déchargée.",
       "cover": "shots/economie/minuit-papier.webp",
       "covers": [
         "prelevement"
@@ -1440,7 +1455,7 @@
         },
         {
           "type": "text",
-          "text": "Ce que tu portes ne compte que si tu es connecté et vivant."
+          "text": "Ce que tu portes ne compte que si tu es connecté et vivant. Plusieurs factures : la plus ancienne d'abord. La monnaie revient à la source qui paie, jamais au sol."
         },
         {
           "type": "step",
@@ -1449,7 +1464,7 @@
             {
               "type": "shot",
               "img": "shots/economie/minuit-preleve.webp",
-              "alt": "Le chat au minuit suivant : « Facture d'électricité de Courant de la Baie du … prélevée : 1 argent 5 cuivres, pris sur vous »"
+              "alt": "Le chat au minuit suivant : « Facture d'électricité de Courant de la Baie du 28/11/2026 (6,8 kFE à 2 argent les 100000 FE, abonnement 1 argent 5 cuivres) … prélevée : 1 argent 6 cuivres, pris sur vous »"
             },
             {
               "type": "text",
@@ -1580,6 +1595,10 @@
           ]
         },
         {
+          "type": "text",
+          "text": "Ici, le courant vient d'un alternateur de Crafts & Additions entraîné par un moteur créatif de Create (bloc créatif), au bout à droite."
+        },
+        {
           "type": "row",
           "blocks": [
             {
@@ -1645,7 +1664,7 @@
             },
             {
               "type": "text",
-              "text": "Un tarif changé vaut **au lendemain** ; tes clients sont prévenus (à leur connexion s'ils sont absents)."
+              "text": "Tape le prix et l'abonnement, chacun validé par son « OK ». Un tarif changé vaut **au lendemain** ; tes clients sont prévenus (à leur connexion s'ils sont absents)."
             }
           ],
           "actor": "toi"
@@ -1657,11 +1676,15 @@
             {
               "type": "shot",
               "img": "shots/economie/fournisseur-chat.webp",
-              "alt": "Le chat : testeur réglé sur Lumière du Port pour 60 s, compteur jumelé (InesLebrun doit donner son accord), disjoncteur jumelé, puis « InesLebrun demande le raccordement… »"
+              "alt": "Le chat, fin du jumelage : testeur réglé sur Lumière du Port pour 60 s, disjoncteur jumelé au client InesLebrun, puis « InesLebrun demande le raccordement de son compteur… »"
             },
             {
               "type": "text",
-              "text": "Compteur et disjoncteur portent le pseudo du client (inscrit par un ingénieur). Testeur en main : clic sur le poste (60 s), puis sur le compteur ; de nouveau le poste, puis le disjoncteur."
+              "text": "Un ingénieur inscrit le pseudo du client : main vide, clic droit sur le compteur ; **accroupi**, main vide, sur le disjoncteur (debout, le clic le coupe)."
+            },
+            {
+              "type": "text",
+              "text": "Puis testeur en main : clic sur le poste (60 s), puis sur le compteur ; de nouveau le poste, puis le disjoncteur."
             }
           ],
           "actor": "toi"
@@ -1743,11 +1766,11 @@
           "list": [
             {
               "k": "Facture",
-              "v": "consommation × prix (les 100 000 FE) + abonnement"
+              "v": "consommation × prix (les 100 000 FE), arrondi au cuivre inférieur, + abonnement"
             },
             {
               "k": "Plafond du prix",
-              "v": "2 argent les 100 000 FE au départ",
+              "v": "2 argent les 100 000 FE au départ ; le maire le change",
               "item": "oneforallsurvival:silver_coin"
             },
             {
@@ -1756,13 +1779,17 @@
             },
             {
               "k": "Taxe électricité",
-              "v": "0 % au départ, 20 % au plus"
+              "v": "0 % au départ, 20 % au plus, versée au trésor"
             },
             {
               "k": "Client coupé",
-              "v": "pas d'abonnement ce jour-là"
+              "v": "pas d'abonnement ce jour-là ; coupé toute la journée : aucune facture"
             }
           ]
+        },
+        {
+          "type": "text",
+          "text": "Démonter le poste : le fondateur, un ingénieur, le maire ou l'équipe, sans outil exigé (plus vite à la pioche) ; il garde son fournisseur et le reprend reposé."
         },
         {
           "type": "text",
@@ -1782,7 +1809,7 @@
             },
             {
               "msg": "Vous êtes ce client : vous n'agissez pas sur votre propre raccordement.",
-              "text": "Un ayant droit qui est aussi le client n'accepte ni ne coupe sa propre maison."
+              "text": "Un ingénieur ou un maire, client de ce fournisseur, n'accepte ni ne coupe sa propre maison. Le fondateur et l'équipe, eux, le peuvent."
             }
           ]
         }
@@ -1802,7 +1829,7 @@
       "title": "D'où vient l'argent",
       "group": "Gagner de l'argent",
       "lead": "Seules quatre sources créent des pièces : la somme de départ, le butin des mobs, les quêtes et l'injection de l'équipe.",
-      "cover": "shots/economie/depart-barre.webp",
+      "cover": "shots/economie/sources-cover.webp",
       "covers": [
         "sources",
         "depart"
@@ -1815,30 +1842,30 @@
       ],
       "blocks": [
         {
-          "type": "flow",
-          "nodes": [
+          "type": "items",
+          "list": [
             {
               "item": "oneforallsurvival:gold_coin",
-              "label": "Somme de départ"
+              "label": "Somme de départ",
+              "text": "5 pièces d'or à ta première connexion."
             },
             {
               "item": "oneforallsurvival:copper_coin",
-              "label": "Butin des mobs"
+              "label": "Butin des mobs",
+              "text": "Des pièces lâchées par un mob tué."
             },
             {
               "item": "oneforallsurvival:silver_coin",
-              "label": "Quêtes"
+              "label": "Quêtes",
+              "text": "La récompense d'une quête finie."
             },
             {
               "item": "oneforallsurvival:ruby_coin",
-              "label": "Injection de l'équipe"
-            },
-            {
-              "item": "oneforallsurvival:purse",
-              "label": "Ton inventaire"
+              "label": "Injection de l'équipe",
+              "text": "Pour relancer une ville, récompenser un événement."
             }
           ],
-          "title": "Les quatre sources"
+          "title": "Les quatre sources, côte à côte"
         },
         {
           "type": "text",
@@ -1849,27 +1876,32 @@
           "title": "La somme de départ",
           "blocks": [
             {
-              "type": "shot",
-              "img": "shots/economie/depart-barre.webp",
-              "alt": "La barre d'action : 5 pièces d'or dans la première case"
+              "type": "row",
+              "blocks": [
+                {
+                  "type": "shot",
+                  "img": "shots/economie/depart-barre.webp",
+                  "alt": "La barre d'inventaire : 5 pièces d'or dans la première case"
+                },
+                {
+                  "type": "numbers",
+                  "list": [
+                    {
+                      "k": "Montant",
+                      "v": "500 cuivres",
+                      "item": "oneforallsurvival:gold_coin"
+                    },
+                    {
+                      "k": "Versements",
+                      "v": "1 seul"
+                    }
+                  ]
+                }
+              ]
             },
             {
               "type": "text",
               "text": "À ta première connexion : 5 pièces d'or (500 cuivres), une seule fois. Ni la reconnexion, ni la relance du serveur, ni un changement de pseudo ne la redonnent."
-            }
-          ]
-        },
-        {
-          "type": "numbers",
-          "list": [
-            {
-              "k": "Montant",
-              "v": "500 cuivres",
-              "item": "oneforallsurvival:gold_coin"
-            },
-            {
-              "k": "Versements",
-              "v": "1 seul"
             }
           ]
         },
@@ -1927,7 +1959,7 @@
             },
             {
               "type": "text",
-              "text": "Seuls les mobs nés d'eux-mêmes paient : apparition naturelle, génération du monde, structure, patrouille, raid. Un mob de générateur, d'œuf, de distributeur ou de commande ne donne rien."
+              "text": "Seuls les mobs nés d'eux-mêmes paient : apparition naturelle, génération du monde, structure, patrouille, raid. Un mob de générateur, d'œuf, de distributeur ou de commande ne donne rien, sauf un boss."
             },
             {
               "type": "text",
@@ -1960,11 +1992,11 @@
             },
             {
               "k": "Raid",
-              "v": "100 cuivres au plus, tous joueurs confondus"
+              "v": "100 cuivres au plus par raid, tous joueurs confondus"
             },
             {
               "k": "Plafond horaire",
-              "v": "200 cuivres par joueur sur 60 min glissantes (sauf boss)"
+              "v": "200 cuivres sur 60 min glissantes (sauf boss) ; au-delà, réduit puis nul"
             },
             {
               "k": "Boss refait",
@@ -2059,9 +2091,13 @@
             },
             {
               "type": "text",
-              "text": "« Relancer » remplace une quête en cours par une autre, une fois par jour. Il faut de la place pour les pièces."
+              "text": "Il faut de la place pour les pièces. « Relancer », sur une quête en cours, la remplace par une autre, qui repart de zéro : une fois par jour."
             }
           ]
+        },
+        {
+          "type": "text",
+          "text": "Près du plafond, « Réclamer » ne paie que ce qui reste sous le plafond (bulle : « Le plafond de la semaine ne laisse que … sur … ») et **le surplus est perdu**. Plafond atteint : la quête attend lundi."
         },
         {
           "type": "text",
@@ -2069,7 +2105,7 @@
         },
         {
           "type": "text",
-          "text": "Un bloc posé par un joueur ne compte pas quand on le casse ; poser puis casser soi-même dans la minute n'avance pas une quête de pose. La cuisine ne compte que ce qui est cuit à partir d'ingrédients mis soi-même."
+          "text": "Un bloc posé par un joueur ne compte pas quand on le casse ; poser puis casser soi-même dans la minute n'avance pas une quête de pose. La cuisine ne compte que ce que tu cuis avec tes ingrédients (pas les bols)."
         },
         {
           "type": "numbers",
@@ -2088,12 +2124,12 @@
             },
             {
               "k": "Journalière",
-              "v": "10 à 50 cuivres selon le modèle et la quantité",
+              "v": "10 à 38 cuivres selon le modèle et la quantité",
               "item": "oneforallsurvival:copper_coin"
             },
             {
               "k": "Hebdomadaire",
-              "v": "5 fois plus de travail et de récompense",
+              "v": "50 à 180 cuivres : 5 fois plus (3 fois pour les réparations)",
               "item": "oneforallsurvival:silver_coin"
             },
             {
@@ -2116,18 +2152,23 @@
             },
             {
               "msg": "Plafond de la semaine atteint : à réclamer après lundi",
-              "text": "Les 1 000 cuivres de la semaine sont gagnés."
+              "text": "Les 1 000 cuivres de la semaine sont gagnés : la quête attend lundi, intacte."
+            },
+            {
+              "msg": "Plafond de la semaine : … seulement",
+              "text": "Le plafond ne laissait qu'une partie : elle est payée, le reste est perdu."
             }
           ]
         }
       ],
       "staff": [
         "Les modèles sont un fichier de données : data/oneforallsurvival/economy/quests.json (catégorie, cible par identifiant ou #tag, quantité min et max, récompense, poids et poids par rôle, facteur hebdomadaire, mod requis). Récompense = récompense du modèle × quantité ÷ minimum. L'équipe le remplace par un datapack du monde puis /reload ; un modèle dont la cible n'existe pas est écarté (avertissement au journal).",
-        "/eco quest template add|remove|list : modèles de l'équipe ajoutés en jeu ; /eco quest event start|stop|list : quête d'événement pour tous, sur une durée en jours, titre libre ; /eco quest show <joueur> : le carnet d'un joueur. Une cible s'écrit entre guillemets (\"minecraft:stone\", \"#minecraft:logs\", \"*\").",
+        "Au plafond, QuestService.claim paie min(récompense, reste) puis marque la quête réclamée : le surplus est perdu (QuestClaimGameTests.lePlafondReduitPuisArrete) ; « Réclamer l'attente » de même.",
+        "/eco quest template add|remove|list : modèles de l'équipe ajoutés en jeu (mêmes contrôles que le fichier) ; /eco quest event start|stop|list : quête d'événement pour tous, sur une durée en jours, titre libre ; /eco quest show <joueur> : le carnet d'un joueur. Une cible s'écrit entre guillemets (\"minecraft:stone\", \"#minecraft:logs\", \"*\").",
         "/eco quests (niveau 2) : total créé par les quêtes, nombre de réclamations, les 10 joueurs et les 10 modèles qui ont le plus rapporté, événements en cours, modèles en service. La ligne « Quêtes » de /eco stats donne le même total.",
-        "Garde-fous : bloc posé par un joueur marqué dans son chunk (piston, bloc qui tombe, contraptions, rouleau, rails, tuyaux et Schematicannon de Create compris) ; pose annulée si le même joueur casse le bloc dans la minute ; cuisine et conserve : seule compte une sortie née d'ingrédients mis par le joueur (four, fumoir, séchoir, marmite, Cooking Pot) ; faux joueurs, spectateur et créatif exclus ; seul un mob sauvage compte au combat. Un chunk à 4 096 marques ne compte plus aucune casse.",
+        "Garde-fous : bloc posé par un joueur marqué dans son chunk (piston, bloc qui tombe, contraptions, rouleau, rails, tuyaux et Schematicannon de Create compris) ; pose annulée si le même joueur casse le bloc dans la minute, avant d'avoir réclamé (un autre joueur, une perceuse ou une explosion ne retirent rien) ; cuisine et conserve : seule compte une sortie née d'ingrédients mis par le joueur (four, fumoir, séchoir, marmite, Cooking Pot), récipients et combustible ne créditent rien, ce qui sort sans le joueur (trémie, entonnoir, JEI) emporte d'abord le non crédité ; faux joueurs, spectateur et créatif exclus ; seul un mob sauvage compte au combat. Un chunk à 4 096 marques ne compte plus aucune casse.",
         "Bûches d'un arbre qui pousse : non marquées (ressource du monde), bornées par le plafond.",
-        "Config : questDailyCount (3), questWeeklyCount (5), questWeeklyFactor (5), questResetHour (6), questRerollsPerDay (1), questWeeklyCap (1 000), questPendingMax (8), questJournalThreshold (100), questPlaceUndoSeconds (60), questPlacedMarksPerChunk (4 096).",
+        "Config : questDailyCount (3), questWeeklyCount (5), questWeeklyFactor (5), questResetHour (6), questRerollsPerDay (1), questWeeklyCap (1 000), questPendingMax (8), questJournalThreshold (100 : une réclamation d'au moins 100 cuivres a sa ligne au registre), questPlaceUndoSeconds (60), questPlacedMarksPerChunk (4 096).",
         "Pas de livraison au grenier tant que le grenier n'existe pas ; les quêtes de métier du médecin et du policier viendront avec leurs lots. Image : la journalière « Éliminer 5 zombies » imposée au carnet par la commande d'essai e2equetes (les autres quêtes sont le vrai tirage)."
       ]
     },
@@ -2136,7 +2177,7 @@
       "title": "Injecter de l'argent",
       "group": "L'équipe",
       "lead": "L'équipe crée ou retire des pièces pour piloter l'économie : relancer une ville pauvre, récompenser un événement.",
-      "cover": "shots/economie/equipe-give.webp",
+      "cover": "shots/economie/injection-cover.webp",
       "covers": [
         "injection"
       ],
@@ -2201,7 +2242,7 @@
       "blocks": [
         {
           "type": "step",
-          "title": "/eco stats",
+          "title": "Les totaux",
           "blocks": [
             {
               "type": "row",
@@ -2215,20 +2256,20 @@
                 {
                   "type": "shot",
                   "img": "shots/economie/equipe-stats.webp",
-                  "alt": "La suite de /eco stats : caisses des postes, électricité, en circulation, les transferts, trésor, attente",
+                  "alt": "La suite de /eco stats : électricité, en circulation, les transferts (échanges, ventes, factures, dépôts, dépenses, salaires), trésor, attente",
                   "title": "Échangé, trésor"
                 }
               ]
             },
             {
               "type": "text",
-              "text": "Créé par source, détruit par cause, masse des coffres-forts, en circulation, les transferts (échanges, ventes, taxe, factures, dépenses publiques, salaires…), le trésor, l'attente, les salaires et factures publiques dus."
+              "text": "`/eco stats` : créé par source, détruit par cause, masse des coffres-forts, en circulation, transferts (échanges, ventes, taxe, factures, dépenses, salaires…), trésor, attente, salaires et factures publiques dus."
             }
           ]
         },
         {
           "type": "step",
-          "title": "/eco ledger",
+          "title": "Le registre",
           "blocks": [
             {
               "type": "shot",
@@ -2237,13 +2278,13 @@
             },
             {
               "type": "text",
-              "text": "Dix lignes par page, de la plus récente à la plus ancienne."
+              "text": "`/eco ledger [page]` : dix lignes par page, de la plus récente à la plus ancienne."
             }
           ]
         },
         {
           "type": "step",
-          "title": "/eco power, /eco pending",
+          "title": "L'électricité et l'attente",
           "blocks": [
             {
               "type": "shot",
@@ -2252,7 +2293,7 @@
             },
             {
               "type": "text",
-              "text": "Chaque fournisseur d'électricité (caisse, écart d'hier, factures dues), puis ce qui attend joueur par joueur (20 lignes au plus)."
+              "text": "`/eco power [page]` : chaque fournisseur (caisse, écart d'hier, factures dues) et les totaux. `/eco pending` : ce qui attend, par joueur (pièces, bourses, objets), du plus gros au plus petit, 20 lignes au plus."
             }
           ]
         },
@@ -2285,7 +2326,8 @@
       "lot": "Métier du maire",
       "staff": [
         "Nommer : /role mayor set <joueur>.",
-        "Sans maire, seule l'équipe fait ces gestes. /power cap <cuivres> et /power tax <pour cent> (0 à 20) valent au lendemain ; /power set <fournisseur> au lendemain ; /power remove <nom> <motif>, puis confirm dans les 60 s ; chaque geste est noté au registre avec son auteur."
+        "Sans maire, seule l'équipe fait ces gestes. /power cap <cuivres> : plafond du prix, au lendemain ; un fournisseur au-dessus est prévenu et ramené au plafond à minuit. /power tax <pour cent> (0 à 20) : au lendemain, versée au trésor.",
+        "/power set <fournisseur> price|subscription <valeur> : au lendemain ; /power remove <nom> <motif>, puis confirm dans les 60 s ; chaque geste est noté au registre avec son auteur."
       ]
     },
     {

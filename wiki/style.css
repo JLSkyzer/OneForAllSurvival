@@ -279,7 +279,7 @@ input[type=range]{width:100%;height:44px;accent-color:var(--or);margin:0}
 .ensuite:hover{color:var(--encre);background:var(--or2)}
 .ensuite>div{display:flex;flex-direction:column;gap:6px;min-width:0}
 .ensuite b{font:700 36px/1 var(--titre);text-transform:uppercase}
-.ensuite img{height:150px;width:auto;max-width:100%;border-radius:10px;display:block}
+.ensuite img{height:150px;width:auto;max-width:100%;object-fit:cover;border-radius:10px;display:block}
 
 /* Notes d'équipe */
 details.staff{background:#1A1830;border:1px solid #3B3566;border-radius:14px;padding:0}

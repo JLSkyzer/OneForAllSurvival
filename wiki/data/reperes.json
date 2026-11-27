@@ -19,7 +19,7 @@
  },
  "shots/economie/butin-pieces.webp": {
   "pieces": [
-   60.77,
+   60.78,
    61.28
   ]
  },
@@ -59,34 +59,34 @@
  },
  "shots/economie/echange-fenetre.webp": {
   "autre": [
-   55.39,
+   52.85,
    26.81
   ],
   "confirmer": [
-   68.86,
+   65.7,
    50.0
   ],
   "pieces": [
-   99.23,
+   94.68,
    30.46
   ],
   "recu": [
-   2.32,
+   2.21,
    50.0
   ],
   "toi": [
-   21.54,
+   20.56,
    26.81
   ]
  },
  "shots/economie/etal-hero.webp": {
   "auvent": [
-   34.62,
-   40.57
+   30.44,
+   37.63
   ],
   "comptoir": [
-   64.33,
-   52.5
+   52.7,
+   64.85
   ]
  },
  "shots/economie/etal-offres.webp": {
@@ -200,15 +200,15 @@
  "shots/economie/fournisseur-tarifs.webp": {
   "abonnement": [
    71.1,
-   31.77
+   37.24
   ],
   "caisse": [
    75.27,
-   7.05
+   8.27
   ],
   "prix": [
    71.1,
-   18.83
+   22.07
   ]
  },
  "shots/economie/minuit-papier.webp": {
@@ -271,8 +271,8 @@
  },
  "shots/economie/tresor-hero.webp": {
   "tableau": [
-   78.98,
-   52.47
+   76.05,
+   61.01
   ],
   "tresor": [
    30.99,
