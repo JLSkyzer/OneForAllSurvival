@@ -249,7 +249,7 @@ public final class EconomyCommands {
             out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.loot.none"));
         }
         tiers.forEach((tier, amount) -> out.append("\n").append(Component.translatable(
-                "command.oneforallsurvival.eco.stats.line", tier, CoinMath.format(amount))));
+                "command.oneforallsurvival.eco.stats.line", tierLabel(tier), CoinMath.format(amount))));
         List<java.util.Map.Entry<UUID, Long>> players = ledger.lootByPlayer().entrySet().stream()
                 .sorted(java.util.Map.Entry.<UUID, Long>comparingByValue().reversed()
                         .thenComparing(e -> e.getKey().toString()))
@@ -309,8 +309,8 @@ public final class EconomyCommands {
             out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.quests.none"));
         }
         for (java.util.Map.Entry<String, Long> line : templates) {
-            out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.line", line.getKey(),
-                    CoinMath.format(line.getValue())));
+            out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.stats.line",
+                    templateLabel(line.getKey()), CoinMath.format(line.getValue())));
         }
         out.append("\n").append(Component.translatable("command.oneforallsurvival.eco.quests.events",
                 dev.oneforallsurvival.economy.quest.QuestBoard.get(server).activeEvents(EconomyClock.now()).size()));
@@ -318,6 +318,22 @@ public final class EconomyCommands {
                 dev.oneforallsurvival.economy.quest.QuestTemplates.current().size()));
         source.sendSuccess(() -> out, false);
         return 1;
+    }
+
+    /**
+     * Le nom d'un palier de butin ({@code mob_coins.json}) dans la langue du lecteur ; un palier ajouté par un datapack
+     * sans libellé garde son identifiant.
+     */
+    public static Component tierLabel(String tier) {
+        return Component.translatableWithFallback("economy.oneforallsurvival.loot_tier." + tier, tier);
+    }
+
+    /**
+     * Le nom d'un modèle de quête ({@code quests.json}) sans quantité (les titres de l'écran des quêtes en portent une :
+     * « Éliminer %s zombies ») ; un modèle sans libellé (datapack, événement « event:… ») garde son identifiant.
+     */
+    public static Component templateLabel(String template) {
+        return Component.translatableWithFallback("economy.oneforallsurvival.quest_template." + template, template);
     }
 
     /** Le nom d'un joueur : en ligne, sinon le cache des profils du serveur, sinon son identifiant entier. */

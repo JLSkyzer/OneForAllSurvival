@@ -774,7 +774,8 @@ public final class ButinGameTests {
             String texte = sortie.get(0).getString();
             helper.assertTrue(texte.contains(CoinMath.format(total).getString()), "total absent : " + texte);
             helper.assertTrue(texte.contains("ButinEco"), "nom du joueur absent : " + texte);
-            helper.assertTrue(texte.contains("common"), "palier absent : " + texte);
+            String palier = dev.oneforallsurvival.economy.EconomyCommands.tierLabel("common").getString();
+            helper.assertTrue(texte.contains(palier), "palier absent (" + palier + ") : " + texte);
             // Sans le niveau 2, la commande n'existe pas.
             List<Component> refus = new ArrayList<>();
             int r0 = server.getCommands().performPrefixedCommand(

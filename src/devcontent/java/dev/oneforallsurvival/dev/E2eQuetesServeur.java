@@ -8,6 +8,7 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import dev.oneforallsurvival.economy.CoinMath;
 import dev.oneforallsurvival.economy.EconomyCalendar;
 import dev.oneforallsurvival.economy.EconomyClock;
+import dev.oneforallsurvival.economy.EconomyCommands;
 import dev.oneforallsurvival.economy.EconomyConfig;
 import dev.oneforallsurvival.economy.EconomyLedger;
 import dev.oneforallsurvival.economy.MoneySource;
@@ -203,7 +204,8 @@ public final class E2eQuetesServeur {
         String ligneDev = Component.translatable("command.oneforallsurvival.eco.stats.line", "Dev", CoinMath.format(dev)).getString();
         StringBuilder modeles = new StringBuilder();
         ledger.questByTemplate().forEach((id, somme) -> modeles.append(" m_").append(id).append("=[").append(nettoyer(Component.translatable(
-                "command.oneforallsurvival.eco.stats.line", id, CoinMath.format(somme)).getString())).append(']'));
+                "command.oneforallsurvival.eco.stats.line", EconomyCommands.templateLabel(id),
+                CoinMath.format(somme)).getString())).append(']'));
         return dire(ctx, "REGISTRE total=" + total + " reclamations=" + ledger.questClaims() + " dev=" + dev + " ligne=["
                 + nettoyer(ligne) + "] ligneDev=[" + nettoyer(ligneDev) + "]" + modeles);
     }
