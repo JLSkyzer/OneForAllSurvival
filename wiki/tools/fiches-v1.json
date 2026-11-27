@@ -1,0 +1,709 @@
+{
+ "electricite": {
+  "titre": "Électricité et ingénieur",
+  "fiches": {
+   "roles": {
+    "statut": "en jeu",
+    "staff": 3
+   },
+   "etabli-ingenieur": {
+    "statut": "en jeu",
+    "staff": 4
+   },
+   "usure-pannes": {
+    "statut": "en jeu",
+    "staff": 4
+   },
+   "trousse-diagnostic": {
+    "statut": "en jeu",
+    "staff": 3
+   },
+   "bain-galvanique": {
+    "statut": "en jeu",
+    "staff": 3
+   },
+   "epave": {
+    "statut": "en jeu",
+    "staff": 3
+   },
+   "debris-cablage": {
+    "statut": "en jeu",
+    "staff": 0
+   },
+   "debris-instruments": {
+    "statut": "en jeu",
+    "staff": 0
+   },
+   "debris-batterie": {
+    "statut": "en jeu",
+    "staff": 0
+   },
+   "debris-cabine": {
+    "statut": "en jeu",
+    "staff": 0
+   },
+   "delestage": {
+    "statut": "en jeu",
+    "staff": 3
+   },
+   "compteur": {
+    "statut": "en jeu",
+    "staff": 3
+   },
+   "disjoncteur": {
+    "statut": "en jeu",
+    "staff": 2
+   },
+   "parafoudre": {
+    "statut": "en jeu",
+    "staff": 3
+   },
+   "station-meteo": {
+    "statut": "en jeu",
+    "staff": 3
+   },
+   "dessalinisateur": {
+    "statut": "en jeu",
+    "staff": 3
+   },
+   "armoire-frigorifique": {
+    "statut": "en jeu",
+    "staff": 3
+   },
+   "sechoir": {
+    "statut": "en jeu",
+    "staff": 3
+   },
+   "commandes-staff": {
+    "statut": "en jeu",
+    "staff": 11
+   },
+   "bien-etre": {
+    "statut": "en jeu",
+    "staff": 3
+   },
+   "couveuse": {
+    "statut": "en jeu",
+    "staff": 3
+   },
+   "cuisine-cantine": {
+    "statut": "en jeu",
+    "staff": 3
+   },
+   "cloture-electrique": {
+    "statut": "en jeu",
+    "staff": 3
+   },
+   "phare": {
+    "statut": "en jeu",
+    "staff": 4
+   },
+   "detecteur-metaux": {
+    "statut": "en jeu",
+    "staff": 3
+   },
+   "lampe-frontale": {
+    "statut": "en jeu",
+    "staff": 4
+   },
+   "recepteur-signaux": {
+    "statut": "en jeu",
+    "staff": 3
+   },
+   "mecanismes-ruines": {
+    "statut": "en jeu",
+    "staff": 3
+   },
+   "chauffe-eau-douche": {
+    "statut": "en jeu",
+    "staff": 4
+   }
+  }
+ },
+ "economie": {
+  "titre": "Économie",
+  "fiches": {
+   "pieces": {
+    "statut": "en jeu",
+    "staff": 4
+   },
+   "changer": {
+    "statut": "en jeu",
+    "staff": 2
+   },
+   "ou-ranger": {
+    "statut": "en jeu",
+    "staff": 4
+   },
+   "prelevement": {
+    "statut": "en jeu",
+    "staff": 5
+   },
+   "sources": {
+    "statut": "en jeu",
+    "staff": 2
+   },
+   "retire": {
+    "statut": "prévu",
+    "staff": 1
+   },
+   "coffre-fort": {
+    "statut": "en jeu",
+    "staff": 3
+   },
+   "bourse": {
+    "statut": "en jeu",
+    "staff": 3
+   },
+   "main-a-main": {
+    "statut": "en jeu",
+    "staff": 5
+   },
+   "etal": {
+    "statut": "en jeu",
+    "staff": 7
+   },
+   "facture": {
+    "statut": "en jeu",
+    "staff": 5
+   },
+   "tresor": {
+    "statut": "en jeu",
+    "staff": 6
+   },
+   "salaires": {
+    "statut": "en jeu",
+    "staff": 6
+   },
+   "fournisseur": {
+    "statut": "en jeu",
+    "staff": 6
+   },
+   "butin": {
+    "statut": "en jeu",
+    "staff": 7
+   },
+   "quetes": {
+    "statut": "en jeu",
+    "staff": 7
+   },
+   "depart": {
+    "statut": "en jeu",
+    "staff": 3
+   },
+   "injection": {
+    "statut": "en jeu",
+    "staff": 5
+   },
+   "tableau-de-bord": {
+    "statut": "en jeu",
+    "staff": 3
+   },
+   "maire": {
+    "statut": "prévu",
+    "staff": 2
+   }
+  }
+ },
+ "telephone": {
+  "titre": "Téléphone",
+  "fiches": {
+   "tuto-antenne": {
+    "statut": "en jeu",
+    "staff": 4
+   },
+   "tuto-ligne": {
+    "statut": "en jeu",
+    "staff": 3
+   },
+   "telephone": {
+    "statut": "en jeu",
+    "staff": 7
+   },
+   "code-telephone": {
+    "statut": "en jeu",
+    "staff": 4
+   },
+   "batterie-telephone": {
+    "statut": "en jeu",
+    "staff": 3
+   },
+   "prise-murale": {
+    "statut": "en jeu",
+    "staff": 6
+   },
+   "carte-sim": {
+    "statut": "en jeu",
+    "staff": 8
+   },
+   "antenne": {
+    "statut": "en jeu",
+    "staff": 7
+   },
+   "outil-maintenance": {
+    "statut": "en jeu",
+    "staff": 4
+   },
+   "panneau-operateur": {
+    "statut": "en jeu",
+    "staff": 6
+   },
+   "relais": {
+    "statut": "en jeu",
+    "staff": 2
+   },
+   "abonnement": {
+    "statut": "prévu",
+    "staff": 2
+   },
+   "appel-vocal": {
+    "statut": "en jeu",
+    "staff": 6
+   },
+   "facetime": {
+    "statut": "prévu",
+    "staff": 1
+   },
+   "urgences": {
+    "statut": "en jeu",
+    "staff": 3
+   },
+   "messages": {
+    "statut": "prévu",
+    "staff": 1
+   },
+   "photos": {
+    "statut": "prévu",
+    "staff": 3
+   },
+   "echo": {
+    "statut": "prévu",
+    "staff": 2
+   },
+   "ombre": {
+    "statut": "prévu",
+    "staff": 3
+   },
+   "app-store": {
+    "statut": "prévu",
+    "staff": 1
+   },
+   "reglages": {
+    "statut": "en jeu",
+    "staff": 6
+   }
+  }
+ },
+ "interface": {
+  "titre": "Interface",
+  "fiches": {
+   "ecran-chargement": {
+    "statut": "en jeu",
+    "staff": 4
+   },
+   "ecran-titre": {
+    "statut": "en jeu",
+    "staff": 6
+   },
+   "menu-f3": {
+    "statut": "prévu",
+    "staff": 3
+   },
+   "liste-joueurs": {
+    "statut": "en jeu",
+    "staff": 3
+   }
+  }
+ },
+ "maire": {
+  "titre": "Maire",
+  "fiches": {
+   "metier-maire": {
+    "statut": "prévu",
+    "staff": 4
+   },
+   "nommer-le-maire": {
+    "statut": "en jeu",
+    "staff": 3
+   },
+   "bureau-du-maire": {
+    "statut": "prévu",
+    "staff": 4
+   },
+   "tableau-de-la-mairie": {
+    "statut": "prévu",
+    "staff": 2
+   },
+   "registre-public": {
+    "statut": "prévu",
+    "staff": 2
+   },
+   "tresor-depenses": {
+    "statut": "prévu",
+    "staff": 3
+   },
+   "taxes-baremes": {
+    "statut": "prévu",
+    "staff": 2
+   },
+   "impot-coffres-forts": {
+    "statut": "prévu",
+    "staff": 3
+   },
+   "reseaux": {
+    "statut": "prévu",
+    "staff": 3
+   },
+   "annonces-officielles": {
+    "statut": "prévu",
+    "staff": 2
+   },
+   "appli-mairie": {
+    "statut": "prévu",
+    "staff": 2
+   },
+   "deplacer-blocs-mairie": {
+    "statut": "prévu",
+    "staff": 3
+   }
+  }
+ },
+ "medecin": {
+  "titre": "Médecin",
+  "fiches": {
+   "metier-medecin": {
+    "statut": "prévu",
+    "staff": 3
+   },
+   "paillasse": {
+    "statut": "prévu",
+    "staff": 4
+   },
+   "deux-niveaux-de-soin": {
+    "statut": "prévu",
+    "staff": 3
+   },
+   "coffret-electrique-medical": {
+    "statut": "prévu",
+    "staff": 4
+   },
+   "pansements-cibles": {
+    "statut": "prévu",
+    "staff": 3
+   },
+   "pilules-utiles": {
+    "statut": "prévu",
+    "staff": 2
+   },
+   "degats-repartis": {
+    "statut": "prévu",
+    "staff": 2
+   },
+   "hemorragie": {
+    "statut": "prévu",
+    "staff": 2
+   },
+   "fractures": {
+    "statut": "prévu",
+    "staff": 3
+   },
+   "a-terre": {
+    "statut": "prévu",
+    "staff": 4
+   },
+   "defibrillateur": {
+    "statut": "prévu",
+    "staff": 1
+   },
+   "stethoscope": {
+    "statut": "prévu",
+    "staff": 0
+   },
+   "operations": {
+    "statut": "prévu",
+    "staff": 4
+   },
+   "radiographie": {
+    "statut": "prévu",
+    "staff": 2
+   },
+   "infection": {
+    "statut": "prévu",
+    "staff": 3
+   },
+   "repos-hopital": {
+    "statut": "prévu",
+    "staff": 3
+   },
+   "convalescence": {
+    "statut": "prévu",
+    "staff": 1
+   },
+   "centrifugeuse": {
+    "statut": "prévu",
+    "staff": 2
+   },
+   "autoclave": {
+    "statut": "prévu",
+    "staff": 2
+   },
+   "chaine-pharmacie": {
+    "statut": "prévu",
+    "staff": 3
+   },
+   "dossier-medical": {
+    "statut": "prévu",
+    "staff": 3
+   }
+  }
+ },
+ "policier": {
+  "titre": "Policier",
+  "fiches": {
+   "metier-policier": {
+    "statut": "prévu",
+    "staff": 4
+   },
+   "etabli-policier": {
+    "statut": "prévu",
+    "staff": 4
+   },
+   "menottes": {
+    "statut": "prévu",
+    "staff": 3
+   },
+   "escorte": {
+    "statut": "prévu",
+    "staff": 1
+   },
+   "fouille": {
+    "statut": "prévu",
+    "staff": 1
+   },
+   "matraque": {
+    "statut": "prévu",
+    "staff": 1
+   },
+   "taser": {
+    "statut": "prévu",
+    "staff": 2
+   },
+   "traces-de-sang": {
+    "statut": "prévu",
+    "staff": 2
+   },
+   "sac-de-preuves": {
+    "statut": "prévu",
+    "staff": 2
+   },
+   "rapport-agression": {
+    "statut": "prévu",
+    "staff": 2
+   },
+   "bande-scene-de-crime": {
+    "statut": "prévu",
+    "staff": 2
+   },
+   "casier-judiciaire": {
+    "statut": "prévu",
+    "staff": 2
+   },
+   "carnet-contraventions": {
+    "statut": "prévu",
+    "staff": 3
+   },
+   "cellule": {
+    "statut": "prévu",
+    "staff": 3
+   },
+   "mandat-perquisition": {
+    "statut": "prévu",
+    "staff": 3
+   },
+   "avis-de-recherche": {
+    "statut": "prévu",
+    "staff": 1
+   },
+   "appel-a-l-aide": {
+    "statut": "prévu",
+    "staff": 2
+   },
+   "alarmes-reliees": {
+    "statut": "prévu",
+    "staff": 2
+   },
+   "enregistreur-de-passage": {
+    "statut": "prévu",
+    "staff": 2
+   },
+   "serrures-crochetage": {
+    "statut": "prévu",
+    "staff": 3
+   }
+  }
+ },
+ "agriculteur": {
+  "titre": "Agriculteur",
+  "fiches": {
+   "metier-agriculteur": {
+    "statut": "prévu",
+    "staff": 2
+   },
+   "etabli-agriculteur": {
+    "statut": "prévu",
+    "staff": 4
+   },
+   "faucille-et-faux": {
+    "statut": "prévu",
+    "staff": 3
+   },
+   "mangeoires": {
+    "statut": "prévu",
+    "staff": 4
+   },
+   "fermentation-affinage": {
+    "statut": "prévu",
+    "staff": 4
+   },
+   "fumoir-a-bois": {
+    "statut": "prévu",
+    "staff": 3
+   },
+   "serre-bricolee": {
+    "statut": "prévu",
+    "staff": 4
+   },
+   "grenier-communal": {
+    "statut": "prévu",
+    "staff": 4
+   }
+  }
+ },
+ "casino": {
+  "titre": "Casino",
+  "fiches": {
+   "statut-casino": {
+    "statut": "prévu",
+    "staff": 2
+   },
+   "relier-coffre": {
+    "statut": "prévu",
+    "staff": 2
+   },
+   "coffre-casino": {
+    "statut": "prévu",
+    "staff": 2
+   },
+   "jeton-casino": {
+    "statut": "prévu",
+    "staff": 3
+   },
+   "pnj-vendeur": {
+    "statut": "prévu",
+    "staff": 2
+   },
+   "pnj-racheteur": {
+    "statut": "prévu",
+    "staff": 1
+   },
+   "table-roulette": {
+    "statut": "prévu",
+    "staff": 3
+   },
+   "animation-roulette": {
+    "statut": "prévu",
+    "staff": 0
+   },
+   "modeles-blender": {
+    "statut": "prévu",
+    "staff": 2
+   },
+   "registre-casino": {
+    "statut": "prévu",
+    "staff": 2
+   },
+   "alerte-tresorerie": {
+    "statut": "prévu",
+    "staff": 4
+   },
+   "blackjack": {
+    "statut": "prévu",
+    "staff": 2
+   },
+   "duel-des": {
+    "statut": "prévu",
+    "staff": 1
+   },
+   "machine-a-sous": {
+    "statut": "prévu",
+    "staff": 2
+   },
+   "triche-jeux": {
+    "statut": "prévu",
+    "staff": 2
+   },
+   "controleur-equite": {
+    "statut": "prévu",
+    "staff": 2
+   }
+  }
+ },
+ "loisirs": {
+  "titre": "Loisirs",
+  "fiches": {
+   "chicha": {
+    "statut": "prévu",
+    "staff": 2
+   },
+   "grande-chicha": {
+    "statut": "prévu",
+    "staff": 1
+   },
+   "trop-fumer": {
+    "statut": "prévu",
+    "staff": 0
+   }
+  }
+ },
+ "substances": {
+  "titre": "Substances",
+  "fiches": {
+   "plantes-ile": {
+    "statut": "prévu",
+    "staff": 2
+   },
+   "sechage": {
+    "statut": "prévu",
+    "staff": 0
+   },
+   "tabac": {
+    "statut": "prévu",
+    "staff": 0
+   },
+   "ivresse": {
+    "statut": "prévu",
+    "staff": 1
+   },
+   "boissons": {
+    "statut": "prévu",
+    "staff": 0
+   },
+   "herbe-songe": {
+    "statut": "prévu",
+    "staff": 0
+   },
+   "poussiere-epave": {
+    "statut": "prévu",
+    "staff": 1
+   },
+   "depistage": {
+    "statut": "prévu",
+    "staff": 0
+   },
+   "charbon-actif": {
+    "statut": "prévu",
+    "staff": 0
+   }
+  }
+ }
+}

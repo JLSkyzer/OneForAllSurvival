@@ -156,10 +156,22 @@ async function interactif() {
     note('animation : lire / arrêter', avant !== apres1 && fig().dataset.joue === avant && (apres1 === 'true' ? aImg : aCanvas), 'départ ' + avant + ' → ' + apres1 + ' → ' + fig().dataset.joue);
   });
   await essai('frise : lien vers l\'étape 3', async () => {
+    const cartes = txt('[data-power] [data-o="cartes"]'), repere = txt('[data-hero] [data-num]');
     await clique('.path a:nth-child(3)');
     await attendre(() => doc().body.dataset.route === 'essai/antenne/etape-3', 4000);
     const e = doc().getElementById('etape-3');
-    note('frise : lien vers l\'étape 3', e && Math.abs(e.getBoundingClientRect().top) < 40, doc().body.dataset.route);
+    const garde = txt('[data-power] [data-o="cartes"]') === cartes && txt('[data-hero] [data-num]') === repere;
+    note('frise : lien vers l\'étape 3, sans redessiner', e && Math.abs(e.getBoundingClientRect().top) < 40 && garde, doc().body.dataset.route + ', réglages gardés : ' + garde);
+    win().scrollTo(0, 0); await dort(50);
+    await clique('.path a:nth-child(3)'); await dort(100);
+    note('frise : second clic sur la même étape', Math.abs(doc().getElementById('etape-3').getBoundingClientRect().top) < 40, 'y=' + Math.round(win().scrollY));
+  });
+  await essai('lien d\'évitement', async () => {
+    const avant = win().location.hash;
+    win().scrollTo(0, 0);
+    doc().querySelector('a.evite').focus(); // visible seulement au focus clavier
+    await clique('a.evite');
+    note('lien d\'évitement', win().location.hash === avant && doc().activeElement && doc().activeElement.id === 'main', win().location.hash + ', focus ' + (doc().activeElement || {}).id);
   });
   await va('#essai/ligne');
   await essai('player : étape 3', async () => {
@@ -201,9 +213,11 @@ async function interactif() {
   await essai('En jeu seulement', async () => {
     await va('#essai');
     const avant = /Prévu/.test(doc().querySelector('main').textContent);
+    doc().getElementById('enJeu').focus(); // un vrai clic donne le focus à la case ; click() en script, non
     await clique('#enJeu');
     await dort(100);
     const apres = /Prévu/.test(doc().querySelector('main').textContent);
+    note('En jeu seulement : le focus reste sur la case', doc().activeElement && doc().activeElement.id === 'enJeu', (doc().activeElement || {}).id);
     await clique('#enJeu');
     note('En jeu seulement', avant && !apres, 'Prévu avant : ' + avant + ', après : ' + apres);
   });

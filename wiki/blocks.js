@@ -22,8 +22,11 @@
   }
 
   // ctx : { objets, recettes, reperes, lien(href) → titre, staff }
+  // Lecture sûre d'une table venue d'un JSON (« constructor », « __proto__ » ne sont jamais des entrées).
+  const dans = (t, k) => (t && typeof k === "string" && Object.prototype.hasOwnProperty.call(t, k) ? t[k] : undefined);
+  const num = (v, d) => (typeof v === "number" && isFinite(v) ? v : d);
   function objet(ctx, id) {
-    const o = (ctx.objets || {})[id];
+    const o = dans(ctx.objets, id);
     return o ? { nom: o.nom || id, icone: o.icone } : { nom: id, icone: null };
   }
   function icone(ctx, id, taille, alt) {
@@ -35,12 +38,12 @@
   // Position d'un repère : `at` (nom dans data/reperes.json pour cette image) ou x, y en pourcentage.
   function pos(ctx, p, src) {
     if (p && p.at) {
-      const r = ((ctx.reperes || {})[src] || {})[p.at];
-      return Array.isArray(r) && r.length >= 2 ? r : null;
+      const r = dans(dans(ctx.reperes, src), p.at);
+      return Array.isArray(r) && r.length === 2 && num(r[0], null) != null && num(r[1], null) != null ? [r[0], r[1]] : null;
     }
-    return p && typeof p.x === "number" && typeof p.y === "number" ? [p.x, p.y] : null;
+    return p && num(p.x, null) != null && num(p.y, null) != null ? [p.x, p.y] : null;
   }
-  const place = (xy) => `left:${xy[0]}%;top:${xy[1]}%`;
+  const place = (xy) => `left:${Number(xy[0])}%;top:${Number(xy[1])}%`;
 
   let uid = 0;
   const id = (p) => `${p}-${++uid}`;
@@ -53,9 +56,11 @@
   R.hero = function (b, ctx) {
     const pts = (b.points || []).map((p, i) => ({ p, i, xy: pos(ctx, p, b.img) }));
     const btns = pts.filter((o) => o.xy).map((o) => `<button type="button" class="pt" style="${place(o.xy)}" data-pt="${o.i}" aria-pressed="${o.i === 0}" aria-label="Repère ${o.i + 1} : ${esc(o.p.title)}">${o.i + 1}</button>`).join("");
+    const hors = pts.filter((o) => !o.xy).map((o) => `<button type="button" class="pt" data-pt="${o.i}" aria-pressed="${o.i === 0}" aria-label="Repère ${o.i + 1} : ${esc(o.p.title)}">${o.i + 1}</button>`).join("");
     const infos = pts.map((o) => `<div data-info="${o.i}"${o.i ? " hidden" : ""}><h3>${esc(o.p.title)}</h3><span>${rich(o.p.text)}</span></div>`).join("");
     return `<div class="fig" data-hero>
       <div class="shot">${img(b.img, b.alt, "", ' loading="eager"')}${btns}</div>
+      ${hors ? `<div class="pts-hors">${hors}</div>` : ""}
       ${pts.length ? `<div class="card info-pt" aria-live="polite"><span class="num" data-num>1</span>${infos}</div>` : ""}
     </div>`;
   };
@@ -82,24 +87,40 @@
     return `<div class="shot clip-c clip-lire"><canvas data-affiche role="img" aria-label="${esc(alt)} (image fixe)"></canvas><button type="button" class="lire" data-clip-btn aria-label="Lire l'animation : ${esc(alt)}">▶ Lire</button></div>`;
   }
 
-  const POSTE = { table: "À la table de fabrication", etabli: "À l'établi d'ingénieur" };
+  // Recette : grille 3 × 3 si `grille` existe (table, recette avec forme) ; sinon (établi, table sans forme),
+  // ingrédients en liste avec leurs quantités, puis la sortie.
+  function poste(r) {
+    if (r.poste === "etabli") {
+      const sec = num(r.secondes, 0);
+      return "À l'établi d'ingénieur" + (sec > 0 ? ` · ${nombre(sec)} s` : "");
+    }
+    return r.grille ? "À la table de fabrication" : "À la table, sans forme";
+  }
   R.recipe = function (b, ctx) {
-    const list = (ctx.recettes || []).filter((r) => r.sortie === b.item);
+    const list = (ctx.recettes || []).filter((r) => r && r.sortie === b.item).map((r) => Object.assign({}, r, { nombre: num(r.nombre, 1) }));
     if (!list.length) return `<p class="vide-msg">Recette de ${esc(objet(ctx, b.item).nom)} introuvable.</p>`;
+    const fleche = '<svg class="fleche" width="44" height="32" viewBox="0 0 44 32" aria-hidden="true"><path d="M2 16h36M26 4l13 12-13 12" fill="none" stroke="#F2B44A" stroke-width="5"/></svg>';
     return list.map((r) => {
-      const rows = r.grille || [];
+      const ings = (Array.isArray(r.ingredients) ? r.ingredients : []).filter((g) => g && typeof g.item === "string");
+      const ligneIng = (g) => `<li>${icone(ctx, g.item, null, "")}<span><b>${num(g.nombre, 1)}</b> ${esc(objet(ctx, g.item).nom)}</span></li>`;
+      const sortie = objet(ctx, r.sortie);
+      const caseSortie = `<div class="slot sortie">${icone(ctx, r.sortie)}${r.nombre > 1 ? `<span class="n" aria-label="${r.nombre} exemplaires">${r.nombre}</span>` : ""}</div>`;
+      const pied = `<p class="poste">${esc(poste(r))}${r.nombre > 1 ? ` · donne ${r.nombre}` : ""}</p>`;
+      if (!Array.isArray(r.grille)) {
+        const decrit = ings.map((g) => `${num(g.nombre, 1)} ${objet(ctx, g.item).nom}`).join(", ");
+        return `<div class="craft sans-grille" role="group" aria-label="Recette de ${esc(sortie.nom)} : ${esc(decrit)}">
+          <ul class="ing">${ings.map(ligneIng).join("")}</ul>${fleche}${caseSortie}
+        </div>${pied}`;
+      }
+      const rows = r.grille.map((l) => (Array.isArray(l) ? l : []));
       const cols = Math.max(1, ...rows.map((l) => l.length));
       const decrit = rows.map((l, i) => `ligne ${i + 1} : ` + Array.from({ length: cols }, (_, j) => (l[j] ? objet(ctx, l[j]).nom : "vide")).join(", ")).join(" ; ");
-      const sortie = objet(ctx, r.sortie);
       return `<div class="craft">
         <div class="grid" style="--cols:${cols}" role="img" aria-label="Recette de ${esc(sortie.nom)}, ${esc(decrit)}">
-          ${rows.map((l) => Array.from({ length: cols }, (_, j) => `<div class="slot">${l[j] ? icone(ctx, l[j], null, "") : ""}</div>`).join("")).join("")}
-        </div>
-        <svg class="fleche" width="44" height="32" viewBox="0 0 44 32" aria-hidden="true"><path d="M2 16h36M26 4l13 12-13 12" fill="none" stroke="#F2B44A" stroke-width="5"/></svg>
-        <div class="slot sortie">${icone(ctx, r.sortie)}${r.nombre > 1 ? `<span class="n" aria-label="${r.nombre} exemplaires">${r.nombre}</span>` : ""}</div>
-      </div>
-      <p class="poste">${esc(POSTE[r.poste] || r.poste || "")}${r.nombre > 1 ? ` · donne ${r.nombre}` : ""}</p>
-      <ul class="ing">${(r.ingredients || []).map((g) => `<li>${icone(ctx, g.item, null, "")}<span><b>${esc(g.nombre)}</b> ${esc(objet(ctx, g.item).nom)}</span></li>`).join("")}</ul>`;
+          ${rows.map((l) => Array.from({ length: cols }, (_, j) => `<div class="slot">${typeof l[j] === "string" ? icone(ctx, l[j], null, "") : ""}</div>`).join("")).join("")}
+        </div>${fleche}${caseSortie}
+      </div>${pied}
+      <ul class="ing">${ings.map(ligneIng).join("")}</ul>`;
     }).join("");
   };
   R.recipe.titre = (b, ctx) => "La recette : " + objet(ctx, b.item).nom;
@@ -147,11 +168,12 @@
 
   // Calculateur : besoin = veille + cartes × perCard + appels × perCall ; donne = feAt256 × vitesse / 256 (arrondi bas).
   R.power = function (b, ctx) {
-    const vit = b.speeds && b.speeds.length ? b.speeds : [32, 64, 128, 256];
+    const vit0 = (Array.isArray(b.speeds) ? b.speeds : []).map(Number).filter((t) => isFinite(t) && t > 0);
+    const vit = vit0.length ? vit0 : [32, 64, 128, 256];
     const v0 = vit[Math.min(1, vit.length - 1)];
     const sim = (ctx.objets || {})["oneforallsurvival:sim_card"] ? icone(ctx, "oneforallsurvival:sim_card", 36, "") : "";
     const tel = (ctx.objets || {})["oneforallsurvival:phone"] ? icone(ctx, "oneforallsurvival:phone", 36, "") : "";
-    const out = `<div data-power data-standby="${+b.standby || 0}" data-card="${+b.perCard || 0}" data-call="${+b.perCall || 0}" data-fe="${+b.feAt256 || 0}" data-cartes="3" data-appels="1" data-vit="${v0}" style="display:flex;flex-direction:column;gap:14px">
+    const out = `<div data-power data-standby="${num(b.standby, 0)}" data-card="${num(b.perCard, 0)}" data-call="${num(b.perCall, 0)}" data-fe="${num(b.feAt256, 0)}" data-cartes="3" data-appels="1" data-vit="${v0}" style="display:flex;flex-direction:column;gap:14px">
       <div class="ligne-calc"><span>${sim}Cartes SIM actives</span><div class="stp"><button type="button" data-stp="cartes" data-d="-1" aria-label="Une carte de moins">−</button><output data-o="cartes" aria-live="polite">3</output><button type="button" data-stp="cartes" data-d="1" aria-label="Une carte de plus">+</button></div></div>
       <div class="ligne-calc"><span>${tel}Appels en même temps</span><div class="stp"><button type="button" data-stp="appels" data-d="-1" aria-label="Un appel de moins">−</button><output data-o="appels" aria-live="polite">1</output><button type="button" data-stp="appels" data-d="1" aria-label="Un appel de plus">+</button></div></div>
       <span class="mu" id="${id("vit")}">Vitesse de l'alternateur (tr/min)</span>
@@ -190,11 +212,11 @@
   // Portée : un seuil par barre, du plus proche au plus loin (4 barres sous bars[0], …, 1 jusqu'à bars[n-1]).
   const FONDS = ["#1B252C", "#22303A", "#2B3D49", "#354B59", "#3E5868", "#476577"];
   R.range = function (b, ctx) {
-    const bars = (b.bars || []).slice().sort((x, y) => x - y);
+    const bars = (Array.isArray(b.bars) ? b.bars : []).map(Number).filter((t) => isFinite(t) && t > 0).sort((x, y) => x - y);
     const n = bars.length;
     if (!n) return "";
     const last = bars[n - 1];
-    const max = +b.max || last;
+    const max = Math.max(num(b.max, last), last);
     const d0 = n >= 2 ? Math.round(bars[0] + (bars[1] - bars[0]) / 3) : Math.round(bars[0] / 2);
     const k = id("dist");
     const nom = objet(ctx, b.item).nom;

@@ -1,13 +1,20 @@
 """Contrôle le contenu du wiki : JSON, blocs connus et complets, images, objets, recettes, repères, anciennes fiches
 couvertes, limites de texte et de poids. Sort en erreur (code 1) au moindre manque.
 
-    python wiki/tools/check_wiki.py
+    python wiki/tools/check_wiki.py              # contrôle
+    python wiki/tools/check_wiki.py --versions   # réécrit les ?v= de index.html, puis contrôle
 
 Bibliothèque standard ; Pillow sert seulement à reconnaître une animation WebP (sinon : avertissement).
-Référence des anciennes fiches « En jeu » : wiki/tools/fiches-en-jeu.json (relevé des chapitres en version 1,
-le 27/11/2026). Un chapitre passé en version 2 doit couvrir (champ `covers`) chacune de ses anciennes fiches.
+Référence : wiki/tools/fiches-v1.json, relevé de toutes les fiches des chapitres en version 1 (statut, nombre de
+notes d'équipe), pris dans le commit c242f90 (27/11/2026). Ne jamais le régénérer depuis un chapitre déjà converti.
+Une fiche « en jeu » reste en jeu (v1) ou est couverte par un article (`covers`, v2) ; une fiche prévue reste une
+fiche (v1), devient un élément `planned` de même id (v2) ou est couverte ; ses notes d'équipe restent (au moins une)
+sur la fiche, l'article qui la couvre ou l'élément prévu.
+Versions : chaque ?v= de index.html vaut les 10 premiers chiffres du SHA-256 du fichier, fins de ligne en LF.
 """
+import hashlib
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -80,6 +87,22 @@ def est_anime(p):
 
 
 images_vues = {}
+_listes = {}
+
+
+def existe_exact(rel):
+    """Le fichier existe-t-il avec exactement cette casse ? (GitHub Pages distingue Shots/ et shots/.)"""
+    courant = WIKI
+    for part in rel.split("/"):
+        if courant not in _listes:
+            try:
+                _listes[courant] = set(os.listdir(courant))
+            except OSError:
+                return False
+        if part not in _listes[courant]:
+            return False
+        courant = courant / part
+    return courant.is_file()
 
 
 def image(ou, src, anim_attendue=False):
@@ -92,6 +115,9 @@ def image(ou, src, anim_attendue=False):
     p = WIKI / src
     if not p.is_file():
         err(ou, f"image absente : {src}")
+        return
+    if not existe_exact(src):
+        err(ou, f"casse du chemin différente du fichier (GitHub Pages y est sensible) : {src}")
         return
     if src.startswith("shots/"):
         if p.suffix.lower() != ".webp":
@@ -139,21 +165,24 @@ def point(ctx, ou, p, src, avec_texte=None):
         err(ou, "repère illisible")
         return
     if "at" in p:
-        if p["at"] not in (ctx.reperes.get(src) or {}):
+        noms = ctx.reperes.get(src) if isinstance(ctx.reperes, dict) else None
+        if not isinstance(noms, dict) or p["at"] not in noms:
             err(ou, f"repère « {p['at']} » absent de data/reperes.json pour {src}")
     elif not (isinstance(p.get("x"), (int, float)) and isinstance(p.get("y"), (int, float))):
         err(ou, "repère sans `at` ni x, y")
     elif not (0 <= p["x"] <= 100 and 0 <= p["y"] <= 100):
         err(ou, f"repère hors de l'image ({p['x']}, {p['y']})")
     for k in avec_texte or []:
-        texte(ou, p.get(k), champ=k)
+        texte(ou, p.get(k), TEXTE_MAX if k == "text" else 80, champ=k)
 
 
 def lien(ctx, ou, href):
     if not isinstance(href, str) or not href.startswith("#"):
         err(ou, f"lien qui n'est pas une ancre « # » : {href!r}")
-    elif href[1:].split("/")[0] not in ctx.cibles and href[1:] not in ctx.cibles:
-        err(ou, f"lien vers une page inconnue : {href}")
+    else:
+        parts = href[1:].split("/")
+        if parts[0] not in ctx.cibles or (len(parts) > 1 and "/".join(parts[:2]) not in ctx.cibles):
+            err(ou, f"lien vers une page inconnue : {href}")
 
 
 def liste(ou, b, k="list"):
@@ -206,24 +235,33 @@ def bloc(ctx, ou, b):
     elif t == "items":
         for x in liste(ou, b):
             objet(ctx, ou, x.get("item"))
+            if x.get("text") is not None:
+                texte(ou, x["text"], TEXTE_MAX)
+            if x.get("label") is not None:
+                texte(ou, x["label"], 80, "label")
     elif t == "states":
         for x in liste(ou, b):
             image(ou, x.get("img"))
             texte(ou, x.get("alt"), champ="alt")
-            texte(ou, x.get("title"), champ="titre")
+            texte(ou, x.get("title"), 80, "titre")
+            texte(ou, x.get("text"), TEXTE_MAX)
             if x.get("tone") not in TONS:
                 err(ou, f"tone « {x.get('tone')} » (ok, off, bad ou info)")
     elif t == "phones":
         for x in liste(ou, b):
             image(ou, x.get("img"))
             texte(ou, x.get("alt"), champ="alt")
+            if x.get("caption") is not None:
+                texte(ou, x["caption"], TEXTE_MAX, "légende")
             for p in x.get("points") or []:
                 point(ctx, ou, p, x.get("img"))
     elif t == "player":
+        if b.get("hint") is not None:
+            texte(ou, b["hint"], TEXTE_MAX, "hint")
         for x in liste(ou, b, "steps"):
             image(ou, x.get("img"))
             texte(ou, x.get("alt"), champ="alt")
-            texte(ou, x.get("label"), champ="label")
+            texte(ou, x.get("label"), TEXTE_MAX, "label")
             for p in x.get("points") or []:
                 point(ctx, ou, p, x.get("img"))
     elif t == "flow":
@@ -234,15 +272,19 @@ def bloc(ctx, ou, b):
                 image(ou, x["img"])
             if not x.get("label") and not x.get("item"):
                 err(ou, "nœud sans label")
+            elif x.get("label") is not None:
+                texte(ou, x["label"], 80, "label")
     elif t == "numbers":
         for x in liste(ou, b):
             if not x.get("k") or x.get("v") in (None, ""):
                 err(ou, "chiffre sans k ou v")
+            elif len(str(x["k"])) > 80 or len(str(x["v"])) > 80:
+                err(ou, "chiffre de plus de 80 caractères")
             if x.get("item"):
                 objet(ctx, ou, x["item"])
     elif t == "problems":
         for x in liste(ou, b):
-            texte(ou, x.get("msg"), champ="msg")
+            texte(ou, x.get("msg"), 120, "msg")
             texte(ou, x.get("text"), TEXTE_MAX)
             if x.get("link"):
                 lien(ctx, ou, x["link"] if isinstance(x["link"], str) else x["link"].get("href"))
@@ -282,20 +324,33 @@ def main():
         ou = f"recettes.json #{i} {r.get('sortie')}"
         if r.get("poste") not in ("table", "etabli"):
             err(ou, f"poste « {r.get('poste')} » (table ou etabli)")
+        if not r.get("ingredients"):
+            err(ou, "aucun ingrédient")
         ids = [r.get("sortie")] + [x for l in r.get("grille") or [] for x in l if x] + [g.get("item") for g in r.get("ingredients") or []]
         for x in ids:
             if x not in objets:
                 err(ou, f"objet inconnu de objets.json : {x}")
-        compte = {}
-        for l in r.get("grille") or []:
-            for x in l:
-                if x:
-                    compte[x] = compte.get(x, 0) + 1
-        if compte != {g.get("item"): g.get("nombre") for g in r.get("ingredients") or []}:
-            err(ou, "les ingrédients ne correspondent pas à la grille")
-    for src in reperes:
-        if not (WIKI / src).is_file():
-            err(f"reperes.json {src}", "image absente")
+        # Sans grille (établi, ou table sans forme) : la liste des ingrédients suffit.
+        if "grille" in r:
+            compte = {}
+            for l in r.get("grille") or []:
+                for x in l:
+                    if x:
+                        compte[x] = compte.get(x, 0) + 1
+            if compte != {g.get("item"): g.get("nombre") for g in r.get("ingredients") or []}:
+                err(ou, "les ingrédients ne correspondent pas à la grille")
+        if r.get("secondes") is not None and not (isinstance(r["secondes"], (int, float)) and r["secondes"] > 0):
+            err(ou, f"secondes « {r['secondes']} » (nombre positif attendu)")
+    for src, noms in reperes.items():
+        if not existe_exact(src):
+            err(f"reperes.json {src}", "image absente (ou casse différente)")
+        if not isinstance(noms, dict):
+            err(f"reperes.json {src}", "objet {nom: [x, y]} attendu")
+            continue
+        for nom, xy in noms.items():
+            if not (isinstance(xy, list) and len(xy) == 2
+                    and all(isinstance(v, (int, float)) and not isinstance(v, bool) and 0 <= v <= 100 for v in xy)):
+                err(f"reperes.json {src} « {nom} »", f"[x, y] en pourcentages attendu, trouvé {xy!r}")
 
     chapitres = accueil.get("chapters") or []
     caches = accueil.get("hidden") or []
@@ -317,11 +372,17 @@ def main():
             for a in d.get("articles") or []:
                 cibles.add(f"{ch}/{a.get('id')}")
                 cibles.update(a.get("covers") or [])
+                cibles.update(f"{ch}/{c}" for c in a.get("covers") or [])
+            for p in d.get("planned") or []:
+                if isinstance(p, dict):
+                    cibles.update([p.get("id"), f"{ch}/{p.get('id')}"])
         else:
-            cibles.update(c.get("id") for c in d.get("cards") or [])
+            for c in d.get("cards") or []:
+                if isinstance(c, dict):
+                    cibles.update([c.get("id"), f"{ch}/{c.get('id')}"])
     ctx = Contexte(objets, recettes, reperes, cibles)
 
-    couverts = {}
+    couverts, couverts_art = {}, {}
     for ch, d in data.items():
         ou = f"{ch}.json"
         if d.get("id") != ch:
@@ -351,6 +412,7 @@ def main():
                     if c in couverts:
                         err(oa, f"ancienne fiche « {c} » déjà couverte par {couverts[c]}")
                     couverts[c] = oa
+                    couverts_art[c] = a
                 for k in a.get("chips") or []:
                     if not k.get("k") or not k.get("v"):
                         err(oa, "puce sans k ou v")
@@ -363,13 +425,19 @@ def main():
                 if not any(b.get("type") in ("hero", "shot", "clip", "states", "phones", "player", "step", "row") for b in a.get("blocks") or []):
                     avert(oa, "aucune capture : un article « En jeu » en montre au moins une par notion")
             for p in d.get("planned") or []:
-                if not p.get("name") or not p.get("id"):
+                if not isinstance(p, dict) or not p.get("name") or not p.get("id"):
                     err(f"{ch} prévu", "élément prévu sans id ou nom")
+                    continue
+                for s in p.get("staff") or []:
+                    texte(f"{ch} prévu {p['id']}", s, champ="note d'équipe")
         else:
             if not isinstance(d.get("cards"), list):
                 err(ou, "ni `articles` (version 2) ni `cards` (version 1)")
                 continue
             for c in d["cards"]:
+                if not isinstance(c, dict) or not c.get("id"):
+                    err(ou, "fiche illisible (null ou sans id)")
+                    continue
                 im = c.get("image") or {}
                 fichiers = [("block", im.get(f)) for f in ("top", "side", "front") if im.get("type") == "block" and im.get(f)]
                 if im.get("type") == "item":
@@ -379,13 +447,37 @@ def main():
                     if not (WIKI / "img" / dossier / f).is_file():
                         err(f"{ch}/{c.get('id')}", f"texture absente : img/{dossier}/{f}")
 
-    # Anciennes fiches « En jeu » : celles d'un chapitre passé en version 2 doivent être couvertes.
-    ref = charge(WIKI / "tools" / "fiches-en-jeu.json", {})
-    for ch, ids in ref.items():
-        if ch in data and data[ch].get("v") == 2:
-            for i in ids:
-                if i not in couverts:
-                    err(f"{ch}.json", f"ancienne fiche « {i} » couverte par aucun article (`covers`)")
+    # Rien de l'ancien wiki ne se perd : chapitres, fiches en jeu, fiches prévues, notes d'équipe.
+    ref = charge(WIKI / "tools" / "fiches-v1.json") or {}
+    for ch, r in ref.items():
+        ou = f"{ch}.json"
+        if ch not in data:
+            err(ou, f"chapitre « {r.get('titre')} » de l'ancien wiki disparu (absent de accueil.json ou illisible)")
+            continue
+        d = data[ch]
+        if d.get("v") == 2:
+            prevus = {p.get("id"): p for p in d.get("planned") or [] if isinstance(p, dict)}
+            for i, f in r["fiches"].items():
+                if i in couverts:
+                    porteur = couverts_art[i]
+                elif f["statut"] == "prévu" and i in prevus:
+                    porteur = prevus[i]
+                else:
+                    quoi = "couverte par aucun article (`covers`)" if f["statut"] == "en jeu" else "ni dans `planned` (même id) ni couverte"
+                    err(ou, f"ancienne fiche {f['statut']} « {i} » {quoi}")
+                    continue
+                if f["staff"] and not porteur.get("staff"):
+                    err(ou, f"notes d'équipe de l'ancienne fiche « {i} » perdues ({f['staff']} note(s) ; `staff` vide là où elle est reprise)")
+        else:
+            fiches = {c.get("id"): c for c in d.get("cards") or [] if isinstance(c, dict)}
+            for i, f in r["fiches"].items():
+                c = fiches.get(i)
+                if c is None:
+                    err(ou, f"fiche {f['statut']} « {i} » supprimée")
+                elif f["statut"] == "en jeu" and c.get("status") != "dispo":
+                    err(ou, f"fiche « {i} » n'est plus en jeu (status « {c.get('status')} »)")
+                elif f["staff"] and not c.get("staff"):
+                    err(ou, f"notes d'équipe de la fiche « {i} » supprimées")
 
     # Accueil.
     for a in accueil.get("actions") or []:
@@ -422,6 +514,15 @@ def main():
         if manque:
             err("essai.json", "types de blocs non montrés : " + ", ".join(sorted(manque)))
 
+    # Versions des fichiers dans index.html (cache de GitHub Pages : 10 minutes).
+    page = (WIKI / "index.html").read_text(encoding="utf-8")
+    for f in VERSIONNES:
+        m = re.search(r'(?:href|src)="' + re.escape(f) + r'\?v=([0-9a-z]+)"', page)
+        if not m:
+            err("index.html", f"{f} chargé sans ?v= (lancer check_wiki.py --versions)")
+        elif m.group(1) != empreinte(f):
+            err("index.html", f"{f}?v={m.group(1)} ne correspond pas au fichier ({empreinte(f)}) : lancer check_wiki.py --versions")
+
     # Interdits et poids.
     for p in sorted(DATA.glob("*.json")):
         if re.search(r"solar\s*town", p.read_text(encoding="utf-8"), re.I):
@@ -438,6 +539,25 @@ def main():
     return fin()
 
 
+VERSIONNES = ("style.css", "blocks.js", "app.js")
+
+
+def empreinte(f):
+    return hashlib.sha256((WIKI / f).read_bytes().replace(b"\r\n", b"\n")).hexdigest()[:10]
+
+
+def versions():
+    page = (WIKI / "index.html").read_text(encoding="utf-8")
+    for f in VERSIONNES:
+        page, n = re.subn(r'((?:href|src)="' + re.escape(f) + r')(\?v=[0-9a-z]*)?"', lambda m: f'{m.group(1)}?v={empreinte(f)}"', page)
+        if n != 1:
+            sys.exit(f"index.html : {f} trouvé {n} fois")
+    tmp = WIKI / "index.html.tmp"
+    tmp.write_text(page, encoding="utf-8", newline="")
+    os.replace(tmp, WIKI / "index.html")
+    print("Versions : " + ", ".join(f"{f}?v={empreinte(f)}" for f in VERSIONNES))
+
+
 def fin():
     for a in avertissements:
         print("avertissement  " + a)
@@ -448,4 +568,6 @@ def fin():
 
 
 if __name__ == "__main__":
+    if "--versions" in sys.argv:
+        versions()
     sys.exit(main())

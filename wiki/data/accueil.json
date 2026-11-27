@@ -19,6 +19,11 @@
               {"img": "shots/accueil/tel-police.webp", "alt": "Appel Police 17 en cours"}],
      "path": [{"text": "Urgence"}, {"text": "17 police"}, {"or": true}, {"text": "15 secours"}]}
   ],
+  "rules": [
+    {"icon": "metier", "text": "Ton métier décide de ce que tu fabriques."},
+    {"icon": "coffre", "text": "Tes pièces vont sur toi ou dans ton coffre-fort, nulle part ailleurs."},
+    {"icon": "courant", "text": "L'électricité se paie seule à minuit."}
+  ],
   "seen": [
     {"title": "Armoire frigorifique", "img": "shots/accueil/armoire.webp", "alt": "Une armoire frigorifique posée dans l'herbe", "href": "#armoire-frigorifique"},
     {"title": "Clôture électrique", "img": "shots/accueil/cloture.webp", "alt": "Une clôture électrique, la nuit", "href": "#cloture-electrique"},
