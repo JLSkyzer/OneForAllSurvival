@@ -91,8 +91,8 @@ class PhoneFallbackLayoutTest {
         Rect zone = inner(w, h);
         List<Rect> touches = PhoneFallbackLayout.keypad(zone);
         assertEquals(11, touches.size());
-        // Le texte de l'écran du code avec les deux lignes d'un blocage, tel que drawCode le dessine.
-        int texte = PhoneFallbackLayout.codeText(zone, LH, 2).bottom();
+        // Le texte de l'écran du code avec les lignes d'un blocage, tel que drawCode le dessine.
+        int texte = PhoneFallbackLayout.codeText(zone, LH, PhoneFallbackLayout.LOCKOUT_LINES).bottom();
         for (int i = 0; i < touches.size(); i++) {
             Rect t = touches.get(i);
             dedans(t, zone, "touche " + i);
@@ -138,7 +138,7 @@ class PhoneFallbackLayoutTest {
     @CsvSource({"320, 240", "427, 240", "480, 270", "640, 328", "640, 360", "960, 540", "1920, 1080", "320, 480"})
     void leTexteDuCodeSArreteAvantLeBoutonEtLeClavier(int w, int h) {
         Rect zone = inner(w, h);
-        for (int lignes = 1; lignes <= 2; lignes++) {
+        for (int lignes = 1; lignes <= PhoneFallbackLayout.LOCKOUT_LINES; lignes++) {
             PhoneFallbackLayout.CodeText t = PhoneFallbackLayout.codeText(zone, LH, lignes);
             assertTrue(t.titleY() >= zone.y(), "titre hors de la zone");
             assertTrue(t.dotsY() >= t.titleY() + LH, "points sur le titre");
@@ -149,8 +149,9 @@ class PhoneFallbackLayoutTest {
             assertTrue(t.bottom() >= derniere, lignes + " ligne(s) : texte jusqu'à " + derniere + ", bas annoncé "
                     + t.bottom());
         }
-        assertTrue(PhoneFallbackLayout.keypad(zone).get(0).y() >= PhoneFallbackLayout.codeText(zone, LH, 2).bottom(),
-                "clavier sur les deux lignes du blocage");
+        assertEquals(3, PhoneFallbackLayout.LOCKOUT_LINES, "« bloqué » et le décompte sur deux lignes au plus");
+        assertTrue(PhoneFallbackLayout.keypad(zone).get(0).y() >= PhoneFallbackLayout.codeText(zone, LH, 3).bottom(),
+                "clavier sur les lignes du blocage");
         assertTrue(PhoneFallbackLayout.setupWallpaper(zone, LH).y() >= PhoneFallbackLayout.codeText(zone, LH, 1).bottom(),
                 "« Fond suivant » sur la ligne de message");
     }

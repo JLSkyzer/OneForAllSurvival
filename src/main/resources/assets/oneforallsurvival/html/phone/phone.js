@@ -48,6 +48,14 @@
     AIRPLANE: 'Mode avion',
     NO_CARD: 'Aucune carte SIM'
   };
+  // La durée restante d'un blocage : en secondes jusqu'à WAIT_MINUTES_FROM - 1, puis en minutes (et secondes). Même
+  // règle que PhoneWaitText et mêmes textes que fr_fr.json (garde : PhoneWaitTextTest, qui relit ces lignes).
+  var WAIT_MINUTES_FROM = 120;
+  var WAIT_TEXTS = {
+    SECONDS: '{s} s',
+    MINUTES: '{m} min',
+    MINUTES_SECONDS: '{m} min {s} s'
+  };
   var SLOTS = 41; // les cases d'un inventaire de joueur (0 à 40)
   var REQUESTABLE = 16;
   var OPERATOR_ID = /^[0-9a-f]{12}$/;
@@ -183,7 +191,7 @@
       owner: v.owner === true,
       ownerName: typeof v.ownerName === 'string' ? v.ownerName.slice(0, 32) : '',
       attemptsLeft: num(v.attemptsLeft, 0, 99, 0),
-      lockoutSeconds: num(v.lockoutSeconds, 0, 86400, 0),
+      lockoutSeconds: num(v.lockoutSeconds, 0, 604800, 0), // le plus haut lockoutMaxSeconds : sept jours
       last: typeof v.last === 'string' ? v.last : 'NONE',
       net: cleanNet(v.net, unlocked)
     };
@@ -806,6 +814,13 @@
     }
   }
 
+  function waitText(seconds) {
+    var m = Math.floor(seconds / 60);
+    var s = seconds % 60;
+    var form = seconds < WAIT_MINUTES_FROM ? 'SECONDS' : s === 0 ? 'MINUTES' : 'MINUTES_SECONDS';
+    return WAIT_TEXTS[form].replace('{m}', String(m)).replace('{s}', String(form === 'SECONDS' ? seconds : s));
+  }
+
   function paintLockTexts() {
     if (state.screen === 'setup') {
       setText('lock-prompt', state.setupFirst === null ? 'Choisissez un code' : 'Confirmez le code');
@@ -816,7 +831,7 @@
     if (lockedOut()) {
       var s = Math.max(1, Math.ceil((state.lockoutEnd - performance.now()) / 1000));
       setText('lock-prompt', 'Téléphone bloqué');
-      setText('lock-msg', 'Réessayez dans ' + s + ' s');
+      setText('lock-msg', 'Réessayez dans ' + waitText(s));
       return;
     }
     setText('lock-prompt', 'Saisissez le code');

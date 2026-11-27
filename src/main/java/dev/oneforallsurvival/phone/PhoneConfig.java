@@ -13,6 +13,9 @@ public final class PhoneConfig {
     private static final int DEFAULT_SOCKET_CHARGE_PER_TICK = 40;
     private static final int DEFAULT_MAX_ATTEMPTS = 5;
     private static final int DEFAULT_LOCKOUT_SECONDS = 60;
+    private static final int DEFAULT_LOCKOUT_MAX_SECONDS = 3_600;
+    /** La plus haute valeur de {@code lockoutMaxSeconds} (sept jours), donc le plus long blocage qu'un écran reçoive. */
+    public static final int LOCKOUT_MAX_LIMIT = 604_800;
     private static final int DEFAULT_ANTENNA_RANGE = 270;
     private static final int DEFAULT_ANTENNA_STANDBY_FE = 40;
     private static final int DEFAULT_ANTENNA_PER_SIM_FE = 6;
@@ -36,6 +39,7 @@ public final class PhoneConfig {
     private static final ForgeConfigSpec.IntValue SOCKET_CHARGE_PER_TICK;
     private static final ForgeConfigSpec.IntValue MAX_ATTEMPTS;
     private static final ForgeConfigSpec.IntValue LOCKOUT_SECONDS;
+    private static final ForgeConfigSpec.IntValue LOCKOUT_MAX_SECONDS;
     private static final ForgeConfigSpec.IntValue ANTENNA_RANGE;
     private static final ForgeConfigSpec.IntValue ANTENNA_STANDBY_FE;
     private static final ForgeConfigSpec.IntValue ANTENNA_PER_SIM_FE;
@@ -67,8 +71,13 @@ public final class PhoneConfig {
                 .comment("Essais de code ratés avant le blocage.")
                 .defineInRange("maxAttempts", DEFAULT_MAX_ATTEMPTS, 1, 100);
         LOCKOUT_SECONDS = builder
-                .comment("Durée du blocage après les essais ratés (secondes).")
+                .comment("Durée du premier blocage après les essais ratés (secondes) ; elle double à chaque nouvelle"
+                        + " série ratée, jusqu'à lockoutMaxSeconds. 0 : aucun blocage.")
                 .defineInRange("lockoutSeconds", DEFAULT_LOCKOUT_SECONDS, 0, 86_400);
+        LOCKOUT_MAX_SECONDS = builder
+                .comment("Plafond de la durée du blocage (secondes) ; sous lockoutSeconds, il vaut lockoutSeconds. Un bon"
+                        + " code ramène la durée à lockoutSeconds.")
+                .defineInRange("lockoutMaxSeconds", DEFAULT_LOCKOUT_MAX_SECONDS, 0, LOCKOUT_MAX_LIMIT);
         ANTENNA_RANGE = builder
                 .comment("Portée d'une antenne (blocs, en ligne droite dans une même dimension).")
                 .defineInRange("antennaRange", DEFAULT_ANTENNA_RANGE, 16, 2_048);
@@ -157,6 +166,14 @@ public final class PhoneConfig {
             return LOCKOUT_SECONDS.get();
         } catch (IllegalStateException e) {
             return DEFAULT_LOCKOUT_SECONDS;
+        }
+    }
+
+    public static int lockoutMaxSeconds() {
+        try {
+            return LOCKOUT_MAX_SECONDS.get();
+        } catch (IllegalStateException e) {
+            return DEFAULT_LOCKOUT_MAX_SECONDS;
         }
     }
 

@@ -69,8 +69,8 @@ public final class PhoneFallbackLayout {
 
     /**
      * Le texte de l'écran du code, de haut en bas : titre, points ({@code dot} px de côté), puis {@code lines} lignes de
-     * message (une ; deux pendant un blocage : « bloqué » et le décompte), espacées de 2 px. {@code bottom} est le
-     * premier y libre sous le texte. {@code PhoneFallbackScreen.drawCode} dessine à ces positions.
+     * message (une ; {@link #LOCKOUT_LINES} pendant un blocage : « bloqué » et le décompte), espacées de 2 px.
+     * {@code bottom} est le premier y libre sous le texte. {@code PhoneFallbackScreen.drawCode} dessine à ces positions.
      */
     public record CodeText(int titleY, int dotsY, int dot, int messageY, int lineStep, int bottom) {}
 
@@ -326,6 +326,23 @@ public final class PhoneFallbackLayout {
             lines.add(line.toString());
         }
         return lines;
+    }
+
+    /** Les lignes de message d'un blocage : « Téléphone bloqué », puis le décompte sur deux lignes au plus. */
+    public static final int LOCKOUT_LINES = 1 + MAX_TEXT_LINES;
+
+    /** L'espace insécable, qui colle les mots d'une durée le temps du passage à la ligne. */
+    private static final char NO_BREAK = 160;
+
+    /**
+     * Le décompte d'un blocage ({@code sentence}, qui contient {@code duration}) passé à la ligne par {@link #wrap},
+     * sans jamais couper la durée en deux (« 59 min » en bout de ligne et « 59 s » dessous se lit mal).
+     */
+    public static Wrapped retryLines(String sentence, String duration, int room, ToIntFunction<String> width) {
+        String glued = sentence.replace(duration, duration.replace(' ', NO_BREAK));
+        Wrapped wrapped = wrap(glued, room, s -> width.applyAsInt(s.replace(NO_BREAK, ' ')), MAX_TEXT_LINES);
+        return new Wrapped(wrapped.lines().stream().map(l -> l.replace(NO_BREAK, ' ')).toList(), wrapped.scale(),
+                wrapped.cut());
     }
 
     /** Le libellé d'un bouton de cette largeur et son échelle : rétréci jusqu'au plancher, puis coupé par « … ». */

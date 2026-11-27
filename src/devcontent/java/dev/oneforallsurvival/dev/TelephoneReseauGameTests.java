@@ -580,7 +580,8 @@ public final class TelephoneReseauGameTests {
                     PhoneData data = PhoneData.get(e.serveur());
                     PhoneData.PhoneRecord r = data.record(id.isPresent() ? id.get() : new UUID(0, 0));
                     data.put(id.isPresent() ? id.get() : new UUID(0, 0), new PhoneData.PhoneRecord(r.owner(),
-                            r.ownerName(), "selneuf", r.codeHash(), r.failures(), r.lockedUntil(), r.wallpaper(),
+                            r.ownerName(), "selneuf", r.codeHash(), r.failures(), r.lockedUntil(), r.lockoutLevel(),
+                            r.wallpaper(),
                             r.airplane()));
                     f.etatsTelephoneRecus();
                     change[0] = helper.getLevel().getGameTime();

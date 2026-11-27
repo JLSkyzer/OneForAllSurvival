@@ -46,7 +46,8 @@ import net.minecraftforge.gametest.PrefixGameTestTemplate;
 /**
  * Le téléphone côté serveur (lot T1, tâche 5) : la session ouverte, le code choisi puis demandé, le propriétaire seul
  * maître du code et de l'effacement, une vue verrouillée qui ne dit rien, les gestes d'une autre session ou sans
- * session ignorés, le blocage après cinq faux codes (une minute, partagé par les copies, gardé à la fermeture).
+ * session ignorés, le blocage après cinq faux codes (une minute, partagé par les copies, gardé à la fermeture), puis,
+ * au lot T3, deux fois plus long à chaque série jusqu'au prochain bon code (niveau sauvegardé avec le téléphone).
  *
  * <p>Chaque essai se déroule dans un seul tic : les gestes s'enchaînent en oubliant le frein entre deux
  * ({@code PhoneService.clearThrottle}, de visibilité paquet, appelé par réflexion), sauf l'essai du frein. Les états reçus sont décodés des octets réellement
@@ -63,6 +64,7 @@ public final class TelephoneGameTests {
     private static final String LOT_B = "telephone_b";
     private static final String LOT_C = "telephone_c";
     private static final String LOT_ASSISTANT = "telephone_assistant";
+    private static final String LOT_BLOCAGE = "telephone_blocage";
 
     private static final Vec3 POS_A = new Vec3(2.5, 1, 2.5);
     private static final Vec3 POS_B = new Vec3(4.5, 1, 2.5);
@@ -83,6 +85,17 @@ public final class TelephoneGameTests {
 
     @AfterBatch(batch = LOT_HORLOGE)
     public static void apresHorloge(ServerLevel level) {
+        EconomyClock.reset();
+    }
+
+    @BeforeBatch(batch = LOT_BLOCAGE)
+    public static void avantBlocage(ServerLevel level) {
+        horloge = System.currentTimeMillis();
+        EconomyClock.setClock(() -> horloge);
+    }
+
+    @AfterBatch(batch = LOT_BLOCAGE)
+    public static void apresBlocage(ServerLevel level) {
         EconomyClock.reset();
     }
 
@@ -629,6 +642,121 @@ public final class TelephoneGameTests {
     }
 
     // ---------------------------------------------------------------------------------------------
+    // Lot blocage (lot T3) : chaque série ratée double la durée, le niveau est sauvegardé avec le téléphone
+    // ---------------------------------------------------------------------------------------------
+
+    /** Cinq faux codes à l'heure courante : le blocage dure {@code secondes}, sauvegardé au niveau {@code niveau}. */
+    private static void serieBloque(GameTestHelper helper, Essai e, JoueurDeTest j, UUID id, int secondes,
+            int niveau) {
+        long depart = horloge;
+        Reponse r = cinqFaux(helper, j);
+        helper.assertTrue(r.etat().lockoutSeconds() == secondes,
+                "série " + niveau + " : blocage de " + secondes + " s, vu " + r.etat().lockoutSeconds());
+        PhoneData.PhoneRecord rec = e.donnees(id);
+        helper.assertTrue(rec.lockedUntil() == depart + secondes * 1000L,
+                "série " + niveau + " : fin sauvegardée à +" + (rec.lockedUntil() - depart) + " ms");
+        helper.assertTrue(rec.lockoutLevel() == niveau,
+                "série " + niveau + " : niveau sauvegardé " + rec.lockoutLevel());
+    }
+
+    /**
+     * Les durées de série en série sur un vrai téléphone : 60, 120 puis 240 s. Ni le temps (une semaine), ni la
+     * départ du porteur, ni un autre porteur ne baissent le niveau ; le bon code, lui, ramène à 60 s, y compris
+     * quand il ne change rien d'autre que le niveau (blocage déjà expiré, aucun échec en cours).
+     */
+    @GameTest(template = "test/plancher", batch = LOT_BLOCAGE)
+    public static void chaqueSerieRateeDoubleLeBlocage(GameTestHelper helper) {
+        essai(helper, e -> {
+            JoueurDeTest a = e.joueur("tel_1", POS_A);
+            JoueurDeTest b = e.joueur("tel_2", POS_B);
+            UUID id = e.telephone(a);
+            ouvrir(helper, a);
+            choisirPuisVerrouiller(helper, a);
+            long depart = horloge;
+            serieBloque(helper, e, a, id, 60, 1);
+
+            horloge = depart + 60_000L;
+            serieBloque(helper, e, a, id, 120, 2);
+            horloge = depart + 60_000L + 119_000L;
+            Reponse tot = geste(helper, a, Action.UNLOCK, CODE);
+            attendre(helper, tot, Kind.UPDATE, Lock.LOCKED, Result.LOCKED_OUT, "bon code à +119 s de la 2e série");
+            helper.assertTrue(tot.etat().lockoutSeconds() == 1, "1 s restante : " + tot.etat().lockoutSeconds());
+
+            // Une semaine plus tard, le porteur est parti et un autre tient le téléphone : le niveau n'a pas bougé.
+            horloge = depart + 604_800_000L;
+            ItemStack phone = a.joueur().getMainHandItem().copy();
+            a.quitter();
+            b.joueur().setItemInHand(InteractionHand.MAIN_HAND, phone);
+            ouvrir(helper, b);
+            serieBloque(helper, e, b, id, 240, 3);
+
+            horloge += 240_000L;
+            attendre(helper, geste(helper, b, Action.UNLOCK, CODE), Kind.UPDATE, Lock.UNLOCKED, Result.NONE,
+                    "bon code après le blocage");
+            helper.assertTrue(e.donnees(id).lockoutLevel() == 0,
+                    "bon code : niveau 0, vu " + e.donnees(id).lockoutLevel());
+            attendre(helper, geste(helper, b, Action.LOCK, ""), Kind.UPDATE, Lock.LOCKED, Result.NONE, "LOCK");
+            serieBloque(helper, e, b, id, 60, 1);
+        });
+    }
+
+    /**
+     * Comme un redémarrage : après deux séries, {@code PhoneData} est écrit, relu, et ce qui a été relu remplace le
+     * téléphone en mémoire. Le niveau revient, et la troisième série bloque 240 s.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_BLOCAGE)
+    public static void leNiveauSurvitAUneEcritureRelue(GameTestHelper helper) {
+        essai(helper, e -> {
+            JoueurDeTest a = e.joueur("tel_3", POS_A);
+            UUID id = e.telephone(a);
+            ouvrir(helper, a);
+            choisirPuisVerrouiller(helper, a);
+            long depart = horloge;
+            cinqFaux(helper, a);
+            horloge = depart + 60_000L;
+            cinqFaux(helper, a);
+
+            PhoneData vivant = PhoneData.get(e.serveur);
+            PhoneData.PhoneRecord relu = PhoneData.load(vivant.save(new CompoundTag())).record(id);
+            helper.assertTrue(relu.lockoutLevel() == 2, "niveau relu : " + relu.lockoutLevel());
+            vivant.put(id, relu);
+
+            PhoneStatePacket vue = ouvrir(helper, a);
+            helper.assertTrue(vue.lock() == Lock.LOCKED && vue.lockoutSeconds() == 120,
+                    "relu : encore bloqué 120 s, vu " + vue.lockoutSeconds());
+            horloge = depart + 60_000L + 120_000L;
+            serieBloque(helper, e, a, id, 240, 3);
+        });
+    }
+
+    /** {@code /phone reset} efface le niveau avec le reste : le code choisi ensuite repart à 60 s. */
+    @GameTest(template = "test/plancher", batch = LOT_BLOCAGE)
+    public static void lePhoneResetRemetLeNiveauAZero(GameTestHelper helper) {
+        essai(helper, e -> {
+            JoueurDeTest a = e.joueur("tel_4", POS_A);
+            JoueurDeTest t = e.equipe("tel_5", POS_B);
+            UUID id = e.telephone(a);
+            ouvrir(helper, a);
+            choisirPuisVerrouiller(helper, a);
+            long depart = horloge;
+            serieBloque(helper, e, a, id, 60, 1);
+            horloge = depart + 60_000L;
+            serieBloque(helper, e, a, id, 120, 2);
+
+            t.joueur().setItemInHand(InteractionHand.MAIN_HAND, a.joueur().getMainHandItem().copy());
+            int fait = e.serveur.getCommands().performPrefixedCommand(t.joueur().createCommandSourceStack(),
+                    "phone reset");
+            PhoneData.PhoneRecord rec = e.donnees(id);
+            helper.assertTrue(fait == 1 && rec.lockoutLevel() == 0 && rec.lockedUntil() == 0L,
+                    "reset : " + fait + ", niveau " + rec.lockoutLevel() + ", fin " + rec.lockedUntil());
+
+            ouvrir(helper, a);
+            choisirPuisVerrouiller(helper, a);
+            serieBloque(helper, e, a, id, 60, 1);
+        });
+    }
+
+    // ---------------------------------------------------------------------------------------------
     // Lot reset : une session ne survit pas au code qui l'a ouverte
     // ---------------------------------------------------------------------------------------------
 
@@ -1150,7 +1278,7 @@ public final class TelephoneGameTests {
 
             for (String fond : List.of("", "plage")) {
                 UUID id = e.telephone(a);
-                PhoneData.get(e.serveur).put(id, new PhoneData.PhoneRecord(null, "", null, null, 0, 0L, "nuit",
+                PhoneData.get(e.serveur).put(id, new PhoneData.PhoneRecord(null, "", null, null, 0, 0L, 0, "nuit",
                         false));
                 ouvrir(helper, a);
                 Reponse s = geste(helper, a, Action.SETUP, CODE, fond, false);

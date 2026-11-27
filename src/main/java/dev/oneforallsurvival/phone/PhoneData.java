@@ -12,19 +12,25 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Ce que le serveur sait de chaque téléphone, par identifiant de téléphone ({@code phone_id} de la pile) : le
- * propriétaire, l'empreinte salée du code, les essais ratés, le blocage, le fond d'écran, le mode avion. Le code
- * lui-même n'est écrit nulle part. Sauvegardé avec le monde principal ; ne se touche que depuis le fil du serveur.
+ * propriétaire, l'empreinte salée du code, les essais ratés, le blocage et son niveau, le fond d'écran, le mode avion.
+ * Le code lui-même n'est écrit nulle part. Sauvegardé avec le monde principal ; ne se touche que depuis le fil du serveur.
  */
 public final class PhoneData extends SavedData {
 
     public static final String KEY = "oneforallsurvival_phones";
 
-    /** Un téléphone sans propriétaire est neuf : il n'a pas encore de code. */
+    /**
+     * Un téléphone sans propriétaire est neuf : il n'a pas encore de code.
+     *
+     * @param lockoutLevel les séries d'essais ratés depuis le dernier bon code ({@link PhoneLock}) ; 0 pour une
+     *     sauvegarde qui ne le porte pas
+     */
     public record PhoneRecord(@Nullable UUID owner, String ownerName, @Nullable String salt,
-            @Nullable String codeHash, int failures, long lockedUntil, String wallpaper, boolean airplane) {
+            @Nullable String codeHash, int failures, long lockedUntil, int lockoutLevel, String wallpaper,
+            boolean airplane) {
 
         static PhoneRecord fresh() {
-            return new PhoneRecord(null, "", null, null, 0, 0L, PhoneWallpapers.DEFAULT, false);
+            return new PhoneRecord(null, "", null, null, 0, 0L, 0, PhoneWallpapers.DEFAULT, false);
         }
     }
 
@@ -47,7 +53,7 @@ public final class PhoneData extends SavedData {
         }
         if (known.salt() == null || known.codeHash() == null) {
             return new PhoneRecord(known.owner(), known.ownerName(), null, null, known.failures(), known.lockedUntil(),
-                    known.wallpaper(), known.airplane());
+                    known.lockoutLevel(), known.wallpaper(), known.airplane());
         }
         return known;
     }
@@ -82,6 +88,7 @@ public final class PhoneData extends SavedData {
             }
             line.putInt("failures", r.failures());
             line.putLong("lockedUntil", r.lockedUntil());
+            line.putInt("lockoutLevel", r.lockoutLevel());
             line.putString("wallpaper", r.wallpaper());
             line.putBoolean("airplane", r.airplane());
             list.add(line);
@@ -105,6 +112,7 @@ public final class PhoneData extends SavedData {
                     line.contains("hash", Tag.TAG_STRING) ? line.getString("hash") : null,
                     Math.max(0, line.getInt("failures")),
                     Math.max(0L, line.getLong("lockedUntil")),
+                    Math.max(0, line.getInt("lockoutLevel")),
                     PhoneWallpapers.isValid(wallpaper) ? wallpaper : PhoneWallpapers.DEFAULT,
                     line.getBoolean("airplane")));
         }

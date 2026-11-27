@@ -220,7 +220,7 @@ public final class PhoneService {
         String salt = PhoneCode.newSalt(SALT_SOURCE);
         String chosen = PhoneWallpapers.isValid(wallpaper) ? wallpaper : record.wallpaper();
         data.put(session.phoneId(), new PhoneRecord(player.getUUID(), player.getGameProfile().getName(), salt,
-                PhoneCode.hash(salt, code), 0, record.lockedUntil(), chosen, record.airplane()));
+                PhoneCode.hash(salt, code), 0, record.lockedUntil(), 0, chosen, record.airplane()));
         session.unlock(salt);
         relockOthers(player, session.phoneId());
         return Outcome.DONE;
@@ -281,7 +281,7 @@ public final class PhoneService {
         PhoneRecord now = data.record(session.phoneId());
         String salt = PhoneCode.newSalt(SALT_SOURCE);
         data.put(session.phoneId(), new PhoneRecord(now.owner(), now.ownerName(), salt, PhoneCode.hash(salt, newCode),
-                now.failures(), now.lockedUntil(), now.wallpaper(), now.airplane()));
+                now.failures(), now.lockedUntil(), now.lockoutLevel(), now.wallpaper(), now.airplane()));
         session.unlock(salt);
         last[0] = Result.CODE_CHANGED;
         // Les autres sessions déverrouillées par l'ancien code : leur sel ne vaut plus, reverrouillées tout de suite.
@@ -489,17 +489,20 @@ public final class PhoneService {
     }
 
     /**
-     * Un essai de code, par {@link PhoneLock#attempt} : compte l'échec, pose ou garde le blocage, et sauvegarde la
-     * valeur rendue (plafonnée). Rend {@link Result#NONE} si le code est accepté.
+     * Un essai de code, par {@link PhoneLock#attempt} : compte l'échec, pose ou garde le blocage (de plus en plus long,
+     * selon le niveau du téléphone), et sauvegarde ce qui a changé : échecs, fin de blocage (plafonnée), niveau. Rend
+     * {@link Result#NONE} si le code est accepté.
      */
     private static Result check(PhoneData data, UUID phoneId, PhoneRecord record, String code) {
         long now = EconomyClock.now();
         boolean correct = PhoneCode.matches(record.salt(), record.codeHash(), code);
-        PhoneLock.Outcome o = PhoneLock.attempt(correct, record.failures(), record.lockedUntil(), now,
-                PhoneConfig.maxAttempts(), lockoutMillis());
-        if (o.failures() != record.failures() || o.lockedUntil() != record.lockedUntil()) {
+        PhoneLock.Outcome o = PhoneLock.attempt(correct, record.failures(), record.lockedUntil(),
+                record.lockoutLevel(), now, PhoneConfig.maxAttempts(), lockoutBaseMillis(), lockoutMaxMillis());
+        // Le niveau compte à lui seul : un bon code après un blocage expiré ne change souvent que lui.
+        if (o.failures() != record.failures() || o.lockedUntil() != record.lockedUntil()
+                || o.level() != record.lockoutLevel()) {
             data.put(phoneId, new PhoneRecord(record.owner(), record.ownerName(), record.salt(), record.codeHash(),
-                    o.failures(), o.lockedUntil(), record.wallpaper(), record.airplane()));
+                    o.failures(), o.lockedUntil(), o.level(), record.wallpaper(), record.airplane()));
         }
         if (o.accepted()) {
             return Result.NONE;
@@ -546,7 +549,8 @@ public final class PhoneService {
         PhoneRecord record = PhoneData.get(viewer.server).record(session.phoneId());
         syncLock(session, record);
         long now = EconomyClock.now();
-        long until = PhoneLock.capped(record.lockedUntil(), now, lockoutMillis());
+        long until = PhoneLock.capped(record.lockedUntil(), now, record.lockoutLevel(), lockoutBaseMillis(),
+                lockoutMaxMillis());
         long remaining = until - now;
         int lockoutSeconds = remaining > 0 ? (int) ((remaining + 999L) / 1000L) : 0;
         int attemptsLeft = lockoutSeconds > 0 ? 0 : Math.max(0, PhoneConfig.maxAttempts() - record.failures());
@@ -586,11 +590,15 @@ public final class PhoneService {
 
     private static PhoneRecord withSettings(PhoneRecord r, String wallpaper, boolean airplane) {
         return new PhoneRecord(r.owner(), r.ownerName(), r.salt(), r.codeHash(), r.failures(), r.lockedUntil(),
-                wallpaper, airplane);
+                r.lockoutLevel(), wallpaper, airplane);
     }
 
-    private static long lockoutMillis() {
+    private static long lockoutBaseMillis() {
         return PhoneConfig.lockoutSeconds() * 1000L;
+    }
+
+    private static long lockoutMaxMillis() {
+        return PhoneConfig.lockoutMaxSeconds() * 1000L;
     }
 
     private record SessionOf(ServerPlayer player, PhoneSession session) {}

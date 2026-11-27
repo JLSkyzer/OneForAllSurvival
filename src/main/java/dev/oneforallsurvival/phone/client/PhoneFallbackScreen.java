@@ -665,7 +665,8 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
 
     private void drawCode(GuiGraphics g) {
         int cx = inner.x() + inner.width() / 2;
-        PhoneFallbackLayout.CodeText text = PhoneFallbackLayout.codeText(inner, font.lineHeight, lockedOut() ? 2 : 1);
+        PhoneFallbackLayout.CodeText text = PhoneFallbackLayout.codeText(inner, font.lineHeight,
+                lockedOut() ? PhoneFallbackLayout.LOCKOUT_LINES : 1);
         int y = text.titleY();
         Component title = Component.translatable(KEY + (state.lock() == Lock.SETUP
                 ? (setupFirst == null ? "choose" : "confirm")
@@ -687,8 +688,10 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
         if (lockedOut()) {
             drawCentered(g, Component.translatable(KEY + "locked_out"), cx, y, RED);
             y += text.lineStep();
-            long left = (lockoutEnd - Util.getMillis() + 999) / 1000;
-            drawCentered(g, Component.translatable(KEY + "retry_in", left), cx, y, WHITE);
+            PhoneWaitText.Wait wait = PhoneWaitText.of((lockoutEnd - Util.getMillis() + 999) / 1000);
+            String duration = Component.translatable(wait.form().key(), wait.arguments()).getString();
+            String sentence = Component.translatable(KEY + "retry_in", duration).getString();
+            drawLines(g, PhoneFallbackLayout.retryLines(sentence, duration, inner.width(), font::width), cx, y, WHITE);
         } else if (!message.getString().isEmpty()) {
             drawCentered(g, message, cx, y, messageAlert ? RED : WHITE);
         }
@@ -782,8 +785,12 @@ public final class PhoneFallbackScreen extends Screen implements PhoneClient.Sho
      * ({@link PhoneFallbackLayout#wrap}) : à l'échelle 1, sinon au plancher, jamais plus petit.
      */
     private void drawWrapped(GuiGraphics g, Component text, int cx, int y, int color) {
-        PhoneFallbackLayout.Wrapped w = PhoneFallbackLayout.wrap(text.getString(), inner.width(), font::width,
-                PhoneFallbackLayout.MAX_TEXT_LINES);
+        drawLines(g, PhoneFallbackLayout.wrap(text.getString(), inner.width(), font::width,
+                PhoneFallbackLayout.MAX_TEXT_LINES), cx, y, color);
+    }
+
+    /** Les lignes d'un texte déjà passé à la ligne, centrées, à leur échelle, depuis {@code y}. */
+    private void drawLines(GuiGraphics g, PhoneFallbackLayout.Wrapped w, int cx, int y, int color) {
         float s = w.scale();
         for (String line : w.lines()) {
             g.pose().pushPose();
