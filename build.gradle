@@ -474,6 +474,18 @@ def couperFenetreForge(File fml) {
     }
 }
 
+// Simple Voice Chat ouvre son écran de première configuration (micro, mode de parole) au premier monde d'un client :
+// un automate n'y répond pas. La clé n'est posée que si elle manque ; un réglage déjà fait est gardé. Effet non essayé
+// dans un client (lot T3, tâche 5).
+def passerAccueilVoix(File proprietes) {
+    def texte = proprietes.exists() ? proprietes.getText('UTF-8') : ''
+    if (texte =~ /(?m)^onboarding_finished\s*=/) {
+        return
+    }
+    proprietes.parentFile.mkdirs()
+    proprietes.write(texte + (texte.isEmpty() || texte.endsWith('\n') ? '' : '\n') + 'onboarding_finished=true\n', 'UTF-8')
+}
+
 afterEvaluate {
     minecraft.runs.each { lancement ->
         if (!lancement.properties.keySet().any { it.startsWith('oneforallsurvival.') || it.startsWith('lostisland.') }) {
@@ -481,8 +493,12 @@ afterEvaluate {
         }
         lancement.property 'oneforallsurvival.fenetre.secondEcran', 'true'
         def fml = new File(lancement.workingDirectory, 'config/fml.toml')
+        def voix = new File(lancement.workingDirectory, 'config/voicechat/voicechat-client.properties')
         tasks.matching { it.name == "run${lancement.name.capitalize()}" }.configureEach {
-            doFirst { couperFenetreForge(fml) }
+            doFirst {
+                couperFenetreForge(fml)
+                passerAccueilVoix(voix)
+            }
         }
     }
 }
@@ -544,6 +560,12 @@ repositories {
             includeGroup 'net.mezzdev.config'
         }
     }
+    maven {
+        // API serveur de Simple Voice Chat (voix des appels du téléphone), ce groupe seul.
+        name = 'Henkel'
+        url = 'https://maven.maxhenkel.de/repository/public'
+        content { includeGroup 'de.maxhenkel.voicechat' }
+    }
 
     // ESL (bibliothèque d'énergie), embarquée dans New Age : voir le bloc du pack plus bas.
     flatDir {
@@ -577,6 +599,11 @@ dependencies {
 
     // Dépendance obligatoire du mod.
     implementation fg.deobf("maven.modrinth:farmers-delight:${farmersdelight_version}")
+
+    // Simple Voice Chat, obligatoire (voix des appels du téléphone) : le code compile contre l'API seule, nommée dans
+    // phone/voice/svc/ seulement (VoiceIsolationTest) ; le mod lui-même, version du pack, à chaque lancement.
+    compileOnly "de.maxhenkel.voicechat:voicechat-api:${voicechat_api_version}"
+    implementation fg.deobf("maven.modrinth:simple-voice-chat:${voicechat_version}")
 
     // MCEF (CinemaMod) 2.1.6 : navigateur du telephone, facultatif et client seulement. Compile seulement ;
     // l'execution n'en a besoin qu'avec `-PwithMcef` (plus bas). Nomme dans client/web/mcef/ seulement
