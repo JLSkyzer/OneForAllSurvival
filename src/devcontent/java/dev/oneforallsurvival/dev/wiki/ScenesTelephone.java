@@ -383,6 +383,8 @@ public final class ScenesTelephone implements Chapitre {
                     ile(lieu);
                     lieu.poser(0, 0, 0, BenchRegistry.ENGINEER_BENCH.get().defaultBlockState()
                             .setValue(EngineerBenchBlock.FACING, Direction.SOUTH));
+                    // Alimenté (Générateur Créatif collé derrière) : l'écran dit « Alimenté », la fabrication va vite.
+                    lieu.poser(0, 0, -1, bloc("createaddition:creative_energy").defaultBlockState());
                     ServerPlayer j = lieu.joueur();
                     RoleSavedData roles = RoleSavedData.get(lieu.serveur());
                     roles.book().assign(j.getUUID(), "ingenieur");
@@ -396,7 +398,18 @@ public final class ScenesTelephone implements Chapitre {
                 .regarder(ETABLI, new Vec3(0.0, 0.7, 2.4))
                 .ouvrirBloc(ETABLI, Direction.SOUTH, EngineerBenchScreen.class)
                 .attendre("catalogue reçu", () -> !BenchClientState.catalog().isEmpty())
-                .client("recherche vide", mc -> ((EngineerBenchScreen) mc.screen).setSearchText(""))
+                .attendre("établi alimenté", () -> etat(ETABLI) == MachineState.RUNNING
+                        || etat(ETABLI) == MachineState.STOPPED, 10_000)
+                .client("recherche vide, objets du mod", mc -> {
+                    EngineerBenchScreen e = (EngineerBenchScreen) mc.screen;
+                    e.setSearchText("");
+                    // La catégorie du mod (comme un clic sur « One For All ») : la liste reste en français.
+                    for (var r : BenchClientState.catalog()) {
+                        if (r.id().equals(RECETTE)) {
+                            e.setCategory(BenchClientState.modOf(r));
+                        }
+                    }
+                })
                 .pause(800)
                 .sequence("etabli-antenne", 19_000, 200, null, (mc, ms) -> {
                     if (mc.screen instanceof EngineerBenchScreen e) {
@@ -462,13 +475,16 @@ public final class ScenesTelephone implements Chapitre {
                     m.joueur().setItemInHand(InteractionHand.MAIN_HAND, telM);
                     appelante = m;
                 })
-                .camera(new Vec3(1.5, 1.62, 4.0), new Vec3(-3.0, 1.0, -5.0))
+                // Maelle à gauche de l'image, le chat en dessous ; ni réticule ni main (rien de parasite).
+                .camera(new Vec3(1.5, 1.62, 4.0), new Vec3(1.0, 1.1, -5.0))
                 .client("chat visible et vidé", mc -> {
                     mc.gui.getChat().clearMessages(false);
                     mc.options.chatVisibility().set(ChatVisiblity.FULL);
                     mc.options.broadcastOptions();
                     mc.player.getInventory().selected = 0;
                     WikiStudio.ath(mc, true);
+                    WikiStudio.reticule(false);
+                    mc.gameRenderer.setRenderHand(false);
                 })
                 .pause(800)
                 .serveur("l'appelante compose le 17", lieu -> {
@@ -696,7 +712,7 @@ public final class ScenesTelephone implements Chapitre {
                     int debut = t.shown().indexOf(mot);
                     var font = Minecraft.getInstance().font;
                     // Juste à gauche du mot, pour ne pas le cacher.
-                    double x = t.x() + font.width(t.shown().substring(0, debut)) * t.scale() - 9;
+                    double x = t.x() + font.width(t.shown().substring(0, debut)) * t.scale() - 20;
                     return new double[] {x, t.y() + 4 * t.scale()};
                 }
             }

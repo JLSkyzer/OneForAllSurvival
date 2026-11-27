@@ -137,6 +137,7 @@ h3{font:600 22px/1.1 var(--titre);margin:0;text-transform:uppercase;letter-spaci
 .path .vig{height:130px;display:flex;align-items:center;justify-content:center;background:var(--carte2);overflow:hidden}
 .path .vig img{width:100%;height:100%;object-fit:cover;display:block}
 .path .vig img.px{width:96px;height:96px;object-fit:contain}
+.path .vig img.haut{object-position:50% 8%}
 .path span{display:flex;gap:10px;align-items:center;padding:12px 14px;font:600 22px/1.05 var(--titre);text-transform:uppercase}
 .path em{font-style:normal;color:var(--or)}
 .qui{display:inline-flex;align-items:center;border-radius:99px;padding:5px 14px;font-weight:700;color:#10161A;width:fit-content}
@@ -157,7 +158,7 @@ h3{font:600 22px/1.1 var(--titre);margin:0;text-transform:uppercase;letter-spaci
 .pt[aria-pressed="true"]{background:var(--blanc);box-shadow:0 0 0 8px rgba(242,180,74,.7)}
 .mk{position:absolute;width:32px;height:32px;margin:-16px 0 0 -16px;border-radius:50%;background:var(--or);color:var(--encre);border:3px solid var(--encre);display:flex;align-items:center;justify-content:center;font:700 18px var(--titre)}
 .leg{display:flex;align-items:center;gap:10px;font-weight:500;margin:0}
-.leg b{width:26px;height:26px;border-radius:50%;background:var(--or);color:var(--encre);display:flex;align-items:center;justify-content:center;font:700 15px var(--titre);flex:none}
+.leg>b{width:26px;height:26px;border-radius:50%;background:var(--or);color:var(--encre);display:flex;align-items:center;justify-content:center;font:700 15px var(--titre);flex:none}
 .legs{display:flex;flex-direction:column;gap:10px;margin:0;padding:0;list-style:none}
 .pts-hors{display:flex;flex-wrap:wrap;gap:10px}
 .pts-hors .pt{position:static;margin:0}

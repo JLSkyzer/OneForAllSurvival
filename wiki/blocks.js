@@ -320,22 +320,24 @@
 
   // Vignette d'une étape pour la frise : première capture, sinon première icône d'objet.
   function vignette(b, ctx) {
-    const imgs = [], icos = [], clips = [];
+    const imgs = [], icos = [], clips = [], ecrans = new Set();
     (function parcourt(x) {
       if (!x || typeof x !== "object") return;
       if (Array.isArray(x)) return x.forEach(parcourt);
       switch (x.type) {
         case "shot": case "hero": imgs.push(x.img); break;
         case "clip": clips.push(x.img); break;
-        case "states": case "phones": (x.list || []).forEach((s) => imgs.push(s.img)); break;
-        case "player": (x.steps || []).forEach((s) => imgs.push(s.img)); break;
+        case "states": (x.list || []).forEach((s) => imgs.push(s.img)); break;
+        // Écrans de téléphone (hauts et étroits) : la vignette en montre le haut.
+        case "phones": (x.list || []).forEach((s) => { imgs.push(s.img); ecrans.add(s.img); }); break;
+        case "player": (x.steps || []).forEach((s) => { imgs.push(s.img); ecrans.add(s.img); }); break;
         case "recipe": case "pass": case "range": case "chunk": icos.push(x.item); break;
         case "items": (x.list || []).forEach((s) => icos.push(s.item)); break;
         case "flow": (x.nodes || []).forEach((s) => (s.img ? imgs.push(s.img) : s.item && icos.push(s.item))); break;
       }
       (x.blocks || []).forEach(parcourt);
     })(b.blocks || []);
-    if (imgs.length) return img(imgs[0], "");
+    if (imgs.length) return img(imgs[0], "", ecrans.has(imgs[0]) ? "haut" : "");
     if (icos.length) { const o = objet(ctx, icos[0]); if (o.icone) return `<img class="px" src="${esc(o.icone)}" alt="" loading="lazy">`; }
     if (clips.length && !reduit()) return img(clips[0], "");
     return "";

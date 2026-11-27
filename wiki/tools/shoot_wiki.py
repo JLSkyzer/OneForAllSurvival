@@ -1,8 +1,8 @@
 """Capture chaque page du wiki à 1280 et 390 px de large avec Edge sans fenêtre, et relève les défauts.
 
-    python wiki/tools/shoot_wiki.py                      # accueil, chaque chapitre, chaque article, #essai
-    python wiki/tools/shoot_wiki.py telephone essai/antenne
-    python wiki/tools/shoot_wiki.py --essai-interactif   # joue les blocs interactifs de #essai (et un essai de robustesse)
+    python wiki/tools/shoot_wiki.py                      # accueil, chaque chapitre, chaque article, 
+    python wiki/tools/shoot_wiki.py telephone telephone/antenne
+    python wiki/tools/shoot_wiki.py --essai-interactif   # joue les blocs interactifs du chapitre Téléphone (et un essai de robustesse)
 
 Le dossier wiki/ est servi par http.server sur un port libre. Chaque page est ouverte dans une page pilote
 (/__apercu.html, servie seulement ici) qui la charge dans un cadre de la largeur voulue : les règles @media voient
@@ -110,7 +110,7 @@ const txt = (sel) => ((doc().querySelector(sel) || {}).textContent || '').trim()
 async function essai(nomEssai, fn) { try { await fn(); } catch (e) { note(nomEssai, false, e.message); } }
 
 async function interactif() {
-  await va('#essai/antenne');
+  await va('#telephone/antenne');
   await essai('hero : repère 2', async () => {
     await clique('[data-hero] [data-pt="1"]');
     const b = doc().querySelector('[data-hero] [data-pt="1"]');
@@ -158,7 +158,7 @@ async function interactif() {
   await essai('frise : lien vers l\'étape 3', async () => {
     const cartes = txt('[data-power] [data-o="cartes"]'), repere = txt('[data-hero] [data-num]');
     await clique('.path a:nth-child(3)');
-    await attendre(() => doc().body.dataset.route === 'essai/antenne/etape-3', 4000);
+    await attendre(() => doc().body.dataset.route === 'telephone/antenne/etape-3', 4000);
     const e = doc().getElementById('etape-3');
     const garde = txt('[data-power] [data-o="cartes"]') === cartes && txt('[data-hero] [data-num]') === repere;
     note('frise : lien vers l\'étape 3, sans redessiner', e && Math.abs(e.getBoundingClientRect().top) < 40 && garde, doc().body.dataset.route + ', réglages gardés : ' + garde);
@@ -173,22 +173,22 @@ async function interactif() {
     await clique('a.evite');
     note('lien d\'évitement', win().location.hash === avant && doc().activeElement && doc().activeElement.id === 'main', win().location.hash + ', focus ' + (doc().activeElement || {}).id);
   });
-  await va('#essai/ligne');
+  await va('#telephone/appeler');
   await essai('player : étape 3', async () => {
     await clique('[data-lecteur] [data-pas="2"]');
     const vis = [...doc().querySelectorAll('[data-lecteur] [data-cadre]')].filter((c) => !c.hidden).map((c) => c.dataset.cadre);
     note('player : étape 3', vis.join() === '2' && doc().querySelector('[data-pas="2"]').getAttribute('aria-pressed') === 'true', 'visible : ' + vis.join());
   });
   await essai('ancien lien couvert (v2)', async () => {
-    await va('#essai-ancien-lien').catch(() => {});
+    await va('#tuto-antenne').catch(() => {});
     await attendre(() => doc().body.dataset.pret === '1', 4000); await dort(100);
-    note('ancien lien couvert (v2)', win().location.hash === '#essai/antenne' && /Poser une antenne/i.test(txt('h1')), win().location.hash);
+    note('ancien lien couvert (v2)', win().location.hash === '#telephone/antenne' && /Poser une antenne/i.test(txt('h1')), win().location.hash);
   });
   await essai('ancien lien de fiche (v1)', async () => {
-    doc().body.dataset.pret = '0'; win().location.hash = '#tuto-antenne';
+    doc().body.dataset.pret = '0'; win().location.hash = '#armoire-frigorifique';
     await attendre(() => doc().body.dataset.pret === '1', 4000); await dort(100);
-    const f = doc().getElementById('tuto-antenne');
-    note('ancien lien de fiche (v1)', f && f.classList.contains('vise') && /T[ée]l[ée]phone/i.test(txt('h1')), txt('h1'));
+    const f = doc().getElementById('armoire-frigorifique');
+    note('ancien lien de fiche (v1)', f && f.classList.contains('vise') && /lectricit/i.test(txt('h1')), txt('h1'));
   });
   await essai('page inconnue', async () => {
     doc().body.dataset.pret = '0'; win().location.hash = '#nexiste-pas';
@@ -204,14 +204,14 @@ async function interactif() {
     note('recherche', a > 0 && a === b && c === 0 && accueilCache && !doc().querySelector('.veux').hidden, 'antenne=' + a + ' ANTÉNNE=' + b + ' zzzqqq=' + c);
   });
   await essai('touche /', async () => {
-    await va('#essai/ligne');
+    await va('#telephone/appeler');
     doc().activeElement && doc().activeElement.blur && doc().activeElement.blur();
     doc().dispatchEvent(new (win().KeyboardEvent)('keydown', { key: '/', bubbles: true }));
     await attendre(() => doc().activeElement && doc().activeElement.id === 'q', 4000);
     note('touche /', doc().activeElement && doc().activeElement.id === 'q', win().location.hash);
   });
   await essai('En jeu seulement', async () => {
-    await va('#essai');
+    await va('#telephone');
     const avant = /Prévu/.test(doc().querySelector('main').textContent);
     doc().getElementById('enJeu').focus(); // un vrai clic donne le focus à la case ; click() en script, non
     await clique('#enJeu');
@@ -224,7 +224,7 @@ async function interactif() {
 }
 
 async function robustesse() {
-  await va('#essai/antenne');
+  await va('#telephone/antenne');
   const d = doc();
   note('robustesse : page rendue malgré un bloc inconnu et une image absente', !!d.getElementById('etape-4') && d.querySelectorAll('[data-manque]').length >= 1 && d.querySelector('.inconnu'),
     'étape 4 : ' + !!d.getElementById('etape-4') + ', cadres « manque » : ' + d.querySelectorAll('[data-manque]').length);
@@ -267,11 +267,11 @@ class Serveur(SimpleHTTPRequestHandler):
         if chemin in ("/", "/index.html"):
             page = (WIKI / "index.html").read_text(encoding="utf-8").replace("<head>", "<head>" + ESPION, 1)
             return self._envoie(page.encode("utf-8"), "text/html; charset=utf-8")
-        if chemin == "/data/essai.json" and Serveur.robustesse:
-            d = json.loads((WIKI / "data/essai.json").read_text(encoding="utf-8"))
+        if chemin == "/data/telephone.json" and Serveur.robustesse:
+            d = json.loads((WIKI / "data/telephone.json").read_text(encoding="utf-8"))
             blocs = d["articles"][0]["blocks"]
             blocs.insert(2, {"type": "bloc-qui-n-existe-pas"})
-            blocs.insert(3, {"type": "shot", "img": "shots/essai/absente.webp", "alt": "Image volontairement absente"})
+            blocs.insert(3, {"type": "shot", "img": "shots/telephone/absente.webp", "alt": "Image volontairement absente"})
             return self._envoie(json.dumps(d).encode("utf-8"), "application/json")
         cible = WIKI / urllib.parse.unquote(chemin.lstrip("/"))
         if not cible.exists():
@@ -346,7 +346,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("pages", nargs="*", help="routes (sans #) ; par défaut toutes")
     ap.add_argument("--largeurs", default="1280,390")
-    ap.add_argument("--essai-interactif", action="store_true", help="joue les blocs interactifs de #essai")
+    ap.add_argument("--essai-interactif", action="store_true", help="joue les blocs interactifs du chapitre Téléphone")
     ap.add_argument("--paralleles", type=int, default=4)
     ap.add_argument("--staff", action="store_true", help="capture en vue Staff")
     ap.add_argument("--recherche", default="", help="tape ce texte dans la recherche de l'accueil avant la capture")
@@ -361,14 +361,14 @@ def main():
     taches = []
     if a.essai_interactif:
         for l in largeurs:
-            taches.append(("essai/antenne", l, "interactif", False))
-            taches.append(("essai/antenne", l, "interactif", True))
+            taches.append(("telephone/antenne", l, "interactif", False))
+            taches.append(("telephone/antenne", l, "interactif", True))
     else:
         for r in (a.pages or routes_par_defaut()):
             for l in largeurs:
                 taches.append((r, l, "staff" if a.staff else "page", False))
         if not a.pages:
-            taches.append(("essai/antenne", 1280, "page", True))
+            taches.append(("telephone/antenne", 1280, "page", True))
 
     rapports = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=a.paralleles) as ex:
@@ -377,7 +377,7 @@ def main():
             rapports.append(fu.result())
     if a.essai_interactif:
         Serveur.robustesse = True
-        rapports.append(page(port, "essai/antenne", 1280, "robustesse", False, capture=True))
+        rapports.append(page(port, "telephone/antenne", 1280, "robustesse", False, capture=True))
         Serveur.robustesse = False
     serveur.shutdown()
 

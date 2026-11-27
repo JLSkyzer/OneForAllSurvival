@@ -2194,7 +2194,8 @@ public final class TelephoneShots {
         pause("r06-liste-des-demandes");
         taillesDuRepli(mc, "r06b-liste-des-demandes");
         pas("reseau-demande-envoyee", () -> stable(mc, "request-" + idLagon), () -> cliquer(mc, "request-" + idLagon),
-                () -> PhoneClient.last().map(p -> p.last() == Result.SIM_REQUESTED).orElse(false), 10,
+                // Le bandeau « Demande envoyée » s'affiche après la réponse : l'image attend qu'il soit à l'écran.
+                () -> PhoneClient.last().map(p -> p.last() == Result.SIM_REQUESTED).orElse(false) && attendu(1.2), 10,
                 "r07-demande-envoyee");
         pas("reseau-demande-inscrite", () -> serveur(mc, (srv, sp) -> reseauNote = "demandes de Lagon : "
                 + PhoneOperators.get(srv).requestsOf(idLagon).size()), () -> !reseauNote.isEmpty() && attendu(0.3), 3,

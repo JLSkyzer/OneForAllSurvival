@@ -172,6 +172,20 @@ public final class WikiStudio {
         }
     }
 
+    /** Le réticule du centre de l'écran, montré avec l'interface ; une prise peut le cacher ({@link #reticule}). */
+    private static volatile boolean reticule = true;
+
+    static void reticule(boolean visible) {
+        reticule = visible;
+    }
+
+    @SubscribeEvent
+    public static void onOverlay(net.minecraftforge.client.event.RenderGuiOverlayEvent.Pre event) {
+        if (ACTIF && !reticule && event.getOverlay() == net.minecraftforge.client.gui.overlay.VanillaGuiOverlay.CROSSHAIR.type()) {
+            event.setCanceled(true);
+        }
+    }
+
     @SubscribeEvent
     public static void onClientTick(TickEvent.ClientTickEvent event) {
         if (ACTIF && event.phase == TickEvent.Phase.END && phase != Phase.FIN) {
@@ -484,6 +498,7 @@ public final class WikiStudio {
         Minecraft mc = Minecraft.getInstance();
         fermerEcran(mc);
         ath(mc, false);
+        reticule = true;
         echelle(mc, 2);
         mc.options.setCameraType(CameraType.FIRST_PERSON);
         TENIR.clear();
