@@ -359,6 +359,11 @@ public final class QuestClaimGameTests {
             EconomyLedger.Entry ligne = registre.entries(0).get(0);
             helper.assertTrue(ligne.kind().equals("created.quest") && ligne.reason().equals("quête : essai_eco"),
                     "ligne du journal : " + ligne);
+            // Un modèle livré (quests.json), dans un carnet neuf : lui a un libellé.
+            ClaimResult livre = QuestService.claim(joueur, poser(joueur, finie("kill_zombies", 500L)), MAINTENANT,
+                    registre);
+            helper.assertTrue(livre == ClaimResult.PAID, "résultat du modèle livré : " + livre);
+            total = registre.totalCreated(MoneySource.QUEST);
             List<Component> sortie = new ArrayList<>();
             CommandSourceStack equipe = server.createCommandSourceStack().withSource(new Ecoute(sortie))
                     .withPermission(2);
@@ -367,7 +372,10 @@ public final class QuestClaimGameTests {
             String texte = sortie.get(0).getString();
             helper.assertTrue(texte.contains(CoinMath.format(total).getString()), "total absent : " + texte);
             helper.assertTrue(texte.contains("QueteEco"), "nom du joueur absent : " + texte);
-            helper.assertTrue(texte.contains("essai_eco"), "modèle absent : " + texte);
+            helper.assertTrue(texte.contains("essai_eco"), "modèle sans libellé, nommé par son identifiant : " + texte);
+            // Le serveur lit en anglais : le libellé écrit en clair, jamais recalculé par la commande essayée.
+            helper.assertTrue(texte.contains("Slay zombies") && !texte.contains("kill_zombies"),
+                    "modèle livré : « Slay zombies » attendu, pas son identifiant : " + texte);
             // Dernière ligne : les modèles en service (la réserve d'essai).
             helper.assertTrue(texte.strip().endsWith(" " + reserve().size()), "modèles chargés absents : " + texte);
             List<Component> refus = new ArrayList<>();
