@@ -661,8 +661,13 @@ public final class LampeGameTests {
         List<HeadlampLightData.Note> ecrites = HeadlampLightData.readNotes(donnees);
         data.forget(pos);
         data.forget(loin);
-        helper.assertTrue(ecrites.size() == 1 && ecrites.get(0).pos().equals(pos),
-                "seule la note de ce chunk devait être écrite, vu " + ecrites);
+        // Un essai voisin du même lot peut avoir sa note dans ce chunk (la place des gabarits dépend du nombre d'essais,
+        // vu le 27/11 : (51, 575) et (62, 574)) : seules comptent la note d'ici, celle d'au loin, et le chunk de chacune.
+        net.minecraft.world.level.ChunkPos chunk = new net.minecraft.world.level.ChunkPos(pos);
+        helper.assertTrue(ecrites.stream().anyMatch(n -> n.pos().equals(pos))
+                && ecrites.stream().noneMatch(n -> n.pos().equals(loin))
+                && ecrites.stream().allMatch(n -> new net.minecraft.world.level.ChunkPos(n.pos()).equals(chunk)),
+                "seules les notes de ce chunk devaient être écrites, vu " + ecrites);
         helper.succeed();
     }
 
