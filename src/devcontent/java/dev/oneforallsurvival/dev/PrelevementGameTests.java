@@ -69,6 +69,7 @@ public final class PrelevementGameTests {
 
     private static final String LOT_A = "prelevement_a";
     private static final String LOT_B = "prelevement_b";
+    private static final String LOT_C = "prelevement_c";
 
     private static final Vec3 POS_A = new Vec3(2.5, 0, 4.5);
     private static final Vec3 POS_B = new Vec3(5.5, 0, 4.5);
@@ -817,6 +818,65 @@ public final class PrelevementGameTests {
             } finally {
                 PayeurDEssai.desarmer(emission);
             }
+        });
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Lot C : le motif écrit au registre de l'économie (/eco ledger), un essai par écriture
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * La seule ligne de ce genre qui porte le numéro de cette facture dit exactement cela. Le motif est écrit en clair
+     * ici : {@code DirectDebitReasonTest} essaie les fonctions de motif, ces essais-ci que le prélèvement les écrit.
+     */
+    private static void motifAuRegistre(GameTestHelper helper, MinecraftServer serveur, Invoice f, String genre,
+            String issue) {
+        EconomyLedger journal = EconomyLedger.get(serveur);
+        List<String> lus = new ArrayList<>();
+        for (int page = 0; page < journal.pageCount(); page++) {
+            for (EconomyLedger.Entry ligne : journal.entries(page)) {
+                if (genre.equals(ligne.kind()) && ligne.reason().contains(f.shortId())) {
+                    lus.add(ligne.reason());
+                }
+            }
+        }
+        String attendu = "facture publique " + f.shortId() + " (essai) de " + f.debtorName() + " : " + issue;
+        helper.assertTrue(lus.equals(List.of(attendu)), "motif au registre : attendu [" + attendu + "], lu " + lus);
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void leRefusEcritSonMotifAuRegistre(GameTestHelper helper) {
+        essai(helper, e -> {
+            JoueurDeTest j = e.joueur("pr_mref", POS_A);
+            Invoice f = e.facture(j.uuid(), j.joueur().getGameProfile().getName(), 250L);
+            helper.assertTrue(DirectDebit.present(e.serveur, e.registre, f, System.currentTimeMillis()) == Outcome.REFUSED,
+                    "sans rien : refus");
+            motifAuRegistre(helper, e.serveur, f, EconomyLedger.KIND_DEBIT_REFUSED, "prélèvement refusé");
+        });
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void lePrelevementEcritSonMotifAuRegistre(GameTestHelper helper) {
+        essai(helper, e -> {
+            JoueurDeTest j = e.joueur("pr_mpay", POS_A);
+            e.coffreFort(j.uuid(), pieces(Coin.GOLD, 3));
+            Invoice f = e.facture(j.uuid(), j.joueur().getGameProfile().getName(), 250L);
+            Outcome r = DirectDebit.present(e.serveur, e.registre, f, System.currentTimeMillis());
+            helper.assertTrue(r == Outcome.PAID_SAFE, "payée par le coffre-fort, vu " + r);
+            motifAuRegistre(helper, e.serveur, f, MoneyTransfer.PUBLIC_BILL.kind(), "prélevée au coffre-fort");
+        });
+    }
+
+    @GameTest(template = "test/plancher", batch = LOT_C)
+    public static void lePaiementParLObjetEcritSonMotifAuRegistre(GameTestHelper helper) {
+        essai(helper, e -> {
+            JoueurDeTest j = e.joueur("pr_mobj", POS_A);
+            j.joueur().getInventory().setItem(1, new ItemStack(Coin.GOLD.item(), 3));
+            Invoice f = e.factureGlobale(j.uuid(), j.joueur().getGameProfile().getName(), 250L);
+            j.joueur().getInventory().setItem(0, InvoiceItem.of(f));
+            PayResult r = InvoiceService.pay(j.joueur(), 0);
+            helper.assertTrue(r == PayResult.PAID_TO_INVENTORY, "payée par l'objet, vu " + r);
+            motifAuRegistre(helper, e.serveur, f, MoneyTransfer.PUBLIC_BILL.kind(), "payée avec l'objet facture");
         });
     }
 }
