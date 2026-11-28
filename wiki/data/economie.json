@@ -1360,7 +1360,7 @@
             {
               "type": "shot",
               "img": "shots/economie/minuit-salaire.webp",
-              "alt": "Le chat au premier minuit : « Salaire du 2026-11-27 (Policier, 0 h 3 min) : 3 cuivres, versé dans votre coffre-fort »"
+              "alt": "Le chat au premier minuit : « Salaire du 2026-11-28 (Policier, 0 h 3 min) : 3 cuivres, versé dans votre coffre-fort »"
             },
             {
               "type": "text",
@@ -1464,7 +1464,7 @@
             {
               "type": "shot",
               "img": "shots/economie/minuit-preleve.webp",
-              "alt": "Le chat au minuit suivant : « Facture d'électricité de Courant de la Baie du 28/11/2026 (6,8 kFE à 2 argent les 100000 FE, abonnement 1 argent 5 cuivres) … prélevée : 1 argent 6 cuivres, pris sur vous »"
+              "alt": "Le chat au minuit suivant : « Facture d'électricité de Courant de la Baie du 29/11/2026 (6,8 kFE à 2 argent les 100000 FE, abonnement 1 argent 5 cuivres) … prélevée : 1 argent 6 cuivres, pris sur vous »"
             },
             {
               "type": "text",
@@ -1941,7 +1941,7 @@
         {
           "type": "shot",
           "img": "shots/economie/butin-pieces.webp",
-          "alt": "Des pièces de cuivre tombées dans l'herbe à l'endroit où un zombie a été tué à l'épée",
+          "alt": "Une pièce de cuivre tombée dans l'herbe à l'endroit où un zombie a été tué à l'épée",
           "marks": [
             {
               "at": "pieces",

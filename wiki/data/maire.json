@@ -71,13 +71,13 @@
         ]},
         {"type": "step", "title": "Déplacer le trésor ou le tableau", "blocks": [
           {"type": "shot", "img": "shots/maire/mairie.webp", "alt": "Le trésor et le tableau de la mairie contre le mur de la mairie, Maelle à côté"},
-          {"type": "text", "text": "Le maire ou l'équipe le cassent puis le reposent ailleurs ; le trésor garde contenu et registre. Un ingénieur, outil de maintenance en main, les déplace aussi (le tableau depuis le 28/11). En créatif, accroupi."}
+          {"type": "text", "text": "Le maire ou l'équipe le cassent et le reposent ; le trésor garde contenu et registre. Un ingénieur aussi (tableau : depuis le 28/11) : outil de maintenance dans une main, bloc dans l'autre. En créatif, accroupi."}
         ]},
         {"type": "text", "text": "Le détail (écran, change, registre, salaires) est dans l'Économie.", "link": "#economie/tresor"},
         {"type": "numbers", "list": [{"k": "Trésors", "v": "un seul"}, {"k": "Motif d'une dépense", "v": "80 caractères"}, {"k": "Tableau", "v": "3 × 2 blocs"}]},
         {"type": "problems", "list": [
-          {"msg": "Seuls le maire, l'équipe et un ingénieur muni de l'outil de maintenance posent un tableau de la mairie", "text": "Pose refusée à tout autre joueur, et à l'ingénieur sans son outil en main."},
-          {"msg": "Seuls le maire, l'équipe et un ingénieur déplacent le tableau de la mairie", "text": "Refus de casse. L'ingénieur doit tenir son outil de maintenance ; il casse le tableau puis le repose ailleurs."},
+          {"msg": "Seuls le maire, l'équipe et un ingénieur muni de l'outil de maintenance posent un tableau de la mairie", "text": "Pose refusée à tout autre joueur, et à l'ingénieur sans son outil : tableau dans une main, outil de maintenance dans l'autre (F : seconde main)."},
+          {"msg": "Seuls le maire, l'équipe et un ingénieur déplacent le tableau de la mairie", "text": "Refus de casse. L'ingénieur doit tenir son outil de maintenance ; il casse le tableau puis le repose ailleurs, tableau dans une main et outil dans l'autre."},
           {"msg": "Pas assez de place : le tableau fait 3 blocs de large et 2 de haut, face à vous", "text": "Libère la place devant toi."},
           {"msg": "En créatif, accroupissez-vous pour casser ce bloc", "text": "Pour tout le monde, contre l'accident.", "link": "#economie/tresor"}
         ]}

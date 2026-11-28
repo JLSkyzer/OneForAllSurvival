@@ -11,7 +11,7 @@
    "blocks": [
     {"type": "hero", "img": "shots/telephone/antenne-hero.webp", "alt": "Une antenne posée dans l'herbe près de la plage, voyant vert allumé",
      "points": [{"at": "voyant", "title": "Le voyant", "text": "Vert : l'antenne émet. Éteint : elle ne donne aucun réseau."},
-                {"at": "mat", "title": "Clic droit", "text": "Fondateur, maire, staff ou ingénieur outillé : le panneau de l'opérateur, même un objet en main (sauf le testeur). Les autres lisent « Antenne de Mairie. »."},
+                {"at": "mat", "title": "Clic droit", "text": "Fondateur, maire, staff ou ingénieur outillé : le panneau de l'opérateur, même un objet en main (sauf le testeur et, depuis le 28/11, un connecteur électrique). Les autres lisent « Antenne de Mairie. »."},
                 {"at": "socle", "title": "Le socle", "text": "Posée, elle garde son chunk chargé. Sa source de courant doit être dans ce même chunk."}]},
     {"type": "step", "title": "Fabriquer", "blocks": [
       {"type": "text", "text": "Seul un **ingénieur** la fabrique, à l'établi d'ingénieur."},
@@ -34,7 +34,7 @@
       {"type": "row", "blocks": [
         {"type": "shot", "title": "Tirer le fil", "img": "shots/telephone/fil.webp", "alt": "Une antenne reliée par un fil de cuivre à un Générateur Créatif violet, un connecteur sur chacun",
          "marks": [{"at": "connecteur-source", "text": "Un Petit Connecteur (Crafts & Additions, fait à l'établi) sur la source : il se règle seul en « Récéption » (il y prend le courant)."},
-                   {"at": "connecteur-antenne", "text": "Un second sur le dessus de l'antenne, debout ou accroupi (depuis la mise à jour du 28/11 ; avant, accroupi seulement). Il se règle seul en « Envoie »."},
+                   {"at": "connecteur-antenne", "text": "Un second sur l'antenne (sur un côté, comme ici, ou dessus), en main principale, debout ou accroupi (depuis la mise à jour du 28/11 ; avant, accroupi seulement). Il se règle seul en « Envoie »."},
                    {"at": "fil", "text": "Bobine de Cuivre en main : clic droit sur un connecteur, puis sur l'autre (16 blocs au plus)."}]},
         {"type": "clip", "img": "shots/telephone/fil-pose.webp", "alt": "Animation : un connecteur sur la source, un autre sur l'antenne, le fil tiré, le voyant passe au vert", "title": "Le branchement",
          "note": "Le voyant passe au vert dès que le fil est tiré."}]},
@@ -61,7 +61,7 @@
       {"k": "Réserve", "v": "40 000 FE"},
       {"k": "Réception", "v": "4 000 FE/t"}]},
     {"type": "problems", "title": "Si ça bloque", "list": [
-      {"msg": "Le clic ouvre le panneau", "text": "Un connecteur en main se pose sur le dessus, debout. Si le panneau s'ouvre quand même (jeu d'avant la mise à jour du 28/11), accroupis-toi (Maj) avant le clic droit."},
+      {"msg": "Le clic ouvre le panneau", "text": "Tiens le connecteur en main principale : il se pose, même debout. Si le panneau s'ouvre quand même (jeu d'avant la mise à jour du 28/11), accroupis-toi (Maj) avant le clic droit."},
       {"msg": "Sans courant", "text": "Courant insuffisant (cartes en plus, alternateur trop lent), source hors du chunk, fil absent, ou connecteur mal réglé : « Récéption » côté source, « Envoie » côté antenne (clé)."},
       {"msg": "Le nom est déjà pris", "text": "Un nom d'opérateur est unique sur le serveur : choisis-en un autre."}]}
    ],
@@ -177,7 +177,7 @@
         {"item": "oneforallsurvival:antenna", "label": "L'antenne de l'autre"}, {"item": "oneforallsurvival:phone", "label": "Son téléphone"}]},
       {"type": "text", "text": "**Silence** : ton micro ne part plus au correspondant. **Haut-parleur** : les joueurs à 8 blocs entendent ton correspondant, et lui entend ceux à moins de 16 blocs."},
       {"type": "text", "text": "La voix de proximité n'est jamais coupée : ceux qui sont près de toi t'entendent toujours. La sonnerie s'entend à 8 blocs."},
-      {"type": "text", "text": "« Appuyer pour parler » et « Chuchoter » du chat vocal marchent téléphone ouvert (depuis la mise à jour du 28/11). Aucune touche au départ : choisis-les dans Options › Contrôles › Chat vocal."}]},
+      {"type": "text", "text": "« Appuyer pour parler » et « Chuchoter » du chat vocal marchent téléphone ouvert (depuis la mise à jour du 28/11). Aucune touche au départ : Options › Contrôles › Assignation des touches, catégorie « Chat vocal »."}]},
     {"type": "numbers", "title": "À retenir", "list": [
       {"k": "Sonnerie", "v": "30 s"}, {"k": "Haut-parleur, écoute", "v": "8 blocs"},
       {"k": "Haut-parleur, micro", "v": "16 blocs"}, {"k": "Compositions", "v": "10 par minute"},
@@ -187,7 +187,7 @@
       {"msg": "Injoignable", "text": "L'autre ne peut pas recevoir : absent, téléphone à plat, mode avion, ou hors de portée."},
       {"msg": "Numéro inconnu", "text": "Aucune carte ne porte ce numéro."},
       {"msg": "L'appel se coupe", "text": "Départ, mort, changement de dimension, téléphone ou carte retirés, batterie vide, plus de signal."},
-      {"msg": "On ne s'entend pas", "text": "La voix passe par Simple Voice Chat : micro réglé chez les deux joueurs (V ouvre son menu, ce n'est pas la touche pour parler). En « Appuyer pour parler », donne-lui d'abord une touche (Options › Contrôles › Chat vocal)."}]}
+      {"msg": "On ne s'entend pas", "text": "La voix passe par Simple Voice Chat : micro réglé chez les deux (V ouvre son menu, il ne fait pas parler). En « Appuyer pour parler », donne-lui d'abord une touche (Contrôles › Assignation des touches)."}]}
    ],
    "staff": [
     "Simple Voice Chat 2.6.22 obligatoire sur le serveur et les clients ; son port UDP (24454 par défaut) doit être ouvert.",
@@ -245,7 +245,7 @@
         {"img": "shots/telephone/tel-partager-envoye.webp", "alt": "Bandeau en bas : Numéro envoyé à Maelle.", "caption": "« Numéro envoyé à Maelle. »"}]},
       {"type": "text", "text": "Dans la liste : les joueurs à 8 blocs ou moins, en vue (aucun mur entre vous), qui portent un téléphone à eux avec une carte SIM. Ni spectateurs, ni invisibles."}]},
     {"type": "step", "title": "Chez l'autre", "actor": "autre", "actorLabel": "Le joueur qui reçoit", "blocks": [
-      {"type": "text", "text": "Un son, et dans le chat, même téléphone rangé : « Robin veut vous donner son numéro (06 02 66 66 84). [Accepter] [Refuser] ». Il clique, même s'il s'est éloigné entre-temps."},
+      {"type": "text", "text": "Un son, et dans le chat, même téléphone rangé : « Robin veut vous donner son numéro (06 02 66 66 84). [Accepter] [Refuser] ». Il ouvre le chat (T) et clique, même s'il s'est éloigné entre-temps."},
       {"type": "text", "text": "Accepté : « Fiche ajoutée à vos contacts. », sur la carte de son téléphone (main, autre main, puis sac). Numéro déjà connu : sa fiche est gardée."}]},
     {"type": "step", "title": "La réponse", "actor": "toi", "blocks": [
       {"type": "shot", "img": "shots/telephone/partager-accepte.webp", "alt": "Le chat de l'envoyeur : « Maelle a accepté votre numéro. »",
@@ -266,7 +266,7 @@
       {"msg": "Patientez quelques secondes avant un nouvel envoi.", "text": "3 s entre deux envois."},
       {"msg": "Aucun téléphone avec une carte SIM sur vous : la demande attend encore.", "text": "Chez celui qui accepte : prends ton téléphone et sa carte sur toi, puis clique encore sur [Accepter], dans la minute."},
       {"msg": "Carnet plein : la demande attend encore.", "text": "100 contacts par carte : supprimes-en un, puis accepte."},
-      {"msg": "Cette demande n'est plus valable.", "text": "Plus de 60 s, l'envoyeur parti ou sans sa carte active, ou la demande n'était pas pour toi."}]}
+      {"msg": "Cette demande n'est plus valable.", "text": "Plus de 60 s, déjà répondue, l'envoyeur parti ou sans sa carte active, ou la demande n'était pas pour toi."}]}
    ],
    "staff": [
     "Le serveur juge tout (`ShareService`, `ShareRules`) : la liste et l'envoi (distance, vue, carte) ; l'acceptation n'exige plus la proximité. La page ne fait que montrer.",
@@ -460,7 +460,7 @@
         {"type": "recipe", "item": "oneforallsurvival:maintenance_tool"},
         {"type": "items", "list": [
           {"item": "oneforallsurvival:maintenance_tool", "label": "Pour l'ingénieur", "text": "Sans lui, le métier ne suffit pas. Tenu dans une main : le panneau d'une antenne (sans cartes, tarif ni caisse), la casser, reposer une antenne qui porte un opérateur."},
-          {"item": "oneforallsurvival:maintenance_tool", "label": "Mairie", "text": "Le tenir aussi pour déplacer le trésor de la ville et le tableau de la mairie : les casser, puis les reposer. Un tableau neuf (`/treasury board`) reste au maire et à l'équipe. Un par pile, aucune usure."},
+          {"item": "oneforallsurvival:maintenance_tool", "label": "Mairie", "text": "Aussi pour casser puis reposer le trésor de la ville et le tableau (bloc dans une main, outil dans l'autre). Un tableau neuf (`/treasury board`) reste au maire et à l'équipe. Un par pile, aucune usure."},
           {"item": "oneforallsurvival:maintenance_tool", "label": "Avec le testeur", "text": "Le testeur en main principale garde son rapport de machine."}]}]}]},
     {"type": "numbers", "title": "À retenir", "list": [
       {"k": "Tarif", "v": "0 à 1 000 cuivres par jour"}, {"k": "Plafond de départ", "v": "20 cuivres par jour"},
