@@ -230,3 +230,25 @@ Vus rouges ensemble, avec le pack, sur l'ancienne étiquette et les anciens text
 voulus sur 1253) ; puis JUnit 1294/1294 et GameTests 1253/1253 sans puis avec le pack. Constaté en route : un
 connecteur New Age retiré dans le tic de sa pose lève une `NullPointerException` dans Create New Age (réseau pas
 encore créé) ; l'essai laisse deux tics entre pose et retrait.
+
+## Wiki du 28/11 (livraison 61bf545)
+
+Articles mis à jour d'après le code : antenne (connecteur debout, sur le dessus), ligne (SIM en créatif), appels
+(clavier, « Appuyer pour parler » et « Chuchoter », V = interface du chat vocal, lu dans le jar de Simple Voice Chat
+2.6.22 : aucune touche par défaut pour parler), le téléphone (code au clavier, ligne Face ID des Réglages), outil de
+maintenance, mairie et économie (pose du tableau par l'ingénieur outillé, nouveau refus), `/eco loot`, `/eco quests`
+et registre (libellés), interface (aube du titre avec la fenêtre de Forge, panneau Quick-Skin, Reggadium). Deux
+articles neufs : « Face ID » et « Partager son numéro », images du mode `faceid` de `TelephoneShots` (28/11).
+
+Constaté en route, non corrigé (hors wiki) :
+
+- Écran titre à 1920 × 1040, échelle 2 : le bouton « Solo » recouvre le bas de « Là où tout recommence. » (vu sur
+  `run-titre/frames-panneau-avant` et `-apres`, `panneau-1920x1040-e2.png` : antérieur au panneau Quick-Skin). À
+  1280 × 720 rien ne se chevauche.
+- Le message reçu par le destinataire d'un numéro (« … veut vous donner son numéro (…). [Accepter] [Refuser] ») n'a pas
+  d'image : le second joueur de l'essai est simulé, son chat n'est pas rendu.
+
+Captures reprises le 28/11 en Robin : `TelephoneShots` modes `faceid`, `reseau` et `appel`
+(`run/frames-wiki-faceid`, `-reseau-2811`, `-appel-2811`) et chapitre Économie de l'atelier ; Réglages et Contacts
+changés (ligne Face ID, « Partager mon numéro »). Image du panneau Quick-Skin : `run-titre/frames-panneau-apres` (passe
+du lot C, code de fedd0f2). Les demi-lignes de chat déjà connues (`minuit-preleve`) restent.

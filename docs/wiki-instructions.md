@@ -53,15 +53,17 @@ image ou son animation → états comparés → chiffres en pastilles → « Si 
 - Écris ou complète une scène dans `Scenes<Chapitre>` (préparation côté serveur, caméra, vrai clic, prise, repères
   projetés, séquences ; exemple dans `ScenesControle` et les trois chapitres). Décor d'île, objet centré.
 - Les écrans du téléphone viennent des modes de `TelephoneShots` :
-  `runClient -PwithMcef -PtelephoneShots=frames-wiki-<mode> -PtelephoneShotsMode=<mode> -PtelephoneShotsLangue=fr_fr`.
+  `runClient -PwithMcef -PtelephoneShots=frames-wiki-<mode> -PtelephoneShotsMode=<mode> -PtelephoneShotsLangue=fr_fr --args=--username=Robin`.
 - L'écran titre, le menu F3, la liste des joueurs et le chargement viennent de `runTitleFr` (dossier `run-titre`, en
   français) avec `-PtitleShots`, `-PdebugShots`, `-PtabShots` ou `-PsceneFrames`.
 - **Lancer Minecraft** uniquement par le lanceur, avec l'outil PowerShell :
-  `& ".\tools\minecraft\lancer.ps1" -Libelle "wiki, <chapitre>" -Gradle "runWikiStudio -PwikiSeul=<chapitre>[:<scène>]"`
+  `& ".\tools\minecraft\lancer.ps1" -Libelle "wiki, <chapitre>" -Gradle "runWikiStudio -PwikiSeul=<chapitre>[:<scène>] --args=--username=Robin"`
   Il tient le verrou commun (`%USERPROFILE%\.claude\lancement-minecraft.txt` et sa file `…-attente.txt`) et le coupe-circuit qui
   ferme le client s'il prend la souris ou le premier plan. Code 2 : arrête-toi, lis le journal, comprends avant de
   relancer. Un seul Minecraft à la fois, toutes sessions confondues. Jamais `run/options.txt`, Prism, F10, une page
   extérieure, un téléchargement hors Gradle, ni la JVM d'un autre projet.
+- Le joueur des captures s'appelle **Robin** : ajoute `--args=--username=Robin` à chaque commande Gradle de captures
+  (atelier et `TelephoneShots`). Sans lui, le client s'appelle « Dev » et les images ne vont plus avec les autres.
 - Un échec de scène ne change pas le code de Gradle : lis `[wiki] terminé` au journal et `captures/termine.json`.
 - Convertis : `python wiki/tools/build_visuals.py` (complète `visuels.json` d'abord ; `--partiel` si des sources
   manquent exprès). Une animation attend des images nommées `f0000.png` (renomme au besoin les `frame_00000.png`) ;
@@ -139,3 +141,4 @@ python wiki/tools/shoot_wiki.py --essai-interactif
   identiques, des pseudos d'essai ridicules, des repères posés sur des boutons.
 - Une légende d'animation qui décrit un autre geste que celui filmé : regarde la séquence, pas le script.
 - Un tuto prêt pour le soir même, écrit d'après le code seul : essaie les gestes en jeu.
+- (28/11) Des captures reprises sans `--args=--username=Robin` : le joueur y était « Dev », toutes relancées.
