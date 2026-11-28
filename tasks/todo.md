@@ -59,6 +59,14 @@ Les visuels finaux font partie de chaque lot qui ajoute un bloc ou un objet livr
 - [ ] **Lot T3 : appels, messages, urgences.** [Plan](../docs/superpowers/plans/2026-11-27-lot-t3-appels-messages.md), [vérification](../docs/verifications/lot-t3.md). Fait la nuit du 27/11 : appels, voix et haut-parleur, urgences 17 et 15, appli Téléphone et repli, vus en jeu (JUnit 1260, GameTests 1240). **Reste** : messages (96), voix à essayer avec deux clients et de vrais micros, bout en bout sur serveur dédié avec le pack ; réponses de Killian aux questions de la nuit. Wiki à jour et jars exportés (`export/2026-11-27/`) le 27/11 pour l'essai de Killian sur serveur ; développement en pause à sa demande.
 
 - [x] **Refonte visuelle du wiki** (2026-11-27, maquette validée par Killian) : [plan](../docs/superpowers/plans/2026-11-27-refonte-wiki.md), [vérification](../docs/verifications/refonte-wiki.md), fiche des agents `docs/wiki-instructions.md`. Défauts du mod vus en capturant (à décider) : connecteur sur l'antenne seulement accroupi, identifiants anglais dans `/eco loot` et `/eco quests`, motifs sans accents au registre, libellés « déplacer » le tableau.
+- [x] **Retours d'essai du 27/11** (livrés le 28/11, `61bf545`, wiki publié `381ac3e`) : clavier et voice chat
+  téléphone ouvert, SIM en créatif, Face ID, partage de numéro ([cahier](../docs/superpowers/specs/2026-11-27-telephone-retours-design.md)),
+  écran titre animé, Quick-Skin, saccade de Reggadium, défauts vus aux captures. Jar : `export/2026-11-28/`.
+- [ ] **À essayer par Killian avec ce jar** : « parler » avec sa touche, téléphone ouvert ; SIM en créatif avec un vrai
+  client ; Face ID et partage à deux ; fond animé avec la fenêtre de Forge ; panneau Reggadium réactivé.
+- [ ] **En attente de son accord** : le launcher pose `earlyWindowProvider = "lostisland"` dans `config/fml.toml`
+  (écran de chargement animé).
+- [ ] Défaut ancien : à 1920 × 1040, échelle 2, le bouton « Solo » recouvre la devise de l'écran titre.
 
 ## Idées pour plus tard
 
