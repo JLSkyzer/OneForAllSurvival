@@ -34,7 +34,7 @@
       {"type": "row", "blocks": [
         {"type": "shot", "title": "Tirer le fil", "img": "shots/telephone/fil.webp", "alt": "Une antenne reliée par un fil de cuivre à un Générateur Créatif violet, un connecteur sur chacun",
          "marks": [{"at": "connecteur-source", "text": "Un Petit Connecteur (Crafts & Additions, fait à l'établi) sur la source : il se règle seul en « Récéption » (il y prend le courant)."},
-                   {"at": "connecteur-antenne", "text": "Un second sur l'antenne, accroupi (Maj + clic droit) : debout, le clic ouvre le panneau. Il se règle seul en « Envoie »."},
+                   {"at": "connecteur-antenne", "text": "Un second sur le dessus de l'antenne, debout ou accroupi (depuis la mise à jour du 28/11 ; avant, accroupi seulement). Il se règle seul en « Envoie »."},
                    {"at": "fil", "text": "Bobine de Cuivre en main : clic droit sur un connecteur, puis sur l'autre (16 blocs au plus)."}]},
         {"type": "clip", "img": "shots/telephone/fil-pose.webp", "alt": "Animation : un connecteur sur la source, un autre sur l'antenne, le fil tiré, le voyant passe au vert", "title": "Le branchement",
          "note": "Le voyant passe au vert dès que le fil est tiré."}]},
@@ -61,7 +61,7 @@
       {"k": "Réserve", "v": "40 000 FE"},
       {"k": "Réception", "v": "4 000 FE/t"}]},
     {"type": "problems", "title": "Si ça bloque", "list": [
-      {"msg": "Le clic ouvre le panneau", "text": "Pour poser un connecteur sur l'antenne, accroupis-toi (Maj) avant le clic droit."},
+      {"msg": "Le clic ouvre le panneau", "text": "Un connecteur en main se pose sur le dessus, debout. Si le panneau s'ouvre quand même (jeu d'avant la mise à jour du 28/11), accroupis-toi (Maj) avant le clic droit."},
       {"msg": "Sans courant", "text": "Courant insuffisant (cartes en plus, alternateur trop lent), source hors du chunk, fil absent, ou connecteur mal réglé : « Récéption » côté source, « Envoie » côté antenne (clé)."},
       {"msg": "Le nom est déjà pris", "text": "Un nom d'opérateur est unique sur le serveur : choisis-en un autre."}]}
    ],
@@ -69,7 +69,8 @@
     "Essai rapide en créatif : `/give @s oneforallsurvival:antenna`, puis un Générateur Créatif (`createaddition:creative_energy`) à un bloc d'air de l'antenne, relié par deux connecteurs et un fil, ou collé contre elle. Métier d'ingénieur : `/role set <joueur> ingenieur`.",
     "Alternateur de Crafts & Additions aux réglages par défaut : 360 FE/t à 256 tr/min, proportionnel à la vitesse ; contrainte 64 SU par tr/min (chiffres lus dans le mod et sa configuration, pas mesurés sur le serveur).",
     "Constaté en jeu le 27/11 (atelier du wiki), opérateur sans carte : à 32 tr/min, l'alternateur collé tient l'antenne en marche (réserve +100 FE par seconde) ; à 16 tr/min, rien n'est arrivé (0 FE en 40 s). Dès une carte active, 32 tr/min ne suffisent plus (46 FE/t).",
-    "Constaté en jeu le 27/11 : un connecteur posé sur la source prend seul le mode « pull », un posé accroupi sur l'antenne le mode « push », sans clé. Debout, connecteur en main, le clic droit sur l'antenne ouvre le panneau et ne pose rien.",
+    "Constaté en jeu le 27/11 : un connecteur posé sur la source prend seul le mode « pull », un posé accroupi sur l'antenne le mode « push », sans clé. Debout, connecteur en main, le clic droit sur l'antenne ouvrait alors le panneau et ne posait rien.",
+    "Depuis la mise à jour du 28/11 (`AntennaBlock.use`, étiquette `oneforallsurvival:power_connectors`) : petit, grand et à lampe de Crafts & Additions, connecteur électrique de Create New Age et boîte de jonction d'Advanced Electricity n'ouvrent plus le panneau et se posent debout comme accroupi. Prouvé en GameTest sur le dessus ; pose sur un côté et courant d'un connecteur posé debout pas essayés en vrai client.",
     "Chaque antenne en service paie 6 FE/t par carte active de son opérateur, insérée ou non.",
     "Chunk gardé chargé (`antennaKeepsChunkLoaded`) ; coût serveur de nombreuses antennes non mesuré. Réglage coupé, serveur relancé puis réglage rallumé : les antennes loin des joueurs restent hors service jusqu'au passage d'un joueur.",
     "Elle s'use et tombe en panne comme les autres machines ; l'ingénieur la répare.",
@@ -140,7 +141,8 @@
     "Se donne, se vend, se vole ; la fouille par le policier viendra avec son lot.",
     "« Retirer la carte » la rend à l'inventaire (refusé s'il est plein). Changer de téléphone : retirer la carte et la glisser dans l'autre, le numéro la suit.",
     "Une copie faite avant une insertion est « non reconnue » ; de deux copies à jour, la dernière glissée prend la ligne. Jamais deux lignes.",
-    "En créatif, une carte déplacée dans l'inventaire devient morte. Carte morte, perdue ou détruite : le fondateur la rend par « Remplacer » (même numéro, l'ancienne ne vaut plus rien).",
+    "En créatif, depuis la mise à jour du 28/11 : une carte, seule ou dans un téléphone, déplacée, posée ailleurs ou jetée puis ramassée reste reconnue (le serveur lui rend le jeton qu'il a vu chez ce joueur, désigné par son empreinte `sim_mark` ; le jeton ne part jamais au client). Une copie créative reste une copie : après une insertion, une seule vaut. Avant cette mise à jour, une carte déplacée en créatif devenait morte.",
+    "Carte abîmée avant la mise à jour, perdue ou détruite : le fondateur la rend par « Remplacer » (même numéro, l'ancienne ne vaut plus rien). Le créatif est prouvé en GameTest sur le vrai paquet, pas avec un vrai client.",
     "Suspendue : plus de signal jusqu'à la réactivation. Désactivée (par le fondateur, ou opérateur supprimé) : pour toujours, plus de signal.",
     "Les autres joueurs ne voient ni le numéro, ni le titulaire, ni l'opérateur d'un téléphone ou d'une carte tenus en main ou portés par un porte-armure, ni dans le survol de leur nom dans un message (message de mort d'un tueur qui les tient renommés) : seul le porteur les voit.",
     "Limite : posés au sol, dans un cadre, dans un conteneur ouvert ou dans une machine de Create (déployeur, dépôt, tapis), téléphone et carte gardent ces données, lisibles par qui les regarde.",
@@ -155,7 +157,7 @@
    "blocks": [
     {"type": "player", "title": "Pas à pas", "hint": "Touche une étape : le cercle montre où appuyer.", "steps": [
       {"img": "shots/telephone/tel-accueil-antenne.webp", "alt": "Accueil du téléphone : Téléphone, Réglages, Antenne ; Mairie et quatre barres en haut", "label": "Ouvre « Téléphone »", "points": [{"at": "app-phone"}]},
-      {"img": "shots/telephone/tel-clavier.webp", "alt": "Clavier avec un numéro composé", "label": "Onglet « Clavier » : compose, puis le bouton vert", "points": [{"at": "dial-call"}]},
+      {"img": "shots/telephone/tel-clavier.webp", "alt": "Clavier avec un numéro composé", "label": "Onglet « Clavier » : compose aux touches ou au clavier (chiffres du haut, pavé numérique ; Retour arrière efface), puis le bouton vert ou Entrée", "points": [{"at": "dial-call"}]},
       {"img": "shots/telephone/tel-sortant.webp", "alt": "Appel en train de sonner : Zoé Hélène, Appel…", "label": "Ça sonne (30 s au plus)"},
       {"img": "shots/telephone/tel-entrant.webp", "alt": "Appel entrant chez l'autre : Refuser ou Répondre", "label": "Chez l'autre, rien ne s'ouvre : « Appel entrant — prenez votre téléphone ». Il le prend en main, clic droit, « Répondre »", "points": [{"at": "call-answer"}]},
       {"img": "shots/telephone/tel-silence.webp", "alt": "Appel en cours, Silence et Haut-parleur activés", "label": "Silence · Haut-parleur (inactifs si on a répondu écran verrouillé)", "points": [{"at": "call-mute"}, {"at": "call-speaker"}]},
@@ -164,6 +166,7 @@
       {"img": "shots/telephone/tel-raccroche.webp", "alt": "Écran Appel terminé", "label": "« Appel terminé » : l'appel est fini"}]},
     {"type": "step", "title": "Tes contacts", "blocks": [
       {"type": "text", "text": "Un contact s'ajoute par le bouton « + » de l'onglet Contacts, ou depuis le clavier par « Ajouter aux contacts ». On appelle aussi depuis les contacts et les appels récents."},
+      {"type": "text", "text": "Plus court : « Partager mon numéro », en haut des Contacts, l'envoie à un joueur près de toi.", "link": "#telephone/partager"},
       {"type": "phones", "list": [
         {"img": "shots/telephone/tel-contact-nouveau.webp", "alt": "Nouveau contact : nom Zoé Hélène et son numéro", "caption": "Nouveau contact"},
         {"img": "shots/telephone/tel-contacts.webp", "alt": "Onglet Contacts : Zoé Hélène", "caption": "Contacts"},
@@ -173,7 +176,8 @@
         {"item": "oneforallsurvival:phone", "label": "Ton téléphone"}, {"item": "oneforallsurvival:antenna", "label": "Ton antenne"},
         {"item": "oneforallsurvival:antenna", "label": "L'antenne de l'autre"}, {"item": "oneforallsurvival:phone", "label": "Son téléphone"}]},
       {"type": "text", "text": "**Silence** : ton micro ne part plus au correspondant. **Haut-parleur** : les joueurs à 8 blocs entendent ton correspondant, et lui entend ceux à moins de 16 blocs."},
-      {"type": "text", "text": "La voix de proximité n'est jamais coupée : ceux qui sont près de toi t'entendent toujours. La sonnerie s'entend à 8 blocs."}]},
+      {"type": "text", "text": "La voix de proximité n'est jamais coupée : ceux qui sont près de toi t'entendent toujours. La sonnerie s'entend à 8 blocs."},
+      {"type": "text", "text": "« Appuyer pour parler » et « Chuchoter » du chat vocal marchent téléphone ouvert (depuis la mise à jour du 28/11). Aucune touche au départ : choisis-les dans Options › Contrôles › Chat vocal."}]},
     {"type": "numbers", "title": "À retenir", "list": [
       {"k": "Sonnerie", "v": "30 s"}, {"k": "Haut-parleur, écoute", "v": "8 blocs"},
       {"k": "Haut-parleur, micro", "v": "16 blocs"}, {"k": "Compositions", "v": "10 par minute"},
@@ -183,10 +187,12 @@
       {"msg": "Injoignable", "text": "L'autre ne peut pas recevoir : absent, téléphone à plat, mode avion, ou hors de portée."},
       {"msg": "Numéro inconnu", "text": "Aucune carte ne porte ce numéro."},
       {"msg": "L'appel se coupe", "text": "Départ, mort, changement de dimension, téléphone ou carte retirés, batterie vide, plus de signal."},
-      {"msg": "On ne s'entend pas", "text": "La voix passe par Simple Voice Chat : micro réglé chez les deux joueurs (touche V par défaut)."}]}
+      {"msg": "On ne s'entend pas", "text": "La voix passe par Simple Voice Chat : micro réglé chez les deux joueurs (V ouvre son menu, ce n'est pas la touche pour parler). En « Appuyer pour parler », donne-lui d'abord une touche (Options › Contrôles › Chat vocal)."}]}
    ],
    "staff": [
     "Simple Voice Chat 2.6.22 obligatoire sur le serveur et les clients ; son port UDP (24454 par défaut) doit être ouvert.",
+    "Depuis le 28/11, téléphone ouvert, l'écran laisse au jeu « Appuyer pour parler » et « Chuchoter » (`key.push_to_talk`, `key.whisper`), à l'appui et au relâchement ; muet et menus du chat vocal ne passent pas (un menu remplacerait le téléphone). Simple Voice Chat 2.6.22 ne leur donne aucune touche par défaut, V est « Interface utilisateur du chat vocal » (lu dans le jar). Prouvé par l'événement de Forge en vrai client ; voix pas entendue.",
+    "Clavier du téléphone (depuis le 28/11) : chiffres de la rangée du haut avec ou sans Maj (AZERTY compris), pavé numérique, Retour arrière, Entrée du clavier ou du pavé ; dans un champ de texte, la saisie reste celle du champ. Prouvé en vrai client MCEF (mode `clavier`, AZERTY simulé) ; l'écran de repli suit la même règle, pas joué en jeu.",
     "La voix de proximité n'est jamais coupée. À une barre de signal, la voix grésille.",
     "La voix des appels n'a pas encore été essayée avec deux vrais micros.",
     "Sonnerie, frein et distances du haut-parleur réglables dans `oneforallsurvival-phone.toml`.",
@@ -226,6 +232,52 @@
     "Les urgences passent par n'importe quelle antenne en service, de tout opérateur."
    ]},
 
+  {"id": "partager", "title": "Partager son numéro", "group": "Les appels",
+   "lead": "Dans les Contacts, « Partager mon numéro » : un joueur près de toi reçoit ta fiche dans le chat et choisit de l'ajouter.",
+   "cover": "shots/telephone/tel-partager-liste.webp", "covers": [],
+   "chips": [{"k": "Portée", "v": "8 blocs, en vue"}, {"k": "Il faut", "v": "Une carte SIM active"}],
+   "blocks": [
+    {"type": "step", "title": "Envoyer", "actor": "toi", "blocks": [
+      {"type": "text", "text": "Téléphone › Contacts › **Partager mon numéro**, puis touche le joueur. Ton numéro part sous le nom du propriétaire du téléphone."},
+      {"type": "phones", "list": [
+        {"img": "shots/telephone/tel-partager-contacts.webp", "alt": "Onglet Contacts : la ligne Partager mon numéro en haut", "points": [{"x": 15.1, "y": 21.3}], "caption": "En haut des Contacts"},
+        {"img": "shots/telephone/tel-partager-liste.webp", "alt": "Partager mon numéro : ton numéro, Téléphone de Robin, À proximité : Maelle", "points": [{"at": "share-5"}], "caption": "Les joueurs proches : touches-en un"},
+        {"img": "shots/telephone/tel-partager-envoye.webp", "alt": "Bandeau en bas : Numéro envoyé à Maelle.", "caption": "« Numéro envoyé à Maelle. »"}]},
+      {"type": "text", "text": "Dans la liste : les joueurs à 8 blocs ou moins, en vue (aucun mur entre vous), qui portent un téléphone à eux avec une carte SIM. Ni spectateurs, ni invisibles."}]},
+    {"type": "step", "title": "Chez l'autre", "actor": "autre", "actorLabel": "Le joueur qui reçoit", "blocks": [
+      {"type": "text", "text": "Un son, et dans le chat, même téléphone rangé : « Robin veut vous donner son numéro (06 02 66 66 84). [Accepter] [Refuser] ». Il clique, même s'il s'est éloigné entre-temps."},
+      {"type": "text", "text": "Accepté : « Fiche ajoutée à vos contacts. », sur la carte de son téléphone (main, autre main, puis sac). Numéro déjà connu : sa fiche est gardée."}]},
+    {"type": "step", "title": "La réponse", "actor": "toi", "blocks": [
+      {"type": "shot", "img": "shots/telephone/partager-accepte.webp", "alt": "Le chat de l'envoyeur : « Maelle a accepté votre numéro. »",
+       "note": "Accepté, refusé ou sans réponse au bout de 60 s : tu l'apprends dans le chat."}]},
+    {"type": "step", "title": "Sans carte active", "blocks": [
+      {"type": "row", "blocks": [
+        {"type": "phones", "list": [{"img": "shots/telephone/tel-partager-sans-carte.webp", "alt": "Partager mon numéro avec une carte suspendue : « Carte SIM active requise », bandeau « Il faut une carte SIM active pour partager son numéro. »", "caption": "Carte suspendue : personne"}]},
+        {"type": "text", "text": "Carte suspendue, désactivée ou absente : la liste reste vide et rien ne part. Pour **recevoir**, une carte suspendue suffit."}]}]},
+    {"type": "numbers", "title": "À retenir", "list": [
+      {"k": "Portée", "v": "8 blocs, sans mur"}, {"k": "Pour répondre", "v": "60 s"},
+      {"k": "Entre deux envois", "v": "3 s"}, {"k": "Vers un même joueur", "v": "1 offre par minute"},
+      {"k": "Liste", "v": "16 joueurs, relue toutes les 4 s"}]},
+    {"type": "problems", "title": "Si ça bloque", "list": [
+      {"msg": "Personne à proximité", "text": "Trop loin (plus de 8 blocs), un mur entre vous, ou il ne porte pas de téléphone à lui avec une carte SIM."},
+      {"msg": "Ce joueur n'est plus à portée.", "text": "Entre la liste et ton toucher, il s'est éloigné, un mur s'est mis entre vous, ou il n'a plus de téléphone avec une carte."},
+      {"msg": "Une demande attend déjà la réponse de Maelle.", "text": "Il n'a pas encore répondu à ta demande précédente."},
+      {"msg": "Vous avez proposé votre numéro à Maelle il y a moins d'une minute.", "text": "Une offre par minute vers un même joueur, même s'il a déjà répondu."},
+      {"msg": "Patientez quelques secondes avant un nouvel envoi.", "text": "3 s entre deux envois."},
+      {"msg": "Aucun téléphone avec une carte SIM sur vous : la demande attend encore.", "text": "Chez celui qui accepte : prends ton téléphone et sa carte sur toi, puis clique encore sur [Accepter], dans la minute."},
+      {"msg": "Carnet plein : la demande attend encore.", "text": "100 contacts par carte : supprimes-en un, puis accepte."},
+      {"msg": "Cette demande n'est plus valable.", "text": "Plus de 60 s, l'envoyeur parti ou sans sa carte active, ou la demande n'était pas pour toi."}]}
+   ],
+   "staff": [
+    "Le serveur juge tout (`ShareService`, `ShareRules`) : la liste et l'envoi (distance, vue, carte) ; l'acceptation n'exige plus la proximité. La page ne fait que montrer.",
+    "« Son téléphone », pour la liste comme pour recevoir : enregistré au nom de ce joueur, ou sans propriétaire ; main principale, seconde main, puis sac, parmi ceux-là seulement. Celui d'un autre ne reçoit rien et ne dit rien de son carnet.",
+    "Envoyer : carte active dans le téléphone ouvert, déverrouillé. Liste et réception : carte active ou suspendue. La fiche porte le nom du propriétaire du téléphone de l'envoyeur.",
+    "Une demande tombe après 60 s (jugées à la réponse aussi), au départ de l'un des deux, ou si l'envoyeur n'a plus sa carte (sans mot). Une seule en attente par sens entre deux joueurs ; le destinataire ne reçoit pas de nouvelle offre du même envoyeur avant la fin des 60 s de la précédente, quoi qu'elle soit devenue. 1 024 demandes au plus sur le serveur.",
+    "Les liens du chat passent par `/phoneshare accept|decline <n°>`, ouverte à tous mais qui ne sert qu'au destinataire (« Cette demande n'est plus valable. » pour les autres).",
+    "Sans MCEF (écran de repli) : pas de bouton d'envoi, on reçoit quand même. Serveur et client au même jar (mise à jour du 28/11).",
+    "Essai réel le 28/11 (`TelephoneShots`, mode `faceid`) avec un second joueur simulé : son, chat et clic du destinataire non vus en vrai client ; serveur dédié pas essayé. Pas d'image du message reçu."
+   ]},
+
   {"id": "telephone", "title": "Le téléphone", "group": "Le téléphone",
    "lead": "Fabriquer, allumer la première fois, le code à 4 chiffres et les Réglages.",
    "cover": "shots/telephone/couv-telephone.webp", "covers": ["telephone", "code-telephone", "reglages"],
@@ -243,6 +295,7 @@
         {"img": "shots/telephone/tel-accueil.webp", "alt": "L'accueil : horloge, batterie, Téléphone, Réglages"}]}]},
     {"type": "step", "title": "Le code", "blocks": [
       {"type": "text", "text": "À chaque ouverture, l'écran verrouillé demande le code. Cinq faux codes de suite : téléphone bloqué 60 secondes, avec un décompte."},
+      {"type": "text", "text": "Le code se tape aussi au clavier : chiffres du haut (avec ou sans Maj) ou pavé numérique ; Retour arrière efface. Pour ne plus le taper : Face ID.", "link": "#telephone/faceid"},
       {"type": "phones", "list": [
         {"img": "shots/telephone/tel-verrouille.webp", "alt": "Écran verrouillé : Saisissez le code", "caption": "Verrouillé : tape tes 4 chiffres"},
         {"img": "shots/telephone/tel-essais.webp", "alt": "Écran verrouillé : Essais restants 1", "caption": "Faux code : il compte les essais restants"},
@@ -250,13 +303,14 @@
       {"type": "text", "text": "Seul le propriétaire change le code ou efface le téléphone, en donnant le code actuel. Effacé, il redemande un code : qui le choisit devient le nouveau propriétaire."}]},
     {"type": "step", "title": "Les Réglages", "blocks": [
       {"type": "row", "blocks": [
-        {"type": "phones", "list": [{"img": "shots/telephone/tel-reglages.webp", "alt": "Réglages : Carte SIM, Mode avion, Opérateur, Abonnement, Code, Batterie, Fond d'écran",
+        {"type": "phones", "list": [{"img": "shots/telephone/tel-reglages.webp", "alt": "Réglages : Carte SIM, Mode avion, Opérateur, Abonnement, Code, Face ID, Batterie, Fond d'écran",
           "points": [{"at": "row-sim"}], "caption": "Les Réglages"}]},
         {"type": "items", "list": [
           {"item": "oneforallsurvival:sim_card", "label": "Carte SIM", "text": "La voir, en glisser une, la retirer ou en demander une."},
           {"item": "oneforallsurvival:antenna", "label": "Opérateur et signal", "text": "Le nom de l'opérateur et 0 à 4 barres, ou « Pas de SIM », « SIM inconnue », « SIM suspendue », « SIM inactive », « Pas de service »."},
           {"item": "oneforallsurvival:phone", "label": "Mode avion", "text": "Plus de réseau : aucune barre, aucune demande de carte, appli « Antenne » grisée. « Mode avion » s'affiche en haut."},
-          {"item": "oneforallsurvival:phone", "label": "Code, fond, batterie", "text": "Changer le code (propriétaire), verrouiller tout de suite, choisir aube, lagon, jungle ou nuit, lire la batterie et le propriétaire, effacer."}]}]},
+          {"item": "oneforallsurvival:phone", "label": "Code, fond, batterie", "text": "Changer le code (propriétaire), verrouiller tout de suite, choisir aube, lagon, jungle ou nuit, lire la batterie et le propriétaire, effacer."},
+          {"item": "oneforallsurvival:phone", "label": "Face ID", "text": "Le propriétaire ouvre son téléphone sans code, tête nue. Voir « Face ID »."}]}]},
       {"type": "text", "text": "L'accueil montre « Téléphone », « Réglages » et, chez un fondateur, « Antenne ». L'abonnement s'affichera au lot T6."}]},
     {"type": "numbers", "title": "À retenir", "list": [
       {"k": "Code", "v": "4 chiffres", "item": "oneforallsurvival:phone"},
@@ -278,6 +332,44 @@
     "Seul le propriétaire, téléphone déverrouillé, change de carte ou en demande une ; un autre joueur qui connaît le code voit la ligne sans pouvoir la toucher.",
     "Écran verrouillé : opérateur et barres visibles, jamais le numéro ni le titulaire, ni la mention « Mode avion ». La ligne Abonnement affiche « Prélèvement à venir » jusqu'au lot T6.",
     "Mode avion et fond d'écran sont gardés par le serveur avec le téléphone."
+   ]},
+
+  {"id": "faceid", "title": "Face ID", "group": "Le téléphone",
+   "lead": "Tête nue, ton téléphone s'ouvre déjà déverrouillé : plus de code à taper. Seul son propriétaire en profite.",
+   "cover": "shots/telephone/tel-faceid-anim.webp", "covers": [],
+   "chips": [{"k": "Pour", "v": "Le propriétaire"}, {"k": "L'activer", "v": "Avec le code"}],
+   "blocks": [
+    {"type": "step", "title": "L'activer", "actor": "toi", "blocks": [
+      {"type": "text", "text": "Réglages › **Face ID** : touche l'interrupteur, puis tape ton code. Le couper ne demande rien."},
+      {"type": "phones", "list": [
+        {"img": "shots/telephone/tel-reglages.webp", "alt": "Réglages : la ligne Face ID sous Code, interrupteur coupé", "points": [{"at": "row-faceid"}], "caption": "Réglages › Face ID"},
+        {"img": "shots/telephone/tel-faceid-code.webp", "alt": "Feuille Face ID : Saisissez le code, « Le code est demandé pour activer Face ID », le pavé", "caption": "Ton code, pour l'activer"},
+        {"img": "shots/telephone/tel-faceid-active.webp", "alt": "Réglages : Face ID allumé, bandeau « Face ID activé » en haut", "points": [{"at": "row-faceid"}], "caption": "« Face ID activé »"}]}]},
+    {"type": "step", "title": "Ouvrir, tête nue", "actor": "toi", "blocks": [
+      {"type": "text", "text": "Clic droit téléphone en main, **rien sur la tête** (la case du casque vide) : l'écran verrouillé montre Face ID, puis l'accueil s'ouvre."},
+      {"type": "phones", "list": [
+        {"img": "shots/telephone/tel-faceid-anim.webp", "alt": "Écran verrouillé : l'icône Face ID et le mot Face ID sous l'heure", "caption": "Face ID te reconnaît"},
+        {"img": "shots/telephone/tel-faceid-accueil.webp", "alt": "L'accueil : horloge, batterie, Téléphone, Réglages, Antenne", "caption": "Ouvert, sans code"}]}]},
+    {"type": "step", "title": "Tête couverte", "blocks": [
+      {"type": "row", "blocks": [
+        {"type": "phones", "list": [{"img": "shots/telephone/tel-faceid-refuse.webp", "alt": "Écran verrouillé : Saisissez le code, « Visage non reconnu » sous les points, le pavé", "caption": "« Visage non reconnu »"}]},
+        {"type": "text", "text": "Un casque, une citrouille ou tout objet dans la case du casque : le pavé s'affiche avec « Visage non reconnu ». Ton code marche comme d'habitude."}]}]},
+    {"type": "numbers", "title": "À retenir", "list": [
+      {"k": "Au départ", "v": "Coupé", "item": "oneforallsurvival:phone"},
+      {"k": "Pour l'activer", "v": "Le code du téléphone"},
+      {"k": "Qui en profite", "v": "Le propriétaire seul"}]},
+    {"type": "problems", "title": "Si ça bloque", "list": [
+      {"msg": "Visage non reconnu", "text": "Quelque chose est dans ta case du casque : enlève-le, referme le téléphone et rouvre-le, ou tape ton code."},
+      {"msg": "Saisissez le code", "text": "Face ID ne joue pas : coupé, pas ton téléphone, attente après des faux codes, ou tu as touché « Verrouiller » sans refermer le téléphone."},
+      {"msg": "Seul le propriétaire peut régler Face ID", "text": "L'interrupteur n'obéit qu'au propriétaire du téléphone."}]}
+   ],
+   "staff": [
+    "Le serveur seul décide, à l'ouverture seulement (`FaceId.atOpen`, `PhoneService.open`) : Face ID actif, un code posé, ouvert par le propriétaire, case de tête de Minecraft vide, aucune attente après des codes faux en cours. Rallumer l'écran après « Verrouiller » n'est pas une ouverture.",
+    "Un autre joueur n'en profite jamais, même téléphone braqué sur le propriétaire, et n'apprend pas que Face ID est actif : l'écran verrouillé n'en dit rien.",
+    "Tête couverte : la case de tête de Minecraft seulement ; un objet porté par Curios ou la coiffe d'un autre mod ne comptent pas (pas essayé avec un tel mod).",
+    "Un faux code tapé pour l'activer compte dans les essais, et peut bloquer le téléphone. Effacer le téléphone ou `/phone reset` l'oublient (le nouveau propriétaire le retrouve coupé).",
+    "Écran de repli (sans MCEF) : il montre l'ouverture par le visage et « Visage non reconnu », sans interrupteur (pas joué en vrai client).",
+    "Depuis la mise à jour du 28/11 (serveur et client au même jar). Essai réel le 28/11 (`TelephoneShots`, mode `faceid`, téléphone chargé à 100 %) : images de cet article."
    ]},
 
   {"id": "batterie", "title": "Batterie et prise murale", "group": "Le téléphone",
@@ -368,7 +460,7 @@
         {"type": "recipe", "item": "oneforallsurvival:maintenance_tool"},
         {"type": "items", "list": [
           {"item": "oneforallsurvival:maintenance_tool", "label": "Pour l'ingénieur", "text": "Sans lui, le métier ne suffit pas. Tenu dans une main : le panneau d'une antenne (sans cartes, tarif ni caisse), la casser, reposer une antenne qui porte un opérateur."},
-          {"item": "oneforallsurvival:maintenance_tool", "label": "Mairie", "text": "Le tenir aussi pour déplacer le trésor de la ville (le casser, puis le reposer) et pour casser le tableau de la mairie, que seuls le maire et l'équipe reposent. Un par pile, aucune usure."},
+          {"item": "oneforallsurvival:maintenance_tool", "label": "Mairie", "text": "Le tenir aussi pour déplacer le trésor de la ville et le tableau de la mairie : les casser, puis les reposer. Un tableau neuf (`/treasury board`) reste au maire et à l'équipe. Un par pile, aucune usure."},
           {"item": "oneforallsurvival:maintenance_tool", "label": "Avec le testeur", "text": "Le testeur en main principale garde son rapport de machine."}]}]}]},
     {"type": "numbers", "title": "À retenir", "list": [
       {"k": "Tarif", "v": "0 à 1 000 cuivres par jour"}, {"k": "Plafond de départ", "v": "20 cuivres par jour"},

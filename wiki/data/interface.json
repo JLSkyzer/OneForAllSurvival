@@ -118,6 +118,7 @@
       ],
       "staff": [
         "fml.toml : earlyWindowProvider = \"lostisland\". Ne jamais écrire fml.toml avec un BOM.",
+        "Sans cette ligne (fenêtre de chargement de Forge), pas de récit au chargement ; depuis la mise à jour du 28/11, l'écran titre crée quand même son aube animée si le jar de service est présent (fond de repli le temps des textures, puis fondu). Essayé dans run-titre-forge (fmlearlywindow), pas avec earlyWindowControl = true ni le jar de production.",
         "Sans jar ni réglage : écran de Forge, sans plantage. Jar absent mais demandé : aucune fenêtre anticipée.",
         "Étapes de la barre : Forge démarre, mods, textures, bienvenue. Récit : chute de nuit sous la pluie, impact, feux, lever du jour.",
         "Images : un vrai démarrage en développement (run-titre, -PsceneFrames), 1280 × 720 ; le chargement y finit en 17 s, d'où le récit accéléré."
@@ -166,6 +167,25 @@
         },
         {
           "type": "text",
+          "text": "Même si ton jeu montre la fenêtre de chargement de Forge au lieu du récit, l'aube reste animée derrière le titre (depuis la mise à jour du 28/11)."
+        },
+        {
+          "type": "row",
+          "blocks": [
+            {
+              "type": "shot",
+              "img": "shots/interface/titre-skin.webp",
+              "alt": "À droite de l'écran titre : l'aperçu 3D du personnage, deux petits boutons dessous et le bouton « Changer de skin »",
+              "title": "Ton personnage, à droite"
+            },
+            {
+              "type": "text",
+              "text": "Le mod Quick-Skin du pack ajoute l'aperçu de ton personnage et « Changer de skin » : ils se rangent ensemble à droite, sans rien cacher du titre."
+            }
+          ]
+        },
+        {
+          "type": "text",
           "text": "Serveur en maintenance (dit par le site) : « Rejoindre l'île » est grisé et son info-bulle donne le message du site. Aucune adresse connue : grisé, « Serveur bientôt disponible »."
         },
         {
@@ -190,7 +210,9 @@
         "Maintenance sur le site : bouton grisé, infobulle = message du site (vue en direct, jamais gardée).",
         "Aucune adresse connue : bouton grisé, « Serveur bientôt disponible ».",
         "Pas de Multijoueur ; Create passe par Mods → Config.",
-        "Connexion refusée : écran d'erreur habituel de Minecraft. Image : run-titre (-PtitleShots), 1280 × 720, adresse connue."
+        "Connexion refusée : écran d'erreur habituel de Minecraft. Image : run-titre (-PtitleShots), 1280 × 720, adresse connue.",
+        "Quick-Skin 4.1.0 (mise à jour du 28/11) : bouton, aperçu 3D, rotation et liste d'animations déplacés d'un bloc à droite (TitleLayout.panel) ; les boutons des autres mods restent dans la rangée du bas ; sans Quick-Skin, rien ne change. Image : run-titre (-PwithQuickSkin -PtitleShotsMode=panneau, copie du jar du pack aux noms traduits), 1280 × 720 ; bouton « Changer de skin » pas cliqué en essai, mode compact, Essential et FancyMenu pas essayés.",
+        "Reggadium 1.3-beta (mise à jour du 28/11) : son panneau mesurait la charge du processeur sur le fil de rendu (70 à 96 ms deux fois par seconde) ; un mixin la mesure à part. Mesuré en jeu, 30 s panneau actif, une passe de chaque côté : images de plus de 50 ms 60 → 0. Les micro-saccades signalées venaient de ce panneau (enregistrement JFR), pas du launcher ni des arguments Java."
       ]
     },
     {

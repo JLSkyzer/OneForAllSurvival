@@ -1223,7 +1223,7 @@
             },
             {
               "type": "text",
-              "text": "Le maire et l'équipe en reçoivent un par `/treasury board` (un seul tant qu'on en porte un) ; il tient sur ses pieds et demande 3 places de large sur 2 de haut, libres face à soi."
+              "text": "Le maire et l'équipe en reçoivent un par `/treasury board` (un seul tant qu'on en porte un) ; il tient sur ses pieds et demande 3 places de large sur 2 de haut, libres face à soi. L'ingénieur outillé le déplace."
             }
           ]
         },
@@ -1315,7 +1315,7 @@
         "En créatif, casser le trésor exige d'être accroupi, pour tout le monde ; reposer un trésor neuf de l'onglet reprend le trésor unique.",
         "Sans emplacement (bloc retiré), la taxe et les salaires continuent ; seule l'ouverture est impossible. Un bloc posé par /setblock hors de l'emplacement noté n'ouvre rien et, cassé, ne lâche rien.",
         "Insensible aux explosions, au Wither, au dragon et aux pistons. Le déplacer (casser, aucun outil exigé) : maire, équipe, ou ingénieur qui tient son outil de maintenance (lot T2) ; il lâche son bloc en survie, rien en créatif.",
-        "Crochetage par le policier : lot du policier. Tableau de la mairie : posé par le maire ou l'équipe ; un ingénieur outillé peut le casser, mais pas le reposer (TownBlockRules.mayPlaceBoard) ; /treasury board en donne un."
+        "Crochetage par le policier : lot du policier. Tableau de la mairie : posé par le maire, l'équipe ou, depuis la mise à jour du 28/11, l'ingénieur outillé, qui le casse et le repose (TownBlockRules.mayPlaceBoard ; avant, il le cassait sans pouvoir le reposer) ; /treasury board en donne un au maire ou à l'équipe seulement."
       ]
     },
     {
@@ -2013,7 +2013,7 @@
       "staff": [
         "La table est un fichier de données : data/oneforallsurvival/economy/mob_coins.json (paliers, tirages {coin, chance, min, max}, règles par identifiant ou #tag, palier par catégorie). L'équipe la remplace par un datapack du monde puis /reload ; un fichier invalide garde la table précédente et l'erreur est au journal.",
         "Un mob d'un autre mod suit sa catégorie (monstre : courant ; créature : animal sauvage) ; l'équipe le classe autrement dans la table.",
-        "/eco loot (niveau 2) : total créé par le butin, nombre de morts payantes, total par palier, les 10 joueurs qui ont le plus gagné ; lancée par un joueur, elle ajoute ce qu'il a gagné sur l'heure glissante. La ligne « Butin des créatures » de /eco stats donne le même total.",
+        "/eco loot (niveau 2) : total créé par le butin, nombre de morts payantes, total par palier, les 10 joueurs qui ont le plus gagné ; lancée par un joueur, elle ajoute ce qu'il a gagné sur l'heure glissante. La ligne « Butin des créatures » de /eco stats donne le même total. Depuis la mise à jour du 28/11, les paliers s'y lisent en clair (Monstres courants, Monstres dangereux, Boss, Animaux sauvages) ; un palier ajouté par un datapack sans libellé garde son identifiant.",
         "Config : mobLootJournalThreshold (100 : un butin d'au moins 100 cuivres a sa ligne au registre /eco ledger ; 0 = chaque butin), raidLootCap (100), bossLootPerDay (1), mobLootHourlyCap (200 ; 0 = aucun plafond).",
         "Rien ne paie sans vrai joueur : déployeur de Create et faux joueurs des mods, joueur absent de la liste des joueurs, lave, cactus, roue de broyage. doMobLoot à faux : aucun butin.",
         "Admis par la règle « tué par un joueur » (de Minecraft) : un loup apprivoisé qui tue paie son maître, les épines d'une armure paient le joueur, une ferme qui achève dans les 5 s un mob frappé par un joueur paie ce joueur. À surveiller avec /eco loot.",
@@ -2165,7 +2165,7 @@
         "Les modèles sont un fichier de données : data/oneforallsurvival/economy/quests.json (catégorie, cible par identifiant ou #tag, quantité min et max, récompense, poids et poids par rôle, facteur hebdomadaire, mod requis). Récompense = récompense du modèle × quantité ÷ minimum. L'équipe le remplace par un datapack du monde puis /reload ; un modèle dont la cible n'existe pas est écarté (avertissement au journal).",
         "Au plafond, QuestService.claim paie min(récompense, reste) puis marque la quête réclamée : le surplus est perdu (QuestClaimGameTests.lePlafondReduitPuisArrete) ; « Réclamer l'attente » de même.",
         "/eco quest template add|remove|list : modèles de l'équipe ajoutés en jeu (mêmes contrôles que le fichier) ; /eco quest event start|stop|list : quête d'événement pour tous, sur une durée en jours, titre libre ; /eco quest show <joueur> : le carnet d'un joueur. Une cible s'écrit entre guillemets (\"minecraft:stone\", \"#minecraft:logs\", \"*\").",
-        "/eco quests (niveau 2) : total créé par les quêtes, nombre de réclamations, les 10 joueurs et les 10 modèles qui ont le plus rapporté, événements en cours, modèles en service. La ligne « Quêtes » de /eco stats donne le même total.",
+        "/eco quests (niveau 2) : total créé par les quêtes, nombre de réclamations, les 10 joueurs et les 10 modèles qui ont le plus rapporté, événements en cours, modèles en service. La ligne « Quêtes » de /eco stats donne le même total. Depuis la mise à jour du 28/11, les modèles livrés s'y nomment par leur libellé (« Casser de la pierre », « Éliminer des zombies »…) ; un modèle sans libellé (datapack, modèle de l'équipe, événement « event:… ») garde son identifiant.",
         "Garde-fous : bloc posé par un joueur marqué dans son chunk (piston, bloc qui tombe, contraptions, rouleau, rails, tuyaux et Schematicannon de Create compris) ; pose annulée si le même joueur casse le bloc dans la minute, avant d'avoir réclamé (un autre joueur, une perceuse ou une explosion ne retirent rien) ; cuisine et conserve : seule compte une sortie née d'ingrédients mis par le joueur (four, fumoir, séchoir, marmite, Cooking Pot), récipients et combustible ne créditent rien, ce qui sort sans le joueur (trémie, entonnoir, JEI) emporte d'abord le non crédité ; faux joueurs, spectateur et créatif exclus ; seul un mob sauvage compte au combat. Un chunk à 4 096 marques ne compte plus aucune casse.",
         "Bûches d'un arbre qui pousse : non marquées (ressource du monde), bornées par le plafond.",
         "Config : questDailyCount (3), questWeeklyCount (5), questWeeklyFactor (5), questResetHour (6), questRerollsPerDay (1), questWeeklyCap (1 000), questPendingMax (8), questJournalThreshold (100 : une réclamation d'au moins 100 cuivres a sa ligne au registre), questPlaceUndoSeconds (60), questPlacedMarksPerChunk (4 096).",
@@ -2274,7 +2274,7 @@
             {
               "type": "shot",
               "img": "shots/economie/equipe-registre.webp",
-              "alt": "Les dernières lignes de la page 1 de /eco ledger : salaires versés, sommes de départ, création au trésor, dépense publique"
+              "alt": "Les dernières lignes de la page 1 de /eco ledger : une facture publique prélevée sur les pièces portées, salaires versés, sommes de départ, création au trésor, dépense publique"
             },
             {
               "type": "text",
@@ -2298,8 +2298,19 @@
           ]
         },
         {
-          "type": "text",
-          "text": "`/eco loot` et `/eco quests` : le butin des mobs et les récompenses de quêtes (totaux, meilleurs joueurs et modèles) ; voir ces articles."
+          "type": "step",
+          "title": "Le butin et les quêtes",
+          "blocks": [
+            {
+              "type": "shot",
+              "img": "shots/economie/equipe-butin-quetes.webp",
+              "alt": "Le chat après /eco loot et /eco quests : par palier « Monstres courants : 7 cuivres », les meilleurs joueurs, le modèle « Éliminer des zombies », 22 modèles en service"
+            },
+            {
+              "type": "text",
+              "text": "`/eco loot` et `/eco quests` : le butin des mobs et les récompenses de quêtes (totaux, meilleurs joueurs et modèles), paliers et modèles nommés en clair ; voir ces articles."
+            }
+          ]
         },
         {
           "type": "numbers",
@@ -2314,7 +2325,8 @@
       "staff": [
         "Masse en circulation : total créé moins total détruit.",
         "Un total par genre de transfert (échanges, ventes, taxe, rachats, factures, retraits et dépôts de l'équipe), le solde du trésor et la masse en attente ; « Salaires dus » (E3), « Butin des créatures » et /eco loot (E4), « Quêtes » et /eco quests (E5), « Factures publiques dues », « Prélèvements refusés », « Caisses des postes d'électricité », « Électricité » et /eco power (E6).",
-        "Inventaires, bourses et étals ne sont pas comptés un à un."
+        "Inventaires, bourses et étals ne sont pas comptés un à un.",
+        "Depuis la mise à jour du 28/11, les motifs du registre sont accentués (« somme de départ », « trésor : … », « étal de … ») et une facture publique s'y lit « facture publique <n° court> (<motif>) de <débiteur> : <issue> » (prélevée sur les pièces portées, en attente, au coffre-fort, sur plusieurs réserves, payée avec l'objet facture, ou prélèvement refusé). Les lignes écrites avant restent telles quelles."
       ]
     }
   ],

@@ -55,7 +55,7 @@
       "lead": "Le maire ouvre le trésor, dépense avec un motif noté au registre, et pose le tableau qui montre à tous le solde de la ville.",
       "cover": "shots/economie/tresor-hero.webp",
       "covers": ["tresor-depenses", "tableau-de-la-mairie", "deplacer-blocs-mairie"],
-      "chips": [{"k": "Ouvre", "v": "Maire, équipe"}, {"k": "Lit le tableau", "v": "Tous"}, {"k": "Déplace", "v": "Maire, équipe"}],
+      "chips": [{"k": "Ouvre", "v": "Maire, équipe"}, {"k": "Lit le tableau", "v": "Tous"}, {"k": "Déplace", "v": "Maire, équipe, ingénieur outillé"}],
       "blocks": [
         {"type": "step", "title": "Dépenser, avec un motif", "actor": "toi", "actorLabel": "Le maire", "blocks": [
           {"type": "shot", "img": "shots/economie/tresor-motif.webp", "alt": "La fenêtre « Motif de la dépense » : « Retirer 1 or du trésor », motif « Lanternes de la place », Confirmer et Annuler"},
@@ -71,13 +71,13 @@
         ]},
         {"type": "step", "title": "Déplacer le trésor ou le tableau", "blocks": [
           {"type": "shot", "img": "shots/maire/mairie.webp", "alt": "Le trésor et le tableau de la mairie contre le mur de la mairie, Maelle à côté"},
-          {"type": "text", "text": "Le maire ou l'équipe le cassent puis le reposent ailleurs ; le trésor garde contenu et registre. Un ingénieur, outil de maintenance en main, casse les deux mais ne repose que le trésor. En créatif, accroupi."}
+          {"type": "text", "text": "Le maire ou l'équipe le cassent puis le reposent ailleurs ; le trésor garde contenu et registre. Un ingénieur, outil de maintenance en main, les déplace aussi (le tableau depuis le 28/11). En créatif, accroupi."}
         ]},
         {"type": "text", "text": "Le détail (écran, change, registre, salaires) est dans l'Économie.", "link": "#economie/tresor"},
         {"type": "numbers", "list": [{"k": "Trésors", "v": "un seul"}, {"k": "Motif d'une dépense", "v": "80 caractères"}, {"k": "Tableau", "v": "3 × 2 blocs"}]},
         {"type": "problems", "list": [
-          {"msg": "Seuls le maire et l'équipe posent un tableau de la mairie", "text": "Pose refusée à tout autre joueur."},
-          {"msg": "Seuls le maire, l'équipe et un ingénieur déplacent le tableau de la mairie", "text": "Refus de casse. L'ingénieur doit tenir son outil de maintenance ; il casse le tableau, mais seuls le maire et l'équipe le reposent."},
+          {"msg": "Seuls le maire, l'équipe et un ingénieur muni de l'outil de maintenance posent un tableau de la mairie", "text": "Pose refusée à tout autre joueur, et à l'ingénieur sans son outil en main."},
+          {"msg": "Seuls le maire, l'équipe et un ingénieur déplacent le tableau de la mairie", "text": "Refus de casse. L'ingénieur doit tenir son outil de maintenance ; il casse le tableau puis le repose ailleurs."},
           {"msg": "Pas assez de place : le tableau fait 3 blocs de large et 2 de haut, face à vous", "text": "Libère la place devant toi."},
           {"msg": "En créatif, accroupissez-vous pour casser ce bloc", "text": "Pour tout le monde, contre l'accident.", "link": "#economie/tresor"}
         ]}
@@ -86,7 +86,7 @@
         "Entrées : taxes, factures publiques, dépôts, injection de l'équipe (/eco treasury give). Amendes et impôt : lots du policier et du maire.",
         "Un détournement reste possible, mais il se voit : chaque retrait est noté avec son motif et son auteur. Prévu : l'alerte de l'équipe au-delà d'un seuil réglable.",
         "Tableau : vient de l'économie (feature 73) ; il n'affiche pas encore le registre public ni les annonces (prévus, lot M1 et M4). Il se déplace comme le trésor.",
-        "Déplacer : le trésor, maire, équipe ou ingénieur avec son outil de maintenance (lot T2), qui ne le repose que s'il n'existe plus ; le tableau, l'ingénieur outillé le casse mais ne le pose pas (TownBlockRules.mayPlaceBoard : maire, équipe). Piège créatif : casser accroupi, sans rien lâcher ; reposer depuis l'onglet créatif. Même règle que pour le trésor (économie, feature 73).",
+        "Déplacer : le trésor, maire, équipe ou ingénieur avec son outil de maintenance (lot T2), qui ne le repose que s'il n'existe plus ; le tableau, l'ingénieur outillé le casse et, depuis la mise à jour du 28/11, le repose (TownBlockRules.mayPlaceBoard : maire, équipe, ingénieur outillé ; avant : maire et équipe seulement). Un tableau neuf (/treasury board) reste au maire et à l'équipe (mayGiveBoard). Piège créatif : casser accroupi, sans rien lâcher ; reposer depuis l'onglet créatif. Même règle que pour le trésor (économie, feature 73).",
         "Images : celles de l'Économie (Robin maire, trésor et tableau posés à la mairie de l'atelier)."
       ]
     },
