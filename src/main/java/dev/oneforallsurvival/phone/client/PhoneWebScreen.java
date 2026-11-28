@@ -59,6 +59,8 @@ public final class PhoneWebScreen extends WebScreen implements PhoneClient.Shown
     private static final String DEFAULT_PAGE = "phone/index.html";
 
     private PhoneStatePacket state;
+    /** L'issue de l'ouverture (Face ID), due à la page : tout état montré passe par elle. */
+    private final OpeningOutcome opening;
     /** L'heure locale ({@code System.currentTimeMillis()}) à la réception de {@link #state}, pour l'heure du serveur. */
     private long stateAt = System.currentTimeMillis();
     /** Lot T3 : le dernier état d'appel reçu (nul avant le premier). */
@@ -80,6 +82,7 @@ public final class PhoneWebScreen extends WebScreen implements PhoneClient.Shown
     private PhoneWebScreen(PhoneStatePacket state, Bridge bridge) {
         super(Component.translatable("item.oneforallsurvival.phone"), page(), bridge);
         this.state = state;
+        this.opening = new OpeningOutcome(state);
         bridge.screen = this;
     }
 
@@ -311,7 +314,8 @@ public final class PhoneWebScreen extends WebScreen implements PhoneClient.Shown
     protected void onFallback(WebFailure failure) {
         toFallback = true;
         WebFallbackNotice.warnOnce(failure);
-        minecraft.setScreen(new PhoneFallbackScreen(state));
+        // Une page tombée avant d'être prête n'a pas montré l'issue de l'ouverture : le repli la reçoit.
+        minecraft.setScreen(new PhoneFallbackScreen(opening.toShow(state)));
     }
 
     @Override
@@ -324,7 +328,7 @@ public final class PhoneWebScreen extends WebScreen implements PhoneClient.Shown
     }
 
     private void render() {
-        run(WebScript.call("phone.render", PhoneViewJson.toJson(state)));
+        run(WebScript.call("phone.render", PhoneViewJson.toJson(opening.toShow(state))));
     }
 
     private void onPageMessage(JsonObject message) {

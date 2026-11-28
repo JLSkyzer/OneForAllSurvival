@@ -66,6 +66,12 @@ public record PhoneStatePacket(int session, Kind kind, Lock lock, int battery, l
                 attemptsLeft, lockoutSeconds, last, reason, net, false);
     }
 
+    /** Le même état, avec l'issue {@code result}. */
+    public PhoneStatePacket withLast(Result result) {
+        return new PhoneStatePacket(session, kind, lock, battery, serverMillis, zoneOffsetSeconds, wallpaper, airplane,
+                owner, ownerName, attemptsLeft, lockoutSeconds, result, reason, net, faceId);
+    }
+
     // ---------------------------------------------------------------------------------------------
     // Réseau
     // ---------------------------------------------------------------------------------------------
