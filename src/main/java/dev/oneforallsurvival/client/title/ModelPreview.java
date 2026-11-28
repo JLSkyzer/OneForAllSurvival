@@ -32,7 +32,7 @@ final class ModelPreview {
             int feetY = (Integer) m[1].invoke(widget);
             float scale = (Float) m[2].invoke(widget);
             return Optional.of(TitleLayout.modelFootprint(centerX, feetY, scale));
-        } catch (ReflectiveOperationException | RuntimeException e) {
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
             METHODS.put(widget.getClass(), new Method[0]);
             LOGGER.warn("Écran titre : aperçu du joueur de {} illisible, son rectangle de widget compte à la place",
                     widget.getClass().getName(), e);
@@ -48,8 +48,9 @@ final class ModelPreview {
             if (cx.getReturnType() == int.class && feet.getReturnType() == int.class && scale.getReturnType() == float.class) {
                 return new Method[] {cx, feet, scale};
             }
-        } catch (NoSuchMethodException | SecurityException e) {
-            // pas un aperçu du joueur
+        } catch (NoSuchMethodException | SecurityException | LinkageError e) {
+            // pas un aperçu du joueur ; LinkageError : getMethod résout toutes les signatures de la classe, une
+            // autre version du mod peut y nommer une classe absente, et l'écran titre ne doit pas en tomber
         }
         return new Method[0];
     }
