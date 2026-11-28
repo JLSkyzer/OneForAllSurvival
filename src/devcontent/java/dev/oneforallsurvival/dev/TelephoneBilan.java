@@ -108,9 +108,10 @@ final class TelephoneBilan {
                     "bilan-du-pont");
             case "faceid" -> List.of("faceid-correspondant", "faceid-lignes", "faceid-deverrouillage",
                     "faceid-reglages", "faceid-interrupteur", "faceid-code", "faceid-relu-au-serveur",
-                    "faceid-ouverture-visage", "faceid-accueil", "faceid-casque", "faceid-non-reconnu",
-                    "faceid-code-apres-casque", "partage-place", "partage-ouvrir", "partage-envoyer", "partage-accepte",
-                    "faceid-correspondant-sort", "bilan-du-pont");
+                    "faceid-batterie-pleine", "faceid-ouverture-visage", "faceid-accueil", "faceid-casque",
+                    "faceid-batterie-pleine-casque", "faceid-non-reconnu", "faceid-code-apres-casque", "partage-place",
+                    "partage-ouvrir", "partage-envoyer", "partage-accepte", "partage-carte-suspendue",
+                    "partage-sans-carte", "faceid-correspondant-sort", "bilan-du-pont");
             case "urgence" -> List.of("urgence-correspondant", "urgence-lignes", "urgence-policier",
                     "urgence-ecran-verrouille", "urgence-bouton", "urgence-police-17", "urgence-policier-decroche",
                     "urgence-active-releve", "urgence-raccrocher", "urgence-deverrouillage", "urgence-clavier",

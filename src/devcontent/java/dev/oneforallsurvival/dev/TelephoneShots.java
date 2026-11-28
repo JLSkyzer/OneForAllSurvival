@@ -144,10 +144,12 @@ import org.lwjgl.glfw.GLFW;
  *   serveur) ; enfin la touche liée à {@code key.push_to_talk} (et {@code key.whisper} si elle est liée), téléphone
  *   ouvert : l'événement {@code InputEvent.Key} de Forge part à l'appui et au relâchement, et pas pour un chiffre.</li>
  *   <li>{@code faceid} (retours d'essai du 27/11, lot B) : Face ID activé dans les Réglages par de vrais clics et le
- *   code au clavier, réouverture déverrouillée par le visage (animation capturée), tête couverte (« Visage non
- *   reconnu » relu dans la page) ; puis « Partager mon numéro » : la liste montre le second joueur d'essai, un vrai clic
- *   lui envoie le numéro, il accepte par le lien du chat, la fiche est relue dans son carnet et le joueur reçoit
- *   « accepté » dans son chat.</li>
+ *   code au clavier, puis, téléphone chargé à 100 % (la batterie passe à 99 % et son {@code UPDATE} arrive avant que la
+ *   page soit prête, ce que l'essai vérifie), réouverture déverrouillée par le visage (animation relue dans la page) et
+ *   ouverture tête couverte (« Visage non reconnu » relu dans la page) ; puis « Partager mon numéro » : la liste montre
+ *   le second joueur d'essai, un vrai clic lui envoie le numéro, il accepte par le lien du chat, la fiche est relue dans
+ *   son carnet et le joueur reçoit « accepté » dans son chat ; enfin, carte suspendue, la feuille ne montre personne et
+ *   dit pourquoi.</li>
  * </ul>
  *
  * <p>{@code options.txt} n'est jamais réécrit (taille de fenêtre, échelle et plafond en mémoire seulement). La touche
@@ -1150,8 +1152,61 @@ public final class TelephoneShots {
 
     // --- Face ID et « Partager mon numéro » (retours d'essai du 27/11, lot B) ------------------------------------------
 
-    /** L'instant où la page de l'ouverture par le visage a été vue prête (0 avant). */
+    /** L'instant où la page de l'ouverture par le visage a répondu (0 avant). */
     private static long faceVueNs;
+    /** Un {@code UPDATE} a remplacé l'{@code OPEN} avant que la page de l'ouverture en cours soit prête. */
+    private static boolean updateAvantPret;
+
+    /** Vrai une fois le téléphone tenu vu plein par le client. */
+    private static boolean batteriePleine(Minecraft mc) {
+        return PhoneItem.stored(mc.player.getMainHandItem()) >= PhoneConfig.capacity();
+    }
+
+    /**
+     * Charge à 100 % le téléphone tenu (écran fermé) : la première dépense le fait passer à 99 %, et l'{@code UPDATE}
+     * qui le dit arrive avant que la page soit prête.
+     */
+    private static void chargerAFond(Minecraft mc, String nom) {
+        pas(nom, () -> serveur(mc, (srv, sp) -> PhoneItem.store(sp.getMainHandItem(), PhoneConfig.capacity())),
+                () -> batteriePleine(mc) && attendu(0.5), 5, null);
+    }
+
+    /**
+     * Ouvre le téléphone par un vrai clic droit, note si un {@code UPDATE} a précédé la page prête, puis évalue
+     * {@code objet} dans la page ; {@code juger} reçoit sa réponse une fois. L'image est prise {@code delai} secondes
+     * après.
+     */
+    private static void ouvertureParLeVisage(Minecraft mc, String nom, String objet,
+            java.util.function.Consumer<JsonObject> juger, double delai, String image) {
+        pas(nom, () -> {
+            faceVueNs = 0;
+            updateAvantPret = false;
+            releveDemande = false;
+            ouvertures++;
+            mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
+        }, () -> {
+            if (!(mc.screen instanceof PhoneWebScreen w)) {
+                return false;
+            }
+            if (!w.pageReady()) {
+                updateAvantPret |= w.state().kind() == Kind.UPDATE;
+                return false;
+            }
+            JsonObject r = demander(mc, objet);
+            if (r == null) {
+                return false;
+            }
+            if (faceVueNs == 0) {
+                faceVueNs = System.nanoTime();
+                journal(nom + " : page prête ; UPDATE reçu avant : " + updateAvantPret + " ; " + resume());
+                if (!updateAvantPret) {
+                    echec(nom, "aucun UPDATE avant la page prête : l'essai ne prouve rien");
+                }
+                juger.accept(r);
+            }
+            return secondes(faceVueNs) >= delai;
+        }, 20, image);
+    }
     /** Le numéro d'entité du second joueur d'essai, lu au serveur intégré (-1 avant). */
     private static int idCorr = -1;
     private static volatile String partage = "";
@@ -1194,44 +1249,32 @@ public final class TelephoneShots {
         }, 5, null);
         echap(mc, "faceid-echap-1");
 
-        // 2. Réouverture, visage découvert : déverrouillé par le serveur, animation sur l'écran verrouillé, puis l'accueil.
-        pas("faceid-ouverture-visage", () -> {
-            faceVueNs = 0;
-            mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
-        }, () -> {
-            if (!(mc.screen instanceof PhoneWebScreen w) || !w.pageReady() || !dernierResultat(Result.FACE_UNLOCKED)) {
-                return false;
+        // 2. Réouverture à 100 %, visage découvert : déverrouillé par le serveur, animation sur l'écran verrouillé, puis
+        // l'accueil.
+        chargerAFond(mc, "faceid-batterie-pleine");
+        ouvertureParLeVisage(mc, "faceid-ouverture-visage", "{c:document.getElementById('phone').className}", r -> {
+            String classes = r.get("c").getAsString();
+            journal("ouverture par le visage : classes « " + classes + " »");
+            if (!classes.contains("face-scan")) {
+                echec("faceid-ouverture-visage", "pas d'animation Face ID : classes « " + classes + " »");
             }
-            if (faceVueNs == 0) {
-                faceVueNs = System.nanoTime();
-            }
-            return secondes(faceVueNs) >= 0.45;
-        }, 20, "f03-face-id-animation");
+        }, 0.45, "f03-face-id-animation");
         pas("faceid-accueil", () -> {}, () -> etat(Lock.UNLOCKED) && stable(mc, "app-phone") && attendu(1.0), 10,
                 "f04-accueil-par-le-visage");
         echap(mc, "faceid-echap-2");
 
-        // 3. Tête couverte : le pavé, « Visage non reconnu ».
+        // 3. Tête couverte, de nouveau à 100 % : le pavé, « Visage non reconnu ».
         pas("faceid-casque", () -> serveur(mc, (srv, sp) -> sp.setItemSlot(EquipmentSlot.HEAD,
                 new ItemStack(Items.IRON_HELMET))), () -> !mc.player.getItemBySlot(EquipmentSlot.HEAD).isEmpty(), 5,
                 null);
-        ouvrir(mc, "faceid-ouverture-casque", Lock.LOCKED, null);
-        pas("faceid-non-reconnu", () -> releveDemande = false, () -> {
-            if (!dernierResultat(Result.FACE_NOT_RECOGNIZED)) {
-                echec("faceid-non-reconnu", "issue de l'ouverture : " + resume());
-                return true;
-            }
-            JsonObject r = demander(mc, "{msg:" + texteDe("lock-msg") + "}");
-            if (r == null || !attendu(1.0)) {
-                return false;
-            }
+        chargerAFond(mc, "faceid-batterie-pleine-casque");
+        ouvertureParLeVisage(mc, "faceid-non-reconnu", "{msg:" + texteDe("lock-msg") + "}", r -> {
             String msg = r.get("msg").getAsString();
             journal("tête couverte : « " + msg + " »");
             if (!"Visage non reconnu".equals(msg)) {
                 echec("faceid-non-reconnu", "message « " + msg + " »");
             }
-            return true;
-        }, 8, "f05-visage-non-reconnu");
+        }, 1.0, "f05-visage-non-reconnu");
         pas("faceid-decouvert", () -> serveur(mc, (srv, sp) -> sp.setItemSlot(EquipmentSlot.HEAD, ItemStack.EMPTY)),
                 () -> mc.player.getItemBySlot(EquipmentSlot.HEAD).isEmpty(), 5, null);
         pas("faceid-code-apres-casque", () -> stable(mc, "key-0"), () -> taper(mc, CODE),
@@ -1283,6 +1326,28 @@ public final class TelephoneShots {
         pas("partage-bilan", () -> journal("fiche de Maelle : « " + LU.getOrDefault("fiche", "") + " » pour le numéro du"
                 + " joueur ; « accepté » dans le chat du joueur : " + avisDansLeChat(mc,
                 "message.oneforallsurvival.call.share.accepted")), () -> true, 1, null);
+
+        // 5. Carte suspendue : la feuille ne montre personne, et dit pourquoi.
+        clic(mc, "partage-fermer", "share-close", () -> stable(mc, "contact-share") && attendu(0.8), 10, null);
+        pas("partage-carte-suspendue", () -> serveur(mc, (srv, sp) -> PhoneOperators.get(srv).setState(simJoueur,
+                dev.oneforallsurvival.phone.net.SimCard.State.SUSPENDED)), () -> PhoneClient.last()
+                        .map(p -> p.net().sim() == PhoneSims.Validity.SUSPENDED).orElse(false) && attendu(0.8), 10,
+                null);
+        clic(mc, "partage-rouvrir", "contact-share", () -> stable(mc, "share-close") && attendu(0.6), 10, null);
+        pas("partage-sans-carte", () -> releveDemande = false, () -> {
+            JsonObject r = demander(mc, "{msg:" + texteDe("share-msg") + ",liste:" + texteDe("share-list") + "}");
+            if (r == null || !attendu(0.5)) {
+                return false;
+            }
+            String msg = r.get("msg").getAsString();
+            String liste = r.get("liste").getAsString();
+            journal("carte suspendue : mot « " + msg + " », liste « " + liste + " »");
+            if (!Component.translatable("message.oneforallsurvival.call.share.no_line").getString().equals(msg)
+                    || !"Carte SIM active requise".equals(liste)) {
+                echec("partage-sans-carte", "mot « " + msg + " », liste « " + liste + " »");
+            }
+            return true;
+        }, 8, "f10-sans-carte-active");
         echap(mc, "partage-echap");
         pas("faceid-correspondant-sort", () -> serveur(mc, (srv, sp) -> {
             if (ecouteAppels != null) {
