@@ -64,6 +64,16 @@ carte gardent chacune le leur, et une empreinte inconnue de ce joueur ne rend ri
 - Distance et vue sont vérifiées à l'envoi ; l'acceptation n'exige plus la proximité.
 - Écran de repli (sans navigateur) : pas de bouton d'envoi ; on peut recevoir.
 
+Ajouts de la relecture (28/11) :
+
+- « Son téléphone », pour la liste comme pour recevoir une fiche : un téléphone dont le propriétaire enregistré est ce
+  joueur, ou sans propriétaire ; main principale, seconde main, puis sac, parmi ceux-là seulement. Celui d'un autre ne
+  reçoit rien et ne dit rien de son carnet.
+- Sans carte active chez l'envoyeur, la liste des voisins est vide et la page le dit comme pour l'envoi.
+- Les 60 s se jugent à la réponse, pas seulement au relevé.
+- Le destinataire ne reçoit pas de nouvelle offre d'un même envoyeur avant la fin des 60 s de la précédente, quoi
+  qu'elle soit devenue (acceptée, refusée, tombée faute de carte, départ de l'un des deux).
+
 ## Hors périmètre
 
 Rien d'autre du téléphone ne change : réseau, appels, antennes, formats des données existantes (les téléphones et

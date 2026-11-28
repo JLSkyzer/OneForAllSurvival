@@ -76,6 +76,39 @@ class ShareBookTest {
     }
 
     @Test
+    void pasDeNouvelleOffreAuMemeDestinataireAvantSoixanteSecondes() {
+        ShareBook book = new ShareBook();
+        Request premiere = envoi(book, A, B, T0).request().orElseThrow();
+        // Tombée bien avant ses 60 s (l'envoyeur a perdu sa carte, ou le destinataire a répondu).
+        book.remove(premiere.id());
+        assertEquals(Send.SENT, envoi(book, A, C, T0 + ShareBook.GAP_MILLIS).outcome(), "un autre destinataire");
+        assertEquals(Send.RECENT, envoi(book, A, B, T0 + ShareBook.GAP_MILLIS * 2).outcome());
+        assertEquals(Send.RECENT, envoi(book, A, B, T0 + ShareBook.TTL_MILLIS - 1).outcome());
+        assertEquals(1, book.all().size(), "le refus ne pose rien");
+        assertEquals(Send.SENT, envoi(book, C, B, T0 + ShareBook.GAP_MILLIS).outcome(), "un autre envoyeur");
+        assertEquals(Send.SENT, envoi(book, A, B, T0 + ShareBook.TTL_MILLIS).outcome(), "60 s pile : permis");
+    }
+
+    @Test
+    void unDepartNEffacePasLOffreRecente() {
+        ShareBook book = new ShareBook();
+        envoi(book, A, B, T0);
+        book.dropPlayer(A);
+        assertEquals(Send.RECENT, envoi(book, A, B, T0 + 1).outcome(), "l'envoyeur revenu");
+        book.dropPlayer(B);
+        assertEquals(Send.RECENT, envoi(book, A, B, T0 + 2).outcome(), "le destinataire revenu");
+        book.clear();
+        assertEquals(Send.SENT, envoi(book, A, B, T0 + 3).outcome(), "serveur redémarré");
+    }
+
+    @Test
+    void uneOffreRecenteNeBloquePasUneHorlogeQuiRecule() {
+        ShareBook book = new ShareBook();
+        book.remove(envoi(book, A, B, T0).request().orElseThrow().id());
+        assertEquals(Send.SENT, envoi(book, A, B, T0 - 3_600_000L).outcome());
+    }
+
+    @Test
     void uneHorlogeQuiReculeNeBloquePas() {
         ShareBook book = new ShareBook();
         assertEquals(Send.SENT, envoi(book, A, B, T0).outcome());

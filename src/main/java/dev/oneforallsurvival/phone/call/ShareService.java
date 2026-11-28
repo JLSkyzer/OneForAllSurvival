@@ -45,13 +45,17 @@ import net.minecraftforge.network.PacketDistributor;
  * <ul>
  *   <li>Liste et envoi ({@link CallActions}, écran déverrouillé, frein des gestes) : {@link ShareRules#listed} pour
  *       chaque autre joueur du même monde ; rejouée à l'envoi. L'envoyeur doit avoir une carte {@code ACTIVE} dans le
- *       téléphone de la session : c'est son numéro qui part, sous le nom du propriétaire de ce téléphone.
- *   <li>Le destinataire est prévenu même téléphone rangé : message du chat avec « Accepter » et « Refuser », et un son.
+ *       téléphone de la session : c'est son numéro qui part, sous le nom du propriétaire de ce téléphone. Sans elle, la
+ *       liste est vide et le mot le dit.
+ *   <li>« Son téléphone », pour la liste comme pour recevoir : enregistré au nom de ce joueur, ou sans propriétaire
+ *       ({@link ShareRules#own}).
+ *   <li>Le destinataire est prévenu même téléphone rangé : message du chat avec « Accepter » et « Refuser », et un son ;
+ *       pas de nouvelle offre du même envoyeur avant la fin des {@link ShareBook#TTL_MILLIS} ms de la précédente.
  *   <li>Accepté : la fiche s'ajoute au carnet de la carte de son téléphone (main principale, seconde main, puis le reste
  *       de l'inventaire) ; un numéro déjà au carnet garde sa fiche. Sans carte ou carnet plein, la demande reste.
- *   <li>Une demande tombe au bout de {@link ShareBook#TTL_MILLIS} ms (l'envoyeur l'apprend : « sans réponse »), au
- *       départ de l'un des deux (celui du destinataire vaut « sans réponse »), ou si l'envoyeur n'a plus sa carte (sans
- *       mot). L'envoyeur apprend « accepté » ou « refusé » à la réponse.
+ *   <li>Une demande tombe au bout de {@link ShareBook#TTL_MILLIS} ms, jugées à la réponse comme au relevé (l'envoyeur
+ *       l'apprend : « sans réponse »), au départ de l'un des deux (celui du destinataire vaut « sans réponse »), ou si
+ *       l'envoyeur n'a plus sa carte (sans mot). L'envoyeur apprend « accepté » ou « refusé » à la réponse.
  * </ul>
  *
  * <p>Base de temps : {@link EconomyClock#now()}. Fil du serveur seulement ; ni numéro ni carte dans un journal.
@@ -83,30 +87,33 @@ public final class ShareService {
     private record Candidate(ServerPlayer player, String name, double distanceSqr) {}
 
     /**
-     * La carte qui recevrait une fiche chez ce joueur : celle du téléphone de sa main principale, puis de sa seconde
-     * main, puis du premier téléphone de son inventaire (curseur compris) dont la carte a une ligne (active ou
-     * suspendue).
+     * La carte qui recevrait une fiche chez ce joueur : parmi ses téléphones à lui seulement ({@link ShareRules#own}),
+     * celui de sa main principale, puis de sa seconde main, puis le premier de son inventaire (curseur compris), dont la
+     * carte a une ligne (active ou suspendue).
      */
     static Optional<Lodged> receiverCard(ServerPlayer player) {
-        MinecraftServer server = player.server;
         for (ItemStack stack : new ItemStack[] {player.getMainHandItem(), player.getOffhandItem()}) {
-            Optional<Lodged> lodged = lodged(server, stack);
+            Optional<Lodged> lodged = lodged(player, stack);
             if (lodged.isPresent()) {
                 return lodged;
             }
         }
-        return PhoneCarriers.first(player, stack -> lodged(server, stack).isPresent())
-                .flatMap(stack -> lodged(server, stack));
+        return PhoneCarriers.first(player, stack -> lodged(player, stack).isPresent())
+                .flatMap(stack -> lodged(player, stack));
     }
 
     /** Un téléphone et la carte qui y porte une ligne. */
     record Lodged(ItemStack phone, SimCard card) {}
 
-    private static Optional<Lodged> lodged(MinecraftServer server, ItemStack stack) {
+    private static Optional<Lodged> lodged(ServerPlayer player, ItemStack stack) {
         if (stack.isEmpty() || !(stack.getItem() instanceof PhoneItem)) {
             return Optional.empty();
         }
-        return PhoneSims.line(server, stack).map(card -> new Lodged(stack, card));
+        UUID owner = PhoneItem.phoneId(stack).map(id -> PhoneData.get(player.server).record(id).owner()).orElse(null);
+        if (!ShareRules.own(owner, player.getUUID())) {
+            return Optional.empty();
+        }
+        return PhoneSims.line(player.server, stack).map(card -> new Lodged(stack, card));
     }
 
     /** {@code target} est-il dans la liste de {@code sender} ? Avec le nom de son téléphone. */
@@ -150,16 +157,25 @@ public final class ShareService {
     }
 
     /** La liste, pour l'écran ouvert (geste {@code SHARE_SCAN}). */
-    static void scan(ServerPlayer sender) {
-        reply(sender, null);
+    static void scan(ServerPlayer sender, PhoneService.Held held) {
+        reply(sender, held, activeLine(sender.server, held.phone()).isPresent() ? null
+                : Component.translatable(MESSAGE + "no_line"));
     }
 
-    private static void reply(ServerPlayer sender, @Nullable Component message) {
+    /** La carte qui permet d'envoyer : celle du téléphone de la session, {@code ACTIVE}. */
+    private static Optional<SimCard> activeLine(MinecraftServer server, ItemStack phone) {
+        return PhoneSims.line(server, phone).filter(card -> card.state() == SimCard.State.ACTIVE
+                && PhoneSims.check(server, phone) == PhoneSims.Validity.ACTIVE);
+    }
+
+    /** La liste et un mot ; sans carte active chez l'envoyeur, personne n'y est. */
+    private static void reply(ServerPlayer sender, PhoneService.Held held, @Nullable Component message) {
         if (sender instanceof FakePlayer || sender.connection == null) {
             return;
         }
-        BenchNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> sender),
-                new PhoneSharePacket(rows(sender), message));
+        List<PhoneSharePacket.Row> rows = activeLine(sender.server, held.phone()).isPresent() ? rows(sender)
+                : List.of();
+        BenchNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> sender), new PhoneSharePacket(rows, message));
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -169,21 +185,20 @@ public final class ShareService {
     /**
      * Envoie le numéro de la carte du téléphone de la session au joueur d'entité {@code targetText} (geste
      * {@code SHARE_SEND}), après les contrôles de la liste rejoués ici. Répond toujours à l'envoyeur par la liste et un
-     * mot (envoyé, en attente, patientez, plus à portée, sans carte active).
+     * mot (envoyé, en attente, déjà proposé, patientez, plus à portée, sans carte active).
      */
     static void send(ServerPlayer sender, PhoneService.Held held, String targetText) {
         if (!ENTITY_ID.matcher(targetText).matches() || Long.parseLong(targetText) > Integer.MAX_VALUE) {
             return;
         }
-        Optional<SimCard> line = PhoneSims.line(sender.server, held.phone());
-        if (line.isEmpty() || line.get().state() != SimCard.State.ACTIVE
-                || PhoneSims.check(sender.server, held.phone()) != PhoneSims.Validity.ACTIVE) {
-            reply(sender, Component.translatable(MESSAGE + "no_line"));
+        Optional<SimCard> line = activeLine(sender.server, held.phone());
+        if (line.isEmpty()) {
+            reply(sender, held, Component.translatable(MESSAGE + "no_line"));
             return;
         }
         Optional<Candidate> target = candidate(sender, sender.serverLevel().getEntity(Integer.parseInt(targetText)));
         if (target.isEmpty()) {
-            reply(sender, Component.translatable(MESSAGE + "gone"));
+            reply(sender, held, Component.translatable(MESSAGE + "gone"));
             return;
         }
         ServerPlayer receiver = target.get().player();
@@ -195,11 +210,12 @@ public final class ShareService {
         switch (r.outcome()) {
             case SENT -> {
                 offer(receiver, r.request().get());
-                reply(sender, Component.translatable(MESSAGE + "sent", target.get().name()));
+                reply(sender, held, Component.translatable(MESSAGE + "sent", target.get().name()));
             }
-            case PENDING -> reply(sender, Component.translatable(MESSAGE + "pending", target.get().name()));
-            case THROTTLED -> reply(sender, Component.translatable(MESSAGE + "wait"));
-            case FULL, SELF -> reply(sender, Component.translatable(MESSAGE + "busy"));
+            case PENDING -> reply(sender, held, Component.translatable(MESSAGE + "pending", target.get().name()));
+            case RECENT -> reply(sender, held, Component.translatable(MESSAGE + "recent", target.get().name()));
+            case THROTTLED -> reply(sender, held, Component.translatable(MESSAGE + "wait"));
+            case FULL, SELF -> reply(sender, held, Component.translatable(MESSAGE + "busy"));
         }
     }
 
@@ -238,6 +254,8 @@ public final class ShareService {
      * dont l'envoyeur n'a plus sa carte : {@link Answer#NOT_FOR_YOU}, rien ne change (le même mot dans tous ces cas).
      */
     public static Answer respond(ServerPlayer player, int id, boolean accept) {
+        // L'âge se juge à la réponse : le relevé ne passe que tous les SWEEP_TICKS tics.
+        expire(player.server);
         Optional<Request> found = BOOK.forReceiver(id, player.getUUID());
         if (found.isEmpty() || player instanceof FakePlayer) {
             return Answer.NOT_FOR_YOU;
@@ -310,11 +328,16 @@ public final class ShareService {
         if (BOOK.all().isEmpty()) {
             return;
         }
+        expire(server);
+        BOOK.removeIf(r -> !senderHasCard(server, r));
+    }
+
+    /** Retire les demandes de {@link ShareBook#TTL_MILLIS} ms ou plus ; leur envoyeur apprend « sans réponse ». */
+    private static void expire(MinecraftServer server) {
         for (Request r : BOOK.expire(EconomyClock.now())) {
             tell(server.getPlayerList().getPlayer(r.sender()),
                     Component.translatable(MESSAGE + "no_answer", r.receiverName()));
         }
-        BOOK.removeIf(r -> !senderHasCard(server, r));
     }
 
     /** Le départ d'un joueur : ses demandes tombent ; celles qu'il n'a pas reçues valent « sans réponse ». */

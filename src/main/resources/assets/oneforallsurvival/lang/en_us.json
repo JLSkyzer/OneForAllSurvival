@@ -1319,6 +1319,7 @@
   "message.oneforallsurvival.call.share.sent": "Number sent to %s.",
   "message.oneforallsurvival.call.share.pending": "A request is already waiting for %s to answer.",
   "message.oneforallsurvival.call.share.wait": "Wait a few seconds before sending again.",
+  "message.oneforallsurvival.call.share.recent": "You offered %s your number less than a minute ago.",
   "message.oneforallsurvival.call.share.gone": "This player is no longer in range.",
   "message.oneforallsurvival.call.share.no_line": "You need an active SIM card to share your number.",
   "message.oneforallsurvival.call.share.busy": "Sharing is unavailable right now.",

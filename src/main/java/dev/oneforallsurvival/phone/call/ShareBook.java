@@ -19,6 +19,8 @@ import java.util.function.Predicate;
  *   <li>une seule demande en attente d'un même envoyeur vers un même destinataire ;
  *   <li>au plus une demande nouvelle toutes les {@link #GAP_MILLIS} ms par envoyeur (seules les demandes posées
  *       comptent ; une horloge qui recule ne bloque pas) ;
+ *   <li>le destinataire ne reçoit pas de nouvelle demande du même envoyeur avant la fin des {@link #TTL_MILLIS} ms de la
+ *       précédente, quoi qu'elle soit devenue (répondue, tombée faute de carte, départ de l'un des deux) ;
  *   <li>une demande vit {@link #TTL_MILLIS} ms ; au plus {@link #MAX_PENDING} en attente sur le serveur ;
  *   <li>une réponse ne vaut que pour le destinataire de la demande.
  * </ul>
@@ -56,18 +58,23 @@ public final class ShareBook {
         }
     }
 
-    public enum Send { SENT, PENDING, THROTTLED, SELF, FULL }
+    public enum Send { SENT, PENDING, RECENT, THROTTLED, SELF, FULL }
 
     /** Issue d'une demande : la demande posée seulement pour {@link Send#SENT}. */
     public record SendResult(Send outcome, Optional<Request> request) {}
 
     private final Map<Integer, Request> pending = new LinkedHashMap<>();
     private final Map<UUID, Long> lastSent = new HashMap<>();
+    /** L'instant de la dernière demande posée, par envoyeur et destinataire, gardé {@link #TTL_MILLIS} ms. */
+    private final Map<Pair, Long> offered = new HashMap<>();
     private int nextId = 1;
+
+    private record Pair(UUID sender, UUID receiver) {}
 
     /**
      * Pose une demande de {@code sender} vers {@code receiver} à l'instant {@code now}. Refus, sans rien changer :
      * {@link Send#SELF} (même joueur), {@link Send#PENDING} (une demande de lui vers lui attend déjà),
+     * {@link Send#RECENT} (la précédente vers ce destinataire n'attend plus mais a moins de {@link #TTL_MILLIS} ms),
      * {@link Send#THROTTLED} (moins de {@link #GAP_MILLIS} ms depuis sa dernière demande posée), {@link Send#FULL}
      * ({@link #MAX_PENDING} demandes en attente).
      */
@@ -83,8 +90,12 @@ public final class ShareBook {
                 return new SendResult(Send.PENDING, Optional.empty());
             }
         }
+        offered.values().removeIf(at -> !within(at, now, TTL_MILLIS));
+        if (offered.containsKey(new Pair(sender, receiver))) {
+            return new SendResult(Send.RECENT, Optional.empty());
+        }
         Long last = lastSent.get(sender);
-        if (last != null && now >= last && now - last < GAP_MILLIS) {
+        if (last != null && within(last, now, GAP_MILLIS)) {
             return new SendResult(Send.THROTTLED, Optional.empty());
         }
         if (pending.size() >= MAX_PENDING) {
@@ -94,7 +105,13 @@ public final class ShareBook {
                 now);
         pending.put(request.id(), request);
         lastSent.put(sender, now);
+        offered.put(new Pair(sender, receiver), now);
         return new SendResult(Send.SENT, Optional.of(request));
+    }
+
+    /** {@code now} est-il dans les {@code span} ms qui suivent {@code at} ? Une horloge qui recule n'y est pas. */
+    private static boolean within(long at, long now, long span) {
+        return now >= at && now - at < span;
     }
 
     /** Un numéro libre, jamais 0 ni négatif. */
@@ -123,7 +140,10 @@ public final class ShareBook {
         return removeIf(r -> now - r.createdMillis() >= TTL_MILLIS || now < r.createdMillis() - TTL_MILLIS);
     }
 
-    /** Retire et rend les demandes que ce joueur envoie ou reçoit ; oublie son frein. */
+    /**
+     * Retire et rend les demandes que ce joueur envoie ou reçoit ; oublie son frein, mais pas ses demandes récentes :
+     * revenir ne permet pas d'en reposer une avant leur fin.
+     */
     public List<Request> dropPlayer(UUID player) {
         lastSent.remove(player);
         return removeIf(r -> r.sender().equals(player) || r.receiver().equals(player));
@@ -151,5 +171,6 @@ public final class ShareBook {
     public void clear() {
         pending.clear();
         lastSent.clear();
+        offered.clear();
     }
 }

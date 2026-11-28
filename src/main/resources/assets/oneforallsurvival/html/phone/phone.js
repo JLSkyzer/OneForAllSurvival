@@ -2278,7 +2278,9 @@
       return;
     }
     if (share.rows.length === 0) {
-      box.appendChild(el('div', 'share-empty', 'Personne à proximité'));
+      // Sans carte active, le serveur ne liste personne : ne pas dire que personne n'est là.
+      var active = v && v.net && v.net.sim === 'ACTIVE';
+      box.appendChild(el('div', 'share-empty', active ? 'Personne à proximité' : 'Carte SIM active requise'));
       return;
     }
     for (var i = 0; i < share.rows.length; i++) {
@@ -3590,15 +3592,16 @@
     /** ShareService : la liste, et l'envoi (une demande par personne, une toutes les 3 s, carte active exigée). */
     function shareGesture(m) {
       var message = '';
-      if (m.a === 'shareSend') {
+      var active = !!mock.lodged && mock.lodged.validity === 'ACTIVE';
+      if (!active) {
+        message = 'Il faut une carte SIM active pour partager son numéro.';
+      } else if (m.a === 'shareSend') {
         var who = null;
         for (var i = 0; i < mock.nearby.length; i++) {
           if (mock.nearby[i].id === m.to) { who = mock.nearby[i]; }
         }
         var now = Date.now();
-        if (!mock.lodged || mock.lodged.validity !== 'ACTIVE') {
-          message = 'Il faut une carte SIM active pour partager son numéro.';
-        } else if (!who) {
+        if (!who) {
           message = "Ce joueur n'est plus à portée.";
         } else if (mock.shared[who.id]) {
           message = 'Une demande attend déjà la réponse de ' + who.name + '.';
@@ -3610,7 +3613,7 @@
           message = 'Numéro envoyé à ' + who.name + '.';
         }
       }
-      var rows = mock.nearby.slice();
+      var rows = active ? mock.nearby.slice() : [];
       setTimeout(function () { window.phone.share({ rows: rows, message: message }); }, 180);
     }
 

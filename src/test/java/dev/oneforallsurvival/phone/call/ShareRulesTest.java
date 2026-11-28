@@ -9,6 +9,7 @@ import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.DecoderException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import org.junit.jupiter.api.Test;
@@ -32,6 +33,15 @@ class ShareRulesTest {
         assertFalse(ShareRules.listed(4.0, true, true, false, true), "spectateur");
         assertFalse(ShareRules.listed(4.0, true, false, true, true), "invisible");
         assertFalse(ShareRules.listed(4.0, true, false, false, false), "sans téléphone à carte");
+    }
+
+    @Test
+    void sonTelephoneEstASonNomOuSansProprietaire() {
+        UUID joueur = UUID.fromString("00000000-0000-0000-0000-00000000000a");
+        UUID autre = UUID.fromString("00000000-0000-0000-0000-00000000000b");
+        assertTrue(ShareRules.own(joueur, joueur), "enregistré à son nom");
+        assertTrue(ShareRules.own(null, joueur), "sans propriétaire");
+        assertFalse(ShareRules.own(autre, joueur), "celui d'un autre");
     }
 
     private static PhoneSharePacket allerRetour(PhoneSharePacket p) {

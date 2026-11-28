@@ -43,7 +43,8 @@ import net.minecraftforge.gametest.PrefixGameTestTemplate;
  * de l'écran, {@link PhoneCallActionPacket} par {@link JoueurDeTest#envoyer}) et par la commande des liens du chat
  * ({@code /phoneshare}, tapée comme le joueur). Les listes et les messages reçus sont décodés des octets envoyés.
  * Négatifs : distance, mur, spectateur, invisible, sans carte, envoyeur sans carte active, réponse d'un autre joueur,
- * demande expirée, départ, carte perdue, débit, verrouillé.
+ * demande expirée, départ, carte perdue, débit, verrouillé ; reprise de la relecture : le téléphone d'un autre, la liste
+ * sans carte active, une réponse après 60 s avant tout relevé, une nouvelle offre avant la fin des 60 s.
  *
  * <p>Le décor est celui des appels ({@link AppelGameTests.Essai} : plancher de pierre, une antenne qui fonde un
  * opérateur, des cartes émises et logées) ; un opérateur au nom propre à chaque essai. Le lot {@value #LOT_HORLOGE}
@@ -55,6 +56,7 @@ public final class PartageNumeroGameTests {
 
     private static final String LOT_A = "partage_a";
     private static final String LOT_B = "partage_b";
+    private static final String LOT_C = "partage_c";
     private static final String LOT_HORLOGE = "partage_horloge";
     private static final String CODE = "1470";
     private static final String ACCEPTED = ShareService.MESSAGE + "accepted";
@@ -70,6 +72,11 @@ public final class PartageNumeroGameTests {
 
     @AfterBatch(batch = LOT_B)
     public static void apresB(ServerLevel level) {
+        AppelGameTests.apres();
+    }
+
+    @AfterBatch(batch = LOT_C)
+    public static void apresC(ServerLevel level) {
         AppelGameTests.apres();
     }
 
@@ -458,7 +465,7 @@ public final class PartageNumeroGameTests {
                     PhoneSims.line(d.serveur(), second).orElseThrow().simId(), d.carteA.number());
             b.joueur().setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
             b.joueur().setItemInHand(InteractionHand.OFF_HAND, second);
-            horlogeDuDebit(d);
+            horlogeApres(d, ShareBook.TTL_MILLIS); // 60 s avant une nouvelle offre au même destinataire
             d.envoyer(d.a, b);
             int id2 = AppelGameTests.exiger(helper, d.demande(d.a, b), "seconde demande").id();
             helper.assertTrue(d.commande(b, "phoneshare accept " + id2).contains(mot("saved")), "accepté");
@@ -467,13 +474,18 @@ public final class PartageNumeroGameTests {
         });
     }
 
-    /**
-     * Avance l'horloge de l'économie au-delà de l'écart du frein de l'envoi (3 s), sans attendre : le lot B tourne à
-     * l'heure réelle, et {@code Decor.fermer} la rend à la fin de l'essai.
-     */
+    /** Avance l'horloge de l'économie au-delà de l'écart du frein de l'envoi (3 s). */
     private static void horlogeDuDebit(Decor d) {
-        long avant = EconomyClock.now();
-        EconomyClock.setClock(() -> avant + ShareBook.GAP_MILLIS + 1);
+        horlogeApres(d, ShareBook.GAP_MILLIS + 1);
+    }
+
+    /**
+     * Avance l'horloge de l'économie de {@code millis}, sans attendre : le lot B tourne à l'heure réelle, et
+     * {@code Decor.fermer} la rend à la fin de l'essai.
+     */
+    private static void horlogeApres(Decor d, long millis) {
+        long apres = EconomyClock.now() + millis;
+        EconomyClock.setClock(() -> apres);
         d.horlogeAvancee = true;
     }
 
@@ -578,8 +590,146 @@ public final class PartageNumeroGameTests {
     }
 
     // ---------------------------------------------------------------------------------------------
+    // Lot C : reprise de la relecture
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * « Son téléphone » : enregistré à son nom, ou sans propriétaire. Celui d'un autre, même en main principale, ne met
+     * pas dans la liste, ne reçoit aucune fiche et ne dit rien de son carnet ; celui du joueur, dans le sac, passe
+     * devant lui.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_C, timeoutTicks = 200)
+    public static void leTelephoneDUnAutreNeComptePas(GameTestHelper helper) {
+        essai(helper, "autre", d -> {
+            JoueurDeTest b = d.avecLigne("pn_au_b", 6.5, 5.5);
+            JoueurDeTest c = d.avecLigne("pn_au_c", 5.5, 3.5);
+            // Chacun devient propriétaire du sien (code posé par les paquets du mod).
+            d.deverrouiller(b);
+            d.deverrouiller(c);
+            ItemStack aB = b.joueur().getMainHandItem();
+            ItemStack deC = c.joueur().getMainHandItem();
+            PhoneService.close(b.joueur(), CloseReason.CLOSED);
+            PhoneService.close(c.joueur(), CloseReason.CLOSED);
+            SimCard carteC = AppelGameTests.exiger(helper, PhoneSims.line(d.serveur(), deC), "ligne de C");
+            PhoneDirectory.get(d.serveur()).saveContact(carteC.simId(), d.carteA.number(), "Secret de C");
+            helper.assertTrue(d.envoyer(d.a, b).equals(mot("sent")), "B, son téléphone en main : envoyé");
+            int id = AppelGameTests.exiger(helper, d.demande(d.a, b), "demande").id();
+
+            // B ne porte plus que le téléphone de C, verrouillé : ni liste, ni fiche, ni « déjà enregistré ».
+            c.joueur().setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+            b.joueur().setItemInHand(InteractionHand.MAIN_HAND, deC);
+            helper.assertTrue(!d.liste(d.a, b), "le téléphone d'un autre : pas listé");
+            List<String> cles = d.commande(b, "phoneshare accept " + id);
+            helper.assertTrue(cles.contains(mot("no_card")), "le téléphone d'un autre ne reçoit pas : " + cles);
+            helper.assertTrue(d.fiche(deC, d.carteA.number()).equals(Optional.of("Secret de C")), "carnet de C intact");
+            helper.assertTrue(d.demande(d.a, b).isPresent(), "la demande attend encore");
+
+            // Le sien dans le sac : listé sous son nom, et c'est lui qui reçoit, pas celui de la main.
+            b.joueur().getInventory().setItem(20, aB);
+            PhoneSharePacket liste = d.liste(d.a);
+            helper.assertTrue(liste.rows().stream()
+                    .anyMatch(r -> r.id() == b.joueur().getId() && r.name().equals(nom(b))),
+                    "listé sous le nom de son téléphone : " + liste.rows());
+            cles = d.commande(b, "phoneshare accept " + id);
+            helper.assertTrue(cles.contains(mot("saved")), "reçu sur le sien : " + cles);
+            helper.assertTrue(d.fiche(aB, d.carteA.number()).equals(Optional.of(nom(d.a))), "fiche chez B");
+            helper.assertTrue(d.fiche(deC, d.carteA.number()).equals(Optional.of("Secret de C")), "carnet de C intact");
+        });
+    }
+
+    /** L'envoyeur sans carte active (suspendue, puis retirée) : la liste des voisins est vide, et on dit pourquoi. */
+    @GameTest(template = "test/plancher", batch = LOT_C, timeoutTicks = 200)
+    public static void sansCarteActiveAucuneListe(GameTestHelper helper) {
+        essai(helper, "scan", d -> {
+            JoueurDeTest b = d.avecLigne("pn_sc_b", 6.5, 5.5);
+            PhoneSharePacket avant = d.liste(d.a);
+            helper.assertTrue(avant.rows().stream().anyMatch(r -> r.id() == b.joueur().getId())
+                    && avant.message().equals(Component.empty()), "carte active : B listé, sans mot");
+            helper.assertTrue(d.essai.registre().setState(d.carteA.simId(), SimCard.State.SUSPENDED),
+                    "carte suspendue");
+            PhoneSharePacket p = d.liste(d.a);
+            helper.assertTrue(p.rows().isEmpty(), "suspendue : aucune personne, vu " + p.rows());
+            helper.assertTrue(cle(p.message()).equals(mot("no_line")), "suspendue : le mot, vu " + p.message());
+            PhoneSharePacket envoi = d.geste(d.a, PhoneCallActionPacket.Action.SHARE_SEND,
+                    Integer.toString(b.joueur().getId()));
+            helper.assertTrue(envoi != null && envoi.rows().isEmpty() && cle(envoi.message()).equals(mot("no_line")),
+                    "à l'envoi : ni liste ni envoi, vu " + (envoi == null ? "rien" : envoi.rows()));
+            helper.assertTrue(d.essai.registre().setState(d.carteA.simId(), SimCard.State.ACTIVE), "carte active");
+            helper.assertTrue(d.liste(d.a, b), "réactivée : B de nouveau listé");
+            helper.assertTrue(PhoneSims.remove(d.a.joueur(), d.a.joueur().getMainHandItem()) == PhoneSims.Remove.DONE,
+                    "carte retirée");
+            p = d.liste(d.a);
+            helper.assertTrue(p.rows().isEmpty() && cle(p.message()).equals(mot("no_line")),
+                    "sans carte : liste vide et le mot, vu " + p.rows());
+        });
+    }
+
+    // ---------------------------------------------------------------------------------------------
     // Lot à l'horloge figée
     // ---------------------------------------------------------------------------------------------
+
+    /** Passé 60 s, la réponse est refusée même si le relevé n'a pas encore retiré la demande. */
+    @GameTest(template = "test/plancher", batch = LOT_HORLOGE, timeoutTicks = 200)
+    public static void uneReponseApresSoixanteSecondesEstRefusee(GameTestHelper helper) {
+        essai(helper, "age", d -> {
+            JoueurDeTest b = d.avecLigne("pn_ag_b", 6.5, 5.5);
+            JoueurDeTest c = d.avecLigne("pn_ag_c", 5.5, 3.5);
+            ItemStack phoneB = b.joueur().getMainHandItem();
+            ItemStack phoneC = c.joueur().getMainHandItem();
+            d.envoyer(d.a, b);
+            int id = AppelGameTests.exiger(helper, d.demande(d.a, b), "demande").id();
+            horloge += ShareBook.TTL_MILLIS; // aucun relevé
+            d.a.clesRecues();
+            List<String> cles = d.commande(b, "phoneshare accept " + id);
+            helper.assertTrue(cles.contains(mot("expired")), "à 60 s : plus valable, vu " + cles);
+            helper.assertTrue(d.fiche(phoneB, d.carteA.number()).isEmpty(), "rien au carnet de B");
+            helper.assertTrue(d.demande(d.a, b).isEmpty(), "retirée");
+            List<String> chezA = d.a.clesRecues();
+            helper.assertTrue(chezA.contains(mot("no_answer")) && !chezA.contains(ACCEPTED),
+                    "A : sans réponse, vu " + chezA);
+            // Témoin : une milliseconde avant la fin, la réponse passe.
+            helper.assertTrue(d.envoyer(d.a, c).equals(mot("sent")), "vers C");
+            int id2 = AppelGameTests.exiger(helper, d.demande(d.a, c), "demande vers C").id();
+            horloge += ShareBook.TTL_MILLIS - 1;
+            helper.assertTrue(d.commande(c, "phoneshare accept " + id2).contains(mot("saved")), "à 59,999 s");
+            helper.assertTrue(d.fiche(phoneC, d.carteA.number()).isPresent(), "fiche chez C");
+        });
+    }
+
+    /**
+     * Une demande tombée parce que l'envoyeur a perdu sa carte : pas de nouvelle offre au même destinataire (ni message
+     * ni son) avant la fin des 60 s de la précédente.
+     */
+    @GameTest(template = "test/plancher", batch = LOT_HORLOGE, timeoutTicks = 200)
+    public static void pasDeNouvelleOffreAvantLaFinDesSoixanteSecondes(GameTestHelper helper) {
+        essai(helper, "redit", d -> {
+            JoueurDeTest b = d.avecLigne("pn_re_b", 6.5, 5.5);
+            JoueurDeTest c = d.avecLigne("pn_re_c", 5.5, 3.5);
+            long depart = horloge;
+            helper.assertTrue(d.envoyer(d.a, b).equals(mot("sent")), "première offre");
+            helper.assertTrue(d.essai.registre().setState(d.carteA.simId(), SimCard.State.SUSPENDED),
+                    "carte perdue");
+            ShareService.sweep(d.serveur());
+            helper.assertTrue(d.demande(d.a, b).isEmpty(), "la demande est tombée");
+            helper.assertTrue(d.essai.registre().setState(d.carteA.simId(), SimCard.State.ACTIVE), "carte revenue");
+            horloge = depart + ShareBook.GAP_MILLIS + 1;
+            b.composantsRecus();
+            b.sonsNommesRecus();
+            String retour = d.envoyer(d.a, b);
+            helper.assertTrue(retour.equals(mot("recent")), "trop tôt, vu " + retour);
+            helper.assertTrue(d.demande(d.a, b).isEmpty(), "aucune demande");
+            List<Component> recus = b.composantsRecus();
+            helper.assertTrue(recus.isEmpty(), "aucun message à B : " + recus);
+            helper.assertTrue(!b.sonsNommesRecus().contains("minecraft:block.note_block.chime"), "aucun son");
+            helper.assertTrue(d.envoyer(d.a, c).equals(mot("sent")), "un autre destinataire passe");
+            horloge = depart + ShareBook.TTL_MILLIS - 1;
+            helper.assertTrue(d.envoyer(d.a, b).equals(mot("recent")), "à 59,999 s : encore trop tôt");
+            horloge = depart + ShareBook.TTL_MILLIS;
+            b.composantsRecus();
+            helper.assertTrue(d.envoyer(d.a, b).equals(mot("sent")), "à 60 s : une nouvelle offre");
+            helper.assertTrue(b.composantsRecus().size() == 1, "un message à B");
+        });
+    }
 
     /** Au bout de 60 s sans réponse, la demande tombe : l'envoyeur l'apprend, le lien ne sert plus. */
     @GameTest(template = "test/plancher", batch = LOT_HORLOGE, timeoutTicks = 200)

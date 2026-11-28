@@ -87,7 +87,7 @@ public final class CallActions {
             case SAVE_CONTACT -> saveContact(player, held, packet.first(), packet.second());
             case REMOVE_CONTACT -> removeContact(player, held, packet.first());
             case OPEN_PHONE_APP -> replyWithBook(player, held, null);
-            case SHARE_SCAN -> ShareService.scan(player);
+            case SHARE_SCAN -> ShareService.scan(player, held);
             case SHARE_SEND -> ShareService.send(player, held, packet.first());
         }
     }

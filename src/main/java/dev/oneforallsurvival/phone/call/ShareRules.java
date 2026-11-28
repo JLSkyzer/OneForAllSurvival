@@ -1,10 +1,13 @@
 package dev.oneforallsurvival.phone.call;
 
+import java.util.UUID;
+import javax.annotation.Nullable;
+
 /**
  * Qui l'envoyeur d'un numéro (« AirDrop », retours d'essai du 27/11) voit dans sa liste, règle pure : un autre joueur à
  * {@value #RANGE} blocs au plus, en vue (aucun mur entre les yeux), ni spectateur ni invisible, qui porte un téléphone
- * avec une carte SIM. {@link ShareService} la joue à la liste et la rejoue à l'envoi ; l'acceptation, elle, n'exige plus
- * la proximité.
+ * à lui ({@link #own}) avec une carte SIM. {@link ShareService} la joue à la liste et la rejoue à l'envoi ;
+ * l'acceptation, elle, n'exige plus la proximité.
  */
 public final class ShareRules {
 
@@ -16,11 +19,22 @@ public final class ShareRules {
     private ShareRules() {}
 
     /**
+     * « Son téléphone » : un téléphone porté ne compte pour la liste et pour recevoir une fiche que s'il est enregistré au
+     * nom de ce joueur, ou sans propriétaire. Celui d'un autre ne reçoit rien et ne dit rien de son carnet.
+     *
+     * @param owner le propriétaire enregistré du téléphone, nul s'il n'en a pas
+     * @param player le joueur qui le porte
+     */
+    public static boolean own(@Nullable UUID owner, UUID player) {
+        return owner == null || owner.equals(player);
+    }
+
+    /**
      * @param distanceSqr le carré de la distance entre les deux joueurs
      * @param inSight aucun bloc entre leurs yeux
      * @param spectator le destinataire est en mode spectateur
      * @param invisible le destinataire est invisible (effet ou commande)
-     * @param hasCard le destinataire porte un téléphone dont la carte peut recevoir une fiche
+     * @param hasCard le destinataire porte un téléphone à lui ({@link #own}) dont la carte peut recevoir une fiche
      */
     public static boolean listed(double distanceSqr, boolean inSight, boolean spectator, boolean invisible,
             boolean hasCard) {
